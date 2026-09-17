@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WorkloadIdentity",
+  "x-ess-name": "mandate.workload.WorkloadIdentity",
+  "x-ess-kind": "entity",
+  "type": "object",
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/mandate.core.WorkloadIdentityId"
+    },
+    "organization_id": {
+      "$ref": "#/$defs/mandate.core.OrganizationId",
+      "x-ess-relation": {
+        "name": "organization_id_record",
+        "kind": "references",
+        "source": "mandate.workload.WorkloadIdentity",
+        "target": "mandate.tenancy.Organization",
+        "cardinality": "one",
+        "via": "organization_id"
+      }
+    },
+    "principal_id": {
+      "$ref": "#/$defs/mandate.core.PrincipalId",
+      "x-ess-relation": {
+        "name": "principal_id_record",
+        "kind": "references",
+        "source": "mandate.workload.WorkloadIdentity",
+        "target": "mandate.identity.Principal",
+        "cardinality": "one",
+        "via": "principal_id"
+      }
+    },
+    "trust_domain": {
+      "$ref": "#/$defs/mandate.core.TrustDomain"
+    },
+    "external_subject": {
+      "$ref": "#/$defs/mandate.core.ExternalSubject"
+    },
+    "state": {
+      "$ref": "#/$defs/mandate.workload.WorkloadIdentity.State"
+    }
+  },
+  "required": [
+    "id",
+    "organization_id",
+    "principal_id",
+    "trust_domain",
+    "external_subject",
+    "state"
+  ],
+  "additionalProperties": false,
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1",
+    "contract_digest": "slice-sha256/2:6dfada0480593445469a54ec77c908ec815b66d95f8dd0da3e3fbb8ff75599a6",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.core.ExternalSubject": {
+      "title": "ExternalSubject",
+      "x-ess-name": "mandate.core.ExternalSubject",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    },
+    "mandate.core.OrganizationId": {
+      "title": "OrganizationId",
+      "x-ess-name": "mandate.core.OrganizationId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.PrincipalId": {
+      "title": "PrincipalId",
+      "x-ess-name": "mandate.core.PrincipalId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.TrustDomain": {
+      "title": "TrustDomain",
+      "x-ess-name": "mandate.core.TrustDomain",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    },
+    "mandate.core.WorkloadIdentityId": {
+      "title": "WorkloadIdentityId",
+      "x-ess-name": "mandate.core.WorkloadIdentityId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.workload.WorkloadIdentity.State": {
+      "title": "State",
+      "x-ess-name": "mandate.workload.WorkloadIdentity.State",
+      "x-ess-kind": "enum",
+      "type": "string",
+      "enum": [
+        "Recorded"
+      ]
+    }
+  }
+}

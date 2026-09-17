@@ -1,0 +1,49 @@
+# UNMAPPED-LIFECYCLE: Recorded is an immutable snapshot, not a runtime lifecycle; see decision-blocker:lifecycle.
+domain: mandate.policy
+entities:
+  - name: mandate.policy.Policy
+    identity:
+      name: id
+      type: mandate.core.PolicyId
+    fields:
+      - name: organization_id
+        type: mandate.core.OrganizationId
+      - name: version
+        type: mandate.core.PolicyVersion
+      - name: source
+        type: String
+    lifecycle:
+      initial: Recorded
+      states:
+        - Recorded
+      terminal:
+        - Recorded
+    relations:
+      - name: organization_id_record
+        kind: references
+        target: mandate.tenancy.Organization
+        cardinality: one
+        via: organization_id
+  - name: mandate.policy.AuthorizationModel
+    identity:
+      name: id
+      type: mandate.core.AuthorizationModelId
+    fields:
+      - name: organization_id
+        type: mandate.core.OrganizationId
+      - name: version
+        type: mandate.core.PolicyVersion
+      - name: schema
+        type: String
+    lifecycle:
+      initial: Recorded
+      states:
+        - Recorded
+      terminal:
+        - Recorded
+    relations:
+      - name: organization_id_record
+        kind: references
+        target: mandate.tenancy.Organization
+        cardinality: one
+        via: organization_id

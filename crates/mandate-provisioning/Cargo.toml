@@ -1,0 +1,16 @@
+[package]
+name = "mandate-provisioning"
+description = "Directory synchronization and explicit team mappings."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+mandate-types = { version = "0.1.0", path = "../mandate-types" }
+mandate-model = { version = "0.1.0", path = "../mandate-model" }
+mandate-identity = { version = "0.1.0", path = "../mandate-identity" }

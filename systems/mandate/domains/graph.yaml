@@ -1,0 +1,210 @@
+# UNMAPPED-SUBJECT-RELATIONS: AuthoritySubject is exactly one tagged PrincipalId or TeamId.
+# A principal variant references mandate.identity.Principal; a team variant references mandate.tenancy.Team membership.
+# Each chosen branch has cardinality one and references (never owns) its target. ESS 0.25 relation carriers cannot select a union branch; the typed IDs remain in the union.
+# Runtime graph storage must enforce the conditional foreign key and organization membership before admission; see decision-blocker:subject-relations.
+domain: mandate.graph
+entities:
+  - name: mandate.graph.Resource
+    identity:
+      name: id
+      type: mandate.core.ResourceId
+    fields:
+      - name: organization_id
+        type: mandate.core.OrganizationId
+      - name: resource_type
+        type: mandate.core.ResourceType
+      - name: parent
+        type: Optional<mandate.core.ResourceId>
+      - name: space_id
+        type: Optional<mandate.core.SpaceId>
+    lifecycle:
+      initial: Recorded
+      states:
+        - Recorded
+      terminal:
+        - Recorded
+    relations:
+      - name: organization_id_record
+        kind: references
+        target: mandate.tenancy.Organization
+        cardinality: one
+        via: organization_id
+      - name: parent_record
+        kind: references
+        target: mandate.graph.Resource
+        cardinality: one
+        via: parent
+      - name: space_id_record
+        kind: references
+        target: mandate.tenancy.Space
+        cardinality: one
+        via: space_id
+  - name: mandate.graph.Relation
+    identity:
+      name: id
+      type: mandate.core.RelationId
+    fields:
+      - name: organization_id
+        type: mandate.core.OrganizationId
+      - name: subject
+        type: mandate.core.AuthoritySubject
+      - name: relation
+        type: String
+      - name: resource_id
+        type: mandate.core.ResourceId
+    lifecycle:
+      initial: Active
+      states:
+        - Active
+        - Removed
+      terminal:
+        - Removed
+      transitions:
+        - name: remove
+          from:
+            - Active
+          to: Removed
+    relations:
+      - name: organization_id_record
+        kind: references
+        target: mandate.tenancy.Organization
+        cardinality: one
+        via: organization_id
+      - name: resource_id_record
+        kind: references
+        target: mandate.graph.Resource
+        cardinality: one
+        via: resource_id
+  - name: mandate.graph.Grant
+    identity:
+      name: id
+      type: mandate.core.GrantId
+    fields:
+      - name: organization_id
+        type: mandate.core.OrganizationId
+      - name: subject
+        type: mandate.core.AuthoritySubject
+      - name: scope
+        type: mandate.core.AuthorityScope
+      - name: role
+        type: String
+    lifecycle:
+      initial: Active
+      states:
+        - Active
+        - Revoked
+      terminal:
+        - Revoked
+      transitions:
+        - name: revoke
+          from:
+            - Active
+          to: Revoked
+    relations:
+      - name: organization_id_record
+        kind: references
+        target: mandate.tenancy.Organization
+        cardinality: one
+        via: organization_id
+commands:
+  - name: mandate.graph.RemoveRelation
+    input:
+      - name: id
+        type: mandate.core.RelationId
+      - name: context
+        type: mandate.core.VerifiedContext
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.graph.RelationRemoved
+        payload:
+          mandate.graph.RelationRemoved:
+            context: input.context
+        moves: mandate.graph.Relation.remove
+        instance: id
+      - name: denied
+        external: Caller lacks relationship-write authority, relation/resource is outside the verified organization, or required graph revocation visibility cannot be satisfied.
+        error: mandate.graph.Denied
+  - name: mandate.graph.RevokeGrant
+    input:
+      - name: id
+        type: mandate.core.GrantId
+      - name: context
+        type: mandate.core.VerifiedContext
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.graph.GrantRevoked
+        payload:
+          mandate.graph.GrantRevoked:
+            context: input.context
+        moves: mandate.graph.Grant.revoke
+        instance: id
+      - name: denied
+        external: Caller lacks grant-revocation authority, grant is outside the verified organization, or required graph revocation visibility cannot be satisfied.
+        error: mandate.graph.Denied
+  - name: mandate.graph.RegisterResource
+    input:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: resource
+        type: mandate.core.ResourceRef
+      - name: parent
+        type: Optional<mandate.core.ResourceId>
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.graph.ResourceRegistered
+        payload:
+          mandate.graph.ResourceRegistered:
+            context: input.context
+      - name: denied
+        external: Caller lacks resource registration/ownership authority, parent is unresolved or belongs to another organization, or hierarchy admission fails.
+        error: mandate.graph.Denied
+  - name: mandate.graph.WriteRelationship
+    input:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: subject
+        type: mandate.core.AuthoritySubject
+      - name: resource
+        type: mandate.core.ResourceRef
+      - name: relation
+        type: String
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.graph.RelationshipWritten
+        payload:
+          mandate.graph.RelationshipWritten:
+            context: input.context
+      - name: denied
+        external: Caller lacks relationship-write authority, the chosen principal/team subject is unresolved or outside tenant membership, resource tenancy mismatches, or the relationship is not admitted by the authorization model.
+        error: mandate.graph.Denied
+    response:
+      - name: revision
+        type: mandate.core.AuthzRevision
+events:
+  - name: mandate.graph.RelationRemoved
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+  - name: mandate.graph.GrantRevoked
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+  - name: mandate.graph.ResourceRegistered
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+  - name: mandate.graph.RelationshipWritten
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+errors:
+  - name: mandate.graph.Denied
+    summary: Fail closed; no credential, authority or lifecycle mutation on refusal.
+    fields:
+      - name: reason
+        type: mandate.core.DenialReason
+summary: "Resource topology, tagged principal-or-team relationship subjects and grants. UNMAPPED-SUBJECT-RELATIONS: ESS cannot select a union branch as a relation carrier. Each chosen principal/team branch references exactly one existing target; conditional foreign-key and tenant membership validation remain required before graph runtime admission."

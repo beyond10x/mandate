@@ -1,0 +1,319 @@
+# UNMAPPED-LIFECYCLE: Recorded is an immutable snapshot, not a runtime lifecycle; see decision-blocker:lifecycle.
+domain: mandate.directory
+entities:
+  - name: mandate.directory.MembershipContribution
+    identity:
+      name: id
+      type: mandate.core.MembershipContributionId
+    fields:
+      - name: organization_id
+        type: mandate.core.OrganizationId
+      - name: team_membership_id
+        type: mandate.core.TeamMembershipId
+      - name: source
+        type: mandate.core.MembershipSource
+      - name: mapping_id
+        type: Optional<mandate.core.DirectoryGroupTeamMappingId>
+      - name: created_by
+        type: mandate.core.PrincipalId
+    lifecycle:
+      initial: Active
+      states:
+        - Active
+        - Removed
+      terminal:
+        - Removed
+      transitions:
+        - name: remove
+          from:
+            - Active
+          to: Removed
+    relations:
+      - name: organization_id_record
+        kind: references
+        target: mandate.tenancy.Organization
+        cardinality: one
+        via: organization_id
+      - name: team_membership_id_record
+        kind: references
+        target: mandate.tenancy.TeamMembership
+        cardinality: one
+        via: team_membership_id
+      - name: mapping_id_record
+        kind: references
+        target: mandate.directory.DirectoryGroupTeamMapping
+        cardinality: one
+        via: mapping_id
+      - name: created_by_record
+        kind: references
+        target: mandate.identity.Principal
+        cardinality: one
+        via: created_by
+  - name: mandate.directory.DirectoryGroup
+    identity:
+      name: id
+      type: mandate.core.DirectoryGroupId
+    fields:
+      - name: organization_id
+        type: mandate.core.OrganizationId
+      - name: display_name
+        type: String
+      - name: source
+        type: String
+    lifecycle:
+      initial: Recorded
+      states:
+        - Recorded
+      terminal:
+        - Recorded
+    relations:
+      - name: organization_id_record
+        kind: references
+        target: mandate.tenancy.Organization
+        cardinality: one
+        via: organization_id
+  - name: mandate.directory.DirectoryGroupMembership
+    identity:
+      name: id
+      type: mandate.core.DirectoryGroupMembershipId
+    fields:
+      - name: organization_id
+        type: mandate.core.OrganizationId
+      - name: group_id
+        type: mandate.core.DirectoryGroupId
+      - name: principal_id
+        type: mandate.core.PrincipalId
+    lifecycle:
+      initial: Active
+      states:
+        - Active
+        - Removed
+      terminal:
+        - Removed
+      transitions:
+        - name: remove
+          from:
+            - Active
+          to: Removed
+    relations:
+      - name: organization_id_record
+        kind: references
+        target: mandate.tenancy.Organization
+        cardinality: one
+        via: organization_id
+      - name: group_id_record
+        kind: references
+        target: mandate.directory.DirectoryGroup
+        cardinality: one
+        via: group_id
+      - name: principal_id_record
+        kind: references
+        target: mandate.identity.Principal
+        cardinality: one
+        via: principal_id
+  - name: mandate.directory.DirectoryGroupTeamMapping
+    identity:
+      name: id
+      type: mandate.core.DirectoryGroupTeamMappingId
+    fields:
+      - name: organization_id
+        type: mandate.core.OrganizationId
+      - name: group_id
+        type: mandate.core.DirectoryGroupId
+      - name: team_id
+        type: mandate.core.TeamId
+      - name: created_by
+        type: mandate.core.PrincipalId
+      - name: created_at
+        type: Timestamp
+    lifecycle:
+      initial: Active
+      states:
+        - Active
+        - Removed
+      terminal:
+        - Removed
+      transitions:
+        - name: remove
+          from:
+            - Active
+          to: Removed
+    relations:
+      - name: organization_id_record
+        kind: references
+        target: mandate.tenancy.Organization
+        cardinality: one
+        via: organization_id
+      - name: group_id_record
+        kind: references
+        target: mandate.directory.DirectoryGroup
+        cardinality: one
+        via: group_id
+      - name: team_id_record
+        kind: references
+        target: mandate.tenancy.Team
+        cardinality: one
+        via: team_id
+      - name: created_by_record
+        kind: references
+        target: mandate.identity.Principal
+        cardinality: one
+        via: created_by
+  - name: mandate.directory.SyncJob
+    identity:
+      name: id
+      type: mandate.core.SyncJobId
+    fields:
+      - name: organization_id
+        type: mandate.core.OrganizationId
+      - name: connection_id
+        type: mandate.core.FederationConnectionId
+      - name: correlation
+        type: mandate.core.CorrelationId
+    lifecycle:
+      initial: Recorded
+      states:
+        - Recorded
+      terminal:
+        - Recorded
+    relations:
+      - name: organization_id_record
+        kind: references
+        target: mandate.tenancy.Organization
+        cardinality: one
+        via: organization_id
+      - name: connection_id_record
+        kind: references
+        target: mandate.federation.FederationConnection
+        cardinality: one
+        via: connection_id
+commands:
+  - name: mandate.directory.RemoveMembershipContribution
+    input:
+      - name: id
+        type: mandate.core.MembershipContributionId
+      - name: context
+        type: mandate.core.VerifiedContext
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.directory.MembershipContributionRemoved
+        payload:
+          mandate.directory.MembershipContributionRemoved:
+            context: input.context
+        moves: mandate.directory.MembershipContribution.remove
+        instance: id
+      - name: denied
+        external: Caller lacks mapping authority, contribution is outside the verified organization, or deletion cannot preserve every other valid manual/mapping contribution.
+        error: mandate.directory.Denied
+  - name: mandate.directory.RemoveDirectoryGroupMembership
+    input:
+      - name: id
+        type: mandate.core.DirectoryGroupMembershipId
+      - name: context
+        type: mandate.core.VerifiedContext
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.directory.DirectoryGroupMembershipRemoved
+        payload:
+          mandate.directory.DirectoryGroupMembershipRemoved:
+            context: input.context
+        moves: mandate.directory.DirectoryGroupMembership.remove
+        instance: id
+      - name: denied
+        external: Caller lacks trusted provisioning authority, group/member organization mismatches, or derived contribution removal cannot preserve unrelated memberships.
+        error: mandate.directory.Denied
+  - name: mandate.directory.RemoveDirectoryGroupTeamMapping
+    input:
+      - name: id
+        type: mandate.core.DirectoryGroupTeamMappingId
+      - name: context
+        type: mandate.core.VerifiedContext
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.directory.DirectoryGroupTeamMappingRemoved
+        payload:
+          mandate.directory.DirectoryGroupTeamMappingRemoved:
+            context: input.context
+        moves: mandate.directory.DirectoryGroupTeamMapping.remove
+        instance: id
+      - name: denied
+        external: Caller lacks mapping authority, mapping is outside the verified organization, or retraction would remove the team, manual membership or another mapping contribution.
+        error: mandate.directory.Denied
+  - name: mandate.directory.CreateDirectoryGroupTeamMapping
+    input:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: group_id
+        type: mandate.core.DirectoryGroupId
+      - name: team_id
+        type: mandate.core.TeamId
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.directory.DirectoryGroupTeamMappingCreated
+        payload:
+          mandate.directory.DirectoryGroupTeamMappingCreated:
+            context: input.context
+            group_id: input.group_id
+            team_id: input.team_id
+      - name: denied
+        external: Caller lacks mapping authority, group/team is unknown, either target is outside the verified organization, or provenance-preserving contribution reconciliation fails.
+        error: mandate.directory.Denied
+    response:
+      - name: mapping_id
+        type: mandate.core.DirectoryGroupTeamMappingId
+  - name: mandate.directory.SyncDirectoryMembership
+    input:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: group_id
+        type: mandate.core.DirectoryGroupId
+      - name: members
+        type: List<mandate.core.PrincipalId>
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.directory.DirectoryGroupMembershipChanged
+        payload:
+          mandate.directory.DirectoryGroupMembershipChanged:
+            context: input.context
+            group_id: input.group_id
+      - name: denied
+        external: Caller is not an admitted provisioning source, group/member organization mismatches, or synchronization would grant authority without an explicit valid team mapping.
+        error: mandate.directory.Denied
+events:
+  - name: mandate.directory.MembershipContributionRemoved
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+  - name: mandate.directory.DirectoryGroupMembershipRemoved
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+  - name: mandate.directory.DirectoryGroupTeamMappingRemoved
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+  - name: mandate.directory.DirectoryGroupTeamMappingCreated
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: group_id
+        type: mandate.core.DirectoryGroupId
+      - name: team_id
+        type: mandate.core.TeamId
+  - name: mandate.directory.DirectoryGroupMembershipChanged
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: group_id
+        type: mandate.core.DirectoryGroupId
+errors:
+  - name: mandate.directory.Denied
+    summary: Fail closed; no credential, authority or lifecycle mutation on refusal.
+    fields:
+      - name: reason
+        type: mandate.core.DenialReason

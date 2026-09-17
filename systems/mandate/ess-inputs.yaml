@@ -1,0 +1,17 @@
+format: ess-inputs/1
+specification:
+- system.yaml
+- components.yaml
+- domains/core.yaml
+- domains/identity.yaml
+- domains/tenancy.yaml
+- domains/directory.yaml
+- domains/graph.yaml
+- domains/policy.yaml
+- domains/federation.yaml
+- domains/credential.yaml
+- domains/delegation.yaml
+- domains/workload.yaml
+- domains/audit.yaml
+- domains/authorization.yaml
+scenarios: []

@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Approval",
+  "x-ess-name": "mandate.delegation.Approval",
+  "x-ess-kind": "entity",
+  "type": "object",
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/mandate.core.ApprovalId"
+    },
+    "organization_id": {
+      "$ref": "#/$defs/mandate.core.OrganizationId",
+      "x-ess-relation": {
+        "name": "organization_id_record",
+        "kind": "references",
+        "source": "mandate.delegation.Approval",
+        "target": "mandate.tenancy.Organization",
+        "cardinality": "one",
+        "via": "organization_id"
+      }
+    },
+    "subject": {
+      "$ref": "#/$defs/mandate.core.PrincipalId",
+      "x-ess-relation": {
+        "name": "subject_record",
+        "kind": "references",
+        "source": "mandate.delegation.Approval",
+        "target": "mandate.identity.Principal",
+        "cardinality": "one",
+        "via": "subject"
+      }
+    },
+    "actor": {
+      "$ref": "#/$defs/mandate.core.PrincipalId",
+      "x-ess-relation": {
+        "name": "actor_record",
+        "kind": "references",
+        "source": "mandate.delegation.Approval",
+        "target": "mandate.identity.Principal",
+        "cardinality": "one",
+        "via": "actor"
+      }
+    },
+    "action": {
+      "$ref": "#/$defs/mandate.core.Action"
+    },
+    "resource": {
+      "$ref": "#/$defs/mandate.core.ResourceRef"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "approver": {
+      "$ref": "#/$defs/mandate.core.PrincipalId",
+      "x-ess-relation": {
+        "name": "approver_record",
+        "kind": "references",
+        "source": "mandate.delegation.Approval",
+        "target": "mandate.identity.Principal",
+        "cardinality": "one",
+        "via": "approver"
+      }
+    },
+    "state": {
+      "$ref": "#/$defs/mandate.delegation.Approval.State"
+    }
+  },
+  "required": [
+    "id",
+    "organization_id",
+    "subject",
+    "action",
+    "resource",
+    "expires_at",
+    "approver",
+    "state"
+  ],
+  "additionalProperties": false,
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1",
+    "contract_digest": "slice-sha256/2:69e9df650c983f6672f431c6ce57b6360d913723baf25aa3e761ec713ba1769b",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.core.Action": {
+      "title": "Action",
+      "x-ess-name": "mandate.core.Action",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    },
+    "mandate.core.ApprovalId": {
+      "title": "ApprovalId",
+      "x-ess-name": "mandate.core.ApprovalId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.OrganizationId": {
+      "title": "OrganizationId",
+      "x-ess-name": "mandate.core.OrganizationId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.PrincipalId": {
+      "title": "PrincipalId",
+      "x-ess-name": "mandate.core.PrincipalId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.ResourceId": {
+      "title": "ResourceId",
+      "x-ess-name": "mandate.core.ResourceId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.ResourceRef": {
+      "title": "ResourceRef",
+      "x-ess-name": "mandate.core.ResourceRef",
+      "x-ess-kind": "struct",
+      "type": "object",
+      "properties": {
+        "resource_type": {
+          "$ref": "#/$defs/mandate.core.ResourceType"
+        },
+        "resource_id": {
+          "$ref": "#/$defs/mandate.core.ResourceId"
+        }
+      },
+      "required": [
+        "resource_type",
+        "resource_id"
+      ],
+      "additionalProperties": false
+    },
+    "mandate.core.ResourceType": {
+      "title": "ResourceType",
+      "x-ess-name": "mandate.core.ResourceType",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    },
+    "mandate.delegation.Approval.State": {
+      "title": "State",
+      "x-ess-name": "mandate.delegation.Approval.State",
+      "x-ess-kind": "enum",
+      "type": "string",
+      "enum": [
+        "Recorded"
+      ]
+    }
+  }
+}

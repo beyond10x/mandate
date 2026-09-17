@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$ref": "#/$defs/mandate.core.SyncJobId",
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1",
+    "contract_digest": "slice-sha256/2:d54e7f76ad9844258c273e6a9146e05cbb0c0d8a0f661bc24854391f06f170a4",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.core.SyncJobId": {
+      "title": "SyncJobId",
+      "x-ess-name": "mandate.core.SyncJobId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    }
+  }
+}

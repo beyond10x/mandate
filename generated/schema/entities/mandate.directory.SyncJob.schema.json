@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SyncJob",
+  "x-ess-name": "mandate.directory.SyncJob",
+  "x-ess-kind": "entity",
+  "type": "object",
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/mandate.core.SyncJobId"
+    },
+    "organization_id": {
+      "$ref": "#/$defs/mandate.core.OrganizationId",
+      "x-ess-relation": {
+        "name": "organization_id_record",
+        "kind": "references",
+        "source": "mandate.directory.SyncJob",
+        "target": "mandate.tenancy.Organization",
+        "cardinality": "one",
+        "via": "organization_id"
+      }
+    },
+    "connection_id": {
+      "$ref": "#/$defs/mandate.core.FederationConnectionId",
+      "x-ess-relation": {
+        "name": "connection_id_record",
+        "kind": "references",
+        "source": "mandate.directory.SyncJob",
+        "target": "mandate.federation.FederationConnection",
+        "cardinality": "one",
+        "via": "connection_id"
+      }
+    },
+    "correlation": {
+      "$ref": "#/$defs/mandate.core.CorrelationId"
+    },
+    "state": {
+      "$ref": "#/$defs/mandate.directory.SyncJob.State"
+    }
+  },
+  "required": [
+    "id",
+    "organization_id",
+    "connection_id",
+    "correlation",
+    "state"
+  ],
+  "additionalProperties": false,
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1",
+    "contract_digest": "slice-sha256/2:54eb5397ebe59cf83f0244a4983f733716dff69a3df0ac41cc79e3139ab99b1a",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.core.CorrelationId": {
+      "title": "CorrelationId",
+      "x-ess-name": "mandate.core.CorrelationId",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    },
+    "mandate.core.FederationConnectionId": {
+      "title": "FederationConnectionId",
+      "x-ess-name": "mandate.core.FederationConnectionId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.OrganizationId": {
+      "title": "OrganizationId",
+      "x-ess-name": "mandate.core.OrganizationId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.SyncJobId": {
+      "title": "SyncJobId",
+      "x-ess-name": "mandate.core.SyncJobId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.directory.SyncJob.State": {
+      "title": "State",
+      "x-ess-name": "mandate.directory.SyncJob.State",
+      "x-ess-kind": "enum",
+      "type": "string",
+      "enum": [
+        "Recorded"
+      ]
+    }
+  }
+}

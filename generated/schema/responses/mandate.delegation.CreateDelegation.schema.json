@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CreateDelegation response",
+  "x-ess-name": "mandate.delegation.CreateDelegation",
+  "x-ess-kind": "command-response",
+  "type": "object",
+  "properties": {
+    "delegation_id": {
+      "$ref": "#/$defs/mandate.core.DelegationId"
+    }
+  },
+  "required": [
+    "delegation_id"
+  ],
+  "additionalProperties": false,
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1",
+    "contract_digest": "slice-sha256/2:13e5da8bbf2aceaa6e9c9dfbb699b277381f28bd9c4a3b0bac5bde63c7d5ddd5",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.core.DelegationId": {
+      "title": "DelegationId",
+      "x-ess-name": "mandate.core.DelegationId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    }
+  }
+}

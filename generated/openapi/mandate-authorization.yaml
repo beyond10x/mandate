@@ -1,0 +1,935 @@
+# generated from mandate v1
+# model digest 4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1
+# contract digest slice-sha256/2:4b24437170b4439a937befd40fb083a07218f8c92db7e261508610c4950c477c
+# do not edit: regenerate with `ess generate`
+openapi: 3.1.0
+info:
+  title: mandate-authorization
+  summary: Planned deployment boundary; exact domain-to-library responsibilities and required adapter/worker gaps are recorded in docs/architecture/ownership.md.
+  description: |-
+    The HTTP surface of `mandate-authorization`, one of the components of `mandate` v1.
+
+    Every path here is one semantic command, so the method is always POST and the path is the command's wire name under its domain's: a command is not a resource, and this document does not invent one. A status code is the outcome the specification declares — 202 for a branch that was taken, 422 for a refusal the input decides, 502 for a refusal decided outside the request — and the `outcome` property of every response body names the branch. Events emitted by a branch are published to consumers through the event transport; they are not returned here.
+  version: v1
+  x-ess-provenance:
+    system: mandate
+    specification_version: v1
+    source_digest: 4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1
+    contract_digest: slice-sha256/2:4b24437170b4439a937befd40fb083a07218f8c92db7e261508610c4950c477c
+tags:
+- name: authorization
+- name: graph
+  description: 'Resource topology, tagged principal-or-team relationship subjects and grants. UNMAPPED-SUBJECT-RELATIONS: ESS cannot select a union branch as a relation carrier. Each chosen principal/team branch references exactly one existing target; conditional foreign-key and tenant membership validation remain required before graph runtime admission.'
+paths:
+  /authorization/commands/Check:
+    post:
+      operationId: mandate.authorization.Check
+      summary: Check
+      tags:
+      - authorization
+      requestBody:
+        description: The input `mandate.authorization.Check` declares.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/mandate.authorization.Check.Input'
+      responses:
+        '202':
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers, not returned here.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.authorization.Check.accepted.Response'
+        '502':
+          description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.authorization.Check.denied.Response'
+  /graph/commands/RegisterResource:
+    post:
+      operationId: mandate.graph.RegisterResource
+      summary: RegisterResource
+      tags:
+      - graph
+      requestBody:
+        description: The input `mandate.graph.RegisterResource` declares.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/mandate.graph.RegisterResource.Input'
+      responses:
+        '202':
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers, not returned here.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.graph.RegisterResource.accepted.Response'
+        '502':
+          description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.graph.RegisterResource.denied.Response'
+  /graph/commands/RemoveRelation:
+    post:
+      operationId: mandate.graph.RemoveRelation
+      summary: RemoveRelation
+      tags:
+      - graph
+      requestBody:
+        description: The input `mandate.graph.RemoveRelation` declares.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/mandate.graph.RemoveRelation.Input'
+      responses:
+        '202':
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers, not returned here.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.graph.RemoveRelation.accepted.Response'
+        '502':
+          description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.graph.RemoveRelation.denied.Response'
+  /graph/commands/RevokeGrant:
+    post:
+      operationId: mandate.graph.RevokeGrant
+      summary: RevokeGrant
+      tags:
+      - graph
+      requestBody:
+        description: The input `mandate.graph.RevokeGrant` declares.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/mandate.graph.RevokeGrant.Input'
+      responses:
+        '202':
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers, not returned here.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.graph.RevokeGrant.accepted.Response'
+        '502':
+          description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.graph.RevokeGrant.denied.Response'
+  /graph/commands/WriteRelationship:
+    post:
+      operationId: mandate.graph.WriteRelationship
+      summary: WriteRelationship
+      tags:
+      - graph
+      requestBody:
+        description: The input `mandate.graph.WriteRelationship` declares.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/mandate.graph.WriteRelationship.Input'
+      responses:
+        '202':
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers, not returned here.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.graph.WriteRelationship.accepted.Response'
+        '502':
+          description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.graph.WriteRelationship.denied.Response'
+components:
+  schemas:
+    mandate.authorization.Check.Input:
+      title: Check input
+      x-ess-name: mandate.authorization.Check
+      x-ess-kind: command-input
+      type: object
+      properties:
+        context:
+          $ref: '#/components/schemas/mandate.core.VerifiedContext'
+        action:
+          $ref: '#/components/schemas/mandate.core.Action'
+        resource:
+          $ref: '#/components/schemas/mandate.core.ResourceRef'
+      required:
+      - context
+      - action
+      - resource
+      additionalProperties: false
+    mandate.authorization.Check.accepted.Response:
+      additionalProperties: false
+      description: Taken when no other outcome's condition matched. Emits `DecisionRecorded`, published to consumers rather than returned here.
+      properties:
+        outcome:
+          const: accepted
+          description: Which declared outcome the command took.
+      required:
+      - outcome
+      type: object
+    mandate.authorization.Check.denied.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: Credential-derived context is invalid/revoked/expired/stale, tenant/audience/resource/space binding mismatches, relationships/policy/ceilings deny, approval is required, or the required PDP/graph/credential authority is unavailable..'
+      properties:
+        error:
+          const: mandate.authorization.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.authorization.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
+    mandate.authorization.Denied.Error:
+      title: Denied payload
+      description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+      x-ess-name: mandate.authorization.Denied
+      x-ess-kind: error-payload
+      type: object
+      properties:
+        reason:
+          $ref: '#/components/schemas/mandate.core.DenialReason'
+      required:
+      - reason
+      additionalProperties: false
+    mandate.core.Action:
+      title: Action
+      x-ess-name: mandate.core.Action
+      x-ess-kind: newtype
+      type: string
+    mandate.core.Audience:
+      title: Audience
+      x-ess-name: mandate.core.Audience
+      x-ess-kind: newtype
+      type: string
+    mandate.core.AuthoritySubject:
+      title: AuthoritySubject
+      x-ess-name: mandate.core.AuthoritySubject
+      x-ess-kind: union
+      oneOf:
+      - title: principal
+        type: object
+        properties:
+          kind:
+            type: string
+            const: principal
+          value:
+            $ref: '#/components/schemas/mandate.core.PrincipalId'
+        required:
+        - kind
+        - value
+        additionalProperties: false
+      - title: team
+        type: object
+        properties:
+          kind:
+            type: string
+            const: team
+          value:
+            $ref: '#/components/schemas/mandate.core.TeamId'
+        required:
+        - kind
+        - value
+        additionalProperties: false
+      x-ess-union-tag: kind
+    mandate.core.CorrelationId:
+      title: CorrelationId
+      x-ess-name: mandate.core.CorrelationId
+      x-ess-kind: newtype
+      type: string
+    mandate.core.CredentialId:
+      title: CredentialId
+      x-ess-name: mandate.core.CredentialId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.DelegationId:
+      title: DelegationId
+      x-ess-name: mandate.core.DelegationId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.DenialReason:
+      title: DenialReason
+      x-ess-name: mandate.core.DenialReason
+      x-ess-kind: enum
+      type: string
+      enum:
+      - Denied
+      - ApprovalRequired
+      - InvalidCredential
+      - TenantMismatch
+      - AudienceMismatch
+      - Unavailable
+      - StaleEpoch
+    mandate.core.ExecutionId:
+      title: ExecutionId
+      x-ess-name: mandate.core.ExecutionId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.GrantId:
+      title: GrantId
+      x-ess-name: mandate.core.GrantId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.OrganizationId:
+      title: OrganizationId
+      x-ess-name: mandate.core.OrganizationId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.PrincipalId:
+      title: PrincipalId
+      x-ess-name: mandate.core.PrincipalId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.RelationId:
+      title: RelationId
+      x-ess-name: mandate.core.RelationId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.ResourceId:
+      title: ResourceId
+      x-ess-name: mandate.core.ResourceId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.ResourceRef:
+      title: ResourceRef
+      x-ess-name: mandate.core.ResourceRef
+      x-ess-kind: struct
+      type: object
+      properties:
+        resource_type:
+          $ref: '#/components/schemas/mandate.core.ResourceType'
+        resource_id:
+          $ref: '#/components/schemas/mandate.core.ResourceId'
+      required:
+      - resource_type
+      - resource_id
+      additionalProperties: false
+    mandate.core.ResourceType:
+      title: ResourceType
+      x-ess-name: mandate.core.ResourceType
+      x-ess-kind: newtype
+      type: string
+    mandate.core.TeamId:
+      title: TeamId
+      x-ess-name: mandate.core.TeamId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.VerifiedContext:
+      title: VerifiedContext
+      x-ess-name: mandate.core.VerifiedContext
+      x-ess-kind: struct
+      type: object
+      properties:
+        subject:
+          $ref: '#/components/schemas/mandate.core.PrincipalId'
+        actor:
+          $ref: '#/components/schemas/mandate.core.PrincipalId'
+        organization:
+          $ref: '#/components/schemas/mandate.core.OrganizationId'
+        audience:
+          $ref: '#/components/schemas/mandate.core.Audience'
+        credential:
+          $ref: '#/components/schemas/mandate.core.CredentialId'
+        delegation:
+          $ref: '#/components/schemas/mandate.core.DelegationId'
+        execution:
+          $ref: '#/components/schemas/mandate.core.ExecutionId'
+        correlation:
+          $ref: '#/components/schemas/mandate.core.CorrelationId'
+      required:
+      - subject
+      - organization
+      - audience
+      - credential
+      - correlation
+      additionalProperties: false
+    mandate.graph.Denied.Error:
+      title: Denied payload
+      description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+      x-ess-name: mandate.graph.Denied
+      x-ess-kind: error-payload
+      type: object
+      properties:
+        reason:
+          $ref: '#/components/schemas/mandate.core.DenialReason'
+      required:
+      - reason
+      additionalProperties: false
+    mandate.graph.RegisterResource.Input:
+      title: RegisterResource input
+      x-ess-name: mandate.graph.RegisterResource
+      x-ess-kind: command-input
+      type: object
+      properties:
+        context:
+          $ref: '#/components/schemas/mandate.core.VerifiedContext'
+        resource:
+          $ref: '#/components/schemas/mandate.core.ResourceRef'
+        parent:
+          $ref: '#/components/schemas/mandate.core.ResourceId'
+      required:
+      - context
+      - resource
+      additionalProperties: false
+    mandate.graph.RegisterResource.accepted.Response:
+      additionalProperties: false
+      description: Taken when no other outcome's condition matched. Emits `ResourceRegistered`, published to consumers rather than returned here.
+      properties:
+        outcome:
+          const: accepted
+          description: Which declared outcome the command took.
+      required:
+      - outcome
+      type: object
+    mandate.graph.RegisterResource.denied.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: Caller lacks resource registration/ownership authority, parent is unresolved or belongs to another organization, or hierarchy admission fails..'
+      properties:
+        error:
+          const: mandate.graph.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.graph.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
+    mandate.graph.RemoveRelation.Input:
+      title: RemoveRelation input
+      x-ess-name: mandate.graph.RemoveRelation
+      x-ess-kind: command-input
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/mandate.core.RelationId'
+        context:
+          $ref: '#/components/schemas/mandate.core.VerifiedContext'
+      required:
+      - id
+      - context
+      additionalProperties: false
+    mandate.graph.RemoveRelation.accepted.Response:
+      additionalProperties: false
+      description: Taken when no other outcome's condition matched. A `mandate.graph.Relation` has moved to `Removed`, along `remove`. The instance is the one `id` names. Emits `RelationRemoved`, published to consumers rather than returned here.
+      properties:
+        outcome:
+          const: accepted
+          description: Which declared outcome the command took.
+      required:
+      - outcome
+      type: object
+    mandate.graph.RemoveRelation.denied.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: Caller lacks relationship-write authority, relation/resource is outside the verified organization, or required graph revocation visibility cannot be satisfied..'
+      properties:
+        error:
+          const: mandate.graph.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.graph.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
+    mandate.graph.RevokeGrant.Input:
+      title: RevokeGrant input
+      x-ess-name: mandate.graph.RevokeGrant
+      x-ess-kind: command-input
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/mandate.core.GrantId'
+        context:
+          $ref: '#/components/schemas/mandate.core.VerifiedContext'
+      required:
+      - id
+      - context
+      additionalProperties: false
+    mandate.graph.RevokeGrant.accepted.Response:
+      additionalProperties: false
+      description: Taken when no other outcome's condition matched. A `mandate.graph.Grant` has moved to `Revoked`, along `revoke`. The instance is the one `id` names. Emits `GrantRevoked`, published to consumers rather than returned here.
+      properties:
+        outcome:
+          const: accepted
+          description: Which declared outcome the command took.
+      required:
+      - outcome
+      type: object
+    mandate.graph.RevokeGrant.denied.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: Caller lacks grant-revocation authority, grant is outside the verified organization, or required graph revocation visibility cannot be satisfied..'
+      properties:
+        error:
+          const: mandate.graph.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.graph.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
+    mandate.graph.WriteRelationship.Input:
+      title: WriteRelationship input
+      x-ess-name: mandate.graph.WriteRelationship
+      x-ess-kind: command-input
+      type: object
+      properties:
+        context:
+          $ref: '#/components/schemas/mandate.core.VerifiedContext'
+        subject:
+          $ref: '#/components/schemas/mandate.core.AuthoritySubject'
+        resource:
+          $ref: '#/components/schemas/mandate.core.ResourceRef'
+        relation:
+          type: string
+      required:
+      - context
+      - subject
+      - resource
+      - relation
+      additionalProperties: false
+    mandate.graph.WriteRelationship.accepted.Response:
+      additionalProperties: false
+      description: Taken when no other outcome's condition matched. Emits `RelationshipWritten`, published to consumers rather than returned here.
+      properties:
+        outcome:
+          const: accepted
+          description: Which declared outcome the command took.
+      required:
+      - outcome
+      type: object
+    mandate.graph.WriteRelationship.denied.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: Caller lacks relationship-write authority, the chosen principal/team subject is unresolved or outside tenant membership, resource tenancy mismatches, or the relationship is not admitted by the authorization model..'
+      properties:
+        error:
+          const: mandate.graph.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.graph.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
+x-ess-entities:
+  mandate.core.Action:
+    title: Action
+    x-ess-name: mandate.core.Action
+    x-ess-kind: newtype
+    type: string
+  mandate.core.AuthorityScope:
+    title: AuthorityScope
+    x-ess-name: mandate.core.AuthorityScope
+    x-ess-kind: struct
+    type: object
+    properties:
+      actions:
+        type: array
+        items:
+          $ref: '#/x-ess-entities/mandate.core.Action'
+      resources:
+        type: array
+        items:
+          $ref: '#/x-ess-entities/mandate.core.ResourceRef'
+      space:
+        $ref: '#/x-ess-entities/mandate.core.SpaceId'
+    required:
+    - actions
+    - resources
+    additionalProperties: false
+  mandate.core.AuthoritySubject:
+    title: AuthoritySubject
+    x-ess-name: mandate.core.AuthoritySubject
+    x-ess-kind: union
+    oneOf:
+    - title: principal
+      type: object
+      properties:
+        kind:
+          type: string
+          const: principal
+        value:
+          $ref: '#/x-ess-entities/mandate.core.PrincipalId'
+      required:
+      - kind
+      - value
+      additionalProperties: false
+    - title: team
+      type: object
+      properties:
+        kind:
+          type: string
+          const: team
+        value:
+          $ref: '#/x-ess-entities/mandate.core.TeamId'
+      required:
+      - kind
+      - value
+      additionalProperties: false
+    x-ess-union-tag: kind
+  mandate.core.AuthorizationModelId:
+    title: AuthorizationModelId
+    x-ess-name: mandate.core.AuthorizationModelId
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.GrantId:
+    title: GrantId
+    x-ess-name: mandate.core.GrantId
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.OrganizationId:
+    title: OrganizationId
+    x-ess-name: mandate.core.OrganizationId
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.PolicyId:
+    title: PolicyId
+    x-ess-name: mandate.core.PolicyId
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.PolicyVersion:
+    title: PolicyVersion
+    x-ess-name: mandate.core.PolicyVersion
+    x-ess-kind: newtype
+    type: string
+  mandate.core.PrincipalId:
+    title: PrincipalId
+    x-ess-name: mandate.core.PrincipalId
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.RelationId:
+    title: RelationId
+    x-ess-name: mandate.core.RelationId
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.ResourceId:
+    title: ResourceId
+    x-ess-name: mandate.core.ResourceId
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.ResourceRef:
+    title: ResourceRef
+    x-ess-name: mandate.core.ResourceRef
+    x-ess-kind: struct
+    type: object
+    properties:
+      resource_type:
+        $ref: '#/x-ess-entities/mandate.core.ResourceType'
+      resource_id:
+        $ref: '#/x-ess-entities/mandate.core.ResourceId'
+    required:
+    - resource_type
+    - resource_id
+    additionalProperties: false
+  mandate.core.ResourceType:
+    title: ResourceType
+    x-ess-name: mandate.core.ResourceType
+    x-ess-kind: newtype
+    type: string
+  mandate.core.SpaceId:
+    title: SpaceId
+    x-ess-name: mandate.core.SpaceId
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.TeamId:
+    title: TeamId
+    x-ess-name: mandate.core.TeamId
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.graph.Grant:
+    title: Grant
+    x-ess-name: mandate.graph.Grant
+    x-ess-kind: entity
+    type: object
+    properties:
+      id:
+        $ref: '#/x-ess-entities/mandate.core.GrantId'
+      organization_id:
+        $ref: '#/x-ess-entities/mandate.core.OrganizationId'
+        x-ess-relation:
+          name: organization_id_record
+          kind: references
+          source: mandate.graph.Grant
+          target: mandate.tenancy.Organization
+          cardinality: one
+          via: organization_id
+          $ref: '#/x-ess-entities/mandate.tenancy.Organization'
+      subject:
+        $ref: '#/x-ess-entities/mandate.core.AuthoritySubject'
+      scope:
+        $ref: '#/x-ess-entities/mandate.core.AuthorityScope'
+      role:
+        type: string
+      state:
+        $ref: '#/x-ess-entities/mandate.graph.Grant.State'
+    required:
+    - id
+    - organization_id
+    - subject
+    - scope
+    - role
+    - state
+    additionalProperties: false
+  mandate.graph.Grant.State:
+    title: State
+    x-ess-name: mandate.graph.Grant.State
+    x-ess-kind: enum
+    type: string
+    enum:
+    - Active
+    - Revoked
+  mandate.graph.Relation:
+    title: Relation
+    x-ess-name: mandate.graph.Relation
+    x-ess-kind: entity
+    type: object
+    properties:
+      id:
+        $ref: '#/x-ess-entities/mandate.core.RelationId'
+      organization_id:
+        $ref: '#/x-ess-entities/mandate.core.OrganizationId'
+        x-ess-relation:
+          name: organization_id_record
+          kind: references
+          source: mandate.graph.Relation
+          target: mandate.tenancy.Organization
+          cardinality: one
+          via: organization_id
+          $ref: '#/x-ess-entities/mandate.tenancy.Organization'
+      subject:
+        $ref: '#/x-ess-entities/mandate.core.AuthoritySubject'
+      relation:
+        type: string
+      resource_id:
+        $ref: '#/x-ess-entities/mandate.core.ResourceId'
+        x-ess-relation:
+          name: resource_id_record
+          kind: references
+          source: mandate.graph.Relation
+          target: mandate.graph.Resource
+          cardinality: one
+          via: resource_id
+          $ref: '#/x-ess-entities/mandate.graph.Resource'
+      state:
+        $ref: '#/x-ess-entities/mandate.graph.Relation.State'
+    required:
+    - id
+    - organization_id
+    - subject
+    - relation
+    - resource_id
+    - state
+    additionalProperties: false
+  mandate.graph.Relation.State:
+    title: State
+    x-ess-name: mandate.graph.Relation.State
+    x-ess-kind: enum
+    type: string
+    enum:
+    - Active
+    - Removed
+  mandate.graph.Resource:
+    title: Resource
+    x-ess-name: mandate.graph.Resource
+    x-ess-kind: entity
+    type: object
+    properties:
+      id:
+        $ref: '#/x-ess-entities/mandate.core.ResourceId'
+      organization_id:
+        $ref: '#/x-ess-entities/mandate.core.OrganizationId'
+        x-ess-relation:
+          name: organization_id_record
+          kind: references
+          source: mandate.graph.Resource
+          target: mandate.tenancy.Organization
+          cardinality: one
+          via: organization_id
+          $ref: '#/x-ess-entities/mandate.tenancy.Organization'
+      resource_type:
+        $ref: '#/x-ess-entities/mandate.core.ResourceType'
+      parent:
+        $ref: '#/x-ess-entities/mandate.core.ResourceId'
+        x-ess-relation:
+          name: parent_record
+          kind: references
+          source: mandate.graph.Resource
+          target: mandate.graph.Resource
+          cardinality: one
+          via: parent
+          $ref: '#/x-ess-entities/mandate.graph.Resource'
+      space_id:
+        $ref: '#/x-ess-entities/mandate.core.SpaceId'
+        x-ess-relation:
+          name: space_id_record
+          kind: references
+          source: mandate.graph.Resource
+          target: mandate.tenancy.Space
+          cardinality: one
+          via: space_id
+          $ref: '#/x-ess-entities/mandate.tenancy.Space'
+      state:
+        $ref: '#/x-ess-entities/mandate.graph.Resource.State'
+    required:
+    - id
+    - organization_id
+    - resource_type
+    - state
+    additionalProperties: false
+  mandate.graph.Resource.State:
+    title: State
+    x-ess-name: mandate.graph.Resource.State
+    x-ess-kind: enum
+    type: string
+    enum:
+    - Recorded
+  mandate.policy.AuthorizationModel:
+    title: AuthorizationModel
+    x-ess-name: mandate.policy.AuthorizationModel
+    x-ess-kind: entity
+    type: object
+    properties:
+      id:
+        $ref: '#/x-ess-entities/mandate.core.AuthorizationModelId'
+      organization_id:
+        $ref: '#/x-ess-entities/mandate.core.OrganizationId'
+        x-ess-relation:
+          name: organization_id_record
+          kind: references
+          source: mandate.policy.AuthorizationModel
+          target: mandate.tenancy.Organization
+          cardinality: one
+          via: organization_id
+          $ref: '#/x-ess-entities/mandate.tenancy.Organization'
+      version:
+        $ref: '#/x-ess-entities/mandate.core.PolicyVersion'
+      schema:
+        type: string
+      state:
+        $ref: '#/x-ess-entities/mandate.policy.AuthorizationModel.State'
+    required:
+    - id
+    - organization_id
+    - version
+    - schema
+    - state
+    additionalProperties: false
+  mandate.policy.AuthorizationModel.State:
+    title: State
+    x-ess-name: mandate.policy.AuthorizationModel.State
+    x-ess-kind: enum
+    type: string
+    enum:
+    - Recorded
+  mandate.policy.Policy:
+    title: Policy
+    x-ess-name: mandate.policy.Policy
+    x-ess-kind: entity
+    type: object
+    properties:
+      id:
+        $ref: '#/x-ess-entities/mandate.core.PolicyId'
+      organization_id:
+        $ref: '#/x-ess-entities/mandate.core.OrganizationId'
+        x-ess-relation:
+          name: organization_id_record
+          kind: references
+          source: mandate.policy.Policy
+          target: mandate.tenancy.Organization
+          cardinality: one
+          via: organization_id
+          $ref: '#/x-ess-entities/mandate.tenancy.Organization'
+      version:
+        $ref: '#/x-ess-entities/mandate.core.PolicyVersion'
+      source:
+        type: string
+      state:
+        $ref: '#/x-ess-entities/mandate.policy.Policy.State'
+    required:
+    - id
+    - organization_id
+    - version
+    - source
+    - state
+    additionalProperties: false
+  mandate.policy.Policy.State:
+    title: State
+    x-ess-name: mandate.policy.Policy.State
+    x-ess-kind: enum
+    type: string
+    enum:
+    - Recorded

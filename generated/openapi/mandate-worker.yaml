@@ -1,0 +1,603 @@
+# generated from mandate v1
+# model digest 4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1
+# contract digest slice-sha256/2:ac0b50d21652212437d9193d02b84e023ff9b6417a2325add7c0b28002f9736c
+# do not edit: regenerate with `ess generate`
+openapi: 3.1.0
+info:
+  title: mandate-worker
+  summary: Planned deployment boundary; exact domain-to-library responsibilities and required adapter/worker gaps are recorded in docs/architecture/ownership.md.
+  description: |-
+    The HTTP surface of `mandate-worker`, one of the components of `mandate` v1.
+
+    Every path here is one semantic command, so the method is always POST and the path is the command's wire name under its domain's: a command is not a resource, and this document does not invent one. A status code is the outcome the specification declares — 202 for a branch that was taken, 422 for a refusal the input decides, 502 for a refusal decided outside the request — and the `outcome` property of every response body names the branch. Events emitted by a branch are published to consumers through the event transport; they are not returned here.
+  version: v1
+  x-ess-provenance:
+    system: mandate
+    specification_version: v1
+    source_digest: 4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1
+    contract_digest: slice-sha256/2:ac0b50d21652212437d9193d02b84e023ff9b6417a2325add7c0b28002f9736c
+tags:
+- name: audit
+  description: 'Canonical redacted audit records and the trusted worker append port. UNMAPPED-AUDIT-ROUTING: per-domain event mapping, durable outbox transport, retention and failure policy remain required. Named AuditAction and AuditOutcome do not admit arbitrary values.'
+paths:
+  /audit/commands/RecordAuditEvent:
+    post:
+      operationId: mandate.audit.RecordAuditEvent
+      summary: RecordAuditEvent
+      tags:
+      - audit
+      requestBody:
+        description: The input `mandate.audit.RecordAuditEvent` declares.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/mandate.audit.RecordAuditEvent.Input'
+      responses:
+        '202':
+          description: 'Outcome `recorded`: the branch the specification declares for this input. Events this branch emits are published to consumers, not returned here.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.audit.RecordAuditEvent.recorded.Response'
+        '502':
+          description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.audit.RecordAuditEvent.denied.Response'
+components:
+  schemas:
+    mandate.audit.Denied.Error:
+      title: Denied payload
+      description: No audit record or credential mutation is admitted on refusal; required audit failure behavior remains an explicit runtime obligation.
+      x-ess-name: mandate.audit.Denied
+      x-ess-kind: error-payload
+      type: object
+      properties:
+        reason:
+          $ref: '#/components/schemas/mandate.core.DenialReason'
+      required:
+      - reason
+      additionalProperties: false
+    mandate.audit.RecordAuditEvent.Input:
+      title: RecordAuditEvent input
+      x-ess-name: mandate.audit.RecordAuditEvent
+      x-ess-kind: command-input
+      type: object
+      properties:
+        emitter_context:
+          $ref: '#/components/schemas/mandate.core.VerifiedContext'
+        record:
+          $ref: '#/components/schemas/mandate.core.AuditRecord'
+      required:
+      - emitter_context
+      - record
+      additionalProperties: false
+    mandate.audit.RecordAuditEvent.denied.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: Emitter is not an authorized trusted event producer, subject/actor/correlation was changed, action/result is unadmitted, payload contains secret material, or durable append/outbox validation fails..'
+      properties:
+        error:
+          const: mandate.audit.Denied
+          description: No audit record or credential mutation is admitted on refusal; required audit failure behavior remains an explicit runtime obligation.
+          type: string
+        outcome:
+          const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.audit.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
+    mandate.audit.RecordAuditEvent.recorded.Response:
+      additionalProperties: false
+      description: The trusted append adapter must persist one validated, redacted record before acknowledging its identifier; durable storage/outbox semantics are required under UNMAPPED-AUDIT-ROUTING. Taken when no other outcome's condition matched. Emits `AuditEventRecorded`, published to consumers rather than returned here.
+      properties:
+        outcome:
+          const: recorded
+          description: Which declared outcome the command took.
+      required:
+      - outcome
+      type: object
+    mandate.core.Action:
+      title: Action
+      x-ess-name: mandate.core.Action
+      x-ess-kind: newtype
+      type: string
+    mandate.core.Audience:
+      title: Audience
+      x-ess-name: mandate.core.Audience
+      x-ess-kind: newtype
+      type: string
+    mandate.core.AuditAction:
+      title: AuditAction
+      x-ess-name: mandate.core.AuditAction
+      x-ess-kind: newtype
+      type: string
+    mandate.core.AuditOutcome:
+      title: AuditOutcome
+      x-ess-name: mandate.core.AuditOutcome
+      x-ess-kind: newtype
+      type: string
+    mandate.core.AuditRecord:
+      title: AuditRecord
+      x-ess-name: mandate.core.AuditRecord
+      x-ess-kind: struct
+      type: object
+      properties:
+        subject:
+          $ref: '#/components/schemas/mandate.core.PrincipalId'
+        actor:
+          $ref: '#/components/schemas/mandate.core.PrincipalId'
+        organization_id:
+          $ref: '#/components/schemas/mandate.core.OrganizationId'
+        event_type:
+          $ref: '#/components/schemas/mandate.core.AuditAction'
+        correlation:
+          $ref: '#/components/schemas/mandate.core.CorrelationId'
+        decision_id:
+          $ref: '#/components/schemas/mandate.core.DecisionId'
+        requested_audience:
+          $ref: '#/components/schemas/mandate.core.Audience'
+        issued_audience:
+          $ref: '#/components/schemas/mandate.core.Audience'
+        requested_scope:
+          $ref: '#/components/schemas/mandate.core.AuthorityScope'
+        credential_kind:
+          $ref: '#/components/schemas/mandate.core.CredentialKind'
+        delegation_id:
+          $ref: '#/components/schemas/mandate.core.DelegationId'
+        execution_id:
+          $ref: '#/components/schemas/mandate.core.ExecutionId'
+        result:
+          $ref: '#/components/schemas/mandate.core.AuditOutcome'
+        occurred_at:
+          type: string
+          format: date-time
+        policy_version:
+          $ref: '#/components/schemas/mandate.core.PolicyVersion'
+        model_version:
+          $ref: '#/components/schemas/mandate.core.AuthorizationModelVersion'
+        authz_revision:
+          $ref: '#/components/schemas/mandate.core.AuthzRevision'
+        source_credential_kind:
+          $ref: '#/components/schemas/mandate.core.CredentialKind'
+        source_credential_id:
+          $ref: '#/components/schemas/mandate.core.CredentialId'
+        issued_credential_id:
+          $ref: '#/components/schemas/mandate.core.CredentialId'
+        issued_scope:
+          $ref: '#/components/schemas/mandate.core.AuthorityScope'
+      required:
+      - event_type
+      - correlation
+      - result
+      - occurred_at
+      additionalProperties: false
+    mandate.core.AuthorityScope:
+      title: AuthorityScope
+      x-ess-name: mandate.core.AuthorityScope
+      x-ess-kind: struct
+      type: object
+      properties:
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/mandate.core.Action'
+        resources:
+          type: array
+          items:
+            $ref: '#/components/schemas/mandate.core.ResourceRef'
+        space:
+          $ref: '#/components/schemas/mandate.core.SpaceId'
+      required:
+      - actions
+      - resources
+      additionalProperties: false
+    mandate.core.AuthorizationModelVersion:
+      title: AuthorizationModelVersion
+      x-ess-name: mandate.core.AuthorizationModelVersion
+      x-ess-kind: newtype
+      type: string
+    mandate.core.AuthzRevision:
+      title: AuthzRevision
+      x-ess-name: mandate.core.AuthzRevision
+      x-ess-kind: newtype
+      type: string
+    mandate.core.CorrelationId:
+      title: CorrelationId
+      x-ess-name: mandate.core.CorrelationId
+      x-ess-kind: newtype
+      type: string
+    mandate.core.CredentialId:
+      title: CredentialId
+      x-ess-name: mandate.core.CredentialId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.CredentialKind:
+      title: CredentialKind
+      x-ess-name: mandate.core.CredentialKind
+      x-ess-kind: enum
+      type: string
+      enum:
+      - SelfContained
+      - Reference
+    mandate.core.DecisionId:
+      title: DecisionId
+      x-ess-name: mandate.core.DecisionId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.DelegationId:
+      title: DelegationId
+      x-ess-name: mandate.core.DelegationId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.DenialReason:
+      title: DenialReason
+      x-ess-name: mandate.core.DenialReason
+      x-ess-kind: enum
+      type: string
+      enum:
+      - Denied
+      - ApprovalRequired
+      - InvalidCredential
+      - TenantMismatch
+      - AudienceMismatch
+      - Unavailable
+      - StaleEpoch
+    mandate.core.ExecutionId:
+      title: ExecutionId
+      x-ess-name: mandate.core.ExecutionId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.OrganizationId:
+      title: OrganizationId
+      x-ess-name: mandate.core.OrganizationId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.PolicyVersion:
+      title: PolicyVersion
+      x-ess-name: mandate.core.PolicyVersion
+      x-ess-kind: newtype
+      type: string
+    mandate.core.PrincipalId:
+      title: PrincipalId
+      x-ess-name: mandate.core.PrincipalId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.ResourceId:
+      title: ResourceId
+      x-ess-name: mandate.core.ResourceId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.ResourceRef:
+      title: ResourceRef
+      x-ess-name: mandate.core.ResourceRef
+      x-ess-kind: struct
+      type: object
+      properties:
+        resource_type:
+          $ref: '#/components/schemas/mandate.core.ResourceType'
+        resource_id:
+          $ref: '#/components/schemas/mandate.core.ResourceId'
+      required:
+      - resource_type
+      - resource_id
+      additionalProperties: false
+    mandate.core.ResourceType:
+      title: ResourceType
+      x-ess-name: mandate.core.ResourceType
+      x-ess-kind: newtype
+      type: string
+    mandate.core.SpaceId:
+      title: SpaceId
+      x-ess-name: mandate.core.SpaceId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.VerifiedContext:
+      title: VerifiedContext
+      x-ess-name: mandate.core.VerifiedContext
+      x-ess-kind: struct
+      type: object
+      properties:
+        subject:
+          $ref: '#/components/schemas/mandate.core.PrincipalId'
+        actor:
+          $ref: '#/components/schemas/mandate.core.PrincipalId'
+        organization:
+          $ref: '#/components/schemas/mandate.core.OrganizationId'
+        audience:
+          $ref: '#/components/schemas/mandate.core.Audience'
+        credential:
+          $ref: '#/components/schemas/mandate.core.CredentialId'
+        delegation:
+          $ref: '#/components/schemas/mandate.core.DelegationId'
+        execution:
+          $ref: '#/components/schemas/mandate.core.ExecutionId'
+        correlation:
+          $ref: '#/components/schemas/mandate.core.CorrelationId'
+      required:
+      - subject
+      - organization
+      - audience
+      - credential
+      - correlation
+      additionalProperties: false
+x-ess-entities:
+  mandate.audit.AuditEvent:
+    title: AuditEvent
+    x-ess-name: mandate.audit.AuditEvent
+    x-ess-kind: entity
+    type: object
+    properties:
+      id:
+        $ref: '#/x-ess-entities/mandate.core.AuditEventId'
+      subject:
+        $ref: '#/x-ess-entities/mandate.core.PrincipalId'
+        x-ess-relation:
+          name: subject_record
+          kind: references
+          source: mandate.audit.AuditEvent
+          target: mandate.identity.Principal
+          cardinality: one
+          via: subject
+          $ref: '#/x-ess-entities/mandate.identity.Principal'
+      actor:
+        $ref: '#/x-ess-entities/mandate.core.PrincipalId'
+        x-ess-relation:
+          name: actor_record
+          kind: references
+          source: mandate.audit.AuditEvent
+          target: mandate.identity.Principal
+          cardinality: one
+          via: actor
+          $ref: '#/x-ess-entities/mandate.identity.Principal'
+      organization_id:
+        $ref: '#/x-ess-entities/mandate.core.OrganizationId'
+        x-ess-relation:
+          name: organization_id_record
+          kind: references
+          source: mandate.audit.AuditEvent
+          target: mandate.tenancy.Organization
+          cardinality: one
+          via: organization_id
+          $ref: '#/x-ess-entities/mandate.tenancy.Organization'
+      event_type:
+        $ref: '#/x-ess-entities/mandate.core.AuditAction'
+      correlation:
+        $ref: '#/x-ess-entities/mandate.core.CorrelationId'
+      decision_id:
+        $ref: '#/x-ess-entities/mandate.core.DecisionId'
+      requested_audience:
+        $ref: '#/x-ess-entities/mandate.core.Audience'
+      issued_audience:
+        $ref: '#/x-ess-entities/mandate.core.Audience'
+      requested_scope:
+        $ref: '#/x-ess-entities/mandate.core.AuthorityScope'
+      credential_kind:
+        $ref: '#/x-ess-entities/mandate.core.CredentialKind'
+      delegation_id:
+        $ref: '#/x-ess-entities/mandate.core.DelegationId'
+        x-ess-relation:
+          name: delegation_id_record
+          kind: references
+          source: mandate.audit.AuditEvent
+          target: mandate.delegation.Delegation
+          cardinality: one
+          via: delegation_id
+          $ref: '#/x-ess-entities/mandate.delegation.Delegation'
+      execution_id:
+        $ref: '#/x-ess-entities/mandate.core.ExecutionId'
+        x-ess-relation:
+          name: execution_id_record
+          kind: references
+          source: mandate.audit.AuditEvent
+          target: mandate.delegation.Execution
+          cardinality: one
+          via: execution_id
+          $ref: '#/x-ess-entities/mandate.delegation.Execution'
+      result:
+        $ref: '#/x-ess-entities/mandate.core.AuditOutcome'
+      occurred_at:
+        type: string
+        format: date-time
+      policy_version:
+        $ref: '#/x-ess-entities/mandate.core.PolicyVersion'
+      model_version:
+        $ref: '#/x-ess-entities/mandate.core.AuthorizationModelVersion'
+      authz_revision:
+        $ref: '#/x-ess-entities/mandate.core.AuthzRevision'
+      source_credential_kind:
+        $ref: '#/x-ess-entities/mandate.core.CredentialKind'
+      source_credential_id:
+        $ref: '#/x-ess-entities/mandate.core.CredentialId'
+      issued_credential_id:
+        $ref: '#/x-ess-entities/mandate.core.CredentialId'
+      issued_scope:
+        $ref: '#/x-ess-entities/mandate.core.AuthorityScope'
+      state:
+        $ref: '#/x-ess-entities/mandate.audit.AuditEvent.State'
+    required:
+    - id
+    - event_type
+    - correlation
+    - result
+    - occurred_at
+    - state
+    additionalProperties: false
+  mandate.audit.AuditEvent.State:
+    title: State
+    x-ess-name: mandate.audit.AuditEvent.State
+    x-ess-kind: enum
+    type: string
+    enum:
+    - Recorded
+  mandate.core.Action:
+    title: Action
+    x-ess-name: mandate.core.Action
+    x-ess-kind: newtype
+    type: string
+  mandate.core.Audience:
+    title: Audience
+    x-ess-name: mandate.core.Audience
+    x-ess-kind: newtype
+    type: string
+  mandate.core.AuditAction:
+    title: AuditAction
+    x-ess-name: mandate.core.AuditAction
+    x-ess-kind: newtype
+    type: string
+  mandate.core.AuditEventId:
+    title: AuditEventId
+    x-ess-name: mandate.core.AuditEventId
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.AuditOutcome:
+    title: AuditOutcome
+    x-ess-name: mandate.core.AuditOutcome
+    x-ess-kind: newtype
+    type: string
+  mandate.core.AuthorityScope:
+    title: AuthorityScope
+    x-ess-name: mandate.core.AuthorityScope
+    x-ess-kind: struct
+    type: object
+    properties:
+      actions:
+        type: array
+        items:
+          $ref: '#/x-ess-entities/mandate.core.Action'
+      resources:
+        type: array
+        items:
+          $ref: '#/x-ess-entities/mandate.core.ResourceRef'
+      space:
+        $ref: '#/x-ess-entities/mandate.core.SpaceId'
+    required:
+    - actions
+    - resources
+    additionalProperties: false
+  mandate.core.AuthorizationModelVersion:
+    title: AuthorizationModelVersion
+    x-ess-name: mandate.core.AuthorizationModelVersion
+    x-ess-kind: newtype
+    type: string
+  mandate.core.AuthzRevision:
+    title: AuthzRevision
+    x-ess-name: mandate.core.AuthzRevision
+    x-ess-kind: newtype
+    type: string
+  mandate.core.CorrelationId:
+    title: CorrelationId
+    x-ess-name: mandate.core.CorrelationId
+    x-ess-kind: newtype
+    type: string
+  mandate.core.CredentialId:
+    title: CredentialId
+    x-ess-name: mandate.core.CredentialId
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.CredentialKind:
+    title: CredentialKind
+    x-ess-name: mandate.core.CredentialKind
+    x-ess-kind: enum
+    type: string
+    enum:
+    - SelfContained
+    - Reference
+  mandate.core.DecisionId:
+    title: DecisionId
+    x-ess-name: mandate.core.DecisionId
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.DelegationId:
+    title: DelegationId
+    x-ess-name: mandate.core.DelegationId
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.ExecutionId:
+    title: ExecutionId
+    x-ess-name: mandate.core.ExecutionId
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.OrganizationId:
+    title: OrganizationId
+    x-ess-name: mandate.core.OrganizationId
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.PolicyVersion:
+    title: PolicyVersion
+    x-ess-name: mandate.core.PolicyVersion
+    x-ess-kind: newtype
+    type: string
+  mandate.core.PrincipalId:
+    title: PrincipalId
+    x-ess-name: mandate.core.PrincipalId
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.ResourceId:
+    title: ResourceId
+    x-ess-name: mandate.core.ResourceId
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.ResourceRef:
+    title: ResourceRef
+    x-ess-name: mandate.core.ResourceRef
+    x-ess-kind: struct
+    type: object
+    properties:
+      resource_type:
+        $ref: '#/x-ess-entities/mandate.core.ResourceType'
+      resource_id:
+        $ref: '#/x-ess-entities/mandate.core.ResourceId'
+    required:
+    - resource_type
+    - resource_id
+    additionalProperties: false
+  mandate.core.ResourceType:
+    title: ResourceType
+    x-ess-name: mandate.core.ResourceType
+    x-ess-kind: newtype
+    type: string
+  mandate.core.SpaceId:
+    title: SpaceId
+    x-ess-name: mandate.core.SpaceId
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$

@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$ref": "#/$defs/mandate.core.Decision",
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1",
+    "contract_digest": "slice-sha256/2:49479a8d57dbcc2696213e84e0535111f3176fe56b39912b83e2fa8c9e4486c9",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.core.Action": {
+      "title": "Action",
+      "x-ess-name": "mandate.core.Action",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    },
+    "mandate.core.AuthorizationModelVersion": {
+      "title": "AuthorizationModelVersion",
+      "x-ess-name": "mandate.core.AuthorizationModelVersion",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    },
+    "mandate.core.AuthzRevision": {
+      "title": "AuthzRevision",
+      "x-ess-name": "mandate.core.AuthzRevision",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    },
+    "mandate.core.Decision": {
+      "title": "Decision",
+      "x-ess-name": "mandate.core.Decision",
+      "x-ess-kind": "struct",
+      "type": "object",
+      "properties": {
+        "allowed": {
+          "type": "boolean"
+        },
+        "reason": {
+          "$ref": "#/$defs/mandate.core.DecisionReason"
+        },
+        "decision_id": {
+          "$ref": "#/$defs/mandate.core.DecisionId"
+        },
+        "revision": {
+          "$ref": "#/$defs/mandate.core.AuthzRevision"
+        },
+        "challenge": {
+          "$ref": "#/$defs/mandate.core.DecisionChallenge"
+        },
+        "policy_version": {
+          "$ref": "#/$defs/mandate.core.PolicyVersion"
+        },
+        "model_version": {
+          "$ref": "#/$defs/mandate.core.AuthorizationModelVersion"
+        }
+      },
+      "required": [
+        "allowed",
+        "reason",
+        "decision_id"
+      ],
+      "additionalProperties": false
+    },
+    "mandate.core.DecisionChallenge": {
+      "title": "DecisionChallenge",
+      "x-ess-name": "mandate.core.DecisionChallenge",
+      "x-ess-kind": "struct",
+      "type": "object",
+      "properties": {
+        "action": {
+          "$ref": "#/$defs/mandate.core.Action"
+        },
+        "resource": {
+          "$ref": "#/$defs/mandate.core.ResourceRef"
+        },
+        "approver_policy": {
+          "$ref": "#/$defs/mandate.core.PolicyId"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "action",
+        "resource",
+        "approver_policy",
+        "expires_at"
+      ],
+      "additionalProperties": false
+    },
+    "mandate.core.DecisionId": {
+      "title": "DecisionId",
+      "x-ess-name": "mandate.core.DecisionId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.DecisionReason": {
+      "title": "DecisionReason",
+      "x-ess-name": "mandate.core.DecisionReason",
+      "x-ess-kind": "enum",
+      "type": "string",
+      "enum": [
+        "Allowed",
+        "Denied",
+        "ApprovalRequired",
+        "InvalidCredential",
+        "TenantMismatch",
+        "AudienceMismatch",
+        "Unavailable",
+        "StaleEpoch"
+      ]
+    },
+    "mandate.core.PolicyId": {
+      "title": "PolicyId",
+      "x-ess-name": "mandate.core.PolicyId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.PolicyVersion": {
+      "title": "PolicyVersion",
+      "x-ess-name": "mandate.core.PolicyVersion",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    },
+    "mandate.core.ResourceId": {
+      "title": "ResourceId",
+      "x-ess-name": "mandate.core.ResourceId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.ResourceRef": {
+      "title": "ResourceRef",
+      "x-ess-name": "mandate.core.ResourceRef",
+      "x-ess-kind": "struct",
+      "type": "object",
+      "properties": {
+        "resource_type": {
+          "$ref": "#/$defs/mandate.core.ResourceType"
+        },
+        "resource_id": {
+          "$ref": "#/$defs/mandate.core.ResourceId"
+        }
+      },
+      "required": [
+        "resource_type",
+        "resource_id"
+      ],
+      "additionalProperties": false
+    },
+    "mandate.core.ResourceType": {
+      "title": "ResourceType",
+      "x-ess-name": "mandate.core.ResourceType",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    }
+  }
+}

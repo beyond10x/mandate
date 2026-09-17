@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Agent",
+  "x-ess-name": "mandate.delegation.Agent",
+  "x-ess-kind": "entity",
+  "type": "object",
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/mandate.core.PrincipalId"
+    },
+    "organization_id": {
+      "$ref": "#/$defs/mandate.core.OrganizationId",
+      "x-ess-relation": {
+        "name": "organization_id_record",
+        "kind": "references",
+        "source": "mandate.delegation.Agent",
+        "target": "mandate.tenancy.Organization",
+        "cardinality": "one",
+        "via": "organization_id"
+      }
+    },
+    "agent_type": {
+      "type": "string"
+    },
+    "state": {
+      "$ref": "#/$defs/mandate.delegation.Agent.State"
+    }
+  },
+  "required": [
+    "id",
+    "organization_id",
+    "agent_type",
+    "state"
+  ],
+  "additionalProperties": false,
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1",
+    "contract_digest": "slice-sha256/2:96f65473a27d4c2ed0db844c8b0ae40d1e2b3d1bbcd59fdfb584eb2274dff2c7",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.core.OrganizationId": {
+      "title": "OrganizationId",
+      "x-ess-name": "mandate.core.OrganizationId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.PrincipalId": {
+      "title": "PrincipalId",
+      "x-ess-name": "mandate.core.PrincipalId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.delegation.Agent.State": {
+      "title": "State",
+      "x-ess-name": "mandate.delegation.Agent.State",
+      "x-ess-kind": "enum",
+      "type": "string",
+      "enum": [
+        "Recorded"
+      ]
+    }
+  }
+}

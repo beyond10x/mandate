@@ -1,0 +1,143 @@
+# UNMAPPED-LIFECYCLE: Recorded is an immutable snapshot, not a runtime lifecycle; see decision-blocker:lifecycle.
+# Unknown identity/tenant on invalid-credential denial is represented by absence, never fabricated from unverified selectors.
+# UNMAPPED-AUDIT-VOCABULARY: named AuditAction/AuditOutcome preserve original extensibility; admission of concrete values and redacted metadata is an adapter contract, not arbitrary accepted text.
+# RecordAuditEvent is the trusted worker append port; domain producers preserve subject/actor and decision correlation in the redacted AuditRecord.
+# UNMAPPED-AUDIT-ROUTING: per-event field mappings, durable outbox transport/deduplication, retention and audit-failure behavior require acceptance before audit/client runtime work. No automatic binding or persistence algorithm is fabricated.
+domain: mandate.audit
+entities:
+  - name: mandate.audit.AuditEvent
+    identity:
+      name: id
+      type: mandate.core.AuditEventId
+    fields:
+      - name: subject
+        type: Optional<mandate.core.PrincipalId>
+      - name: actor
+        type: Optional<mandate.core.PrincipalId>
+      - name: organization_id
+        type: Optional<mandate.core.OrganizationId>
+      - name: event_type
+        type: mandate.core.AuditAction
+      - name: correlation
+        type: mandate.core.CorrelationId
+      - name: decision_id
+        type: Optional<mandate.core.DecisionId>
+      - name: requested_audience
+        type: Optional<mandate.core.Audience>
+      - name: issued_audience
+        type: Optional<mandate.core.Audience>
+      - name: requested_scope
+        type: Optional<mandate.core.AuthorityScope>
+      - name: credential_kind
+        type: Optional<mandate.core.CredentialKind>
+      - name: delegation_id
+        type: Optional<mandate.core.DelegationId>
+      - name: execution_id
+        type: Optional<mandate.core.ExecutionId>
+      - name: result
+        type: mandate.core.AuditOutcome
+      - name: occurred_at
+        type: Timestamp
+      - name: policy_version
+        type: Optional<mandate.core.PolicyVersion>
+      - name: model_version
+        type: Optional<mandate.core.AuthorizationModelVersion>
+      - name: authz_revision
+        type: Optional<mandate.core.AuthzRevision>
+      - name: source_credential_kind
+        type: Optional<mandate.core.CredentialKind>
+      - name: source_credential_id
+        type: Optional<mandate.core.CredentialId>
+      - name: issued_credential_id
+        type: Optional<mandate.core.CredentialId>
+      - name: issued_scope
+        type: Optional<mandate.core.AuthorityScope>
+    lifecycle:
+      initial: Recorded
+      states:
+        - Recorded
+      terminal:
+        - Recorded
+    relations:
+      - name: subject_record
+        kind: references
+        target: mandate.identity.Principal
+        cardinality: one
+        via: subject
+      - name: actor_record
+        kind: references
+        target: mandate.identity.Principal
+        cardinality: one
+        via: actor
+      - name: organization_id_record
+        kind: references
+        target: mandate.tenancy.Organization
+        cardinality: one
+        via: organization_id
+      - name: delegation_id_record
+        kind: references
+        target: mandate.delegation.Delegation
+        cardinality: one
+        via: delegation_id
+      - name: execution_id_record
+        kind: references
+        target: mandate.delegation.Execution
+        cardinality: one
+        via: execution_id
+events:
+  - name: mandate.audit.ExternalPrincipalUnlinked
+    fields:
+      - name: record
+        type: mandate.core.AuditRecord
+  - name: mandate.audit.FederationConnectionChanged
+    fields:
+      - name: record
+        type: mandate.core.AuditRecord
+  - name: mandate.audit.TokenExchangeDenied
+    fields:
+      - name: record
+        type: mandate.core.AuditRecord
+  - name: mandate.audit.DirectoryGroupCreated
+    fields:
+      - name: record
+        type: mandate.core.AuditRecord
+  - name: mandate.audit.CredentialRevoked
+    fields:
+      - name: record
+        type: mandate.core.AuditRecord
+  - name: mandate.audit.AuditEventRecorded
+    fields:
+      - name: id
+        type: mandate.core.AuditEventId
+      - name: record
+        type: mandate.core.AuditRecord
+commands:
+  - name: mandate.audit.RecordAuditEvent
+    input:
+      - name: emitter_context
+        type: mandate.core.VerifiedContext
+      - name: record
+        type: mandate.core.AuditRecord
+    outcomes:
+      - name: recorded
+        emits:
+          - mandate.audit.AuditEventRecorded
+        payload:
+          mandate.audit.AuditEventRecorded:
+            id:
+              response: id
+            record: input.record
+        summary: The trusted append adapter must persist one validated, redacted record before acknowledging its identifier; durable storage/outbox semantics are required under UNMAPPED-AUDIT-ROUTING.
+      - name: denied
+        external: Emitter is not an authorized trusted event producer, subject/actor/correlation was changed, action/result is unadmitted, payload contains secret material, or durable append/outbox validation fails.
+        error: mandate.audit.Denied
+    response:
+      - name: id
+        type: mandate.core.AuditEventId
+errors:
+  - name: mandate.audit.Denied
+    summary: No audit record or credential mutation is admitted on refusal; required audit failure behavior remains an explicit runtime obligation.
+    fields:
+      - name: reason
+        type: mandate.core.DenialReason
+summary: "Canonical redacted audit records and the trusted worker append port. UNMAPPED-AUDIT-ROUTING: per-domain event mapping, durable outbox transport, retention and failure policy remain required. Named AuditAction and AuditOutcome do not admit arbitrary values."

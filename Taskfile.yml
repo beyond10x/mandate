@@ -1,0 +1,6 @@
+version: "3"
+tasks:
+  check:
+    desc: Validate Rust, dependencies, contracts, generated artifacts and planning
+    cmds:
+      - cargo xtask check

@@ -1,0 +1,314 @@
+# UNMAPPED-EPOCH: PrincipalEpoch, OrganizationSecurityEpoch and FederationEpoch require exact u64 monotonic semantics; see decision-blocker:epoch.
+# UNMAPPED-ATOMICITY: snapshot invalidation and refresh must be transactional; see decision-blocker:epoch-atomicity.
+# Generation records are ownership declarations keyed independently by principal, organization or federation connection; they intentionally have no approximated numeric value.
+# UNMAPPED-EPOCH: exact u64 current values and per-dimension snapshot values are absent until representable; EpochSnapshotRef is only an immutable record handle, never an epoch number.
+# UNMAPPED-EPOCH-OWNERSHIP: ESS relation carriers cannot reference an entity identity directly; each generation identity is its owning PrincipalId, OrganizationId or FederationConnectionId (one-to-one association).
+# IncrementSecurityEpoch remains an adapter obligation; no fabricated self-loop stands in for numeric mutation.
+domain: mandate.identity
+entities:
+  - name: mandate.identity.Principal
+    identity:
+      name: id
+      type: mandate.core.PrincipalId
+    fields:
+      - name: kind
+        type: mandate.core.PrincipalKind
+      - name: display_name
+        type: String
+    lifecycle:
+      initial: Active
+      states:
+        - Active
+        - Disabled
+      terminal:
+        - Disabled
+      transitions:
+        - name: disable
+          from:
+            - Active
+          to: Disabled
+  - name: mandate.identity.Session
+    identity:
+      name: id
+      type: mandate.core.SessionId
+    fields:
+      - name: principal_id
+        type: mandate.core.PrincipalId
+      - name: organization_id
+        type: mandate.core.OrganizationId
+      - name: connection_id
+        type: Optional<mandate.core.FederationConnectionId>
+      - name: epochs
+        type: mandate.core.EpochSnapshotRef
+      - name: expires_at
+        type: Timestamp
+    lifecycle:
+      initial: Active
+      states:
+        - Active
+        - Revoked
+      terminal:
+        - Revoked
+      transitions:
+        - name: revoke
+          from:
+            - Active
+          to: Revoked
+    relations:
+      - name: principal_id_record
+        kind: references
+        target: mandate.identity.Principal
+        cardinality: one
+        via: principal_id
+      - name: organization_id_record
+        kind: references
+        target: mandate.tenancy.Organization
+        cardinality: one
+        via: organization_id
+      - name: connection_id_record
+        kind: references
+        target: mandate.federation.FederationConnection
+        cardinality: one
+        via: connection_id
+      - name: epoch_snapshot_record
+        kind: references
+        target: mandate.identity.SecurityEpochSnapshot
+        cardinality: one
+        via: epochs
+  - name: mandate.identity.RefreshCredential
+    identity:
+      name: id
+      type: mandate.core.RefreshCredentialId
+    fields:
+      - name: principal_id
+        type: mandate.core.PrincipalId
+      - name: organization_id
+        type: mandate.core.OrganizationId
+      - name: session_id
+        type: mandate.core.SessionId
+      - name: verifier
+        type: mandate.core.CredentialVerifier
+      - name: epochs
+        type: mandate.core.EpochSnapshotRef
+      - name: expires_at
+        type: Timestamp
+    lifecycle:
+      initial: Active
+      states:
+        - Active
+        - Revoked
+      terminal:
+        - Revoked
+      transitions:
+        - name: revoke
+          from:
+            - Active
+          to: Revoked
+    relations:
+      - name: principal_id_record
+        kind: references
+        target: mandate.identity.Principal
+        cardinality: one
+        via: principal_id
+      - name: organization_id_record
+        kind: references
+        target: mandate.tenancy.Organization
+        cardinality: one
+        via: organization_id
+      - name: session_id_record
+        kind: references
+        target: mandate.identity.Session
+        cardinality: one
+        via: session_id
+      - name: epoch_snapshot_record
+        kind: references
+        target: mandate.identity.SecurityEpochSnapshot
+        cardinality: one
+        via: epochs
+  - name: mandate.identity.SecurityEpochSnapshot
+    identity:
+      name: id
+      type: mandate.core.EpochSnapshotRef
+    fields:
+      - name: principal_id
+        type: mandate.core.PrincipalId
+      - name: organization_id
+        type: mandate.core.OrganizationId
+      - name: connection_id
+        type: Optional<mandate.core.FederationConnectionId>
+    lifecycle:
+      initial: Recorded
+      states:
+        - Recorded
+      terminal:
+        - Recorded
+    relations:
+      - name: principal_record
+        kind: references
+        target: mandate.identity.Principal
+        cardinality: one
+        via: principal_id
+      - name: organization_id_record
+        kind: references
+        target: mandate.tenancy.Organization
+        cardinality: one
+        via: organization_id
+      - name: connection_id_record
+        kind: references
+        target: mandate.federation.FederationConnection
+        cardinality: one
+        via: connection_id
+  - name: mandate.identity.PrincipalSecurityEpoch
+    identity:
+      name: id
+      type: mandate.core.PrincipalId
+    fields: []
+    lifecycle:
+      initial: Recorded
+      states:
+        - Recorded
+      terminal:
+        - Recorded
+  - name: mandate.identity.OrganizationSecurityEpoch
+    identity:
+      name: id
+      type: mandate.core.OrganizationId
+    fields: []
+    lifecycle:
+      initial: Recorded
+      states:
+        - Recorded
+      terminal:
+        - Recorded
+  - name: mandate.identity.FederationSecurityEpoch
+    identity:
+      name: id
+      type: mandate.core.FederationConnectionId
+    fields: []
+    lifecycle:
+      initial: Recorded
+      states:
+        - Recorded
+      terminal:
+        - Recorded
+commands:
+  - name: mandate.identity.DisablePrincipal
+    input:
+      - name: id
+        type: mandate.core.PrincipalId
+      - name: context
+        type: mandate.core.VerifiedContext
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.identity.PrincipalDisabled
+        payload:
+          mandate.identity.PrincipalDisabled:
+            context: input.context
+        moves: mandate.identity.Principal.disable
+        instance: id
+      - name: denied
+        external: Caller lacks principal-administration authority, principal does not exist, or disablement cannot atomically trigger the required session/credential invalidation.
+        error: mandate.identity.Denied
+  - name: mandate.identity.RevokeSession
+    input:
+      - name: id
+        type: mandate.core.SessionId
+      - name: context
+        type: mandate.core.VerifiedContext
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.identity.SessionRevoked
+        payload:
+          mandate.identity.SessionRevoked:
+            context: input.context
+        moves: mandate.identity.Session.revoke
+        instance: id
+      - name: denied
+        external: Caller lacks authority over this session, session is outside the verified organization, or revocation cannot be durably observed under the applicable profile.
+        error: mandate.identity.Denied
+  - name: mandate.identity.RevokeRefreshCredential
+    input:
+      - name: id
+        type: mandate.core.RefreshCredentialId
+      - name: context
+        type: mandate.core.VerifiedContext
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.identity.RefreshCredentialRevoked
+        payload:
+          mandate.identity.RefreshCredentialRevoked:
+            context: input.context
+        moves: mandate.identity.RefreshCredential.revoke
+        instance: id
+      - name: denied
+        external: Caller lacks authority over the resolved refresh credential, tenant/session binding mismatches, or durable revocation fails.
+        error: mandate.identity.Denied
+  - name: mandate.identity.RefreshSession
+    input:
+      - name: refresh_proof
+        type: mandate.core.CredentialProof
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.identity.SessionRefreshed
+        payload:
+          mandate.identity.SessionRefreshed:
+            context:
+              generated: true
+      - name: denied
+        external: Refresh verifier is absent/incorrect, record is expired/revoked, principal/session is disabled, any applicable principal/organization/federation epoch mismatches, or session binding fails.
+        error: mandate.identity.Denied
+    response:
+      - name: session_id
+        type: mandate.core.SessionId
+  - name: mandate.identity.IncrementSecurityEpoch
+    input:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: target
+        type: mandate.core.SecurityEpochTarget
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.identity.SecurityEpochIncremented
+        payload:
+          mandate.identity.SecurityEpochIncremented:
+            context: input.context
+            target: input.target
+        summary: "UNMAPPED-EPOCH: this event declares the required increment outcome; no numeric mutation is executed or approximated. The adapter must atomically increment the one selected generation, deny unsigned overflow and preserve isolation of unrelated organizations/connections."
+      - name: denied
+        external: Caller lacks authority for the explicitly selected principal/organization/federation target, tenant containment fails, the exact unsigned generation is at its maximum, or atomic increment cannot commit.
+        error: mandate.identity.Denied
+events:
+  - name: mandate.identity.PrincipalDisabled
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+  - name: mandate.identity.SessionRevoked
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+  - name: mandate.identity.RefreshCredentialRevoked
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+  - name: mandate.identity.SessionRefreshed
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+  - name: mandate.identity.SecurityEpochIncremented
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: target
+        type: mandate.core.SecurityEpochTarget
+errors:
+  - name: mandate.identity.Denied
+    summary: Fail closed; no credential, authority or lifecycle mutation on refusal.
+    fields:
+      - name: reason
+        type: mandate.core.DenialReason
+summary: "Principal, session and independent principal/organization/federation generation ownership. UNMAPPED-EPOCH: generation records declare ownership only; exact unsigned current and snapshot values are absent until supported. EpochSnapshotRef is an immutable record handle, not a generation number. Refresh and exchange cannot be implemented without closing this blocker."

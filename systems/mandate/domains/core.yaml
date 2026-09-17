@@ -1,0 +1,388 @@
+domain: mandate.core
+types:
+  - name: mandate.core.PrincipalId
+    kind: newtype
+    of: Uuid
+  - name: mandate.core.OrganizationId
+    kind: newtype
+    of: Uuid
+  - name: mandate.core.OrganizationMembershipId
+    kind: newtype
+    of: Uuid
+  - name: mandate.core.TeamId
+    kind: newtype
+    of: Uuid
+  - name: mandate.core.TeamMembershipId
+    kind: newtype
+    of: Uuid
+  - name: mandate.core.MembershipContributionId
+    kind: newtype
+    of: Uuid
+  - name: mandate.core.SpaceId
+    kind: newtype
+    of: Uuid
+  - name: mandate.core.ResourceId
+    kind: newtype
+    of: Uuid
+  - name: mandate.core.GrantId
+    kind: newtype
+    of: Uuid
+  - name: mandate.core.RelationId
+    kind: newtype
+    of: Uuid
+  - name: mandate.core.DelegationId
+    kind: newtype
+    of: Uuid
+  - name: mandate.core.ExecutionId
+    kind: newtype
+    of: Uuid
+  - name: mandate.core.ExternalPrincipalId
+    kind: newtype
+    of: Uuid
+  - name: mandate.core.FederationConnectionId
+    kind: newtype
+    of: Uuid
+  - name: mandate.core.DirectoryGroupId
+    kind: newtype
+    of: Uuid
+  - name: mandate.core.DirectoryGroupMembershipId
+    kind: newtype
+    of: Uuid
+  - name: mandate.core.DirectoryGroupTeamMappingId
+    kind: newtype
+    of: Uuid
+  - name: mandate.core.ResourceServerId
+    kind: newtype
+    of: Uuid
+  - name: mandate.core.CredentialId
+    kind: newtype
+    of: Uuid
+  - name: mandate.core.SessionId
+    kind: newtype
+    of: Uuid
+  - name: mandate.core.RefreshCredentialId
+    kind: newtype
+    of: Uuid
+  - name: mandate.core.DecisionId
+    kind: newtype
+    of: Uuid
+  - name: mandate.core.AuditEventId
+    kind: newtype
+    of: Uuid
+  - name: mandate.core.PolicyId
+    kind: newtype
+    of: Uuid
+  - name: mandate.core.AuthorizationModelId
+    kind: newtype
+    of: Uuid
+  - name: mandate.core.WorkloadIdentityId
+    kind: newtype
+    of: Uuid
+  - name: mandate.core.ApprovalId
+    kind: newtype
+    of: Uuid
+  - name: mandate.core.OAuthClientId
+    kind: newtype
+    of: Uuid
+  - name: mandate.core.AuthorizationCodeId
+    kind: newtype
+    of: Uuid
+  - name: mandate.core.SigningKeyId
+    kind: newtype
+    of: Uuid
+  - name: mandate.core.SyncJobId
+    kind: newtype
+    of: Uuid
+  - name: mandate.core.Action
+    kind: newtype
+    of: String
+  - name: mandate.core.ResourceType
+    kind: newtype
+    of: String
+  - name: mandate.core.Audience
+    kind: newtype
+    of: String
+  - name: mandate.core.Issuer
+    kind: newtype
+    of: String
+  - name: mandate.core.ExternalSubject
+    kind: newtype
+    of: String
+  - name: mandate.core.ClientId
+    kind: newtype
+    of: String
+  - name: mandate.core.AuthzRevision
+    kind: newtype
+    of: String
+  - name: mandate.core.PolicyVersion
+    kind: newtype
+    of: String
+  - name: mandate.core.CorrelationId
+    kind: newtype
+    of: String
+  - name: mandate.core.CredentialVerifier
+    kind: newtype
+    of: String
+  - name: mandate.core.KeyReference
+    kind: newtype
+    of: String
+  - name: mandate.core.PkceChallenge
+    kind: newtype
+    of: String
+  - name: mandate.core.RedirectUri
+    kind: newtype
+    of: String
+  - name: mandate.core.TrustDomain
+    kind: newtype
+    of: String
+  - name: mandate.core.ActionPattern
+    kind: newtype
+    of: String
+  - name: mandate.core.CredentialSecret
+    kind: newtype
+    of: Bytes
+  - name: mandate.core.CredentialProof
+    kind: newtype
+    of: Bytes
+  - name: mandate.core.PrincipalKind
+    kind: enum
+    variants:
+      - User
+      - Service
+      - Agent
+      - ServiceAccount
+  - name: mandate.core.CredentialKind
+    kind: enum
+    variants:
+      - SelfContained
+      - Reference
+  - name: mandate.core.RevocationGuarantee
+    kind: enum
+    variants:
+      - ImmediateOnline
+      - BoundedOffline
+  - name: mandate.core.MembershipSource
+    kind: enum
+    variants:
+      - Manual
+      - DirectoryMapping
+  - name: mandate.core.ExternalLinkMethod
+    kind: enum
+    variants:
+      - Administrator
+      - AuthenticatedConfirmation
+      - VerifiedMigration
+      - ConfiguredFederation
+      - SecuritySupport
+  - name: mandate.core.DecisionReason
+    kind: enum
+    variants:
+      - Allowed
+      - Denied
+      - ApprovalRequired
+      - InvalidCredential
+      - TenantMismatch
+      - AudienceMismatch
+      - Unavailable
+      - StaleEpoch
+  - name: mandate.core.PkceMethod
+    kind: enum
+    variants:
+      - S256
+  - name: mandate.core.ResourceRef
+    kind: struct
+    fields:
+      - name: resource_type
+        type: mandate.core.ResourceType
+      - name: resource_id
+        type: mandate.core.ResourceId
+  - name: mandate.core.AuthorityScope
+    kind: struct
+    fields:
+      - name: actions
+        type: List<mandate.core.Action>
+      - name: resources
+        type: List<mandate.core.ResourceRef>
+      - name: space
+        type: Optional<mandate.core.SpaceId>
+  - name: mandate.core.EpochSnapshotRef
+    kind: newtype
+    of: Uuid
+  - name: mandate.core.VerifiedContext
+    kind: struct
+    fields:
+      - name: subject
+        type: mandate.core.PrincipalId
+      - name: actor
+        type: Optional<mandate.core.PrincipalId>
+      - name: organization
+        type: mandate.core.OrganizationId
+      - name: audience
+        type: mandate.core.Audience
+      - name: credential
+        type: mandate.core.CredentialId
+      - name: delegation
+        type: Optional<mandate.core.DelegationId>
+      - name: execution
+        type: Optional<mandate.core.ExecutionId>
+      - name: correlation
+        type: mandate.core.CorrelationId
+  - name: mandate.core.CredentialDescriptor
+    kind: struct
+    fields:
+      - name: kind
+        type: mandate.core.CredentialKind
+      - name: subject
+        type: mandate.core.PrincipalId
+      - name: actor
+        type: Optional<mandate.core.PrincipalId>
+      - name: organization
+        type: mandate.core.OrganizationId
+      - name: audience
+        type: mandate.core.Audience
+      - name: scope
+        type: mandate.core.AuthorityScope
+      - name: delegation
+        type: Optional<mandate.core.DelegationId>
+      - name: execution
+        type: Optional<mandate.core.ExecutionId>
+      - name: expires_at
+        type: Timestamp
+  - name: mandate.core.CredentialProfile
+    kind: struct
+    fields:
+      - name: name
+        type: String
+      - name: kind
+        type: mandate.core.CredentialKind
+      - name: revocation
+        type: mandate.core.RevocationGuarantee
+      - name: max_ttl
+        type: Duration
+      - name: positive_cache_ttl
+        type: Duration
+      - name: requires_online_authorization
+        type: Boolean
+  - name: mandate.core.TenantResolutionRule
+    kind: struct
+    fields:
+      - name: configured_organization
+        type: mandate.core.OrganizationId
+      - name: verified_claim_name
+        type: Optional<String>
+      - name: verified_claim_value
+        type: Optional<String>
+  - name: mandate.core.DecisionChallenge
+    kind: struct
+    fields:
+      - name: action
+        type: mandate.core.Action
+      - name: resource
+        type: mandate.core.ResourceRef
+      - name: approver_policy
+        type: mandate.core.PolicyId
+      - name: expires_at
+        type: Timestamp
+  - name: mandate.core.Decision
+    kind: struct
+    fields:
+      - name: allowed
+        type: Boolean
+      - name: reason
+        type: mandate.core.DecisionReason
+      - name: decision_id
+        type: mandate.core.DecisionId
+      - name: revision
+        type: Optional<mandate.core.AuthzRevision>
+      - name: challenge
+        type: Optional<mandate.core.DecisionChallenge>
+      - name: policy_version
+        type: Optional<mandate.core.PolicyVersion>
+      - name: model_version
+        type: Optional<mandate.core.AuthorizationModelVersion>
+  - name: mandate.core.AccessCredentialId
+    kind: newtype
+    of: Uuid
+  - name: mandate.core.AgentCapabilityCeilingId
+    kind: newtype
+    of: Uuid
+  - name: mandate.core.AuthorizationModelVersion
+    kind: newtype
+    of: String
+  - name: mandate.core.SigningAlgorithm
+    kind: newtype
+    of: String
+  - name: mandate.core.DenialReason
+    kind: enum
+    variants:
+      - Denied
+      - ApprovalRequired
+      - InvalidCredential
+      - TenantMismatch
+      - AudienceMismatch
+      - Unavailable
+      - StaleEpoch
+  - name: mandate.core.AuthoritySubject
+    kind: union
+    tag: kind
+    variants:
+      principal: mandate.core.PrincipalId
+      team: mandate.core.TeamId
+  - name: mandate.core.SecurityEpochTarget
+    kind: union
+    tag: kind
+    variants:
+      principal: mandate.core.PrincipalId
+      organization: mandate.core.OrganizationId
+      federation: mandate.core.FederationConnectionId
+  - name: mandate.core.AuditAction
+    kind: newtype
+    of: String
+  - name: mandate.core.AuditOutcome
+    kind: newtype
+    of: String
+  - name: mandate.core.AuditRecord
+    kind: struct
+    fields:
+      - name: subject
+        type: Optional<mandate.core.PrincipalId>
+      - name: actor
+        type: Optional<mandate.core.PrincipalId>
+      - name: organization_id
+        type: Optional<mandate.core.OrganizationId>
+      - name: event_type
+        type: mandate.core.AuditAction
+      - name: correlation
+        type: mandate.core.CorrelationId
+      - name: decision_id
+        type: Optional<mandate.core.DecisionId>
+      - name: requested_audience
+        type: Optional<mandate.core.Audience>
+      - name: issued_audience
+        type: Optional<mandate.core.Audience>
+      - name: requested_scope
+        type: Optional<mandate.core.AuthorityScope>
+      - name: credential_kind
+        type: Optional<mandate.core.CredentialKind>
+      - name: delegation_id
+        type: Optional<mandate.core.DelegationId>
+      - name: execution_id
+        type: Optional<mandate.core.ExecutionId>
+      - name: result
+        type: mandate.core.AuditOutcome
+      - name: occurred_at
+        type: Timestamp
+      - name: policy_version
+        type: Optional<mandate.core.PolicyVersion>
+      - name: model_version
+        type: Optional<mandate.core.AuthorizationModelVersion>
+      - name: authz_revision
+        type: Optional<mandate.core.AuthzRevision>
+      - name: source_credential_kind
+        type: Optional<mandate.core.CredentialKind>
+      - name: source_credential_id
+        type: Optional<mandate.core.CredentialId>
+      - name: issued_credential_id
+        type: Optional<mandate.core.CredentialId>
+      - name: issued_scope
+        type: Optional<mandate.core.AuthorityScope>

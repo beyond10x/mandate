@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Denied payload",
+  "description": "No audit record or credential mutation is admitted on refusal; required audit failure behavior remains an explicit runtime obligation.",
+  "x-ess-name": "mandate.audit.Denied",
+  "x-ess-kind": "error-payload",
+  "type": "object",
+  "properties": {
+    "reason": {
+      "$ref": "#/$defs/mandate.core.DenialReason"
+    }
+  },
+  "required": [
+    "reason"
+  ],
+  "additionalProperties": false,
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1",
+    "contract_digest": "slice-sha256/2:27e77d9919a90a1c656dcac3e2bb88a4e2c9a2eb08235820f1fb6d4db7e4b512",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.core.DenialReason": {
+      "title": "DenialReason",
+      "x-ess-name": "mandate.core.DenialReason",
+      "x-ess-kind": "enum",
+      "type": "string",
+      "enum": [
+        "Denied",
+        "ApprovalRequired",
+        "InvalidCredential",
+        "TenantMismatch",
+        "AudienceMismatch",
+        "Unavailable",
+        "StaleEpoch"
+      ]
+    }
+  }
+}

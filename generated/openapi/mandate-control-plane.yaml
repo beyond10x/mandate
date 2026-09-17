@@ -1,0 +1,3370 @@
+# generated from mandate v1
+# model digest 4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1
+# contract digest slice-sha256/2:5a1d9aa8115a1e10713c3e81c4a73c0c48083998d10a7f107d81a1ef8ac3c50e
+# do not edit: regenerate with `ess generate`
+openapi: 3.1.0
+info:
+  title: mandate-control-plane
+  summary: Administrative deployment and documentation publisher for the shared mandate.core vocabulary. All four deployments compile those shared library types; core is not a remote control-plane runtime dependency. See docs/architecture/ownership.md.
+  description: |-
+    The HTTP surface of `mandate-control-plane`, one of the components of `mandate` v1.
+
+    Every path here is one semantic command, so the method is always POST and the path is the command's wire name under its domain's: a command is not a resource, and this document does not invent one. A status code is the outcome the specification declares — 202 for a branch that was taken, 422 for a refusal the input decides, 502 for a refusal decided outside the request — and the `outcome` property of every response body names the branch. Events emitted by a branch are published to consumers through the event transport; they are not returned here.
+  version: v1
+  x-ess-provenance:
+    system: mandate
+    specification_version: v1
+    source_digest: 4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1
+    contract_digest: slice-sha256/2:5a1d9aa8115a1e10713c3e81c4a73c0c48083998d10a7f107d81a1ef8ac3c50e
+tags:
+- name: delegation
+- name: directory
+- name: federation
+- name: identity
+  description: 'Principal, session and independent principal/organization/federation generation ownership. UNMAPPED-EPOCH: generation records declare ownership only; exact unsigned current and snapshot values are absent until supported. EpochSnapshotRef is an immutable record handle, not a generation number. Refresh and exchange cannot be implemented without closing this blocker.'
+- name: tenancy
+paths:
+  /delegation/commands/CreateDelegation:
+    post:
+      operationId: mandate.delegation.CreateDelegation
+      summary: CreateDelegation
+      tags:
+      - delegation
+      requestBody:
+        description: The input `mandate.delegation.CreateDelegation` declares.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/mandate.delegation.CreateDelegation.Input'
+      responses:
+        '202':
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers, not returned here.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.delegation.CreateDelegation.accepted.Response'
+        '502':
+          description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.delegation.CreateDelegation.denied.Response'
+  /delegation/commands/RevokeDelegation:
+    post:
+      operationId: mandate.delegation.RevokeDelegation
+      summary: RevokeDelegation
+      tags:
+      - delegation
+      requestBody:
+        description: The input `mandate.delegation.RevokeDelegation` declares.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/mandate.delegation.RevokeDelegation.Input'
+      responses:
+        '202':
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers, not returned here.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.delegation.RevokeDelegation.accepted.Response'
+        '502':
+          description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.delegation.RevokeDelegation.denied.Response'
+  /directory/commands/CreateDirectoryGroupTeamMapping:
+    post:
+      operationId: mandate.directory.CreateDirectoryGroupTeamMapping
+      summary: CreateDirectoryGroupTeamMapping
+      tags:
+      - directory
+      requestBody:
+        description: The input `mandate.directory.CreateDirectoryGroupTeamMapping` declares.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/mandate.directory.CreateDirectoryGroupTeamMapping.Input'
+      responses:
+        '202':
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers, not returned here.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.directory.CreateDirectoryGroupTeamMapping.accepted.Response'
+        '502':
+          description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.directory.CreateDirectoryGroupTeamMapping.denied.Response'
+  /directory/commands/RemoveDirectoryGroupMembership:
+    post:
+      operationId: mandate.directory.RemoveDirectoryGroupMembership
+      summary: RemoveDirectoryGroupMembership
+      tags:
+      - directory
+      requestBody:
+        description: The input `mandate.directory.RemoveDirectoryGroupMembership` declares.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/mandate.directory.RemoveDirectoryGroupMembership.Input'
+      responses:
+        '202':
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers, not returned here.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.directory.RemoveDirectoryGroupMembership.accepted.Response'
+        '502':
+          description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.directory.RemoveDirectoryGroupMembership.denied.Response'
+  /directory/commands/RemoveDirectoryGroupTeamMapping:
+    post:
+      operationId: mandate.directory.RemoveDirectoryGroupTeamMapping
+      summary: RemoveDirectoryGroupTeamMapping
+      tags:
+      - directory
+      requestBody:
+        description: The input `mandate.directory.RemoveDirectoryGroupTeamMapping` declares.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/mandate.directory.RemoveDirectoryGroupTeamMapping.Input'
+      responses:
+        '202':
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers, not returned here.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.directory.RemoveDirectoryGroupTeamMapping.accepted.Response'
+        '502':
+          description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.directory.RemoveDirectoryGroupTeamMapping.denied.Response'
+  /directory/commands/RemoveMembershipContribution:
+    post:
+      operationId: mandate.directory.RemoveMembershipContribution
+      summary: RemoveMembershipContribution
+      tags:
+      - directory
+      requestBody:
+        description: The input `mandate.directory.RemoveMembershipContribution` declares.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/mandate.directory.RemoveMembershipContribution.Input'
+      responses:
+        '202':
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers, not returned here.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.directory.RemoveMembershipContribution.accepted.Response'
+        '502':
+          description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.directory.RemoveMembershipContribution.denied.Response'
+  /directory/commands/SyncDirectoryMembership:
+    post:
+      operationId: mandate.directory.SyncDirectoryMembership
+      summary: SyncDirectoryMembership
+      tags:
+      - directory
+      requestBody:
+        description: The input `mandate.directory.SyncDirectoryMembership` declares.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/mandate.directory.SyncDirectoryMembership.Input'
+      responses:
+        '202':
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers, not returned here.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.directory.SyncDirectoryMembership.accepted.Response'
+        '502':
+          description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.directory.SyncDirectoryMembership.denied.Response'
+  /federation/commands/AuthenticateFederation:
+    post:
+      operationId: mandate.federation.AuthenticateFederation
+      summary: AuthenticateFederation
+      tags:
+      - federation
+      requestBody:
+        description: The input `mandate.federation.AuthenticateFederation` declares.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/mandate.federation.AuthenticateFederation.Input'
+      responses:
+        '202':
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers, not returned here.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.federation.AuthenticateFederation.accepted.Response'
+        '502':
+          description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.federation.AuthenticateFederation.denied.Response'
+  /federation/commands/AuthorizePublicClient:
+    post:
+      operationId: mandate.federation.AuthorizePublicClient
+      summary: AuthorizePublicClient
+      tags:
+      - federation
+      requestBody:
+        description: The input `mandate.federation.AuthorizePublicClient` declares.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/mandate.federation.AuthorizePublicClient.Input'
+      responses:
+        '202':
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers, not returned here.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.federation.AuthorizePublicClient.accepted.Response'
+        '502':
+          description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.federation.AuthorizePublicClient.denied.Response'
+  /federation/commands/DisableFederationConnection:
+    post:
+      operationId: mandate.federation.DisableFederationConnection
+      summary: DisableFederationConnection
+      tags:
+      - federation
+      requestBody:
+        description: The input `mandate.federation.DisableFederationConnection` declares.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/mandate.federation.DisableFederationConnection.Input'
+      responses:
+        '202':
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers, not returned here.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.federation.DisableFederationConnection.accepted.Response'
+        '502':
+          description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.federation.DisableFederationConnection.denied.Response'
+  /federation/commands/LinkExternalPrincipal:
+    post:
+      operationId: mandate.federation.LinkExternalPrincipal
+      summary: LinkExternalPrincipal
+      tags:
+      - federation
+      requestBody:
+        description: The input `mandate.federation.LinkExternalPrincipal` declares.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/mandate.federation.LinkExternalPrincipal.Input'
+      responses:
+        '202':
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers, not returned here.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.federation.LinkExternalPrincipal.accepted.Response'
+        '502':
+          description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.federation.LinkExternalPrincipal.denied.Response'
+  /federation/commands/RegisterFederationConnection:
+    post:
+      operationId: mandate.federation.RegisterFederationConnection
+      summary: RegisterFederationConnection
+      tags:
+      - federation
+      requestBody:
+        description: The input `mandate.federation.RegisterFederationConnection` declares.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/mandate.federation.RegisterFederationConnection.Input'
+      responses:
+        '202':
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers, not returned here.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.federation.RegisterFederationConnection.accepted.Response'
+        '502':
+          description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.federation.RegisterFederationConnection.denied.Response'
+  /federation/commands/UnlinkExternalPrincipal:
+    post:
+      operationId: mandate.federation.UnlinkExternalPrincipal
+      summary: UnlinkExternalPrincipal
+      tags:
+      - federation
+      requestBody:
+        description: The input `mandate.federation.UnlinkExternalPrincipal` declares.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/mandate.federation.UnlinkExternalPrincipal.Input'
+      responses:
+        '202':
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers, not returned here.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.federation.UnlinkExternalPrincipal.accepted.Response'
+        '502':
+          description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.federation.UnlinkExternalPrincipal.denied.Response'
+  /identity/commands/DisablePrincipal:
+    post:
+      operationId: mandate.identity.DisablePrincipal
+      summary: DisablePrincipal
+      tags:
+      - identity
+      requestBody:
+        description: The input `mandate.identity.DisablePrincipal` declares.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/mandate.identity.DisablePrincipal.Input'
+      responses:
+        '202':
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers, not returned here.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.identity.DisablePrincipal.accepted.Response'
+        '502':
+          description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.identity.DisablePrincipal.denied.Response'
+  /identity/commands/IncrementSecurityEpoch:
+    post:
+      operationId: mandate.identity.IncrementSecurityEpoch
+      summary: IncrementSecurityEpoch
+      tags:
+      - identity
+      requestBody:
+        description: The input `mandate.identity.IncrementSecurityEpoch` declares.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/mandate.identity.IncrementSecurityEpoch.Input'
+      responses:
+        '202':
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers, not returned here.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.identity.IncrementSecurityEpoch.accepted.Response'
+        '502':
+          description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.identity.IncrementSecurityEpoch.denied.Response'
+  /identity/commands/RefreshSession:
+    post:
+      operationId: mandate.identity.RefreshSession
+      summary: RefreshSession
+      tags:
+      - identity
+      requestBody:
+        description: The input `mandate.identity.RefreshSession` declares.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/mandate.identity.RefreshSession.Input'
+      responses:
+        '202':
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers, not returned here.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.identity.RefreshSession.accepted.Response'
+        '502':
+          description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.identity.RefreshSession.denied.Response'
+  /identity/commands/RevokeRefreshCredential:
+    post:
+      operationId: mandate.identity.RevokeRefreshCredential
+      summary: RevokeRefreshCredential
+      tags:
+      - identity
+      requestBody:
+        description: The input `mandate.identity.RevokeRefreshCredential` declares.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/mandate.identity.RevokeRefreshCredential.Input'
+      responses:
+        '202':
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers, not returned here.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.identity.RevokeRefreshCredential.accepted.Response'
+        '502':
+          description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.identity.RevokeRefreshCredential.denied.Response'
+  /identity/commands/RevokeSession:
+    post:
+      operationId: mandate.identity.RevokeSession
+      summary: RevokeSession
+      tags:
+      - identity
+      requestBody:
+        description: The input `mandate.identity.RevokeSession` declares.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/mandate.identity.RevokeSession.Input'
+      responses:
+        '202':
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers, not returned here.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.identity.RevokeSession.accepted.Response'
+        '502':
+          description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.identity.RevokeSession.denied.Response'
+  /tenancy/commands/RemoveOrganizationMembership:
+    post:
+      operationId: mandate.tenancy.RemoveOrganizationMembership
+      summary: RemoveOrganizationMembership
+      tags:
+      - tenancy
+      requestBody:
+        description: The input `mandate.tenancy.RemoveOrganizationMembership` declares.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/mandate.tenancy.RemoveOrganizationMembership.Input'
+      responses:
+        '202':
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers, not returned here.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.tenancy.RemoveOrganizationMembership.accepted.Response'
+        '502':
+          description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.tenancy.RemoveOrganizationMembership.denied.Response'
+components:
+  schemas:
+    mandate.core.Action:
+      title: Action
+      x-ess-name: mandate.core.Action
+      x-ess-kind: newtype
+      type: string
+    mandate.core.Audience:
+      title: Audience
+      x-ess-name: mandate.core.Audience
+      x-ess-kind: newtype
+      type: string
+    mandate.core.AuthorityScope:
+      title: AuthorityScope
+      x-ess-name: mandate.core.AuthorityScope
+      x-ess-kind: struct
+      type: object
+      properties:
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/mandate.core.Action'
+        resources:
+          type: array
+          items:
+            $ref: '#/components/schemas/mandate.core.ResourceRef'
+        space:
+          $ref: '#/components/schemas/mandate.core.SpaceId'
+      required:
+      - actions
+      - resources
+      additionalProperties: false
+    mandate.core.ClientId:
+      title: ClientId
+      x-ess-name: mandate.core.ClientId
+      x-ess-kind: newtype
+      type: string
+    mandate.core.CorrelationId:
+      title: CorrelationId
+      x-ess-name: mandate.core.CorrelationId
+      x-ess-kind: newtype
+      type: string
+    mandate.core.CredentialId:
+      title: CredentialId
+      x-ess-name: mandate.core.CredentialId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.CredentialProof:
+      title: CredentialProof
+      x-ess-name: mandate.core.CredentialProof
+      x-ess-kind: newtype
+      type: string
+      pattern: ^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$
+      contentEncoding: base64
+    mandate.core.DelegationId:
+      title: DelegationId
+      x-ess-name: mandate.core.DelegationId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.DenialReason:
+      title: DenialReason
+      x-ess-name: mandate.core.DenialReason
+      x-ess-kind: enum
+      type: string
+      enum:
+      - Denied
+      - ApprovalRequired
+      - InvalidCredential
+      - TenantMismatch
+      - AudienceMismatch
+      - Unavailable
+      - StaleEpoch
+    mandate.core.DirectoryGroupId:
+      title: DirectoryGroupId
+      x-ess-name: mandate.core.DirectoryGroupId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.DirectoryGroupMembershipId:
+      title: DirectoryGroupMembershipId
+      x-ess-name: mandate.core.DirectoryGroupMembershipId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.DirectoryGroupTeamMappingId:
+      title: DirectoryGroupTeamMappingId
+      x-ess-name: mandate.core.DirectoryGroupTeamMappingId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.ExecutionId:
+      title: ExecutionId
+      x-ess-name: mandate.core.ExecutionId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.ExternalLinkMethod:
+      title: ExternalLinkMethod
+      x-ess-name: mandate.core.ExternalLinkMethod
+      x-ess-kind: enum
+      type: string
+      enum:
+      - Administrator
+      - AuthenticatedConfirmation
+      - VerifiedMigration
+      - ConfiguredFederation
+      - SecuritySupport
+    mandate.core.ExternalPrincipalId:
+      title: ExternalPrincipalId
+      x-ess-name: mandate.core.ExternalPrincipalId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.ExternalSubject:
+      title: ExternalSubject
+      x-ess-name: mandate.core.ExternalSubject
+      x-ess-kind: newtype
+      type: string
+    mandate.core.FederationConnectionId:
+      title: FederationConnectionId
+      x-ess-name: mandate.core.FederationConnectionId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.Issuer:
+      title: Issuer
+      x-ess-name: mandate.core.Issuer
+      x-ess-kind: newtype
+      type: string
+    mandate.core.MembershipContributionId:
+      title: MembershipContributionId
+      x-ess-name: mandate.core.MembershipContributionId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.OAuthClientId:
+      title: OAuthClientId
+      x-ess-name: mandate.core.OAuthClientId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.OrganizationId:
+      title: OrganizationId
+      x-ess-name: mandate.core.OrganizationId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.OrganizationMembershipId:
+      title: OrganizationMembershipId
+      x-ess-name: mandate.core.OrganizationMembershipId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.PkceChallenge:
+      title: PkceChallenge
+      x-ess-name: mandate.core.PkceChallenge
+      x-ess-kind: newtype
+      type: string
+    mandate.core.PkceMethod:
+      title: PkceMethod
+      x-ess-name: mandate.core.PkceMethod
+      x-ess-kind: enum
+      type: string
+      enum:
+      - S256
+    mandate.core.PrincipalId:
+      title: PrincipalId
+      x-ess-name: mandate.core.PrincipalId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.RedirectUri:
+      title: RedirectUri
+      x-ess-name: mandate.core.RedirectUri
+      x-ess-kind: newtype
+      type: string
+    mandate.core.RefreshCredentialId:
+      title: RefreshCredentialId
+      x-ess-name: mandate.core.RefreshCredentialId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.ResourceId:
+      title: ResourceId
+      x-ess-name: mandate.core.ResourceId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.ResourceRef:
+      title: ResourceRef
+      x-ess-name: mandate.core.ResourceRef
+      x-ess-kind: struct
+      type: object
+      properties:
+        resource_type:
+          $ref: '#/components/schemas/mandate.core.ResourceType'
+        resource_id:
+          $ref: '#/components/schemas/mandate.core.ResourceId'
+      required:
+      - resource_type
+      - resource_id
+      additionalProperties: false
+    mandate.core.ResourceServerId:
+      title: ResourceServerId
+      x-ess-name: mandate.core.ResourceServerId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.ResourceType:
+      title: ResourceType
+      x-ess-name: mandate.core.ResourceType
+      x-ess-kind: newtype
+      type: string
+    mandate.core.SecurityEpochTarget:
+      title: SecurityEpochTarget
+      x-ess-name: mandate.core.SecurityEpochTarget
+      x-ess-kind: union
+      oneOf:
+      - title: federation
+        type: object
+        properties:
+          kind:
+            type: string
+            const: federation
+          value:
+            $ref: '#/components/schemas/mandate.core.FederationConnectionId'
+        required:
+        - kind
+        - value
+        additionalProperties: false
+      - title: organization
+        type: object
+        properties:
+          kind:
+            type: string
+            const: organization
+          value:
+            $ref: '#/components/schemas/mandate.core.OrganizationId'
+        required:
+        - kind
+        - value
+        additionalProperties: false
+      - title: principal
+        type: object
+        properties:
+          kind:
+            type: string
+            const: principal
+          value:
+            $ref: '#/components/schemas/mandate.core.PrincipalId'
+        required:
+        - kind
+        - value
+        additionalProperties: false
+      x-ess-union-tag: kind
+    mandate.core.SessionId:
+      title: SessionId
+      x-ess-name: mandate.core.SessionId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.SpaceId:
+      title: SpaceId
+      x-ess-name: mandate.core.SpaceId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.TeamId:
+      title: TeamId
+      x-ess-name: mandate.core.TeamId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.TenantResolutionRule:
+      title: TenantResolutionRule
+      x-ess-name: mandate.core.TenantResolutionRule
+      x-ess-kind: struct
+      type: object
+      properties:
+        configured_organization:
+          $ref: '#/components/schemas/mandate.core.OrganizationId'
+        verified_claim_name:
+          type: string
+        verified_claim_value:
+          type: string
+      required:
+      - configured_organization
+      additionalProperties: false
+    mandate.core.VerifiedContext:
+      title: VerifiedContext
+      x-ess-name: mandate.core.VerifiedContext
+      x-ess-kind: struct
+      type: object
+      properties:
+        subject:
+          $ref: '#/components/schemas/mandate.core.PrincipalId'
+        actor:
+          $ref: '#/components/schemas/mandate.core.PrincipalId'
+        organization:
+          $ref: '#/components/schemas/mandate.core.OrganizationId'
+        audience:
+          $ref: '#/components/schemas/mandate.core.Audience'
+        credential:
+          $ref: '#/components/schemas/mandate.core.CredentialId'
+        delegation:
+          $ref: '#/components/schemas/mandate.core.DelegationId'
+        execution:
+          $ref: '#/components/schemas/mandate.core.ExecutionId'
+        correlation:
+          $ref: '#/components/schemas/mandate.core.CorrelationId'
+      required:
+      - subject
+      - organization
+      - audience
+      - credential
+      - correlation
+      additionalProperties: false
+    mandate.delegation.CreateDelegation.Input:
+      title: CreateDelegation input
+      x-ess-name: mandate.delegation.CreateDelegation
+      x-ess-kind: command-input
+      type: object
+      properties:
+        context:
+          $ref: '#/components/schemas/mandate.core.VerifiedContext'
+        delegate:
+          $ref: '#/components/schemas/mandate.core.PrincipalId'
+        scope:
+          $ref: '#/components/schemas/mandate.core.AuthorityScope'
+        audience:
+          $ref: '#/components/schemas/mandate.core.Audience'
+        expires_at:
+          type: string
+          format: date-time
+        not_before:
+          type: string
+          format: date-time
+        execution_binding:
+          $ref: '#/components/schemas/mandate.core.ExecutionId'
+      required:
+      - context
+      - delegate
+      - scope
+      - audience
+      - expires_at
+      additionalProperties: false
+    mandate.delegation.CreateDelegation.accepted.Response:
+      additionalProperties: false
+      description: Taken when no other outcome's condition matched. Emits `DelegationCreated`, published to consumers rather than returned here.
+      properties:
+        outcome:
+          const: accepted
+          description: Which declared outcome the command took.
+      required:
+      - outcome
+      type: object
+    mandate.delegation.CreateDelegation.denied.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: Caller lacks delegation authority, subject/delegate/tenant/space/registered audience or execution binding fails, requested scope/expiry exceeds source/delegation/policy limits or agent ceilings, or a transitive/approval-required grant would be created..'
+      properties:
+        error:
+          const: mandate.delegation.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.delegation.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
+    mandate.delegation.Denied.Error:
+      title: Denied payload
+      description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+      x-ess-name: mandate.delegation.Denied
+      x-ess-kind: error-payload
+      type: object
+      properties:
+        reason:
+          $ref: '#/components/schemas/mandate.core.DenialReason'
+      required:
+      - reason
+      additionalProperties: false
+    mandate.delegation.RevokeDelegation.Input:
+      title: RevokeDelegation input
+      x-ess-name: mandate.delegation.RevokeDelegation
+      x-ess-kind: command-input
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/mandate.core.DelegationId'
+        context:
+          $ref: '#/components/schemas/mandate.core.VerifiedContext'
+      required:
+      - id
+      - context
+      additionalProperties: false
+    mandate.delegation.RevokeDelegation.accepted.Response:
+      additionalProperties: false
+      description: Taken when no other outcome's condition matched. A `mandate.delegation.Delegation` has moved to `Revoked`, along `revoke`. The instance is the one `id` names. Emits `DelegationRevoked`, published to consumers rather than returned here.
+      properties:
+        outcome:
+          const: accepted
+          description: Which declared outcome the command took.
+      required:
+      - outcome
+      type: object
+    mandate.delegation.RevokeDelegation.denied.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: Caller lacks delegation-revocation authority, delegation is outside the verified organization, or durable revocation and affected exchange invalidation fail..'
+      properties:
+        error:
+          const: mandate.delegation.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.delegation.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
+    mandate.directory.CreateDirectoryGroupTeamMapping.Input:
+      title: CreateDirectoryGroupTeamMapping input
+      x-ess-name: mandate.directory.CreateDirectoryGroupTeamMapping
+      x-ess-kind: command-input
+      type: object
+      properties:
+        context:
+          $ref: '#/components/schemas/mandate.core.VerifiedContext'
+        group_id:
+          $ref: '#/components/schemas/mandate.core.DirectoryGroupId'
+        team_id:
+          $ref: '#/components/schemas/mandate.core.TeamId'
+      required:
+      - context
+      - group_id
+      - team_id
+      additionalProperties: false
+    mandate.directory.CreateDirectoryGroupTeamMapping.accepted.Response:
+      additionalProperties: false
+      description: Taken when no other outcome's condition matched. Emits `DirectoryGroupTeamMappingCreated`, published to consumers rather than returned here.
+      properties:
+        outcome:
+          const: accepted
+          description: Which declared outcome the command took.
+      required:
+      - outcome
+      type: object
+    mandate.directory.CreateDirectoryGroupTeamMapping.denied.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: Caller lacks mapping authority, group/team is unknown, either target is outside the verified organization, or provenance-preserving contribution reconciliation fails..'
+      properties:
+        error:
+          const: mandate.directory.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.directory.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
+    mandate.directory.Denied.Error:
+      title: Denied payload
+      description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+      x-ess-name: mandate.directory.Denied
+      x-ess-kind: error-payload
+      type: object
+      properties:
+        reason:
+          $ref: '#/components/schemas/mandate.core.DenialReason'
+      required:
+      - reason
+      additionalProperties: false
+    mandate.directory.RemoveDirectoryGroupMembership.Input:
+      title: RemoveDirectoryGroupMembership input
+      x-ess-name: mandate.directory.RemoveDirectoryGroupMembership
+      x-ess-kind: command-input
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/mandate.core.DirectoryGroupMembershipId'
+        context:
+          $ref: '#/components/schemas/mandate.core.VerifiedContext'
+      required:
+      - id
+      - context
+      additionalProperties: false
+    mandate.directory.RemoveDirectoryGroupMembership.accepted.Response:
+      additionalProperties: false
+      description: Taken when no other outcome's condition matched. A `mandate.directory.DirectoryGroupMembership` has moved to `Removed`, along `remove`. The instance is the one `id` names. Emits `DirectoryGroupMembershipRemoved`, published to consumers rather than returned here.
+      properties:
+        outcome:
+          const: accepted
+          description: Which declared outcome the command took.
+      required:
+      - outcome
+      type: object
+    mandate.directory.RemoveDirectoryGroupMembership.denied.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: Caller lacks trusted provisioning authority, group/member organization mismatches, or derived contribution removal cannot preserve unrelated memberships..'
+      properties:
+        error:
+          const: mandate.directory.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.directory.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
+    mandate.directory.RemoveDirectoryGroupTeamMapping.Input:
+      title: RemoveDirectoryGroupTeamMapping input
+      x-ess-name: mandate.directory.RemoveDirectoryGroupTeamMapping
+      x-ess-kind: command-input
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/mandate.core.DirectoryGroupTeamMappingId'
+        context:
+          $ref: '#/components/schemas/mandate.core.VerifiedContext'
+      required:
+      - id
+      - context
+      additionalProperties: false
+    mandate.directory.RemoveDirectoryGroupTeamMapping.accepted.Response:
+      additionalProperties: false
+      description: Taken when no other outcome's condition matched. A `mandate.directory.DirectoryGroupTeamMapping` has moved to `Removed`, along `remove`. The instance is the one `id` names. Emits `DirectoryGroupTeamMappingRemoved`, published to consumers rather than returned here.
+      properties:
+        outcome:
+          const: accepted
+          description: Which declared outcome the command took.
+      required:
+      - outcome
+      type: object
+    mandate.directory.RemoveDirectoryGroupTeamMapping.denied.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: Caller lacks mapping authority, mapping is outside the verified organization, or retraction would remove the team, manual membership or another mapping contribution..'
+      properties:
+        error:
+          const: mandate.directory.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.directory.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
+    mandate.directory.RemoveMembershipContribution.Input:
+      title: RemoveMembershipContribution input
+      x-ess-name: mandate.directory.RemoveMembershipContribution
+      x-ess-kind: command-input
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/mandate.core.MembershipContributionId'
+        context:
+          $ref: '#/components/schemas/mandate.core.VerifiedContext'
+      required:
+      - id
+      - context
+      additionalProperties: false
+    mandate.directory.RemoveMembershipContribution.accepted.Response:
+      additionalProperties: false
+      description: Taken when no other outcome's condition matched. A `mandate.directory.MembershipContribution` has moved to `Removed`, along `remove`. The instance is the one `id` names. Emits `MembershipContributionRemoved`, published to consumers rather than returned here.
+      properties:
+        outcome:
+          const: accepted
+          description: Which declared outcome the command took.
+      required:
+      - outcome
+      type: object
+    mandate.directory.RemoveMembershipContribution.denied.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: Caller lacks mapping authority, contribution is outside the verified organization, or deletion cannot preserve every other valid manual/mapping contribution..'
+      properties:
+        error:
+          const: mandate.directory.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.directory.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
+    mandate.directory.SyncDirectoryMembership.Input:
+      title: SyncDirectoryMembership input
+      x-ess-name: mandate.directory.SyncDirectoryMembership
+      x-ess-kind: command-input
+      type: object
+      properties:
+        context:
+          $ref: '#/components/schemas/mandate.core.VerifiedContext'
+        group_id:
+          $ref: '#/components/schemas/mandate.core.DirectoryGroupId'
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/mandate.core.PrincipalId'
+      required:
+      - context
+      - group_id
+      - members
+      additionalProperties: false
+    mandate.directory.SyncDirectoryMembership.accepted.Response:
+      additionalProperties: false
+      description: Taken when no other outcome's condition matched. Emits `DirectoryGroupMembershipChanged`, published to consumers rather than returned here.
+      properties:
+        outcome:
+          const: accepted
+          description: Which declared outcome the command took.
+      required:
+      - outcome
+      type: object
+    mandate.directory.SyncDirectoryMembership.denied.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: Caller is not an admitted provisioning source, group/member organization mismatches, or synchronization would grant authority without an explicit valid team mapping..'
+      properties:
+        error:
+          const: mandate.directory.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.directory.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
+    mandate.federation.AuthenticateFederation.Input:
+      title: AuthenticateFederation input
+      x-ess-name: mandate.federation.AuthenticateFederation
+      x-ess-kind: command-input
+      type: object
+      properties:
+        connection_id:
+          $ref: '#/components/schemas/mandate.core.FederationConnectionId'
+        proof:
+          $ref: '#/components/schemas/mandate.core.CredentialProof'
+      required:
+      - connection_id
+      - proof
+      additionalProperties: false
+    mandate.federation.AuthenticateFederation.accepted.Response:
+      additionalProperties: false
+      description: Taken when no other outcome's condition matched. Emits `FederationAuthenticated`, published to consumers rather than returned here.
+      properties:
+        outcome:
+          const: accepted
+          description: Which declared outcome the command took.
+      required:
+      - outcome
+      type: object
+    mandate.federation.AuthenticateFederation.denied.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: Connection is disabled/untrusted, proof signature/issuer/audience/expiry is invalid, tenant resolution has zero or multiple matches, principal linking is absent/conflicting, or any email-domain/unverified-input fallback would be required..'
+      properties:
+        error:
+          const: mandate.federation.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.federation.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
+    mandate.federation.AuthorizePublicClient.Input:
+      title: AuthorizePublicClient input
+      x-ess-name: mandate.federation.AuthorizePublicClient
+      x-ess-kind: command-input
+      type: object
+      properties:
+        client_id:
+          $ref: '#/components/schemas/mandate.core.OAuthClientId'
+        redirect_uri:
+          $ref: '#/components/schemas/mandate.core.RedirectUri'
+        challenge:
+          $ref: '#/components/schemas/mandate.core.PkceChallenge'
+        method:
+          $ref: '#/components/schemas/mandate.core.PkceMethod'
+        state:
+          type: string
+        nonce:
+          type: string
+        session_proof:
+          $ref: '#/components/schemas/mandate.core.CredentialProof'
+        target:
+          $ref: '#/components/schemas/mandate.core.ResourceServerId'
+        requested_scope:
+          $ref: '#/components/schemas/mandate.core.AuthorityScope'
+      required:
+      - client_id
+      - redirect_uri
+      - challenge
+      - method
+      - state
+      - nonce
+      - session_proof
+      - target
+      - requested_scope
+      additionalProperties: false
+    mandate.federation.AuthorizePublicClient.accepted.Response:
+      additionalProperties: false
+      description: Taken when no other outcome's condition matched. Emits `AuthorizationCodeIssued`, published to consumers rather than returned here.
+      properties:
+        outcome:
+          const: accepted
+          description: Which declared outcome the command took.
+      required:
+      - outcome
+      type: object
+    mandate.federation.AuthorizePublicClient.denied.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: Session proof is invalid/stale, client is not a registered public client, exact redirect URI or state/applicable nonce binding fails, S256 challenge is absent/invalid, target is unregistered/outside tenant, or STS code issuance/narrowing is refused..'
+      properties:
+        error:
+          const: mandate.federation.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.federation.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
+    mandate.federation.Denied.Error:
+      title: Denied payload
+      description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+      x-ess-name: mandate.federation.Denied
+      x-ess-kind: error-payload
+      type: object
+      properties:
+        reason:
+          $ref: '#/components/schemas/mandate.core.DenialReason'
+      required:
+      - reason
+      additionalProperties: false
+    mandate.federation.DisableFederationConnection.Input:
+      title: DisableFederationConnection input
+      x-ess-name: mandate.federation.DisableFederationConnection
+      x-ess-kind: command-input
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/mandate.core.FederationConnectionId'
+        context:
+          $ref: '#/components/schemas/mandate.core.VerifiedContext'
+      required:
+      - id
+      - context
+      additionalProperties: false
+    mandate.federation.DisableFederationConnection.accepted.Response:
+      additionalProperties: false
+      description: Taken when no other outcome's condition matched. A `mandate.federation.FederationConnection` has moved to `Disabled`, along `disable`. The instance is the one `id` names. Emits `FederationConnectionDisabled`, published to consumers rather than returned here.
+      properties:
+        outcome:
+          const: accepted
+          description: Which declared outcome the command took.
+      required:
+      - outcome
+      type: object
+    mandate.federation.DisableFederationConnection.denied.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: Caller lacks federation-administration authority, connection is outside the verified organization, or emergency trust shutdown and affected generation invalidation cannot commit..'
+      properties:
+        error:
+          const: mandate.federation.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.federation.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
+    mandate.federation.LinkExternalPrincipal.Input:
+      title: LinkExternalPrincipal input
+      x-ess-name: mandate.federation.LinkExternalPrincipal
+      x-ess-kind: command-input
+      type: object
+      properties:
+        context:
+          $ref: '#/components/schemas/mandate.core.VerifiedContext'
+        connection_id:
+          $ref: '#/components/schemas/mandate.core.FederationConnectionId'
+        external_subject:
+          $ref: '#/components/schemas/mandate.core.ExternalSubject'
+        principal_id:
+          $ref: '#/components/schemas/mandate.core.PrincipalId'
+        method:
+          $ref: '#/components/schemas/mandate.core.ExternalLinkMethod'
+      required:
+      - context
+      - connection_id
+      - external_subject
+      - principal_id
+      - method
+      additionalProperties: false
+    mandate.federation.LinkExternalPrincipal.accepted.Response:
+      additionalProperties: false
+      description: Taken when no other outcome's condition matched. Emits `ExternalPrincipalLinked`, published to consumers rather than returned here.
+      properties:
+        outcome:
+          const: accepted
+          description: Which declared outcome the command took.
+      required:
+      - outcome
+      type: object
+    mandate.federation.LinkExternalPrincipal.denied.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: Caller/method lacks linking authority, proof/connection trust is invalid, organization or target principal mismatches, composite (organization, configured issuer, subject) key conflicts, or durable audited linking fails. Email equality never authorizes linking..'
+      properties:
+        error:
+          const: mandate.federation.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.federation.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
+    mandate.federation.RegisterFederationConnection.Input:
+      title: RegisterFederationConnection input
+      x-ess-name: mandate.federation.RegisterFederationConnection
+      x-ess-kind: command-input
+      type: object
+      properties:
+        context:
+          $ref: '#/components/schemas/mandate.core.VerifiedContext'
+        issuer:
+          $ref: '#/components/schemas/mandate.core.Issuer'
+        client_id:
+          $ref: '#/components/schemas/mandate.core.ClientId'
+        tenant_resolution:
+          $ref: '#/components/schemas/mandate.core.TenantResolutionRule'
+      required:
+      - context
+      - issuer
+      - client_id
+      - tenant_resolution
+      additionalProperties: false
+    mandate.federation.RegisterFederationConnection.accepted.Response:
+      additionalProperties: false
+      description: Taken when no other outcome's condition matched. Emits `FederationConnectionCreated`, published to consumers rather than returned here.
+      properties:
+        outcome:
+          const: accepted
+          description: Which declared outcome the command took.
+      required:
+      - outcome
+      type: object
+    mandate.federation.RegisterFederationConnection.denied.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: Caller lacks federation-administration authority, issuer/client/trust or tenant-resolution configuration is unadmitted, or organization binding is invalid..'
+      properties:
+        error:
+          const: mandate.federation.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.federation.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
+    mandate.federation.UnlinkExternalPrincipal.Input:
+      title: UnlinkExternalPrincipal input
+      x-ess-name: mandate.federation.UnlinkExternalPrincipal
+      x-ess-kind: command-input
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/mandate.core.ExternalPrincipalId'
+        context:
+          $ref: '#/components/schemas/mandate.core.VerifiedContext'
+      required:
+      - id
+      - context
+      additionalProperties: false
+    mandate.federation.UnlinkExternalPrincipal.accepted.Response:
+      additionalProperties: false
+      description: Taken when no other outcome's condition matched. A `mandate.federation.ExternalPrincipal` has moved to `Unlinked`, along `unlink`. The instance is the one `id` names. Emits `ExternalPrincipalUnlinked`, published to consumers rather than returned here.
+      properties:
+        outcome:
+          const: accepted
+          description: Which declared outcome the command took.
+      required:
+      - outcome
+      type: object
+    mandate.federation.UnlinkExternalPrincipal.denied.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: Caller lacks explicit link-administration authority, link is outside the verified organization, or unlinking and its required invalidation/audit cannot commit..'
+      properties:
+        error:
+          const: mandate.federation.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.federation.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
+    mandate.identity.Denied.Error:
+      title: Denied payload
+      description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+      x-ess-name: mandate.identity.Denied
+      x-ess-kind: error-payload
+      type: object
+      properties:
+        reason:
+          $ref: '#/components/schemas/mandate.core.DenialReason'
+      required:
+      - reason
+      additionalProperties: false
+    mandate.identity.DisablePrincipal.Input:
+      title: DisablePrincipal input
+      x-ess-name: mandate.identity.DisablePrincipal
+      x-ess-kind: command-input
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/mandate.core.PrincipalId'
+        context:
+          $ref: '#/components/schemas/mandate.core.VerifiedContext'
+      required:
+      - id
+      - context
+      additionalProperties: false
+    mandate.identity.DisablePrincipal.accepted.Response:
+      additionalProperties: false
+      description: Taken when no other outcome's condition matched. A `mandate.identity.Principal` has moved to `Disabled`, along `disable`. The instance is the one `id` names. Emits `PrincipalDisabled`, published to consumers rather than returned here.
+      properties:
+        outcome:
+          const: accepted
+          description: Which declared outcome the command took.
+      required:
+      - outcome
+      type: object
+    mandate.identity.DisablePrincipal.denied.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: Caller lacks principal-administration authority, principal does not exist, or disablement cannot atomically trigger the required session/credential invalidation..'
+      properties:
+        error:
+          const: mandate.identity.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.identity.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
+    mandate.identity.IncrementSecurityEpoch.Input:
+      title: IncrementSecurityEpoch input
+      x-ess-name: mandate.identity.IncrementSecurityEpoch
+      x-ess-kind: command-input
+      type: object
+      properties:
+        context:
+          $ref: '#/components/schemas/mandate.core.VerifiedContext'
+        target:
+          $ref: '#/components/schemas/mandate.core.SecurityEpochTarget'
+      required:
+      - context
+      - target
+      additionalProperties: false
+    mandate.identity.IncrementSecurityEpoch.accepted.Response:
+      additionalProperties: false
+      description: 'UNMAPPED-EPOCH: this event declares the required increment outcome; no numeric mutation is executed or approximated. The adapter must atomically increment the one selected generation, deny unsigned overflow and preserve isolation of unrelated organizations/connections. Taken when no other outcome''s condition matched. Emits `SecurityEpochIncremented`, published to consumers rather than returned here.'
+      properties:
+        outcome:
+          const: accepted
+          description: Which declared outcome the command took.
+      required:
+      - outcome
+      type: object
+    mandate.identity.IncrementSecurityEpoch.denied.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: Caller lacks authority for the explicitly selected principal/organization/federation target, tenant containment fails, the exact unsigned generation is at its maximum, or atomic increment cannot commit..'
+      properties:
+        error:
+          const: mandate.identity.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.identity.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
+    mandate.identity.RefreshSession.Input:
+      title: RefreshSession input
+      x-ess-name: mandate.identity.RefreshSession
+      x-ess-kind: command-input
+      type: object
+      properties:
+        refresh_proof:
+          $ref: '#/components/schemas/mandate.core.CredentialProof'
+      required:
+      - refresh_proof
+      additionalProperties: false
+    mandate.identity.RefreshSession.accepted.Response:
+      additionalProperties: false
+      description: Taken when no other outcome's condition matched. Emits `SessionRefreshed`, published to consumers rather than returned here.
+      properties:
+        outcome:
+          const: accepted
+          description: Which declared outcome the command took.
+      required:
+      - outcome
+      type: object
+    mandate.identity.RefreshSession.denied.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: Refresh verifier is absent/incorrect, record is expired/revoked, principal/session is disabled, any applicable principal/organization/federation epoch mismatches, or session binding fails..'
+      properties:
+        error:
+          const: mandate.identity.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.identity.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
+    mandate.identity.RevokeRefreshCredential.Input:
+      title: RevokeRefreshCredential input
+      x-ess-name: mandate.identity.RevokeRefreshCredential
+      x-ess-kind: command-input
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/mandate.core.RefreshCredentialId'
+        context:
+          $ref: '#/components/schemas/mandate.core.VerifiedContext'
+      required:
+      - id
+      - context
+      additionalProperties: false
+    mandate.identity.RevokeRefreshCredential.accepted.Response:
+      additionalProperties: false
+      description: Taken when no other outcome's condition matched. A `mandate.identity.RefreshCredential` has moved to `Revoked`, along `revoke`. The instance is the one `id` names. Emits `RefreshCredentialRevoked`, published to consumers rather than returned here.
+      properties:
+        outcome:
+          const: accepted
+          description: Which declared outcome the command took.
+      required:
+      - outcome
+      type: object
+    mandate.identity.RevokeRefreshCredential.denied.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: Caller lacks authority over the resolved refresh credential, tenant/session binding mismatches, or durable revocation fails..'
+      properties:
+        error:
+          const: mandate.identity.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.identity.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
+    mandate.identity.RevokeSession.Input:
+      title: RevokeSession input
+      x-ess-name: mandate.identity.RevokeSession
+      x-ess-kind: command-input
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/mandate.core.SessionId'
+        context:
+          $ref: '#/components/schemas/mandate.core.VerifiedContext'
+      required:
+      - id
+      - context
+      additionalProperties: false
+    mandate.identity.RevokeSession.accepted.Response:
+      additionalProperties: false
+      description: Taken when no other outcome's condition matched. A `mandate.identity.Session` has moved to `Revoked`, along `revoke`. The instance is the one `id` names. Emits `SessionRevoked`, published to consumers rather than returned here.
+      properties:
+        outcome:
+          const: accepted
+          description: Which declared outcome the command took.
+      required:
+      - outcome
+      type: object
+    mandate.identity.RevokeSession.denied.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: Caller lacks authority over this session, session is outside the verified organization, or revocation cannot be durably observed under the applicable profile..'
+      properties:
+        error:
+          const: mandate.identity.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.identity.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
+    mandate.tenancy.Denied.Error:
+      title: Denied payload
+      description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+      x-ess-name: mandate.tenancy.Denied
+      x-ess-kind: error-payload
+      type: object
+      properties:
+        reason:
+          $ref: '#/components/schemas/mandate.core.DenialReason'
+      required:
+      - reason
+      additionalProperties: false
+    mandate.tenancy.RemoveOrganizationMembership.Input:
+      title: RemoveOrganizationMembership input
+      x-ess-name: mandate.tenancy.RemoveOrganizationMembership
+      x-ess-kind: command-input
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/mandate.core.OrganizationMembershipId'
+        context:
+          $ref: '#/components/schemas/mandate.core.VerifiedContext'
+      required:
+      - id
+      - context
+      additionalProperties: false
+    mandate.tenancy.RemoveOrganizationMembership.accepted.Response:
+      additionalProperties: false
+      description: Taken when no other outcome's condition matched. A `mandate.tenancy.OrganizationMembership` has moved to `Removed`, along `remove`. The instance is the one `id` names. Emits `OrganizationMembershipRemoved`, published to consumers rather than returned here.
+      properties:
+        outcome:
+          const: accepted
+          description: Which declared outcome the command took.
+      required:
+      - outcome
+      type: object
+    mandate.tenancy.RemoveOrganizationMembership.denied.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: Caller lacks membership-administration authority, membership is outside the verified organization, or membership and dependent authorization invalidation cannot commit consistently..'
+      properties:
+        error:
+          const: mandate.tenancy.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.tenancy.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
+x-ess-entities:
+  mandate.core.Action:
+    title: Action
+    x-ess-name: mandate.core.Action
+    x-ess-kind: newtype
+    type: string
+  mandate.core.ActionPattern:
+    title: ActionPattern
+    x-ess-name: mandate.core.ActionPattern
+    x-ess-kind: newtype
+    type: string
+  mandate.core.AgentCapabilityCeilingId:
+    title: AgentCapabilityCeilingId
+    x-ess-name: mandate.core.AgentCapabilityCeilingId
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.ApprovalId:
+    title: ApprovalId
+    x-ess-name: mandate.core.ApprovalId
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.Audience:
+    title: Audience
+    x-ess-name: mandate.core.Audience
+    x-ess-kind: newtype
+    type: string
+  mandate.core.AuthorityScope:
+    title: AuthorityScope
+    x-ess-name: mandate.core.AuthorityScope
+    x-ess-kind: struct
+    type: object
+    properties:
+      actions:
+        type: array
+        items:
+          $ref: '#/x-ess-entities/mandate.core.Action'
+      resources:
+        type: array
+        items:
+          $ref: '#/x-ess-entities/mandate.core.ResourceRef'
+      space:
+        $ref: '#/x-ess-entities/mandate.core.SpaceId'
+    required:
+    - actions
+    - resources
+    additionalProperties: false
+  mandate.core.ClientId:
+    title: ClientId
+    x-ess-name: mandate.core.ClientId
+    x-ess-kind: newtype
+    type: string
+  mandate.core.CorrelationId:
+    title: CorrelationId
+    x-ess-name: mandate.core.CorrelationId
+    x-ess-kind: newtype
+    type: string
+  mandate.core.CredentialVerifier:
+    title: CredentialVerifier
+    x-ess-name: mandate.core.CredentialVerifier
+    x-ess-kind: newtype
+    type: string
+  mandate.core.DelegationId:
+    title: DelegationId
+    x-ess-name: mandate.core.DelegationId
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.DirectoryGroupId:
+    title: DirectoryGroupId
+    x-ess-name: mandate.core.DirectoryGroupId
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.DirectoryGroupMembershipId:
+    title: DirectoryGroupMembershipId
+    x-ess-name: mandate.core.DirectoryGroupMembershipId
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.DirectoryGroupTeamMappingId:
+    title: DirectoryGroupTeamMappingId
+    x-ess-name: mandate.core.DirectoryGroupTeamMappingId
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.EpochSnapshotRef:
+    title: EpochSnapshotRef
+    x-ess-name: mandate.core.EpochSnapshotRef
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.ExecutionId:
+    title: ExecutionId
+    x-ess-name: mandate.core.ExecutionId
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.ExternalLinkMethod:
+    title: ExternalLinkMethod
+    x-ess-name: mandate.core.ExternalLinkMethod
+    x-ess-kind: enum
+    type: string
+    enum:
+    - Administrator
+    - AuthenticatedConfirmation
+    - VerifiedMigration
+    - ConfiguredFederation
+    - SecuritySupport
+  mandate.core.ExternalPrincipalId:
+    title: ExternalPrincipalId
+    x-ess-name: mandate.core.ExternalPrincipalId
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.ExternalSubject:
+    title: ExternalSubject
+    x-ess-name: mandate.core.ExternalSubject
+    x-ess-kind: newtype
+    type: string
+  mandate.core.FederationConnectionId:
+    title: FederationConnectionId
+    x-ess-name: mandate.core.FederationConnectionId
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.Issuer:
+    title: Issuer
+    x-ess-name: mandate.core.Issuer
+    x-ess-kind: newtype
+    type: string
+  mandate.core.MembershipContributionId:
+    title: MembershipContributionId
+    x-ess-name: mandate.core.MembershipContributionId
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.MembershipSource:
+    title: MembershipSource
+    x-ess-name: mandate.core.MembershipSource
+    x-ess-kind: enum
+    type: string
+    enum:
+    - Manual
+    - DirectoryMapping
+  mandate.core.OAuthClientId:
+    title: OAuthClientId
+    x-ess-name: mandate.core.OAuthClientId
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.OrganizationId:
+    title: OrganizationId
+    x-ess-name: mandate.core.OrganizationId
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.OrganizationMembershipId:
+    title: OrganizationMembershipId
+    x-ess-name: mandate.core.OrganizationMembershipId
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.PkceMethod:
+    title: PkceMethod
+    x-ess-name: mandate.core.PkceMethod
+    x-ess-kind: enum
+    type: string
+    enum:
+    - S256
+  mandate.core.PolicyVersion:
+    title: PolicyVersion
+    x-ess-name: mandate.core.PolicyVersion
+    x-ess-kind: newtype
+    type: string
+  mandate.core.PrincipalId:
+    title: PrincipalId
+    x-ess-name: mandate.core.PrincipalId
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.PrincipalKind:
+    title: PrincipalKind
+    x-ess-name: mandate.core.PrincipalKind
+    x-ess-kind: enum
+    type: string
+    enum:
+    - User
+    - Service
+    - Agent
+    - ServiceAccount
+  mandate.core.RedirectUri:
+    title: RedirectUri
+    x-ess-name: mandate.core.RedirectUri
+    x-ess-kind: newtype
+    type: string
+  mandate.core.RefreshCredentialId:
+    title: RefreshCredentialId
+    x-ess-name: mandate.core.RefreshCredentialId
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.ResourceId:
+    title: ResourceId
+    x-ess-name: mandate.core.ResourceId
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.ResourceRef:
+    title: ResourceRef
+    x-ess-name: mandate.core.ResourceRef
+    x-ess-kind: struct
+    type: object
+    properties:
+      resource_type:
+        $ref: '#/x-ess-entities/mandate.core.ResourceType'
+      resource_id:
+        $ref: '#/x-ess-entities/mandate.core.ResourceId'
+    required:
+    - resource_type
+    - resource_id
+    additionalProperties: false
+  mandate.core.ResourceType:
+    title: ResourceType
+    x-ess-name: mandate.core.ResourceType
+    x-ess-kind: newtype
+    type: string
+  mandate.core.SessionId:
+    title: SessionId
+    x-ess-name: mandate.core.SessionId
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.SpaceId:
+    title: SpaceId
+    x-ess-name: mandate.core.SpaceId
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.SyncJobId:
+    title: SyncJobId
+    x-ess-name: mandate.core.SyncJobId
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.TeamId:
+    title: TeamId
+    x-ess-name: mandate.core.TeamId
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.TeamMembershipId:
+    title: TeamMembershipId
+    x-ess-name: mandate.core.TeamMembershipId
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.TenantResolutionRule:
+    title: TenantResolutionRule
+    x-ess-name: mandate.core.TenantResolutionRule
+    x-ess-kind: struct
+    type: object
+    properties:
+      configured_organization:
+        $ref: '#/x-ess-entities/mandate.core.OrganizationId'
+      verified_claim_name:
+        type: string
+      verified_claim_value:
+        type: string
+    required:
+    - configured_organization
+    additionalProperties: false
+  mandate.core.TrustDomain:
+    title: TrustDomain
+    x-ess-name: mandate.core.TrustDomain
+    x-ess-kind: newtype
+    type: string
+  mandate.core.WorkloadIdentityId:
+    title: WorkloadIdentityId
+    x-ess-name: mandate.core.WorkloadIdentityId
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.delegation.Agent:
+    title: Agent
+    x-ess-name: mandate.delegation.Agent
+    x-ess-kind: entity
+    type: object
+    properties:
+      id:
+        $ref: '#/x-ess-entities/mandate.core.PrincipalId'
+      organization_id:
+        $ref: '#/x-ess-entities/mandate.core.OrganizationId'
+        x-ess-relation:
+          name: organization_id_record
+          kind: references
+          source: mandate.delegation.Agent
+          target: mandate.tenancy.Organization
+          cardinality: one
+          via: organization_id
+          $ref: '#/x-ess-entities/mandate.tenancy.Organization'
+      agent_type:
+        type: string
+      state:
+        $ref: '#/x-ess-entities/mandate.delegation.Agent.State'
+    required:
+    - id
+    - organization_id
+    - agent_type
+    - state
+    additionalProperties: false
+  mandate.delegation.Agent.State:
+    title: State
+    x-ess-name: mandate.delegation.Agent.State
+    x-ess-kind: enum
+    type: string
+    enum:
+    - Recorded
+  mandate.delegation.AgentCapabilityCeiling:
+    title: AgentCapabilityCeiling
+    x-ess-name: mandate.delegation.AgentCapabilityCeiling
+    x-ess-kind: entity
+    type: object
+    properties:
+      id:
+        $ref: '#/x-ess-entities/mandate.core.AgentCapabilityCeilingId'
+      agent_id:
+        $ref: '#/x-ess-entities/mandate.core.PrincipalId'
+        x-ess-relation:
+          name: agent_record
+          kind: references
+          source: mandate.delegation.AgentCapabilityCeiling
+          target: mandate.identity.Principal
+          cardinality: one
+          via: agent_id
+          $ref: '#/x-ess-entities/mandate.identity.Principal'
+      organization_id:
+        $ref: '#/x-ess-entities/mandate.core.OrganizationId'
+        x-ess-relation:
+          name: organization_id_record
+          kind: references
+          source: mandate.delegation.AgentCapabilityCeiling
+          target: mandate.tenancy.Organization
+          cardinality: one
+          via: organization_id
+          $ref: '#/x-ess-entities/mandate.tenancy.Organization'
+      allowed_actions:
+        type: array
+        items:
+          $ref: '#/x-ess-entities/mandate.core.ActionPattern'
+      denied_actions:
+        type: array
+        items:
+          $ref: '#/x-ess-entities/mandate.core.ActionPattern'
+      scope:
+        $ref: '#/x-ess-entities/mandate.core.AuthorityScope'
+      max_delegation_ttl:
+        type: string
+        format: duration
+      state:
+        $ref: '#/x-ess-entities/mandate.delegation.AgentCapabilityCeiling.State'
+    required:
+    - id
+    - agent_id
+    - allowed_actions
+    - denied_actions
+    - scope
+    - max_delegation_ttl
+    - state
+    additionalProperties: false
+  mandate.delegation.AgentCapabilityCeiling.State:
+    title: State
+    x-ess-name: mandate.delegation.AgentCapabilityCeiling.State
+    x-ess-kind: enum
+    type: string
+    enum:
+    - Recorded
+  mandate.delegation.Approval:
+    title: Approval
+    x-ess-name: mandate.delegation.Approval
+    x-ess-kind: entity
+    type: object
+    properties:
+      id:
+        $ref: '#/x-ess-entities/mandate.core.ApprovalId'
+      organization_id:
+        $ref: '#/x-ess-entities/mandate.core.OrganizationId'
+        x-ess-relation:
+          name: organization_id_record
+          kind: references
+          source: mandate.delegation.Approval
+          target: mandate.tenancy.Organization
+          cardinality: one
+          via: organization_id
+          $ref: '#/x-ess-entities/mandate.tenancy.Organization'
+      subject:
+        $ref: '#/x-ess-entities/mandate.core.PrincipalId'
+        x-ess-relation:
+          name: subject_record
+          kind: references
+          source: mandate.delegation.Approval
+          target: mandate.identity.Principal
+          cardinality: one
+          via: subject
+          $ref: '#/x-ess-entities/mandate.identity.Principal'
+      actor:
+        $ref: '#/x-ess-entities/mandate.core.PrincipalId'
+        x-ess-relation:
+          name: actor_record
+          kind: references
+          source: mandate.delegation.Approval
+          target: mandate.identity.Principal
+          cardinality: one
+          via: actor
+          $ref: '#/x-ess-entities/mandate.identity.Principal'
+      action:
+        $ref: '#/x-ess-entities/mandate.core.Action'
+      resource:
+        $ref: '#/x-ess-entities/mandate.core.ResourceRef'
+      expires_at:
+        type: string
+        format: date-time
+      approver:
+        $ref: '#/x-ess-entities/mandate.core.PrincipalId'
+        x-ess-relation:
+          name: approver_record
+          kind: references
+          source: mandate.delegation.Approval
+          target: mandate.identity.Principal
+          cardinality: one
+          via: approver
+          $ref: '#/x-ess-entities/mandate.identity.Principal'
+      state:
+        $ref: '#/x-ess-entities/mandate.delegation.Approval.State'
+    required:
+    - id
+    - organization_id
+    - subject
+    - action
+    - resource
+    - expires_at
+    - approver
+    - state
+    additionalProperties: false
+  mandate.delegation.Approval.State:
+    title: State
+    x-ess-name: mandate.delegation.Approval.State
+    x-ess-kind: enum
+    type: string
+    enum:
+    - Recorded
+  mandate.delegation.Delegation:
+    title: Delegation
+    x-ess-name: mandate.delegation.Delegation
+    x-ess-kind: entity
+    type: object
+    properties:
+      id:
+        $ref: '#/x-ess-entities/mandate.core.DelegationId'
+      organization_id:
+        $ref: '#/x-ess-entities/mandate.core.OrganizationId'
+        x-ess-relation:
+          name: organization_id_record
+          kind: references
+          source: mandate.delegation.Delegation
+          target: mandate.tenancy.Organization
+          cardinality: one
+          via: organization_id
+          $ref: '#/x-ess-entities/mandate.tenancy.Organization'
+      delegator:
+        $ref: '#/x-ess-entities/mandate.core.PrincipalId'
+        x-ess-relation:
+          name: delegator_record
+          kind: references
+          source: mandate.delegation.Delegation
+          target: mandate.identity.Principal
+          cardinality: one
+          via: delegator
+          $ref: '#/x-ess-entities/mandate.identity.Principal'
+      delegate:
+        $ref: '#/x-ess-entities/mandate.core.PrincipalId'
+        x-ess-relation:
+          name: delegate_record
+          kind: references
+          source: mandate.delegation.Delegation
+          target: mandate.identity.Principal
+          cardinality: one
+          via: delegate
+          $ref: '#/x-ess-entities/mandate.identity.Principal'
+      scope:
+        $ref: '#/x-ess-entities/mandate.core.AuthorityScope'
+      audience:
+        $ref: '#/x-ess-entities/mandate.core.Audience'
+      not_before:
+        type: string
+        format: date-time
+      expires_at:
+        type: string
+        format: date-time
+      execution_binding:
+        $ref: '#/x-ess-entities/mandate.core.ExecutionId'
+        x-ess-relation:
+          name: execution_binding_record
+          kind: references
+          source: mandate.delegation.Delegation
+          target: mandate.delegation.Execution
+          cardinality: one
+          via: execution_binding
+          $ref: '#/x-ess-entities/mandate.delegation.Execution'
+      transitive:
+        type: boolean
+      created_at:
+        type: string
+        format: date-time
+      state:
+        $ref: '#/x-ess-entities/mandate.delegation.Delegation.State'
+    required:
+    - id
+    - organization_id
+    - delegator
+    - delegate
+    - scope
+    - audience
+    - expires_at
+    - transitive
+    - created_at
+    - state
+    additionalProperties: false
+  mandate.delegation.Delegation.State:
+    title: State
+    x-ess-name: mandate.delegation.Delegation.State
+    x-ess-kind: enum
+    type: string
+    enum:
+    - Active
+    - Revoked
+  mandate.delegation.Execution:
+    title: Execution
+    x-ess-name: mandate.delegation.Execution
+    x-ess-kind: entity
+    type: object
+    properties:
+      id:
+        $ref: '#/x-ess-entities/mandate.core.ExecutionId'
+      organization_id:
+        $ref: '#/x-ess-entities/mandate.core.OrganizationId'
+        x-ess-relation:
+          name: organization_id_record
+          kind: references
+          source: mandate.delegation.Execution
+          target: mandate.tenancy.Organization
+          cardinality: one
+          via: organization_id
+          $ref: '#/x-ess-entities/mandate.tenancy.Organization'
+      agent_id:
+        $ref: '#/x-ess-entities/mandate.core.PrincipalId'
+        x-ess-relation:
+          name: agent_id_record
+          kind: references
+          source: mandate.delegation.Execution
+          target: mandate.identity.Principal
+          cardinality: one
+          via: agent_id
+          $ref: '#/x-ess-entities/mandate.identity.Principal'
+      subject:
+        $ref: '#/x-ess-entities/mandate.core.PrincipalId'
+        x-ess-relation:
+          name: subject_record
+          kind: references
+          source: mandate.delegation.Execution
+          target: mandate.identity.Principal
+          cardinality: one
+          via: subject
+          $ref: '#/x-ess-entities/mandate.identity.Principal'
+      delegation_id:
+        $ref: '#/x-ess-entities/mandate.core.DelegationId'
+        x-ess-relation:
+          name: delegation_id_record
+          kind: references
+          source: mandate.delegation.Execution
+          target: mandate.delegation.Delegation
+          cardinality: one
+          via: delegation_id
+          $ref: '#/x-ess-entities/mandate.delegation.Delegation'
+      initiating_session:
+        $ref: '#/x-ess-entities/mandate.core.SessionId'
+        x-ess-relation:
+          name: initiating_session_record
+          kind: references
+          source: mandate.delegation.Execution
+          target: mandate.identity.Session
+          cardinality: one
+          via: initiating_session
+          $ref: '#/x-ess-entities/mandate.identity.Session'
+      created_at:
+        type: string
+        format: date-time
+      expires_at:
+        type: string
+        format: date-time
+      policy_version:
+        $ref: '#/x-ess-entities/mandate.core.PolicyVersion'
+      state:
+        $ref: '#/x-ess-entities/mandate.delegation.Execution.State'
+    required:
+    - id
+    - organization_id
+    - agent_id
+    - created_at
+    - expires_at
+    - policy_version
+    - state
+    additionalProperties: false
+  mandate.delegation.Execution.State:
+    title: State
+    x-ess-name: mandate.delegation.Execution.State
+    x-ess-kind: enum
+    type: string
+    enum:
+    - Recorded
+  mandate.directory.DirectoryGroup:
+    title: DirectoryGroup
+    x-ess-name: mandate.directory.DirectoryGroup
+    x-ess-kind: entity
+    type: object
+    properties:
+      id:
+        $ref: '#/x-ess-entities/mandate.core.DirectoryGroupId'
+      organization_id:
+        $ref: '#/x-ess-entities/mandate.core.OrganizationId'
+        x-ess-relation:
+          name: organization_id_record
+          kind: references
+          source: mandate.directory.DirectoryGroup
+          target: mandate.tenancy.Organization
+          cardinality: one
+          via: organization_id
+          $ref: '#/x-ess-entities/mandate.tenancy.Organization'
+      display_name:
+        type: string
+      source:
+        type: string
+      state:
+        $ref: '#/x-ess-entities/mandate.directory.DirectoryGroup.State'
+    required:
+    - id
+    - organization_id
+    - display_name
+    - source
+    - state
+    additionalProperties: false
+  mandate.directory.DirectoryGroup.State:
+    title: State
+    x-ess-name: mandate.directory.DirectoryGroup.State
+    x-ess-kind: enum
+    type: string
+    enum:
+    - Recorded
+  mandate.directory.DirectoryGroupMembership:
+    title: DirectoryGroupMembership
+    x-ess-name: mandate.directory.DirectoryGroupMembership
+    x-ess-kind: entity
+    type: object
+    properties:
+      id:
+        $ref: '#/x-ess-entities/mandate.core.DirectoryGroupMembershipId'
+      organization_id:
+        $ref: '#/x-ess-entities/mandate.core.OrganizationId'
+        x-ess-relation:
+          name: organization_id_record
+          kind: references
+          source: mandate.directory.DirectoryGroupMembership
+          target: mandate.tenancy.Organization
+          cardinality: one
+          via: organization_id
+          $ref: '#/x-ess-entities/mandate.tenancy.Organization'
+      group_id:
+        $ref: '#/x-ess-entities/mandate.core.DirectoryGroupId'
+        x-ess-relation:
+          name: group_id_record
+          kind: references
+          source: mandate.directory.DirectoryGroupMembership
+          target: mandate.directory.DirectoryGroup
+          cardinality: one
+          via: group_id
+          $ref: '#/x-ess-entities/mandate.directory.DirectoryGroup'
+      principal_id:
+        $ref: '#/x-ess-entities/mandate.core.PrincipalId'
+        x-ess-relation:
+          name: principal_id_record
+          kind: references
+          source: mandate.directory.DirectoryGroupMembership
+          target: mandate.identity.Principal
+          cardinality: one
+          via: principal_id
+          $ref: '#/x-ess-entities/mandate.identity.Principal'
+      state:
+        $ref: '#/x-ess-entities/mandate.directory.DirectoryGroupMembership.State'
+    required:
+    - id
+    - organization_id
+    - group_id
+    - principal_id
+    - state
+    additionalProperties: false
+  mandate.directory.DirectoryGroupMembership.State:
+    title: State
+    x-ess-name: mandate.directory.DirectoryGroupMembership.State
+    x-ess-kind: enum
+    type: string
+    enum:
+    - Active
+    - Removed
+  mandate.directory.DirectoryGroupTeamMapping:
+    title: DirectoryGroupTeamMapping
+    x-ess-name: mandate.directory.DirectoryGroupTeamMapping
+    x-ess-kind: entity
+    type: object
+    properties:
+      id:
+        $ref: '#/x-ess-entities/mandate.core.DirectoryGroupTeamMappingId'
+      organization_id:
+        $ref: '#/x-ess-entities/mandate.core.OrganizationId'
+        x-ess-relation:
+          name: organization_id_record
+          kind: references
+          source: mandate.directory.DirectoryGroupTeamMapping
+          target: mandate.tenancy.Organization
+          cardinality: one
+          via: organization_id
+          $ref: '#/x-ess-entities/mandate.tenancy.Organization'
+      group_id:
+        $ref: '#/x-ess-entities/mandate.core.DirectoryGroupId'
+        x-ess-relation:
+          name: group_id_record
+          kind: references
+          source: mandate.directory.DirectoryGroupTeamMapping
+          target: mandate.directory.DirectoryGroup
+          cardinality: one
+          via: group_id
+          $ref: '#/x-ess-entities/mandate.directory.DirectoryGroup'
+      team_id:
+        $ref: '#/x-ess-entities/mandate.core.TeamId'
+        x-ess-relation:
+          name: team_id_record
+          kind: references
+          source: mandate.directory.DirectoryGroupTeamMapping
+          target: mandate.tenancy.Team
+          cardinality: one
+          via: team_id
+          $ref: '#/x-ess-entities/mandate.tenancy.Team'
+      created_by:
+        $ref: '#/x-ess-entities/mandate.core.PrincipalId'
+        x-ess-relation:
+          name: created_by_record
+          kind: references
+          source: mandate.directory.DirectoryGroupTeamMapping
+          target: mandate.identity.Principal
+          cardinality: one
+          via: created_by
+          $ref: '#/x-ess-entities/mandate.identity.Principal'
+      created_at:
+        type: string
+        format: date-time
+      state:
+        $ref: '#/x-ess-entities/mandate.directory.DirectoryGroupTeamMapping.State'
+    required:
+    - id
+    - organization_id
+    - group_id
+    - team_id
+    - created_by
+    - created_at
+    - state
+    additionalProperties: false
+  mandate.directory.DirectoryGroupTeamMapping.State:
+    title: State
+    x-ess-name: mandate.directory.DirectoryGroupTeamMapping.State
+    x-ess-kind: enum
+    type: string
+    enum:
+    - Active
+    - Removed
+  mandate.directory.MembershipContribution:
+    title: MembershipContribution
+    x-ess-name: mandate.directory.MembershipContribution
+    x-ess-kind: entity
+    type: object
+    properties:
+      id:
+        $ref: '#/x-ess-entities/mandate.core.MembershipContributionId'
+      organization_id:
+        $ref: '#/x-ess-entities/mandate.core.OrganizationId'
+        x-ess-relation:
+          name: organization_id_record
+          kind: references
+          source: mandate.directory.MembershipContribution
+          target: mandate.tenancy.Organization
+          cardinality: one
+          via: organization_id
+          $ref: '#/x-ess-entities/mandate.tenancy.Organization'
+      team_membership_id:
+        $ref: '#/x-ess-entities/mandate.core.TeamMembershipId'
+        x-ess-relation:
+          name: team_membership_id_record
+          kind: references
+          source: mandate.directory.MembershipContribution
+          target: mandate.tenancy.TeamMembership
+          cardinality: one
+          via: team_membership_id
+          $ref: '#/x-ess-entities/mandate.tenancy.TeamMembership'
+      source:
+        $ref: '#/x-ess-entities/mandate.core.MembershipSource'
+      mapping_id:
+        $ref: '#/x-ess-entities/mandate.core.DirectoryGroupTeamMappingId'
+        x-ess-relation:
+          name: mapping_id_record
+          kind: references
+          source: mandate.directory.MembershipContribution
+          target: mandate.directory.DirectoryGroupTeamMapping
+          cardinality: one
+          via: mapping_id
+          $ref: '#/x-ess-entities/mandate.directory.DirectoryGroupTeamMapping'
+      created_by:
+        $ref: '#/x-ess-entities/mandate.core.PrincipalId'
+        x-ess-relation:
+          name: created_by_record
+          kind: references
+          source: mandate.directory.MembershipContribution
+          target: mandate.identity.Principal
+          cardinality: one
+          via: created_by
+          $ref: '#/x-ess-entities/mandate.identity.Principal'
+      state:
+        $ref: '#/x-ess-entities/mandate.directory.MembershipContribution.State'
+    required:
+    - id
+    - organization_id
+    - team_membership_id
+    - source
+    - created_by
+    - state
+    additionalProperties: false
+  mandate.directory.MembershipContribution.State:
+    title: State
+    x-ess-name: mandate.directory.MembershipContribution.State
+    x-ess-kind: enum
+    type: string
+    enum:
+    - Active
+    - Removed
+  mandate.directory.SyncJob:
+    title: SyncJob
+    x-ess-name: mandate.directory.SyncJob
+    x-ess-kind: entity
+    type: object
+    properties:
+      id:
+        $ref: '#/x-ess-entities/mandate.core.SyncJobId'
+      organization_id:
+        $ref: '#/x-ess-entities/mandate.core.OrganizationId'
+        x-ess-relation:
+          name: organization_id_record
+          kind: references
+          source: mandate.directory.SyncJob
+          target: mandate.tenancy.Organization
+          cardinality: one
+          via: organization_id
+          $ref: '#/x-ess-entities/mandate.tenancy.Organization'
+      connection_id:
+        $ref: '#/x-ess-entities/mandate.core.FederationConnectionId'
+        x-ess-relation:
+          name: connection_id_record
+          kind: references
+          source: mandate.directory.SyncJob
+          target: mandate.federation.FederationConnection
+          cardinality: one
+          via: connection_id
+          $ref: '#/x-ess-entities/mandate.federation.FederationConnection'
+      correlation:
+        $ref: '#/x-ess-entities/mandate.core.CorrelationId'
+      state:
+        $ref: '#/x-ess-entities/mandate.directory.SyncJob.State'
+    required:
+    - id
+    - organization_id
+    - connection_id
+    - correlation
+    - state
+    additionalProperties: false
+  mandate.directory.SyncJob.State:
+    title: State
+    x-ess-name: mandate.directory.SyncJob.State
+    x-ess-kind: enum
+    type: string
+    enum:
+    - Recorded
+  mandate.federation.ExternalPrincipal:
+    title: ExternalPrincipal
+    x-ess-name: mandate.federation.ExternalPrincipal
+    x-ess-kind: entity
+    type: object
+    properties:
+      id:
+        $ref: '#/x-ess-entities/mandate.core.ExternalPrincipalId'
+      organization_id:
+        $ref: '#/x-ess-entities/mandate.core.OrganizationId'
+        x-ess-relation:
+          name: organization_id_record
+          kind: references
+          source: mandate.federation.ExternalPrincipal
+          target: mandate.tenancy.Organization
+          cardinality: one
+          via: organization_id
+          $ref: '#/x-ess-entities/mandate.tenancy.Organization'
+      subject:
+        $ref: '#/x-ess-entities/mandate.core.ExternalSubject'
+      principal_id:
+        $ref: '#/x-ess-entities/mandate.core.PrincipalId'
+        x-ess-relation:
+          name: principal_id_record
+          kind: references
+          source: mandate.federation.ExternalPrincipal
+          target: mandate.identity.Principal
+          cardinality: one
+          via: principal_id
+          $ref: '#/x-ess-entities/mandate.identity.Principal'
+      connection_id:
+        $ref: '#/x-ess-entities/mandate.core.FederationConnectionId'
+        x-ess-relation:
+          name: connection_id_record
+          kind: references
+          source: mandate.federation.ExternalPrincipal
+          target: mandate.federation.FederationConnection
+          cardinality: one
+          via: connection_id
+          $ref: '#/x-ess-entities/mandate.federation.FederationConnection'
+      link_method:
+        $ref: '#/x-ess-entities/mandate.core.ExternalLinkMethod'
+      linked_at:
+        type: string
+        format: date-time
+      state:
+        $ref: '#/x-ess-entities/mandate.federation.ExternalPrincipal.State'
+    required:
+    - id
+    - organization_id
+    - subject
+    - principal_id
+    - connection_id
+    - link_method
+    - linked_at
+    - state
+    additionalProperties: false
+  mandate.federation.ExternalPrincipal.State:
+    title: State
+    x-ess-name: mandate.federation.ExternalPrincipal.State
+    x-ess-kind: enum
+    type: string
+    enum:
+    - Linked
+    - Unlinked
+  mandate.federation.FederationConnection:
+    title: FederationConnection
+    x-ess-name: mandate.federation.FederationConnection
+    x-ess-kind: entity
+    type: object
+    properties:
+      id:
+        $ref: '#/x-ess-entities/mandate.core.FederationConnectionId'
+      organization_id:
+        $ref: '#/x-ess-entities/mandate.core.OrganizationId'
+        x-ess-relation:
+          name: organization_id_record
+          kind: references
+          source: mandate.federation.FederationConnection
+          target: mandate.tenancy.Organization
+          cardinality: one
+          via: organization_id
+          $ref: '#/x-ess-entities/mandate.tenancy.Organization'
+      issuer:
+        $ref: '#/x-ess-entities/mandate.core.Issuer'
+      client_id:
+        $ref: '#/x-ess-entities/mandate.core.ClientId'
+      tenant_resolution:
+        $ref: '#/x-ess-entities/mandate.core.TenantResolutionRule'
+      state:
+        $ref: '#/x-ess-entities/mandate.federation.FederationConnection.State'
+    required:
+    - id
+    - organization_id
+    - issuer
+    - client_id
+    - tenant_resolution
+    - state
+    additionalProperties: false
+  mandate.federation.FederationConnection.State:
+    title: State
+    x-ess-name: mandate.federation.FederationConnection.State
+    x-ess-kind: enum
+    type: string
+    enum:
+    - Disabled
+    - Enabled
+  mandate.federation.OAuthClient:
+    title: OAuthClient
+    x-ess-name: mandate.federation.OAuthClient
+    x-ess-kind: entity
+    type: object
+    properties:
+      id:
+        $ref: '#/x-ess-entities/mandate.core.OAuthClientId'
+      organization_id:
+        $ref: '#/x-ess-entities/mandate.core.OrganizationId'
+        x-ess-relation:
+          name: organization_id_record
+          kind: references
+          source: mandate.federation.OAuthClient
+          target: mandate.tenancy.Organization
+          cardinality: one
+          via: organization_id
+          $ref: '#/x-ess-entities/mandate.tenancy.Organization'
+      public:
+        type: boolean
+      redirect_uris:
+        type: array
+        items:
+          $ref: '#/x-ess-entities/mandate.core.RedirectUri'
+      pkce_method:
+        $ref: '#/x-ess-entities/mandate.core.PkceMethod'
+      state:
+        $ref: '#/x-ess-entities/mandate.federation.OAuthClient.State'
+    required:
+    - id
+    - organization_id
+    - public
+    - redirect_uris
+    - pkce_method
+    - state
+    additionalProperties: false
+  mandate.federation.OAuthClient.State:
+    title: State
+    x-ess-name: mandate.federation.OAuthClient.State
+    x-ess-kind: enum
+    type: string
+    enum:
+    - Recorded
+  mandate.identity.FederationSecurityEpoch:
+    title: FederationSecurityEpoch
+    x-ess-name: mandate.identity.FederationSecurityEpoch
+    x-ess-kind: entity
+    type: object
+    properties:
+      id:
+        $ref: '#/x-ess-entities/mandate.core.FederationConnectionId'
+      state:
+        $ref: '#/x-ess-entities/mandate.identity.FederationSecurityEpoch.State'
+    required:
+    - id
+    - state
+    additionalProperties: false
+  mandate.identity.FederationSecurityEpoch.State:
+    title: State
+    x-ess-name: mandate.identity.FederationSecurityEpoch.State
+    x-ess-kind: enum
+    type: string
+    enum:
+    - Recorded
+  mandate.identity.OrganizationSecurityEpoch:
+    title: OrganizationSecurityEpoch
+    x-ess-name: mandate.identity.OrganizationSecurityEpoch
+    x-ess-kind: entity
+    type: object
+    properties:
+      id:
+        $ref: '#/x-ess-entities/mandate.core.OrganizationId'
+      state:
+        $ref: '#/x-ess-entities/mandate.identity.OrganizationSecurityEpoch.State'
+    required:
+    - id
+    - state
+    additionalProperties: false
+  mandate.identity.OrganizationSecurityEpoch.State:
+    title: State
+    x-ess-name: mandate.identity.OrganizationSecurityEpoch.State
+    x-ess-kind: enum
+    type: string
+    enum:
+    - Recorded
+  mandate.identity.Principal:
+    title: Principal
+    x-ess-name: mandate.identity.Principal
+    x-ess-kind: entity
+    type: object
+    properties:
+      id:
+        $ref: '#/x-ess-entities/mandate.core.PrincipalId'
+      kind:
+        $ref: '#/x-ess-entities/mandate.core.PrincipalKind'
+      display_name:
+        type: string
+      state:
+        $ref: '#/x-ess-entities/mandate.identity.Principal.State'
+    required:
+    - id
+    - kind
+    - display_name
+    - state
+    additionalProperties: false
+  mandate.identity.Principal.State:
+    title: State
+    x-ess-name: mandate.identity.Principal.State
+    x-ess-kind: enum
+    type: string
+    enum:
+    - Active
+    - Disabled
+  mandate.identity.PrincipalSecurityEpoch:
+    title: PrincipalSecurityEpoch
+    x-ess-name: mandate.identity.PrincipalSecurityEpoch
+    x-ess-kind: entity
+    type: object
+    properties:
+      id:
+        $ref: '#/x-ess-entities/mandate.core.PrincipalId'
+      state:
+        $ref: '#/x-ess-entities/mandate.identity.PrincipalSecurityEpoch.State'
+    required:
+    - id
+    - state
+    additionalProperties: false
+  mandate.identity.PrincipalSecurityEpoch.State:
+    title: State
+    x-ess-name: mandate.identity.PrincipalSecurityEpoch.State
+    x-ess-kind: enum
+    type: string
+    enum:
+    - Recorded
+  mandate.identity.RefreshCredential:
+    title: RefreshCredential
+    x-ess-name: mandate.identity.RefreshCredential
+    x-ess-kind: entity
+    type: object
+    properties:
+      id:
+        $ref: '#/x-ess-entities/mandate.core.RefreshCredentialId'
+      principal_id:
+        $ref: '#/x-ess-entities/mandate.core.PrincipalId'
+        x-ess-relation:
+          name: principal_id_record
+          kind: references
+          source: mandate.identity.RefreshCredential
+          target: mandate.identity.Principal
+          cardinality: one
+          via: principal_id
+          $ref: '#/x-ess-entities/mandate.identity.Principal'
+      organization_id:
+        $ref: '#/x-ess-entities/mandate.core.OrganizationId'
+        x-ess-relation:
+          name: organization_id_record
+          kind: references
+          source: mandate.identity.RefreshCredential
+          target: mandate.tenancy.Organization
+          cardinality: one
+          via: organization_id
+          $ref: '#/x-ess-entities/mandate.tenancy.Organization'
+      session_id:
+        $ref: '#/x-ess-entities/mandate.core.SessionId'
+        x-ess-relation:
+          name: session_id_record
+          kind: references
+          source: mandate.identity.RefreshCredential
+          target: mandate.identity.Session
+          cardinality: one
+          via: session_id
+          $ref: '#/x-ess-entities/mandate.identity.Session'
+      verifier:
+        $ref: '#/x-ess-entities/mandate.core.CredentialVerifier'
+      epochs:
+        $ref: '#/x-ess-entities/mandate.core.EpochSnapshotRef'
+        x-ess-relation:
+          name: epoch_snapshot_record
+          kind: references
+          source: mandate.identity.RefreshCredential
+          target: mandate.identity.SecurityEpochSnapshot
+          cardinality: one
+          via: epochs
+          $ref: '#/x-ess-entities/mandate.identity.SecurityEpochSnapshot'
+      expires_at:
+        type: string
+        format: date-time
+      state:
+        $ref: '#/x-ess-entities/mandate.identity.RefreshCredential.State'
+    required:
+    - id
+    - principal_id
+    - organization_id
+    - session_id
+    - verifier
+    - epochs
+    - expires_at
+    - state
+    additionalProperties: false
+  mandate.identity.RefreshCredential.State:
+    title: State
+    x-ess-name: mandate.identity.RefreshCredential.State
+    x-ess-kind: enum
+    type: string
+    enum:
+    - Active
+    - Revoked
+  mandate.identity.SecurityEpochSnapshot:
+    title: SecurityEpochSnapshot
+    x-ess-name: mandate.identity.SecurityEpochSnapshot
+    x-ess-kind: entity
+    type: object
+    properties:
+      id:
+        $ref: '#/x-ess-entities/mandate.core.EpochSnapshotRef'
+      principal_id:
+        $ref: '#/x-ess-entities/mandate.core.PrincipalId'
+        x-ess-relation:
+          name: principal_record
+          kind: references
+          source: mandate.identity.SecurityEpochSnapshot
+          target: mandate.identity.Principal
+          cardinality: one
+          via: principal_id
+          $ref: '#/x-ess-entities/mandate.identity.Principal'
+      organization_id:
+        $ref: '#/x-ess-entities/mandate.core.OrganizationId'
+        x-ess-relation:
+          name: organization_id_record
+          kind: references
+          source: mandate.identity.SecurityEpochSnapshot
+          target: mandate.tenancy.Organization
+          cardinality: one
+          via: organization_id
+          $ref: '#/x-ess-entities/mandate.tenancy.Organization'
+      connection_id:
+        $ref: '#/x-ess-entities/mandate.core.FederationConnectionId'
+        x-ess-relation:
+          name: connection_id_record
+          kind: references
+          source: mandate.identity.SecurityEpochSnapshot
+          target: mandate.federation.FederationConnection
+          cardinality: one
+          via: connection_id
+          $ref: '#/x-ess-entities/mandate.federation.FederationConnection'
+      state:
+        $ref: '#/x-ess-entities/mandate.identity.SecurityEpochSnapshot.State'
+    required:
+    - id
+    - principal_id
+    - organization_id
+    - state
+    additionalProperties: false
+  mandate.identity.SecurityEpochSnapshot.State:
+    title: State
+    x-ess-name: mandate.identity.SecurityEpochSnapshot.State
+    x-ess-kind: enum
+    type: string
+    enum:
+    - Recorded
+  mandate.identity.Session:
+    title: Session
+    x-ess-name: mandate.identity.Session
+    x-ess-kind: entity
+    type: object
+    properties:
+      id:
+        $ref: '#/x-ess-entities/mandate.core.SessionId'
+      principal_id:
+        $ref: '#/x-ess-entities/mandate.core.PrincipalId'
+        x-ess-relation:
+          name: principal_id_record
+          kind: references
+          source: mandate.identity.Session
+          target: mandate.identity.Principal
+          cardinality: one
+          via: principal_id
+          $ref: '#/x-ess-entities/mandate.identity.Principal'
+      organization_id:
+        $ref: '#/x-ess-entities/mandate.core.OrganizationId'
+        x-ess-relation:
+          name: organization_id_record
+          kind: references
+          source: mandate.identity.Session
+          target: mandate.tenancy.Organization
+          cardinality: one
+          via: organization_id
+          $ref: '#/x-ess-entities/mandate.tenancy.Organization'
+      connection_id:
+        $ref: '#/x-ess-entities/mandate.core.FederationConnectionId'
+        x-ess-relation:
+          name: connection_id_record
+          kind: references
+          source: mandate.identity.Session
+          target: mandate.federation.FederationConnection
+          cardinality: one
+          via: connection_id
+          $ref: '#/x-ess-entities/mandate.federation.FederationConnection'
+      epochs:
+        $ref: '#/x-ess-entities/mandate.core.EpochSnapshotRef'
+        x-ess-relation:
+          name: epoch_snapshot_record
+          kind: references
+          source: mandate.identity.Session
+          target: mandate.identity.SecurityEpochSnapshot
+          cardinality: one
+          via: epochs
+          $ref: '#/x-ess-entities/mandate.identity.SecurityEpochSnapshot'
+      expires_at:
+        type: string
+        format: date-time
+      state:
+        $ref: '#/x-ess-entities/mandate.identity.Session.State'
+    required:
+    - id
+    - principal_id
+    - organization_id
+    - epochs
+    - expires_at
+    - state
+    additionalProperties: false
+  mandate.identity.Session.State:
+    title: State
+    x-ess-name: mandate.identity.Session.State
+    x-ess-kind: enum
+    type: string
+    enum:
+    - Active
+    - Revoked
+  mandate.tenancy.Organization:
+    title: Organization
+    x-ess-name: mandate.tenancy.Organization
+    x-ess-kind: entity
+    type: object
+    properties:
+      id:
+        $ref: '#/x-ess-entities/mandate.core.OrganizationId'
+      display_name:
+        type: string
+      state:
+        $ref: '#/x-ess-entities/mandate.tenancy.Organization.State'
+    required:
+    - id
+    - display_name
+    - state
+    additionalProperties: false
+  mandate.tenancy.Organization.State:
+    title: State
+    x-ess-name: mandate.tenancy.Organization.State
+    x-ess-kind: enum
+    type: string
+    enum:
+    - Recorded
+  mandate.tenancy.OrganizationMembership:
+    title: OrganizationMembership
+    x-ess-name: mandate.tenancy.OrganizationMembership
+    x-ess-kind: entity
+    type: object
+    properties:
+      id:
+        $ref: '#/x-ess-entities/mandate.core.OrganizationMembershipId'
+      organization_id:
+        $ref: '#/x-ess-entities/mandate.core.OrganizationId'
+        x-ess-relation:
+          name: organization_id_record
+          kind: references
+          source: mandate.tenancy.OrganizationMembership
+          target: mandate.tenancy.Organization
+          cardinality: one
+          via: organization_id
+          $ref: '#/x-ess-entities/mandate.tenancy.Organization'
+      principal_id:
+        $ref: '#/x-ess-entities/mandate.core.PrincipalId'
+        x-ess-relation:
+          name: principal_id_record
+          kind: references
+          source: mandate.tenancy.OrganizationMembership
+          target: mandate.identity.Principal
+          cardinality: one
+          via: principal_id
+          $ref: '#/x-ess-entities/mandate.identity.Principal'
+      state:
+        $ref: '#/x-ess-entities/mandate.tenancy.OrganizationMembership.State'
+    required:
+    - id
+    - organization_id
+    - principal_id
+    - state
+    additionalProperties: false
+  mandate.tenancy.OrganizationMembership.State:
+    title: State
+    x-ess-name: mandate.tenancy.OrganizationMembership.State
+    x-ess-kind: enum
+    type: string
+    enum:
+    - Active
+    - Removed
+  mandate.tenancy.Space:
+    title: Space
+    x-ess-name: mandate.tenancy.Space
+    x-ess-kind: entity
+    type: object
+    properties:
+      id:
+        $ref: '#/x-ess-entities/mandate.core.SpaceId'
+      organization_id:
+        $ref: '#/x-ess-entities/mandate.core.OrganizationId'
+        x-ess-relation:
+          name: organization_id_record
+          kind: references
+          source: mandate.tenancy.Space
+          target: mandate.tenancy.Organization
+          cardinality: one
+          via: organization_id
+          $ref: '#/x-ess-entities/mandate.tenancy.Organization'
+      display_name:
+        type: string
+      state:
+        $ref: '#/x-ess-entities/mandate.tenancy.Space.State'
+    required:
+    - id
+    - organization_id
+    - display_name
+    - state
+    additionalProperties: false
+  mandate.tenancy.Space.State:
+    title: State
+    x-ess-name: mandate.tenancy.Space.State
+    x-ess-kind: enum
+    type: string
+    enum:
+    - Recorded
+  mandate.tenancy.Team:
+    title: Team
+    x-ess-name: mandate.tenancy.Team
+    x-ess-kind: entity
+    type: object
+    properties:
+      id:
+        $ref: '#/x-ess-entities/mandate.core.TeamId'
+      organization_id:
+        $ref: '#/x-ess-entities/mandate.core.OrganizationId'
+        x-ess-relation:
+          name: organization_id_record
+          kind: references
+          source: mandate.tenancy.Team
+          target: mandate.tenancy.Organization
+          cardinality: one
+          via: organization_id
+          $ref: '#/x-ess-entities/mandate.tenancy.Organization'
+      display_name:
+        type: string
+      state:
+        $ref: '#/x-ess-entities/mandate.tenancy.Team.State'
+    required:
+    - id
+    - organization_id
+    - display_name
+    - state
+    additionalProperties: false
+  mandate.tenancy.Team.State:
+    title: State
+    x-ess-name: mandate.tenancy.Team.State
+    x-ess-kind: enum
+    type: string
+    enum:
+    - Recorded
+  mandate.tenancy.TeamMembership:
+    title: TeamMembership
+    x-ess-name: mandate.tenancy.TeamMembership
+    x-ess-kind: entity
+    type: object
+    properties:
+      id:
+        $ref: '#/x-ess-entities/mandate.core.TeamMembershipId'
+      organization_id:
+        $ref: '#/x-ess-entities/mandate.core.OrganizationId'
+        x-ess-relation:
+          name: organization_id_record
+          kind: references
+          source: mandate.tenancy.TeamMembership
+          target: mandate.tenancy.Organization
+          cardinality: one
+          via: organization_id
+          $ref: '#/x-ess-entities/mandate.tenancy.Organization'
+      team_id:
+        $ref: '#/x-ess-entities/mandate.core.TeamId'
+        x-ess-relation:
+          name: team_id_record
+          kind: references
+          source: mandate.tenancy.TeamMembership
+          target: mandate.tenancy.Team
+          cardinality: one
+          via: team_id
+          $ref: '#/x-ess-entities/mandate.tenancy.Team'
+      principal_id:
+        $ref: '#/x-ess-entities/mandate.core.PrincipalId'
+        x-ess-relation:
+          name: principal_id_record
+          kind: references
+          source: mandate.tenancy.TeamMembership
+          target: mandate.identity.Principal
+          cardinality: one
+          via: principal_id
+          $ref: '#/x-ess-entities/mandate.identity.Principal'
+      state:
+        $ref: '#/x-ess-entities/mandate.tenancy.TeamMembership.State'
+    required:
+    - id
+    - organization_id
+    - team_id
+    - principal_id
+    - state
+    additionalProperties: false
+  mandate.tenancy.TeamMembership.State:
+    title: State
+    x-ess-name: mandate.tenancy.TeamMembership.State
+    x-ess-kind: enum
+    type: string
+    enum:
+    - Recorded
+  mandate.workload.WorkloadIdentity:
+    title: WorkloadIdentity
+    x-ess-name: mandate.workload.WorkloadIdentity
+    x-ess-kind: entity
+    type: object
+    properties:
+      id:
+        $ref: '#/x-ess-entities/mandate.core.WorkloadIdentityId'
+      organization_id:
+        $ref: '#/x-ess-entities/mandate.core.OrganizationId'
+        x-ess-relation:
+          name: organization_id_record
+          kind: references
+          source: mandate.workload.WorkloadIdentity
+          target: mandate.tenancy.Organization
+          cardinality: one
+          via: organization_id
+          $ref: '#/x-ess-entities/mandate.tenancy.Organization'
+      principal_id:
+        $ref: '#/x-ess-entities/mandate.core.PrincipalId'
+        x-ess-relation:
+          name: principal_id_record
+          kind: references
+          source: mandate.workload.WorkloadIdentity
+          target: mandate.identity.Principal
+          cardinality: one
+          via: principal_id
+          $ref: '#/x-ess-entities/mandate.identity.Principal'
+      trust_domain:
+        $ref: '#/x-ess-entities/mandate.core.TrustDomain'
+      external_subject:
+        $ref: '#/x-ess-entities/mandate.core.ExternalSubject'
+      state:
+        $ref: '#/x-ess-entities/mandate.workload.WorkloadIdentity.State'
+    required:
+    - id
+    - organization_id
+    - principal_id
+    - trust_domain
+    - external_subject
+    - state
+    additionalProperties: false
+  mandate.workload.WorkloadIdentity.State:
+    title: State
+    x-ess-name: mandate.workload.WorkloadIdentity.State
+    x-ess-kind: enum
+    type: string
+    enum:
+    - Recorded

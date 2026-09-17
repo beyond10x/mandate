@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OAuthClient",
+  "x-ess-name": "mandate.federation.OAuthClient",
+  "x-ess-kind": "entity",
+  "type": "object",
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/mandate.core.OAuthClientId"
+    },
+    "organization_id": {
+      "$ref": "#/$defs/mandate.core.OrganizationId",
+      "x-ess-relation": {
+        "name": "organization_id_record",
+        "kind": "references",
+        "source": "mandate.federation.OAuthClient",
+        "target": "mandate.tenancy.Organization",
+        "cardinality": "one",
+        "via": "organization_id"
+      }
+    },
+    "public": {
+      "type": "boolean"
+    },
+    "redirect_uris": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/mandate.core.RedirectUri"
+      }
+    },
+    "pkce_method": {
+      "$ref": "#/$defs/mandate.core.PkceMethod"
+    },
+    "state": {
+      "$ref": "#/$defs/mandate.federation.OAuthClient.State"
+    }
+  },
+  "required": [
+    "id",
+    "organization_id",
+    "public",
+    "redirect_uris",
+    "pkce_method",
+    "state"
+  ],
+  "additionalProperties": false,
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1",
+    "contract_digest": "slice-sha256/2:ebb3d587f51ac0b4d3bc57dab368f26bf3a263a5a94a96455627c7a179a3813c",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.core.OAuthClientId": {
+      "title": "OAuthClientId",
+      "x-ess-name": "mandate.core.OAuthClientId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.OrganizationId": {
+      "title": "OrganizationId",
+      "x-ess-name": "mandate.core.OrganizationId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.PkceMethod": {
+      "title": "PkceMethod",
+      "x-ess-name": "mandate.core.PkceMethod",
+      "x-ess-kind": "enum",
+      "type": "string",
+      "enum": [
+        "S256"
+      ]
+    },
+    "mandate.core.RedirectUri": {
+      "title": "RedirectUri",
+      "x-ess-name": "mandate.core.RedirectUri",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    },
+    "mandate.federation.OAuthClient.State": {
+      "title": "State",
+      "x-ess-name": "mandate.federation.OAuthClient.State",
+      "x-ess-kind": "enum",
+      "type": "string",
+      "enum": [
+        "Recorded"
+      ]
+    }
+  }
+}

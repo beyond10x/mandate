@@ -1,0 +1,18 @@
+format: ess/4
+system: mandate
+version: v1
+summary: Standalone identity, authorization and constrained credential contracts.
+  Runtime enforcement and UNMAPPED semantics are explicit obligations.
+domains:
+- mandate.core
+- mandate.identity
+- mandate.tenancy
+- mandate.directory
+- mandate.graph
+- mandate.policy
+- mandate.federation
+- mandate.credential
+- mandate.delegation
+- mandate.workload
+- mandate.audit
+- mandate.authorization

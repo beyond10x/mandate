@@ -1,0 +1,283 @@
+# UNMAPPED-LIFECYCLE: Recorded is an immutable snapshot, not a runtime lifecycle; see decision-blocker:lifecycle.
+# A ceiling has its own identity. organization_id absent means a platform ceiling; present means a tenant ceiling. All applicable platform/tenant ceilings intersect.
+# UNMAPPED-UNIQUENESS: enforce one current ceiling per (agent, organization-or-platform), with trusted Agent-kind and organization checks.
+# CreateDelegation fixes transitive=false; the entity invariant also refuses transitive declarations.
+domain: mandate.delegation
+entities:
+  - name: mandate.delegation.Delegation
+    identity:
+      name: id
+      type: mandate.core.DelegationId
+    fields:
+      - name: organization_id
+        type: mandate.core.OrganizationId
+      - name: delegator
+        type: mandate.core.PrincipalId
+      - name: delegate
+        type: mandate.core.PrincipalId
+      - name: scope
+        type: mandate.core.AuthorityScope
+      - name: audience
+        type: mandate.core.Audience
+      - name: not_before
+        type: Optional<Timestamp>
+      - name: expires_at
+        type: Timestamp
+      - name: execution_binding
+        type: Optional<mandate.core.ExecutionId>
+      - name: transitive
+        type: Boolean
+      - name: created_at
+        type: Timestamp
+    lifecycle:
+      initial: Active
+      states:
+        - Active
+        - Revoked
+      terminal:
+        - Revoked
+      transitions:
+        - name: revoke
+          from:
+            - Active
+          to: Revoked
+    relations:
+      - name: organization_id_record
+        kind: references
+        target: mandate.tenancy.Organization
+        cardinality: one
+        via: organization_id
+      - name: delegator_record
+        kind: references
+        target: mandate.identity.Principal
+        cardinality: one
+        via: delegator
+      - name: delegate_record
+        kind: references
+        target: mandate.identity.Principal
+        cardinality: one
+        via: delegate
+      - name: execution_binding_record
+        kind: references
+        target: mandate.delegation.Execution
+        cardinality: one
+        via: execution_binding
+    invariants:
+      - transitive == false
+  - name: mandate.delegation.Agent
+    identity:
+      name: id
+      type: mandate.core.PrincipalId
+    fields:
+      - name: organization_id
+        type: mandate.core.OrganizationId
+      - name: agent_type
+        type: String
+    lifecycle:
+      initial: Recorded
+      states:
+        - Recorded
+      terminal:
+        - Recorded
+    relations:
+      - name: organization_id_record
+        kind: references
+        target: mandate.tenancy.Organization
+        cardinality: one
+        via: organization_id
+  - name: mandate.delegation.AgentCapabilityCeiling
+    identity:
+      name: id
+      type: mandate.core.AgentCapabilityCeilingId
+    fields:
+      - name: agent_id
+        type: mandate.core.PrincipalId
+      - name: organization_id
+        type: Optional<mandate.core.OrganizationId>
+      - name: allowed_actions
+        type: List<mandate.core.ActionPattern>
+      - name: denied_actions
+        type: List<mandate.core.ActionPattern>
+      - name: scope
+        type: mandate.core.AuthorityScope
+      - name: max_delegation_ttl
+        type: Duration
+    lifecycle:
+      initial: Recorded
+      states:
+        - Recorded
+      terminal:
+        - Recorded
+    relations:
+      - name: organization_id_record
+        kind: references
+        target: mandate.tenancy.Organization
+        cardinality: one
+        via: organization_id
+      - name: agent_record
+        kind: references
+        target: mandate.identity.Principal
+        cardinality: one
+        via: agent_id
+  - name: mandate.delegation.Execution
+    identity:
+      name: id
+      type: mandate.core.ExecutionId
+    fields:
+      - name: organization_id
+        type: mandate.core.OrganizationId
+      - name: agent_id
+        type: mandate.core.PrincipalId
+      - name: subject
+        type: Optional<mandate.core.PrincipalId>
+      - name: delegation_id
+        type: Optional<mandate.core.DelegationId>
+      - name: initiating_session
+        type: Optional<mandate.core.SessionId>
+      - name: created_at
+        type: Timestamp
+      - name: expires_at
+        type: Timestamp
+      - name: policy_version
+        type: mandate.core.PolicyVersion
+    lifecycle:
+      initial: Recorded
+      states:
+        - Recorded
+      terminal:
+        - Recorded
+    relations:
+      - name: organization_id_record
+        kind: references
+        target: mandate.tenancy.Organization
+        cardinality: one
+        via: organization_id
+      - name: agent_id_record
+        kind: references
+        target: mandate.identity.Principal
+        cardinality: one
+        via: agent_id
+      - name: subject_record
+        kind: references
+        target: mandate.identity.Principal
+        cardinality: one
+        via: subject
+      - name: delegation_id_record
+        kind: references
+        target: mandate.delegation.Delegation
+        cardinality: one
+        via: delegation_id
+      - name: initiating_session_record
+        kind: references
+        target: mandate.identity.Session
+        cardinality: one
+        via: initiating_session
+  - name: mandate.delegation.Approval
+    identity:
+      name: id
+      type: mandate.core.ApprovalId
+    fields:
+      - name: organization_id
+        type: mandate.core.OrganizationId
+      - name: subject
+        type: mandate.core.PrincipalId
+      - name: actor
+        type: Optional<mandate.core.PrincipalId>
+      - name: action
+        type: mandate.core.Action
+      - name: resource
+        type: mandate.core.ResourceRef
+      - name: expires_at
+        type: Timestamp
+      - name: approver
+        type: mandate.core.PrincipalId
+    lifecycle:
+      initial: Recorded
+      states:
+        - Recorded
+      terminal:
+        - Recorded
+    relations:
+      - name: organization_id_record
+        kind: references
+        target: mandate.tenancy.Organization
+        cardinality: one
+        via: organization_id
+      - name: subject_record
+        kind: references
+        target: mandate.identity.Principal
+        cardinality: one
+        via: subject
+      - name: actor_record
+        kind: references
+        target: mandate.identity.Principal
+        cardinality: one
+        via: actor
+      - name: approver_record
+        kind: references
+        target: mandate.identity.Principal
+        cardinality: one
+        via: approver
+commands:
+  - name: mandate.delegation.RevokeDelegation
+    input:
+      - name: id
+        type: mandate.core.DelegationId
+      - name: context
+        type: mandate.core.VerifiedContext
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.delegation.DelegationRevoked
+        payload:
+          mandate.delegation.DelegationRevoked:
+            context: input.context
+        moves: mandate.delegation.Delegation.revoke
+        instance: id
+      - name: denied
+        external: Caller lacks delegation-revocation authority, delegation is outside the verified organization, or durable revocation and affected exchange invalidation fail.
+        error: mandate.delegation.Denied
+  - name: mandate.delegation.CreateDelegation
+    input:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: delegate
+        type: mandate.core.PrincipalId
+      - name: scope
+        type: mandate.core.AuthorityScope
+      - name: audience
+        type: mandate.core.Audience
+      - name: expires_at
+        type: Timestamp
+      - name: not_before
+        type: Optional<Timestamp>
+      - name: execution_binding
+        type: Optional<mandate.core.ExecutionId>
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.delegation.DelegationCreated
+        payload:
+          mandate.delegation.DelegationCreated:
+            context: input.context
+      - name: denied
+        external: Caller lacks delegation authority, subject/delegate/tenant/space/registered audience or execution binding fails, requested scope/expiry exceeds source/delegation/policy limits or agent ceilings, or a transitive/approval-required grant would be created.
+        error: mandate.delegation.Denied
+    response:
+      - name: delegation_id
+        type: mandate.core.DelegationId
+events:
+  - name: mandate.delegation.DelegationRevoked
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+  - name: mandate.delegation.DelegationCreated
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+errors:
+  - name: mandate.delegation.Denied
+    summary: Fail closed; no credential, authority or lifecycle mutation on refusal.
+    fields:
+      - name: reason
+        type: mandate.core.DenialReason

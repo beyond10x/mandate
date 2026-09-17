@@ -1,0 +1,291 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AuditEventRecorded payload",
+  "x-ess-name": "mandate.audit.AuditEventRecorded",
+  "x-ess-kind": "event-payload",
+  "type": "object",
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/mandate.core.AuditEventId"
+    },
+    "record": {
+      "$ref": "#/$defs/mandate.core.AuditRecord"
+    }
+  },
+  "required": [
+    "id",
+    "record"
+  ],
+  "additionalProperties": false,
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1",
+    "contract_digest": "slice-sha256/2:9f4fcb53dde7222a05ce020f048288a6f4d4d1b9d8ac8d66893605a30c18e26f",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.core.Action": {
+      "title": "Action",
+      "x-ess-name": "mandate.core.Action",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    },
+    "mandate.core.Audience": {
+      "title": "Audience",
+      "x-ess-name": "mandate.core.Audience",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    },
+    "mandate.core.AuditAction": {
+      "title": "AuditAction",
+      "x-ess-name": "mandate.core.AuditAction",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    },
+    "mandate.core.AuditEventId": {
+      "title": "AuditEventId",
+      "x-ess-name": "mandate.core.AuditEventId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.AuditOutcome": {
+      "title": "AuditOutcome",
+      "x-ess-name": "mandate.core.AuditOutcome",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    },
+    "mandate.core.AuditRecord": {
+      "title": "AuditRecord",
+      "x-ess-name": "mandate.core.AuditRecord",
+      "x-ess-kind": "struct",
+      "type": "object",
+      "properties": {
+        "subject": {
+          "$ref": "#/$defs/mandate.core.PrincipalId"
+        },
+        "actor": {
+          "$ref": "#/$defs/mandate.core.PrincipalId"
+        },
+        "organization_id": {
+          "$ref": "#/$defs/mandate.core.OrganizationId"
+        },
+        "event_type": {
+          "$ref": "#/$defs/mandate.core.AuditAction"
+        },
+        "correlation": {
+          "$ref": "#/$defs/mandate.core.CorrelationId"
+        },
+        "decision_id": {
+          "$ref": "#/$defs/mandate.core.DecisionId"
+        },
+        "requested_audience": {
+          "$ref": "#/$defs/mandate.core.Audience"
+        },
+        "issued_audience": {
+          "$ref": "#/$defs/mandate.core.Audience"
+        },
+        "requested_scope": {
+          "$ref": "#/$defs/mandate.core.AuthorityScope"
+        },
+        "credential_kind": {
+          "$ref": "#/$defs/mandate.core.CredentialKind"
+        },
+        "delegation_id": {
+          "$ref": "#/$defs/mandate.core.DelegationId"
+        },
+        "execution_id": {
+          "$ref": "#/$defs/mandate.core.ExecutionId"
+        },
+        "result": {
+          "$ref": "#/$defs/mandate.core.AuditOutcome"
+        },
+        "occurred_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "policy_version": {
+          "$ref": "#/$defs/mandate.core.PolicyVersion"
+        },
+        "model_version": {
+          "$ref": "#/$defs/mandate.core.AuthorizationModelVersion"
+        },
+        "authz_revision": {
+          "$ref": "#/$defs/mandate.core.AuthzRevision"
+        },
+        "source_credential_kind": {
+          "$ref": "#/$defs/mandate.core.CredentialKind"
+        },
+        "source_credential_id": {
+          "$ref": "#/$defs/mandate.core.CredentialId"
+        },
+        "issued_credential_id": {
+          "$ref": "#/$defs/mandate.core.CredentialId"
+        },
+        "issued_scope": {
+          "$ref": "#/$defs/mandate.core.AuthorityScope"
+        }
+      },
+      "required": [
+        "event_type",
+        "correlation",
+        "result",
+        "occurred_at"
+      ],
+      "additionalProperties": false
+    },
+    "mandate.core.AuthorityScope": {
+      "title": "AuthorityScope",
+      "x-ess-name": "mandate.core.AuthorityScope",
+      "x-ess-kind": "struct",
+      "type": "object",
+      "properties": {
+        "actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/mandate.core.Action"
+          }
+        },
+        "resources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/mandate.core.ResourceRef"
+          }
+        },
+        "space": {
+          "$ref": "#/$defs/mandate.core.SpaceId"
+        }
+      },
+      "required": [
+        "actions",
+        "resources"
+      ],
+      "additionalProperties": false
+    },
+    "mandate.core.AuthorizationModelVersion": {
+      "title": "AuthorizationModelVersion",
+      "x-ess-name": "mandate.core.AuthorizationModelVersion",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    },
+    "mandate.core.AuthzRevision": {
+      "title": "AuthzRevision",
+      "x-ess-name": "mandate.core.AuthzRevision",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    },
+    "mandate.core.CorrelationId": {
+      "title": "CorrelationId",
+      "x-ess-name": "mandate.core.CorrelationId",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    },
+    "mandate.core.CredentialId": {
+      "title": "CredentialId",
+      "x-ess-name": "mandate.core.CredentialId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.CredentialKind": {
+      "title": "CredentialKind",
+      "x-ess-name": "mandate.core.CredentialKind",
+      "x-ess-kind": "enum",
+      "type": "string",
+      "enum": [
+        "SelfContained",
+        "Reference"
+      ]
+    },
+    "mandate.core.DecisionId": {
+      "title": "DecisionId",
+      "x-ess-name": "mandate.core.DecisionId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.DelegationId": {
+      "title": "DelegationId",
+      "x-ess-name": "mandate.core.DelegationId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.ExecutionId": {
+      "title": "ExecutionId",
+      "x-ess-name": "mandate.core.ExecutionId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.OrganizationId": {
+      "title": "OrganizationId",
+      "x-ess-name": "mandate.core.OrganizationId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.PolicyVersion": {
+      "title": "PolicyVersion",
+      "x-ess-name": "mandate.core.PolicyVersion",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    },
+    "mandate.core.PrincipalId": {
+      "title": "PrincipalId",
+      "x-ess-name": "mandate.core.PrincipalId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.ResourceId": {
+      "title": "ResourceId",
+      "x-ess-name": "mandate.core.ResourceId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.ResourceRef": {
+      "title": "ResourceRef",
+      "x-ess-name": "mandate.core.ResourceRef",
+      "x-ess-kind": "struct",
+      "type": "object",
+      "properties": {
+        "resource_type": {
+          "$ref": "#/$defs/mandate.core.ResourceType"
+        },
+        "resource_id": {
+          "$ref": "#/$defs/mandate.core.ResourceId"
+        }
+      },
+      "required": [
+        "resource_type",
+        "resource_id"
+      ],
+      "additionalProperties": false
+    },
+    "mandate.core.ResourceType": {
+      "title": "ResourceType",
+      "x-ess-name": "mandate.core.ResourceType",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    },
+    "mandate.core.SpaceId": {
+      "title": "SpaceId",
+      "x-ess-name": "mandate.core.SpaceId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    }
+  }
+}

@@ -1,0 +1,153 @@
+# UNMAPPED-LIFECYCLE: Recorded is an immutable snapshot, not a runtime lifecycle; see decision-blocker:lifecycle.
+domain: mandate.tenancy
+entities:
+  - name: mandate.tenancy.Organization
+    identity:
+      name: id
+      type: mandate.core.OrganizationId
+    fields:
+      - name: display_name
+        type: String
+    lifecycle:
+      initial: Recorded
+      states:
+        - Recorded
+      terminal:
+        - Recorded
+  - name: mandate.tenancy.OrganizationMembership
+    identity:
+      name: id
+      type: mandate.core.OrganizationMembershipId
+    fields:
+      - name: organization_id
+        type: mandate.core.OrganizationId
+      - name: principal_id
+        type: mandate.core.PrincipalId
+    lifecycle:
+      initial: Active
+      states:
+        - Active
+        - Removed
+      terminal:
+        - Removed
+      transitions:
+        - name: remove
+          from:
+            - Active
+          to: Removed
+    relations:
+      - name: organization_id_record
+        kind: references
+        target: mandate.tenancy.Organization
+        cardinality: one
+        via: organization_id
+      - name: principal_id_record
+        kind: references
+        target: mandate.identity.Principal
+        cardinality: one
+        via: principal_id
+  - name: mandate.tenancy.Team
+    identity:
+      name: id
+      type: mandate.core.TeamId
+    fields:
+      - name: organization_id
+        type: mandate.core.OrganizationId
+      - name: display_name
+        type: String
+    lifecycle:
+      initial: Recorded
+      states:
+        - Recorded
+      terminal:
+        - Recorded
+    relations:
+      - name: organization_id_record
+        kind: references
+        target: mandate.tenancy.Organization
+        cardinality: one
+        via: organization_id
+  - name: mandate.tenancy.TeamMembership
+    identity:
+      name: id
+      type: mandate.core.TeamMembershipId
+    fields:
+      - name: organization_id
+        type: mandate.core.OrganizationId
+      - name: team_id
+        type: mandate.core.TeamId
+      - name: principal_id
+        type: mandate.core.PrincipalId
+    lifecycle:
+      initial: Recorded
+      states:
+        - Recorded
+      terminal:
+        - Recorded
+    relations:
+      - name: organization_id_record
+        kind: references
+        target: mandate.tenancy.Organization
+        cardinality: one
+        via: organization_id
+      - name: team_id_record
+        kind: references
+        target: mandate.tenancy.Team
+        cardinality: one
+        via: team_id
+      - name: principal_id_record
+        kind: references
+        target: mandate.identity.Principal
+        cardinality: one
+        via: principal_id
+  - name: mandate.tenancy.Space
+    identity:
+      name: id
+      type: mandate.core.SpaceId
+    fields:
+      - name: organization_id
+        type: mandate.core.OrganizationId
+      - name: display_name
+        type: String
+    lifecycle:
+      initial: Recorded
+      states:
+        - Recorded
+      terminal:
+        - Recorded
+    relations:
+      - name: organization_id_record
+        kind: references
+        target: mandate.tenancy.Organization
+        cardinality: one
+        via: organization_id
+commands:
+  - name: mandate.tenancy.RemoveOrganizationMembership
+    input:
+      - name: id
+        type: mandate.core.OrganizationMembershipId
+      - name: context
+        type: mandate.core.VerifiedContext
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.tenancy.OrganizationMembershipRemoved
+        payload:
+          mandate.tenancy.OrganizationMembershipRemoved:
+            context: input.context
+        moves: mandate.tenancy.OrganizationMembership.remove
+        instance: id
+      - name: denied
+        external: Caller lacks membership-administration authority, membership is outside the verified organization, or membership and dependent authorization invalidation cannot commit consistently.
+        error: mandate.tenancy.Denied
+events:
+  - name: mandate.tenancy.OrganizationMembershipRemoved
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+errors:
+  - name: mandate.tenancy.Denied
+    summary: Fail closed; no credential, authority or lifecycle mutation on refusal.
+    fields:
+      - name: reason
+        type: mandate.core.DenialReason

@@ -1,0 +1,344 @@
+format: aep.driver-steps/1
+id: mandate/canonical-types
+workflow: adp/default/2
+title: Mandate canonical Rust types under development.standard
+states:
+  receive:
+    steps:
+    - kind: llm
+      harness: b10x
+      description: Read the task and record what is being asked for, unedited.
+      skills:
+      - planning
+      scope:
+      - paths:
+        - .engineering/planning/**
+        write: denied
+      - paths:
+        - crates/mandate-types/**
+        - crates/mandate-model/**
+        - crates/mandate-token/**
+        - crates/mandate-proto/**
+        - xtask/**
+        - dependency-boundaries.json
+        - Cargo.toml
+        - Cargo.lock
+        write: allowed
+      - paths:
+        - '**'
+        write: denied
+      prompt: Work only on story:canonical-types using the accepted ESS type inventory, exclusions and
+        reviewed task. Preserve all UNMAPPED blockers. Read docs/handoff.md. Read the task under `.engineering/`
+        and the artifacts it references. Record what is being asked for in the planning store, in the
+        requester's own terms. Do not design, do not decompose, and do not create anything the request
+        does not name.
+  specify:
+    steps:
+    - kind: llm
+      harness: b10x
+      description: State the required behaviour as a specification artifact.
+      skills:
+      - planning
+      scope:
+      - paths:
+        - .engineering/planning/**
+        write: denied
+      - paths:
+        - crates/mandate-types/**
+        - crates/mandate-model/**
+        - crates/mandate-token/**
+        - crates/mandate-proto/**
+        - xtask/**
+        - dependency-boundaries.json
+        - Cargo.toml
+        - Cargo.lock
+        write: allowed
+      - paths:
+        - '**'
+        write: denied
+      prompt: 'Work only on story:canonical-types using the accepted ESS type inventory, exclusions and
+        reviewed task. Preserve all UNMAPPED blockers. Read docs/handoff.md. Write the specification for
+        this task as a planning artifact of kind `specification`, through `aep plan artifact new`. State
+        the required behaviour so that a verifier could disagree with it: anything left only in the prompt
+        cannot be checked later. The transition out of this state is guarded on `artifact.specification.exists`,
+        so the artifact is what moves the run, not a description of one.'
+  decompose:
+    steps:
+    - kind: llm
+      harness: b10x
+      description: Break the specification into units that can each be verified alone.
+      skills:
+      - planning
+      scope:
+      - paths:
+        - .engineering/planning/**
+        write: denied
+      - paths:
+        - crates/mandate-types/**
+        - crates/mandate-model/**
+        - crates/mandate-token/**
+        - crates/mandate-proto/**
+        - xtask/**
+        - dependency-boundaries.json
+        - Cargo.toml
+        - Cargo.lock
+        write: allowed
+      - paths:
+        - '**'
+        write: denied
+      prompt: Work only on story:canonical-types using the accepted ESS type inventory, exclusions and
+        reviewed task. Preserve all UNMAPPED blockers. Read docs/handoff.md. Break the specification into
+        tasks that can each be implemented and verified on their own, through `aep plan artifact new`
+        and `aep plan artifact relate`. Every task states its own acceptance. A unit nobody can verify
+        separately is a unit that will be declared done by assertion.
+  establish_verifiers:
+    steps:
+    - kind: llm
+      harness: b10x
+      description: Write the tests before there is an implementation to shape them around.
+      skills:
+      - planning
+      scope:
+      - paths:
+        - .engineering/planning/**
+        write: denied
+      - paths:
+        - crates/mandate-types/**
+        - crates/mandate-model/**
+        - crates/mandate-token/**
+        - crates/mandate-proto/**
+        - xtask/**
+        - dependency-boundaries.json
+        - Cargo.toml
+        - Cargo.lock
+        write: allowed
+      - paths:
+        - '**'
+        write: denied
+      prompt: "Work only on story:canonical-types using the accepted ESS type inventory, exclusions and\
+        \ reviewed task. Preserve all UNMAPPED blockers. Read docs/handoff.md. Write the failing tests,\
+        \ contracts and checks that will decide whether each decomposed unit is done. Write no implementation\
+        \ in this state. The next transition is guarded on `test.exists`, and the guard \u2014 not good\
+        \ intentions \u2014 is what enforces the order."
+    - kind: command
+      description: Run the suite so that a test result exists, whatever it says.
+      run:
+      - cargo
+      - test
+      - --workspace
+      - --locked
+      evidence:
+        kind: test_result
+        suite: unit
+        verifier: test-runner
+    - kind: operator
+      description: Approve the specification, or say what is wrong with it.
+      prompt: "Read the specification this run wrote and the suite it just ran red. If it states the required\
+        \ behaviour well enough for those tests to decide it, move it to `approved` \u2014 `aep plan artifact\
+        \ move <id> in_review` then `aep plan artifact move <id> approved`. If it does not, leave it in\
+        \ `draft` and say so: the transition into `implement` is guarded on an approved specification,\
+        \ so the run stops here either way and nothing is implemented against a specification nobody agreed\
+        \ to. Write each requirement so that a fact decides it \u2014 `protocol observe specification\
+        \ evidence` reads a list item under `## Acceptance` and resolves the predicate it names in backticks,\
+        \ so `the suite is green` states nothing and `` `tests.unit.failed == 0` `` states a requirement."
+    - kind: operator
+      description: Approve the canonical-types specification and exclusions against the frozen ESS contract.
+      prompt: Review and explicitly approve the task-bound canonical-types specification and exclusions;
+        do not infer approval from presence.
+  implement:
+    steps:
+    - kind: llm
+      harness: b10x
+      description: Make the smallest change that satisfies the unit and its verifiers.
+      skills:
+      - planning
+      scope:
+      - paths:
+        - .engineering/planning/**
+        write: denied
+      - paths:
+        - crates/mandate-types/**
+        - crates/mandate-model/**
+        - crates/mandate-token/**
+        - crates/mandate-proto/**
+        - xtask/**
+        - dependency-boundaries.json
+        - Cargo.toml
+        - Cargo.lock
+        write: allowed
+      - paths:
+        - '**'
+        write: denied
+      prompt: Work only on story:canonical-types using the accepted ESS type inventory, exclusions and
+        reviewed task. Preserve all UNMAPPED blockers. Read docs/handoff.md. Make the smallest change
+        that satisfies the decomposed unit and the verifiers written for it. Do not weaken a check to
+        make it pass; the workflow has an explicit route back here from `verify`, and taking it is cheaper
+        than a suite nobody trusts.
+    - kind: command
+      description: Observe that the working tree actually changed.
+      run:
+      - git
+      - --no-pager
+      - diff
+      - --stat
+      - HEAD
+      evidence:
+        kind: diff
+        verifier: git
+  verify:
+    steps:
+    - kind: command
+      description: The unit suite.
+      run:
+      - cargo
+      - test
+      - --workspace
+      - --locked
+      evidence:
+        kind: test_result
+        suite: unit
+        verifier: test-runner
+    - kind: command
+      description: The contract suites.
+      run:
+      - cargo
+      - test
+      - --locked
+      - -p
+      - mandate-types
+      - --test
+      - canonical_contracts
+      evidence:
+        kind: test_result
+        suite: contract
+        verifier: test-runner
+    - kind: command
+      description: Static analysis, warnings as errors.
+      run:
+      - cargo
+      - clippy
+      - --workspace
+      - --all-targets
+      - --
+      - -D
+      - warnings
+      evidence:
+        kind: static_analysis
+        verifier: static-analyzer
+    - kind: command
+      description: The contracts the one external consumer was told about still hold.
+      run:
+      - cargo
+      - test
+      - --locked
+      - -p
+      - mandate-model
+      - --test
+      - credential_containment
+      evidence:
+        kind: contract_result
+        verifier: contract-runner
+    - kind: command
+      description: Mandate type properties; evidence-producing verifier must be implemented and independently
+        reviewed before launch.
+      run:
+      - cargo
+      - xtask
+      - type-properties
+      - --out
+      - '{run_directory}/property.yaml'
+      evidence:
+        kind: property_test_result
+        verifier: property-tester
+        record: '{run_directory}/property.yaml'
+    - kind: command
+      description: Validate the selected pinned AEP tree and project overlay.
+      run:
+      - aep
+      - govern
+      - validate
+      - --evidence
+      - '{run_directory}/verification.yaml'
+      evidence:
+        kind: verification
+        verifier: protocol
+        record: '{run_directory}/verification.yaml'
+  adversarial_verify:
+    steps:
+    - kind: llm
+      harness: b10x
+      description: Try to break what the previous state just declared working.
+      skills:
+      - planning
+      scope:
+      - paths:
+        - .engineering/planning/**
+        write: denied
+      - paths:
+        - crates/mandate-types/**
+        - crates/mandate-model/**
+        - crates/mandate-token/**
+        - crates/mandate-proto/**
+        - xtask/**
+        - dependency-boundaries.json
+        - Cargo.toml
+        - Cargo.lock
+        write: allowed
+      - paths:
+        - '**'
+        write: denied
+      prompt: 'Work only on story:canonical-types using the accepted ESS type inventory, exclusions and
+        reviewed task. Preserve all UNMAPPED blockers. Read docs/handoff.md. Try to break what `verify`
+        just declared working: edge cases, property violations, contract drift, a mutant the suite would
+        not catch. Write the cases that fail. You are not the author here even when you wrote the code,
+        and a state that only re-ran the author''s own suite would make the author and the adversary one
+        actor.'
+    - kind: command
+      description: Run the suite again, with whatever the adversary added.
+      run:
+      - cargo
+      - test
+      - --workspace
+      - --locked
+      evidence:
+        kind: test_result
+        suite: unit
+        verifier: test-runner
+    - kind: command
+      description: The existing suite, as a regression check on what the adversary added.
+      run:
+      - cargo
+      - test
+      - --workspace
+      - --locked
+      evidence:
+        kind: test_result
+        suite: regression
+        verifier: test-runner
+    - kind: command
+      description: Decide the specification's requirements against what this run observed.
+      run:
+      - protocol
+      - observe
+      - specification
+      - evidence
+      - --store
+      - .engineering/planning
+      - --task
+      - '{task}'
+      - --snapshot
+      - '{run_directory}/snapshot.json'
+      - --out
+      - '{run_directory}/specification.yaml'
+      evidence:
+        kind: specification
+        verifier: protocol
+        record: '{run_directory}/specification.yaml'
+  review:
+    steps:
+    - kind: operator
+      description: "Judge the change as a whole \u2014 intent, fit and risk, not just green checks."
+      prompt: Review this change as a whole. The run has stopped and released its lock; record your review
+        as evidence and resume it. Nothing the driver can do satisfies this state.
+  complete:
+    steps: []

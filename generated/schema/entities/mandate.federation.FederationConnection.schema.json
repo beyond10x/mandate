@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FederationConnection",
+  "x-ess-name": "mandate.federation.FederationConnection",
+  "x-ess-kind": "entity",
+  "type": "object",
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/mandate.core.FederationConnectionId"
+    },
+    "organization_id": {
+      "$ref": "#/$defs/mandate.core.OrganizationId",
+      "x-ess-relation": {
+        "name": "organization_id_record",
+        "kind": "references",
+        "source": "mandate.federation.FederationConnection",
+        "target": "mandate.tenancy.Organization",
+        "cardinality": "one",
+        "via": "organization_id"
+      }
+    },
+    "issuer": {
+      "$ref": "#/$defs/mandate.core.Issuer"
+    },
+    "client_id": {
+      "$ref": "#/$defs/mandate.core.ClientId"
+    },
+    "tenant_resolution": {
+      "$ref": "#/$defs/mandate.core.TenantResolutionRule"
+    },
+    "state": {
+      "$ref": "#/$defs/mandate.federation.FederationConnection.State"
+    }
+  },
+  "required": [
+    "id",
+    "organization_id",
+    "issuer",
+    "client_id",
+    "tenant_resolution",
+    "state"
+  ],
+  "additionalProperties": false,
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1",
+    "contract_digest": "slice-sha256/2:d2ffeac52329701b99b3e99ecb500ed7c65f88ea875911417b7fed3e9a79cd5d",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.core.ClientId": {
+      "title": "ClientId",
+      "x-ess-name": "mandate.core.ClientId",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    },
+    "mandate.core.FederationConnectionId": {
+      "title": "FederationConnectionId",
+      "x-ess-name": "mandate.core.FederationConnectionId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.Issuer": {
+      "title": "Issuer",
+      "x-ess-name": "mandate.core.Issuer",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    },
+    "mandate.core.OrganizationId": {
+      "title": "OrganizationId",
+      "x-ess-name": "mandate.core.OrganizationId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.TenantResolutionRule": {
+      "title": "TenantResolutionRule",
+      "x-ess-name": "mandate.core.TenantResolutionRule",
+      "x-ess-kind": "struct",
+      "type": "object",
+      "properties": {
+        "configured_organization": {
+          "$ref": "#/$defs/mandate.core.OrganizationId"
+        },
+        "verified_claim_name": {
+          "type": "string"
+        },
+        "verified_claim_value": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "configured_organization"
+      ],
+      "additionalProperties": false
+    },
+    "mandate.federation.FederationConnection.State": {
+      "title": "State",
+      "x-ess-name": "mandate.federation.FederationConnection.State",
+      "x-ess-kind": "enum",
+      "type": "string",
+      "enum": [
+        "Disabled",
+        "Enabled"
+      ]
+    }
+  }
+}

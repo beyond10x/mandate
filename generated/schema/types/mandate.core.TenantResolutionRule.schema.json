@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$ref": "#/$defs/mandate.core.TenantResolutionRule",
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1",
+    "contract_digest": "slice-sha256/2:22990c35c90176cdb50db50ccda8cb75ced30186f4cee49b5685db6b3a9279db",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.core.OrganizationId": {
+      "title": "OrganizationId",
+      "x-ess-name": "mandate.core.OrganizationId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.TenantResolutionRule": {
+      "title": "TenantResolutionRule",
+      "x-ess-name": "mandate.core.TenantResolutionRule",
+      "x-ess-kind": "struct",
+      "type": "object",
+      "properties": {
+        "configured_organization": {
+          "$ref": "#/$defs/mandate.core.OrganizationId"
+        },
+        "verified_claim_name": {
+          "type": "string"
+        },
+        "verified_claim_value": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "configured_organization"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Principal",
+  "x-ess-name": "mandate.identity.Principal",
+  "x-ess-kind": "entity",
+  "type": "object",
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/mandate.core.PrincipalId"
+    },
+    "kind": {
+      "$ref": "#/$defs/mandate.core.PrincipalKind"
+    },
+    "display_name": {
+      "type": "string"
+    },
+    "state": {
+      "$ref": "#/$defs/mandate.identity.Principal.State"
+    }
+  },
+  "required": [
+    "id",
+    "kind",
+    "display_name",
+    "state"
+  ],
+  "additionalProperties": false,
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1",
+    "contract_digest": "slice-sha256/2:07315e006648c6421e3ea2d4d446527fc026dbeaa4ec62c18eedefb75ee8161a",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.core.PrincipalId": {
+      "title": "PrincipalId",
+      "x-ess-name": "mandate.core.PrincipalId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.PrincipalKind": {
+      "title": "PrincipalKind",
+      "x-ess-name": "mandate.core.PrincipalKind",
+      "x-ess-kind": "enum",
+      "type": "string",
+      "enum": [
+        "User",
+        "Service",
+        "Agent",
+        "ServiceAccount"
+      ]
+    },
+    "mandate.identity.Principal.State": {
+      "title": "State",
+      "x-ess-name": "mandate.identity.Principal.State",
+      "x-ess-kind": "enum",
+      "type": "string",
+      "enum": [
+        "Active",
+        "Disabled"
+      ]
+    }
+  }
+}

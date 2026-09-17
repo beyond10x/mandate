@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SecurityEpochSnapshot",
+  "x-ess-name": "mandate.identity.SecurityEpochSnapshot",
+  "x-ess-kind": "entity",
+  "type": "object",
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/mandate.core.EpochSnapshotRef"
+    },
+    "principal_id": {
+      "$ref": "#/$defs/mandate.core.PrincipalId",
+      "x-ess-relation": {
+        "name": "principal_record",
+        "kind": "references",
+        "source": "mandate.identity.SecurityEpochSnapshot",
+        "target": "mandate.identity.Principal",
+        "cardinality": "one",
+        "via": "principal_id"
+      }
+    },
+    "organization_id": {
+      "$ref": "#/$defs/mandate.core.OrganizationId",
+      "x-ess-relation": {
+        "name": "organization_id_record",
+        "kind": "references",
+        "source": "mandate.identity.SecurityEpochSnapshot",
+        "target": "mandate.tenancy.Organization",
+        "cardinality": "one",
+        "via": "organization_id"
+      }
+    },
+    "connection_id": {
+      "$ref": "#/$defs/mandate.core.FederationConnectionId",
+      "x-ess-relation": {
+        "name": "connection_id_record",
+        "kind": "references",
+        "source": "mandate.identity.SecurityEpochSnapshot",
+        "target": "mandate.federation.FederationConnection",
+        "cardinality": "one",
+        "via": "connection_id"
+      }
+    },
+    "state": {
+      "$ref": "#/$defs/mandate.identity.SecurityEpochSnapshot.State"
+    }
+  },
+  "required": [
+    "id",
+    "principal_id",
+    "organization_id",
+    "state"
+  ],
+  "additionalProperties": false,
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1",
+    "contract_digest": "slice-sha256/2:6fb8a7a69ebd1df80c47652732358bfd34491798536f17594d26b657342baf61",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.core.EpochSnapshotRef": {
+      "title": "EpochSnapshotRef",
+      "x-ess-name": "mandate.core.EpochSnapshotRef",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.FederationConnectionId": {
+      "title": "FederationConnectionId",
+      "x-ess-name": "mandate.core.FederationConnectionId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.OrganizationId": {
+      "title": "OrganizationId",
+      "x-ess-name": "mandate.core.OrganizationId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.PrincipalId": {
+      "title": "PrincipalId",
+      "x-ess-name": "mandate.core.PrincipalId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.identity.SecurityEpochSnapshot.State": {
+      "title": "State",
+      "x-ess-name": "mandate.identity.SecurityEpochSnapshot.State",
+      "x-ess-kind": "enum",
+      "type": "string",
+      "enum": [
+        "Recorded"
+      ]
+    }
+  }
+}

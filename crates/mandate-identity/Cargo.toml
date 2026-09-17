@@ -1,0 +1,15 @@
+[package]
+name = "mandate-identity"
+description = "Principal, linking and session lifecycle."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+mandate-types = { version = "0.1.0", path = "../mandate-types" }
+mandate-model = { version = "0.1.0", path = "../mandate-model" }

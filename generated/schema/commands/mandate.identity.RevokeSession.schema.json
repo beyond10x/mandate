@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RevokeSession input",
+  "x-ess-name": "mandate.identity.RevokeSession",
+  "x-ess-kind": "command-input",
+  "type": "object",
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/mandate.core.SessionId"
+    },
+    "context": {
+      "$ref": "#/$defs/mandate.core.VerifiedContext"
+    }
+  },
+  "required": [
+    "id",
+    "context"
+  ],
+  "additionalProperties": false,
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1",
+    "contract_digest": "slice-sha256/2:b6e44a51fa45138097501b6d1b0607cc08016cba6d0756dd23a5dc945d1c881a",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.core.Audience": {
+      "title": "Audience",
+      "x-ess-name": "mandate.core.Audience",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    },
+    "mandate.core.CorrelationId": {
+      "title": "CorrelationId",
+      "x-ess-name": "mandate.core.CorrelationId",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    },
+    "mandate.core.CredentialId": {
+      "title": "CredentialId",
+      "x-ess-name": "mandate.core.CredentialId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.DelegationId": {
+      "title": "DelegationId",
+      "x-ess-name": "mandate.core.DelegationId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.ExecutionId": {
+      "title": "ExecutionId",
+      "x-ess-name": "mandate.core.ExecutionId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.OrganizationId": {
+      "title": "OrganizationId",
+      "x-ess-name": "mandate.core.OrganizationId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.PrincipalId": {
+      "title": "PrincipalId",
+      "x-ess-name": "mandate.core.PrincipalId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.SessionId": {
+      "title": "SessionId",
+      "x-ess-name": "mandate.core.SessionId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.VerifiedContext": {
+      "title": "VerifiedContext",
+      "x-ess-name": "mandate.core.VerifiedContext",
+      "x-ess-kind": "struct",
+      "type": "object",
+      "properties": {
+        "subject": {
+          "$ref": "#/$defs/mandate.core.PrincipalId"
+        },
+        "actor": {
+          "$ref": "#/$defs/mandate.core.PrincipalId"
+        },
+        "organization": {
+          "$ref": "#/$defs/mandate.core.OrganizationId"
+        },
+        "audience": {
+          "$ref": "#/$defs/mandate.core.Audience"
+        },
+        "credential": {
+          "$ref": "#/$defs/mandate.core.CredentialId"
+        },
+        "delegation": {
+          "$ref": "#/$defs/mandate.core.DelegationId"
+        },
+        "execution": {
+          "$ref": "#/$defs/mandate.core.ExecutionId"
+        },
+        "correlation": {
+          "$ref": "#/$defs/mandate.core.CorrelationId"
+        }
+      },
+      "required": [
+        "subject",
+        "organization",
+        "audience",
+        "credential",
+        "correlation"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$ref": "#/$defs/mandate.delegation.Agent.State",
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1",
+    "contract_digest": "slice-sha256/2:8203ca6037d7b48adf5b5072733650fdd745a4d13a16b026cc84212ab3decd9a",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.delegation.Agent.State": {
+      "title": "State",
+      "x-ess-name": "mandate.delegation.Agent.State",
+      "x-ess-kind": "enum",
+      "type": "string",
+      "enum": [
+        "Recorded"
+      ]
+    }
+  }
+}

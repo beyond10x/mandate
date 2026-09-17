@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$ref": "#/$defs/mandate.core.AuthoritySubject",
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1",
+    "contract_digest": "slice-sha256/2:b7b01a47c6ceff42e9af2dbf97c81e0e39094c7b91817559baad2ee990ce434d",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.core.AuthoritySubject": {
+      "title": "AuthoritySubject",
+      "x-ess-name": "mandate.core.AuthoritySubject",
+      "x-ess-kind": "union",
+      "oneOf": [
+        {
+          "title": "principal",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "principal"
+            },
+            "value": {
+              "$ref": "#/$defs/mandate.core.PrincipalId"
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "title": "team",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "team"
+            },
+            "value": {
+              "$ref": "#/$defs/mandate.core.TeamId"
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ],
+          "additionalProperties": false
+        }
+      ],
+      "x-ess-union-tag": "kind"
+    },
+    "mandate.core.PrincipalId": {
+      "title": "PrincipalId",
+      "x-ess-name": "mandate.core.PrincipalId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.TeamId": {
+      "title": "TeamId",
+      "x-ess-name": "mandate.core.TeamId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    }
+  }
+}

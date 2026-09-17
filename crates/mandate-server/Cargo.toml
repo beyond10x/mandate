@@ -1,0 +1,15 @@
+[package]
+name = "mandate-server"
+description = "Transport and validated security-context extraction."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+mandate-types = { version = "0.1.0", path = "../mandate-types" }
+mandate-proto = { version = "0.1.0", path = "../mandate-proto" }

@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DirectoryGroupMembership",
+  "x-ess-name": "mandate.directory.DirectoryGroupMembership",
+  "x-ess-kind": "entity",
+  "type": "object",
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/mandate.core.DirectoryGroupMembershipId"
+    },
+    "organization_id": {
+      "$ref": "#/$defs/mandate.core.OrganizationId",
+      "x-ess-relation": {
+        "name": "organization_id_record",
+        "kind": "references",
+        "source": "mandate.directory.DirectoryGroupMembership",
+        "target": "mandate.tenancy.Organization",
+        "cardinality": "one",
+        "via": "organization_id"
+      }
+    },
+    "group_id": {
+      "$ref": "#/$defs/mandate.core.DirectoryGroupId",
+      "x-ess-relation": {
+        "name": "group_id_record",
+        "kind": "references",
+        "source": "mandate.directory.DirectoryGroupMembership",
+        "target": "mandate.directory.DirectoryGroup",
+        "cardinality": "one",
+        "via": "group_id"
+      }
+    },
+    "principal_id": {
+      "$ref": "#/$defs/mandate.core.PrincipalId",
+      "x-ess-relation": {
+        "name": "principal_id_record",
+        "kind": "references",
+        "source": "mandate.directory.DirectoryGroupMembership",
+        "target": "mandate.identity.Principal",
+        "cardinality": "one",
+        "via": "principal_id"
+      }
+    },
+    "state": {
+      "$ref": "#/$defs/mandate.directory.DirectoryGroupMembership.State"
+    }
+  },
+  "required": [
+    "id",
+    "organization_id",
+    "group_id",
+    "principal_id",
+    "state"
+  ],
+  "additionalProperties": false,
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1",
+    "contract_digest": "slice-sha256/2:419d2186d063747fd2cc8486d29b36a42490ccac43863cb8500f65385db1e42d",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.core.DirectoryGroupId": {
+      "title": "DirectoryGroupId",
+      "x-ess-name": "mandate.core.DirectoryGroupId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.DirectoryGroupMembershipId": {
+      "title": "DirectoryGroupMembershipId",
+      "x-ess-name": "mandate.core.DirectoryGroupMembershipId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.OrganizationId": {
+      "title": "OrganizationId",
+      "x-ess-name": "mandate.core.OrganizationId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.PrincipalId": {
+      "title": "PrincipalId",
+      "x-ess-name": "mandate.core.PrincipalId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.directory.DirectoryGroupMembership.State": {
+      "title": "State",
+      "x-ess-name": "mandate.directory.DirectoryGroupMembership.State",
+      "x-ess-kind": "enum",
+      "type": "string",
+      "enum": [
+        "Active",
+        "Removed"
+      ]
+    }
+  }
+}

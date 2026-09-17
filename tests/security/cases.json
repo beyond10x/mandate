@@ -1,0 +1,625 @@
+{
+  "format": "mandate-security-cases/1",
+  "cases": [
+    {
+      "id": "directory-no-authority",
+      "category": "directory",
+      "story": "story:directory-provenance",
+      "given": "Principal belongs only to a DirectoryGroup; no team contribution or grant",
+      "action": "Check deployment.restart",
+      "expected": "deny; directory membership contributes no authority",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.directory.CreateDirectoryGroupTeamMapping",
+        "mandate.directory.RemoveDirectoryGroupTeamMapping",
+        "mandate.directory.SyncDirectoryMembership",
+        "mandate.authorization.Check"
+      ]
+    },
+    {
+      "id": "mapping-contributes",
+      "category": "directory",
+      "story": "story:directory-provenance",
+      "given": "Explicit same-org group-to-team mapping and team grant exist",
+      "action": "Synchronize member",
+      "expected": "one source-identified contribution creates effective membership",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.directory.CreateDirectoryGroupTeamMapping",
+        "mandate.directory.RemoveDirectoryGroupTeamMapping",
+        "mandate.directory.SyncDirectoryMembership",
+        "mandate.authorization.Check"
+      ]
+    },
+    {
+      "id": "mapping-remove",
+      "category": "directory",
+      "story": "story:directory-provenance",
+      "given": "Only mapping A contributes membership",
+      "action": "Remove A",
+      "expected": "only A contribution removed; no effective membership; team remains",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.directory.CreateDirectoryGroupTeamMapping",
+        "mandate.directory.RemoveDirectoryGroupTeamMapping",
+        "mandate.directory.SyncDirectoryMembership",
+        "mandate.authorization.Check"
+      ]
+    },
+    {
+      "id": "mapping-overlap",
+      "category": "directory",
+      "story": "story:directory-provenance",
+      "given": "Mappings A and B both contribute membership",
+      "action": "Remove A",
+      "expected": "B contribution and effective membership survive",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.directory.CreateDirectoryGroupTeamMapping",
+        "mandate.directory.RemoveDirectoryGroupTeamMapping",
+        "mandate.directory.SyncDirectoryMembership",
+        "mandate.authorization.Check"
+      ]
+    },
+    {
+      "id": "mapping-manual",
+      "category": "directory",
+      "story": "story:directory-provenance",
+      "given": "Manual and mapping A contributions coexist",
+      "action": "Remove A",
+      "expected": "manual contribution and effective membership survive",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.directory.CreateDirectoryGroupTeamMapping",
+        "mandate.directory.RemoveDirectoryGroupTeamMapping",
+        "mandate.directory.SyncDirectoryMembership",
+        "mandate.authorization.Check"
+      ]
+    },
+    {
+      "id": "mapping-cross-org",
+      "category": "directory",
+      "story": "story:directory-provenance",
+      "given": "Group and team belong to different organizations",
+      "action": "Create mapping",
+      "expected": "deny with no contributions",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.directory.CreateDirectoryGroupTeamMapping",
+        "mandate.directory.RemoveDirectoryGroupTeamMapping",
+        "mandate.directory.SyncDirectoryMembership",
+        "mandate.authorization.Check"
+      ]
+    },
+    {
+      "id": "issuer-isolation",
+      "category": "linking",
+      "story": "story:federation-linking",
+      "given": "Equal subjects under distinct issuers",
+      "action": "Resolve accounts",
+      "expected": "distinct external keys; no merge",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.federation.LinkExternalPrincipal",
+        "mandate.federation.AuthenticateFederation"
+      ]
+    },
+    {
+      "id": "email-isolation",
+      "category": "linking",
+      "story": "story:federation-linking",
+      "given": "Equal verified email under distinct issuers",
+      "action": "Resolve accounts",
+      "expected": "no automatic principal merge",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.federation.LinkExternalPrincipal",
+        "mandate.federation.AuthenticateFederation"
+      ]
+    },
+    {
+      "id": "explicit-link",
+      "category": "linking",
+      "story": "story:federation-linking",
+      "given": "Authorized same-org admin; no conflicting link",
+      "action": "Link exact external key to principal",
+      "expected": "one link and redacted audit event",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.federation.LinkExternalPrincipal",
+        "mandate.federation.AuthenticateFederation"
+      ]
+    },
+    {
+      "id": "link-conflict",
+      "category": "linking",
+      "story": "story:federation-linking",
+      "given": "Exact key already linked to another principal",
+      "action": "Link conflicting principal",
+      "expected": "deny; existing mapping unchanged",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.federation.LinkExternalPrincipal",
+        "mandate.federation.AuthenticateFederation"
+      ]
+    },
+    {
+      "id": "tenant-valid",
+      "category": "tenancy",
+      "story": "story:federation-linking",
+      "given": "Configured trust and signature/issuer/audience valid; one tenant match",
+      "action": "Establish context",
+      "expected": "exact configured organization",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.federation.AuthenticateFederation"
+      ]
+    },
+    {
+      "id": "tenant-zero",
+      "category": "tenancy",
+      "story": "story:federation-linking",
+      "given": "Verified proof matches no configured tenant",
+      "action": "Issue session",
+      "expected": "deny; no session",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.federation.AuthenticateFederation"
+      ]
+    },
+    {
+      "id": "tenant-ambiguous",
+      "category": "tenancy",
+      "story": "story:federation-linking",
+      "given": "Verified proof matches two configured tenants",
+      "action": "Issue session",
+      "expected": "deny; no guessed tenant",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.federation.AuthenticateFederation"
+      ]
+    },
+    {
+      "id": "tenant-unverified",
+      "category": "tenancy",
+      "story": "story:federation-linking",
+      "given": "Org selector or email domain provided without verified binding",
+      "action": "Issue credential",
+      "expected": "deny; no fallback",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.federation.AuthenticateFederation"
+      ]
+    },
+    {
+      "id": "reference-persistence",
+      "category": "credential",
+      "story": "story:credential-profiles",
+      "given": "Reference issuance succeeds",
+      "action": "Inspect persistent rows and audit",
+      "expected": "only non-reversible verifier persists; raw secret returned once",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.credential.IssueReferenceCredential",
+        "mandate.credential.IntrospectCredential",
+        "mandate.authorization.Check"
+      ]
+    },
+    {
+      "id": "reference-revoked",
+      "category": "credential",
+      "story": "story:credential-profiles",
+      "given": "ImmediateOnline profile credential has been revoked",
+      "action": "Resolve with prior positive cache",
+      "expected": "inactive; stale positive cache never authorizes",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.credential.IssueReferenceCredential",
+        "mandate.credential.IntrospectCredential",
+        "mandate.authorization.Check"
+      ]
+    },
+    {
+      "id": "reference-audience",
+      "category": "credential",
+      "story": "story:credential-profiles",
+      "given": "Credential targets API A",
+      "action": "Present to API B",
+      "expected": "deny audience mismatch",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.credential.IssueReferenceCredential",
+        "mandate.credential.IntrospectCredential",
+        "mandate.authorization.Check"
+      ]
+    },
+    {
+      "id": "reference-expired",
+      "category": "credential",
+      "story": "story:credential-profiles",
+      "given": "Credential expiry has passed",
+      "action": "Resolve credential",
+      "expected": "inactive",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.credential.IssueReferenceCredential",
+        "mandate.credential.IntrospectCredential",
+        "mandate.authorization.Check"
+      ]
+    },
+    {
+      "id": "profile-offline-bound",
+      "category": "credential",
+      "story": "story:credential-profiles",
+      "given": "BoundedOffline profile and recent signed credential",
+      "action": "Revoke centrally while verifier offline",
+      "expected": "validity cannot exceed documented TTL/skew bound; no immediate claim",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.credential.IssueReferenceCredential",
+        "mandate.credential.IntrospectCredential",
+        "mandate.authorization.Check"
+      ]
+    },
+    {
+      "id": "epoch-principal",
+      "category": "epoch",
+      "story": "story:session-epochs",
+      "given": "Session snapshots generation 41; authoritative principal is 42",
+      "action": "Refresh session",
+      "expected": "deny stale generation",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.identity.IncrementSecurityEpoch",
+        "mandate.identity.RefreshSession",
+        "mandate.credential.ExchangeCredential"
+      ]
+    },
+    {
+      "id": "epoch-org",
+      "category": "epoch",
+      "story": "story:session-epochs",
+      "given": "Organization generation incremented",
+      "action": "Exchange pre-reset credential",
+      "expected": "deny stale generation",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.identity.IncrementSecurityEpoch",
+        "mandate.identity.RefreshSession",
+        "mandate.credential.ExchangeCredential"
+      ]
+    },
+    {
+      "id": "epoch-federation",
+      "category": "epoch",
+      "story": "story:session-epochs",
+      "given": "Federation generation incremented or trust disabled",
+      "action": "Refresh previous federated session",
+      "expected": "deny; reauthentication required",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.identity.IncrementSecurityEpoch",
+        "mandate.identity.RefreshSession",
+        "mandate.credential.ExchangeCredential"
+      ]
+    },
+    {
+      "id": "epoch-isolation",
+      "category": "epoch",
+      "story": "story:session-epochs",
+      "given": "Only organization A reset; B snapshots still current",
+      "action": "Refresh B session",
+      "expected": "B remains eligible subject to other checks",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.identity.IncrementSecurityEpoch",
+        "mandate.identity.RefreshSession",
+        "mandate.credential.ExchangeCredential"
+      ]
+    },
+    {
+      "id": "epoch-overflow",
+      "category": "epoch",
+      "story": "story:session-epochs",
+      "given": "Generation at maximum unsigned value",
+      "action": "Increment",
+      "expected": "fail closed; no wrap or reuse",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.identity.IncrementSecurityEpoch",
+        "mandate.identity.RefreshSession",
+        "mandate.credential.ExchangeCredential"
+      ]
+    },
+    {
+      "id": "pkce-valid",
+      "category": "pkce",
+      "story": "story:oauth-integration",
+      "given": "S256 challenge, matching verifier, exact redirect, fresh code and state/nonce",
+      "action": "Redeem code",
+      "expected": "one credential; code consumed atomically",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.federation.AuthorizePublicClient",
+        "mandate.credential.IssueAuthorizationCode",
+        "mandate.credential.RedeemAuthorizationCode"
+      ]
+    },
+    {
+      "id": "pkce-wrong",
+      "category": "pkce",
+      "story": "story:oauth-integration",
+      "given": "Wrong verifier",
+      "action": "Redeem code",
+      "expected": "deny; no credential",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.federation.AuthorizePublicClient",
+        "mandate.credential.IssueAuthorizationCode",
+        "mandate.credential.RedeemAuthorizationCode"
+      ]
+    },
+    {
+      "id": "pkce-missing",
+      "category": "pkce",
+      "story": "story:oauth-integration",
+      "given": "Public client omits verifier",
+      "action": "Redeem code",
+      "expected": "deny",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.federation.AuthorizePublicClient",
+        "mandate.credential.IssueAuthorizationCode",
+        "mandate.credential.RedeemAuthorizationCode"
+      ]
+    },
+    {
+      "id": "pkce-plain",
+      "category": "pkce",
+      "story": "story:oauth-integration",
+      "given": "Challenge method plain",
+      "action": "Authorize public client",
+      "expected": "deny unsupported method",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.federation.AuthorizePublicClient",
+        "mandate.credential.IssueAuthorizationCode",
+        "mandate.credential.RedeemAuthorizationCode"
+      ]
+    },
+    {
+      "id": "pkce-reuse",
+      "category": "pkce",
+      "story": "story:oauth-integration",
+      "given": "Previously redeemed code or concurrent second redemption",
+      "action": "Redeem code",
+      "expected": "deny; at most one issuance",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.federation.AuthorizePublicClient",
+        "mandate.credential.IssueAuthorizationCode",
+        "mandate.credential.RedeemAuthorizationCode"
+      ]
+    },
+    {
+      "id": "pkce-redirect",
+      "category": "pkce",
+      "story": "story:oauth-integration",
+      "given": "Redirect differs from exact registered/authorized URI",
+      "action": "Redeem code",
+      "expected": "deny",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.federation.AuthorizePublicClient",
+        "mandate.credential.IssueAuthorizationCode",
+        "mandate.credential.RedeemAuthorizationCode"
+      ]
+    },
+    {
+      "id": "pkce-state-nonce",
+      "category": "pkce",
+      "story": "story:oauth-integration",
+      "given": "State or applicable nonce does not match",
+      "action": "Complete authentication",
+      "expected": "deny",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.federation.AuthorizePublicClient",
+        "mandate.credential.IssueAuthorizationCode",
+        "mandate.credential.RedeemAuthorizationCode"
+      ]
+    },
+    {
+      "id": "exchange-subject",
+      "category": "exchange",
+      "story": "story:constrained-exchange",
+      "given": "Requested action absent from subject authority",
+      "action": "Exchange",
+      "expected": "deny or omit unauthorized action; no expansion",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.credential.ExchangeCredential"
+      ]
+    },
+    {
+      "id": "exchange-ceiling",
+      "category": "exchange",
+      "story": "story:constrained-exchange",
+      "given": "Admin subject requests action forbidden to actor",
+      "action": "Exchange",
+      "expected": "deny; admin rights do not bypass ceiling",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.credential.ExchangeCredential"
+      ]
+    },
+    {
+      "id": "exchange-target",
+      "category": "exchange",
+      "story": "story:constrained-exchange",
+      "given": "Requested target unknown, disabled or not in allowed exchange sources",
+      "action": "Exchange",
+      "expected": "deny; no wildcard audience",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.credential.ExchangeCredential"
+      ]
+    },
+    {
+      "id": "exchange-organization",
+      "category": "exchange",
+      "story": "story:constrained-exchange",
+      "given": "Source organization A; requested resource in B",
+      "action": "Exchange",
+      "expected": "deny tenant escalation",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.credential.ExchangeCredential"
+      ]
+    },
+    {
+      "id": "exchange-space",
+      "category": "exchange",
+      "story": "story:constrained-exchange",
+      "given": "Source limited to staging",
+      "action": "Exchange for production",
+      "expected": "deny resource widening",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.credential.ExchangeCredential"
+      ]
+    },
+    {
+      "id": "exchange-expiry",
+      "category": "exchange",
+      "story": "story:constrained-exchange",
+      "given": "Subject expires at 20, actor 18, delegation 15, policy limit 12",
+      "action": "Request expiry 30",
+      "expected": "issued expiry at most 12",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.credential.ExchangeCredential"
+      ]
+    },
+    {
+      "id": "exchange-actor",
+      "category": "exchange",
+      "story": "story:constrained-exchange",
+      "given": "Subject user and independently authenticated service/agent actor",
+      "action": "Exchange then downstream check",
+      "expected": "both identities survive credential, context and correlated audit",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.credential.ExchangeCredential"
+      ]
+    },
+    {
+      "id": "exchange-revoked",
+      "category": "exchange",
+      "story": "story:constrained-exchange",
+      "given": "Delegation expired/revoked or actor disabled",
+      "action": "Exchange",
+      "expected": "deny",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.credential.ExchangeCredential"
+      ]
+    },
+    {
+      "id": "exchange-chain",
+      "category": "exchange",
+      "story": "story:constrained-exchange",
+      "given": "Existing delegated credential requests another actor hop",
+      "action": "Exchange",
+      "expected": "deny transitive delegation",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.credential.ExchangeCredential"
+      ]
+    },
+    {
+      "id": "autonomous-ceiling",
+      "category": "authority",
+      "story": "story:agent-security",
+      "given": "Agent persistent grant exceeds platform/installation ceiling",
+      "action": "Check under own subject",
+      "expected": "deny outside ceiling",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.authorization.Check"
+      ]
+    },
+    {
+      "id": "approval-required",
+      "category": "authority",
+      "story": "story:agent-security",
+      "given": "High-risk policy lacks valid scoped approval",
+      "action": "Check action",
+      "expected": "allowed=false and structured challenge",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.authorization.Check"
+      ]
+    },
+    {
+      "id": "credential-containment",
+      "category": "containment",
+      "story": "story:protocol-adapters",
+      "given": "Trusted broker holds original user and upstream provider credentials",
+      "action": "Delegate to agent",
+      "expected": "only narrowed output reaches agent; upstream and original secrets absent",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.credential.ExchangeCredential"
+      ]
+    },
+    {
+      "id": "audit-redaction",
+      "category": "audit",
+      "story": "story:audit-client",
+      "given": "Issuance, exchange, linking and failures contain secret inputs",
+      "action": "Capture audit/log output",
+      "expected": "subject/actor/decision correlation retained; raw credentials and secrets absent",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.audit.RecordAuditEvent"
+      ]
+    },
+    {
+      "id": "cross-tenant-resource",
+      "category": "authority",
+      "story": "story:tenancy-topology",
+      "given": "Parent resource belongs to different org",
+      "action": "Register child",
+      "expected": "deny; child unavailable",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.authorization.Check"
+      ]
+    },
+    {
+      "id": "pdp-outage",
+      "category": "authority",
+      "story": "story:check-api",
+      "given": "Required PDP unavailable",
+      "action": "PEP handles protected request",
+      "expected": "deny; no local invented permission",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.authorization.Check"
+      ]
+    },
+    {
+      "id": "graph-revocation",
+      "category": "authority",
+      "story": "story:graph-policy",
+      "given": "Grant revoked at revision R",
+      "action": "Check with required revision R",
+      "expected": "deny after declared consistency boundary",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.authorization.Check"
+      ]
+    }
+  ]
+}

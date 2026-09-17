@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$ref": "#/$defs/mandate.directory.MembershipContribution.State",
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1",
+    "contract_digest": "slice-sha256/2:36ebb097c9f014e5471c2db7c88b1caf21b20be0d2879a84b5e817c57eeebf4f",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.directory.MembershipContribution.State": {
+      "title": "State",
+      "x-ess-name": "mandate.directory.MembershipContribution.State",
+      "x-ess-kind": "enum",
+      "type": "string",
+      "enum": [
+        "Active",
+        "Removed"
+      ]
+    }
+  }
+}

@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MembershipContribution",
+  "x-ess-name": "mandate.directory.MembershipContribution",
+  "x-ess-kind": "entity",
+  "type": "object",
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/mandate.core.MembershipContributionId"
+    },
+    "organization_id": {
+      "$ref": "#/$defs/mandate.core.OrganizationId",
+      "x-ess-relation": {
+        "name": "organization_id_record",
+        "kind": "references",
+        "source": "mandate.directory.MembershipContribution",
+        "target": "mandate.tenancy.Organization",
+        "cardinality": "one",
+        "via": "organization_id"
+      }
+    },
+    "team_membership_id": {
+      "$ref": "#/$defs/mandate.core.TeamMembershipId",
+      "x-ess-relation": {
+        "name": "team_membership_id_record",
+        "kind": "references",
+        "source": "mandate.directory.MembershipContribution",
+        "target": "mandate.tenancy.TeamMembership",
+        "cardinality": "one",
+        "via": "team_membership_id"
+      }
+    },
+    "source": {
+      "$ref": "#/$defs/mandate.core.MembershipSource"
+    },
+    "mapping_id": {
+      "$ref": "#/$defs/mandate.core.DirectoryGroupTeamMappingId",
+      "x-ess-relation": {
+        "name": "mapping_id_record",
+        "kind": "references",
+        "source": "mandate.directory.MembershipContribution",
+        "target": "mandate.directory.DirectoryGroupTeamMapping",
+        "cardinality": "one",
+        "via": "mapping_id"
+      }
+    },
+    "created_by": {
+      "$ref": "#/$defs/mandate.core.PrincipalId",
+      "x-ess-relation": {
+        "name": "created_by_record",
+        "kind": "references",
+        "source": "mandate.directory.MembershipContribution",
+        "target": "mandate.identity.Principal",
+        "cardinality": "one",
+        "via": "created_by"
+      }
+    },
+    "state": {
+      "$ref": "#/$defs/mandate.directory.MembershipContribution.State"
+    }
+  },
+  "required": [
+    "id",
+    "organization_id",
+    "team_membership_id",
+    "source",
+    "created_by",
+    "state"
+  ],
+  "additionalProperties": false,
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1",
+    "contract_digest": "slice-sha256/2:3548443ff3d3f1caef09d25081dae0bba966c58abe51b55874d575a2321b3698",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.core.DirectoryGroupTeamMappingId": {
+      "title": "DirectoryGroupTeamMappingId",
+      "x-ess-name": "mandate.core.DirectoryGroupTeamMappingId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.MembershipContributionId": {
+      "title": "MembershipContributionId",
+      "x-ess-name": "mandate.core.MembershipContributionId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.MembershipSource": {
+      "title": "MembershipSource",
+      "x-ess-name": "mandate.core.MembershipSource",
+      "x-ess-kind": "enum",
+      "type": "string",
+      "enum": [
+        "Manual",
+        "DirectoryMapping"
+      ]
+    },
+    "mandate.core.OrganizationId": {
+      "title": "OrganizationId",
+      "x-ess-name": "mandate.core.OrganizationId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.PrincipalId": {
+      "title": "PrincipalId",
+      "x-ess-name": "mandate.core.PrincipalId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.TeamMembershipId": {
+      "title": "TeamMembershipId",
+      "x-ess-name": "mandate.core.TeamMembershipId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.directory.MembershipContribution.State": {
+      "title": "State",
+      "x-ess-name": "mandate.directory.MembershipContribution.State",
+      "x-ess-kind": "enum",
+      "type": "string",
+      "enum": [
+        "Active",
+        "Removed"
+      ]
+    }
+  }
+}

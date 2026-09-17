@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$ref": "#/$defs/mandate.directory.SyncJob.State",
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1",
+    "contract_digest": "slice-sha256/2:e5747ac3d021f5d85d5dfab1ba791b6aef97f08325ec7e09ecc8cbc6b8ad2f41",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.directory.SyncJob.State": {
+      "title": "State",
+      "x-ess-name": "mandate.directory.SyncJob.State",
+      "x-ess-kind": "enum",
+      "type": "string",
+      "enum": [
+        "Recorded"
+      ]
+    }
+  }
+}

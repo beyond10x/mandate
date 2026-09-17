@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$ref": "#/$defs/mandate.delegation.Delegation.State",
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1",
+    "contract_digest": "slice-sha256/2:96d978300b321b40283b92a563bcf8bf8e8971837de9cf315a1cb84a64ac8dcb",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.delegation.Delegation.State": {
+      "title": "State",
+      "x-ess-name": "mandate.delegation.Delegation.State",
+      "x-ess-kind": "enum",
+      "type": "string",
+      "enum": [
+        "Active",
+        "Revoked"
+      ]
+    }
+  }
+}

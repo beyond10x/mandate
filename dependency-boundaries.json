@@ -1,0 +1,64 @@
+{
+  "libraries": {
+    "mandate-types": [],
+    "mandate-model": [
+      "mandate-types"
+    ],
+    "mandate-graph": [
+      "mandate-types",
+      "mandate-model"
+    ],
+    "mandate-policy": [
+      "mandate-types",
+      "mandate-model"
+    ],
+    "mandate-authz": [
+      "mandate-types",
+      "mandate-model",
+      "mandate-graph",
+      "mandate-policy"
+    ],
+    "mandate-token": [
+      "mandate-types"
+    ],
+    "mandate-identity": [
+      "mandate-types",
+      "mandate-model"
+    ],
+    "mandate-federation": [
+      "mandate-types",
+      "mandate-model",
+      "mandate-identity",
+      "mandate-token"
+    ],
+    "mandate-provisioning": [
+      "mandate-types",
+      "mandate-model",
+      "mandate-identity"
+    ],
+    "mandate-audit": [
+      "mandate-types"
+    ],
+    "mandate-proto": [
+      "mandate-types"
+    ],
+    "mandate-client": [
+      "mandate-types",
+      "mandate-proto"
+    ],
+    "mandate-server": [
+      "mandate-types",
+      "mandate-proto"
+    ],
+    "mandate-testkit": [
+      "mandate-types",
+      "mandate-model",
+      "mandate-authz"
+    ]
+  },
+  "external": [
+    "clap",
+    "serde_json",
+    "sha2"
+  ]
+}

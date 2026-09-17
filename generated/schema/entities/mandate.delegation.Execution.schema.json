@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Execution",
+  "x-ess-name": "mandate.delegation.Execution",
+  "x-ess-kind": "entity",
+  "type": "object",
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/mandate.core.ExecutionId"
+    },
+    "organization_id": {
+      "$ref": "#/$defs/mandate.core.OrganizationId",
+      "x-ess-relation": {
+        "name": "organization_id_record",
+        "kind": "references",
+        "source": "mandate.delegation.Execution",
+        "target": "mandate.tenancy.Organization",
+        "cardinality": "one",
+        "via": "organization_id"
+      }
+    },
+    "agent_id": {
+      "$ref": "#/$defs/mandate.core.PrincipalId",
+      "x-ess-relation": {
+        "name": "agent_id_record",
+        "kind": "references",
+        "source": "mandate.delegation.Execution",
+        "target": "mandate.identity.Principal",
+        "cardinality": "one",
+        "via": "agent_id"
+      }
+    },
+    "subject": {
+      "$ref": "#/$defs/mandate.core.PrincipalId",
+      "x-ess-relation": {
+        "name": "subject_record",
+        "kind": "references",
+        "source": "mandate.delegation.Execution",
+        "target": "mandate.identity.Principal",
+        "cardinality": "one",
+        "via": "subject"
+      }
+    },
+    "delegation_id": {
+      "$ref": "#/$defs/mandate.core.DelegationId",
+      "x-ess-relation": {
+        "name": "delegation_id_record",
+        "kind": "references",
+        "source": "mandate.delegation.Execution",
+        "target": "mandate.delegation.Delegation",
+        "cardinality": "one",
+        "via": "delegation_id"
+      }
+    },
+    "initiating_session": {
+      "$ref": "#/$defs/mandate.core.SessionId",
+      "x-ess-relation": {
+        "name": "initiating_session_record",
+        "kind": "references",
+        "source": "mandate.delegation.Execution",
+        "target": "mandate.identity.Session",
+        "cardinality": "one",
+        "via": "initiating_session"
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "policy_version": {
+      "$ref": "#/$defs/mandate.core.PolicyVersion"
+    },
+    "state": {
+      "$ref": "#/$defs/mandate.delegation.Execution.State"
+    }
+  },
+  "required": [
+    "id",
+    "organization_id",
+    "agent_id",
+    "created_at",
+    "expires_at",
+    "policy_version",
+    "state"
+  ],
+  "additionalProperties": false,
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1",
+    "contract_digest": "slice-sha256/2:1d14b89df2c2ac0ac2ce7a3b5c55a85b1dd24742dc09a62239fcb41a7ff63bf3",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.core.DelegationId": {
+      "title": "DelegationId",
+      "x-ess-name": "mandate.core.DelegationId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.ExecutionId": {
+      "title": "ExecutionId",
+      "x-ess-name": "mandate.core.ExecutionId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.OrganizationId": {
+      "title": "OrganizationId",
+      "x-ess-name": "mandate.core.OrganizationId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.PolicyVersion": {
+      "title": "PolicyVersion",
+      "x-ess-name": "mandate.core.PolicyVersion",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    },
+    "mandate.core.PrincipalId": {
+      "title": "PrincipalId",
+      "x-ess-name": "mandate.core.PrincipalId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.SessionId": {
+      "title": "SessionId",
+      "x-ess-name": "mandate.core.SessionId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.delegation.Execution.State": {
+      "title": "State",
+      "x-ess-name": "mandate.delegation.Execution.State",
+      "x-ess-kind": "enum",
+      "type": "string",
+      "enum": [
+        "Recorded"
+      ]
+    }
+  }
+}

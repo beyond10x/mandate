@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$ref": "#/$defs/mandate.graph.Grant.State",
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1",
+    "contract_digest": "slice-sha256/2:5fce8893de56936da5fd6a394e8be95b671b67edde950f2e64f130c0259de372",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.graph.Grant.State": {
+      "title": "State",
+      "x-ess-name": "mandate.graph.Grant.State",
+      "x-ess-kind": "enum",
+      "type": "string",
+      "enum": [
+        "Active",
+        "Revoked"
+      ]
+    }
+  }
+}

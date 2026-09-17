@@ -1,0 +1,17 @@
+id: mandate-canonical-types
+kind: feature
+objective: Realize only the accepted Mandate ESS type set
+protocol: adp/1
+profile: development.standard
+derived_from:
+- story:canonical-types
+constraints:
+  facts:
+    change.public_contract: true
+    change.architectural: false
+  notes:
+  - No runtime security implementation; exclude numeric generations and unresolved
+    lifecycle behavior.
+  - Choose Wave OR Drive lifecycle owner, never both for this story.
+  - Launch requires reviewed task, cleared verifier prerequisites and explicit operator
+    budget-usd and assume-usd-per-run.

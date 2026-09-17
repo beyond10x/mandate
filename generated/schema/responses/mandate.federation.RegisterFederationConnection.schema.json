@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RegisterFederationConnection response",
+  "x-ess-name": "mandate.federation.RegisterFederationConnection",
+  "x-ess-kind": "command-response",
+  "type": "object",
+  "properties": {
+    "connection_id": {
+      "$ref": "#/$defs/mandate.core.FederationConnectionId"
+    }
+  },
+  "required": [
+    "connection_id"
+  ],
+  "additionalProperties": false,
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1",
+    "contract_digest": "slice-sha256/2:abfccfe9d0a4a18c62b7657b03f4c70dcae59a7a38ba48f1407e76099779bc8c",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.core.FederationConnectionId": {
+      "title": "FederationConnectionId",
+      "x-ess-name": "mandate.core.FederationConnectionId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    }
+  }
+}

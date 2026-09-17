@@ -1,0 +1,189 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AgentCapabilityCeiling",
+  "x-ess-name": "mandate.delegation.AgentCapabilityCeiling",
+  "x-ess-kind": "entity",
+  "type": "object",
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/mandate.core.AgentCapabilityCeilingId"
+    },
+    "agent_id": {
+      "$ref": "#/$defs/mandate.core.PrincipalId",
+      "x-ess-relation": {
+        "name": "agent_record",
+        "kind": "references",
+        "source": "mandate.delegation.AgentCapabilityCeiling",
+        "target": "mandate.identity.Principal",
+        "cardinality": "one",
+        "via": "agent_id"
+      }
+    },
+    "organization_id": {
+      "$ref": "#/$defs/mandate.core.OrganizationId",
+      "x-ess-relation": {
+        "name": "organization_id_record",
+        "kind": "references",
+        "source": "mandate.delegation.AgentCapabilityCeiling",
+        "target": "mandate.tenancy.Organization",
+        "cardinality": "one",
+        "via": "organization_id"
+      }
+    },
+    "allowed_actions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/mandate.core.ActionPattern"
+      }
+    },
+    "denied_actions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/mandate.core.ActionPattern"
+      }
+    },
+    "scope": {
+      "$ref": "#/$defs/mandate.core.AuthorityScope"
+    },
+    "max_delegation_ttl": {
+      "type": "string",
+      "format": "duration"
+    },
+    "state": {
+      "$ref": "#/$defs/mandate.delegation.AgentCapabilityCeiling.State"
+    }
+  },
+  "required": [
+    "id",
+    "agent_id",
+    "allowed_actions",
+    "denied_actions",
+    "scope",
+    "max_delegation_ttl",
+    "state"
+  ],
+  "additionalProperties": false,
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1",
+    "contract_digest": "slice-sha256/2:af0ecaa30f5054b7295e1ca1146143a09e048228998c9fb80b3ab128ff572f60",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.core.Action": {
+      "title": "Action",
+      "x-ess-name": "mandate.core.Action",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    },
+    "mandate.core.ActionPattern": {
+      "title": "ActionPattern",
+      "x-ess-name": "mandate.core.ActionPattern",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    },
+    "mandate.core.AgentCapabilityCeilingId": {
+      "title": "AgentCapabilityCeilingId",
+      "x-ess-name": "mandate.core.AgentCapabilityCeilingId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.AuthorityScope": {
+      "title": "AuthorityScope",
+      "x-ess-name": "mandate.core.AuthorityScope",
+      "x-ess-kind": "struct",
+      "type": "object",
+      "properties": {
+        "actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/mandate.core.Action"
+          }
+        },
+        "resources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/mandate.core.ResourceRef"
+          }
+        },
+        "space": {
+          "$ref": "#/$defs/mandate.core.SpaceId"
+        }
+      },
+      "required": [
+        "actions",
+        "resources"
+      ],
+      "additionalProperties": false
+    },
+    "mandate.core.OrganizationId": {
+      "title": "OrganizationId",
+      "x-ess-name": "mandate.core.OrganizationId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.PrincipalId": {
+      "title": "PrincipalId",
+      "x-ess-name": "mandate.core.PrincipalId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.ResourceId": {
+      "title": "ResourceId",
+      "x-ess-name": "mandate.core.ResourceId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.ResourceRef": {
+      "title": "ResourceRef",
+      "x-ess-name": "mandate.core.ResourceRef",
+      "x-ess-kind": "struct",
+      "type": "object",
+      "properties": {
+        "resource_type": {
+          "$ref": "#/$defs/mandate.core.ResourceType"
+        },
+        "resource_id": {
+          "$ref": "#/$defs/mandate.core.ResourceId"
+        }
+      },
+      "required": [
+        "resource_type",
+        "resource_id"
+      ],
+      "additionalProperties": false
+    },
+    "mandate.core.ResourceType": {
+      "title": "ResourceType",
+      "x-ess-name": "mandate.core.ResourceType",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    },
+    "mandate.core.SpaceId": {
+      "title": "SpaceId",
+      "x-ess-name": "mandate.core.SpaceId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.delegation.AgentCapabilityCeiling.State": {
+      "title": "State",
+      "x-ess-name": "mandate.delegation.AgentCapabilityCeiling.State",
+      "x-ess-kind": "enum",
+      "type": "string",
+      "enum": [
+        "Recorded"
+      ]
+    }
+  }
+}

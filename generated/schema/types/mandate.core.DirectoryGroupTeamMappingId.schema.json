@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$ref": "#/$defs/mandate.core.DirectoryGroupTeamMappingId",
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1",
+    "contract_digest": "slice-sha256/2:d999864a53e49464e494292df02489213412cd377ed9a029679bf6ef24680140",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.core.DirectoryGroupTeamMappingId": {
+      "title": "DirectoryGroupTeamMappingId",
+      "x-ess-name": "mandate.core.DirectoryGroupTeamMappingId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    }
+  }
+}

@@ -1,0 +1,39 @@
+
+domain: mandate.authorization
+commands:
+  - name: mandate.authorization.Check
+    input:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: action
+        type: mandate.core.Action
+      - name: resource
+        type: mandate.core.ResourceRef
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.authorization.DecisionRecorded
+        payload:
+          mandate.authorization.DecisionRecorded:
+            context: input.context
+            decision:
+              response: decision
+      - name: denied
+        external: Credential-derived context is invalid/revoked/expired/stale, tenant/audience/resource/space binding mismatches, relationships/policy/ceilings deny, approval is required, or the required PDP/graph/credential authority is unavailable.
+        error: mandate.authorization.Denied
+    response:
+      - name: decision
+        type: mandate.core.Decision
+events:
+  - name: mandate.authorization.DecisionRecorded
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: decision
+        type: mandate.core.Decision
+errors:
+  - name: mandate.authorization.Denied
+    summary: Fail closed; no credential, authority or lifecycle mutation on refusal.
+    fields:
+      - name: reason
+        type: mandate.core.DenialReason

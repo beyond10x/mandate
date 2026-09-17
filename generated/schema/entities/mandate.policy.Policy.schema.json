@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Policy",
+  "x-ess-name": "mandate.policy.Policy",
+  "x-ess-kind": "entity",
+  "type": "object",
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/mandate.core.PolicyId"
+    },
+    "organization_id": {
+      "$ref": "#/$defs/mandate.core.OrganizationId",
+      "x-ess-relation": {
+        "name": "organization_id_record",
+        "kind": "references",
+        "source": "mandate.policy.Policy",
+        "target": "mandate.tenancy.Organization",
+        "cardinality": "one",
+        "via": "organization_id"
+      }
+    },
+    "version": {
+      "$ref": "#/$defs/mandate.core.PolicyVersion"
+    },
+    "source": {
+      "type": "string"
+    },
+    "state": {
+      "$ref": "#/$defs/mandate.policy.Policy.State"
+    }
+  },
+  "required": [
+    "id",
+    "organization_id",
+    "version",
+    "source",
+    "state"
+  ],
+  "additionalProperties": false,
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1",
+    "contract_digest": "slice-sha256/2:e88fc1f1b71cfc7c9ce2badf028e67abd2f749897fa66ee458e0c5906d2ebfc5",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.core.OrganizationId": {
+      "title": "OrganizationId",
+      "x-ess-name": "mandate.core.OrganizationId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.PolicyId": {
+      "title": "PolicyId",
+      "x-ess-name": "mandate.core.PolicyId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.PolicyVersion": {
+      "title": "PolicyVersion",
+      "x-ess-name": "mandate.core.PolicyVersion",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    },
+    "mandate.policy.Policy.State": {
+      "title": "State",
+      "x-ess-name": "mandate.policy.Policy.State",
+      "x-ess-kind": "enum",
+      "type": "string",
+      "enum": [
+        "Recorded"
+      ]
+    }
+  }
+}

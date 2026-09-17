@@ -1,0 +1,285 @@
+# The canonical external key is (organization, connection.issuer, external subject); issuer is derived from the validated connection, not duplicated or caller-selected.
+# UNMAPPED-UNIQUENESS: storage must enforce the composite external key and organization/connection consistency atomically. A connection issuer is immutable; changing issuer requires a new connection and explicit relinking. See decision-blocker:identity-uniqueness.
+# AuthorizePublicClient orchestrates verified session/client checks and the STS IssueAuthorizationCode port; STS owns the code record and one-use redemption transaction.
+domain: mandate.federation
+entities:
+  - name: mandate.federation.ExternalPrincipal
+    identity:
+      name: id
+      type: mandate.core.ExternalPrincipalId
+    fields:
+      - name: organization_id
+        type: mandate.core.OrganizationId
+      - name: subject
+        type: mandate.core.ExternalSubject
+      - name: principal_id
+        type: mandate.core.PrincipalId
+      - name: connection_id
+        type: mandate.core.FederationConnectionId
+      - name: link_method
+        type: mandate.core.ExternalLinkMethod
+      - name: linked_at
+        type: Timestamp
+    lifecycle:
+      initial: Linked
+      states:
+        - Linked
+        - Unlinked
+      terminal:
+        - Unlinked
+      transitions:
+        - name: unlink
+          from:
+            - Linked
+          to: Unlinked
+    relations:
+      - name: organization_id_record
+        kind: references
+        target: mandate.tenancy.Organization
+        cardinality: one
+        via: organization_id
+      - name: principal_id_record
+        kind: references
+        target: mandate.identity.Principal
+        cardinality: one
+        via: principal_id
+      - name: connection_id_record
+        kind: references
+        target: mandate.federation.FederationConnection
+        cardinality: one
+        via: connection_id
+  - name: mandate.federation.FederationConnection
+    identity:
+      name: id
+      type: mandate.core.FederationConnectionId
+    fields:
+      - name: organization_id
+        type: mandate.core.OrganizationId
+      - name: issuer
+        type: mandate.core.Issuer
+      - name: client_id
+        type: mandate.core.ClientId
+      - name: tenant_resolution
+        type: mandate.core.TenantResolutionRule
+    lifecycle:
+      initial: Enabled
+      states:
+        - Enabled
+        - Disabled
+      terminal:
+        - Disabled
+      transitions:
+        - name: disable
+          from:
+            - Enabled
+          to: Disabled
+    relations:
+      - name: organization_id_record
+        kind: references
+        target: mandate.tenancy.Organization
+        cardinality: one
+        via: organization_id
+  - name: mandate.federation.OAuthClient
+    identity:
+      name: id
+      type: mandate.core.OAuthClientId
+    fields:
+      - name: organization_id
+        type: mandate.core.OrganizationId
+      - name: public
+        type: Boolean
+      - name: redirect_uris
+        type: List<mandate.core.RedirectUri>
+      - name: pkce_method
+        type: mandate.core.PkceMethod
+    lifecycle:
+      initial: Recorded
+      states:
+        - Recorded
+      terminal:
+        - Recorded
+    relations:
+      - name: organization_id_record
+        kind: references
+        target: mandate.tenancy.Organization
+        cardinality: one
+        via: organization_id
+commands:
+  - name: mandate.federation.UnlinkExternalPrincipal
+    input:
+      - name: id
+        type: mandate.core.ExternalPrincipalId
+      - name: context
+        type: mandate.core.VerifiedContext
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.federation.ExternalPrincipalUnlinked
+        payload:
+          mandate.federation.ExternalPrincipalUnlinked:
+            context: input.context
+        moves: mandate.federation.ExternalPrincipal.unlink
+        instance: id
+      - name: denied
+        external: Caller lacks explicit link-administration authority, link is outside the verified organization, or unlinking and its required invalidation/audit cannot commit.
+        error: mandate.federation.Denied
+  - name: mandate.federation.DisableFederationConnection
+    input:
+      - name: id
+        type: mandate.core.FederationConnectionId
+      - name: context
+        type: mandate.core.VerifiedContext
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.federation.FederationConnectionDisabled
+        payload:
+          mandate.federation.FederationConnectionDisabled:
+            context: input.context
+        moves: mandate.federation.FederationConnection.disable
+        instance: id
+      - name: denied
+        external: Caller lacks federation-administration authority, connection is outside the verified organization, or emergency trust shutdown and affected generation invalidation cannot commit.
+        error: mandate.federation.Denied
+  - name: mandate.federation.LinkExternalPrincipal
+    input:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: connection_id
+        type: mandate.core.FederationConnectionId
+      - name: external_subject
+        type: mandate.core.ExternalSubject
+      - name: principal_id
+        type: mandate.core.PrincipalId
+      - name: method
+        type: mandate.core.ExternalLinkMethod
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.federation.ExternalPrincipalLinked
+        payload:
+          mandate.federation.ExternalPrincipalLinked:
+            context: input.context
+            connection_id: input.connection_id
+            principal_id: input.principal_id
+      - name: denied
+        external: Caller/method lacks linking authority, proof/connection trust is invalid, organization or target principal mismatches, composite (organization, configured issuer, subject) key conflicts, or durable audited linking fails. Email equality never authorizes linking.
+        error: mandate.federation.Denied
+    response:
+      - name: external_principal_id
+        type: mandate.core.ExternalPrincipalId
+  - name: mandate.federation.RegisterFederationConnection
+    input:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: issuer
+        type: mandate.core.Issuer
+      - name: client_id
+        type: mandate.core.ClientId
+      - name: tenant_resolution
+        type: mandate.core.TenantResolutionRule
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.federation.FederationConnectionCreated
+        payload:
+          mandate.federation.FederationConnectionCreated:
+            context: input.context
+      - name: denied
+        external: Caller lacks federation-administration authority, issuer/client/trust or tenant-resolution configuration is unadmitted, or organization binding is invalid.
+        error: mandate.federation.Denied
+    response:
+      - name: connection_id
+        type: mandate.core.FederationConnectionId
+  - name: mandate.federation.AuthenticateFederation
+    input:
+      - name: connection_id
+        type: mandate.core.FederationConnectionId
+      - name: proof
+        type: mandate.core.CredentialProof
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.federation.FederationAuthenticated
+        payload:
+          mandate.federation.FederationAuthenticated:
+            context:
+              generated: true
+            connection_id: input.connection_id
+      - name: denied
+        external: Connection is disabled/untrusted, proof signature/issuer/audience/expiry is invalid, tenant resolution has zero or multiple matches, principal linking is absent/conflicting, or any email-domain/unverified-input fallback would be required.
+        error: mandate.federation.Denied
+    response:
+      - name: session_id
+        type: mandate.core.SessionId
+  - name: mandate.federation.AuthorizePublicClient
+    input:
+      - name: client_id
+        type: mandate.core.OAuthClientId
+      - name: redirect_uri
+        type: mandate.core.RedirectUri
+      - name: challenge
+        type: mandate.core.PkceChallenge
+      - name: method
+        type: mandate.core.PkceMethod
+      - name: state
+        type: String
+      - name: nonce
+        type: String
+      - name: session_proof
+        type: mandate.core.CredentialProof
+      - name: target
+        type: mandate.core.ResourceServerId
+      - name: requested_scope
+        type: mandate.core.AuthorityScope
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.federation.AuthorizationCodeIssued
+        payload:
+          mandate.federation.AuthorizationCodeIssued:
+            context:
+              generated: true
+      - name: denied
+        external: Session proof is invalid/stale, client is not a registered public client, exact redirect URI or state/applicable nonce binding fails, S256 challenge is absent/invalid, target is unregistered/outside tenant, or STS code issuance/narrowing is refused.
+        error: mandate.federation.Denied
+    response:
+      - name: code
+        type: mandate.core.CredentialSecret
+events:
+  - name: mandate.federation.ExternalPrincipalUnlinked
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+  - name: mandate.federation.FederationConnectionDisabled
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+  - name: mandate.federation.ExternalPrincipalLinked
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: connection_id
+        type: mandate.core.FederationConnectionId
+      - name: principal_id
+        type: mandate.core.PrincipalId
+  - name: mandate.federation.FederationConnectionCreated
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+  - name: mandate.federation.FederationAuthenticated
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: connection_id
+        type: mandate.core.FederationConnectionId
+  - name: mandate.federation.AuthorizationCodeIssued
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+errors:
+  - name: mandate.federation.Denied
+    summary: Fail closed; no credential, authority or lifecycle mutation on refusal.
+    fields:
+      - name: reason
+        type: mandate.core.DenialReason

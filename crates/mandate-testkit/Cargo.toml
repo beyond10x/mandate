@@ -1,0 +1,16 @@
+[package]
+name = "mandate-testkit"
+description = "Security scenarios and runtime conformance harnesses."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+mandate-types = { version = "0.1.0", path = "../mandate-types" }
+mandate-model = { version = "0.1.0", path = "../mandate-model" }
+mandate-authz = { version = "0.1.0", path = "../mandate-authz" }

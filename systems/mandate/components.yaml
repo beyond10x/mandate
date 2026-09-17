@@ -1,0 +1,119 @@
+components:
+  - component: mandate-control-plane
+    owns:
+      domains:
+        - mandate.core
+        - mandate.identity
+        - mandate.tenancy
+        - mandate.federation
+        - mandate.directory
+        - mandate.delegation
+        - mandate.workload
+    summary: Administrative deployment and documentation publisher for the shared mandate.core vocabulary. All four deployments compile those shared library types; core is not a remote control-plane runtime dependency. See docs/architecture/ownership.md.
+    accepts:
+      commands:
+        - mandate.identity.DisablePrincipal
+        - mandate.identity.RevokeSession
+        - mandate.identity.RevokeRefreshCredential
+        - mandate.identity.RefreshSession
+        - mandate.identity.IncrementSecurityEpoch
+        - mandate.tenancy.RemoveOrganizationMembership
+        - mandate.federation.UnlinkExternalPrincipal
+        - mandate.federation.DisableFederationConnection
+        - mandate.federation.LinkExternalPrincipal
+        - mandate.federation.RegisterFederationConnection
+        - mandate.federation.AuthenticateFederation
+        - mandate.federation.AuthorizePublicClient
+        - mandate.directory.RemoveMembershipContribution
+        - mandate.directory.RemoveDirectoryGroupMembership
+        - mandate.directory.RemoveDirectoryGroupTeamMapping
+        - mandate.directory.CreateDirectoryGroupTeamMapping
+        - mandate.directory.SyncDirectoryMembership
+        - mandate.delegation.RevokeDelegation
+        - mandate.delegation.CreateDelegation
+    publishes:
+      events:
+        - mandate.identity.PrincipalDisabled
+        - mandate.identity.SessionRevoked
+        - mandate.identity.RefreshCredentialRevoked
+        - mandate.identity.SessionRefreshed
+        - mandate.identity.SecurityEpochIncremented
+        - mandate.tenancy.OrganizationMembershipRemoved
+        - mandate.federation.ExternalPrincipalUnlinked
+        - mandate.federation.FederationConnectionDisabled
+        - mandate.federation.ExternalPrincipalLinked
+        - mandate.federation.FederationConnectionCreated
+        - mandate.federation.FederationAuthenticated
+        - mandate.federation.AuthorizationCodeIssued
+        - mandate.directory.MembershipContributionRemoved
+        - mandate.directory.DirectoryGroupMembershipRemoved
+        - mandate.directory.DirectoryGroupTeamMappingRemoved
+        - mandate.directory.DirectoryGroupTeamMappingCreated
+        - mandate.directory.DirectoryGroupMembershipChanged
+        - mandate.delegation.DelegationRevoked
+        - mandate.delegation.DelegationCreated
+  - component: mandate-authorization
+    owns:
+      domains:
+        - mandate.graph
+        - mandate.policy
+        - mandate.authorization
+    summary: Planned deployment boundary; exact domain-to-library responsibilities and required adapter/worker gaps are recorded in docs/architecture/ownership.md.
+    accepts:
+      commands:
+        - mandate.graph.RemoveRelation
+        - mandate.graph.RevokeGrant
+        - mandate.graph.RegisterResource
+        - mandate.graph.WriteRelationship
+        - mandate.authorization.Check
+    publishes:
+      events:
+        - mandate.graph.RelationRemoved
+        - mandate.graph.GrantRevoked
+        - mandate.graph.ResourceRegistered
+        - mandate.graph.RelationshipWritten
+        - mandate.authorization.DecisionRecorded
+  - component: mandate-sts
+    owns:
+      domains:
+        - mandate.credential
+    summary: Planned deployment boundary; exact domain-to-library responsibilities and required adapter/worker gaps are recorded in docs/architecture/ownership.md.
+    accepts:
+      commands:
+        - mandate.credential.DisableResourceServer
+        - mandate.credential.RevokeAccessCredential
+        - mandate.credential.RedeemAuthorizationCode
+        - mandate.credential.RegisterResourceServer
+        - mandate.credential.IssueReferenceCredential
+        - mandate.credential.IssueSelfContainedCredential
+        - mandate.credential.ExchangeCredential
+        - mandate.credential.IntrospectCredential
+        - mandate.credential.IssueAuthorizationCode
+    publishes:
+      events:
+        - mandate.credential.ResourceServerDisabled
+        - mandate.credential.AccessCredentialRevoked
+        - mandate.credential.AuthorizationCodeRedeemed
+        - mandate.credential.ResourceServerRegistered
+        - mandate.credential.CredentialReferenceIssued
+        - mandate.credential.CredentialSelfContainedIssued
+        - mandate.credential.TokenExchangeAllowed
+        - mandate.credential.CredentialIntrospected
+        - mandate.credential.TokenExchangeDenied
+        - mandate.credential.AuthorizationCodeIssued
+  - component: mandate-worker
+    owns:
+      domains:
+        - mandate.audit
+    summary: Planned deployment boundary; exact domain-to-library responsibilities and required adapter/worker gaps are recorded in docs/architecture/ownership.md.
+    publishes:
+      events:
+        - mandate.audit.ExternalPrincipalUnlinked
+        - mandate.audit.FederationConnectionChanged
+        - mandate.audit.TokenExchangeDenied
+        - mandate.audit.DirectoryGroupCreated
+        - mandate.audit.CredentialRevoked
+        - mandate.audit.AuditEventRecorded
+    accepts:
+      commands:
+        - mandate.audit.RecordAuditEvent

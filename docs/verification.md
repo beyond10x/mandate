@@ -1,0 +1,19 @@
+# Foundation verification
+
+Local verification on 2026-09-17 used Rust 1.98.1, ESS 0.25.0 and AEP 0.55.0. `task check` exited zero after formatting, clippy with warnings denied, workspace build and tests, package-boundary checks, dependency advisory/license/source policy, ESS validation and deterministic regeneration, source snapshot digests, corpus validation and AEP validation. The scaffold has no security runtime tests: the 47 scenario records validate contract coverage and ownership only. All five product binaries expose help/version and reject `serve`.
+
+All ESS generators receive `generated/` as their output root. The layout contains `generated/docs`, `generated/openapi`, `generated/schema`, and the added viewer input `generated/docs-ir/document.json`, with no repeated kind directory. Regeneration compares every projection byte with a fresh output tree.
+
+The Docs System validates the manifest and collects the declared source documents. The markdown checker resolves all Mandate local links. The original snapshots retain their intentional Markdown hard-break spaces; whitespace checks exclude only those two preserved inputs. Source section links use numbered heading anchors; both source snapshots remain byte-identical to the originals.
+
+The AEP store validates 53 artifacts. Four approval records trigger an AEP 0.55.0 advisory for empty findings blocks; the blocks are present and the immutable records are preserved. Review outcomes and the final unreviewed acceptance-sentence correction are detailed in `review-provenance.md`. No runtime guarantee is inferred from these checks.
+
+The proposed-only AEP wave selection contains exactly `story:canonical-types`, with no collisions, cycles or unassessed scope. Its foundation dependency must finish publication before dispatch. The separate Drive task resolves under the exact pinned protocol root; the disposable combined protocol tree validates 61 files and three maps with no problems. Its property-verifier implementation and operator spending limits remain launch prerequisites.
+
+Public source publication, exact-commit CI and managed cleanup are pending. A validated documentation manifest is source intent; downstream Website publication has not been claimed.
+
+The public outlook pages cover architecture, contracts, roadmap and local verification. The explicit manifest selects only those authored pages, README, generated Markdown, the ESS documentation projection, and four semantic OpenAPI references: 26 source files. Shared Docs System presents the existing ess-docs/1 model; Website supplies passive fetching and route materialization. Local Brave review is requested before website publication. This follow-up adds documentation and presentation, not runtime security behavior.
+
+After the technical corrections, `task check` passed again over 53 AEP artifacts and all 47 command-linked corpus cases. An independent JSON Schema validator passed 27 positive/negative shape checks for principal/team targets, missing/double/unknown variants, denial reasons, scoped epoch targets, platform/tenant ceilings, unknown audit identity and extra raw-credential fields. These are schema checks, not production enforcement. ESS does not project the transitive=false semantic invariant as a JSON Schema constant; the trusted adapter and later runtime suite must enforce it.
+
+The shared viewer browser suite also passed against the regenerated Mandate document in the actual local Website preview. Shared renderer CI passed on commit 1d4c0262911761118ffdd7037890f541a0688714 (run 35176810774), and Website integration CI passed on commit 6e54791b99e0a4202ff2cc351d3cbf202c1f6cc8 (run 35178316003). Both are review branches; no website deployment is claimed. See [technical review disposition](technical-review-disposition.md) for the unchanged verdicts and remaining blockers.

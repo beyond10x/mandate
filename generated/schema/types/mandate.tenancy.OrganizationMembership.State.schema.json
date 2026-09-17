@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$ref": "#/$defs/mandate.tenancy.OrganizationMembership.State",
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1",
+    "contract_digest": "slice-sha256/2:74b72ff6c4c91185dd3654b4e902125a4bdebe1f1fffed1791338481d5082c4c",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.tenancy.OrganizationMembership.State": {
+      "title": "State",
+      "x-ess-name": "mandate.tenancy.OrganizationMembership.State",
+      "x-ess-kind": "enum",
+      "type": "string",
+      "enum": [
+        "Active",
+        "Removed"
+      ]
+    }
+  }
+}
