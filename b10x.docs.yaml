@@ -52,35 +52,35 @@ surfaces:
     components:
     - OpenApiReference
     - Diagram
+    data:
+      include:
+      - generated/docs-ir/document.json
     documents:
       include:
       - README.md
       - docs/public/**/*.md
       - generated/docs/**/*.md
-    data:
-      include:
-      - generated/docs-ir/document.json
-    specifications:
-    - id: control-plane
-      format: openapi
-      path: generated/openapi/mandate-control-plane.yaml
-      route: /api/mandate/control-plane/
-    - id: authorization
-      format: openapi
-      path: generated/openapi/mandate-authorization.yaml
-      route: /api/mandate/authorization/
-    - id: sts
-      format: openapi
-      path: generated/openapi/mandate-sts.yaml
-      route: /api/mandate/sts/
-    - id: worker
-      format: openapi
-      path: generated/openapi/mandate-worker.yaml
-      route: /api/mandate/worker/
     navigation:
       group: Services
       label: Mandate
       order: 65
       sidebar: flat
     root: .
+    specifications:
+    - format: openapi
+      id: control-plane
+      path: generated/openapi/mandate-control-plane.yaml
+      route: /api/mandate/control-plane/
+    - format: openapi
+      id: authorization
+      path: generated/openapi/mandate-authorization.yaml
+      route: /api/mandate/authorization/
+    - format: openapi
+      id: sts
+      path: generated/openapi/mandate-sts.yaml
+      route: /api/mandate/sts/
+    - format: openapi
+      id: worker
+      path: generated/openapi/mandate-worker.yaml
+      route: /api/mandate/worker/
   summary: Standalone identity, authorization and constrained delegation foundations, contracts and roadmap.

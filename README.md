@@ -32,3 +32,9 @@ task check
 The gate checks the Rust scaffold, dependencies, ESS contracts, deterministic generated artifacts, planning records, and structural acceptance scenarios. It does not test a running authorization service.
 
 Licensed under Apache-2.0. Packages are version 0.1.0 and are not published to crates.io. This milestone contains no service release or deployment.
+
+<!-- b10x-docs:start -->
+## Documentation
+
+[Mandate documentation](https://beyond10x.github.io/docs/mandate/) · [Start](https://beyond10x.github.io/) · [Ecosystem](https://beyond10x.github.io/ecosystem/) · [Impact](https://beyond10x.github.io/changes/) · [Releases](https://beyond10x.github.io/releases/)
+<!-- b10x-docs:end -->
