@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:foundation-contracts
 kind: story
-status: active
+status: implemented
 title: Stabilize combined ESS and foundation scaffold
 relations:
 - decomposes: epic:foundations
@@ -13,10 +13,12 @@ scope:
 - confidence: cited
   path: docs/architecture
 - confidence: cited
+  path: docs/handoff.md
+- confidence: cited
   path: systems/mandate
 - confidence: cited
   path: xtask
-revision: 9
+revision: 13
 ---
 # Stabilize combined ESS and foundation scaffold
 
@@ -34,6 +36,7 @@ None; this foundation milestone owns initial stabilization.
 
 ## Scope
 
+- `docs/handoff.md` — cited publication evidence and the first canonical-type handoff.
 - `systems/mandate` — cited planned scope in this story; shared path entries use canonical directory granularity.
 - `docs/architecture` — cited planned scope in this story; shared path entries use canonical directory granularity.
 - `xtask` — cited planned scope in this story; shared path entries use canonical directory granularity.
@@ -52,3 +55,11 @@ The operator expanded this milestone to include a public outlook and a reusable 
 ## Technical corrections and verification
 
 The additional contract/design reviews retain their needs-revision verdicts and escalation evidence. docs/technical-review-disposition.md accounts for all 23 findings. Corrected shapes, ownership, per-command guards and command-linked corpus records pass task check (53 artifacts, 47 cases), deterministic ESS regeneration, and 27 positive/negative schema shape checks. Remaining epoch, conditional-reference, uniqueness, algorithm, audit and worker semantics have explicit UNMAPPED blockers. These are required later implementation decisions, not runtime claims or new independent approvals. Wave/Drive accepted type scope excludes incomplete epoch records and includes reviewed serialization dependency policy changes. Source publication and website review remain pending.
+
+## Published foundation evidence
+
+The foundation source is published on main at c18586fe8273e40ba5fa22f42d398e86d4254c8e with bot author and committer. The exact source passed [task check in CI](https://github.com/beyond10x/mandate/actions/runs/35192209829), shared source checks and [Atlas admission](https://github.com/beyond10x/atlas/actions/runs/35194207465). Its passive source bundle also passed [producer CI](https://github.com/beyond10x/mandate/actions/runs/35194966262). These observations resolve the publication and local-review prerequisites described above.
+
+The operator approved publication after reviewing the local Website in Brave. The [public foundation docs](https://beyond10x.github.io/docs/mandate/), [shared ESS contract viewer](https://beyond10x.github.io/components/mandate/document/) and all four semantic API references are live at Website 67aa91342f75a890b8209e9228255892737dccaf. The exact 26-bundle production input passed the full Website gate: 102 tests, 376 routes and 1,402 files. Live browser checks passed search, navigation, deep links, history, focus, passive lifecycle diagrams, mobile layout and dark mode.
+
+This completes foundation stabilization. It does not implement authentication, authorization, credential issuance or runtime security. The required UNMAPPED decisions remain with their explicitly linked implementation stories. Canonical type realization remains a proposed next story; neither Wave nor Drive has been launched.
