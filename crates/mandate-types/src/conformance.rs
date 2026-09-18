@@ -22,7 +22,8 @@ pub trait Canonical: Serialize + DeserializeOwned + PartialEq + core::fmt::Debug
     /// The default is the serde serialization, which is what the projection declares for
     /// every accepted type but two. A transient credential type overrides it: its
     /// `Serialize` is redacted, so that no container can carry its material onto the wire
-    /// by accident, and its declared form is reachable only through this named call.
+    /// by accident. This is one of the three named routes to its declared form; they are
+    /// listed in full on [`crate::CredentialSecret`].
     ///
     /// # Errors
     ///

@@ -12,6 +12,7 @@ use std::collections::BTreeSet;
 use mandate_model::{AuditRecord, Decision, DecisionChallenge, TenantResolutionRule};
 use mandate_proto::WireContract;
 use mandate_token::{CredentialDescriptor, CredentialProfile};
+use mandate_types::Transient;
 use mandate_types::conformance::Canonical;
 use mandate_types::{
     AuthorityScope, CredentialProof, CredentialSecret, EpochSnapshotRef, PrincipalId, ResourceRef,
@@ -66,21 +67,57 @@ fn matches_uuid_pattern(text: &str) -> bool {
         })
 }
 
-/// Decide one admitted type's `serde` serialization against the form its projection
-/// declares, and report each sample that does not satisfy it.
+/// The rendering a container reaches for a type whose `Serialize` is the declared form.
+fn serde_rendering<T: Canonical>(sample: &T) -> String {
+    serde_json::to_string(sample).expect("serde serialization")
+}
+
+/// The rendering a container reaches for a transient credential type.
 ///
-/// `serde::Serialize` is the only rendering a container reaches. Every record in this
-/// workspace is `#[derive(Serialize)]`, and a container declared over a type parameter —
-/// which is what a realized command or response envelope is — has no other route to the
-/// value inside it.
-fn projection_violations<T: Canonical>(failures: &mut Vec<String>) {
+/// A bare `#[derive(Serialize)]` field redacts, by design and on purpose. A container that
+/// must carry credential material names
+/// [`mandate_types::value::declared_credential_form`] at the field with
+/// `#[serde(serialize_with = ...)]`; this is that container, in the shape a realized
+/// command or response envelope has. What is returned is the field's own JSON, so the
+/// comparison against the declared pattern is the same comparison the other rendering gets.
+fn declared_field_rendering<T: Canonical + Transient + Clone>(sample: &T) -> String {
+    #[derive(serde::Serialize)]
+    struct Envelope<T: Transient> {
+        #[serde(serialize_with = "mandate_types::value::declared_credential_form")]
+        credential: T,
+    }
+
+    let envelope = serde_json::to_string(&Envelope {
+        credential: sample.clone(),
+    })
+    .expect("serde serialization");
+    let value: serde_json::Value = serde_json::from_str(&envelope).expect("JSON");
+    serde_json::to_string(&value["credential"]).expect("JSON")
+}
+
+/// Decide one admitted type's rendering against the form its projection declares, and
+/// report each sample that does not satisfy it.
+///
+/// **Changed in round 3 by the implementor, at the coordinator's instruction.** As first
+/// written this took no `render` argument and always used `serde_json::to_string`, which
+/// is the rendering every derived container reaches. That found a real defect — the two
+/// transient credential types render `mandate_types::REDACTED`, which the declared base64
+/// pattern refuses — but the only way to satisfy it as written was to drop the redaction,
+/// and the redaction is what keeps credential material out of a record that laundered the
+/// type past `canonical_record!` (`crates/mandate-model/tests/adversary.rs:79`). The fix
+/// shipped instead was a `serialize_with` helper, so a container that must carry the
+/// material names it at the field and a container that says nothing still redacts. This
+/// case now decides the helper's output for those two types and the derived serialization
+/// for the rest; the comparison against the projection, and the assertion below, are
+/// unchanged.
+fn projection_violations<T: Canonical>(failures: &mut Vec<String>, render: fn(&T) -> String) {
     let name = <T as Canonical>::ESS_NAME;
     let node = declared_node(name);
     let Some(pattern) = node.get("pattern").and_then(serde_json::Value::as_str) else {
         return;
     };
     for sample in T::samples() {
-        let serialized = serde_json::to_string(&sample).expect("serde serialization");
+        let serialized = render(&sample);
         let value: serde_json::Value = serde_json::from_str(&serialized).expect("JSON");
         let Some(text) = value.as_str() else {
             failures.push(format!(
@@ -95,7 +132,7 @@ fn projection_violations<T: Canonical>(failures: &mut Vec<String>) {
         };
         if !satisfied {
             failures.push(format!(
-                "{name}: serde renders {serialized}, which the declared pattern {pattern} refuses"
+                "{name}: renders {serialized}, which the declared pattern {pattern} refuses"
             ));
         }
     }
@@ -119,54 +156,102 @@ fn projection_violations<T: Canonical>(failures: &mut Vec<String>) {
 /// `…CredentialProof.schema.json` declares the same node. `crates/mandate-types/src/lib.rs:131`
 /// chooses `REDACTED` precisely because it "is not a form the contract declares".
 ///
-/// The first two calls below are controls: they are admitted types with a declared
-/// pattern whose serialization satisfies it. Only the type argument differs between a
-/// control and a subject.
+/// The first two calls below are controls: admitted types with a declared pattern whose
+/// derived serialization satisfies it, rendered the same way a container renders them.
+/// The last two are the subjects, rendered the way a container that carries credential
+/// material has to render them.
 #[test]
 fn every_admitted_type_serializes_into_the_form_its_projection_declares() {
     let mut failures = Vec::new();
-    projection_violations::<PrincipalId>(&mut failures);
-    projection_violations::<EpochSnapshotRef>(&mut failures);
-    projection_violations::<CredentialSecret>(&mut failures);
-    projection_violations::<CredentialProof>(&mut failures);
+    projection_violations::<PrincipalId>(&mut failures, serde_rendering);
+    projection_violations::<EpochSnapshotRef>(&mut failures, serde_rendering);
+    projection_violations::<CredentialSecret>(&mut failures, declared_field_rendering);
+    projection_violations::<CredentialProof>(&mut failures, declared_field_rendering);
     assert!(
         failures.is_empty(),
         "admitted types whose serde serialization is not the declared form: {failures:#?}"
     );
 }
 
-/// `crates/mandate-types/src/macros.rs:164-165`, on the transient credential types:
-/// "The declared base64 form is reachable only through
-/// [`crate::conformance::Canonical::encode`]." `:205-206` restates it: "The declared
-/// base64 form is reachable through [`crate::conformance::Canonical::encode`], which
-/// nothing derives."
+/// **Changed in round 3 by the implementor, at the coordinator's instruction.** As first
+/// written this asserted that `WireContract::to_wire` does not render credential material,
+/// quoting `crates/mandate-types/src/macros.rs:164-165` — "The declared base64 form is
+/// reachable only through [`Canonical::encode`]" — against
+/// `crates/mandate-proto/src/lib.rs`, which passes all 74 admitted types, the two
+/// transient ones among them, to `wire_contracts!`, and so gives each a public
+/// `to_wire` in a crate `mandate-client` and `mandate-server` depend on.
 ///
-/// `crates/mandate-proto/src/lib.rs:170` passes all 74 admitted types, the two transient
-/// ones among them, to `wire_contracts!`. That macro gives each a
-/// [`WireContract::to_wire`], a public method on a public trait in the crate
-/// `dependency-boundaries.json` has `mandate-client` and `mandate-server` depending on.
-/// A caller that never names `Canonical` gets the material from it.
+/// The doc was the wrong half. `to_wire` on those two is kept: the projection names them
+/// from six commands and six responses, this crate is where those cross, and a named call
+/// on a named trait is what "explicit conversion" means here. Gating it would have taken
+/// `WIRE_CONTRACTS` to 72 and turned `tests/adversary.rs` — which requires a contract for
+/// every accepted type the projection puts on the wire — red.
+///
+/// So the sentences were corrected to name every route, and this case now decides that
+/// route set: the two documented renderings carry the material, the ambient one does not,
+/// and a route appearing or disappearing fails here.
 ///
 /// `b"abc"` renders as `YWJj` in the declared base64 form.
 #[test]
-fn the_declared_credential_material_is_not_reachable_without_naming_canonical() {
+fn the_declared_credential_material_is_reachable_through_exactly_the_documented_routes() {
     let secret = CredentialSecret::from_bytes(b"abc".to_vec());
     let proof = CredentialProof::from_bytes(b"abc".to_vec());
-    for (name, wire) in [
+
+    for (name, sanctioned, ambient) in [
         (
             "mandate.core.CredentialSecret",
-            secret.to_wire().expect("encode"),
+            [
+                Canonical::encode(&secret).expect("encode"),
+                secret.to_wire().expect("encode"),
+            ],
+            serde_json::to_string(&secret).expect("serde serialization"),
         ),
         (
             "mandate.core.CredentialProof",
-            proof.to_wire().expect("encode"),
+            [
+                Canonical::encode(&proof).expect("encode"),
+                proof.to_wire().expect("encode"),
+            ],
+            serde_json::to_string(&proof).expect("serde serialization"),
         ),
     ] {
+        for rendering in sanctioned {
+            assert_eq!(
+                rendering, "\"YWJj\"",
+                "{name}: a documented route stopped rendering the declared form"
+            );
+        }
         assert!(
-            !wire.contains("YWJj"),
-            "{name}: WireContract::to_wire rendered the credential material: {wire}"
+            !ambient.contains("YWJj"),
+            "{name}: the rendering every derived container reaches carried the material: {ambient}"
+        );
+        assert_eq!(
+            ambient,
+            format!("\"{}\"", mandate_types::REDACTED),
+            "{name}: the ambient rendering is no longer the redaction"
         );
     }
+
+    // The third documented route, and the only one a container reaches by declaring a
+    // field: it renders the declared form, and omitting it still redacts.
+    #[derive(serde::Serialize)]
+    struct Envelope {
+        #[serde(serialize_with = "mandate_types::value::declared_credential_form")]
+        named: CredentialSecret,
+        unnamed: CredentialSecret,
+    }
+
+    assert_eq!(
+        serde_json::to_string(&Envelope {
+            named: CredentialSecret::from_bytes(b"abc".to_vec()),
+            unnamed: CredentialSecret::from_bytes(b"abc".to_vec()),
+        })
+        .expect("serde serialization"),
+        format!(
+            "{{\"named\":\"YWJj\",\"unnamed\":\"{}\"}}",
+            mandate_types::REDACTED
+        )
+    );
 }
 
 /// Which declared fields of one record the explicit-null walk actually reaches.

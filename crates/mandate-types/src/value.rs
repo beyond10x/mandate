@@ -268,3 +268,73 @@ where
 {
     T::deserialize(deserializer).map(Some)
 }
+
+/// Serialize a transient credential value in the base64 form the contract declares.
+///
+/// A transient type's [`serde::Serialize`] renders [`crate::REDACTED`], because
+/// `Serialize` is what every derived container reaches and a container cannot say whether
+/// it is a boundary or a record. A container that *must* carry credential material — a
+/// realized command or response envelope, which `generated/schema/commands` and
+/// `generated/schema/responses` declare across twelve files — names this helper at the
+/// field instead:
+///
+/// ```
+/// use mandate_types::CredentialSecret;
+///
+/// #[derive(serde::Serialize)]
+/// struct IssueResponse {
+///     #[serde(serialize_with = "mandate_types::value::declared_credential_form")]
+///     secret: CredentialSecret,
+/// }
+///
+/// let response = IssueResponse { secret: CredentialSecret::from_bytes(b"abc".to_vec()) };
+/// assert_eq!(serde_json::to_string(&response).unwrap(), r#"{"secret":"YWJj"}"#);
+/// ```
+///
+/// A container that says nothing still redacts:
+///
+/// ```
+/// use mandate_types::CredentialSecret;
+///
+/// #[derive(serde::Serialize)]
+/// struct Oversight {
+///     secret: CredentialSecret,
+/// }
+///
+/// let held = Oversight { secret: CredentialSecret::from_bytes(b"abc".to_vec()) };
+/// assert_eq!(serde_json::to_string(&held).unwrap(), r#"{"secret":"<redacted>"}"#);
+/// ```
+///
+/// # Errors
+///
+/// Returns the serializer's error when the string cannot be written.
+pub fn declared_credential_form<T, S>(value: &T, serializer: S) -> Result<S::Ok, S::Error>
+where
+    T: crate::Transient,
+    S: Serializer,
+{
+    serializer.serialize_str(&encode_base64(value.expose_material()))
+}
+
+/// [`declared_credential_form`] for an optional field.
+///
+/// `systems/mandate/domains/credential.yaml:298` declares
+/// `Optional<mandate.core.CredentialProof>`, so the optional shape is one the contract
+/// asks for rather than one invented here.
+///
+/// # Errors
+///
+/// Returns the serializer's error when the value cannot be written.
+pub fn declared_optional_credential_form<T, S>(
+    value: &Option<T>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    T: crate::Transient,
+    S: Serializer,
+{
+    match value {
+        Some(value) => declared_credential_form(value, serializer),
+        None => serializer.serialize_none(),
+    }
+}

@@ -230,7 +230,7 @@ fn transient_credential_values_cross_the_boundary_only_through_a_named_call() {
         "the redaction marker must not decode back into a credential"
     );
 
-    // The declared base64 form is reachable through the named call, and round trips.
+    // The declared base64 form is reached by naming a route; this is one of the three.
     let encoded = Canonical::encode(&secret).expect("encode");
     assert_eq!(encoded, "\"YWJj\"");
     assert_eq!(CredentialSecret::decode(&encoded).expect("decode"), secret);
@@ -347,4 +347,51 @@ fn an_epoch_snapshot_reference_stays_an_opaque_record_handle() {
     );
     assert!(serde_json::from_str::<EpochSnapshotRef>("1").is_err());
     // The absence of arithmetic is proved by the compile_fail doctest in lib.rs.
+}
+
+/// The route a container names when the contract requires it to carry credential
+/// material: `generated/schema/commands` and `generated/schema/responses` `$ref` the two
+/// transient types across twelve files, and
+/// `systems/mandate/domains/credential.yaml:298` declares one of them optional.
+///
+/// Naming the helper is the whole difference. The `unnamed` field below is the same type
+/// with no attribute, and it redacts.
+#[test]
+fn a_container_that_must_carry_credential_material_names_the_helper_at_the_field() {
+    #[derive(serde::Serialize)]
+    struct IssueResponse {
+        #[serde(serialize_with = "mandate_types::value::declared_credential_form")]
+        secret: CredentialSecret,
+        #[serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            serialize_with = "mandate_types::value::declared_optional_credential_form"
+        )]
+        proof: Option<CredentialProof>,
+        unnamed: CredentialSecret,
+    }
+
+    let carried = IssueResponse {
+        secret: CredentialSecret::from_bytes(b"abc".to_vec()),
+        proof: Some(CredentialProof::from_bytes(b"abc".to_vec())),
+        unnamed: CredentialSecret::from_bytes(b"abc".to_vec()),
+    };
+    assert_eq!(
+        serde_json::to_string(&carried).expect("encode"),
+        format!(
+            "{{\"secret\":\"YWJj\",\"proof\":\"YWJj\",\"unnamed\":\"{}\"}}",
+            mandate_types::REDACTED
+        )
+    );
+
+    let absent = IssueResponse {
+        secret: CredentialSecret::from_bytes(Vec::new()),
+        proof: None,
+        unnamed: CredentialSecret::from_bytes(Vec::new()),
+    };
+    let encoded = serde_json::to_string(&absent).expect("encode");
+    assert!(
+        !encoded.contains("proof"),
+        "an absent optional stays absent: {encoded}"
+    );
 }

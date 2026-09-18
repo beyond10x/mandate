@@ -161,8 +161,22 @@ macro_rules! canonical_transient_bytes {
             #[doc = "  reach it."]
             #[doc = "- Its `Serialize` renders [`crate::REDACTED`] rather than the material,"]
             #[doc = "  so a container that does launder it past the first half still cannot"]
-            #[doc = "  put the material on a record's wire form. The declared base64 form is"]
-            #[doc = "  reachable only through [`crate::conformance::Canonical::encode`]."]
+            #[doc = "  put the material on a record's wire form."]
+            #[doc = ""]
+            #[doc = "The declared base64 form is reachable, and these are all the routes to"]
+            #[doc = "it. None is derived; each has to be named:"]
+            #[doc = ""]
+            #[doc = "- [`crate::conformance::Canonical::encode`], the conformance suite's"]
+            #[doc = "  rendering."]
+            #[doc = "- `mandate_proto::WireContract::to_wire`, which delegates to it. Both"]
+            #[doc = "  transient types are among the 74 contracts `mandate-proto` declares,"]
+            #[doc = "  because the projection names them from commands and responses, and"]
+            #[doc = "  `mandate-client` and `mandate-server` depend on that crate."]
+            #[doc = "- [`crate::value::declared_credential_form`], named at a field with"]
+            #[doc = "  `#[serde(serialize_with = ...)]` by a container that must carry the"]
+            #[doc = "  material."]
+            #[doc = ""]
+            #[doc = "An earlier revision claimed the first was the only one. It was not."]
             #[derive(Clone, PartialEq, Eq)]
             pub struct $name(Vec<u8>);
 
@@ -202,8 +216,8 @@ macro_rules! canonical_transient_bytes {
                 #[doc = "one declared outside this crate over a type parameter. It therefore"]
                 #[doc = "cannot tell a boundary from a record, and a transient value that"]
                 #[doc = "reaches it is by definition on a path this crate did not sanction."]
-                #[doc = "The declared base64 form is reachable through"]
-                #[doc = "[`crate::conformance::Canonical::encode`], which nothing derives."]
+                #[doc = "The declared base64 form is reached instead by naming one of the"]
+                #[doc = "three routes listed on this type, none of which is derived."]
                 fn serialize<S: ::serde::Serializer>(
                     &self,
                     serializer: S,
@@ -221,7 +235,11 @@ macro_rules! canonical_transient_bytes {
                 }
             }
 
-            impl $crate::Transient for $name {}
+            impl $crate::Transient for $name {
+                fn expose_material(&self) -> &[u8] {
+                    &self.0
+                }
+            }
 
             impl $crate::conformance::Canonical for $name {
                 const ESS_NAME: &'static str = concat!("mandate.core.", stringify!($name));

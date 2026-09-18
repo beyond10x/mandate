@@ -26,7 +26,22 @@
 //! could not have been made true without inventing a wire form the contract does not
 //! declare. `tests/conformance.rs` pins the two forms as equal.
 //!
-//! What does separate them is the type, at the call site, before any wire form exists:
+//! # Two of these contracts carry credential material
+//!
+//! `mandate.core.CredentialSecret` and `mandate.core.CredentialProof` are among the 74
+//! contracts below, because the projection names them from six commands and six responses
+//! and this crate is where those cross. [`WireContract::to_wire`] on those two therefore
+//! renders the declared base64 material, not the redaction their [`serde::Serialize`]
+//! renders — it delegates to `Canonical::encode`, which is the same sanctioned rendering.
+//! That is deliberate: the crossing is what this crate is for, and it is a named call on a
+//! named trait rather than something a derive reaches. `mandate-client` and
+//! `mandate-server` depend on this crate, so a reader there sees the material only by
+//! writing `to_wire`.
+//!
+//! # Identifier separation
+//!
+//! What separates two identifiers is the type, at the call site, before any wire form
+//! exists:
 //!
 //! ```
 //! use mandate_types::OrganizationId;

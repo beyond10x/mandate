@@ -30,7 +30,15 @@ use crate::value::{Duration, Timestamp};
 pub trait PersistedValue {}
 
 /// A boundary value that exists only while a request is in flight.
-pub trait Transient {}
+pub trait Transient {
+    /// The material this value carries.
+    ///
+    /// Named for what it does. This is the same exposure the type's own `expose_bytes`
+    /// already offers; it exists as a trait method so that
+    /// [`crate::value::declared_credential_form`] can render the declared wire form for
+    /// any transient type without naming one.
+    fn expose_material(&self) -> &[u8];
+}
 
 impl<T: PersistedValue> PersistedValue for Option<T> {}
 impl<T: PersistedValue> PersistedValue for Vec<T> {}
