@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:graph-policy
 kind: story
-status: draft
+status: active
 title: Implement graph and policy ports with test doubles
 relations:
 - decomposes: epic:authorization
@@ -60,7 +60,7 @@ scope:
   path: crates/mandate-policy/tests/precedence.rs
 - confidence: inferred
   path: crates/mandate-policy/tests/record.rs
-revision: 11
+revision: 13
 ---
 # Implement graph and policy ports with test doubles
 

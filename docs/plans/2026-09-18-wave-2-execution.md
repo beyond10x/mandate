@@ -90,3 +90,16 @@ First run on `f0da11e`: `cargo fmt --all -- --check` refused two hunks in the im
 ## Wave 2 shape, revised by the operator's "one per story"
 
 Four agents, one per story, each owning its whole crate including `src/lib.rs` — so no coordinator interface commits. `federation-linking` (`crates/mandate-federation`), `graph-policy` (`crates/mandate-graph`, `crates/mandate-policy`), `session-epochs` (`crates/mandate-identity`), `tenancy-topology` (`crates/mandate-model`). Zero shared files among the four. Briefs at the wave scratch root, base `59246579b178a7357a98d57f45e81b62d0e03dd8` plus the closing store commit.
+
+## Wave 2 — the four stories, one agent each
+
+Base: `fd34d9025a0ed9b70f4ccc97074e378b3f20ee28`. Stories moved `draft → proposed → active`: `federation-linking`, `graph-policy`, `session-epochs`, `tenancy-topology`. `aep plan artifact waves --status active` places all four in one wave with no collision. `federation-linking` stays blocked on `identity-uniqueness`, `algorithm-policy` and `jit-provisioning`; the decisions are recorded and the units produce the runtime cases those blockers name.
+
+| Unit | Branch | Worktree | Build directory | Scratch root | Managed id |
+|---|---|---|---|---|---|
+| `federation-linking` | `impl/federation-linking` | `~/.local/state/worktree/trees/b10x/mandate/mandate-w2-federation-linking` | `~/.cache/b10x-target/mandate/w2-federation-linking` | `~/.cache/claude-tmp/wave2/federation-linking` | `mandate-w2-federation-linking` |
+| `graph-policy` | `impl/graph-policy` | `…/mandate-w2-graph-policy` | `…/w2-graph-policy` | `…/wave2/graph-policy` | `mandate-w2-graph-policy` |
+| `session-epochs` | `impl/session-epochs` | `…/mandate-w2-session-epochs` | `…/w2-session-epochs` | `…/wave2/session-epochs` | `mandate-w2-session-epochs` |
+| `tenancy-topology` | `impl/tenancy-topology` | `…/mandate-w2-tenancy-topology` | `…/w2-tenancy-topology` | `…/wave2/tenancy-topology` | `mandate-w2-tenancy-topology` |
+
+Per-unit gate: `cargo fmt -p`, `cargo clippy -p --all-targets -D warnings`, `cargo test -p` for the unit's crates. Disk at open: 37G; floor 10G; four parallel builds of small crates over the shared sccache.

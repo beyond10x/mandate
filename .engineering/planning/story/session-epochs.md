@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:session-epochs
 kind: story
-status: draft
+status: active
 title: Implement exact session security generations
 relations:
 - decomposes: epic:authentication
@@ -35,7 +35,7 @@ scope:
   path: crates/mandate-identity/tests/staleness.rs
 - confidence: inferred
   path: crates/mandate-identity/tests/surface.rs
-revision: 6
+revision: 8
 ---
 # Implement exact session security generations
 

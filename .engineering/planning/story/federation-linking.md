@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:federation-linking
 kind: story
-status: draft
+status: active
 title: Implement verified federation and explicit linking
 relations:
 - decomposes: epic:authentication
@@ -34,7 +34,7 @@ scope:
   path: crates/mandate-federation/tests/verifier.rs
 - confidence: inferred
   path: dependency-boundaries.json
-revision: 7
+revision: 9
 ---
 # Implement verified federation and explicit linking
 

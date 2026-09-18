@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:tenancy-topology
 kind: story
-status: draft
+status: active
 title: Implement tenancy and resource topology
 relations:
 - decomposes: epic:authorization
@@ -23,7 +23,7 @@ scope:
   path: crates/mandate-model/tests/projections.rs
 - confidence: inferred
   path: crates/mandate-model/tests/tenancy.rs
-revision: 8
+revision: 10
 ---
 # Implement tenancy and resource topology
 
