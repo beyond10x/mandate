@@ -29,7 +29,10 @@
 //! caller appends, and [`record::Projection::fold`] rebuilds the read model.
 
 pub mod authenticate;
+pub mod authorize;
 pub mod link;
+pub mod pkce;
+pub mod publicclient;
 pub mod record;
 pub mod verifier;
 
@@ -130,6 +133,64 @@ pub enum DenialClause {
     /// unadmitted". Two organizations cannot share an issuer when either resolves it
     /// unconditionally; see [`record::register_federation_connection`].
     TenantResolutionUnadmitted,
+    /// `AuthorizePublicClient`: "S256 challenge is absent/invalid": the recorded
+    /// challenge is not in the declared S256 form.
+    ChallengeMalformed,
+    /// "S256 challenge is absent/invalid": no code verifier was presented.
+    VerifierMissing,
+    /// "S256 challenge is absent/invalid": the presented verifier is not in the form
+    /// RFC 7636 section 4.1 declares.
+    VerifierMalformed,
+    /// "S256 challenge is absent/invalid": the presented verifier does not digest to the
+    /// recorded challenge.
+    VerifierMismatch,
+    /// `AuthorizePublicClient`: "client is not a registered public client": the read
+    /// model answers no client with that identity.
+    ClientUnknown,
+    /// "client is not a registered public client": the client is not a public client.
+    ClientNotPublic,
+    /// "the client is disabled": the client is in the terminal `Disabled` state.
+    ClientDisabled,
+    /// "exact redirect URI ... binding fails": the presented redirect URI is not
+    /// byte-identical to a registered one, or to the one the code record bound.
+    RedirectMismatch,
+    /// "Session proof is invalid/stale": the code names a session the read model does
+    /// not resolve.
+    SessionUnknown,
+    /// "Session proof is invalid/stale": the session is in the terminal `Revoked` state.
+    SessionRevoked,
+    /// "Session proof is invalid/stale": the session's epoch snapshot does not resolve,
+    /// or is bound to another subject.
+    SessionEpochUnresolved,
+    /// "source/session epoch is stale" (`credential.yaml:223`): an applicable generation
+    /// no longer matches the authoritative one.
+    SessionStale,
+    /// "Session proof is invalid/stale": the session's own expiry has passed.
+    SessionExpired,
+    /// "code is consumed/expired" (`credential.yaml:223`): the code record is in the
+    /// declared terminal `Consumed` state. The concurrent second redemption is the STS
+    /// transaction's to refuse, not this one's.
+    CodePreviouslyRedeemed,
+    /// "code is consumed/expired": the code record's expiry has passed, or names no
+    /// instant. The request instant naming none is this clause with the reason
+    /// `Unavailable` — the reader cannot be dated, which is not the record expiring.
+    CodeExpired,
+    /// "target is unregistered/outside tenant": the registry answers no organization for
+    /// the target the code names.
+    TargetUnknown,
+    /// "target is unregistered/outside tenant": the target is registered to another
+    /// organization than the verified one.
+    TargetOutsideTenant,
+    /// The registry cannot answer for the target at all, which is not a decision that it
+    /// is unregistered. The reason is `Unavailable`, as for a request that names no
+    /// instant.
+    TargetUnanswerable,
+    /// "state/applicable nonce binding fails": the presented state is not the one the
+    /// authorization request recorded.
+    StateMismatch,
+    /// "state/applicable nonce binding fails": the applicable nonce is absent, unbound or
+    /// not the one the authorization request recorded.
+    NonceMismatch,
     /// The verifier's configured algorithm allowlist is not an admitted one.
     /// `decision-blocker:algorithm-policy`: an empty set is rejected. The admitted names
     /// themselves are withheld, so none is named here.
