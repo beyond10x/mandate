@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ProvisionExternalPrincipal response",
+  "x-ess-name": "mandate.federation.ProvisionExternalPrincipal",
+  "x-ess-kind": "command-response",
+  "type": "object",
+  "properties": {
+    "external_principal_id": {
+      "$ref": "#/$defs/mandate.core.ExternalPrincipalId"
+    },
+    "principal_id": {
+      "$ref": "#/$defs/mandate.core.PrincipalId"
+    },
+    "subject": {
+      "$ref": "#/$defs/mandate.core.ExternalSubject"
+    }
+  },
+  "required": [
+    "external_principal_id",
+    "principal_id",
+    "subject"
+  ],
+  "additionalProperties": false,
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8",
+    "contract_digest": "slice-sha256/2:060c744280ebd8160337f867479932374173a5f3d546eb814dd57528862f0f8c",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.core.ExternalPrincipalId": {
+      "title": "ExternalPrincipalId",
+      "x-ess-name": "mandate.core.ExternalPrincipalId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.ExternalSubject": {
+      "title": "ExternalSubject",
+      "x-ess-name": "mandate.core.ExternalSubject",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    },
+    "mandate.core.PrincipalId": {
+      "title": "PrincipalId",
+      "x-ess-name": "mandate.core.PrincipalId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    }
+  }
+}

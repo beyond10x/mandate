@@ -13,19 +13,26 @@
     },
     "team_id": {
       "$ref": "#/$defs/mandate.core.TeamId"
+    },
+    "contributions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/mandate.core.MembershipContributionId"
+      }
     }
   },
   "required": [
     "context",
     "group_id",
-    "team_id"
+    "team_id",
+    "contributions"
   ],
   "additionalProperties": false,
   "x-ess-provenance": {
     "system": "mandate",
     "specification_version": "v1",
-    "source_digest": "4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1",
-    "contract_digest": "slice-sha256/2:94cf18f5f8d50d0795d9a638a7ae32ab0e27e638c0d639d5fe67613b605dcb5c",
+    "source_digest": "681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8",
+    "contract_digest": "slice-sha256/2:7d210b6b57e1255f0b40ee8df96b6a81ccc6be85e471a376cb2f6024a70ea866",
     "regenerate": "ess generate"
   },
   "$defs": {
@@ -68,6 +75,14 @@
     "mandate.core.ExecutionId": {
       "title": "ExecutionId",
       "x-ess-name": "mandate.core.ExecutionId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.MembershipContributionId": {
+      "title": "MembershipContributionId",
+      "x-ess-name": "mandate.core.MembershipContributionId",
       "x-ess-kind": "newtype",
       "type": "string",
       "format": "uuid",

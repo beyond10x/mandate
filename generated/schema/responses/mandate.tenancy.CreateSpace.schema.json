@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CreateSpace response",
+  "x-ess-name": "mandate.tenancy.CreateSpace",
+  "x-ess-kind": "command-response",
+  "type": "object",
+  "properties": {
+    "space_id": {
+      "$ref": "#/$defs/mandate.core.SpaceId"
+    }
+  },
+  "required": [
+    "space_id"
+  ],
+  "additionalProperties": false,
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8",
+    "contract_digest": "slice-sha256/2:dc87af33baa1afb0ab7346f03544efa6140a0eed7d491d67c08c36eec94789b2",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.core.SpaceId": {
+      "title": "SpaceId",
+      "x-ess-name": "mandate.core.SpaceId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    }
+  }
+}

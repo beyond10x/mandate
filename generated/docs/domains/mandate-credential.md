@@ -1,7 +1,7 @@
 <!--
 generated from mandate v1
-model digest 4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1
-contract digest slice-sha256/2:b9fdc612b6aa7a877dd2dca93021285e1e0b38050dcd98518e24f48b0c02d366
+model digest 681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8
+contract digest slice-sha256/2:f3f78aa9656e5e085e0c6c76f0a2dbf0e33490e653a02b5bd346ff3a290a0960
 do not edit: regenerate with `ess generate`
 -->
 
@@ -155,19 +155,32 @@ It declares no relation to another entity, and no other entity names it.
 
 No invariant is declared, so nothing here constrains an instance at rest.
 
-Its state is a `mandate.credential.SigningKey.State`, one of `Recorded`. That enum is synthesised from the lifecycle rather than declared beside it, so the states a view's filter compares and the states drawn below cannot disagree.
+Its state is a `mandate.credential.SigningKey.State`, one of `Recorded`, `Retired` and `Revoked`. That enum is synthesised from the lifecycle rather than declared beside it, so the states a view's filter compares and the states drawn below cannot disagree.
 
-An instance is created in `Recorded`. `Recorded` is terminal, so an instance may rest there forever. That is declared rather than inferred from having no way out: an entity that cannot leave a state is either finished or stuck, and only its author knows which.
+An instance is created in `Recorded`. `Retired` and `Revoked` are terminal, so an instance may rest there forever. That is declared rather than inferred from having no way out: an entity that cannot leave a state is either finished or stuck, and only its author knows which.
 
 ```mermaid
 stateDiagram-v2
     [*] --> Recorded
-    Recorded --> [*]
+    Recorded --> Retired: retire (RetireSigningKey)
+    Recorded --> Revoked: revoke (RevokeSigningKey)
+    Retired --> Revoked: revoke (RevokeSigningKey)
+    Retired --> [*]
+    Revoked --> [*]
 ```
 
-It declares no moves, so nothing changes its state once it exists.
+Each move is taken by a declared command outcome, and a move nothing takes is refused as `missing_causation` rather than left as a state change nobody can trigger:
 
-It has one state, so there is no move to permit or to forbid.
+- `retire` — taken by `mandate.credential.RetireSigningKey` on its `accepted` outcome
+- `revoke` — taken by `mandate.credential.RevokeSigningKey` on its `accepted` outcome
+
+No command here creates one, so an instance arrives from outside this specification.
+
+Illegal transitions are illegal by absence: no rule forbids them, there is simply no arrow, because a rule would be a second place for the same truth to live. A diagram cannot show an absence, so the pairs it does not connect are listed here, derived from the same transitions — anything named below is a move this specification does not permit.
+
+- `Retired` may not become `Recorded`
+- `Revoked` may not become `Recorded`
+- `Revoked` may not become `Retired`
 
 No view projects it, so nothing outside this context is promised a way to observe one.
 
@@ -241,7 +254,7 @@ It has two outcomes.
 
 **`accepted`** — STS stores only a non-reversible verifier bound to the validated client, session, exact redirect, S256 challenge, registered target, narrowed scope and bounded expiry. Only the transient code is returned to the public-client adapter. The default branch, taken when no other outcome's condition matched. No entity in this specification changes. It emits `mandate.credential.AuthorizationCodeIssued`. A test reaches it by constructing an input that satisfies no other outcome's condition.
 
-**`denied`** — Decided outside the input: Trusted control-plane caller/session context, registered public client, exact redirect URI, S256 policy, tenant/target agreement, authority narrowing or bounded expiry validation fails.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
+**`denied`** — Decided outside the input: Trusted control-plane caller/session context, registered public client, exact redirect URI, S256 policy, tenant/target agreement, authority narrowing or bounded expiry validation fails, or the client the code would be bound to is disabled.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
 ### `IssueReferenceCredential`
 
@@ -291,7 +304,7 @@ It has two outcomes.
 
 **`accepted`** — STS atomically consumes the code and persists the narrowed credential and audit outbox. The returned credential remains bound to the code target, scope, session and expiry; a failed or replayed transaction produces no credential. The default branch, taken when no other outcome's condition matched. It moves a `mandate.credential.AuthorizationCode` from `Issued` to `Consumed`, along the declared move `consume`. The instance is the one named by the input field `code_id`. It emits `mandate.credential.AuthorizationCodeRedeemed`. A test reaches it by constructing an input that satisfies no other outcome's condition.
 
-**`denied`** — Decided outside the input: Code proof does not match the server-resolved code_id; code is consumed/expired; client, redirect URI or S256 verifier mismatches; source/session epoch is stale; registered target is disabled or outside the verified tenant; or narrowing/atomic issuance validation fails.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
+**`denied`** — Decided outside the input: Code proof does not match the server-resolved code_id; code is consumed/expired; client, redirect URI or S256 verifier mismatches; the bound client is disabled; source/session epoch is stale; registered target is disabled or outside the verified tenant; or narrowing/atomic issuance validation fails.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
 ### `RegisterResourceServer`
 
@@ -310,6 +323,21 @@ It has two outcomes.
 
 **`denied`** — Decided outside the input: Caller lacks resource-server administration authority, audience registration is ambiguous, profile semantics are unadmitted, or an allowed source server is unresolved/disabled/outside the verified organization.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
+### `RetireSigningKey`
+
+`mandate.credential.RetireSigningKey`.
+
+It takes:
+
+- `id` — `mandate.core.SigningKeyId`
+- `context` — `mandate.core.VerifiedContext`
+
+It has two outcomes.
+
+**`accepted`** — Rotation, not revocation. A retired key signs nothing further; it remains admitted for verifying credentials already issued under it until they expire, which is the overlapping rotation period the key requirements demand. The default branch, taken when no other outcome's condition matched. It moves a `mandate.credential.SigningKey` from `Recorded` to `Retired`, along the declared move `retire`. The instance is the one named by the input field `id`. It emits `mandate.credential.SigningKeyRetired`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+
+**`denied`** — Decided outside the input: Caller lacks signing-key administration authority, the key is unresolved, no overlapping replacement key is published for continued verification, or retirement cannot durably stop further issuance under the key.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
+
 ### `RevokeAccessCredential`
 
 `mandate.credential.RevokeAccessCredential`.
@@ -324,6 +352,21 @@ It has two outcomes.
 **`accepted`** — The default branch, taken when no other outcome's condition matched. It moves a `mandate.credential.AccessCredential` from `Active` to `Revoked`, along the declared move `revoke`. The instance is the one named by the input field `id`. It emits `mandate.credential.AccessCredentialRevoked`. A test reaches it by constructing an input that satisfies no other outcome's condition.
 
 **`denied`** — Decided outside the input: Caller lacks credential-revocation authority, resolved credential is outside the verified organization, or the named profile revocation guarantee cannot be met.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
+
+### `RevokeSigningKey`
+
+`mandate.credential.RevokeSigningKey`.
+
+It takes:
+
+- `id` — `mandate.core.SigningKeyId`
+- `context` — `mandate.core.VerifiedContext`
+
+It has two outcomes.
+
+**`accepted`** — The emergency procedure. A revoked key is admitted for neither issuance nor verification, and the self-contained credentials it signed are refused from that point; the key record itself is kept. The default branch, taken when no other outcome's condition matched. It moves a `mandate.credential.SigningKey` from `Recorded` and `Retired` to `Revoked`, along the declared move `revoke`. The instance is the one named by the input field `id`. It emits `mandate.credential.SigningKeyRevoked`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+
+**`denied`** — Decided outside the input: Caller lacks signing-key administration authority, the key is unresolved, or emergency revocation cannot durably stop both issuance and verification under the key and refuse the credentials it signed.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
 ## Events
 
@@ -433,6 +476,32 @@ Emitted by `mandate.credential.RegisterResourceServer` on its `accepted` outcome
 
 Nothing in this system reacts to it.
 
+### `SigningKeyRetired`
+
+`mandate.credential.SigningKeyRetired`.
+
+It carries:
+
+- `context` — `mandate.core.VerifiedContext`
+- `id` — `mandate.core.SigningKeyId`
+
+Emitted by `mandate.credential.RetireSigningKey` on its `accepted` outcome.
+
+Nothing in this system reacts to it.
+
+### `SigningKeyRevoked`
+
+`mandate.credential.SigningKeyRevoked`.
+
+It carries:
+
+- `context` — `mandate.core.VerifiedContext`
+- `id` — `mandate.core.SigningKeyId`
+
+Emitted by `mandate.credential.RevokeSigningKey` on its `accepted` outcome.
+
+Nothing in this system reacts to it.
+
 ### `TokenExchangeAllowed`
 
 `mandate.credential.TokenExchangeAllowed`.
@@ -488,9 +557,13 @@ Reported by `mandate.credential.RedeemAuthorizationCode` on its `denied` outcome
 
 Reported by `mandate.credential.RegisterResourceServer` on its `denied` outcome.
 
+Reported by `mandate.credential.RetireSigningKey` on its `denied` outcome.
+
 Reported by `mandate.credential.RevokeAccessCredential` on its `denied` outcome.
+
+Reported by `mandate.credential.RevokeSigningKey` on its `denied` outcome.
 
 
 ---
 
-Generated from mandate v1 · model digest `4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1` · contract digest `slice-sha256/2:b9fdc612b6aa7a877dd2dca93021285e1e0b38050dcd98518e24f48b0c02d366`. Do not edit this file; change the specification and regenerate it with `ess generate`.
+Generated from mandate v1 · model digest `681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8` · contract digest `slice-sha256/2:f3f78aa9656e5e085e0c6c76f0a2dbf0e33490e653a02b5bd346ff3a290a0960`. Do not edit this file; change the specification and regenerate it with `ess generate`.

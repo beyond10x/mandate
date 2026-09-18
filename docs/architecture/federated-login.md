@@ -44,7 +44,7 @@ sequenceDiagram
 
 | Step | Command | Source |
 |---|---|---|
-| Register the customer's IdP once, bound to one organization | `RegisterFederationConnection(context, issuer, client_id, tenant_resolution)` → `FederationConnectionId` | `../../systems/mandate/domains/federation.yaml:171-193` |
+| Register the customer's IdP once, bound to one organization | `RegisterFederationConnection(context, issuer, client_id, tenant_resolution, jit_provisioning)` → `FederationConnectionId` | `../../systems/mandate/domains/federation.yaml:171-193` |
 | Link an external account to a principal (administrative path) | `LinkExternalPrincipal(context, connection_id, external_subject, principal_id, method)` → `ExternalPrincipalId` | `federation.yaml:144-170` |
 | Create the principal and link on first login (JIT path, new) | `ProvisionExternalPrincipal(connection_id, proof)` → `ExternalPrincipalId` | owned by `story:domain-runtime`; see below |
 | Validate the proof and mint a session | `AuthenticateFederation(connection_id, proof)` → `SessionId` | `federation.yaml:194-214` |
@@ -110,10 +110,10 @@ The preserved source names just-in-time provisioning as a mode — "An authentic
 |---|---:|---|
 | `types/` | 110 | yes |
 | `entities/` | 36 | yes |
-| `commands/` | 34 | no |
-| `events/` | 40 | no |
+| `commands/` | 59 (34 before wave 2) | no |
+| `events/` | 65 (40 before wave 2) | no |
 | `responses/` | 17 | no |
-| `errors/` | 9 | no |
+| `errors/` | 11 (9 before wave 2) | no |
 
 **Why two commands at the adapter, not one.** The adapter calls `AuthenticateFederation`; on a denial whose reason is an absent link, and only when the connection admits JIT, it calls `ProvisionExternalPrincipal` and then `AuthenticateFederation` again. The proof is validated twice; both validations are pure functions of the same proof inside its validity window, so the second cannot admit what the first refused. The record the second call depends on is the link, and the composite-key constraint (`decision-blocker:identity-uniqueness`, below) makes a concurrent provision resolve to exactly one record and one declared denial, after which the retried authentication succeeds against the surviving record. Folding provisioning into `AuthenticateFederation` would make one command emit two events, which the contract shape forbids, and would move a mutation into a command whose accepted outcome is currently read-only against linking.
 
@@ -157,6 +157,6 @@ What is buildable now, and is what wave 3 delivers: steps 1, 2 and 5–9 as pure
 | id | the claim, verbatim | enforced by |
 |---|---|---|
 | FL1 | Every command in this system has exactly one accepted outcome and emits exactly one event; this holds across all twelve domain files. | a read over `systems/mandate/domains/*.yaml` counting outcomes and `emits` per command |
-| FL2 | `generated/schema/types/` = 110, `entities/` = 36, `commands/` = 34, `events/` = 40 | `ls generated/schema/<dir> \| wc -l` at the commit this document was written against |
+| FL2 | `generated/schema/types/` = 110, `entities/` = 36, `commands/` = 59, `events/` = 65 | `ls generated/schema/<dir> \| wc -l` at the commit this document was written against |
 | FL3 | It names no signing algorithm. | the denylist `runtime-decisions.md` SC4 already applies, run over this file |
 | FL4 | None of the decisions above is a clearance. | every named blocker's status read from the store equals `open` |

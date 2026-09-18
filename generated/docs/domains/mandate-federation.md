@@ -1,7 +1,7 @@
 <!--
 generated from mandate v1
-model digest 4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1
-contract digest slice-sha256/2:5719f5f55bf68a9bfca17745a7e29b773e2f83ebbccb55e96b236137f59c791d
+model digest 681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8
+contract digest slice-sha256/2:f3f78aa9656e5e085e0c6c76f0a2dbf0e33490e653a02b5bd346ff3a290a0960
 do not edit: regenerate with `ess generate`
 -->
 
@@ -67,6 +67,7 @@ It holds:
 - `issuer` — `mandate.core.Issuer`
 - `client_id` — `mandate.core.ClientId`
 - `tenant_resolution` — `mandate.core.TenantResolutionRule`
+- `jit_provisioning` — `Boolean`
 
 It references at most one [`mandate.tenancy.Organization`](mandate-tenancy.md#organization), as `organization_id_record`, carried by `FederationConnection.organization_id`.
 
@@ -112,19 +113,26 @@ It references at most one [`mandate.tenancy.Organization`](mandate-tenancy.md#or
 
 No invariant is declared, so nothing here constrains an instance at rest.
 
-Its state is a `mandate.federation.OAuthClient.State`, one of `Recorded`. That enum is synthesised from the lifecycle rather than declared beside it, so the states a view's filter compares and the states drawn below cannot disagree.
+Its state is a `mandate.federation.OAuthClient.State`, one of `Disabled` and `Recorded`. That enum is synthesised from the lifecycle rather than declared beside it, so the states a view's filter compares and the states drawn below cannot disagree.
 
-An instance is created in `Recorded`. `Recorded` is terminal, so an instance may rest there forever. That is declared rather than inferred from having no way out: an entity that cannot leave a state is either finished or stuck, and only its author knows which.
+An instance is created in `Recorded`. `Disabled` is terminal, so an instance may rest there forever. That is declared rather than inferred from having no way out: an entity that cannot leave a state is either finished or stuck, and only its author knows which.
 
 ```mermaid
 stateDiagram-v2
     [*] --> Recorded
-    Recorded --> [*]
+    Recorded --> Disabled: disable (DisableOAuthClient)
+    Disabled --> [*]
 ```
 
-It declares no moves, so nothing changes its state once it exists.
+Each move is taken by a declared command outcome, and a move nothing takes is refused as `missing_causation` rather than left as a state change nobody can trigger:
 
-It has one state, so there is no move to permit or to forbid.
+- `disable` — taken by `mandate.federation.DisableOAuthClient` on its `accepted` outcome
+
+No command here creates one, so an instance arrives from outside this specification.
+
+Illegal transitions are illegal by absence: no rule forbids them, there is simply no arrow, because a rule would be a second place for the same truth to live. A diagram cannot show an absence, so the pairs it does not connect are listed here, derived from the same transitions — anything named below is a move this specification does not permit.
+
+- `Disabled` may not become `Recorded`
 
 No view projects it, so nothing outside this context is promised a way to observe one.
 
@@ -165,7 +173,7 @@ It has two outcomes.
 
 **`accepted`** — The default branch, taken when no other outcome's condition matched. No entity in this specification changes. It emits `mandate.federation.AuthorizationCodeIssued`. A test reaches it by constructing an input that satisfies no other outcome's condition.
 
-**`denied`** — Decided outside the input: Session proof is invalid/stale, client is not a registered public client, exact redirect URI or state/applicable nonce binding fails, S256 challenge is absent/invalid, target is unregistered/outside tenant, or STS code issuance/narrowing is refused.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.federation.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
+**`denied`** — Decided outside the input: Session proof is invalid/stale, client is not a registered public client, the client is disabled, exact redirect URI or state/applicable nonce binding fails, S256 challenge is absent/invalid, target is unregistered/outside tenant, or STS code issuance/narrowing is refused.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.federation.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
 ### `DisableFederationConnection`
 
@@ -181,6 +189,21 @@ It has two outcomes.
 **`accepted`** — The default branch, taken when no other outcome's condition matched. It moves a `mandate.federation.FederationConnection` from `Enabled` to `Disabled`, along the declared move `disable`. The instance is the one named by the input field `id`. It emits `mandate.federation.FederationConnectionDisabled`. A test reaches it by constructing an input that satisfies no other outcome's condition.
 
 **`denied`** — Decided outside the input: Caller lacks federation-administration authority, connection is outside the verified organization, or emergency trust shutdown and affected generation invalidation cannot commit.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.federation.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
+
+### `DisableOAuthClient`
+
+`mandate.federation.DisableOAuthClient`.
+
+It takes:
+
+- `id` — `mandate.core.OAuthClientId`
+- `context` — `mandate.core.VerifiedContext`
+
+It has two outcomes.
+
+**`accepted`** — A registered public client whose redirect surface is no longer trusted stops being admitted. The registration record is kept. No new authorization code is issued to it, and an outstanding code is refused at redemption, where RedeemAuthorizationCode re-reads the client the code is bound to; no declared move invalidates an outstanding code. The default branch, taken when no other outcome's condition matched. It moves a `mandate.federation.OAuthClient` from `Recorded` to `Disabled`, along the declared move `disable`. The instance is the one named by the input field `id`. It emits `mandate.federation.OAuthClientDisabled`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+
+**`denied`** — Decided outside the input: Caller lacks client-administration authority, the client is outside the verified organization, or disablement cannot stop the issuance of new authorization codes to it.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.federation.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
 ### `LinkExternalPrincipal`
 
@@ -200,6 +223,21 @@ It has two outcomes.
 
 **`denied`** — Decided outside the input: Caller/method lacks linking authority, proof/connection trust is invalid, organization or target principal mismatches, composite (organization, configured issuer, subject) key conflicts, or durable audited linking fails. Email equality never authorizes linking.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.federation.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
+### `ProvisionExternalPrincipal`
+
+`mandate.federation.ProvisionExternalPrincipal`.
+
+It takes:
+
+- `connection_id` — `mandate.core.FederationConnectionId`
+- `proof` — `mandate.core.CredentialProof`
+
+It has two outcomes.
+
+**`accepted`** — Just-in-time provisioning on first login. This event is the creation record for both entities it names — one mandate.identity.Principal of kind User, and one mandate.federation.ExternalPrincipal linking it with ExternalLinkMethod::ConfiguredFederation — because mandate.identity declares no command that creates a Principal, so nothing else in this contract records that one came into existence. Both identities and the external subject are bound from the response rather than left to the implementation. The composite key is (organization, connection issuer, external subject), with the issuer read from the validated connection and the subject from the validated proof, never from the caller. No session is minted here; the adapter calls AuthenticateFederation again. The default branch, taken when no other outcome's condition matched. No entity in this specification changes. It emits `mandate.federation.ExternalPrincipalProvisioned`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+
+**`denied`** — Decided outside the input: Connection is disabled/untrusted, proof signature/issuer/audience/expiry is invalid, tenant resolution has zero or multiple matches, principal linking is conflicting, connection does not admit provisioning, the composite (organization, configured issuer, subject) key already exists, or any email-domain/unverified-input fallback would be required.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.federation.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
+
 ### `RegisterFederationConnection`
 
 `mandate.federation.RegisterFederationConnection`.
@@ -210,12 +248,13 @@ It takes:
 - `issuer` — `mandate.core.Issuer`
 - `client_id` — `mandate.core.ClientId`
 - `tenant_resolution` — `mandate.core.TenantResolutionRule`
+- `jit_provisioning` — `Boolean`
 
 It has two outcomes.
 
-**`accepted`** — The default branch, taken when no other outcome's condition matched. No entity in this specification changes. It emits `mandate.federation.FederationConnectionCreated`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+**`accepted`** — The connection is created with its provisioning setting decided here and never changed afterwards. A connection whose issuer or provisioning admission must change is disabled and registered again; there is no update command. The default branch, taken when no other outcome's condition matched. No entity in this specification changes. It emits `mandate.federation.FederationConnectionCreated`. A test reaches it by constructing an input that satisfies no other outcome's condition.
 
-**`denied`** — Decided outside the input: Caller lacks federation-administration authority, issuer/client/trust or tenant-resolution configuration is unadmitted, or organization binding is invalid.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.federation.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
+**`denied`** — Decided outside the input: Caller lacks federation-administration authority, issuer/client/trust, tenant-resolution or just-in-time provisioning configuration is unadmitted, or organization binding is invalid.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.federation.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
 ### `UnlinkExternalPrincipal`
 
@@ -260,6 +299,25 @@ Emitted by `mandate.federation.LinkExternalPrincipal` on its `accepted` outcome.
 
 Nothing in this system reacts to it.
 
+### `ExternalPrincipalProvisioned`
+
+`mandate.federation.ExternalPrincipalProvisioned`.
+
+It carries:
+
+- `context` — `mandate.core.VerifiedContext`
+- `connection_id` — `mandate.core.FederationConnectionId`
+- `principal_id` — `mandate.core.PrincipalId`
+- `kind` — `mandate.core.PrincipalKind`
+- `display_name` — `String`
+- `external_principal_id` — `mandate.core.ExternalPrincipalId`
+- `subject` — `mandate.core.ExternalSubject`
+- `link_method` — `mandate.core.ExternalLinkMethod`
+
+Emitted by `mandate.federation.ProvisionExternalPrincipal` on its `accepted` outcome.
+
+Nothing in this system reacts to it.
+
 ### `ExternalPrincipalUnlinked`
 
 `mandate.federation.ExternalPrincipalUnlinked`.
@@ -292,6 +350,11 @@ Nothing in this system reacts to it.
 It carries:
 
 - `context` — `mandate.core.VerifiedContext`
+- `connection_id` — `mandate.core.FederationConnectionId`
+- `issuer` — `mandate.core.Issuer`
+- `client_id` — `mandate.core.ClientId`
+- `tenant_resolution` — `mandate.core.TenantResolutionRule`
+- `jit_provisioning` — `Boolean`
 
 Emitted by `mandate.federation.RegisterFederationConnection` on its `accepted` outcome.
 
@@ -306,6 +369,19 @@ It carries:
 - `context` — `mandate.core.VerifiedContext`
 
 Emitted by `mandate.federation.DisableFederationConnection` on its `accepted` outcome.
+
+Nothing in this system reacts to it.
+
+### `OAuthClientDisabled`
+
+`mandate.federation.OAuthClientDisabled`.
+
+It carries:
+
+- `context` — `mandate.core.VerifiedContext`
+- `id` — `mandate.core.OAuthClientId`
+
+Emitted by `mandate.federation.DisableOAuthClient` on its `accepted` outcome.
 
 Nothing in this system reacts to it.
 
@@ -325,7 +401,11 @@ Reported by `mandate.federation.AuthorizePublicClient` on its `denied` outcome.
 
 Reported by `mandate.federation.DisableFederationConnection` on its `denied` outcome.
 
+Reported by `mandate.federation.DisableOAuthClient` on its `denied` outcome.
+
 Reported by `mandate.federation.LinkExternalPrincipal` on its `denied` outcome.
+
+Reported by `mandate.federation.ProvisionExternalPrincipal` on its `denied` outcome.
 
 Reported by `mandate.federation.RegisterFederationConnection` on its `denied` outcome.
 
@@ -334,4 +414,4 @@ Reported by `mandate.federation.UnlinkExternalPrincipal` on its `denied` outcome
 
 ---
 
-Generated from mandate v1 · model digest `4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1` · contract digest `slice-sha256/2:5719f5f55bf68a9bfca17745a7e29b773e2f83ebbccb55e96b236137f59c791d`. Do not edit this file; change the specification and regenerate it with `ess generate`.
+Generated from mandate v1 · model digest `681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8` · contract digest `slice-sha256/2:f3f78aa9656e5e085e0c6c76f0a2dbf0e33490e653a02b5bd346ff3a290a0960`. Do not edit this file; change the specification and regenerate it with `ess generate`.

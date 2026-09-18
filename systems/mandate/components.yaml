@@ -18,19 +18,38 @@ components:
         - mandate.identity.RefreshSession
         - mandate.identity.IncrementSecurityEpoch
         - mandate.tenancy.RemoveOrganizationMembership
+        - mandate.tenancy.CreateOrganization
+        - mandate.tenancy.CloseOrganization
+        - mandate.tenancy.AddOrganizationMembership
+        - mandate.tenancy.CreateTeam
+        - mandate.tenancy.RetireTeam
+        - mandate.tenancy.AddTeamMembership
+        - mandate.tenancy.RemoveTeamMembership
+        - mandate.tenancy.CreateSpace
+        - mandate.tenancy.RetireSpace
         - mandate.federation.UnlinkExternalPrincipal
         - mandate.federation.DisableFederationConnection
         - mandate.federation.LinkExternalPrincipal
         - mandate.federation.RegisterFederationConnection
         - mandate.federation.AuthenticateFederation
         - mandate.federation.AuthorizePublicClient
+        - mandate.federation.ProvisionExternalPrincipal
+        - mandate.federation.DisableOAuthClient
         - mandate.directory.RemoveMembershipContribution
         - mandate.directory.RemoveDirectoryGroupMembership
         - mandate.directory.RemoveDirectoryGroupTeamMapping
         - mandate.directory.CreateDirectoryGroupTeamMapping
         - mandate.directory.SyncDirectoryMembership
+        - mandate.directory.RetireDirectoryGroup
+        - mandate.directory.CompleteSyncJob
+        - mandate.directory.FailSyncJob
         - mandate.delegation.RevokeDelegation
         - mandate.delegation.CreateDelegation
+        - mandate.delegation.RetireAgent
+        - mandate.delegation.SupersedeAgentCapabilityCeiling
+        - mandate.delegation.CompleteExecution
+        - mandate.delegation.ConsumeApproval
+        - mandate.workload.RevokeWorkloadIdentity
     publishes:
       events:
         - mandate.identity.PrincipalDisabled
@@ -39,19 +58,38 @@ components:
         - mandate.identity.SessionRefreshed
         - mandate.identity.SecurityEpochIncremented
         - mandate.tenancy.OrganizationMembershipRemoved
+        - mandate.tenancy.OrganizationCreated
+        - mandate.tenancy.OrganizationClosed
+        - mandate.tenancy.OrganizationMembershipAdded
+        - mandate.tenancy.TeamCreated
+        - mandate.tenancy.TeamRetired
+        - mandate.tenancy.TeamMembershipAdded
+        - mandate.tenancy.TeamMembershipRemoved
+        - mandate.tenancy.SpaceCreated
+        - mandate.tenancy.SpaceRetired
         - mandate.federation.ExternalPrincipalUnlinked
         - mandate.federation.FederationConnectionDisabled
         - mandate.federation.ExternalPrincipalLinked
         - mandate.federation.FederationConnectionCreated
         - mandate.federation.FederationAuthenticated
         - mandate.federation.AuthorizationCodeIssued
+        - mandate.federation.ExternalPrincipalProvisioned
+        - mandate.federation.OAuthClientDisabled
         - mandate.directory.MembershipContributionRemoved
         - mandate.directory.DirectoryGroupMembershipRemoved
         - mandate.directory.DirectoryGroupTeamMappingRemoved
         - mandate.directory.DirectoryGroupTeamMappingCreated
         - mandate.directory.DirectoryGroupMembershipChanged
+        - mandate.directory.DirectoryGroupRetired
+        - mandate.directory.SyncJobCompleted
+        - mandate.directory.SyncJobFailed
         - mandate.delegation.DelegationRevoked
         - mandate.delegation.DelegationCreated
+        - mandate.delegation.AgentRetired
+        - mandate.delegation.AgentCapabilityCeilingSuperseded
+        - mandate.delegation.ExecutionCompleted
+        - mandate.delegation.ApprovalConsumed
+        - mandate.workload.WorkloadIdentityRevoked
   - component: mandate-authorization
     owns:
       domains:
@@ -65,14 +103,20 @@ components:
         - mandate.graph.RevokeGrant
         - mandate.graph.RegisterResource
         - mandate.graph.WriteRelationship
+        - mandate.graph.DeregisterResource
         - mandate.authorization.Check
+        - mandate.policy.SupersedePolicy
+        - mandate.policy.SupersedeAuthorizationModel
     publishes:
       events:
         - mandate.graph.RelationRemoved
         - mandate.graph.GrantRevoked
         - mandate.graph.ResourceRegistered
         - mandate.graph.RelationshipWritten
+        - mandate.graph.ResourceDeregistered
         - mandate.authorization.DecisionRecorded
+        - mandate.policy.PolicySuperseded
+        - mandate.policy.AuthorizationModelSuperseded
   - component: mandate-sts
     owns:
       domains:
@@ -89,6 +133,8 @@ components:
         - mandate.credential.ExchangeCredential
         - mandate.credential.IntrospectCredential
         - mandate.credential.IssueAuthorizationCode
+        - mandate.credential.RetireSigningKey
+        - mandate.credential.RevokeSigningKey
     publishes:
       events:
         - mandate.credential.ResourceServerDisabled
@@ -101,6 +147,8 @@ components:
         - mandate.credential.CredentialIntrospected
         - mandate.credential.TokenExchangeDenied
         - mandate.credential.AuthorizationCodeIssued
+        - mandate.credential.SigningKeyRetired
+        - mandate.credential.SigningKeyRevoked
   - component: mandate-worker
     owns:
       domains:
@@ -114,6 +162,8 @@ components:
         - mandate.audit.DirectoryGroupCreated
         - mandate.audit.CredentialRevoked
         - mandate.audit.AuditEventRecorded
+        - mandate.audit.AuditEventRedacted
     accepts:
       commands:
         - mandate.audit.RecordAuditEvent
+        - mandate.audit.RedactAuditEvent

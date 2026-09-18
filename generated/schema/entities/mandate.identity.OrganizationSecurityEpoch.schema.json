@@ -8,20 +8,24 @@
     "id": {
       "$ref": "#/$defs/mandate.core.OrganizationId"
     },
+    "generation": {
+      "type": "integer"
+    },
     "state": {
       "$ref": "#/$defs/mandate.identity.OrganizationSecurityEpoch.State"
     }
   },
   "required": [
     "id",
+    "generation",
     "state"
   ],
   "additionalProperties": false,
   "x-ess-provenance": {
     "system": "mandate",
     "specification_version": "v1",
-    "source_digest": "4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1",
-    "contract_digest": "slice-sha256/2:4c4b7d901f06066fd36a407264a247f3c14d25026c8ef9f39313732a758c1182",
+    "source_digest": "681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8",
+    "contract_digest": "slice-sha256/2:a9c6252b1ea3519e232653864fede21f1e89bfbc2ec9e8de2fa1e5472cb58c2c",
     "regenerate": "ess generate"
   },
   "$defs": {

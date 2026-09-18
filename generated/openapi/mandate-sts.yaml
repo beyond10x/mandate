@@ -1,6 +1,6 @@
 # generated from mandate v1
-# model digest 4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1
-# contract digest slice-sha256/2:2b803daf5a095ecf484aa31325dca941370599f0096f0419bdfc3fc1ec7ba77f
+# model digest 681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8
+# contract digest slice-sha256/2:fd57f0b09ded127bc0d5e2b9735465476572097411c98934c5a56b9a08cf14a5
 # do not edit: regenerate with `ess generate`
 openapi: 3.1.0
 info:
@@ -14,8 +14,8 @@ info:
   x-ess-provenance:
     system: mandate
     specification_version: v1
-    source_digest: 4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1
-    contract_digest: slice-sha256/2:2b803daf5a095ecf484aa31325dca941370599f0096f0419bdfc3fc1ec7ba77f
+    source_digest: 681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8
+    contract_digest: slice-sha256/2:fd57f0b09ded127bc0d5e2b9735465476572097411c98934c5a56b9a08cf14a5
 tags:
 - name: credential
 paths:
@@ -227,6 +227,32 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.credential.RegisterResourceServer.denied.Response'
+  /credential/commands/RetireSigningKey:
+    post:
+      operationId: mandate.credential.RetireSigningKey
+      summary: RetireSigningKey
+      tags:
+      - credential
+      requestBody:
+        description: The input `mandate.credential.RetireSigningKey` declares.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/mandate.credential.RetireSigningKey.Input'
+      responses:
+        '202':
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers, not returned here.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.credential.RetireSigningKey.accepted.Response'
+        '502':
+          description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.credential.RetireSigningKey.denied.Response'
   /credential/commands/RevokeAccessCredential:
     post:
       operationId: mandate.credential.RevokeAccessCredential
@@ -253,6 +279,32 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.credential.RevokeAccessCredential.denied.Response'
+  /credential/commands/RevokeSigningKey:
+    post:
+      operationId: mandate.credential.RevokeSigningKey
+      summary: RevokeSigningKey
+      tags:
+      - credential
+      requestBody:
+        description: The input `mandate.credential.RevokeSigningKey` declares.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/mandate.credential.RevokeSigningKey.Input'
+      responses:
+        '202':
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers, not returned here.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.credential.RevokeSigningKey.accepted.Response'
+        '502':
+          description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.credential.RevokeSigningKey.denied.Response'
 components:
   schemas:
     mandate.core.Action:
@@ -456,6 +508,13 @@ components:
     mandate.core.SessionId:
       title: SessionId
       x-ess-name: mandate.core.SessionId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.SigningKeyId:
+      title: SigningKeyId
+      x-ess-name: mandate.core.SigningKeyId
       x-ess-kind: newtype
       type: string
       format: uuid
@@ -689,7 +748,7 @@ components:
       type: object
     mandate.credential.IssueAuthorizationCode.denied.Response:
       additionalProperties: false
-      description: 'Decided outside the request: Trusted control-plane caller/session context, registered public client, exact redirect URI, S256 policy, tenant/target agreement, authority narrowing or bounded expiry validation fails..'
+      description: 'Decided outside the request: Trusted control-plane caller/session context, registered public client, exact redirect URI, S256 policy, tenant/target agreement, authority narrowing or bounded expiry validation fails, or the client the code would be bound to is disabled..'
       properties:
         error:
           const: mandate.credential.Denied
@@ -830,7 +889,7 @@ components:
       type: object
     mandate.credential.RedeemAuthorizationCode.denied.Response:
       additionalProperties: false
-      description: 'Decided outside the request: Code proof does not match the server-resolved code_id; code is consumed/expired; client, redirect URI or S256 verifier mismatches; source/session epoch is stale; registered target is disabled or outside the verified tenant; or narrowing/atomic issuance validation fails..'
+      description: 'Decided outside the request: Code proof does not match the server-resolved code_id; code is consumed/expired; client, redirect URI or S256 verifier mismatches; the bound client is disabled; source/session epoch is stale; registered target is disabled or outside the verified tenant; or narrowing/atomic issuance validation fails..'
       properties:
         error:
           const: mandate.credential.Denied
@@ -896,6 +955,48 @@ components:
       - error
       - payload
       type: object
+    mandate.credential.RetireSigningKey.Input:
+      title: RetireSigningKey input
+      x-ess-name: mandate.credential.RetireSigningKey
+      x-ess-kind: command-input
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/mandate.core.SigningKeyId'
+        context:
+          $ref: '#/components/schemas/mandate.core.VerifiedContext'
+      required:
+      - id
+      - context
+      additionalProperties: false
+    mandate.credential.RetireSigningKey.accepted.Response:
+      additionalProperties: false
+      description: Rotation, not revocation. A retired key signs nothing further; it remains admitted for verifying credentials already issued under it until they expire, which is the overlapping rotation period the key requirements demand. Taken when no other outcome's condition matched. A `mandate.credential.SigningKey` has moved to `Retired`, along `retire`. The instance is the one `id` names. Emits `SigningKeyRetired`, published to consumers rather than returned here.
+      properties:
+        outcome:
+          const: accepted
+          description: Which declared outcome the command took.
+      required:
+      - outcome
+      type: object
+    mandate.credential.RetireSigningKey.denied.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: Caller lacks signing-key administration authority, the key is unresolved, no overlapping replacement key is published for continued verification, or retirement cannot durably stop further issuance under the key..'
+      properties:
+        error:
+          const: mandate.credential.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.credential.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
     mandate.credential.RevokeAccessCredential.Input:
       title: RevokeAccessCredential input
       x-ess-name: mandate.credential.RevokeAccessCredential
@@ -923,6 +1024,48 @@ components:
     mandate.credential.RevokeAccessCredential.denied.Response:
       additionalProperties: false
       description: 'Decided outside the request: Caller lacks credential-revocation authority, resolved credential is outside the verified organization, or the named profile revocation guarantee cannot be met..'
+      properties:
+        error:
+          const: mandate.credential.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.credential.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
+    mandate.credential.RevokeSigningKey.Input:
+      title: RevokeSigningKey input
+      x-ess-name: mandate.credential.RevokeSigningKey
+      x-ess-kind: command-input
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/mandate.core.SigningKeyId'
+        context:
+          $ref: '#/components/schemas/mandate.core.VerifiedContext'
+      required:
+      - id
+      - context
+      additionalProperties: false
+    mandate.credential.RevokeSigningKey.accepted.Response:
+      additionalProperties: false
+      description: The emergency procedure. A revoked key is admitted for neither issuance nor verification, and the self-contained credentials it signed are refused from that point; the key record itself is kept. Taken when no other outcome's condition matched. A `mandate.credential.SigningKey` has moved to `Revoked`, along `revoke`. The instance is the one `id` names. Emits `SigningKeyRevoked`, published to consumers rather than returned here.
+      properties:
+        outcome:
+          const: accepted
+          description: Which declared outcome the command took.
+      required:
+      - outcome
+      type: object
+    mandate.credential.RevokeSigningKey.denied.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: Caller lacks signing-key administration authority, the key is unresolved, or emergency revocation cannot durably stop both issuance and verification under the key and refuse the credentials it signed..'
       properties:
         error:
           const: mandate.credential.Denied
@@ -1390,3 +1533,5 @@ x-ess-entities:
     type: string
     enum:
     - Recorded
+    - Retired
+    - Revoked

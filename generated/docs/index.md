@@ -1,7 +1,7 @@
 <!--
 generated from mandate v1
-model digest 4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1
-contract digest e9d6b8cf0a9feccec819fac58f1e8daba79a1a19485b85eeceaa1ee1cfc8add4
+model digest 681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8
+contract digest 262e38dd723f39883dd1448842535be88c36521c49c96d7d8e789487f111e4de
 do not edit: regenerate with `ess generate`
 -->
 
@@ -14,151 +14,226 @@ Standalone identity, authorization and constrained credential contracts. Runtime
 ```mermaid
 flowchart TB
     subgraph unit0["mandate-authorization"]
-        cmd1["mandate.authorization.Check"]
-        cmd24["mandate.graph.RegisterResource"]
-        cmd25["mandate.graph.RemoveRelation"]
-        cmd26["mandate.graph.RevokeGrant"]
-        cmd27["mandate.graph.WriteRelationship"]
-        evt6["mandate.authorization.DecisionRecorded"]
-        evt30["mandate.graph.GrantRevoked"]
-        evt31["mandate.graph.RelationRemoved"]
-        evt32["mandate.graph.RelationshipWritten"]
-        evt33["mandate.graph.ResourceRegistered"]
+        cmd2["mandate.authorization.Check"]
+        cmd36["mandate.graph.DeregisterResource"]
+        cmd37["mandate.graph.RegisterResource"]
+        cmd38["mandate.graph.RemoveRelation"]
+        cmd39["mandate.graph.RevokeGrant"]
+        cmd40["mandate.graph.WriteRelationship"]
+        cmd46["mandate.policy.SupersedeAuthorizationModel"]
+        cmd47["mandate.policy.SupersedePolicy"]
+        evt7["mandate.authorization.DecisionRecorded"]
+        evt42["mandate.graph.GrantRevoked"]
+        evt43["mandate.graph.RelationRemoved"]
+        evt44["mandate.graph.RelationshipWritten"]
+        evt45["mandate.graph.ResourceDeregistered"]
+        evt46["mandate.graph.ResourceRegistered"]
+        evt52["mandate.policy.AuthorizationModelSuperseded"]
+        evt53["mandate.policy.PolicySuperseded"]
     end
     subgraph unit1["mandate-control-plane"]
-        cmd11["mandate.delegation.CreateDelegation"]
-        cmd12["mandate.delegation.RevokeDelegation"]
-        cmd13["mandate.directory.CreateDirectoryGroupTeamMapping"]
-        cmd14["mandate.directory.RemoveDirectoryGroupMembership"]
-        cmd15["mandate.directory.RemoveDirectoryGroupTeamMapping"]
-        cmd16["mandate.directory.RemoveMembershipContribution"]
-        cmd17["mandate.directory.SyncDirectoryMembership"]
-        cmd18["mandate.federation.AuthenticateFederation"]
-        cmd19["mandate.federation.AuthorizePublicClient"]
-        cmd20["mandate.federation.DisableFederationConnection"]
-        cmd21["mandate.federation.LinkExternalPrincipal"]
-        cmd22["mandate.federation.RegisterFederationConnection"]
-        cmd23["mandate.federation.UnlinkExternalPrincipal"]
-        cmd28["mandate.identity.DisablePrincipal"]
-        cmd29["mandate.identity.IncrementSecurityEpoch"]
-        cmd30["mandate.identity.RefreshSession"]
-        cmd31["mandate.identity.RevokeRefreshCredential"]
-        cmd32["mandate.identity.RevokeSession"]
-        cmd33["mandate.tenancy.RemoveOrganizationMembership"]
-        evt17["mandate.delegation.DelegationCreated"]
-        evt18["mandate.delegation.DelegationRevoked"]
-        evt19["mandate.directory.DirectoryGroupMembershipChanged"]
-        evt20["mandate.directory.DirectoryGroupMembershipRemoved"]
-        evt21["mandate.directory.DirectoryGroupTeamMappingCreated"]
-        evt22["mandate.directory.DirectoryGroupTeamMappingRemoved"]
-        evt23["mandate.directory.MembershipContributionRemoved"]
-        evt24["mandate.federation.AuthorizationCodeIssued"]
-        evt25["mandate.federation.ExternalPrincipalLinked"]
-        evt26["mandate.federation.ExternalPrincipalUnlinked"]
-        evt27["mandate.federation.FederationAuthenticated"]
-        evt28["mandate.federation.FederationConnectionCreated"]
-        evt29["mandate.federation.FederationConnectionDisabled"]
-        evt34["mandate.identity.PrincipalDisabled"]
-        evt35["mandate.identity.RefreshCredentialRevoked"]
-        evt36["mandate.identity.SecurityEpochIncremented"]
-        evt37["mandate.identity.SessionRefreshed"]
-        evt38["mandate.identity.SessionRevoked"]
-        evt39["mandate.tenancy.OrganizationMembershipRemoved"]
+        cmd14["mandate.delegation.CompleteExecution"]
+        cmd15["mandate.delegation.ConsumeApproval"]
+        cmd16["mandate.delegation.CreateDelegation"]
+        cmd17["mandate.delegation.RetireAgent"]
+        cmd18["mandate.delegation.RevokeDelegation"]
+        cmd19["mandate.delegation.SupersedeAgentCapabilityCeiling"]
+        cmd20["mandate.directory.CompleteSyncJob"]
+        cmd21["mandate.directory.CreateDirectoryGroupTeamMapping"]
+        cmd22["mandate.directory.FailSyncJob"]
+        cmd23["mandate.directory.RemoveDirectoryGroupMembership"]
+        cmd24["mandate.directory.RemoveDirectoryGroupTeamMapping"]
+        cmd25["mandate.directory.RemoveMembershipContribution"]
+        cmd26["mandate.directory.RetireDirectoryGroup"]
+        cmd27["mandate.directory.SyncDirectoryMembership"]
+        cmd28["mandate.federation.AuthenticateFederation"]
+        cmd29["mandate.federation.AuthorizePublicClient"]
+        cmd30["mandate.federation.DisableFederationConnection"]
+        cmd31["mandate.federation.DisableOAuthClient"]
+        cmd32["mandate.federation.LinkExternalPrincipal"]
+        cmd33["mandate.federation.ProvisionExternalPrincipal"]
+        cmd34["mandate.federation.RegisterFederationConnection"]
+        cmd35["mandate.federation.UnlinkExternalPrincipal"]
+        cmd41["mandate.identity.DisablePrincipal"]
+        cmd42["mandate.identity.IncrementSecurityEpoch"]
+        cmd43["mandate.identity.RefreshSession"]
+        cmd44["mandate.identity.RevokeRefreshCredential"]
+        cmd45["mandate.identity.RevokeSession"]
+        cmd48["mandate.tenancy.AddOrganizationMembership"]
+        cmd49["mandate.tenancy.AddTeamMembership"]
+        cmd50["mandate.tenancy.CloseOrganization"]
+        cmd51["mandate.tenancy.CreateOrganization"]
+        cmd52["mandate.tenancy.CreateSpace"]
+        cmd53["mandate.tenancy.CreateTeam"]
+        cmd54["mandate.tenancy.RemoveOrganizationMembership"]
+        cmd55["mandate.tenancy.RemoveTeamMembership"]
+        cmd56["mandate.tenancy.RetireSpace"]
+        cmd57["mandate.tenancy.RetireTeam"]
+        cmd58["mandate.workload.RevokeWorkloadIdentity"]
+        evt20["mandate.delegation.AgentCapabilityCeilingSuperseded"]
+        evt21["mandate.delegation.AgentRetired"]
+        evt22["mandate.delegation.ApprovalConsumed"]
+        evt23["mandate.delegation.DelegationCreated"]
+        evt24["mandate.delegation.DelegationRevoked"]
+        evt25["mandate.delegation.ExecutionCompleted"]
+        evt26["mandate.directory.DirectoryGroupMembershipChanged"]
+        evt27["mandate.directory.DirectoryGroupMembershipRemoved"]
+        evt28["mandate.directory.DirectoryGroupRetired"]
+        evt29["mandate.directory.DirectoryGroupTeamMappingCreated"]
+        evt30["mandate.directory.DirectoryGroupTeamMappingRemoved"]
+        evt31["mandate.directory.MembershipContributionRemoved"]
+        evt32["mandate.directory.SyncJobCompleted"]
+        evt33["mandate.directory.SyncJobFailed"]
+        evt34["mandate.federation.AuthorizationCodeIssued"]
+        evt35["mandate.federation.ExternalPrincipalLinked"]
+        evt36["mandate.federation.ExternalPrincipalProvisioned"]
+        evt37["mandate.federation.ExternalPrincipalUnlinked"]
+        evt38["mandate.federation.FederationAuthenticated"]
+        evt39["mandate.federation.FederationConnectionCreated"]
+        evt40["mandate.federation.FederationConnectionDisabled"]
+        evt41["mandate.federation.OAuthClientDisabled"]
+        evt47["mandate.identity.PrincipalDisabled"]
+        evt48["mandate.identity.RefreshCredentialRevoked"]
+        evt49["mandate.identity.SecurityEpochIncremented"]
+        evt50["mandate.identity.SessionRefreshed"]
+        evt51["mandate.identity.SessionRevoked"]
+        evt54["mandate.tenancy.OrganizationClosed"]
+        evt55["mandate.tenancy.OrganizationCreated"]
+        evt56["mandate.tenancy.OrganizationMembershipAdded"]
+        evt57["mandate.tenancy.OrganizationMembershipRemoved"]
+        evt58["mandate.tenancy.SpaceCreated"]
+        evt59["mandate.tenancy.SpaceRetired"]
+        evt60["mandate.tenancy.TeamCreated"]
+        evt61["mandate.tenancy.TeamMembershipAdded"]
+        evt62["mandate.tenancy.TeamMembershipRemoved"]
+        evt63["mandate.tenancy.TeamRetired"]
+        evt64["mandate.workload.WorkloadIdentityRevoked"]
     end
     subgraph unit2["mandate-sts"]
-        cmd2["mandate.credential.DisableResourceServer"]
-        cmd3["mandate.credential.ExchangeCredential"]
-        cmd4["mandate.credential.IntrospectCredential"]
-        cmd5["mandate.credential.IssueAuthorizationCode"]
-        cmd6["mandate.credential.IssueReferenceCredential"]
-        cmd7["mandate.credential.IssueSelfContainedCredential"]
-        cmd8["mandate.credential.RedeemAuthorizationCode"]
-        cmd9["mandate.credential.RegisterResourceServer"]
-        cmd10["mandate.credential.RevokeAccessCredential"]
-        evt7["mandate.credential.AccessCredentialRevoked"]
-        evt8["mandate.credential.AuthorizationCodeIssued"]
-        evt9["mandate.credential.AuthorizationCodeRedeemed"]
-        evt10["mandate.credential.CredentialIntrospected"]
-        evt11["mandate.credential.CredentialReferenceIssued"]
-        evt12["mandate.credential.CredentialSelfContainedIssued"]
-        evt13["mandate.credential.ResourceServerDisabled"]
-        evt14["mandate.credential.ResourceServerRegistered"]
-        evt15["mandate.credential.TokenExchangeAllowed"]
-        evt16["mandate.credential.TokenExchangeDenied"]
+        cmd3["mandate.credential.DisableResourceServer"]
+        cmd4["mandate.credential.ExchangeCredential"]
+        cmd5["mandate.credential.IntrospectCredential"]
+        cmd6["mandate.credential.IssueAuthorizationCode"]
+        cmd7["mandate.credential.IssueReferenceCredential"]
+        cmd8["mandate.credential.IssueSelfContainedCredential"]
+        cmd9["mandate.credential.RedeemAuthorizationCode"]
+        cmd10["mandate.credential.RegisterResourceServer"]
+        cmd11["mandate.credential.RetireSigningKey"]
+        cmd12["mandate.credential.RevokeAccessCredential"]
+        cmd13["mandate.credential.RevokeSigningKey"]
+        evt8["mandate.credential.AccessCredentialRevoked"]
+        evt9["mandate.credential.AuthorizationCodeIssued"]
+        evt10["mandate.credential.AuthorizationCodeRedeemed"]
+        evt11["mandate.credential.CredentialIntrospected"]
+        evt12["mandate.credential.CredentialReferenceIssued"]
+        evt13["mandate.credential.CredentialSelfContainedIssued"]
+        evt14["mandate.credential.ResourceServerDisabled"]
+        evt15["mandate.credential.ResourceServerRegistered"]
+        evt16["mandate.credential.SigningKeyRetired"]
+        evt17["mandate.credential.SigningKeyRevoked"]
+        evt18["mandate.credential.TokenExchangeAllowed"]
+        evt19["mandate.credential.TokenExchangeDenied"]
     end
     subgraph unit3["mandate-worker"]
         cmd0["mandate.audit.RecordAuditEvent"]
+        cmd1["mandate.audit.RedactAuditEvent"]
         evt0["mandate.audit.AuditEventRecorded"]
-        evt1["mandate.audit.CredentialRevoked"]
-        evt2["mandate.audit.DirectoryGroupCreated"]
-        evt3["mandate.audit.ExternalPrincipalUnlinked"]
-        evt4["mandate.audit.FederationConnectionChanged"]
-        evt5["mandate.audit.TokenExchangeDenied"]
+        evt1["mandate.audit.AuditEventRedacted"]
+        evt2["mandate.audit.CredentialRevoked"]
+        evt3["mandate.audit.DirectoryGroupCreated"]
+        evt4["mandate.audit.ExternalPrincipalUnlinked"]
+        evt5["mandate.audit.FederationConnectionChanged"]
+        evt6["mandate.audit.TokenExchangeDenied"]
     end
     cmd0 -->|"recorded"| evt0
-    cmd1 -->|"accepted"| evt6
-    cmd2 -->|"accepted"| evt13
-    cmd3 -->|"accepted"| evt15
-    cmd4 -->|"accepted"| evt10
-    cmd5 -->|"accepted"| evt8
-    cmd6 -->|"accepted"| evt11
+    cmd1 -->|"accepted"| evt1
+    cmd2 -->|"accepted"| evt7
+    cmd3 -->|"accepted"| evt14
+    cmd4 -->|"accepted"| evt18
+    cmd5 -->|"accepted"| evt11
+    cmd6 -->|"accepted"| evt9
     cmd7 -->|"accepted"| evt12
-    cmd8 -->|"accepted"| evt9
-    cmd9 -->|"accepted"| evt14
-    cmd10 -->|"accepted"| evt7
-    cmd11 -->|"accepted"| evt17
-    cmd12 -->|"accepted"| evt18
-    cmd13 -->|"accepted"| evt21
-    cmd14 -->|"accepted"| evt20
+    cmd8 -->|"accepted"| evt13
+    cmd9 -->|"accepted"| evt10
+    cmd10 -->|"accepted"| evt15
+    cmd11 -->|"accepted"| evt16
+    cmd12 -->|"accepted"| evt8
+    cmd13 -->|"accepted"| evt17
+    cmd14 -->|"accepted"| evt25
     cmd15 -->|"accepted"| evt22
     cmd16 -->|"accepted"| evt23
-    cmd17 -->|"accepted"| evt19
-    cmd18 -->|"accepted"| evt27
-    cmd19 -->|"accepted"| evt24
-    cmd20 -->|"accepted"| evt29
-    cmd21 -->|"accepted"| evt25
-    cmd22 -->|"accepted"| evt28
-    cmd23 -->|"accepted"| evt26
-    cmd24 -->|"accepted"| evt33
+    cmd17 -->|"accepted"| evt21
+    cmd18 -->|"accepted"| evt24
+    cmd19 -->|"accepted"| evt20
+    cmd20 -->|"accepted"| evt32
+    cmd21 -->|"accepted"| evt29
+    cmd22 -->|"accepted"| evt33
+    cmd23 -->|"accepted"| evt27
+    cmd24 -->|"accepted"| evt30
     cmd25 -->|"accepted"| evt31
-    cmd26 -->|"accepted"| evt30
-    cmd27 -->|"accepted"| evt32
-    cmd28 -->|"accepted"| evt34
-    cmd29 -->|"accepted"| evt36
-    cmd30 -->|"accepted"| evt37
-    cmd31 -->|"accepted"| evt35
-    cmd32 -->|"accepted"| evt38
-    cmd33 -->|"accepted"| evt39
+    cmd26 -->|"accepted"| evt28
+    cmd27 -->|"accepted"| evt26
+    cmd28 -->|"accepted"| evt38
+    cmd29 -->|"accepted"| evt34
+    cmd30 -->|"accepted"| evt40
+    cmd31 -->|"accepted"| evt41
+    cmd32 -->|"accepted"| evt35
+    cmd33 -->|"accepted"| evt36
+    cmd34 -->|"accepted"| evt39
+    cmd35 -->|"accepted"| evt37
+    cmd36 -->|"accepted"| evt45
+    cmd37 -->|"accepted"| evt46
+    cmd38 -->|"accepted"| evt43
+    cmd39 -->|"accepted"| evt42
+    cmd40 -->|"accepted"| evt44
+    cmd41 -->|"accepted"| evt47
+    cmd42 -->|"accepted"| evt49
+    cmd43 -->|"accepted"| evt50
+    cmd44 -->|"accepted"| evt48
+    cmd45 -->|"accepted"| evt51
+    cmd46 -->|"accepted"| evt52
+    cmd47 -->|"accepted"| evt53
+    cmd48 -->|"accepted"| evt56
+    cmd49 -->|"accepted"| evt61
+    cmd50 -->|"accepted"| evt54
+    cmd51 -->|"accepted"| evt55
+    cmd52 -->|"accepted"| evt58
+    cmd53 -->|"accepted"| evt60
+    cmd54 -->|"accepted"| evt57
+    cmd55 -->|"accepted"| evt62
+    cmd56 -->|"accepted"| evt59
+    cmd57 -->|"accepted"| evt63
+    cmd58 -->|"accepted"| evt64
 ```
 
 A command is accepted by the component that owns its context, emits the events one of its outcomes declares, and a dashed edge is a binding carrying an event into the next command. Design §9 begins one step earlier, at the actor who invokes the first command, and so does this graph: a solid edge out of an actor is a grant, and an actor drawn with no edge at all may invoke nothing — which is something the model says, not an arrow somebody forgot.
 
 ## Bounded contexts
 
-- **[audit](domains/mandate-audit.md)** (`mandate.audit`) — Canonical redacted audit records and the trusted worker append port. UNMAPPED-AUDIT-ROUTING: per-domain event mapping, durable outbox transport, retention and failure policy remain required. Named AuditAction and AuditOutcome do not admit arbitrary values. No types, one entity, no views, one command, six events, one error and no actors.
+- **[audit](domains/mandate-audit.md)** (`mandate.audit`) — Canonical redacted audit records and the trusted worker append port. UNMAPPED-AUDIT-ROUTING: per-domain event mapping, durable outbox transport, the concrete retention floor and failure policy remain required; retention itself is redaction, never deletion. Named AuditAction and AuditOutcome do not admit arbitrary values. No types, one entity, no views, two commands, seven events, one error and no actors.
 - **[authorization](domains/mandate-authorization.md)** (`mandate.authorization`) No types, no entities, no views, one command, one event, one error and no actors.
 - **[core](domains/mandate-core.md)** (`mandate.core`) 74 types, no entities, no views, no commands, no events, no errors and no actors.
-- **[credential](domains/mandate-credential.md)** (`mandate.credential`) No types, four entities, no views, nine commands, 10 events, one error and no actors.
-- **[delegation](domains/mandate-delegation.md)** (`mandate.delegation`) No types, five entities, no views, two commands, two events, one error and no actors.
-- **[directory](domains/mandate-directory.md)** (`mandate.directory`) No types, five entities, no views, five commands, five events, one error and no actors.
-- **[federation](domains/mandate-federation.md)** (`mandate.federation`) No types, three entities, no views, six commands, six events, one error and no actors.
-- **[graph](domains/mandate-graph.md)** (`mandate.graph`) — Resource topology, tagged principal-or-team relationship subjects and grants. UNMAPPED-SUBJECT-RELATIONS: ESS cannot select a union branch as a relation carrier. Each chosen principal/team branch references exactly one existing target; conditional foreign-key and tenant membership validation remain required before graph runtime admission. No types, three entities, no views, four commands, four events, one error and no actors.
-- **[identity](domains/mandate-identity.md)** (`mandate.identity`) — Principal, session and independent principal/organization/federation generation ownership. UNMAPPED-EPOCH: generation records declare ownership only; exact unsigned current and snapshot values are absent until supported. EpochSnapshotRef is an immutable record handle, not a generation number. Refresh and exchange cannot be implemented without closing this blocker. No types, seven entities, no views, five commands, five events, one error and no actors.
-- **[policy](domains/mandate-policy.md)** (`mandate.policy`) No types, two entities, no views, no commands, no events, no errors and no actors.
-- **[tenancy](domains/mandate-tenancy.md)** (`mandate.tenancy`) No types, five entities, no views, one command, one event, one error and no actors.
-- **[workload](domains/mandate-workload.md)** (`mandate.workload`) No types, one entity, no views, no commands, no events, no errors and no actors.
+- **[credential](domains/mandate-credential.md)** (`mandate.credential`) No types, four entities, no views, 11 commands, 12 events, one error and no actors.
+- **[delegation](domains/mandate-delegation.md)** (`mandate.delegation`) No types, five entities, no views, six commands, six events, one error and no actors.
+- **[directory](domains/mandate-directory.md)** (`mandate.directory`) No types, five entities, no views, eight commands, eight events, one error and no actors.
+- **[federation](domains/mandate-federation.md)** (`mandate.federation`) No types, three entities, no views, eight commands, eight events, one error and no actors.
+- **[graph](domains/mandate-graph.md)** (`mandate.graph`) — Resource topology, tagged principal-or-team relationship subjects and grants. UNMAPPED-SUBJECT-RELATIONS: ESS cannot select a union branch as a relation carrier. Each chosen principal/team branch references exactly one existing target; conditional foreign-key and tenant membership validation remain required before graph runtime admission. No types, three entities, no views, five commands, five events, one error and no actors.
+- **[identity](domains/mandate-identity.md)** (`mandate.identity`) — Principal, session and independent principal/organization/federation generation ownership. UNMAPPED-EPOCH: each generation record declares one non-negative Integer generation, the recorded stand-in for the addendum's u64; monotonic increment, denial at the maximum and per-dimension snapshot values are absent until supported. EpochSnapshotRef is an immutable record handle, not a generation number. Refresh and exchange cannot be implemented without closing this blocker. No types, seven entities, no views, five commands, five events, one error and no actors.
+- **[policy](domains/mandate-policy.md)** (`mandate.policy`) No types, two entities, no views, two commands, two events, one error and no actors.
+- **[tenancy](domains/mandate-tenancy.md)** (`mandate.tenancy`) No types, five entities, no views, 10 commands, 10 events, one error and no actors.
+- **[workload](domains/mandate-workload.md)** (`mandate.workload`) No types, one entity, no views, one command, one event, one error and no actors.
 
 ## Components
 
 A component is a unit of ownership, not a deployment. How many of each runs, and what each needs, is [the topology](topology.md).
 
-**`mandate-authorization`** — Planned deployment boundary; exact domain-to-library responsibilities and required adapter/worker gaps are recorded in docs/architecture/ownership.md. It owns [`mandate.authorization`](domains/mandate-authorization.md), [`mandate.graph`](domains/mandate-graph.md) and [`mandate.policy`](domains/mandate-policy.md). It accepts `mandate.authorization.Check`, `mandate.graph.RegisterResource`, `mandate.graph.RemoveRelation`, `mandate.graph.RevokeGrant` and `mandate.graph.WriteRelationship`. It publishes `mandate.authorization.DecisionRecorded`, `mandate.graph.GrantRevoked`, `mandate.graph.RelationRemoved`, `mandate.graph.RelationshipWritten` and `mandate.graph.ResourceRegistered`.
+**`mandate-authorization`** — Planned deployment boundary; exact domain-to-library responsibilities and required adapter/worker gaps are recorded in docs/architecture/ownership.md. It owns [`mandate.authorization`](domains/mandate-authorization.md), [`mandate.graph`](domains/mandate-graph.md) and [`mandate.policy`](domains/mandate-policy.md). It accepts `mandate.authorization.Check`, `mandate.graph.DeregisterResource`, `mandate.graph.RegisterResource`, `mandate.graph.RemoveRelation`, `mandate.graph.RevokeGrant`, `mandate.graph.WriteRelationship`, `mandate.policy.SupersedeAuthorizationModel` and `mandate.policy.SupersedePolicy`. It publishes `mandate.authorization.DecisionRecorded`, `mandate.graph.GrantRevoked`, `mandate.graph.RelationRemoved`, `mandate.graph.RelationshipWritten`, `mandate.graph.ResourceDeregistered`, `mandate.graph.ResourceRegistered`, `mandate.policy.AuthorizationModelSuperseded` and `mandate.policy.PolicySuperseded`.
 
-**`mandate-control-plane`** — Administrative deployment and documentation publisher for the shared mandate.core vocabulary. All four deployments compile those shared library types; core is not a remote control-plane runtime dependency. See docs/architecture/ownership.md. It owns [`mandate.core`](domains/mandate-core.md), [`mandate.delegation`](domains/mandate-delegation.md), [`mandate.directory`](domains/mandate-directory.md), [`mandate.federation`](domains/mandate-federation.md), [`mandate.identity`](domains/mandate-identity.md), [`mandate.tenancy`](domains/mandate-tenancy.md) and [`mandate.workload`](domains/mandate-workload.md). It accepts `mandate.delegation.CreateDelegation`, `mandate.delegation.RevokeDelegation`, `mandate.directory.CreateDirectoryGroupTeamMapping`, `mandate.directory.RemoveDirectoryGroupMembership`, `mandate.directory.RemoveDirectoryGroupTeamMapping`, `mandate.directory.RemoveMembershipContribution`, `mandate.directory.SyncDirectoryMembership`, `mandate.federation.AuthenticateFederation`, `mandate.federation.AuthorizePublicClient`, `mandate.federation.DisableFederationConnection`, `mandate.federation.LinkExternalPrincipal`, `mandate.federation.RegisterFederationConnection`, `mandate.federation.UnlinkExternalPrincipal`, `mandate.identity.DisablePrincipal`, `mandate.identity.IncrementSecurityEpoch`, `mandate.identity.RefreshSession`, `mandate.identity.RevokeRefreshCredential`, `mandate.identity.RevokeSession` and `mandate.tenancy.RemoveOrganizationMembership`. It publishes `mandate.delegation.DelegationCreated`, `mandate.delegation.DelegationRevoked`, `mandate.directory.DirectoryGroupMembershipChanged`, `mandate.directory.DirectoryGroupMembershipRemoved`, `mandate.directory.DirectoryGroupTeamMappingCreated`, `mandate.directory.DirectoryGroupTeamMappingRemoved`, `mandate.directory.MembershipContributionRemoved`, `mandate.federation.AuthorizationCodeIssued`, `mandate.federation.ExternalPrincipalLinked`, `mandate.federation.ExternalPrincipalUnlinked`, `mandate.federation.FederationAuthenticated`, `mandate.federation.FederationConnectionCreated`, `mandate.federation.FederationConnectionDisabled`, `mandate.identity.PrincipalDisabled`, `mandate.identity.RefreshCredentialRevoked`, `mandate.identity.SecurityEpochIncremented`, `mandate.identity.SessionRefreshed`, `mandate.identity.SessionRevoked` and `mandate.tenancy.OrganizationMembershipRemoved`.
+**`mandate-control-plane`** — Administrative deployment and documentation publisher for the shared mandate.core vocabulary. All four deployments compile those shared library types; core is not a remote control-plane runtime dependency. See docs/architecture/ownership.md. It owns [`mandate.core`](domains/mandate-core.md), [`mandate.delegation`](domains/mandate-delegation.md), [`mandate.directory`](domains/mandate-directory.md), [`mandate.federation`](domains/mandate-federation.md), [`mandate.identity`](domains/mandate-identity.md), [`mandate.tenancy`](domains/mandate-tenancy.md) and [`mandate.workload`](domains/mandate-workload.md). It accepts `mandate.delegation.CompleteExecution`, `mandate.delegation.ConsumeApproval`, `mandate.delegation.CreateDelegation`, `mandate.delegation.RetireAgent`, `mandate.delegation.RevokeDelegation`, `mandate.delegation.SupersedeAgentCapabilityCeiling`, `mandate.directory.CompleteSyncJob`, `mandate.directory.CreateDirectoryGroupTeamMapping`, `mandate.directory.FailSyncJob`, `mandate.directory.RemoveDirectoryGroupMembership`, `mandate.directory.RemoveDirectoryGroupTeamMapping`, `mandate.directory.RemoveMembershipContribution`, `mandate.directory.RetireDirectoryGroup`, `mandate.directory.SyncDirectoryMembership`, `mandate.federation.AuthenticateFederation`, `mandate.federation.AuthorizePublicClient`, `mandate.federation.DisableFederationConnection`, `mandate.federation.DisableOAuthClient`, `mandate.federation.LinkExternalPrincipal`, `mandate.federation.ProvisionExternalPrincipal`, `mandate.federation.RegisterFederationConnection`, `mandate.federation.UnlinkExternalPrincipal`, `mandate.identity.DisablePrincipal`, `mandate.identity.IncrementSecurityEpoch`, `mandate.identity.RefreshSession`, `mandate.identity.RevokeRefreshCredential`, `mandate.identity.RevokeSession`, `mandate.tenancy.AddOrganizationMembership`, `mandate.tenancy.AddTeamMembership`, `mandate.tenancy.CloseOrganization`, `mandate.tenancy.CreateOrganization`, `mandate.tenancy.CreateSpace`, `mandate.tenancy.CreateTeam`, `mandate.tenancy.RemoveOrganizationMembership`, `mandate.tenancy.RemoveTeamMembership`, `mandate.tenancy.RetireSpace`, `mandate.tenancy.RetireTeam` and `mandate.workload.RevokeWorkloadIdentity`. It publishes `mandate.delegation.AgentCapabilityCeilingSuperseded`, `mandate.delegation.AgentRetired`, `mandate.delegation.ApprovalConsumed`, `mandate.delegation.DelegationCreated`, `mandate.delegation.DelegationRevoked`, `mandate.delegation.ExecutionCompleted`, `mandate.directory.DirectoryGroupMembershipChanged`, `mandate.directory.DirectoryGroupMembershipRemoved`, `mandate.directory.DirectoryGroupRetired`, `mandate.directory.DirectoryGroupTeamMappingCreated`, `mandate.directory.DirectoryGroupTeamMappingRemoved`, `mandate.directory.MembershipContributionRemoved`, `mandate.directory.SyncJobCompleted`, `mandate.directory.SyncJobFailed`, `mandate.federation.AuthorizationCodeIssued`, `mandate.federation.ExternalPrincipalLinked`, `mandate.federation.ExternalPrincipalProvisioned`, `mandate.federation.ExternalPrincipalUnlinked`, `mandate.federation.FederationAuthenticated`, `mandate.federation.FederationConnectionCreated`, `mandate.federation.FederationConnectionDisabled`, `mandate.federation.OAuthClientDisabled`, `mandate.identity.PrincipalDisabled`, `mandate.identity.RefreshCredentialRevoked`, `mandate.identity.SecurityEpochIncremented`, `mandate.identity.SessionRefreshed`, `mandate.identity.SessionRevoked`, `mandate.tenancy.OrganizationClosed`, `mandate.tenancy.OrganizationCreated`, `mandate.tenancy.OrganizationMembershipAdded`, `mandate.tenancy.OrganizationMembershipRemoved`, `mandate.tenancy.SpaceCreated`, `mandate.tenancy.SpaceRetired`, `mandate.tenancy.TeamCreated`, `mandate.tenancy.TeamMembershipAdded`, `mandate.tenancy.TeamMembershipRemoved`, `mandate.tenancy.TeamRetired` and `mandate.workload.WorkloadIdentityRevoked`.
 
-**`mandate-sts`** — Planned deployment boundary; exact domain-to-library responsibilities and required adapter/worker gaps are recorded in docs/architecture/ownership.md. It owns [`mandate.credential`](domains/mandate-credential.md). It accepts `mandate.credential.DisableResourceServer`, `mandate.credential.ExchangeCredential`, `mandate.credential.IntrospectCredential`, `mandate.credential.IssueAuthorizationCode`, `mandate.credential.IssueReferenceCredential`, `mandate.credential.IssueSelfContainedCredential`, `mandate.credential.RedeemAuthorizationCode`, `mandate.credential.RegisterResourceServer` and `mandate.credential.RevokeAccessCredential`. It publishes `mandate.credential.AccessCredentialRevoked`, `mandate.credential.AuthorizationCodeIssued`, `mandate.credential.AuthorizationCodeRedeemed`, `mandate.credential.CredentialIntrospected`, `mandate.credential.CredentialReferenceIssued`, `mandate.credential.CredentialSelfContainedIssued`, `mandate.credential.ResourceServerDisabled`, `mandate.credential.ResourceServerRegistered`, `mandate.credential.TokenExchangeAllowed` and `mandate.credential.TokenExchangeDenied`.
+**`mandate-sts`** — Planned deployment boundary; exact domain-to-library responsibilities and required adapter/worker gaps are recorded in docs/architecture/ownership.md. It owns [`mandate.credential`](domains/mandate-credential.md). It accepts `mandate.credential.DisableResourceServer`, `mandate.credential.ExchangeCredential`, `mandate.credential.IntrospectCredential`, `mandate.credential.IssueAuthorizationCode`, `mandate.credential.IssueReferenceCredential`, `mandate.credential.IssueSelfContainedCredential`, `mandate.credential.RedeemAuthorizationCode`, `mandate.credential.RegisterResourceServer`, `mandate.credential.RetireSigningKey`, `mandate.credential.RevokeAccessCredential` and `mandate.credential.RevokeSigningKey`. It publishes `mandate.credential.AccessCredentialRevoked`, `mandate.credential.AuthorizationCodeIssued`, `mandate.credential.AuthorizationCodeRedeemed`, `mandate.credential.CredentialIntrospected`, `mandate.credential.CredentialReferenceIssued`, `mandate.credential.CredentialSelfContainedIssued`, `mandate.credential.ResourceServerDisabled`, `mandate.credential.ResourceServerRegistered`, `mandate.credential.SigningKeyRetired`, `mandate.credential.SigningKeyRevoked`, `mandate.credential.TokenExchangeAllowed` and `mandate.credential.TokenExchangeDenied`.
 
-**`mandate-worker`** — Planned deployment boundary; exact domain-to-library responsibilities and required adapter/worker gaps are recorded in docs/architecture/ownership.md. It owns [`mandate.audit`](domains/mandate-audit.md). It accepts `mandate.audit.RecordAuditEvent`. It publishes `mandate.audit.AuditEventRecorded`, `mandate.audit.CredentialRevoked`, `mandate.audit.DirectoryGroupCreated`, `mandate.audit.ExternalPrincipalUnlinked`, `mandate.audit.FederationConnectionChanged` and `mandate.audit.TokenExchangeDenied`.
+**`mandate-worker`** — Planned deployment boundary; exact domain-to-library responsibilities and required adapter/worker gaps are recorded in docs/architecture/ownership.md. It owns [`mandate.audit`](domains/mandate-audit.md). It accepts `mandate.audit.RecordAuditEvent` and `mandate.audit.RedactAuditEvent`. It publishes `mandate.audit.AuditEventRecorded`, `mandate.audit.AuditEventRedacted`, `mandate.audit.CredentialRevoked`, `mandate.audit.DirectoryGroupCreated`, `mandate.audit.ExternalPrincipalUnlinked`, `mandate.audit.FederationConnectionChanged` and `mandate.audit.TokenExchangeDenied`.
 
 ## The other pages
 
@@ -183,4 +258,4 @@ A component is a unit of ownership, not a deployment. How many of each runs, and
 
 ---
 
-Generated from mandate v1 · model digest `4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1` · contract digest `e9d6b8cf0a9feccec819fac58f1e8daba79a1a19485b85eeceaa1ee1cfc8add4`. Do not edit this file; change the specification and regenerate it with `ess generate`.
+Generated from mandate v1 · model digest `681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8` · contract digest `262e38dd723f39883dd1448842535be88c36521c49c96d7d8e789487f111e4de`. Do not edit this file; change the specification and regenerate it with `ess generate`.

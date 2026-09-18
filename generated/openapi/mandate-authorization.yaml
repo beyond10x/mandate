@@ -1,6 +1,6 @@
 # generated from mandate v1
-# model digest 4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1
-# contract digest slice-sha256/2:4b24437170b4439a937befd40fb083a07218f8c92db7e261508610c4950c477c
+# model digest 681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8
+# contract digest slice-sha256/2:e59194f615b40b9651f698ae5f98e58e84c6a07d4a5e4ebf27d8d36327c2e3e5
 # do not edit: regenerate with `ess generate`
 openapi: 3.1.0
 info:
@@ -14,12 +14,13 @@ info:
   x-ess-provenance:
     system: mandate
     specification_version: v1
-    source_digest: 4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1
-    contract_digest: slice-sha256/2:4b24437170b4439a937befd40fb083a07218f8c92db7e261508610c4950c477c
+    source_digest: 681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8
+    contract_digest: slice-sha256/2:e59194f615b40b9651f698ae5f98e58e84c6a07d4a5e4ebf27d8d36327c2e3e5
 tags:
 - name: authorization
 - name: graph
   description: 'Resource topology, tagged principal-or-team relationship subjects and grants. UNMAPPED-SUBJECT-RELATIONS: ESS cannot select a union branch as a relation carrier. Each chosen principal/team branch references exactly one existing target; conditional foreign-key and tenant membership validation remain required before graph runtime admission.'
+- name: policy
 paths:
   /authorization/commands/Check:
     post:
@@ -47,6 +48,32 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.authorization.Check.denied.Response'
+  /graph/commands/DeregisterResource:
+    post:
+      operationId: mandate.graph.DeregisterResource
+      summary: DeregisterResource
+      tags:
+      - graph
+      requestBody:
+        description: The input `mandate.graph.DeregisterResource` declares.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/mandate.graph.DeregisterResource.Input'
+      responses:
+        '202':
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers, not returned here.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.graph.DeregisterResource.accepted.Response'
+        '502':
+          description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.graph.DeregisterResource.denied.Response'
   /graph/commands/RegisterResource:
     post:
       operationId: mandate.graph.RegisterResource
@@ -151,6 +178,58 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.graph.WriteRelationship.denied.Response'
+  /policy/commands/SupersedeAuthorizationModel:
+    post:
+      operationId: mandate.policy.SupersedeAuthorizationModel
+      summary: SupersedeAuthorizationModel
+      tags:
+      - policy
+      requestBody:
+        description: The input `mandate.policy.SupersedeAuthorizationModel` declares.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/mandate.policy.SupersedeAuthorizationModel.Input'
+      responses:
+        '202':
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers, not returned here.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.policy.SupersedeAuthorizationModel.accepted.Response'
+        '502':
+          description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.policy.SupersedeAuthorizationModel.denied.Response'
+  /policy/commands/SupersedePolicy:
+    post:
+      operationId: mandate.policy.SupersedePolicy
+      summary: SupersedePolicy
+      tags:
+      - policy
+      requestBody:
+        description: The input `mandate.policy.SupersedePolicy` declares.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/mandate.policy.SupersedePolicy.Input'
+      responses:
+        '202':
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers, not returned here.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.policy.SupersedePolicy.accepted.Response'
+        '502':
+          description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.policy.SupersedePolicy.denied.Response'
 components:
   schemas:
     mandate.authorization.Check.Input:
@@ -250,6 +329,13 @@ components:
         - value
         additionalProperties: false
       x-ess-union-tag: kind
+    mandate.core.AuthorizationModelId:
+      title: AuthorizationModelId
+      x-ess-name: mandate.core.AuthorizationModelId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
     mandate.core.CorrelationId:
       title: CorrelationId
       x-ess-name: mandate.core.CorrelationId
@@ -299,6 +385,13 @@ components:
     mandate.core.OrganizationId:
       title: OrganizationId
       x-ess-name: mandate.core.OrganizationId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.PolicyId:
+      title: PolicyId
+      x-ess-name: mandate.core.PolicyId
       x-ess-kind: newtype
       type: string
       format: uuid
@@ -391,6 +484,48 @@ components:
       required:
       - reason
       additionalProperties: false
+    mandate.graph.DeregisterResource.Input:
+      title: DeregisterResource input
+      x-ess-name: mandate.graph.DeregisterResource
+      x-ess-kind: command-input
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/mandate.core.ResourceId'
+        context:
+          $ref: '#/components/schemas/mandate.core.VerifiedContext'
+      required:
+      - id
+      - context
+      additionalProperties: false
+    mandate.graph.DeregisterResource.accepted.Response:
+      additionalProperties: false
+      description: The security record of a deleted resource is kept and stops resolving. Relationship cleanup is the durable outbox job's, and each removal is its own recorded move; no child resource, relation or grant is destroyed as a side effect of this one. Taken when no other outcome's condition matched. A `mandate.graph.Resource` has moved to `Deregistered`, along `deregister`. The instance is the one `id` names. Emits `ResourceDeregistered`, published to consumers rather than returned here.
+      properties:
+        outcome:
+          const: accepted
+          description: Which declared outcome the command took.
+      required:
+      - outcome
+      type: object
+    mandate.graph.DeregisterResource.denied.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: Caller lacks resource registration/ownership authority, the resource is outside the verified organization, a child resource still resolves through it, or the durable relationship cleanup this deregistration requires cannot be enqueued..'
+      properties:
+        error:
+          const: mandate.graph.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.graph.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
     mandate.graph.RegisterResource.Input:
       title: RegisterResource input
       x-ess-name: mandate.graph.RegisterResource
@@ -562,6 +697,102 @@ components:
           description: Which declared outcome the command took.
         payload:
           $ref: '#/components/schemas/mandate.graph.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
+    mandate.policy.Denied.Error:
+      title: Denied payload
+      description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+      x-ess-name: mandate.policy.Denied
+      x-ess-kind: error-payload
+      type: object
+      properties:
+        reason:
+          $ref: '#/components/schemas/mandate.core.DenialReason'
+      required:
+      - reason
+      additionalProperties: false
+    mandate.policy.SupersedeAuthorizationModel.Input:
+      title: SupersedeAuthorizationModel input
+      x-ess-name: mandate.policy.SupersedeAuthorizationModel
+      x-ess-kind: command-input
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/mandate.core.AuthorizationModelId'
+        context:
+          $ref: '#/components/schemas/mandate.core.VerifiedContext'
+      required:
+      - id
+      - context
+      additionalProperties: false
+    mandate.policy.SupersedeAuthorizationModel.accepted.Response:
+      additionalProperties: false
+      description: The recorded schema version stops being the current one and is kept for attribution. A breaking change is a new model version with its own migration; no superseded model is reactivated and none is deleted. Taken when no other outcome's condition matched. A `mandate.policy.AuthorizationModel` has moved to `Superseded`, along `supersede`. The instance is the one `id` names. Emits `AuthorizationModelSuperseded`, published to consumers rather than returned here.
+      properties:
+        outcome:
+          const: accepted
+          description: Which declared outcome the command took.
+      required:
+      - outcome
+      type: object
+    mandate.policy.SupersedeAuthorizationModel.denied.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: Caller lacks authorization-model administration authority, the model is outside the verified organization, no later model version is recorded for that organization, or the relationship revision the later version requires is not yet observable..'
+      properties:
+        error:
+          const: mandate.policy.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.policy.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
+    mandate.policy.SupersedePolicy.Input:
+      title: SupersedePolicy input
+      x-ess-name: mandate.policy.SupersedePolicy
+      x-ess-kind: command-input
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/mandate.core.PolicyId'
+        context:
+          $ref: '#/components/schemas/mandate.core.VerifiedContext'
+      required:
+      - id
+      - context
+      additionalProperties: false
+    mandate.policy.SupersedePolicy.accepted.Response:
+      additionalProperties: false
+      description: The recorded version stops being the current one. Its source is kept, because every decision already made under it stays attributable to it; a rollback is a new version record carrying the earlier source, never a revival of this one. Taken when no other outcome's condition matched. A `mandate.policy.Policy` has moved to `Superseded`, along `supersede`. The instance is the one `id` names. Emits `PolicySuperseded`, published to consumers rather than returned here.
+      properties:
+        outcome:
+          const: accepted
+          description: Which declared outcome the command took.
+      required:
+      - outcome
+      type: object
+    mandate.policy.SupersedePolicy.denied.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: Caller lacks policy-administration authority, the policy is outside the verified organization, no later policy version is recorded for that organization, or decisions in flight cannot remain attributable to the version that made them..'
+      properties:
+        error:
+          const: mandate.policy.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.policy.Denied.Error'
       required:
       - outcome
       - error
@@ -856,6 +1087,7 @@ x-ess-entities:
     x-ess-kind: enum
     type: string
     enum:
+    - Deregistered
     - Recorded
   mandate.policy.AuthorizationModel:
     title: AuthorizationModel
@@ -895,6 +1127,7 @@ x-ess-entities:
     type: string
     enum:
     - Recorded
+    - Superseded
   mandate.policy.Policy:
     title: Policy
     x-ess-name: mandate.policy.Policy
@@ -933,3 +1166,4 @@ x-ess-entities:
     type: string
     enum:
     - Recorded
+    - Superseded

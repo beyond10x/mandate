@@ -115,7 +115,7 @@ Out of bounds: an ESS error outcome that also emits an event (`unmapped.md:44`);
 
 **Exact evidence required to clear.**
 
-- A written adapter contract naming, for every one of the 34 commands in `command-obligations.md:7-40`, which party establishes each declared precondition. A sample is not evidence; the table is the enumeration.
+- A written adapter contract naming, for every one of the 59 commands in `command-obligations.md:7-65`, which party establishes each declared precondition. A sample is not evidence; the table is the enumeration.
 - A negative conformance case per command deny clause (`unmapped.md:19` requires negative conformance tests, and the obligations table is what they are against).
 - A case showing a caller-supplied `organization`, `subject`, `actor` or `audience` selector is stripped and cannot establish authority (`combined.md:51`).
 - A case showing `TokenExchangeDenied` produces a durable audit record while the domain transaction is rejected and no credential is issued (`unmapped.md:44`; `audit-routing.md:26`).
@@ -172,7 +172,7 @@ Out of bounds: building a globally distributed Zanzibar database before the prod
 
 **Proposed owner.** The `mandate-graph` and `mandate-policy` owner in the Authorization deployment, where concrete storage remains an adapter (`ownership.md:11`, `:12`).
 
-**Affected stories (store).** `story:graph-policy`.
+**Affected stories (store).** `story:graph-policy-adapter` (moved from `story:graph-policy` on 2026-09-18; the ports and doubles proceed, the engine does not).
 
 **Exact evidence required to clear.**
 
@@ -217,7 +217,7 @@ Out of bounds: representing the union as a plain identifier with the branch impl
 
 **Proposed owner.** The `mandate-graph` owner together with the concrete storage adapter owner, since storage remains an adapter under that port (`ownership.md:11`).
 
-**Affected stories (store).** `story:graph-policy`.
+**Affected stories (store).** `story:graph-policy-adapter` (moved from `story:graph-policy` on 2026-09-18).
 
 **Exact evidence required to clear.**
 

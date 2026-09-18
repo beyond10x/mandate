@@ -1,13 +1,13 @@
 <!--
 generated from mandate v1
-model digest 4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1
-contract digest slice-sha256/2:ce970264680e786ed22a741319457433649c2b8a535470a41eb2df9f4d9b5855
+model digest 681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8
+contract digest slice-sha256/2:f3f78aa9656e5e085e0c6c76f0a2dbf0e33490e653a02b5bd346ff3a290a0960
 do not edit: regenerate with `ess generate`
 -->
 
 # audit
 
-Canonical redacted audit records and the trusted worker append port. UNMAPPED-AUDIT-ROUTING: per-domain event mapping, durable outbox transport, retention and failure policy remain required. Named AuditAction and AuditOutcome do not admit arbitrary values.
+Canonical redacted audit records and the trusted worker append port. UNMAPPED-AUDIT-ROUTING: per-domain event mapping, durable outbox transport, the concrete retention floor and failure policy remain required; retention itself is redaction, never deletion. Named AuditAction and AuditOutcome do not admit arbitrary values.
 
 `mandate.audit` is one of mandate's bounded contexts. [Back to the index](../index.md).
 
@@ -49,19 +49,26 @@ It references at most one [`mandate.identity.Principal`](mandate-identity.md#pri
 
 No invariant is declared, so nothing here constrains an instance at rest.
 
-Its state is a `mandate.audit.AuditEvent.State`, one of `Recorded`. That enum is synthesised from the lifecycle rather than declared beside it, so the states a view's filter compares and the states drawn below cannot disagree.
+Its state is a `mandate.audit.AuditEvent.State`, one of `Recorded` and `Redacted`. That enum is synthesised from the lifecycle rather than declared beside it, so the states a view's filter compares and the states drawn below cannot disagree.
 
-An instance is created in `Recorded`. `Recorded` is terminal, so an instance may rest there forever. That is declared rather than inferred from having no way out: an entity that cannot leave a state is either finished or stuck, and only its author knows which.
+An instance is created in `Recorded`. `Redacted` is terminal, so an instance may rest there forever. That is declared rather than inferred from having no way out: an entity that cannot leave a state is either finished or stuck, and only its author knows which.
 
 ```mermaid
 stateDiagram-v2
     [*] --> Recorded
-    Recorded --> [*]
+    Recorded --> Redacted: redact (RedactAuditEvent)
+    Redacted --> [*]
 ```
 
-It declares no moves, so nothing changes its state once it exists.
+Each move is taken by a declared command outcome, and a move nothing takes is refused as `missing_causation` rather than left as a state change nobody can trigger:
 
-It has one state, so there is no move to permit or to forbid.
+- `redact` — taken by `mandate.audit.RedactAuditEvent` on its `accepted` outcome
+
+No command here creates one, so an instance arrives from outside this specification.
+
+Illegal transitions are illegal by absence: no rule forbids them, there is simply no arrow, because a rule would be a second place for the same truth to live. A diagram cannot show an absence, so the pairs it does not connect are listed here, derived from the same transitions — anything named below is a move this specification does not permit.
+
+- `Redacted` may not become `Recorded`
 
 No view projects it, so nothing outside this context is promised a way to observe one.
 
@@ -82,6 +89,21 @@ It has two outcomes.
 
 **`denied`** — Decided outside the input: Emitter is not an authorized trusted event producer, subject/actor/correlation was changed, action/result is unadmitted, payload contains secret material, or durable append/outbox validation fails.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.audit.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
+### `RedactAuditEvent`
+
+`mandate.audit.RedactAuditEvent`.
+
+It takes:
+
+- `id` — `mandate.core.AuditEventId`
+- `context` — `mandate.core.VerifiedContext`
+
+It has two outcomes.
+
+**`accepted`** — The only answer to a retention or erasure obligation. The record keeps its identity, its correlation and the fact that it was redacted; the redacted content does not reappear in this event. Deletion of an audit event is admitted by no command. The default branch, taken when no other outcome's condition matched. It moves a `mandate.audit.AuditEvent` from `Recorded` to `Redacted`, along the declared move `redact`. The instance is the one named by the input field `id`. It emits `mandate.audit.AuditEventRedacted`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+
+**`denied`** — Decided outside the input: Caller lacks audit-redaction authority for the verified organization, the event is unresolved, the applicable retention floor has not passed, the request would remove the record rather than redact it, or redaction cannot rewrite the projection while retaining that the record existed and was redacted.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.audit.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
+
 ## Events
 
 ### `AuditEventRecorded`
@@ -94,6 +116,19 @@ It carries:
 - `record` — `mandate.core.AuditRecord`
 
 Emitted by `mandate.audit.RecordAuditEvent` on its `recorded` outcome.
+
+Nothing in this system reacts to it.
+
+### `AuditEventRedacted`
+
+`mandate.audit.AuditEventRedacted`.
+
+It carries:
+
+- `context` — `mandate.core.VerifiedContext`
+- `id` — `mandate.core.AuditEventId`
+
+Emitted by `mandate.audit.RedactAuditEvent` on its `accepted` outcome.
 
 Nothing in this system reacts to it.
 
@@ -169,7 +204,9 @@ It carries:
 
 Reported by `mandate.audit.RecordAuditEvent` on its `denied` outcome.
 
+Reported by `mandate.audit.RedactAuditEvent` on its `denied` outcome.
+
 
 ---
 
-Generated from mandate v1 · model digest `4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1` · contract digest `slice-sha256/2:ce970264680e786ed22a741319457433649c2b8a535470a41eb2df9f4d9b5855`. Do not edit this file; change the specification and regenerate it with `ess generate`.
+Generated from mandate v1 · model digest `681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8` · contract digest `slice-sha256/2:f3f78aa9656e5e085e0c6c76f0a2dbf0e33490e653a02b5bd346ff3a290a0960`. Do not edit this file; change the specification and regenerate it with `ess generate`.

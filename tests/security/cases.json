@@ -620,6 +620,44 @@
       "commands": [
         "mandate.authorization.Check"
       ]
+    },
+    {
+      "id": "jit-first-login",
+      "category": "linking",
+      "story": "story:federation-linking",
+      "given": "Verified proof for a subject with no ExternalPrincipal, connection admits provisioning",
+      "action": "Provision external principal, then authenticate",
+      "expected": "one principal, one link with method ConfiguredFederation, one session",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.federation.ProvisionExternalPrincipal",
+        "mandate.federation.AuthenticateFederation"
+      ]
+    },
+    {
+      "id": "jit-disabled",
+      "category": "linking",
+      "story": "story:federation-linking",
+      "given": "Verified proof for an unlinked subject, connection does not admit provisioning",
+      "action": "Provision external principal",
+      "expected": "deny; no principal, no link",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.federation.ProvisionExternalPrincipal"
+      ]
+    },
+    {
+      "id": "jit-conflict",
+      "category": "linking",
+      "story": "story:federation-linking",
+      "given": "Two simultaneous first logins for one (organization, issuer, subject)",
+      "action": "Provision external principal twice",
+      "expected": "one record, one declared denial; the denied caller's retried authentication succeeds",
+      "level": "contract-scenario",
+      "commands": [
+        "mandate.federation.ProvisionExternalPrincipal",
+        "mandate.federation.AuthenticateFederation"
+      ]
     }
   ]
 }

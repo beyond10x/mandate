@@ -4,8 +4,8 @@
   "x-ess-provenance": {
     "system": "mandate",
     "specification_version": "v1",
-    "source_digest": "4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1",
-    "contract_digest": "slice-sha256/2:564f95e5dd55ba251edd201255b984a95d8ea98d5b0a19d4f062a3a015dbd279",
+    "source_digest": "681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8",
+    "contract_digest": "slice-sha256/2:c87bd3fbdb5be2b056122b43fa9811354f2b00027ac7af3d7a379762adf5629d",
     "regenerate": "ess generate"
   },
   "$defs": {
@@ -15,7 +15,8 @@
       "x-ess-kind": "enum",
       "type": "string",
       "enum": [
-        "Recorded"
+        "Recorded",
+        "Retired"
       ]
     }
   }

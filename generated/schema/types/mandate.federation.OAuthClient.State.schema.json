@@ -4,8 +4,8 @@
   "x-ess-provenance": {
     "system": "mandate",
     "specification_version": "v1",
-    "source_digest": "4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1",
-    "contract_digest": "slice-sha256/2:aa2f0f91f9e323bbb73f25ab5cfb18b6737d0d8b60d733ae5ed9e9d4217d814b",
+    "source_digest": "681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8",
+    "contract_digest": "slice-sha256/2:1c62b6734eaa0efd289d775be6e67b8c63ec01aa159d9e55221b234dbf3a664c",
     "regenerate": "ess generate"
   },
   "$defs": {
@@ -15,6 +15,7 @@
       "x-ess-kind": "enum",
       "type": "string",
       "enum": [
+        "Disabled",
         "Recorded"
       ]
     }
