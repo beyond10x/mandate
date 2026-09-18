@@ -768,3 +768,32 @@ The workspace `AGENTS.md` says a GitHub-created pull-request merge may legitimat
 `web-flow` committer. Advancing the trusted receipt past it is publication authority and was not
 taken. `as-bot.sh` refuses `--no-verify` on pushes and `AGENTS.md` forbids bypassing hooks; neither
 was attempted. **The integration branch is committed locally and unpublished.**
+
+## Coordinator error: the merge commits were not bot-authored
+
+The two merges were made with plain `git merge` rather than through the Atlas bot wrapper, so
+`0efb797` and `cd47045` carried the local Git identity as author and committer. Every other commit
+went through `as-bot.sh` and was correct. The repository requires `b10x-bot[bot]` on both fields, and
+the pre-push gate enforces it — the commit-time hook did not catch these.
+
+Corrected on the unpublished branch: reset to `f74d6bc`, both merges re-made through the wrapper, and
+the closing store commit cherry-picked, which preserved its bot author and set a bot committer. The
+resulting tree is byte-identical to the one the first gate ran on — `git diff` between the two heads
+is empty. All nine outgoing commits now carry `b10x-bot[bot]` as author and committer.
+
+The full gate was re-run on the corrected head rather than assumed from the identical tree:
+`task check` real exit 0, 72 executed, 0 failed. A second `test_result` is recorded naming b1bd512 and
+saying it supersedes the one naming `cd47045`, which no longer exists. Evidence is append-only, so
+the superseded record stays.
+
+### Final commits on integration/wave-20260918-002
+
+| Commit | What |
+|---|---|
+| b1bd512 | closing store commit |
+| `fbac591` | merge of `impl/runtime-decision-dossier` |
+| `8a5dab6` | merge of `impl/canonical-types` |
+| `010688f`, `781517b` | correction round 2 on each unit |
+| `f74d6bc` | the earlier closing commit, from when the wave merged nothing |
+| `a6e18e6`, `0a8c32e` | the two unit commits |
+| `a7f709f` | opening store commit |
