@@ -1,4 +1,7 @@
-# UNMAPPED-LIFECYCLE: Recorded is an immutable snapshot, not a runtime lifecycle; see decision-blocker:lifecycle.
+# Lifecycle is immutable-with-status: nothing is destroyed, and every change is a new recorded state; see decision-blocker:lifecycle and docs/adr/0009-event-sourced-persistence.md.
+# Creation is a recorded change and therefore a command. Administrative and SCIM provisioning reach the same commands: SCIM is an admitted caller, not a second creation path, so there is no SCIM-only tenancy record.
+# Principal creation is not a tenancy command. A principal is created by identity provisioning or by federated just-in-time provisioning; membership is what binds an existing principal to a tenant.
+# Closing an organization or retiring a team or space destroys no record and no audit history: dependent authority stops resolving, and every membership, grant and audit event is preserved.
 domain: mandate.tenancy
 entities:
   - name: mandate.tenancy.Organization
@@ -12,8 +15,14 @@ entities:
       initial: Recorded
       states:
         - Recorded
+        - Closed
       terminal:
-        - Recorded
+        - Closed
+      transitions:
+        - name: close
+          from:
+            - Recorded
+          to: Closed
   - name: mandate.tenancy.OrganizationMembership
     identity:
       name: id
@@ -59,8 +68,14 @@ entities:
       initial: Recorded
       states:
         - Recorded
+        - Retired
       terminal:
-        - Recorded
+        - Retired
+      transitions:
+        - name: retire
+          from:
+            - Recorded
+          to: Retired
     relations:
       - name: organization_id_record
         kind: references
@@ -82,8 +97,14 @@ entities:
       initial: Recorded
       states:
         - Recorded
+        - Removed
       terminal:
-        - Recorded
+        - Removed
+      transitions:
+        - name: remove
+          from:
+            - Recorded
+          to: Removed
     relations:
       - name: organization_id_record
         kind: references
@@ -113,8 +134,14 @@ entities:
       initial: Recorded
       states:
         - Recorded
+        - Retired
       terminal:
-        - Recorded
+        - Retired
+      transitions:
+        - name: retire
+          from:
+            - Recorded
+          to: Retired
     relations:
       - name: organization_id_record
         kind: references
@@ -140,11 +167,277 @@ commands:
       - name: denied
         external: Caller lacks membership-administration authority, membership is outside the verified organization, or membership and dependent authorization invalidation cannot commit consistently.
         error: mandate.tenancy.Denied
+  - name: mandate.tenancy.CreateOrganization
+    input:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: display_name
+        type: String
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.tenancy.OrganizationCreated
+        payload:
+          mandate.tenancy.OrganizationCreated:
+            context: input.context
+            organization_id:
+              response: organization_id
+        summary: The isolation root every other tenant-owned record resolves to. It is created empty, and no membership, team, space or grant exists inside it until that record's own command writes one. AddOrganizationMembership is the one command that can name this organization rather than the caller's own, so the first membership inside it is written by a caller holding platform organization-administration authority; every later write resolves the organization from that member's verified context.
+      - name: denied
+        external: Caller lacks platform organization-administration authority, the requested display name is not admitted, or the isolation root cannot be created without implying membership, grants or authority inside it.
+        error: mandate.tenancy.Denied
+    response:
+      - name: organization_id
+        type: mandate.core.OrganizationId
+  - name: mandate.tenancy.CloseOrganization
+    input:
+      - name: id
+        type: mandate.core.OrganizationId
+      - name: context
+        type: mandate.core.VerifiedContext
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.tenancy.OrganizationClosed
+        payload:
+          mandate.tenancy.OrganizationClosed:
+            context: input.context
+            id: input.id
+        moves: mandate.tenancy.Organization.close
+        instance: id
+        summary: The tenant stops admitting authority and nothing it owns is destroyed. Memberships, grants, delegations and audit history are preserved; sessions and credentials inside it stop being eligible through the organization generation, which IncrementSecurityEpoch advances.
+      - name: denied
+        external: Caller lacks platform organization-administration authority, the organization is unresolved, the sessions, credentials and delegations inside it cannot be invalidated with the closure, or closure would require destroying membership or audit history.
+        error: mandate.tenancy.Denied
+  - name: mandate.tenancy.AddOrganizationMembership
+    input:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: organization_id
+        type: mandate.core.OrganizationId
+      - name: principal_id
+        type: mandate.core.PrincipalId
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.tenancy.OrganizationMembershipAdded
+        payload:
+          mandate.tenancy.OrganizationMembershipAdded:
+            context: input.context
+            organization_id: input.organization_id
+            principal_id: input.principal_id
+            membership_id:
+              response: membership_id
+        summary: The one membership path, and the only command that names an organization other than the caller's. organization_id must equal the organization in the caller's verified context; it may differ only for a caller holding platform organization-administration authority, which is how the organization CreateOrganization returns is first populated and how it acquires the administrator whose own context every later write inside it resolves from. A directory provisioning source calls this command as an admitted caller; membership carries no authority by itself, which stays with grants and relationships.
+      - name: denied
+        external: Caller lacks membership-administration authority, organization_id differs from the verified organization and the caller lacks platform organization-administration authority, the named organization is closed, the principal is unresolved or disabled, the principal is already a member of that organization, or membership and its dependent authorization cannot commit consistently.
+        error: mandate.tenancy.Denied
+    response:
+      - name: membership_id
+        type: mandate.core.OrganizationMembershipId
+  - name: mandate.tenancy.CreateTeam
+    input:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: display_name
+        type: String
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.tenancy.TeamCreated
+        payload:
+          mandate.tenancy.TeamCreated:
+            context: input.context
+            team_id:
+              response: team_id
+        summary: A team is created by an organization administrator and never by directory synchronization. A customer directory group populates directory state, and whether that group maps to this team is a separate explicit decision.
+      - name: denied
+        external: Caller lacks team-administration authority, the display name is not admitted in the verified organization, or the team cannot be created without implying a grant or a directory mapping.
+        error: mandate.tenancy.Denied
+    response:
+      - name: team_id
+        type: mandate.core.TeamId
+  - name: mandate.tenancy.RetireTeam
+    input:
+      - name: id
+        type: mandate.core.TeamId
+      - name: context
+        type: mandate.core.VerifiedContext
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.tenancy.TeamRetired
+        payload:
+          mandate.tenancy.TeamRetired:
+            context: input.context
+            id: input.id
+        moves: mandate.tenancy.Team.retire
+        instance: id
+        summary: The explicit request a mapping retraction never makes on its own. The team stops resolving as an authorization subject; its memberships and their provenance are preserved, and the grants that target it are revoked by their own command.
+      - name: denied
+        external: Caller lacks team-administration authority, the team is outside the verified organization, a directory mapping still contributes to it, or retirement cannot revoke the grants that target it while preserving membership provenance.
+        error: mandate.tenancy.Denied
+  - name: mandate.tenancy.AddTeamMembership
+    input:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: team_id
+        type: mandate.core.TeamId
+      - name: principal_id
+        type: mandate.core.PrincipalId
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.tenancy.TeamMembershipAdded
+        payload:
+          mandate.tenancy.TeamMembershipAdded:
+            context: input.context
+            team_id: input.team_id
+            principal_id: input.principal_id
+            team_membership_id:
+              response: team_membership_id
+            contribution_id:
+              response: contribution_id
+        summary: The manual path, and the only command that records a team membership. It records one membership and the one manual MembershipContribution that says where the membership came from, and returns both identities. A mapping-derived contribution against the same membership is mandate.directory's own record, written by that domain's commands when a group mapping is created or synchronized, so a retracted mapping never removes a membership a manual decision still holds up.
+      - name: denied
+        external: Caller lacks team-administration authority, team or principal is unresolved or outside the verified organization, the team is retired, the principal is disabled, the principal is not a member of that organization, the principal is already a member of that team, or the membership and the manual contribution recording its provenance cannot be recorded together.
+        error: mandate.tenancy.Denied
+    response:
+      - name: team_membership_id
+        type: mandate.core.TeamMembershipId
+      - name: contribution_id
+        type: mandate.core.MembershipContributionId
+  - name: mandate.tenancy.RemoveTeamMembership
+    input:
+      - name: id
+        type: mandate.core.TeamMembershipId
+      - name: context
+        type: mandate.core.VerifiedContext
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.tenancy.TeamMembershipRemoved
+        payload:
+          mandate.tenancy.TeamMembershipRemoved:
+            context: input.context
+            id: input.id
+        moves: mandate.tenancy.TeamMembership.remove
+        instance: id
+        summary: Taken only once no contribution supports the membership any longer — neither the manual one recorded with it nor any mandate.directory mapping contribution — which is what stops a retracted mapping from removing a membership a manual decision still holds up. The record and its history are kept.
+      - name: denied
+        external: Caller lacks team-administration authority, the membership is outside the verified organization, a mandate.directory mapping contribution still supports it, or dependent authorization invalidation cannot commit consistently.
+        error: mandate.tenancy.Denied
+  - name: mandate.tenancy.CreateSpace
+    input:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: display_name
+        type: String
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.tenancy.SpaceCreated
+        payload:
+          mandate.tenancy.SpaceCreated:
+            context: input.context
+            space_id:
+              response: space_id
+        summary: A security boundary below the organization, with no environment semantics implied by its name. Creating it grants nothing inside it.
+      - name: denied
+        external: Caller lacks space-administration authority, the display name is not admitted in the verified organization, or the space cannot be created without implying a grant or a resource inside it.
+        error: mandate.tenancy.Denied
+    response:
+      - name: space_id
+        type: mandate.core.SpaceId
+  - name: mandate.tenancy.RetireSpace
+    input:
+      - name: id
+        type: mandate.core.SpaceId
+      - name: context
+        type: mandate.core.VerifiedContext
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.tenancy.SpaceRetired
+        payload:
+          mandate.tenancy.SpaceRetired:
+            context: input.context
+            id: input.id
+        moves: mandate.tenancy.Space.retire
+        instance: id
+        summary: The boundary stops admitting new authority and keeps every resource bound to it. Resources inside are deregistered by their own command; nothing is destroyed by retiring the space around them.
+      - name: denied
+        external: Caller lacks space-administration authority, the space is outside the verified organization, or retirement cannot refuse new authority inside it while preserving the resources and grants already bound to it.
+        error: mandate.tenancy.Denied
 events:
   - name: mandate.tenancy.OrganizationMembershipRemoved
     fields:
       - name: context
         type: mandate.core.VerifiedContext
+  - name: mandate.tenancy.OrganizationCreated
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: organization_id
+        type: mandate.core.OrganizationId
+  - name: mandate.tenancy.OrganizationClosed
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: id
+        type: mandate.core.OrganizationId
+  - name: mandate.tenancy.OrganizationMembershipAdded
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: organization_id
+        type: mandate.core.OrganizationId
+      - name: principal_id
+        type: mandate.core.PrincipalId
+      - name: membership_id
+        type: mandate.core.OrganizationMembershipId
+  - name: mandate.tenancy.TeamCreated
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: team_id
+        type: mandate.core.TeamId
+  - name: mandate.tenancy.TeamRetired
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: id
+        type: mandate.core.TeamId
+  - name: mandate.tenancy.TeamMembershipAdded
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: team_id
+        type: mandate.core.TeamId
+      - name: principal_id
+        type: mandate.core.PrincipalId
+      - name: team_membership_id
+        type: mandate.core.TeamMembershipId
+      - name: contribution_id
+        type: mandate.core.MembershipContributionId
+  - name: mandate.tenancy.TeamMembershipRemoved
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: id
+        type: mandate.core.TeamMembershipId
+  - name: mandate.tenancy.SpaceCreated
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: space_id
+        type: mandate.core.SpaceId
+  - name: mandate.tenancy.SpaceRetired
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: id
+        type: mandate.core.SpaceId
 errors:
   - name: mandate.tenancy.Denied
     summary: Fail closed; no credential, authority or lifecycle mutation on refusal.

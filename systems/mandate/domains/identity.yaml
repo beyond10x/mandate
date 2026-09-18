@@ -1,7 +1,7 @@
 # UNMAPPED-EPOCH: PrincipalEpoch, OrganizationSecurityEpoch and FederationEpoch require exact u64 monotonic semantics; see decision-blocker:epoch.
 # UNMAPPED-ATOMICITY: snapshot invalidation and refresh must be transactional; see decision-blocker:epoch-atomicity.
-# Generation records are ownership declarations keyed independently by principal, organization or federation connection; they intentionally have no approximated numeric value.
-# UNMAPPED-EPOCH: exact u64 current values and per-dimension snapshot values are absent until representable; EpochSnapshotRef is only an immutable record handle, never an epoch number.
+# Generation records are ownership declarations keyed independently by principal, organization or federation connection; each declares one generation, an Integer constrained non-negative by its entity invariant.
+# UNMAPPED-EPOCH: Integer is the recorded stand-in for the addendum's u64 (decision-blocker:epoch; architecture-addendum.md section 6.3), widened when ESS gains an unsigned primitive. Monotonic increment, denial at the maximum and per-dimension snapshot values remain absent; EpochSnapshotRef is only an immutable record handle, never an epoch number.
 # UNMAPPED-EPOCH-OWNERSHIP: ESS relation carriers cannot reference an entity identity directly; each generation identity is its owning PrincipalId, OrganizationId or FederationConnectionId (one-to-one association).
 # IncrementSecurityEpoch remains an adapter obligation; no fabricated self-loop stands in for numeric mutation.
 domain: mandate.identity
@@ -162,35 +162,47 @@ entities:
     identity:
       name: id
       type: mandate.core.PrincipalId
-    fields: []
+    fields:
+      - name: generation
+        type: Integer
     lifecycle:
       initial: Recorded
       states:
         - Recorded
       terminal:
         - Recorded
+    invariants:
+      - generation >= 0
   - name: mandate.identity.OrganizationSecurityEpoch
     identity:
       name: id
       type: mandate.core.OrganizationId
-    fields: []
+    fields:
+      - name: generation
+        type: Integer
     lifecycle:
       initial: Recorded
       states:
         - Recorded
       terminal:
         - Recorded
+    invariants:
+      - generation >= 0
   - name: mandate.identity.FederationSecurityEpoch
     identity:
       name: id
       type: mandate.core.FederationConnectionId
-    fields: []
+    fields:
+      - name: generation
+        type: Integer
     lifecycle:
       initial: Recorded
       states:
         - Recorded
       terminal:
         - Recorded
+    invariants:
+      - generation >= 0
 commands:
   - name: mandate.identity.DisablePrincipal
     input:
@@ -311,4 +323,4 @@ errors:
     fields:
       - name: reason
         type: mandate.core.DenialReason
-summary: "Principal, session and independent principal/organization/federation generation ownership. UNMAPPED-EPOCH: generation records declare ownership only; exact unsigned current and snapshot values are absent until supported. EpochSnapshotRef is an immutable record handle, not a generation number. Refresh and exchange cannot be implemented without closing this blocker."
+summary: "Principal, session and independent principal/organization/federation generation ownership. UNMAPPED-EPOCH: each generation record declares one non-negative Integer generation, the recorded stand-in for the addendum's u64; monotonic increment, denial at the maximum and per-dimension snapshot values are absent until supported. EpochSnapshotRef is an immutable record handle, not a generation number. Refresh and exchange cannot be implemented without closing this blocker."

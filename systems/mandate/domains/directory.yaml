@@ -1,4 +1,7 @@
-# UNMAPPED-LIFECYCLE: Recorded is an immutable snapshot, not a runtime lifecycle; see decision-blocker:lifecycle.
+# Lifecycle is immutable-with-status: nothing is destroyed, and every change is a new recorded state; see decision-blocker:lifecycle and docs/adr/0009-event-sourced-persistence.md.
+# A directory group is created by SCIM provisioning populating directory state first; no control-plane command creates one, and that path belongs to story:directory-provenance. Retiring a group removes neither the team it mapped to nor any membership contribution that another mapping or a manual grant still supports.
+# A sync job records the outcome of one run. Enqueue, claim, lease and retry belong to the worker queue behind its port (decision-blocker:worker-orchestration) and are never contract transitions.
+# Mapping-derived MembershipContribution records are created by the two commands that reconcile them, and each event names the contributions its run wrote; the manual contribution is mandate.tenancy.AddTeamMembership's. Every one of them is retracted by RemoveMembershipContribution alone.
 domain: mandate.directory
 entities:
   - name: mandate.directory.MembershipContribution
@@ -64,8 +67,14 @@ entities:
       initial: Recorded
       states:
         - Recorded
+        - Retired
       terminal:
-        - Recorded
+        - Retired
+      transitions:
+        - name: retire
+          from:
+            - Recorded
+          to: Retired
     relations:
       - name: organization_id_record
         kind: references
@@ -174,8 +183,20 @@ entities:
       initial: Recorded
       states:
         - Recorded
+        - Completed
+        - Failed
       terminal:
-        - Recorded
+        - Completed
+        - Failed
+      transitions:
+        - name: complete
+          from:
+            - Recorded
+          to: Completed
+        - name: fail
+          from:
+            - Recorded
+          to: Failed
     relations:
       - name: organization_id_record
         kind: references
@@ -204,7 +225,7 @@ commands:
         moves: mandate.directory.MembershipContribution.remove
         instance: id
       - name: denied
-        external: Caller lacks mapping authority, contribution is outside the verified organization, or deletion cannot preserve every other valid manual/mapping contribution.
+        external: Caller lacks mapping authority, contribution is outside the verified organization, or removal cannot preserve every other valid manual/mapping contribution.
         error: mandate.directory.Denied
   - name: mandate.directory.RemoveDirectoryGroupMembership
     input:
@@ -259,8 +280,10 @@ commands:
             context: input.context
             group_id: input.group_id
             team_id: input.team_id
+            contributions:
+              generated: true
       - name: denied
-        external: Caller lacks mapping authority, group/team is unknown, either target is outside the verified organization, or provenance-preserving contribution reconciliation fails.
+        external: Caller lacks mapping authority, group/team is unknown, the group is retired, the team is retired, either target is outside the verified organization, or provenance-preserving contribution reconciliation fails.
         error: mandate.directory.Denied
     response:
       - name: mapping_id
@@ -281,8 +304,70 @@ commands:
           mandate.directory.DirectoryGroupMembershipChanged:
             context: input.context
             group_id: input.group_id
+            contributions:
+              generated: true
       - name: denied
-        external: Caller is not an admitted provisioning source, group/member organization mismatches, or synchronization would grant authority without an explicit valid team mapping.
+        external: Caller is not an admitted provisioning source, the group is retired, group/member organization mismatches, or synchronization would grant authority without an explicit valid team mapping.
+        error: mandate.directory.Denied
+  - name: mandate.directory.RetireDirectoryGroup
+    input:
+      - name: id
+        type: mandate.core.DirectoryGroupId
+      - name: context
+        type: mandate.core.VerifiedContext
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.directory.DirectoryGroupRetired
+        payload:
+          mandate.directory.DirectoryGroupRetired:
+            context: input.context
+            id: input.id
+        moves: mandate.directory.DirectoryGroup.retire
+        instance: id
+        summary: The group the customer directory no longer publishes stops contributing authority and is kept as a record. Its memberships and team mappings are retracted by their own commands, which is what preserves every other manual or mapping contribution.
+      - name: denied
+        external: Caller is not an admitted provisioning source, the group is outside the verified organization, or retirement cannot preserve the team, manual memberships and the contributions another mapping still supports.
+        error: mandate.directory.Denied
+  - name: mandate.directory.CompleteSyncJob
+    input:
+      - name: id
+        type: mandate.core.SyncJobId
+      - name: context
+        type: mandate.core.VerifiedContext
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.directory.SyncJobCompleted
+        payload:
+          mandate.directory.SyncJobCompleted:
+            context: input.context
+            id: input.id
+        moves: mandate.directory.SyncJob.complete
+        instance: id
+        summary: One synchronization run is recorded as having applied every membership change it resolved. The queue that delivered the job stays behind its port; this records the outcome, not the transport.
+      - name: denied
+        external: Caller is not the trusted synchronization worker, the job is outside the verified organization, or the membership changes the run applied cannot be recorded durably with its completion.
+        error: mandate.directory.Denied
+  - name: mandate.directory.FailSyncJob
+    input:
+      - name: id
+        type: mandate.core.SyncJobId
+      - name: context
+        type: mandate.core.VerifiedContext
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.directory.SyncJobFailed
+        payload:
+          mandate.directory.SyncJobFailed:
+            context: input.context
+            id: input.id
+        moves: mandate.directory.SyncJob.fail
+        instance: id
+        summary: A run that did not apply its full result is recorded as failed, so stale directory state is visible rather than silent. Redelivery is a new job record; a failed job is never retried in place.
+      - name: denied
+        external: Caller is not the trusted synchronization worker, the job is outside the verified organization, or the partial run cannot be recorded without implying a completed synchronization.
         error: mandate.directory.Denied
 events:
   - name: mandate.directory.MembershipContributionRemoved
@@ -305,12 +390,34 @@ events:
         type: mandate.core.DirectoryGroupId
       - name: team_id
         type: mandate.core.TeamId
+      - name: contributions
+        type: List<mandate.core.MembershipContributionId>
   - name: mandate.directory.DirectoryGroupMembershipChanged
     fields:
       - name: context
         type: mandate.core.VerifiedContext
       - name: group_id
         type: mandate.core.DirectoryGroupId
+      - name: contributions
+        type: List<mandate.core.MembershipContributionId>
+  - name: mandate.directory.DirectoryGroupRetired
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: id
+        type: mandate.core.DirectoryGroupId
+  - name: mandate.directory.SyncJobCompleted
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: id
+        type: mandate.core.SyncJobId
+  - name: mandate.directory.SyncJobFailed
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: id
+        type: mandate.core.SyncJobId
 errors:
   - name: mandate.directory.Denied
     summary: Fail closed; no credential, authority or lifecycle mutation on refusal.

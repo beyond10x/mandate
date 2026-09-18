@@ -1,4 +1,6 @@
-# UNMAPPED-LIFECYCLE: Recorded is an immutable snapshot, not a runtime lifecycle; see decision-blocker:lifecycle.
+# Lifecycle is immutable-with-status: nothing is destroyed, and every change is a new recorded state; see decision-blocker:lifecycle and docs/adr/0009-event-sourced-persistence.md.
+# A published version is immutable: a changed policy or model is a new version record and the previous one is superseded, so every decision stays attributable to the exact version that made it.
+# A rollback republishes an earlier source as a new version record. No superseded record is ever reactivated, and no version is deleted.
 domain: mandate.policy
 entities:
   - name: mandate.policy.Policy
@@ -16,8 +18,14 @@ entities:
       initial: Recorded
       states:
         - Recorded
+        - Superseded
       terminal:
-        - Recorded
+        - Superseded
+      transitions:
+        - name: supersede
+          from:
+            - Recorded
+          to: Superseded
     relations:
       - name: organization_id_record
         kind: references
@@ -39,11 +47,77 @@ entities:
       initial: Recorded
       states:
         - Recorded
+        - Superseded
       terminal:
-        - Recorded
+        - Superseded
+      transitions:
+        - name: supersede
+          from:
+            - Recorded
+          to: Superseded
     relations:
       - name: organization_id_record
         kind: references
         target: mandate.tenancy.Organization
         cardinality: one
         via: organization_id
+commands:
+  - name: mandate.policy.SupersedePolicy
+    input:
+      - name: id
+        type: mandate.core.PolicyId
+      - name: context
+        type: mandate.core.VerifiedContext
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.policy.PolicySuperseded
+        payload:
+          mandate.policy.PolicySuperseded:
+            context: input.context
+            id: input.id
+        moves: mandate.policy.Policy.supersede
+        instance: id
+        summary: The recorded version stops being the current one. Its source is kept, because every decision already made under it stays attributable to it; a rollback is a new version record carrying the earlier source, never a revival of this one.
+      - name: denied
+        external: Caller lacks policy-administration authority, the policy is outside the verified organization, no later policy version is recorded for that organization, or decisions in flight cannot remain attributable to the version that made them.
+        error: mandate.policy.Denied
+  - name: mandate.policy.SupersedeAuthorizationModel
+    input:
+      - name: id
+        type: mandate.core.AuthorizationModelId
+      - name: context
+        type: mandate.core.VerifiedContext
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.policy.AuthorizationModelSuperseded
+        payload:
+          mandate.policy.AuthorizationModelSuperseded:
+            context: input.context
+            id: input.id
+        moves: mandate.policy.AuthorizationModel.supersede
+        instance: id
+        summary: The recorded schema version stops being the current one and is kept for attribution. A breaking change is a new model version with its own migration; no superseded model is reactivated and none is deleted.
+      - name: denied
+        external: Caller lacks authorization-model administration authority, the model is outside the verified organization, no later model version is recorded for that organization, or the relationship revision the later version requires is not yet observable.
+        error: mandate.policy.Denied
+events:
+  - name: mandate.policy.PolicySuperseded
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: id
+        type: mandate.core.PolicyId
+  - name: mandate.policy.AuthorizationModelSuperseded
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: id
+        type: mandate.core.AuthorizationModelId
+errors:
+  - name: mandate.policy.Denied
+    summary: Fail closed; no credential, authority or lifecycle mutation on refusal.
+    fields:
+      - name: reason
+        type: mandate.core.DenialReason
