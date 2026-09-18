@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:runtime-decision-dossier
 kind: story
-status: draft
+status: active
 title: Prepare the runtime decision dossier without clearing blockers
 relations:
 - decomposes: epic:foundations
@@ -14,7 +14,9 @@ scope:
   path: docs/architecture
 - confidence: inferred
   path: docs/architecture/runtime-decisions.md
-revision: 5
+- confidence: inferred
+  path: docs/architecture/unmapped.md
+revision: 9
 ---
 # Prepare the runtime decision dossier without clearing blockers
 
@@ -34,15 +36,42 @@ Sources: docs/architecture/unmapped.md:5; docs/sources/original-design.md:3327; 
 
 ## Scope
 
-Derived 2026-09-18 by `story-scoper` — cited from the story, its prerequisite and the repository.
+Derived 2026-09-18 by `story-scoper` against `dc76aa3`. Every line is **cited** (read from the story
+or the tree) or **inferred** (a reading that could be wrong).
 
-- **Primary surface:** `docs/architecture` — cited existing architecture ownership boundary and canonical directory granularity.
-- **Files:** `docs/architecture/runtime-decisions.md` — inferred new document placement retained from the existing scope; the file does not yet exist.
-- **Symbols:** none — cited acceptance requires a decision dossier, not runtime implementation.
-- **Documents:** documentation only; source-cited questions, alternatives, proposed owners, affected stories and clearance evidence for eleven runtime blockers, with Drive verification explicitly excluded — cited.
-- **Also likely:** no additional write surfaces — inferred; existing specifications and architecture sources suffice as references.
-- **Confidence:** high — cited acceptance explicitly requires a document and prohibits changing ESS meaning or clearing blockers.
-- **Would collide with:** any work owning `docs/architecture`, including changes to its unresolved-semantics register or the proposed dossier — cited canonical directory ownership; record the directory alongside the file because AEP does not normalize ancestor/file overlaps.
+- **Primary surface:** `docs/architecture` — cited; the story's Sources name
+  `docs/architecture/unmapped.md:5` and `docs/architecture/command-obligations.md:1`, and `xtask`
+  imposes no check on this directory.
+- **Files:** `docs/architecture/runtime-decisions.md` — inferred; the file does not exist,
+  `git ls-files docs/architecture` returns five files and none is this one. The name carries over
+  from revision 5 and nothing in the tree fixes it.
+- **Symbols:** none — cited; acceptance requires a decision document and forbids clearing a blocker,
+  selecting an algorithm or backend, and claiming runtime tests.
+- **Also likely:** `docs/architecture/unmapped.md` — inferred; a back-link from the register to the
+  dossier follows the convention at :66 and :72, but the acceptance does not require it.
+- **Documents:** document-only. Eleven rows, one per open runtime decision blocker, each with a
+  source-cited question, bounded alternatives, proposed owner, affected stories and clearance
+  evidence.
+- **Read-only, never written:** `docs/sources/` — cited; `xtask/src/main.rs:202-212` re-hashes every
+  file named in `docs/sources/SHA256SUMS` and fails with `source changed: {name}`. Citing into
+  `original-design.md:3327` is safe; editing it breaks `task check`.
+- **Excluded surface:** `docs/adr/` — cited; all eight existing ADRs carry `Status: accepted`, and
+  this story must mark recommendations as proposals.
+- **Confidence:** high for the directory and the document-only shape — the store yields exactly
+  eleven runtime blockers. Medium for the leaf filename, which nothing in the tree fixes.
+- **Would collide with:** any unit writing under `docs/architecture`. `story:domain-runtime` holds
+  `docs/architecture` as cited scope, so the collision is real. It is **not live in this wave**:
+  that story sits in wave 2, depends on this one, and carries two open blockers. Wave 1's other
+  unit scopes only `Cargo.lock`, `Cargo.toml`, `crates/mandate-{model,proto,token,types}` and
+  `dependency-boundaries.json`, which is disjoint.
+
+**The affected-stories column must come from `aep plan artifact blocked`, not from this file's
+`AEP:` lines.** The register is stale against the store on five of eleven rows — it predates
+`story:audit-worker-delivery` and `story:agent-authority-kernel`. Rows affected: lifecycle (adds
+`audit-worker-delivery`), guards (adds `audit-client`), identity-uniqueness (adds
+`agent-authority-kernel`), audit-routing (adds `audit-worker-delivery`), worker-orchestration (adds
+`audit-worker-delivery`). Building the column from the file yields five wrong rows, and this story's
+own Validation step checks the matrix against `aep plan artifact blocked`.
 
 ## Validation
 
