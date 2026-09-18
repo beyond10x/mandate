@@ -1,6 +1,6 @@
 # generated from mandate v1
-# model digest 4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1
-# contract digest slice-sha256/2:ac0b50d21652212437d9193d02b84e023ff9b6417a2325add7c0b28002f9736c
+# model digest 681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8
+# contract digest slice-sha256/2:cca31994e19fe4d99bf90a6568be9a947c39eb4a80f2c0617443d8768876608e
 # do not edit: regenerate with `ess generate`
 openapi: 3.1.0
 info:
@@ -14,11 +14,11 @@ info:
   x-ess-provenance:
     system: mandate
     specification_version: v1
-    source_digest: 4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1
-    contract_digest: slice-sha256/2:ac0b50d21652212437d9193d02b84e023ff9b6417a2325add7c0b28002f9736c
+    source_digest: 681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8
+    contract_digest: slice-sha256/2:cca31994e19fe4d99bf90a6568be9a947c39eb4a80f2c0617443d8768876608e
 tags:
 - name: audit
-  description: 'Canonical redacted audit records and the trusted worker append port. UNMAPPED-AUDIT-ROUTING: per-domain event mapping, durable outbox transport, retention and failure policy remain required. Named AuditAction and AuditOutcome do not admit arbitrary values.'
+  description: 'Canonical redacted audit records and the trusted worker append port. UNMAPPED-AUDIT-ROUTING: per-domain event mapping, durable outbox transport, the concrete retention floor and failure policy remain required; retention itself is redaction, never deletion. Named AuditAction and AuditOutcome do not admit arbitrary values.'
 paths:
   /audit/commands/RecordAuditEvent:
     post:
@@ -46,6 +46,32 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.audit.RecordAuditEvent.denied.Response'
+  /audit/commands/RedactAuditEvent:
+    post:
+      operationId: mandate.audit.RedactAuditEvent
+      summary: RedactAuditEvent
+      tags:
+      - audit
+      requestBody:
+        description: The input `mandate.audit.RedactAuditEvent` declares.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/mandate.audit.RedactAuditEvent.Input'
+      responses:
+        '202':
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers, not returned here.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.audit.RedactAuditEvent.accepted.Response'
+        '502':
+          description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.audit.RedactAuditEvent.denied.Response'
 components:
   schemas:
     mandate.audit.Denied.Error:
@@ -102,6 +128,48 @@ components:
       required:
       - outcome
       type: object
+    mandate.audit.RedactAuditEvent.Input:
+      title: RedactAuditEvent input
+      x-ess-name: mandate.audit.RedactAuditEvent
+      x-ess-kind: command-input
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/mandate.core.AuditEventId'
+        context:
+          $ref: '#/components/schemas/mandate.core.VerifiedContext'
+      required:
+      - id
+      - context
+      additionalProperties: false
+    mandate.audit.RedactAuditEvent.accepted.Response:
+      additionalProperties: false
+      description: The only answer to a retention or erasure obligation. The record keeps its identity, its correlation and the fact that it was redacted; the redacted content does not reappear in this event. Deletion of an audit event is admitted by no command. Taken when no other outcome's condition matched. A `mandate.audit.AuditEvent` has moved to `Redacted`, along `redact`. The instance is the one `id` names. Emits `AuditEventRedacted`, published to consumers rather than returned here.
+      properties:
+        outcome:
+          const: accepted
+          description: Which declared outcome the command took.
+      required:
+      - outcome
+      type: object
+    mandate.audit.RedactAuditEvent.denied.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: Caller lacks audit-redaction authority for the verified organization, the event is unresolved, the applicable retention floor has not passed, the request would remove the record rather than redact it, or redaction cannot rewrite the projection while retaining that the record existed and was redacted..'
+      properties:
+        error:
+          const: mandate.audit.Denied
+          description: No audit record or credential mutation is admitted on refusal; required audit failure behavior remains an explicit runtime obligation.
+          type: string
+        outcome:
+          const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.audit.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
     mandate.core.Action:
       title: Action
       x-ess-name: mandate.core.Action
@@ -117,6 +185,13 @@ components:
       x-ess-name: mandate.core.AuditAction
       x-ess-kind: newtype
       type: string
+    mandate.core.AuditEventId:
+      title: AuditEventId
+      x-ess-name: mandate.core.AuditEventId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
     mandate.core.AuditOutcome:
       title: AuditOutcome
       x-ess-name: mandate.core.AuditOutcome
@@ -451,6 +526,7 @@ x-ess-entities:
     type: string
     enum:
     - Recorded
+    - Redacted
   mandate.core.Action:
     title: Action
     x-ess-name: mandate.core.Action

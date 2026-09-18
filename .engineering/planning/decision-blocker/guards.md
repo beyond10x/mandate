@@ -7,6 +7,7 @@ title: UNMAPPED-GUARDS
 relations:
 - blocks: story:protocol-adapters
 - blocks: story:audit-client
+- blocks: story:product-listener
 revision: 1
 ---
 ESS command outcomes describe authoritative external validation, not executable cryptographic, graph or policy predicates. Add trusted context adapter, actual validation and negative conformance tests; generated command routes must never be exposed as product endpoints.

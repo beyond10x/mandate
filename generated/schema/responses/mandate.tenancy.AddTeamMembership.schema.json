@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AddTeamMembership response",
+  "x-ess-name": "mandate.tenancy.AddTeamMembership",
+  "x-ess-kind": "command-response",
+  "type": "object",
+  "properties": {
+    "team_membership_id": {
+      "$ref": "#/$defs/mandate.core.TeamMembershipId"
+    },
+    "contribution_id": {
+      "$ref": "#/$defs/mandate.core.MembershipContributionId"
+    }
+  },
+  "required": [
+    "team_membership_id",
+    "contribution_id"
+  ],
+  "additionalProperties": false,
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8",
+    "contract_digest": "slice-sha256/2:25258b28ac3f137a234eb982035faff6665bafe0b667e382c50c4912e9b7db00",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.core.MembershipContributionId": {
+      "title": "MembershipContributionId",
+      "x-ess-name": "mandate.core.MembershipContributionId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.TeamMembershipId": {
+      "title": "TeamMembershipId",
+      "x-ess-name": "mandate.core.TeamMembershipId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    }
+  }
+}

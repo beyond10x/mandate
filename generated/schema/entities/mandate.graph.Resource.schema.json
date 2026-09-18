@@ -58,8 +58,8 @@
   "x-ess-provenance": {
     "system": "mandate",
     "specification_version": "v1",
-    "source_digest": "4a856239408291b04081d690cb65f638971dd1711f23b1dbb384b26f4f7a5fd1",
-    "contract_digest": "slice-sha256/2:d9f7f73ca3810e7b7140b427edaef8c8964f8299f14af172a0be9e4d0c129d44",
+    "source_digest": "681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8",
+    "contract_digest": "slice-sha256/2:5ea7746867764022dcd208e377069a1bb50460b8fa47115628333d710b87a332",
     "regenerate": "ess generate"
   },
   "$defs": {
@@ -99,6 +99,7 @@
       "x-ess-kind": "enum",
       "type": "string",
       "enum": [
+        "Deregistered",
         "Recorded"
       ]
     }

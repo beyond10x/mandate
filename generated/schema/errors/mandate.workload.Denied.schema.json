@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Denied payload",
+  "description": "Fail closed; no credential, authority or lifecycle mutation on refusal.",
+  "x-ess-name": "mandate.workload.Denied",
+  "x-ess-kind": "error-payload",
+  "type": "object",
+  "properties": {
+    "reason": {
+      "$ref": "#/$defs/mandate.core.DenialReason"
+    }
+  },
+  "required": [
+    "reason"
+  ],
+  "additionalProperties": false,
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8",
+    "contract_digest": "slice-sha256/2:44ef91b05f35886cc075a320231840c7177b5ebcd060e57d49f6f91ff8ed0996",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.core.DenialReason": {
+      "title": "DenialReason",
+      "x-ess-name": "mandate.core.DenialReason",
+      "x-ess-kind": "enum",
+      "type": "string",
+      "enum": [
+        "Denied",
+        "ApprovalRequired",
+        "InvalidCredential",
+        "TenantMismatch",
+        "AudienceMismatch",
+        "Unavailable",
+        "StaleEpoch"
+      ]
+    }
+  }
+}

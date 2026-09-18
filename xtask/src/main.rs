@@ -130,6 +130,60 @@ fn boundaries() -> Result<()> {
     println!("20 packages satisfy metadata and dependency boundaries");
     Ok(())
 }
+/// Every command the contract declares is named in `command-obligations.md`, with its declared
+/// denial text verbatim, and the table names nothing the contract does not declare. A command
+/// missing from the table is a denial no reader of the contract can find; a row whose text has
+/// drifted misreports one.
+fn obligations(ir: &Value) -> Result<()> {
+    let commands = ir["commands"].as_object().ok_or("ESS command index")?;
+    let mut declared: BTreeMap<String, String> = BTreeMap::new();
+    for (name, command) in commands {
+        let refusal = command["outcomes"]
+            .as_array()
+            .ok_or("command outcomes")?
+            .iter()
+            .find(|outcome| outcome["error"].is_string())
+            .ok_or_else(|| format!("{name} declares no refusal"))?;
+        let cause = refusal["condition"]["cause"]
+            .as_str()
+            .ok_or_else(|| format!("{name} refusal states no external cause"))?;
+        declared.insert(name.clone(), cause.to_owned());
+    }
+    let table = fs::read_to_string("docs/architecture/command-obligations.md")?;
+    let mut recorded: BTreeMap<String, String> = BTreeMap::new();
+    for line in table.lines() {
+        let Some(rest) = line.strip_prefix("| `") else {
+            continue;
+        };
+        let (name, rest) = rest.split_once("` | ").ok_or("obligations row")?;
+        let text = rest.strip_suffix(" |").ok_or("obligations row")?;
+        if recorded.insert(name.to_owned(), text.to_owned()).is_some() {
+            return Err(format!("duplicate obligations row {name}").into());
+        }
+    }
+    for (name, cause) in &declared {
+        match recorded.get(name) {
+            None => return Err(format!("no obligations row for {name}").into()),
+            Some(text) if text != cause => {
+                return Err(format!(
+                    "obligations row for {name} does not match its declared denial"
+                )
+                .into());
+            }
+            Some(_) => {}
+        }
+    }
+    for name in recorded.keys() {
+        if !declared.contains_key(name) {
+            return Err(format!("obligations row {name} names no declared command").into());
+        }
+    }
+    println!(
+        "{} commands named in command-obligations.md",
+        declared.len()
+    );
+    Ok(())
+}
 fn corpus() -> Result<()> {
     let ir: Value = serde_json::from_slice(&output(
         "ess",
@@ -210,6 +264,7 @@ fn corpus() -> Result<()> {
             return Err(format!("source changed: {name}").into());
         }
     }
+    obligations(&ir)?;
     println!(
         "{} contract scenarios traced; source hashes match; no runtime enforcement claimed",
         cases.len()

@@ -131,7 +131,7 @@ fn the_excluded_epoch_entities_are_entities_and_are_not_realized() {
 }
 
 #[test]
-fn the_three_ownership_placeholders_carry_no_representable_field() {
+fn the_three_generation_records_carry_exactly_the_declared_generation() {
     for name in [
         "mandate.identity.PrincipalSecurityEpoch",
         "mandate.identity.OrganizationSecurityEpoch",
@@ -148,8 +148,9 @@ fn the_three_ownership_placeholders_carry_no_representable_field() {
             .collect();
         assert_eq!(
             properties,
-            BTreeSet::from(["id", "state"]),
-            "{name} gained a field; the exclusion must be revisited"
+            BTreeSet::from(["id", "state", "generation"]),
+            "{name} no longer declares exactly the generation the contract records; \
+             the exclusion account must be revisited"
         );
     }
 }

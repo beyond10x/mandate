@@ -4,13 +4,13 @@ These are required implementation decisions, not silently implemented behavior. 
 
 ## UNMAPPED-EPOCH
 
-ESS has no exact unsigned u64 generation with monotonic increment, overflow denial and atomic comparison semantics. Independent PrincipalSecurityEpoch, OrganizationSecurityEpoch and FederationSecurityEpoch records declare ownership, keyed by the respective owner identity. Their numeric values and the per-dimension values in SecurityEpochSnapshot remain absent until representable; never approximate them with Integer, String or UUID. EpochSnapshotRef is only an immutable record handle. ESS also cannot carry a relation through an entity identity: the generation-to-owner identity association is explicit here, not silently presented as an executable foreign key. IncrementSecurityEpoch declares an adapter outcome, not numeric mutation or an invented lifecycle self-loop.
+ESS 0.25.0 has no unsigned primitive. On 2026-09-18 the operator decided the generation is an ESS `Integer`, constrained `generation >= 0` and monotonic, declared on PrincipalSecurityEpoch, OrganizationSecurityEpoch and FederationSecurityEpoch as the recorded stand-in for the addendum's u64; widening to an unsigned type when ESS gains one is a compatible change. Increment at the maximum denies rather than wraps. EpochSnapshotRef remains a handle. Arithmetic and the runtime comparison are `story:session-epochs`; the field is declared, not computed. Realization of the three records as Rust types stays excluded from the canonical account.
 
 AEP: `decision-blocker:epoch` blocks `story:session-epochs`.
 
 ## UNMAPPED-LIFECYCLE
 
-Recorded entity lifecycles are immutable snapshots only. Source documents do not settle deletion, reactivation, retention, execution completion or mapping transaction lifecycle. Review concrete lifecycle and retention decisions before implementing those mutations.
+On 2026-09-18 the operator decided immutable-with-status: nothing is destroyed; every lifecycle change is a new recorded state, and retention is redaction (`docs/adr/0009-event-sourced-persistence.md`). The 34 transitions the contract now declares are each moved by exactly one command; prohibitions are recorded in the contract where a mutation is refused (no execution expiry move, no approval reinstatement, no reactivation of a superseded policy or model, no deletion of an audit event). There is no UpdateFederationConnection: a changed connection is `disable` plus `RegisterFederationConnection`. The concrete audit retention floor is still owed.
 
 AEP: `decision-blocker:lifecycle` blocks `story:domain-runtime`.
 

@@ -9,7 +9,7 @@ The following table maps all 18 categories in addendum §14. Names in the first 
 | external_principal.linked | federation.ExternalPrincipalLinked | federation-linking |
 | external_principal.unlinked | federation.ExternalPrincipalUnlinked; audit.ExternalPrincipalUnlinked is its redacted notification shape | federation-linking |
 | federation.connection.created | federation.FederationConnectionCreated | federation-linking |
-| federation.connection.changed | audit.FederationConnectionChanged; update command and trust-change semantics remain UNMAPPED-LIFECYCLE | federation-linking |
+| federation.connection.changed | audit.FederationConnectionChanged; there is no update command — a changed connection is DisableFederationConnection plus RegisterFederationConnection (immutable-with-status, 2026-09-18) | federation-linking |
 | federation.connection.disabled | federation.FederationConnectionDisabled | session-epochs |
 | security_epoch.incremented | identity.SecurityEpochIncremented; numeric mutation remains UNMAPPED-EPOCH | session-epochs |
 | directory_group.created | audit.DirectoryGroupCreated; provisioning producer remains UNMAPPED-ORCHESTRATION | directory-provenance |

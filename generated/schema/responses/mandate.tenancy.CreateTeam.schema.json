@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CreateTeam response",
+  "x-ess-name": "mandate.tenancy.CreateTeam",
+  "x-ess-kind": "command-response",
+  "type": "object",
+  "properties": {
+    "team_id": {
+      "$ref": "#/$defs/mandate.core.TeamId"
+    }
+  },
+  "required": [
+    "team_id"
+  ],
+  "additionalProperties": false,
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8",
+    "contract_digest": "slice-sha256/2:1857ccab6e19f03bbd4c3d558d9ca7073a7fa4f32c48dd93ed9736b62f0ec658",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.core.TeamId": {
+      "title": "TeamId",
+      "x-ess-name": "mandate.core.TeamId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    }
+  }
+}

@@ -2,6 +2,7 @@
 # A principal variant references mandate.identity.Principal; a team variant references mandate.tenancy.Team membership.
 # Each chosen branch has cardinality one and references (never owns) its target. ESS 0.25 relation carriers cannot select a union branch; the typed IDs remain in the union.
 # Runtime graph storage must enforce the conditional foreign key and organization membership before admission; see decision-blocker:subject-relations.
+# Lifecycle is immutable-with-status: a resource the product deleted is deregistered here, never destroyed, and the relationships that referenced it are removed by their own command through the durable cleanup job.
 domain: mandate.graph
 entities:
   - name: mandate.graph.Resource
@@ -21,8 +22,14 @@ entities:
       initial: Recorded
       states:
         - Recorded
+        - Deregistered
       terminal:
-        - Recorded
+        - Deregistered
+      transitions:
+        - name: deregister
+          from:
+            - Recorded
+          to: Deregistered
     relations:
       - name: organization_id_record
         kind: references
@@ -184,6 +191,26 @@ commands:
     response:
       - name: revision
         type: mandate.core.AuthzRevision
+  - name: mandate.graph.DeregisterResource
+    input:
+      - name: id
+        type: mandate.core.ResourceId
+      - name: context
+        type: mandate.core.VerifiedContext
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.graph.ResourceDeregistered
+        payload:
+          mandate.graph.ResourceDeregistered:
+            context: input.context
+            id: input.id
+        moves: mandate.graph.Resource.deregister
+        instance: id
+        summary: The security record of a deleted resource is kept and stops resolving. Relationship cleanup is the durable outbox job's, and each removal is its own recorded move; no child resource, relation or grant is destroyed as a side effect of this one.
+      - name: denied
+        external: Caller lacks resource registration/ownership authority, the resource is outside the verified organization, a child resource still resolves through it, or the durable relationship cleanup this deregistration requires cannot be enqueued.
+        error: mandate.graph.Denied
 events:
   - name: mandate.graph.RelationRemoved
     fields:
@@ -201,6 +228,12 @@ events:
     fields:
       - name: context
         type: mandate.core.VerifiedContext
+  - name: mandate.graph.ResourceDeregistered
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: id
+        type: mandate.core.ResourceId
 errors:
   - name: mandate.graph.Denied
     summary: Fail closed; no credential, authority or lifecycle mutation on refusal.

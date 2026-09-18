@@ -5,7 +5,7 @@ kind: decision-blocker
 status: open
 title: UNMAPPED-SUBJECT-RELATIONS
 relations:
-- blocks: story:graph-policy
+- blocks: story:graph-policy-adapter
 revision: 1
 ---
 AuthoritySubject is an exact tagged principal/team union. The chosen branch references one Principal or Team membership without owning it. ESS 0.25 cannot carry a relation through a union branch. Settle conditional foreign-key and tenant-membership enforcement before graph runtime admission; schemas must continue to reject zero or multiple subjects.

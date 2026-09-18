@@ -8,12 +8,12 @@
 | `mandate.identity` | `mandate-model`: records; `mandate-identity`: identity/session behavior | Control plane; STS consumes validated session/epoch information. |
 | `mandate.tenancy` | `mandate-model`: organization/team records; `mandate-authz`: isolation evaluation | Control-plane administration and authorization evaluation. |
 | `mandate.directory` | `mandate-model`: directory/contribution records; `mandate-provisioning`: mapping/provisioning behavior | Control plane owns state and commands; worker orchestration invokes those ports. |
-| `mandate.graph` | `mandate-model`: resource/relation/grant records; `mandate-graph`: graph ports | Authorization; concrete storage remains an adapter. |
-| `mandate.policy` | `mandate-model`: versioned policies/models; `mandate-policy`: policy ports | Authorization; backend choice remains UNMAPPED-BACKEND. |
+| `mandate.graph` | `mandate-model`: the `Resource` projection; `mandate-graph`: relation/grant projections of its own fold, graph ports | Authorization; concrete storage remains an adapter. |
+| `mandate.policy` | `mandate-policy`: policy/model projections of its own fold, policy ports | Authorization; backend choice remains UNMAPPED-BACKEND. |
 | `mandate.authorization` | `mandate-authz`: combined decision evaluation | Authorization service; PEPs enforce decisions. |
-| `mandate.federation` | `mandate-model`: connection/link/client records; `mandate-federation`: trust and public-client integration | Control plane authenticates and invokes STS code issuance. |
-| `mandate.credential` | `mandate-model`: registry/credential/code records; `mandate-token`: credential formats and token primitives | STS alone issues, resolves, exchanges and revokes credentials, stores code verifiers, and consumes codes. |
-| `mandate.delegation` | `mandate-model`: delegation/ceiling/execution/approval records; `mandate-authz`: intersections | Control plane administers; authorization evaluates; STS bounds exchange. |
+| `mandate.federation` | `mandate-federation`: connection/link/client projections of its own fold, trust and public-client integration | Control plane authenticates and invokes STS code issuance. |
+| `mandate.credential` | `mandate-token`: resource-server/credential/signing-key projections, credential formats and token primitives; STS: the authorization-code projection | STS alone issues, resolves, exchanges and revokes credentials, stores code verifiers, and consumes codes. |
+| `mandate.delegation` | `mandate-authz`: delegation/ceiling/execution/approval projections of its own fold, intersections | Control plane administers; authorization evaluates; STS bounds exchange. |
 | `mandate.workload` | `mandate-model`: workload records; `mandate-identity`/`mandate-federation`: trust verification | Control plane establishes trust; STS exchanges validated proofs. |
 | `mandate.audit` | `mandate-audit`: audit values/writer/export ports; shared fields in `mandate-types` | Worker owns `RecordAuditEvent`; producers supply redacted records through durable transport. |
 

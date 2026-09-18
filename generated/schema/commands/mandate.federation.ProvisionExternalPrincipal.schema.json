@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ProvisionExternalPrincipal input",
+  "x-ess-name": "mandate.federation.ProvisionExternalPrincipal",
+  "x-ess-kind": "command-input",
+  "type": "object",
+  "properties": {
+    "connection_id": {
+      "$ref": "#/$defs/mandate.core.FederationConnectionId"
+    },
+    "proof": {
+      "$ref": "#/$defs/mandate.core.CredentialProof"
+    }
+  },
+  "required": [
+    "connection_id",
+    "proof"
+  ],
+  "additionalProperties": false,
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8",
+    "contract_digest": "slice-sha256/2:060c744280ebd8160337f867479932374173a5f3d546eb814dd57528862f0f8c",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.core.CredentialProof": {
+      "title": "CredentialProof",
+      "x-ess-name": "mandate.core.CredentialProof",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+      "contentEncoding": "base64"
+    },
+    "mandate.core.FederationConnectionId": {
+      "title": "FederationConnectionId",
+      "x-ess-name": "mandate.core.FederationConnectionId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    }
+  }
+}

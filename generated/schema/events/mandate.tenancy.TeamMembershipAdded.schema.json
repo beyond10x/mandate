@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TeamMembershipAdded payload",
+  "x-ess-name": "mandate.tenancy.TeamMembershipAdded",
+  "x-ess-kind": "event-payload",
+  "type": "object",
+  "properties": {
+    "context": {
+      "$ref": "#/$defs/mandate.core.VerifiedContext"
+    },
+    "team_id": {
+      "$ref": "#/$defs/mandate.core.TeamId"
+    },
+    "principal_id": {
+      "$ref": "#/$defs/mandate.core.PrincipalId"
+    },
+    "team_membership_id": {
+      "$ref": "#/$defs/mandate.core.TeamMembershipId"
+    },
+    "contribution_id": {
+      "$ref": "#/$defs/mandate.core.MembershipContributionId"
+    }
+  },
+  "required": [
+    "context",
+    "team_id",
+    "principal_id",
+    "team_membership_id",
+    "contribution_id"
+  ],
+  "additionalProperties": false,
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8",
+    "contract_digest": "slice-sha256/2:9be5f9e92d22141ee4013f5464886112491bb6c556eae37e9de7054ead35dff6",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.core.Audience": {
+      "title": "Audience",
+      "x-ess-name": "mandate.core.Audience",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    },
+    "mandate.core.CorrelationId": {
+      "title": "CorrelationId",
+      "x-ess-name": "mandate.core.CorrelationId",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    },
+    "mandate.core.CredentialId": {
+      "title": "CredentialId",
+      "x-ess-name": "mandate.core.CredentialId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.DelegationId": {
+      "title": "DelegationId",
+      "x-ess-name": "mandate.core.DelegationId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.ExecutionId": {
+      "title": "ExecutionId",
+      "x-ess-name": "mandate.core.ExecutionId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.MembershipContributionId": {
+      "title": "MembershipContributionId",
+      "x-ess-name": "mandate.core.MembershipContributionId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.OrganizationId": {
+      "title": "OrganizationId",
+      "x-ess-name": "mandate.core.OrganizationId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.PrincipalId": {
+      "title": "PrincipalId",
+      "x-ess-name": "mandate.core.PrincipalId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.TeamId": {
+      "title": "TeamId",
+      "x-ess-name": "mandate.core.TeamId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.TeamMembershipId": {
+      "title": "TeamMembershipId",
+      "x-ess-name": "mandate.core.TeamMembershipId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.VerifiedContext": {
+      "title": "VerifiedContext",
+      "x-ess-name": "mandate.core.VerifiedContext",
+      "x-ess-kind": "struct",
+      "type": "object",
+      "properties": {
+        "subject": {
+          "$ref": "#/$defs/mandate.core.PrincipalId"
+        },
+        "actor": {
+          "$ref": "#/$defs/mandate.core.PrincipalId"
+        },
+        "organization": {
+          "$ref": "#/$defs/mandate.core.OrganizationId"
+        },
+        "audience": {
+          "$ref": "#/$defs/mandate.core.Audience"
+        },
+        "credential": {
+          "$ref": "#/$defs/mandate.core.CredentialId"
+        },
+        "delegation": {
+          "$ref": "#/$defs/mandate.core.DelegationId"
+        },
+        "execution": {
+          "$ref": "#/$defs/mandate.core.ExecutionId"
+        },
+        "correlation": {
+          "$ref": "#/$defs/mandate.core.CorrelationId"
+        }
+      },
+      "required": [
+        "subject",
+        "organization",
+        "audience",
+        "credential",
+        "correlation"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

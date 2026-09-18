@@ -5,7 +5,7 @@ kind: decision-blocker
 status: open
 title: UNMAPPED-BACKEND
 relations:
-- blocks: story:graph-policy
+- blocks: story:graph-policy-adapter
 revision: 1
 ---
 Graph engine and policy engine selections remain open; choose behind adapter ports using tenancy, consistency and load acceptance evidence.
