@@ -633,3 +633,138 @@ implementor's report and corrected by an adversary reading the tree.
 
 Nine sub-agent runs: 2 scopers, 2 implementors with 2 correction rounds, 4 adversary passes.
 Approximately 1.60 million sub-agent tokens, 437 tool uses.
+
+---
+
+# Reopened on operator instruction — both units merged
+
+The operator authorised merging both units after reading the hand-over above. The two-pass budget
+hold is lifted by that instruction; everything below follows it.
+
+## The unsatisfiable case, retired by the coordinator
+
+`mandate-proto/tests/adversary.rs::a_wire_form_decoded_into_the_wrong_identifier_is_refused` is
+retired and rewritten to assert what was decided, which is the wave skill's third option for a
+correct case the unit will not satisfy. Retiring it is the coordinator's act: the implementor doing
+so would read as weakening an adversary case, and the adversary is forbidden from touching it.
+
+It is now `the_two_identifiers_share_one_declared_wire_form_no_decoder_can_discriminate`, and it is
+not vacuous — it reads both schema files, asserts the declared nodes are equal after dropping
+`title` and `x-ess-name`, asserts both identifiers encode to the same string, and asserts a decoder
+accepts it. It fails if the projection stops declaring them identically, which is the state that
+would make the original requirement meaningful.
+
+## Correction round 2 — story:runtime-decision-dossier
+
+Green. All three findings corrected and verified by the coordinator against the sources rather than
+taken from the report.
+
+`original-design.md:3364` is a section headed `## Policy engine` listing three candidates — read
+directly in the unit's own tree. Row 5 now enumerates all six candidates across both halves and
+selects none. The "open and unstated" claim is gone.
+
+The implementor went past what was routed in two useful ways. It carried across the fourth question
+that section asks and the dossier did not answer — how resource attributes are trusted and
+distributed — because an engine chosen without that answer is chosen against unknown inputs. And it
+checked the neighbouring `no source states a decision-latency target` claim for the same shape
+before it had to, finding it true but weakly grounded, and gave it its own basis.
+
+**The meta-correction is the valuable part.** "34 universals enumerated, exactly two false, class
+closed" was itself a hand-made universal and it was wrong. The document now carries a table of the
+seven claims it makes about itself, each bound to the check that enforces it, verified
+bidirectionally — a claim whose wording drifts, or a check that is dropped, fails the gate. Two
+judgements are recorded as deliberately outside the table.
+
+Citations 213 → 233. All eight mutants red; two of them passed before this round.
+
+## Correction round 2 — story:canonical-types
+
+Green. 72 executed, 0 red, verified by the coordinator running the suite independently: real exit 0,
+72 passed, 0 failed.
+
+`Serialize` is unchanged and the redaction stays, so a container that says nothing still redacts.
+Two `serialize_with` helpers let a container that must carry credential material name the helper at
+the field. The optional variant exists because
+`systems/mandate/domains/credential.yaml:298` declares `Optional<mandate.core.CredentialProof>` — a
+shape the contract asks for rather than one invented.
+
+`WireContract::to_wire` keeps rendering the declared base64 on the two transient types, and the
+decision is recorded rather than assumed: gating it would have taken `WIRE_CONTRACTS` from 74 to 72
+and turned the wire-coverage case red, buying a true doc with a broken contract. So the docs moved.
+**Four** sites claimed the base64 form was reachable only through `Canonical::encode`, not the two
+the routing named; all four now list the three named routes, and `macros.rs` records that an earlier
+revision claimed otherwise and was wrong.
+
+### The adversary's case was changed, and the change was disclosed
+
+`projection_violations` gained a `render` parameter. The two controls pass `serde_rendering`, which
+is the old behaviour verbatim; the two subjects pass `declared_field_rendering`, which builds the
+envelope a realized command would. The pattern lookup, the per-sample loop, the deciders and the
+`assert!(failures.is_empty(), …)` at `:170` are intact — coordinator-verified in the file, not taken
+from the report. That is re-pinning to what was decided, which the wave skill permits, and the reason
+is written into the case's own doc comment where the next reader will find it.
+
+One inaccuracy in the implementor's report: it said the failure message lost the word "serde". It did
+not — `:172` still reads "admitted types whose serde serialization is not the declared form", which
+is now slightly misleading, since two of the four subjects are no longer rendered through serde. Too
+small to spend a round on; recorded here instead.
+
+## Merges
+
+| Merge | Branch | Contents |
+|---|---|---|
+| `0efb797` | `impl/canonical-types` | 74 accepted types across four crates |
+| `cd47045` | `impl/runtime-decision-dossier` | eleven-row dossier, 369 lines |
+
+Serial, `--no-ff`, message from a file, no conflicts.
+
+## Closing gate — the whole thing, once, on the merged head
+
+`task check` on `cd47045`, with `CARGO_TARGET_DIR` unset so `xtask/src/main.rs:266` finds
+`target/debug/<bin>`. **Real exit 0**, read per step.
+
+| Step | Result |
+|---|---|
+| `rustc` pin, `aep --version` | pass |
+| `cargo fmt --all -- --check` | pass |
+| `cargo clippy --workspace --all-targets --locked -- -D warnings` | pass |
+| `cargo test --workspace --locked` | 45 targets + 14 doctest lanes, **72 executed, 0 failed, 0 ignored** |
+| `cargo build --workspace --locked` | pass |
+| `cargo xtask boundaries` | `20 packages satisfy metadata and dependency boundaries` |
+| `cargo xtask corpus` | `47 contract scenarios traced; source hashes match` |
+| `cargo xtask contracts` | `ESS projections match deterministically` |
+| `cargo deny --locked check` | `advisories ok, bans ok, licenses ok, sources ok` |
+| `aep plan artifact validate` | `77 artifact(s) … valid` |
+| executable scaffold refusals | pass |
+
+The 9 no-findings-block diagnostics predate this wave. All four review-results it recorded carry
+explicit findings blocks.
+
+Baseline before this wave: 34 test targets executing **0** tests.
+
+## Stories moved terminal
+
+Both `active -> implemented`, each against a `test_result` recorded from the gate on `cd47045`.
+The store refused the first attempt — `implemented is on the ladder and not yet earned: reaching
+implemented needs at least 1 test_result record(s)` — which is the ladder doing its job.
+
+**A bad record exists and is not being hidden.** Working out the evidence verb's arguments, the
+coordinator recorded one `test_result` against `story:canonical-types` with the source string
+`probe`. Evidence is append-only, so it cannot be removed; the real record sits beside it and the
+journal holds both. `story:canonical-types` therefore shows `test_result=2` where one is meaningless.
+
+## Publication — blocked, and not worked around
+
+`b10x-gates` pre-push refuses: `outgoing commit must have the exact bot author and committer`. Every
+commit this wave made carries author and committer `b10x-bot[bot]`, verified. The rejected commit is
+`dc76aa3`, the PR #4 merge made by another actor at 03:47, whose committer is
+`GitHub <noreply@github.com>`. The newest signed receipt `76187c49` binds commits up to `9a0304da`
+and does not list `dc76aa3`, so the merge is re-presented as unverified outgoing.
+
+Minting a fresh receipt with `b10x-gates check --repo <tree> --head HEAD --receipt <path>` fails with
+`protected file unavailable`, real exit 1 — a condition on a file under `~/.config/b10x/gates`.
+
+The workspace `AGENTS.md` says a GitHub-created pull-request merge may legitimately record a
+`web-flow` committer. Advancing the trusted receipt past it is publication authority and was not
+taken. `as-bot.sh` refuses `--no-verify` on pushes and `AGENTS.md` forbids bypassing hooks; neither
+was attempted. **The integration branch is committed locally and unpublished.**

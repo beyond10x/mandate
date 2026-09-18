@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:runtime-decision-dossier
 kind: story
-status: active
+status: implemented
 title: Prepare the runtime decision dossier without clearing blockers
 relations:
 - decomposes: epic:foundations
@@ -16,7 +16,7 @@ scope:
   path: docs/architecture/runtime-decisions.md
 - confidence: inferred
   path: docs/architecture/unmapped.md
-revision: 9
+revision: 10
 ---
 # Prepare the runtime decision dossier without clearing blockers
 

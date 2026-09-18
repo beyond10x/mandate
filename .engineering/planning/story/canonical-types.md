@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:canonical-types
 kind: story
-status: active
+status: implemented
 title: Realize accepted canonical Rust types
 relations:
 - decomposes: epic:foundations
@@ -24,7 +24,7 @@ scope:
   path: crates/mandate-types
 - confidence: cited
   path: dependency-boundaries.json
-revision: 12
+revision: 13
 ---
 # Realize accepted canonical Rust types
 
