@@ -1,8 +1,13 @@
 {
   "libraries": {
-    "mandate-types": [],
+    "mandate-types": [
+      "serde",
+      "serde_json"
+    ],
     "mandate-model": [
-      "mandate-types"
+      "mandate-types",
+      "serde",
+      "serde_json"
     ],
     "mandate-graph": [
       "mandate-types",
@@ -19,7 +24,9 @@
       "mandate-policy"
     ],
     "mandate-token": [
-      "mandate-types"
+      "mandate-types",
+      "serde",
+      "serde_json"
     ],
     "mandate-identity": [
       "mandate-types",
@@ -40,7 +47,11 @@
       "mandate-types"
     ],
     "mandate-proto": [
-      "mandate-types"
+      "mandate-model",
+      "mandate-token",
+      "mandate-types",
+      "serde",
+      "serde_json"
     ],
     "mandate-client": [
       "mandate-types",
