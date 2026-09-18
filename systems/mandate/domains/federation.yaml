@@ -127,6 +127,7 @@ commands:
         payload:
           mandate.federation.ExternalPrincipalUnlinked:
             context: input.context
+            id: input.id
         moves: mandate.federation.ExternalPrincipal.unlink
         instance: id
       - name: denied
@@ -145,6 +146,7 @@ commands:
         payload:
           mandate.federation.FederationConnectionDisabled:
             context: input.context
+            id: input.id
         moves: mandate.federation.FederationConnection.disable
         instance: id
       - name: denied
@@ -171,6 +173,12 @@ commands:
             context: input.context
             connection_id: input.connection_id
             principal_id: input.principal_id
+            external_principal_id:
+              response: external_principal_id
+            subject: input.external_subject
+            link_method: input.method
+            linked_at:
+              generated: true
       - name: denied
         external: Caller/method lacks linking authority, proof/connection trust is invalid, organization or target principal mismatches, composite (organization, configured issuer, subject) key conflicts, or durable audited linking fails. Email equality never authorizes linking.
         error: mandate.federation.Denied
@@ -221,7 +229,13 @@ commands:
           - mandate.federation.FederationAuthenticated
         payload:
           mandate.federation.FederationAuthenticated:
-            context:
+            session_id:
+              response: session_id
+            principal_id:
+              generated: true
+            audience:
+              generated: true
+            correlation:
               generated: true
             connection_id: input.connection_id
       - name: denied
@@ -242,7 +256,9 @@ commands:
           - mandate.federation.ExternalPrincipalProvisioned
         payload:
           mandate.federation.ExternalPrincipalProvisioned:
-            context:
+            organization_id:
+              generated: true
+            correlation:
               generated: true
             connection_id: input.connection_id
             principal_id:
@@ -255,6 +271,8 @@ commands:
             subject:
               response: subject
             link_method: ConfiguredFederation
+            linked_at:
+              generated: true
         summary: "Just-in-time provisioning on first login. This event is the creation record for both entities it names — one mandate.identity.Principal of kind User, and one mandate.federation.ExternalPrincipal linking it with ExternalLinkMethod::ConfiguredFederation — because mandate.identity declares no command that creates a Principal, so nothing else in this contract records that one came into existence. Both identities and the external subject are bound from the response rather than left to the implementation. The composite key is (organization, connection issuer, external subject), with the issuer read from the validated connection and the subject from the validated proof, never from the caller. No session is minted here; the adapter calls AuthenticateFederation again."
       - name: denied
         external: Connection is disabled/untrusted, proof signature/issuer/audience/expiry is invalid, tenant resolution has zero or multiple matches, principal linking is conflicting, connection does not admit provisioning, the composite (organization, configured issuer, subject) key already exists, or any email-domain/unverified-input fallback would be required.
@@ -292,8 +310,20 @@ commands:
           - mandate.federation.AuthorizationCodeIssued
         payload:
           mandate.federation.AuthorizationCodeIssued:
-            context:
+            organization_id:
               generated: true
+            correlation:
+              generated: true
+            code_id:
+              generated: true
+            client_id: input.client_id
+            session_id:
+              generated: true
+            redirect_uri: input.redirect_uri
+            challenge: input.challenge
+            method: input.method
+            target: input.target
+            requested_scope: input.requested_scope
       - name: denied
         external: Session proof is invalid/stale, client is not a registered public client, the client is disabled, exact redirect URI or state/applicable nonce binding fails, S256 challenge is absent/invalid, target is unregistered/outside tenant, or STS code issuance/narrowing is refused.
         error: mandate.federation.Denied
@@ -325,10 +355,14 @@ events:
     fields:
       - name: context
         type: mandate.core.VerifiedContext
+      - name: id
+        type: mandate.core.ExternalPrincipalId
   - name: mandate.federation.FederationConnectionDisabled
     fields:
       - name: context
         type: mandate.core.VerifiedContext
+      - name: id
+        type: mandate.core.FederationConnectionId
   - name: mandate.federation.ExternalPrincipalLinked
     fields:
       - name: context
@@ -337,6 +371,14 @@ events:
         type: mandate.core.FederationConnectionId
       - name: principal_id
         type: mandate.core.PrincipalId
+      - name: external_principal_id
+        type: mandate.core.ExternalPrincipalId
+      - name: subject
+        type: mandate.core.ExternalSubject
+      - name: link_method
+        type: mandate.core.ExternalLinkMethod
+      - name: linked_at
+        type: Timestamp
   - name: mandate.federation.FederationConnectionCreated
     fields:
       - name: context
@@ -353,14 +395,22 @@ events:
         type: Boolean
   - name: mandate.federation.FederationAuthenticated
     fields:
-      - name: context
-        type: mandate.core.VerifiedContext
+      - name: session_id
+        type: mandate.core.SessionId
+      - name: principal_id
+        type: mandate.core.PrincipalId
+      - name: audience
+        type: mandate.core.Audience
+      - name: correlation
+        type: mandate.core.CorrelationId
       - name: connection_id
         type: mandate.core.FederationConnectionId
   - name: mandate.federation.ExternalPrincipalProvisioned
     fields:
-      - name: context
-        type: mandate.core.VerifiedContext
+      - name: organization_id
+        type: mandate.core.OrganizationId
+      - name: correlation
+        type: mandate.core.CorrelationId
       - name: connection_id
         type: mandate.core.FederationConnectionId
       - name: principal_id
@@ -375,10 +425,30 @@ events:
         type: mandate.core.ExternalSubject
       - name: link_method
         type: mandate.core.ExternalLinkMethod
+      - name: linked_at
+        type: Timestamp
   - name: mandate.federation.AuthorizationCodeIssued
     fields:
-      - name: context
-        type: mandate.core.VerifiedContext
+      - name: organization_id
+        type: mandate.core.OrganizationId
+      - name: correlation
+        type: mandate.core.CorrelationId
+      - name: code_id
+        type: mandate.core.AuthorizationCodeId
+      - name: client_id
+        type: mandate.core.OAuthClientId
+      - name: session_id
+        type: mandate.core.SessionId
+      - name: redirect_uri
+        type: mandate.core.RedirectUri
+      - name: challenge
+        type: mandate.core.PkceChallenge
+      - name: method
+        type: mandate.core.PkceMethod
+      - name: target
+        type: mandate.core.ResourceServerId
+      - name: requested_scope
+        type: mandate.core.AuthorityScope
   - name: mandate.federation.OAuthClientDisabled
     fields:
       - name: context

@@ -2,6 +2,7 @@
 # A directory group is created by SCIM provisioning populating directory state first; no control-plane command creates one, and that path belongs to story:directory-provenance. Retiring a group removes neither the team it mapped to nor any membership contribution that another mapping or a manual grant still supports.
 # A sync job records the outcome of one run. Enqueue, claim, lease and retry belong to the worker queue behind its port (decision-blocker:worker-orchestration) and are never contract transitions.
 # Mapping-derived MembershipContribution records are created by the two commands that reconcile them, and each event names the contributions its run wrote; the manual contribution is mandate.tenancy.AddTeamMembership's. Every one of them is retracted by RemoveMembershipContribution alone.
+# DirectoryGroupRecorded, SyncJobRecorded, DirectoryGroupMembershipRecorded and MembershipContributionRecorded are seeding events written by the mandate-control-plane component, which owns mandate.directory, accepts every command in it and publishes them (components.yaml); its SCIM provisioning adapter behind SyncDirectoryMembership writes them. The worker keeps the queue alone. No command outcome emits any of them: no command creates a directory group, a sync job, a directory group membership row or a membership contribution row, so one component writes one event per record it creates and every field of that record is on its own event. Precedent for a declared event no command outcome emits: domains/audit.yaml, published by the component that owns mandate.audit.
 domain: mandate.directory
 entities:
   - name: mandate.directory.MembershipContribution
@@ -222,6 +223,7 @@ commands:
         payload:
           mandate.directory.MembershipContributionRemoved:
             context: input.context
+            id: input.id
         moves: mandate.directory.MembershipContribution.remove
         instance: id
       - name: denied
@@ -240,6 +242,7 @@ commands:
         payload:
           mandate.directory.DirectoryGroupMembershipRemoved:
             context: input.context
+            id: input.id
         moves: mandate.directory.DirectoryGroupMembership.remove
         instance: id
       - name: denied
@@ -258,6 +261,7 @@ commands:
         payload:
           mandate.directory.DirectoryGroupTeamMappingRemoved:
             context: input.context
+            id: input.id
         moves: mandate.directory.DirectoryGroupTeamMapping.remove
         instance: id
       - name: denied
@@ -278,10 +282,17 @@ commands:
         payload:
           mandate.directory.DirectoryGroupTeamMappingCreated:
             context: input.context
+            mapping_id:
+              response: mapping_id
             group_id: input.group_id
             team_id: input.team_id
+            created_by:
+              generated: true
+            created_at:
+              generated: true
             contributions:
               generated: true
+        summary: One mapping row, and the mapping-derived contribution rows the reconciliation wrote named by identity alone. Each contribution's own fields are on its MembershipContributionRecorded; nothing here is read positionally.
       - name: denied
         external: Caller lacks mapping authority, group/team is unknown, the group is retired, the team is retired, either target is outside the verified organization, or provenance-preserving contribution reconciliation fails.
         error: mandate.directory.Denied
@@ -304,8 +315,11 @@ commands:
           mandate.directory.DirectoryGroupMembershipChanged:
             context: input.context
             group_id: input.group_id
+            membership_ids:
+              generated: true
             contributions:
               generated: true
+        summary: The membership rows this run wrote, named by identity alone and nothing else. They are the additions the run resolved, never the group's full membership, and each row's own fields are on its own DirectoryGroupMembershipRecorded. A membership this run no longer resolves is removed only by RemoveDirectoryGroupMembership, whose DirectoryGroupMembershipRemoved names the row; absence from this list removes nothing.
       - name: denied
         external: Caller is not an admitted provisioning source, the group is retired, group/member organization mismatches, or synchronization would grant authority without an explicit valid team mapping.
         error: mandate.directory.Denied
@@ -374,22 +388,34 @@ events:
     fields:
       - name: context
         type: mandate.core.VerifiedContext
+      - name: id
+        type: mandate.core.MembershipContributionId
   - name: mandate.directory.DirectoryGroupMembershipRemoved
     fields:
       - name: context
         type: mandate.core.VerifiedContext
+      - name: id
+        type: mandate.core.DirectoryGroupMembershipId
   - name: mandate.directory.DirectoryGroupTeamMappingRemoved
     fields:
       - name: context
         type: mandate.core.VerifiedContext
+      - name: id
+        type: mandate.core.DirectoryGroupTeamMappingId
   - name: mandate.directory.DirectoryGroupTeamMappingCreated
     fields:
       - name: context
         type: mandate.core.VerifiedContext
+      - name: mapping_id
+        type: mandate.core.DirectoryGroupTeamMappingId
       - name: group_id
         type: mandate.core.DirectoryGroupId
       - name: team_id
         type: mandate.core.TeamId
+      - name: created_by
+        type: mandate.core.PrincipalId
+      - name: created_at
+        type: Timestamp
       - name: contributions
         type: List<mandate.core.MembershipContributionId>
   - name: mandate.directory.DirectoryGroupMembershipChanged
@@ -398,6 +424,8 @@ events:
         type: mandate.core.VerifiedContext
       - name: group_id
         type: mandate.core.DirectoryGroupId
+      - name: membership_ids
+        type: List<mandate.core.DirectoryGroupMembershipId>
       - name: contributions
         type: List<mandate.core.MembershipContributionId>
   - name: mandate.directory.DirectoryGroupRetired
@@ -418,6 +446,50 @@ events:
         type: mandate.core.VerifiedContext
       - name: id
         type: mandate.core.SyncJobId
+  - name: mandate.directory.DirectoryGroupRecorded
+    fields:
+      - name: id
+        type: mandate.core.DirectoryGroupId
+      - name: organization_id
+        type: mandate.core.OrganizationId
+      - name: display_name
+        type: String
+      - name: source
+        type: String
+  - name: mandate.directory.SyncJobRecorded
+    fields:
+      - name: id
+        type: mandate.core.SyncJobId
+      - name: organization_id
+        type: mandate.core.OrganizationId
+      - name: connection_id
+        type: mandate.core.FederationConnectionId
+      - name: correlation
+        type: mandate.core.CorrelationId
+  - name: mandate.directory.DirectoryGroupMembershipRecorded
+    fields:
+      - name: id
+        type: mandate.core.DirectoryGroupMembershipId
+      - name: organization_id
+        type: mandate.core.OrganizationId
+      - name: group_id
+        type: mandate.core.DirectoryGroupId
+      - name: principal_id
+        type: mandate.core.PrincipalId
+  - name: mandate.directory.MembershipContributionRecorded
+    fields:
+      - name: id
+        type: mandate.core.MembershipContributionId
+      - name: organization_id
+        type: mandate.core.OrganizationId
+      - name: team_membership_id
+        type: mandate.core.TeamMembershipId
+      - name: source
+        type: mandate.core.MembershipSource
+      - name: mapping_id
+        type: Optional<mandate.core.DirectoryGroupTeamMappingId>
+      - name: created_by
+        type: mandate.core.PrincipalId
 errors:
   - name: mandate.directory.Denied
     summary: Fail closed; no credential, authority or lifecycle mutation on refusal.

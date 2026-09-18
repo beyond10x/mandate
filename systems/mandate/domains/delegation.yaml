@@ -259,6 +259,7 @@ commands:
         payload:
           mandate.delegation.DelegationRevoked:
             context: input.context
+            id: input.id
         moves: mandate.delegation.Delegation.revoke
         instance: id
       - name: denied
@@ -287,6 +288,18 @@ commands:
         payload:
           mandate.delegation.DelegationCreated:
             context: input.context
+            id:
+              response: delegation_id
+            delegator:
+              generated: true
+            delegate: input.delegate
+            scope: input.scope
+            audience: input.audience
+            not_before: input.not_before
+            expires_at: input.expires_at
+            execution_binding: input.execution_binding
+            created_at:
+              generated: true
       - name: denied
         external: Caller lacks delegation authority, subject/delegate/tenant/space/registered audience or execution binding fails, requested scope/expiry exceeds source/delegation/policy limits or agent ceilings, or a transitive/approval-required grant would be created.
         error: mandate.delegation.Denied
@@ -378,10 +391,30 @@ events:
     fields:
       - name: context
         type: mandate.core.VerifiedContext
+      - name: id
+        type: mandate.core.DelegationId
   - name: mandate.delegation.DelegationCreated
     fields:
       - name: context
         type: mandate.core.VerifiedContext
+      - name: id
+        type: mandate.core.DelegationId
+      - name: delegator
+        type: mandate.core.PrincipalId
+      - name: delegate
+        type: mandate.core.PrincipalId
+      - name: scope
+        type: mandate.core.AuthorityScope
+      - name: audience
+        type: mandate.core.Audience
+      - name: not_before
+        type: Optional<Timestamp>
+      - name: expires_at
+        type: Timestamp
+      - name: execution_binding
+        type: Optional<mandate.core.ExecutionId>
+      - name: created_at
+        type: Timestamp
   - name: mandate.delegation.AgentRetired
     fields:
       - name: context

@@ -162,6 +162,7 @@ commands:
         payload:
           mandate.tenancy.OrganizationMembershipRemoved:
             context: input.context
+            id: input.id
         moves: mandate.tenancy.OrganizationMembership.remove
         instance: id
       - name: denied
@@ -182,6 +183,7 @@ commands:
             context: input.context
             organization_id:
               response: organization_id
+            display_name: input.display_name
         summary: The isolation root every other tenant-owned record resolves to. It is created empty, and no membership, team, space or grant exists inside it until that record's own command writes one. AddOrganizationMembership is the one command that can name this organization rather than the caller's own, so the first membership inside it is written by a caller holding platform organization-administration authority; every later write resolves the organization from that member's verified context.
       - name: denied
         external: Caller lacks platform organization-administration authority, the requested display name is not admitted, or the isolation root cannot be created without implying membership, grants or authority inside it.
@@ -250,6 +252,7 @@ commands:
             context: input.context
             team_id:
               response: team_id
+            display_name: input.display_name
         summary: A team is created by an organization administrator and never by directory synchronization. A customer directory group populates directory state, and whether that group maps to this team is a separate explicit decision.
       - name: denied
         external: Caller lacks team-administration authority, the display name is not admitted in the verified organization, or the team cannot be created without implying a grant or a directory mapping.
@@ -342,6 +345,7 @@ commands:
             context: input.context
             space_id:
               response: space_id
+            display_name: input.display_name
         summary: A security boundary below the organization, with no environment semantics implied by its name. Creating it grants nothing inside it.
       - name: denied
         external: Caller lacks space-administration authority, the display name is not admitted in the verified organization, or the space cannot be created without implying a grant or a resource inside it.
@@ -374,12 +378,16 @@ events:
     fields:
       - name: context
         type: mandate.core.VerifiedContext
+      - name: id
+        type: mandate.core.OrganizationMembershipId
   - name: mandate.tenancy.OrganizationCreated
     fields:
       - name: context
         type: mandate.core.VerifiedContext
       - name: organization_id
         type: mandate.core.OrganizationId
+      - name: display_name
+        type: String
   - name: mandate.tenancy.OrganizationClosed
     fields:
       - name: context
@@ -402,6 +410,8 @@ events:
         type: mandate.core.VerifiedContext
       - name: team_id
         type: mandate.core.TeamId
+      - name: display_name
+        type: String
   - name: mandate.tenancy.TeamRetired
     fields:
       - name: context
@@ -432,6 +442,8 @@ events:
         type: mandate.core.VerifiedContext
       - name: space_id
         type: mandate.core.SpaceId
+      - name: display_name
+        type: String
   - name: mandate.tenancy.SpaceRetired
     fields:
       - name: context
