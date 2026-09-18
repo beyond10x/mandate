@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:session-epochs
 kind: story
-status: active
+status: implemented
 title: Implement exact session security generations
 relations:
 - decomposes: epic:authentication
@@ -11,37 +11,49 @@ relations:
 - depends_on: story:domain-runtime
 - informed_by: initiative:next-ten-waves
 scope:
-- confidence: inferred
+- confidence: cited
   path: crates/mandate-identity/src/generation.rs
-- confidence: inferred
+- confidence: cited
   path: crates/mandate-identity/src/increment.rs
 - confidence: cited
   path: crates/mandate-identity/src/lib.rs
-- confidence: inferred
+- confidence: cited
   path: crates/mandate-identity/src/port.rs
-- confidence: inferred
+- confidence: cited
   path: crates/mandate-identity/src/session.rs
-- confidence: inferred
+- confidence: cited
   path: crates/mandate-identity/src/snapshot.rs
-- confidence: inferred
+- confidence: cited
+  path: crates/mandate-identity/tests/adversary_expiry.rs
+- confidence: cited
+  path: crates/mandate-identity/tests/adversary_lifecycle.rs
+- confidence: cited
+  path: crates/mandate-identity/tests/adversary_monotonic.rs
+- confidence: cited
+  path: crates/mandate-identity/tests/adversary_ordering.rs
+- confidence: cited
+  path: crates/mandate-identity/tests/adversary_timestamp_form.rs
+- confidence: cited
+  path: crates/mandate-identity/tests/adversary_version.rs
+- confidence: cited
   path: crates/mandate-identity/tests/generation.rs
-- confidence: inferred
+- confidence: cited
   path: crates/mandate-identity/tests/increment.rs
-- confidence: inferred
+- confidence: cited
   path: crates/mandate-identity/tests/port.rs
-- confidence: inferred
+- confidence: cited
   path: crates/mandate-identity/tests/refresh.rs
-- confidence: inferred
+- confidence: cited
   path: crates/mandate-identity/tests/staleness.rs
-- confidence: inferred
+- confidence: cited
   path: crates/mandate-identity/tests/surface.rs
-revision: 8
+revision: 41
 ---
 # Implement exact session security generations
 
 ## Acceptance
 
-Given a session snapshot and an authoritative generation increment, when the session is refreshed, then it is rejected as stale without changing eligibility in unrelated organization sessions.
+Given a session snapshot and an authoritative generation increment scoped to one organization, when the session is refreshed, then it is rejected as stale without changing eligibility in sessions of other organizations; a principal-scoped increment is a global reset of that principal and reaches every organization's session for it (`combined.md:47`).
 
 ## Required observations
 
@@ -49,7 +61,7 @@ Resolve UNMAPPED-EPOCH and UNMAPPED-ATOMICITY first; exact unsigned generations 
 
 ## The stand-in, recorded
 
-The generation is an ESS `Integer` — signed 64-bit; ESS 0.25.0 has no unsigned primitive — constrained non-negative and monotonic, placed in the contract on the three epoch entities by `story:domain-runtime` (wave 2). "Exact unsigned" in the Required observations is read as "exact, non-negative, never wrapping"; widening to an unsigned type when ESS gains one is a compatible change. At `i64::MAX` the increment denies and an out-of-band reset is required (`command-obligations.md:36`). This is the first numeric value in the entire contract; its projected JSON-Schema shape is unexercised and is checked at wave 2's regeneration.
+The generation is an ESS `Integer` — signed 64-bit; ESS 0.25.0 has no unsigned primitive — constrained non-negative and monotonic, placed in the contract on the three epoch entities by `story:domain-runtime` (wave 1). "Exact unsigned" in the Required observations is read as "exact, non-negative, never wrapping"; widening to an unsigned type when ESS gains one is a compatible change. At `i64::MAX` the increment denies forever for that target (`command-obligations.md:49`); the out-of-band reset the architecture names is the revocation of every session whose snapshot names that target, never a rewind or a reuse of a generation — the coordinator's ruling on adversary finding F2, 2026-09-18. This is the first numeric value in the contract; its projected JSON-Schema shape carries no bound (`story:invariant-boundary-validation`).
 
 ## Units
 
@@ -92,12 +104,24 @@ Four reasons, each read from the tree. `canonical_record!` mints `mandate.core.<
 
 ## Scope
 
-- `crates/mandate-identity/src/lib.rs` — cited; the crate's only file today, four `//!` lines; coordinator.
-- `crates/mandate-identity/src/generation.rs`, `snapshot.rs`, `session.rs`, `port.rs`, `increment.rs` — inferred; do not exist.
-- `crates/mandate-identity/tests/surface.rs`, `generation.rs`, `staleness.rs`, `refresh.rs`, `port.rs`, `increment.rs` — inferred; do not exist.
-- Read, not written: `tests/security/cases.json:265-334`; `systems/mandate/domains/identity.yaml`.
-- Would collide with: `story:pkce-sessions` on `src/lib.rs` only, and that file is coordinator-owned in both stories' waves; the two are sequential by `depends_on` regardless.
+## Scope
+
+Rewritten at wave-2 close from unit commit `ee5db48e4ff15af8bb78a5612aaac81dd5693cdb`, merged as `8c3915e`.
+
+- `crates/mandate-identity/src/lib.rs`, `src/generation.rs`, `src/increment.rs`, `src/port.rs`, `src/session.rs`, `src/snapshot.rs` — cited; the six source files of the unit.
+- `crates/mandate-identity/tests/generation.rs`, `tests/increment.rs`, `tests/port.rs`, `tests/refresh.rs`, `tests/staleness.rs`, `tests/surface.rs` — cited; 68 cases.
+- `crates/mandate-identity/tests/adversary_expiry.rs`, `adversary_lifecycle.rs`, `adversary_monotonic.rs`, `adversary_ordering.rs`, `adversary_timestamp_form.rs`, `adversary_version.rs` — cited; the two adversary passes' 13 kept cases (`review-result:wave2-session-epochs-adversary-1`, `-2`).
+- Read, not written: `tests/security/cases.json`, `systems/mandate/domains/identity.yaml`, `generated/schema/**`.
+- Untouched: `Cargo.toml`, `Cargo.lock`, `dependency-boundaries.json`; the ceiling `mandate-types`, `mandate-model`, `std` held.
 
 ## Validation and contract
 
 `task check` and the runtime tests named above. `tests/security/cases.json` is a contract corpus, not runtime evidence. ESS: `systems/mandate/ess-inputs.yaml`. Source: `docs/requirements.md` and combined architecture.
+
+## Residue after wave 2
+
+- `IdentityLog`'s seeding constructors are `pub` by ruling (a host holds the eventlog adapter, never this double); their home is `story:testkit-doubles`.
+- The three seeding events `SessionOpened`, `EpochSnapshotRecorded`, `SecurityEpochRecorded` are declared by no `events:` entry — `story:event-payloads-for-folds`.
+- `Timestamp` is a lexical newtype; `crates/mandate-types/src/value.rs:219-220` leaves form validation undischarged, so this crate parses RFC 3339 locally and fails closed on a malformed value. A canonical form at the type would retire the local parser.
+- `StreamVersion` saturation (`u128`) is unreachable and therefore untested, as the type's doc says.
+- The fail-closed refusal order in `refresh_session` is observable to an undated caller and presumes an authenticated one; recorded in its doc (`review-result:wave2-session-epochs-adversary-2` F6).

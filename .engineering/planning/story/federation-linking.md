@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:federation-linking
 kind: story
-status: active
+status: implemented
 title: Implement verified federation and explicit linking
 relations:
 - decomposes: epic:authentication
@@ -13,28 +13,28 @@ relations:
 - depends_on: story:domain-runtime
 scope:
 - confidence: cited
-  path: crates/mandate-federation/Cargo.toml
-- confidence: inferred
   path: crates/mandate-federation/src/authenticate.rs
 - confidence: cited
   path: crates/mandate-federation/src/lib.rs
-- confidence: inferred
+- confidence: cited
   path: crates/mandate-federation/src/link.rs
-- confidence: inferred
+- confidence: cited
   path: crates/mandate-federation/src/record.rs
-- confidence: inferred
+- confidence: cited
   path: crates/mandate-federation/src/verifier.rs
-- confidence: inferred
+- confidence: cited
+  path: crates/mandate-federation/tests/adversary_pass1.rs
+- confidence: cited
+  path: crates/mandate-federation/tests/adversary_pass2.rs
+- confidence: cited
   path: crates/mandate-federation/tests/authenticate.rs
-- confidence: inferred
+- confidence: cited
   path: crates/mandate-federation/tests/link.rs
-- confidence: inferred
+- confidence: cited
   path: crates/mandate-federation/tests/record.rs
-- confidence: inferred
+- confidence: cited
   path: crates/mandate-federation/tests/verifier.rs
-- confidence: inferred
-  path: dependency-boundaries.json
-revision: 9
+revision: 32
 ---
 # Implement verified federation and explicit linking
 
@@ -102,12 +102,27 @@ Candidate adversary cases, not unit deliverables: four of five `ExternalLinkMeth
 
 ## Scope
 
-- `crates/mandate-federation/src/lib.rs` — cited; the crate's only source file today. `crates/mandate-federation/Cargo.toml` — cited.
-- `crates/mandate-federation/src/record.rs`, `src/verifier.rs`, `src/link.rs`, `src/authenticate.rs` — inferred; do not exist.
-- `crates/mandate-federation/tests/record.rs`, `tests/verifier.rs`, `tests/link.rs`, `tests/authenticate.rs` — inferred; do not exist.
-- `dependency-boundaries.json` — inferred; coordinator-owned; reached only if a dependency were added, which is excluded.
-- Would collide with: any unit touching `crates/mandate-federation`; `story:domain-runtime`, sequential by edge; `story:product-listener` and `story:signing-and-verification`, both `depends_on` this story.
+## Scope
+
+Rewritten at wave-2 close from unit commit `b452c6aedaf5532990273892ac5e42d317e2c43f`, merged as `6fe370b`.
+
+- `crates/mandate-federation/src/lib.rs`, `src/record.rs`, `src/verifier.rs`, `src/link.rs`, `src/authenticate.rs` — cited.
+- `crates/mandate-federation/tests/record.rs`, `tests/verifier.rs`, `tests/link.rs`, `tests/authenticate.rs` — cited; 61 cases; all eleven corpus ids execute.
+- `crates/mandate-federation/tests/adversary_pass1.rs`, `tests/adversary_pass2.rs` — cited; the two adversary passes' 9 kept cases (`review-result:wave2-federation-linking-adversary-1`, `-2`).
+- Read, not written: `tests/security/cases.json`, `systems/mandate/domains/federation.yaml`, `generated/schema/**`.
+- Removed from scope: `crates/mandate-federation/Cargo.toml` and `dependency-boundaries.json` — no dependency was needed; integration tests reach `mandate-model` through the declared edge. The ceiling `mandate-types`, `mandate-model`, `std` held; no serde, no JOSE, no HTTP.
 
 ## Validation and contract
 
 `task check` and the runtime tests named above. `tests/security/cases.json` is a contract corpus, not runtime evidence. ESS: `systems/mandate/ess-inputs.yaml`. Source: `docs/requirements.md` and combined architecture.
+
+## Residue after wave 2
+
+- The real verifier is `story:signing-and-verification`'s; `verifier.rs` is the typed port and its fixture double, which is why this story ends wave 2 with its domain half discharged and its Required observations on discovery, JWKS and rollover open.
+- The registration guard is read-then-write; storage must enforce uniqueness of (issuer, tenant rule) across organizations atomically, as it must the external key. `systems/mandate/domains/federation.yaml:2` names only the external key; the declaration has no owning story yet.
+- First registrant holds a claim value on a shared issuer; who may claim a value is a platform registration question outside this story (`review-result:wave2-federation-linking-adversary-2` finding 1).
+- `RequestContext.credential` on the two proof-driven commands — `story:event-payloads-for-folds`.
+- `OAuthClient` has no creation command — `story:declared-writers`.
+- The four `pub` doubles (`ConstructedVerifier::admitting`, `SequentialAllocator`, `RecordingSessionIssuer`, `RecordedPrincipals`) — `story:testkit-doubles`.
+- `UnlinkExternalPrincipal` is excluded; no in-tree path produces an `Unlinked` row, though every command now honours the state.
+- `PrincipalStore::state_of` is defaulted to `Active` because the pass-2 adversary file pins `organization_of`'s signature; the identity domain's `PrincipalDisabled` is composed by the adapter, not folded here.

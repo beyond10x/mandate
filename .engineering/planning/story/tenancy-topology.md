@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:tenancy-topology
 kind: story
-status: active
+status: implemented
 title: Implement tenancy and resource topology
 relations:
 - decomposes: epic:authorization
@@ -11,19 +11,21 @@ relations:
 - depends_on: story:domain-runtime
 - informed_by: initiative:next-ten-waves
 scope:
-- confidence: inferred
+- confidence: cited
   path: crates/mandate-model/src/graph.rs
 - confidence: cited
   path: crates/mandate-model/src/lib.rs
-- confidence: inferred
+- confidence: cited
   path: crates/mandate-model/src/tenancy.rs
-- confidence: inferred
+- confidence: cited
+  path: crates/mandate-model/tests/adversary_tenancy_topology.rs
+- confidence: cited
   path: crates/mandate-model/tests/graph.rs
-- confidence: inferred
+- confidence: cited
   path: crates/mandate-model/tests/projections.rs
-- confidence: inferred
+- confidence: cited
   path: crates/mandate-model/tests/tenancy.rs
-revision: 10
+revision: 24
 ---
 # Implement tenancy and resource topology
 
@@ -83,12 +85,25 @@ The coordinator interface commit lands the two `pub mod` lines in `src/lib.rs` a
 
 ## Scope
 
-- `crates/mandate-model/src/lib.rs` — cited; 408 lines, the crate's only source file; coordinator.
-- `crates/mandate-model/src/tenancy.rs`, `src/graph.rs` — inferred; do not exist.
-- `crates/mandate-model/tests/tenancy.rs`, `tests/graph.rs`, `tests/projections.rs` — inferred; do not exist.
-- Removed: `services/control-plane`.
-- Would collide with: any unit editing `crates/mandate-model/src/lib.rs`.
+## Scope
+
+Rewritten at wave-2 close from unit commit `d03655e06dff18e16da9dedea8c43b984b53b658`, merged as `7b44f80`.
+
+- `crates/mandate-model/src/lib.rs`, `src/tenancy.rs`, `src/graph.rs` — cited.
+- `crates/mandate-model/tests/tenancy.rs`, `tests/graph.rs`, `tests/projections.rs` — cited; 25 cases beside the wave-1 `adversary.rs` and `conformance.rs` (8).
+- `crates/mandate-model/tests/adversary_tenancy_topology.rs` — cited; the two adversary passes' 5 kept cases, case 1 the coordinator's tripwire pinned to the four fields no creation event carries (`review-result:wave2-tenancy-topology-adversary-1`, `-2`).
+- Read, not written: `tests/security/cases.json`, `systems/mandate/domains/{tenancy,graph}.yaml`, `generated/schema/**`.
+- Removed from scope: `services/control-plane`. Untouched: `Cargo.toml`, `dependency-boundaries.json`.
 
 ## Validation and contract
 
 `task check` and the runtime tests named above. `tests/security/cases.json` is a contract corpus, not runtime evidence. ESS: `systems/mandate/ess-inputs.yaml`. Source: `docs/requirements.md` and combined architecture.
+
+## Residue after wave 2
+
+- `CreateOrganization`, `CreateTeam`, `CreateSpace` each deny when "the display name is not admitted" and no admission rule is specified anywhere in `systems/mandate`; the fold admits every string. A contract gap, named in `src/tenancy.rs`; owner undecided.
+- `Organization/Team/Space.display_name` and `Resource.resource_type` are carried by no event; the fold is authoritative for them until `story:event-payloads-for-folds` lands and the tripwire in `tests/adversary_tenancy_topology.rs` is retired.
+- `Resource.space_id` has no writer at all — `story:declared-writers`.
+- `AddTeamMembership`'s `MembershipContribution` is `story:directory-provenance`'s.
+- Within one organization the fold requires its log in append order (a `TeamCreated` before its `OrganizationCreated` is refused); the per-aggregate order is the store's, assumed not checked.
+- The accept/deny channel on the globally keyed identities is an existence oracle bounded by the UUID space; both modules say so.

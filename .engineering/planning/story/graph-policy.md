@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:graph-policy
 kind: story
-status: active
+status: implemented
 title: Implement graph and policy ports with test doubles
 relations:
 - decomposes: epic:authorization
@@ -12,55 +12,63 @@ relations:
 - informed_by: initiative:next-ten-waves
 - depends_on: story:domain-runtime
 scope:
-- confidence: inferred
+- confidence: cited
   path: crates/mandate-graph/src/double.rs
 - confidence: cited
   path: crates/mandate-graph/src/lib.rs
-- confidence: inferred
+- confidence: cited
   path: crates/mandate-graph/src/port.rs
-- confidence: inferred
+- confidence: cited
   path: crates/mandate-graph/src/record.rs
-- confidence: inferred
+- confidence: cited
   path: crates/mandate-graph/src/relationship.rs
-- confidence: inferred
+- confidence: cited
   path: crates/mandate-graph/src/revocation.rs
-- confidence: inferred
+- confidence: cited
   path: crates/mandate-graph/src/topology.rs
-- confidence: inferred
+- confidence: cited
+  path: crates/mandate-graph/tests/adversary_double.rs
+- confidence: cited
+  path: crates/mandate-graph/tests/adversary_double_2.rs
+- confidence: cited
   path: crates/mandate-graph/tests/boundary.rs
-- confidence: inferred
+- confidence: cited
   path: crates/mandate-graph/tests/double.rs
-- confidence: inferred
+- confidence: cited
   path: crates/mandate-graph/tests/port.rs
-- confidence: inferred
+- confidence: cited
   path: crates/mandate-graph/tests/record.rs
-- confidence: inferred
+- confidence: cited
   path: crates/mandate-graph/tests/relationship.rs
-- confidence: inferred
+- confidence: cited
   path: crates/mandate-graph/tests/revocation.rs
-- confidence: inferred
+- confidence: cited
   path: crates/mandate-graph/tests/topology.rs
-- confidence: inferred
+- confidence: cited
   path: crates/mandate-policy/src/double.rs
 - confidence: cited
   path: crates/mandate-policy/src/lib.rs
-- confidence: inferred
+- confidence: cited
   path: crates/mandate-policy/src/port.rs
-- confidence: inferred
+- confidence: cited
   path: crates/mandate-policy/src/precedence.rs
-- confidence: inferred
+- confidence: cited
   path: crates/mandate-policy/src/record.rs
-- confidence: inferred
+- confidence: cited
+  path: crates/mandate-policy/tests/adversary_precedence.rs
+- confidence: cited
+  path: crates/mandate-policy/tests/adversary_precedence_2.rs
+- confidence: cited
   path: crates/mandate-policy/tests/boundary.rs
-- confidence: inferred
+- confidence: cited
   path: crates/mandate-policy/tests/double.rs
-- confidence: inferred
+- confidence: cited
   path: crates/mandate-policy/tests/port.rs
-- confidence: inferred
+- confidence: cited
   path: crates/mandate-policy/tests/precedence.rs
-- confidence: inferred
+- confidence: cited
   path: crates/mandate-policy/tests/record.rs
-revision: 13
+revision: 64
 ---
 # Implement graph and policy ports with test doubles
 
@@ -134,12 +142,27 @@ Any concrete adapter or engine name. `docs/adr/0010-*`. `crates/mandate-model`, 
 
 ## Scope
 
-- `crates/mandate-graph/src/lib.rs`, `crates/mandate-policy/src/lib.rs` — cited; 4-line scaffolds; coordinator.
-- `systems/mandate/domains/graph.yaml`, `policy.yaml` — cited; read, not written.
-- `crates/mandate-graph/src/record.rs`, `port.rs`, `topology.rs`, `relationship.rs`, `revocation.rs`, `double.rs`; `tests/boundary.rs`, `record.rs`, `port.rs`, `topology.rs`, `relationship.rs`, `revocation.rs`, `double.rs` — inferred; do not exist.
-- `crates/mandate-policy/src/record.rs`, `port.rs`, `precedence.rs`, `double.rs`; `tests/boundary.rs`, `record.rs`, `port.rs`, `precedence.rs`, `double.rs` — inferred; do not exist.
-- Would collide with: any unit touching either crate; `story:domain-runtime`, sequential by edge; `story:graph-policy-adapter`, `depends_on` this story.
+## Scope
+
+Rewritten at wave-2 close from unit commit `92dd525e99d9eec22e5df2f0c5a27806fae38e5d`, merged as `5cf9fb9`.
+
+- `crates/mandate-graph/src/lib.rs`, `src/record.rs`, `src/port.rs`, `src/topology.rs`, `src/relationship.rs`, `src/revocation.rs`, `src/double.rs` — cited.
+- `crates/mandate-graph/tests/boundary.rs`, `tests/record.rs`, `tests/port.rs`, `tests/topology.rs`, `tests/relationship.rs`, `tests/revocation.rs`, `tests/double.rs` — cited; 66 cases plus 2 doctests.
+- `crates/mandate-policy/src/lib.rs`, `src/record.rs`, `src/port.rs`, `src/precedence.rs`, `src/double.rs` — cited.
+- `crates/mandate-policy/tests/boundary.rs`, `tests/record.rs`, `tests/port.rs`, `tests/precedence.rs`, `tests/double.rs` — cited; 55 cases plus 2 doctests.
+- `crates/mandate-graph/tests/adversary_double.rs`, `tests/adversary_double_2.rs`, `crates/mandate-policy/tests/adversary_precedence.rs`, `tests/adversary_precedence_2.rs` — cited; the two adversary passes' 13 kept cases (`review-result:wave2-graph-policy-adversary-1`, `-2`).
+- Read, not written: `systems/mandate/domains/{graph,policy}.yaml`, `generated/schema/**`, `docs/architecture/combined.md`.
+- Untouched: `Cargo.toml`, `Cargo.lock`, `dependency-boundaries.json`; the ceiling `mandate-types`, `mandate-model`, `std` held; no serde; no engine name.
 
 ## Validation and contract
 
 `task check` and the runtime tests named above. `tests/security/cases.json` is a contract corpus, not runtime evidence. ESS: `systems/mandate/ess-inputs.yaml`. Source: `docs/requirements.md` and combined architecture.
+
+## Residue after wave 2
+
+- `graph.yaml` declares no grant-creation command, so `record_grant` is the double's only grant path and admits a padded or empty role by design; the read path refuses the name instead — `story:declared-writers`.
+- The relation-tenancy comparison in `GraphDouble::holds` is unreachable from outside the crate (`write_relationship` refuses a foreign resource first); kept as defence in depth, held by no case, both rounds' mutation probes agree.
+- `Unanswered::SubjectUnresolved` was removed because no path of the double produces it; an adapter whose membership source is down answers `NotCaughtUp`. A future adapter that must distinguish the two brings the variant back with a path that produces it.
+- `Combined::Nothing` has two readings — identity when composed, denial when decided — documented side by side; `story:check-api` composes at the top level and decides once.
+- `GraphDouble` and `PolicyDouble` are `pub` by design; `story:testkit-doubles` is their home.
+- The graph accept/deny channel on the globally keyed `ResourceId` is an existence oracle bounded by the UUID space, disclosed only inside the caller's organization.

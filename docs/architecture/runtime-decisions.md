@@ -48,7 +48,7 @@ No source this document may cite names an individual for any of these decisions,
 
 ## 1. `decision-blocker:epoch` — epoch representation and arithmetic
 
-**Decision question.** What exact representation carries a security generation value, and what happens when it reaches its maximum? ESS 0.25.0 has no exact unsigned 64-bit generation with monotonic increment, overflow denial and atomic comparison, so `PrincipalSecurityEpoch`, `OrganizationSecurityEpoch` and `FederationSecurityEpoch` declare ownership while their numeric values stay absent (`unmapped.md:7`; `../../systems/mandate/domains/identity.yaml:1`). `EpochSnapshotRef` is an immutable record handle only and is never a generation number (`unmapped.md:7`; `combined.md:47`). The addendum's suggested model is three `u64` fields (`../sources/architecture-addendum.md:417`), and `IncrementSecurityEpoch` already declares a denial when "the exact unsigned generation is at its maximum, or atomic increment cannot commit" (`command-obligations.md:36`) — so the exhaustion behaviour is declared and the representation that would make it checkable is not.
+**Decision question.** What exact representation carries a security generation value, and what happens when it reaches its maximum? ESS 0.25.0 has no exact unsigned 64-bit generation with monotonic increment, overflow denial and atomic comparison, so `PrincipalSecurityEpoch`, `OrganizationSecurityEpoch` and `FederationSecurityEpoch` declare ownership while their numeric values stay absent (`unmapped.md:7`; `../../systems/mandate/domains/identity.yaml:1`). `EpochSnapshotRef` is an immutable record handle only and is never a generation number (`unmapped.md:7`; `combined.md:47`). The addendum's suggested model is three `u64` fields (`../sources/architecture-addendum.md:417`), and `IncrementSecurityEpoch` already declares a denial when "the exact unsigned generation is at its maximum, or atomic increment cannot commit" (`command-obligations.md:49`) — so the exhaustion behaviour is declared and the representation that would make it checkable is not.
 
 **Bounded alternatives.**
 
@@ -56,7 +56,7 @@ No source this document may cite names an individual for any of these decisions,
 2. Admit the exact unsigned generation into ESS once ESS can express it, with `IncrementSecurityEpoch` the only mutation path.
 3. Use an opaque monotonic token compared for equality only. This satisfies the mismatch-rejects invariant (`../sources/architecture-addendum.md:976`) but gives up ordering, which the "monotonically increasing" requirement at `../sources/architecture-addendum.md:393` assumes.
 
-On the exhaustion half, the two bounded options are to deny the increment and require an out-of-band reset procedure (the shape already declared at `command-obligations.md:36`), or to widen the representation before exhaustion is reachable.
+On the exhaustion half, the two bounded options are to deny the increment and require an out-of-band reset procedure (the shape already declared at `command-obligations.md:49`), or to widen the representation before exhaustion is reachable.
 
 Out of bounds, not alternatives: approximating the value with `Integer`, `String` or `UUID` (`unmapped.md:7`); wrapping or resetting on overflow (`combined.md:47`); inventing a lifecycle self-loop to stand in for numeric mutation (`unmapped.md:7`).
 
@@ -68,7 +68,7 @@ Out of bounds, not alternatives: approximating the value with `Integer`, `String
 
 - A recorded representation decision naming the exact type, its bound and the ESS version in which it is expressible, attached to this blocker.
 - Cases showing increment is monotonic, and that comparison denies when any applicable dimension mismatches (`combined.md:47`).
-- A case showing increment at the maximum denies rather than wraps (`command-obligations.md:36`; `combined.md:47`).
+- A case showing increment at the maximum denies rather than wraps (`command-obligations.md:49`; `combined.md:47`).
 - A case showing an increment in organization A does not invalidate unrelated organization B sessions, except a deliberate global principal reset (`combined.md:47`).
 - Atomicity evidence does **not** clear this row; it belongs to row 4. A clearance record showing only that the increment committed atomically leaves this question open.
 
@@ -141,7 +141,7 @@ Out of bounds: an asynchronous event binding as the one-use redemption mechanism
 
 - A named boundary for each transaction listed at `unmapped.md:25`, each with its isolation level and its stated failure mode on partial commit.
 - A race case showing concurrent redemption of one code issues at most one credential (`ownership.md:28`; `command-obligations.md:15`).
-- A race case showing a concurrent increment and refresh cannot observe a stale generation as valid (`command-obligations.md:37`).
+- A race case showing a concurrent increment and refresh cannot observe a stale generation as valid (`command-obligations.md:49`).
 - A race case showing concurrent mapping retraction preserves every other valid manual and mapping contribution (`command-obligations.md:23`).
 - A case showing a rolled-back domain transaction leaves no issued credential and no partially written audit record.
 - The consistency class chosen for reads after revocation, recorded with the boundary decision (`../sources/original-design.md:1629`, `:1633`).

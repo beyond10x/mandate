@@ -594,6 +594,7 @@
       "expected": "deny; child unavailable",
       "level": "contract-scenario",
       "commands": [
+        "mandate.graph.RegisterResource",
         "mandate.authorization.Check"
       ]
     },
