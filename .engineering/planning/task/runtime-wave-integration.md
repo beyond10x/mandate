@@ -6,7 +6,7 @@ status: draft
 title: Coordinate shared runtime gates, dependencies and fixture isolation
 relations:
 - derived_from: initiative:next-ten-waves
-revision: 4
+revision: 5
 ---
 # Coordinate shared runtime integration surfaces
 
@@ -39,3 +39,10 @@ Pending coordinator wiring, in order: the `eventlog` dependency (`docs/adr/0009-
 ## Journal redaction, 2026-09-18
 
 The four plan critics of 2026-09-18 cited absolute worktree paths under the operator's home directory. Their text was recorded verbatim into five `review-result` records, and the journal copies a body on create, so the pre-commit gate refused the batch with 29 `personal-paths` findings. `review-result` bodies refuse edits by design and the journal is append-only, so no CLI verb could remove the strings. The coordinator stripped the one path prefix — the worktree root — from the five records and the five journal lines by hand, leaving every event, revision and citation intact as repository-relative paths; `aep plan artifact validate`, `history` and `findings` were confirmed unchanged on a copy first. This is the one hand edit the store has received and the reason for it; the commit that carried it is `3f96c3b`. From this date, every critic brief instructs repository-relative citations, and the coordinator checks a returned report for a home path before recording it.
+
+## Dependency admissions decided 2026-09-18
+
+- Signature verifier for `mandate-federation`: admit now (operator, 2026-09-18). Proposal: `jsonwebtoken` for JWS/JWK verification and `ureq` for blocking JWKS and discovery fetches, so no async runtime enters the crate. Gate: `cargo deny --locked check` and `cargo xtask boundaries` in the coordinator admission commit before the wave that dispatches `story:signing-and-verification`; a license refusal by `cargo deny` is reported and that story leaves the wave.
+- Event log: `eventlog-core` and `eventlog-sqlite` from `https://github.com/beyond10x/eventlog.git` at tag `0.2.1` (`docs/adr/0009-event-sourced-persistence.md`). First consumers `crates/mandate-provisioning` and `services/worker` under `story:directory-provenance`, execution wave 3 (forecast wave 4). `deny.toml` `[sources]` gains the git allow entry; `dependency-boundaries.json` gains the two arrays.
+- Open: `decision-blocker:audit-routing` carries no operator decision. `story:audit-client` (execution wave 4) does not dispatch before one is recorded.
+- Branch for execution wave 3: `integration/wave-20260918-004`, cut from `20f354d` (tree equals `main` at `46167f6`, zero-line diff), for the reason recorded above.

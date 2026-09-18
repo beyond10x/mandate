@@ -41,7 +41,8 @@
     "mandate-provisioning": [
       "mandate-types",
       "mandate-model",
-      "mandate-identity"
+      "mandate-identity",
+      "eventlog-core"
     ],
     "mandate-audit": [
       "mandate-types"
@@ -70,6 +71,8 @@
   "external": [
     "clap",
     "serde_json",
-    "sha2"
+    "sha2",
+    "eventlog-core",
+    "eventlog-sqlite"
   ]
 }
