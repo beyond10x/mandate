@@ -1,0 +1,285 @@
+//! The `mandate.graph.Resource` projection and the fold that writes it.
+//!
+//! `systems/mandate/domains/graph.yaml` declares `Resource` and the two commands that
+//! write it, `RegisterResource` and `DeregisterResource`. Their record halves are
+//! [`Topology::register`] and [`Topology::deregister`]. `Relation` and `Grant` are
+//! `mandate-graph`'s own projections (`docs/architecture/ownership.md`), and the graph
+//! port is that crate's too; nothing here evaluates authorization.
+//!
+//! # The tenancy check
+//!
+//! `RegisterResource` denied: "Caller lacks resource registration/ownership authority,
+//! parent is unresolved or belongs to another organization, or hierarchy admission
+//! fails." A resource is recorded in the organization the verified context names — never
+//! in one a selector supplies — and a parent is admitted only when it resolves inside
+//! that same organization.
+//!
+//! # What the refusal does and does not hide
+//!
+//! One `denied` clause covers the unresolved parent and the parent in another
+//! organization, and one error carries one [`mandate_types::DenialReason`]. So the
+//! **reason** channel is closed: every refusal here is the same value, and a caller
+//! cannot tell "no such resource" from "not yours" by reading it.
+//!
+//! The **accept/deny** channel is not, and claiming otherwise would be false.
+//! [`Topology::register`] refuses an identity another organization already holds and
+//! accepts a free one, so a caller that registers can discriminate over the whole
+//! `ResourceId` space, one identity at a time. That is the contract's choice and not this
+//! fold's to overturn: `graph.yaml` declares `mandate.graph.Resource`'s identity as
+//! `id: mandate.core.ResourceId`, one global key, and keying per organization instead
+//! would contradict the declared identity — and would admit two resources with one id,
+//! which every relation and grant that references `resource_id` resolves through. What
+//! bounds the channel is that a `ResourceId` is a UUID, so an enumerating caller has
+//! nothing to enumerate.
+//!
+//! # `space_id` has no writer, and a rebuild loses `resource_type`
+//!
+//! `Resource` declares `space_id`, and no command in `systems/mandate` carries a space
+//! into it: `RegisterResource` takes `context`, `resource` and `parent`, and no other
+//! command writes a resource. The projection carries the field because the entity
+//! declares it; this fold leaves it absent rather than inventing an input the contract
+//! does not declare.
+//!
+//! `mandate.graph.ResourceRegistered` declares `context` and nothing else — not the
+//! identity, not the type, not the parent — while the compiled entity marks `id`,
+//! `organization_id`, `resource_type` and `state` required. `RegisterResource` declares no
+//! `moves` and no `instance` either, so unlike every removal command in these two domains
+//! the registration does not even pin its record through a stream coordinate:
+//! `organization_id` is readable from `context.organization`, `id` only from the later
+//! `mandate.graph.ResourceDeregistered`, and `resource_type` and `parent` from nothing at
+//! all. Dropping this projection and replaying the log therefore does not rebuild it,
+//! exactly as `crate::tenancy` loses three `display_name`s. Until the event carries them,
+//! [`Topology`] is authoritative rather than derived, and
+//! `docs/adr/0009-event-sourced-persistence.md`'s "derived, droppable, rebuildable" does
+//! not yet hold for it. The fix is to the contract and is
+//! `story:event-payloads-for-folds`'s; no event is invented here.
+
+use std::collections::BTreeMap;
+
+use serde::{Deserialize, Serialize};
+
+use mandate_types::{
+    DenialReason, OrganizationId, ResourceId, ResourceRef, ResourceType, SpaceId, VerifiedContext,
+};
+
+use crate::tenancy::Tenancy;
+
+/// `mandate.graph.Denied`: the fold refused, and wrote nothing.
+///
+/// Fail closed: no record, no state move and no partial topology follows a refusal.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Denied {
+    /// The declared reason.
+    pub reason: DenialReason,
+}
+
+impl Denied {
+    /// The one refusal this fold produces.
+    const fn refusal() -> Self {
+        Self {
+            reason: DenialReason::Denied,
+        }
+    }
+}
+
+/// `mandate.graph.Resource.State`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ResourceState {
+    /// The initial state.
+    Recorded,
+    /// The terminal state: the record is kept and stops resolving.
+    Deregistered,
+}
+
+/// `mandate.graph.Resource`: a resource in the topology of one organization.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Resource {
+    /// The identity of this resource.
+    pub id: ResourceId,
+    /// The organization the resource belongs to.
+    pub organization_id: OrganizationId,
+    /// The declared resource type.
+    pub resource_type: ResourceType,
+    /// The resource this one resolves through, when it has one.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "mandate_types::value::present"
+    )]
+    pub parent: Option<ResourceId>,
+    /// The space the resource is bound to, when it is bound to one.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "mandate_types::value::present"
+    )]
+    pub space_id: Option<SpaceId>,
+    /// The recorded state.
+    pub state: ResourceState,
+}
+
+/// The fold of the `mandate.graph` resource events: the topology and what writes it.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Topology {
+    resources: BTreeMap<ResourceId, Resource>,
+}
+
+impl Topology {
+    /// An empty fold, before any event is applied.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// The record half of `RegisterResource`.
+    ///
+    /// The resource is recorded in the organization the verified context names. A named
+    /// parent is admitted only when it resolves in that same organization.
+    ///
+    /// # Errors
+    ///
+    /// Refuses a verified organization with no tenancy record or a closed one, an
+    /// identity that is already registered, and a parent that does not resolve inside the
+    /// verified organization — whether because it was never registered, because it has
+    /// been deregistered, or because it belongs to another organization.
+    pub fn register(
+        &mut self,
+        tenancy: &Tenancy,
+        context: &VerifiedContext,
+        resource: &ResourceRef,
+        parent: Option<ResourceId>,
+    ) -> Result<(), Denied> {
+        if !tenancy.admits(context.organization)
+            || self.resources.contains_key(&resource.resource_id)
+        {
+            return Err(Denied::refusal());
+        }
+        if let Some(parent_id) = parent {
+            let admitted = self
+                .resources
+                .get(&parent_id)
+                .is_some_and(|record| Self::resolves_in(record, context.organization));
+            if !admitted {
+                return Err(Denied::refusal());
+            }
+        }
+        self.resources.insert(
+            resource.resource_id,
+            Resource {
+                id: resource.resource_id,
+                organization_id: context.organization,
+                resource_type: resource.resource_type.clone(),
+                parent,
+                space_id: None,
+                state: ResourceState::Recorded,
+            },
+        );
+        Ok(())
+    }
+
+    /// The record half of `DeregisterResource`.
+    ///
+    /// The security record is kept and stops resolving; no child, relation or grant is
+    /// destroyed as a side effect.
+    ///
+    /// # Errors
+    ///
+    /// Refuses a resource that does not resolve inside the verified organization, one
+    /// that has already been deregistered, and one a child still resolves through.
+    pub fn deregister(&mut self, context: &VerifiedContext, id: ResourceId) -> Result<(), Denied> {
+        let resolves = self
+            .resources
+            .get(&id)
+            .is_some_and(|record| Self::resolves_in(record, context.organization));
+        if !resolves || !self.children(id).is_empty() {
+            return Err(Denied::refusal());
+        }
+        let record = self.resources.get_mut(&id).ok_or_else(Denied::refusal)?;
+        record.state = ResourceState::Deregistered;
+        Ok(())
+    }
+
+    /// The resource as the verified caller can read it: recorded, and in the
+    /// organization the context names.
+    #[must_use]
+    pub fn resolve(&self, context: &VerifiedContext, id: ResourceId) -> Option<&Resource> {
+        self.resources
+            .get(&id)
+            .filter(|record| Self::resolves_in(record, context.organization))
+    }
+
+    /// The kept record, in whatever state and organization it holds.
+    ///
+    /// Nothing is destroyed, so a record outlives its resolution; reading one is not
+    /// reading it as a caller.
+    #[must_use]
+    pub fn record(&self, id: ResourceId) -> Option<&Resource> {
+        self.resources.get(&id)
+    }
+
+    /// The resources that still resolve through this one.
+    ///
+    /// A record-level read, like [`Topology::record`]: it answers for every organization,
+    /// because `deregister` and a rebuild both need it to. A caller's read is
+    /// [`Topology::resolve`]. Every child of a resource is in that resource's own
+    /// organization, because [`Topology::register`] admits no parent outside it.
+    #[must_use]
+    pub fn children(&self, id: ResourceId) -> Vec<ResourceId> {
+        self.resources
+            .values()
+            .filter(|record| record.parent == Some(id) && record.state == ResourceState::Recorded)
+            .map(|record| record.id)
+            .collect()
+    }
+
+    /// How many records the fold holds, in every state and every organization. Nothing is
+    /// ever destroyed, so this count only grows.
+    ///
+    /// A fold-level read, like [`Topology::record`]; it is not a caller's read.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.resources.len()
+    }
+
+    /// Whether the fold holds no record at all.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.resources.is_empty()
+    }
+
+    fn resolves_in(record: &Resource, organization: OrganizationId) -> bool {
+        record.organization_id == organization && record.state == ResourceState::Recorded
+    }
+}
+
+impl mandate_types::PersistedValue for ResourceState {}
+
+/// The credential boundary over the resource projection, asserted rather than described.
+///
+/// The same block `crate::tenancy` carries for its five, and the same reason: the record
+/// is not declared through [`mandate_types::canonical_record`], so the check that macro
+/// performs is written out here. Destructured without `..`, so a field added and not named
+/// here does not compile.
+const _: () = {
+    fn persistable<T: mandate_types::PersistedValue + ?Sized>(_: &T) {}
+
+    #[allow(dead_code)]
+    fn every_projection_field_is_persistable(resource: &Resource) {
+        let Resource {
+            id,
+            organization_id,
+            resource_type,
+            parent,
+            space_id,
+            state,
+        } = resource;
+        persistable(id);
+        persistable(organization_id);
+        persistable(resource_type);
+        persistable(parent);
+        persistable(space_id);
+        persistable(state);
+    }
+};

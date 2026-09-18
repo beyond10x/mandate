@@ -5,9 +5,20 @@
 //!
 //! # Credential containment
 //!
-//! Every record here is declared through [`mandate_types::canonical_record`], which
-//! requires each field to be a [`mandate_types::PersistedValue`]. A domain record that
-//! carries an identifier is accepted:
+//! The four accepted `mandate.core` records declared in this file —
+//! [`TenantResolutionRule`], [`DecisionChallenge`], [`Decision`] and [`AuditRecord`] — are
+//! declared through [`mandate_types::canonical_record`], which requires each field to be a
+//! [`mandate_types::PersistedValue`].
+//!
+//! The six projections in [`tenancy`] and [`graph`] are not, and cannot be: that macro
+//! hardcodes the `mandate.core.` prefix and every one of them is a `mandate.tenancy.*` or
+//! `mandate.graph.*` entity. The bound reaches them all the same, because each module
+//! carries the macro's own field check written out — `tenancy.rs`'s and `graph.rs`'s
+//! `const _: () = { … }` blocks destructure every projection without `..` and require
+//! [`mandate_types::PersistedValue`] of every field. A field added to any of the six, or
+//! one whose type the boundary does not admit, does not compile.
+//!
+//! A domain record that carries an identifier is accepted:
 //!
 //! ```
 //! use mandate_model::AuditRecord;
@@ -36,6 +47,9 @@
 //!     }
 //! ]);
 //! ```
+
+pub mod graph;
+pub mod tenancy;
 
 use serde::{Deserialize, Serialize};
 
