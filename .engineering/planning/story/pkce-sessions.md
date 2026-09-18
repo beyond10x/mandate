@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:pkce-sessions
 kind: story
-status: draft
+status: implemented
 title: Implement public-client authentication and sessions
 relations:
 - decomposes: epic:authentication
@@ -13,21 +13,31 @@ relations:
 scope:
 - confidence: cited
   path: bins/mandate/src/main.rs
+- confidence: cited
+  path: bins/mandate/tests/adversary_cli.rs
+- confidence: cited
+  path: bins/mandate/tests/adversary_cli_2.rs
 - confidence: inferred
   path: bins/mandate/tests/cli.rs
 - confidence: inferred
   path: crates/mandate-federation/src/authorize.rs
+- confidence: cited
+  path: crates/mandate-federation/src/lib.rs
 - confidence: inferred
   path: crates/mandate-federation/src/pkce.rs
 - confidence: inferred
   path: crates/mandate-federation/src/publicclient.rs
+- confidence: cited
+  path: crates/mandate-federation/tests/adversary_pkce.rs
+- confidence: cited
+  path: crates/mandate-federation/tests/adversary_pkce_2.rs
 - confidence: inferred
   path: crates/mandate-federation/tests/authorize.rs
 - confidence: inferred
   path: crates/mandate-federation/tests/pkce.rs
 - confidence: inferred
   path: crates/mandate-federation/tests/publicclient.rs
-revision: 15
+revision: 22
 ---
 # Implement public-client authentication and sessions
 
@@ -155,3 +165,23 @@ This explicit matrix answers review-result:ten-waves-acceptance-r2 after the sec
 ## ESS command realized
 
 `mandate.federation.AuthorizePublicClient` (`federation.yaml:215-248`) is realized by this story's `candidate` unit: every validation its denial clause names — session proof, registered public client, exact redirect, state and applicable nonce, S256 challenge, registered target inside the tenant — up to the point where the accepted outcome invokes STS `IssueAuthorizationCode`. That invocation and the code record are `story:oauth-integration`'s (`ownership.md:26-28`); its tests stand in for this command with a fixture and do not re-implement it. The command is control-plane-owned (`components.yaml`); the deployment that hosts it is `story:product-listener`'s. `epic:authentication`'s "public authorization-code/S256 PKCE" is claimed here.
+
+## Coordinator rulings for wave 3, 2026-09-19
+
+- Correction round 1 (`review-result:wave3-pkce-sessions-adversary-1`): F1–F10 fixed, F11 no-op. Accepted: the implementor changed two fixture lines in the coordinator's `tests/adversary_pkce.rs` (a registered target for the `0x7a` fixture; `nonce` from `Some(..)` to a required `String`) because F3 and F8 change the types the fixture constructs; the pre-edit copy shows exactly those two hunks and no assertion moved. The `TargetRegistry` port's real source is `story:credential-profiles`' registry. The implementor's `every_phrase_of_the_declared_denial_is_decided_here_or_assigned_to_sts` enumerates the seven phrases of `federation.yaml:298`; the class check (every declared denial phrase of a realized command named by its realizing crate) is proposed for `xtask`'s `obligations()` and recorded here for `task:runtime-wave-integration`, not built this wave.
+
+## Coordinator ruling after correction round 2, 2026-09-19
+
+- Correction round 2 (`review-result:wave3-pkce-sessions-adversary-2`): G1–G6 fixed; G7 escalated — `with_client` refuses a duplicate registration, `with_target` does not, because the adversary's own case `the_double_answers_the_first_of_two_registrations_of_one_target` pins first-wins and the round may not change an adversary assertion. Residue on the fixture double.
+- Accepted: the implementor's mechanical edits to the four adversary files — call-site arity after G1 (`&clients()` duplicated into `clients, targets`), rustfmt canonicalisation, three `#[allow]` attributes with comments on the probe's deliberate construction — verified by diff against the pre-edit copies: no assertion, expectation or test name changed. The two pass-2 adversary files were delivered not rustfmt-clean and with three clippy errors; the package gate covers `--all-targets`, so they had to be brought to the gate.
+
+## Residue after wave 3
+
+- No contract event creates an `OAuthClient`, so `Projection::clients()` is empty from any real log and `OAuthClientStore for Projection` answers `None`; the real read model arrives with `story:declared-writers`' creating command.
+- The S256 digest is a port (`PkceDigest`) with a `#[doc(hidden)]` stand-in of the right shape and 63 bits of entropy; the real digest is the host adapter's (`sha2` is admitted to the `mandate` binary, not to `mandate-federation`). The stand-in and `RecordedClients` move to `crates/mandate-testkit` under `story:testkit-doubles`.
+- `TargetRegistry` answers three ways; its real source is `story:credential-profiles`' resource-server registry. `RecordedClients::with_target` accepts a duplicate registration and answers the first (fixture residue, pinned by an adversary case).
+- Whether `TenantMismatch` (`TargetOutsideTenant`) is ever rendered to a public client is undecided: through this function the target comes from the code record, but `AuthorizePublicClient` declares `target` as caller input (`federation.yaml:296-297`), so an adapter wiring it straight through would create a cross-tenant existence oracle. For `story:protocol-adapters`.
+- The `instant` RFC 3339 reader is a byte-identical copy of `mandate-identity`'s private one, pinned against it over 12 spellings; a canonical form on `Timestamp` in `mandate-types` would retire both.
+- The seven `pkce-*` corpus cases stay owned by `story:oauth-integration`; this story underwrites their validation half only. Code consumption, credential issuance, code possession and the presented `client_id` are `RedeemAuthorizationCode`'s at STS.
+- `services/sts` cannot link workspace libraries today, so `story:oauth-integration`'s reuse of `pkce.rs` needs a boundary widening under `task:runtime-wave-integration`.
+- The CLI's parser errors never echo an argument; the verifier may arrive on stdin; a positional stays for scripts and is recorded in `argv` by the caller's choice.

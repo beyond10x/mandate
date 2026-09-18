@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:gate-reads-document-deliverables
 kind: story
-status: draft
+status: implemented
 title: task check cannot see a document deliverable, so it cannot fail one
 relations:
 - serves: vision:mandate
@@ -11,9 +11,13 @@ scope:
   path: xtask/src/documents.rs
 - confidence: cited
   path: xtask/src/main.rs
+- confidence: cited
+  path: xtask/tests/adversary_documents.rs
+- confidence: cited
+  path: xtask/tests/adversary_documents_2.rs
 - confidence: inferred
   path: xtask/tests/documents.rs
-revision: 4
+revision: 9
 ---
 ## Acceptance
 
@@ -90,3 +94,11 @@ Run as the coordinator's own unit, on the integration branch, before any `story:
 - Whether the step's document list is a constant or a directory walk: the story does not say.
 - `docs/architecture/federated-login.md:143` cites `xtask/src/main.rs:259-273` for the `serve` refusal; stale since `f0da11e`, now `:314-327`. Not in this story's acceptance.
 - Three scripts are committed under `docs/customer/` (`build.py`, `build.sh`, `figures/sso-flow.py`) despite `AGENTS.md:17`; not this story's surface.
+
+## Residue after wave 3
+
+- Correction round 2 (`review-result:wave3-gate-reads-document-deliverables-adversary-2`): D-1 to D-10 fixed; the silent-table report had two identical sites and was collapsed into one so a mutant has one place to hide, not two.
+- The step is red on the live integration tree by design until the coordinator's `docs/architecture/runtime-decisions.md` row-set correction lands (applied in the coordinator tree; verified green with the unit's binary: 9 documents, 24 row sets).
+- Reader residue, none asked for by a ruling: a deleted `docs/architecture/*.md` is invisible to a directory walk (only `README.md`/`AGENTS.md` deletion is caught); `cells()` honours the GFM `\|` escape but not a raw `|` inside a code span; a `Blocker` cell naming several blockers in a table with a store column attributes the row set to each; documents outside `docs/architecture` plus the two root files are not declared; prose count claims are not checked.
+- `ess generate` refuses a symlinked `--out` path, so `cargo xtask contracts` cannot run in a unit tree provisioned with a `target` symlink; recorded for `task:runtime-wave-integration` (provisioning), not this story's.
+- The self-claims SC1, SC3, SC4, SC5, FL1, FL2, FL3 remain unenforced by design (the story forbids a prose linter); their "enforced by" column still names checks that do not exist.

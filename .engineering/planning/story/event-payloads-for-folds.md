@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:event-payloads-for-folds
 kind: story
-status: draft
+status: implemented
 title: Every state-changing event carries the record identity a fold needs
 relations:
 - decomposes: epic:foundations
@@ -12,7 +12,13 @@ scope:
 - confidence: cited
   path: crates/mandate-model/tests/adversary_tenancy_topology.rs
 - confidence: cited
+  path: crates/mandate-types/tests/adversary_fold_inputs.rs
+- confidence: cited
+  path: crates/mandate-types/tests/adversary_fold_inputs_2.rs
+- confidence: cited
   path: generated
+- confidence: cited
+  path: systems/mandate/components.yaml
 - confidence: cited
   path: systems/mandate/domains/credential.yaml
 - confidence: cited
@@ -27,7 +33,7 @@ scope:
   path: systems/mandate/domains/identity.yaml
 - confidence: cited
   path: systems/mandate/domains/tenancy.yaml
-revision: 6
+revision: 13
 ---
 # Events carry the identity and fields a fold needs
 
@@ -156,3 +162,23 @@ The class fix: every creation event carries every required field of the record i
 ## Coordinator ruling on design finding D1, 2026-09-18
 
 - Design critic D1 (`review-result:wave3-design-r1`): the Rust fold in `crates/mandate-federation/src/record.rs` for `ExternalPrincipalLinked` is the coordinator's at integration, in the regeneration commit, bounded to carrying the four new fields (`external_principal_id`, `subject`, `link_method`, `linked_at`) on the crate's own event type and folding them; gate `cargo test -p mandate-federation --locked`. The same commit removes `#[doc(hidden)]` from the three identity seeding constructors (`crates/mandate-identity/src/port.rs:156,165,177`) once the events are declared; gate `cargo test -p mandate-identity --locked`. If either alignment exceeds that bound, it is recorded as residue on this story at close with a named follow-up story.
+
+## Coordinator rulings after correction round 1, 2026-09-19
+
+- Correction round 1 (`review-result:wave3-event-payloads-for-folds-adversary-1`): F1, F2, F3, F5, F7, F8 fixed; F4, F9, F10 no-op (pre-existing residue, recorded); F6 escalated to the coordinator's regeneration commit (the `crates/mandate-federation` event types for `FederationAuthenticated` and `ExternalPrincipalProvisioned` lose `context`, and `ExternalPrincipalLinked` gains four fields). Events are 72 (five seeding events from the unit, two per-row directory seeding events from F3). Accepted deviations, on the implementor's measurements: `RelationshipWritten` keeps `id: RelationId {generated: true}` (dropping it would lose the row's own identity; `Relation` stays in the residue either way); an event cannot carry `summary:` in ESS 0.25.0, so the F7 summaries sit on the emitting outcomes. The coordinator moved the adversary file's pins (events 70 → 72; residue prose fifteen → sixteen) by ruling; the measured residue is 16 entities, the addition being `mandate.graph.Relation.resource_id`, now inside the `resource: ResourceRef` struct the adversary's name-based reader does not descend into. Coordinator duties at integration: raise `crates/mandate-types/tests/contract_adversary.rs:709-712` to 72; retire the tenancy tripwire to `["mandate.graph.Resource.space_id"]` — re-measure after regeneration, since `Resource.resource_type` now travels inside `resource`.
+
+## Coordinator rulings after correction round 2, 2026-09-19
+
+- Correction round 2 (`review-result:wave3-event-payloads-for-folds-adversary-2`): G1–G4 fixed, G5 escalated to the regeneration commit, G6–G8 no-op (pre-existing residue; G7 with the reason that `ExchangeCredential`, `IntrospectCredential` and `RedeemAuthorizationCode` resolve a real credential from their proof). The round-1 host ruling (directory seeding events published by `mandate-worker`) was wrong and is reversed: `mandate-control-plane` owns `mandate.directory`, accepts its commands and publishes all four.
+- The coordinator edited the two adversary files after the round: the publisher pin (`adversary_fold_inputs_2.rs:219`) and `RECORDED_RESIDUE` (16 → 14) moved with the rulings; `adversary_fold_inputs.rs`'s `best_carrier` gained the same one-level struct descent the second reader has (`carried_inside_a_struct`), so both readers measure the residue of 14 — eleven in the story's seven files, three in `policy.yaml` and `workload.yaml`. Lanes 9/9 and 6/6.
+- Class noted for the wave protocol: three rounds in a row, a ruling moved a measured value and an assertion inside an adversary file still pinned the old one outside the round's authorization. A ruling that changes a measured value names, in the same round, every adversary assertion that pins it.
+
+## Residue after wave 3
+
+- Fourteen of the thirty-two entities with a declared transition still cannot be rebuilt from the event log, pinned by `crates/mandate-types/tests/adversary_fold_inputs.rs` (`UNFOLDABLE`) and `adversary_fold_inputs_2.rs` (`RECORDED_RESIDUE`): `credential.{AccessCredential, AuthorizationCode, SigningKey}`, `delegation.{Agent, AgentCapabilityCeiling, Approval, Execution}`, `federation.OAuthClient`, `graph.{Grant, Resource}`, `identity.RefreshCredential`, `policy.{AuthorizationModel, Policy}`, `workload.WorkloadIdentity`. Nine have no creation event anywhere (`story:declared-writers`); three miss only credential material, which stays out of the log by design (ADR 0009); `Resource.space_id` is `story:declared-writers`'.
+- `ExchangeCredential`, `IntrospectCredential` and `RedeemAuthorizationCode` still mint a `VerifiedContext` with `generated: true` while taking no `context` input; they resolve a real credential from their proof, so the generated `credential` has a runtime source. Recorded, not changed.
+- `mandate.identity.Principal` folds from `ExternalPrincipalProvisioned` with `kind` pinned to `User` and `display_name` generated — a rebuilt row carries a display name the runtime invented.
+- `mandate.credential.TokenExchangeDenied` has no producing command (published by `mandate-sts`); thirteen events are producerless: the five audit events, this one, and the seven seeding events.
+- `ess specify validate` enforces none of: component publish coverage, event producers, payload-source sanity, one-writer-per-row. The two adversary files are the only checks; `cargo doc`-level or `xtask`-level enforcement is unowned.
+- The Rust event types in `crates/mandate-federation` and the identity constructors' `#[doc(hidden)]` are aligned in the coordinator's regeneration commit, not by this story.
+- Residue of the adversary process itself: a ruling that moves a measured value must name, in the same round, every adversary assertion that pins it (three rounds hit this).

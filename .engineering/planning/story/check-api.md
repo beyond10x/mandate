@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:check-api
 kind: story
-status: draft
+status: implemented
 title: Implement stable PEP check semantics
 relations:
 - decomposes: epic:authorization
@@ -19,6 +19,10 @@ scope:
   path: crates/mandate-authz/src/evaluate.rs
 - confidence: cited
   path: crates/mandate-authz/src/lib.rs
+- confidence: cited
+  path: crates/mandate-authz/tests/adversary_check.rs
+- confidence: cited
+  path: crates/mandate-authz/tests/adversary_check_2.rs
 - confidence: inferred
   path: crates/mandate-authz/tests/check_contract.rs
 - confidence: inferred
@@ -27,7 +31,7 @@ scope:
   path: crates/mandate-authz/tests/decision.rs
 - confidence: inferred
   path: crates/mandate-authz/tests/evaluate.rs
-revision: 14
+revision: 21
 ---
 # Implement stable PEP check semantics
 
@@ -181,3 +185,22 @@ Per unit: `cargo fmt -p mandate-authz -- --check && cargo clippy -p mandate-auth
 ## Validation and contract
 
 `task check` and the runtime tests named above. `tests/security/cases.json` is a contract corpus, not runtime evidence. ESS: `systems/mandate/ess-inputs.yaml`. Source: `docs/requirements.md` and combined architecture.
+
+## Coordinator rulings for wave 3, 2026-09-19
+
+- Correction round 1 (`review-result:wave3-check-api-adversary-1`): F1–F4 fixed, F5 no-op, F6 fixed (test claim amended, producible-reasons test added). The implementor extended the F2 ruling from `actor` to `delegation` and `execution`: a `VerifiedContext` carrying any of the three is refused closed (`DenialReason::Denied`) until `story:agent-authority-kernel` and `story:agent-security` deliver their intersections. Accepted: the same fail-closed direction one field over; the crate doc names both owners.
+
+## Coordinator ruling after correction round 2, 2026-09-19
+
+- Correction round 2 (`review-result:wave3-check-api-adversary-2`): G1, G2, G4 fixed; G3 escalated — `mandate.core.DecisionChallenge` carries no requirement, so a reauthentication challenge is unrepresentable and answered `Unavailable`; the follow-up (`DecisionChallenge.requirement`, a contract and `mandate-model` change) is recorded under Residue. The coordinator formatted `tests/adversary_check_2.rs` (one rustfmt hunk) so the package gate's fmt step passes. Unit committed as `e93395f`, merged `--no-ff` into `integration/wave-20260918-004`.
+
+## Residue after wave 3
+
+- `Decision.model_version` is always `None`: no port in the ceiling returns an `AuthorizationModelVersion` (`crates/mandate-policy/src/port.rs:224-232` carries `PolicyVersion` only). Widening the policy port is a coordinator change; no owning story yet.
+- `mandate.core.DecisionChallenge` carries no requirement, so a `Reauthentication` selected by `precedence::strictest` is answered `Unavailable` (`crates/mandate-authz/src/decision.rs`, crate doc `lib.rs:51-64`). Closing it is a contract change (`DecisionChallenge.requirement`) plus `crates/mandate-model`; no owning story yet — filed for the coordinator's next planning pass.
+- A `VerifiedContext` carrying an `actor`, `delegation` or `execution` other than the subject is refused closed (`context::direct`); the actor-ceiling intersection and the ceiling's `agent_id` binding are `story:agent-authority-kernel`'s and `story:agent-security`'s.
+- `DenialReason::StaleEpoch` has no producer inside the ceiling; the producible reasons are asserted end to end in `tests/check_contract.rs` and the complement is pinned to `[StaleEpoch]`.
+- `mandate.graph.Resource.space_id` has no writer (`story:declared-writers`), so a scope naming a space binds closed (`TenantMismatch`) today.
+- `DecisionIdAllocator` and `ChallengeIssuer` are in-crate ports with `pub` doubles; their real sources (an id source; the policy that approves, with its expiry) arrive with the host adapter. The doubles move to `crates/mandate-testkit` under `story:testkit-doubles`.
+- The audience is compared against a caller-supplied `Audience`; no registry is reachable from the ceiling (`mandate-token` owns resource servers).
+- Scope resources are matched by `resource_id` alone, the graph's identity rule; a scope naming a parent does not cover a child request (closed direction, no contract states inheritance for `AuthorityScope.resources`).
