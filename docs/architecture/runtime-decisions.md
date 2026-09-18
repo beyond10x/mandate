@@ -28,7 +28,7 @@ Correcting the register is not this story's change and was not made here.
 
 ## Proposed owners are roles, not people
 
-No source this document may cite names an individual for any of these decisions, so every proposed owner below is a role or boundary taken from the [ownership map](ownership.md), citing the line that assigns it — **with two exceptions, which cite no ownership line because none exists**. Row 6's decision is a trust question the ownership map does not assign to any library or deployment, and the key-provider half of row 9 is listed at `combined.md:67` among the decisions still needing a reviewed owner rather than assigned to one. Both exceptions say so in place, marked *no ownership-map owner exists*. Converting a role to a named person is the coordinator's or the operator's act, not this document's; inventing an owner where the map assigns none would be worse than recording the gap.
+No source this document may cite names an individual for any of these decisions, so every proposed owner below is a role or boundary taken from the [ownership map](ownership.md), citing the line that assigns it — **with two exceptions, which cite no ownership line because none exists**. Row 6's decision is a trust question the ownership map does not assign to any library or deployment, and the key-provider half of row 9 falls outside the map's whole assignment surface — its domain table (`ownership.md:5-18`) and the four cross-domain libraries (`ownership.md:20`) — while `combined.md:67` lists the key provider among the items still needing a reviewed decision, which is not the same as naming its owner. Both exceptions say so in place, marked *no ownership-map owner exists*. The rule is enforced mechanically rather than by this sentence; see *Claims this document makes about itself*. Converting a role to a named person is the coordinator's or the operator's act, not this document's; inventing an owner where the map assigns none would be worse than recording the gap.
 
 ## Index
 
@@ -150,15 +150,23 @@ Out of bounds: an asynchronous event binding as the one-use redemption mechanism
 
 **Decision question.** Which graph engine and which policy engine are selected behind the `mandate-graph` and `mandate-policy` adapter ports, and on what tenancy, consistency and load acceptance evidence (`unmapped.md:31`; `ownership.md:11`, `:12`)? The original design enumerates the graph candidates and requires they stay behind `mandate-graph` (`../sources/original-design.md:2367`). PostgreSQL being the initial storage direction is explicitly not an authorization-engine selection (`combined.md:67`).
 
-**Bounded alternatives.** The graph half, as the source enumerates it (`../sources/original-design.md:2372-2374`):
+**Bounded alternatives.** Both halves are enumerated by the source, and its own open-questions section splits them exactly as this row does (`../sources/original-design.md:3353`, `:3357`, `:3364`).
+
+The graph half (`../sources/original-design.md:2372-2374`, restated as an open question at `:3359`):
 
 1. SpiceDB.
 2. OpenFGA.
 3. A PostgreSQL adapter for the initial bounded model.
 
-**This document selects none of these and recommends none.** The selection is an approval, not a proposal, and it is prohibited here.
+The policy half (`../sources/original-design.md:3366-3368`):
 
-The policy-engine half is a separate selection. No source this document may cite enumerates policy-engine candidates, so that half's alternative set is **open and unstated** — the clearance record has to establish the enumeration before it can choose from it. Saying so is the honest position; inventing three names would not be.
+1. A simple internal condition language.
+2. Cedar, which the design carries as its policy-language reference (`../sources/original-design.md:740`).
+3. Another engine. The design names Open Policy Agent as its general policy-engine reference (`../sources/original-design.md:742`) without proposing it, so this branch is a real option and not a placeholder.
+
+**This document selects none of these six and recommends none.** The selection is an approval, not a proposal, and it is prohibited here.
+
+The policy half carries one further question the same section asks and this document does not answer: how resource attributes are trusted and distributed (`../sources/original-design.md:3369`). That bears directly on the choice, because authorization-critical attributes must arrive as signed or trusted context, or be materialized into a policy data plane, rather than being fetched from the resource database during a check (`../sources/original-design.md:738`).
 
 Out of bounds: building a globally distributed Zanzibar database before the product requires it (`../sources/original-design.md:259`); reading `combined.md:67` as having already chosen an engine.
 
@@ -170,8 +178,9 @@ Out of bounds: building a globally distributed Zanzibar database before the prod
 
 - Tenancy evidence: cross-tenant isolation cases against the candidate, not against the port.
 - Consistency evidence: that the candidate's consistency token or revision survives Mandate's own API rather than being discarded (`../sources/original-design.md:1633`), and that it supports the strong/security-sensitive class used after revocation (`../sources/original-design.md:1629`).
-- Load acceptance evidence against a stated decision-latency target. **No such target exists in any source this document may cite**; the clearance record must state one before the evidence means anything.
+- Load acceptance evidence against a stated decision-latency target. The sources name decision latency as a metric to observe (`../sources/original-design.md:2900`) but set no value for it, so the clearance record must state one before the evidence means anything.
 - Fail-closed evidence: when the graph cannot produce a trustworthy answer, protected operations deny (`../sources/original-design.md:2967`).
+- For the policy half specifically, the recorded answer to resource-attribute trust and distribution (`../sources/original-design.md:3369`, `:738`). An engine selected without it is selected against unknown inputs.
 - A recorded selection approved by an authorized owner, naming the approver.
 
 ## 6. `decision-blocker:global-trust` — deferred global trust
@@ -231,7 +240,7 @@ Out of bounds: nominal ID uniqueness or JSON Schema as the enforcement mechanism
 
 **Unsettled sub-question, stated rather than invented.** The ceiling key is "(agent, organization-or-platform)" (`unmapped.md:54`). How the platform scope is represented in a column whose other values are organization identifiers is not stated in any source this document may cite. This may stay unanswered without the dossier being incomplete. It may not stay unanswered at clearance.
 
-**Proposed owner.** The storage adapter owner, with `mandate-federation` for the external-principal key (`ownership.md:14`) and `mandate-token` with the credential registry for the audience and exchange-source keys (`ownership.md:15`). The ceiling half belongs to `mandate-authz` and the delegation domain (`ownership.md:16`).
+**Proposed owner.** The concrete storage adapter owner, which the map places under the graph port rather than giving it a row of its own (`ownership.md:11`), with `mandate-federation` for the external-principal key (`ownership.md:14`) and `mandate-token` with the credential registry for the audience and exchange-source keys (`ownership.md:15`). The ceiling half belongs to `mandate-authz` and the delegation domain (`ownership.md:16`).
 
 **Affected stories (store).** `story:agent-authority-kernel`, `story:agent-security`, `story:credential-profiles`, `story:federation-linking`. The register names three (`unmapped.md:56`); `story:agent-authority-kernel` is store-only.
 
@@ -258,7 +267,7 @@ Out of bounds: nominal ID uniqueness or JSON Schema as the enforcement mechanism
 
 Out of bounds: selecting the algorithm from the token header (`../sources/original-design.md:2527`); treating a nominal `SigningAlgorithm` value as admitted because it validates against the schema (`unmapped.md:60`).
 
-**Proposed owner.** The allowlist half belongs to the `mandate-token` owner in the STS deployment, which alone issues, resolves, exchanges and revokes credentials (`ownership.md:15`). For the `kid`, rotation and emergency-revocation half, **no ownership-map owner exists**: `combined.md:67` lists the key provider among the decisions that still need a reviewed owner, and `../sources/original-design.md:2499-2509` states that half's requirements without assigning them to anyone. Naming an owner for it here would be inventing one.
+**Proposed owner.** The allowlist half belongs to the `mandate-token` owner in the STS deployment, which alone issues, resolves, exchanges and revokes credentials (`ownership.md:15`). For the `kid`, rotation and emergency-revocation half, **no ownership-map owner exists**: the map assigns through its domain table (`ownership.md:5-18`) and its four cross-domain libraries (`ownership.md:20`), and key material appears in neither. `combined.md:67` lists the key provider among the items that still need a reviewed decision — which records that the decision is open, not who owns it — and `../sources/original-design.md:2499-2509` states that half's requirements without assigning them to anyone. Naming an owner for it here would be inventing one.
 
 **Affected stories (store).** `story:credential-profiles`, `story:federation-linking`.
 
@@ -338,6 +347,22 @@ Two further open `decision-blocker` artifacts exist in the planning store and ar
 | `decision-blocker:drive-map-authority` | Reconcile driver artifact-write prompts with denied planning scope | `task:canonical-types-drive` |
 
 Neither is resolved, argued or given a recommendation here. Wave and Drive have separate lifecycle owners, and Drive must not be launched without a reviewed task and operator-supplied budget and assumed cost; those are the conditions under which these two are answered, by their own owner, elsewhere.
+
+## Claims this document makes about itself
+
+Twice now a universal claim in this document has turned out false — that no source enumerated policy-engine candidates, and that no concrete algorithm was named anywhere — and both times the claim was found by a reader rather than by a check. Prose asserting its own correctness is the least reliable part of any document, so every such claim is listed here with the check that enforces it. The list is verified against the body: a claim whose wording changes, or a check that is dropped, fails the checker. Adding a new universal claim without adding its check is the failure this table exists to prevent.
+
+| id | the claim, verbatim | enforced by |
+|---|---|---|
+| SC1 | Every row carries a source-cited decision question, bounded alternatives, a proposed owner, the affected stories read from the planning store, and the exact evidence required to clear it. | all five fields present in every row section, and the decision question carrying at least one resolving citation |
+| SC2 | Nothing in this document is built from those lines. | affected stories compared against `aep plan artifact blocked`, in every row body and in every index row |
+| SC3 | every proposed owner below is a role or boundary taken from the [ownership map](ownership.md), citing the line that assigns it | every owner paragraph cites an `ownership.md` line whose text names the role it claims, or declares *no ownership-map owner exists* |
+| SC4 | No admitted algorithm is proposed anywhere in this document | a denylist of concrete algorithm identifiers and family names, matched case-insensitively; `none` is excluded because it appears only as something to reject |
+| SC5 | This document selects none of these six and recommends none. | selection phrasing absent from the body. Engine candidate names are not denied: the sources enumerate them, so naming them is quoting. Algorithm names are denied because no source enumerates any, so any name would be invented |
+| SC6 | Every row above is open. | every blocker's status read from the store equals `open` |
+| SC7 | Two further open `decision-blocker` artifacts exist in the planning store and are **deliberately not rows above**. | both Drive blockers named in the body and absent from the row sections and the index |
+
+Two claims are deliberately *not* in this table because they are judgements, not checkable properties: that an independent reviewer can take one row without reading the rest — seven rows state a dependency on another row, so this is a claim about convenience, not isolation — and that the proposed owners are the right ones.
 
 ## Completeness
 
