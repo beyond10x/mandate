@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:domain-runtime
 kind: story
-status: active
+status: implemented
 title: Settle remaining domain lifecycle contracts
 relations:
 - decomposes: epic:foundations
@@ -53,7 +53,7 @@ scope:
   path: systems/mandate/domains/workload.yaml
 - confidence: cited
   path: tests/security/cases.json
-revision: 13
+revision: 15
 ---
 # Settle remaining domain lifecycle contracts
 
@@ -110,16 +110,20 @@ No unit edits `components.yaml`, any file under `docs/architecture/`, `tests/sec
 
 ## Scope
 
-- `systems/mandate/domains/identity.yaml` — cited; epoch fields at `:165`, `:176`, `:187`.
-- `systems/mandate/domains/federation.yaml` — cited; new command after `:194`; `FederationConnection` at `:51-75`.
-- `systems/mandate/domains/credential.yaml`, `delegation.yaml`, `graph.yaml`, `policy.yaml`, `directory.yaml`, `tenancy.yaml`, `audit.yaml`, `workload.yaml` — cited; each holds `Recorded`-only entities.
-- `systems/mandate/components.yaml` — cited; `:15-33` and `:36-54`; coordinator.
-- `crates/mandate-types/tests/inventory.rs` — cited; `:133-153`. `crates/mandate-types/src/inventory.rs` — inferred; `:466-480`.
-- `docs/architecture/command-obligations.md`, `unmapped.md`, `combined.md`, `audit-routing.md` — cited; coordinator. `docs/architecture/runtime-decisions.md`, `ownership.md` — inferred; coordinator.
-- `tests/security/cases.json` — cited; coordinator; after the command exists.
-- `generated` — cited; kept as one directory entry on purpose: all 267 files change on any ESS edit and enumerating them would misrepresent one atomic surface.
-- Not touched: `systems/mandate/domains/core.yaml`, `systems/mandate/system.yaml`, `systems/mandate/ess-inputs.yaml`.
-- Would collide with: any unit touching the `systems/mandate` ESS surface; any unit touching `crates/mandate-types`; any unit touching `docs/architecture` — which is why `docs/architecture/federated-login.md` was written before this wave and why no other story runs beside this one.
+Confirmed by the implementor on 2026-09-18 against base `d47c0b5`; corrections visible rather than deleted.
+
+- `systems/mandate/domains/identity.yaml` — cited; epoch fields landed at `:165`, `:176`, `:187` as inferred (exact).
+- `systems/mandate/domains/federation.yaml` — cited; the JIT command, its event, `jit_provisioning` on the entity (`:51-75`, exact) and on `RegisterFederationConnection`'s input; `DisableOAuthClient` added beyond the unit table, `OAuthClient` being in this file and in no row.
+- `systems/mandate/domains/credential.yaml`, `delegation.yaml`, `graph.yaml`, `policy.yaml`, `directory.yaml`, `tenancy.yaml`, `audit.yaml`, `workload.yaml` — cited; 25 commands and 25 events across them.
+- `systems/mandate/components.yaml` — cited; coordinator; `:15-33` and `:36-54` grew to 44 and 65 entries.
+- `crates/mandate-types/tests/inventory.rs` — cited; `:133-153` exact. `crates/mandate-types/src/inventory.rs` — **was inferred `:466-480`, is `:465-481`** inside `EXCLUDED_ENTITIES` at `:464-487`; off by one at both ends.
+- `crates/mandate-types/tests/contract_adversary.rs` — not in any row; added by the adversary, nine cases, one a tripwire on ESS's invariant projection.
+- `docs/architecture/command-obligations.md`, `unmapped.md`, `combined.md`, `audit-routing.md`, `runtime-decisions.md`, `ownership.md`, `federated-login.md` — coordinator; all seven written. `federated-login.md` was not in the original list; its FL2 counts and the `RegisterFederationConnection` signature went stale and were corrected.
+- `xtask/src/main.rs` — not in the original list; coordinator; gained the commands-to-obligations check the implementor patched.
+- `tests/security/cases.json` — cited; coordinator; three JIT scenarios added after the command existed in the compiled index.
+- `generated` — cited; one directory entry on purpose; 267 files rewritten, 63 added.
+- Not touched, as declared: `core.yaml`, `system.yaml`, `ess-inputs.yaml`.
+- The one-agent execution: the four unit rows were done serially by a single implementor on the operator's "one per story"; the files stayed disjoint by construction.
 
 ## Validation and contract
 

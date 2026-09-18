@@ -49,3 +49,44 @@ Through `atlas/scripts/as-bot.sh`, author and committer `b10x-bot[bot]`: this op
 ## Stage log
 
 - open: story moved `draft → proposed → active`; page written; opening commit follows.
+- implementor, pass 1: `red` by design — the epoch tripwire against stale `generated/`; every other lane green. 12 files, +824/−40. Commands 34→59, events 40→65, errors 9→11; types 110 and entities 36 unchanged; 34 transitions each moved by one command. Acted beyond the unit table on `OAuthClient` (`DisableOAuthClient`), accepted. Three coordinator patches left in scratch. Cost: 266,645 tokens, 134 tool uses, 22.6 min.
+- adversary, pass 1: `NEEDS-CHANGE`, cases 25→29 red 4, findings 10 — introduced 7, pre-existing 3. Recorded as `review-result:wave2-domain-runtime-adversary-1`. Blockers A (`jit_provisioning` settable by no command) and B (`SigningKey.Retired` neither initial nor terminal) plus F, G, H, I and the introduced instances of D, E route to the same implementor as correction round 1. C (ESS drops entity invariants from the schema projection) → `story:invariant-boundary-validation`; the base half of D, E → `story:event-payloads-for-folds`; J → no-op. Cost: 184,388 tokens, 66 tool uses, 18.3 min.
+- coordinator error: four `review_outcome: no-op` records were written against `review-result:wave2-domain-runtime-adversary-1` where two (C, J) were meant; evidence is append-only, so the two surplus stand and D, E receive their `fixed` records when the correction lands.
+- coordinator edits staged in the integration tree, uncommitted until the merge: `unmapped.md` (EPOCH, LIFECYCLE), `combined.md:19`, `ownership.md` rows 11-12/14/15/16, `audit-routing.md:12`, `runtime-decisions.md` (59 commands; rows 5 and 7 → `story:graph-policy-adapter`), `federated-login.md` FL2; three JIT scenarios in `tests/security/cases.json` (47→50).
+- implementor, correction 1: `green` on A and B; C red by design; tripwire red until regeneration. +899/−42 over base. Two declared deviations from the fix text, both sound: no `source` field on `TeamMembership` (its `DirectoryMapping` value would be settable by nothing — finding A's shape) and `linked_at` not carried on the JIT event (the base `ExternalPrincipalLinked` must make the same call under `story:event-payloads-for-folds`). Named, not closed: four pre-existing creation gaps of A's shape in other stories' records (`OAuthClient`, `Policy`/`AuthorizationModel`, the agent records, `DirectoryGroup`/`SyncJob`). Gate blocker found: the adversary's own file fails `cargo fmt --check`; pass 2 owns it. Cost: 311,768 tokens cumulative, 155 tool uses, 5.3 min this round.
+- outcomes recorded on `review-result:wave2-domain-runtime-adversary-1`: 8 `fixed` (A, B, F, G, H, I, D, E), 4 `no-op` (C, J, and the two surplus disclosed above).
+- adversary, pass 2 (the last): `NEEDS-CHANGE`, cases 29→34 red 6, findings 8, all introduced; every pass-1 fix held, including that ESS type-checks the `ConfiguredFederation` literal (`ESS-COMMAND-002` on a mutated scratch copy). Recorded as `review-result:wave2-domain-runtime-adversary-2` with the scratch path prefix redacted to `<scratch>/` before recording. Findings 1–8 route to the same implementor as correction round 2; no adversary pass follows — the coordinator verifies the fixes by the adversary's own cases D1–D4 in the tree and the compiled-model counts, and discloses that here. Cost: 202,812 tokens, 74 tool uses, 18.2 min.
+- implementor, correction 2: `green` — D1–D4 green, A and B green; +947/−46 over base; counts 110/36/59/65/11 verified by the coordinator's own compile. One deviation accepted: row 4's contribution claim made true (`AddTeamMembership` returns and carries `contribution_id`; the two mapping events carry `contributions`) rather than deleted, because the adversary's case D3 guards those sentences. Cost: 366,802 tokens cumulative, 25 tool uses, 6.9 min this round.
+- coordinator: adversary case C (ESS drops entity invariants from JSON Schema) rewritten into a tripwire that pins the known gap and names `story:invariant-boundary-validation`; the file went 9/9 green. Unit commit `630e7b9` on `impl/domain-runtime`; merge `099f4ca`; regeneration and documents commit `f0da11e` — `generated/` replaced from a fresh `ess generate` root because the repository carries no `.ess-output` ownership record and in-place regeneration refuses; the gate's byte-compare is what judges it. `cargo xtask contracts`: "ESS projections match deterministically". `cargo test -p mandate-types`: 7 targets, 48 passed, 0 failed.
+- outcomes on `review-result:wave2-domain-runtime-adversary-2`: 8 `fixed`.
+
+## Commits made
+
+| commit | what |
+|---|---|
+| `d47c0b5` | opening store commit |
+| `630e7b9` | unit commit, `impl/domain-runtime` |
+| `099f4ca` | merge into `integration/wave-20260918-003` |
+| `f0da11e` | regeneration, `components.yaml`, obligations, xtask check, seven architecture documents, three corpus cases |
+| — | closing store commit follows the gate |
+
+## Cost
+
+| agent | tokens | tool uses | wall |
+|---|---|---|---|
+| implementor (3 rounds) | 366,802 | 155 + 25 | 22.6 + 5.3 + 6.9 min |
+| adversary pass 1 | 184,388 | 66 | 18.3 min |
+| adversary pass 2 | 202,812 | 74 | 18.2 min |
+| total sub-agent | 754,002 | 320 | 71.3 min |
+
+## Closing gate — the whole thing, once, on the merged head
+
+First run on `f0da11e`: `cargo fmt --all -- --check` refused two hunks in the implementor's xtask patch; exit 201, nothing after fmt ran. Fixed as `5924657` (`chore(xtask): rustfmt the obligations check`), a coordinator commit beyond the five this page named — declared here. Second run on `5924657`: **exit 0**, read from the gate's own status line. Per step: rustc pin, aep pin, fmt, clippy `-D warnings`, workspace test (**49 targets, 81 passed, 0 failed**; wave 1 closed at 72), workspace build, boundaries (20 packages), corpus (50 scenarios traced; **59 commands named in command-obligations.md** — the new check), contracts (ESS projections match deterministically), cargo deny, aep validate (valid), the five scaffold refusals.
+
+## Stories moved terminal
+
+`story:domain-runtime` → `implemented` on `test_result` evidence against `59246579b178a7357a98d57f45e81b62d0e03dd8`. Its three blockers stay `open`: `lifecycle` and `jit-provisioning` now have the contract half of their clearance evidence in the tree; the runtime cases each names are wave 2's and later.
+
+## Wave 2 shape, revised by the operator's "one per story"
+
+Four agents, one per story, each owning its whole crate including `src/lib.rs` — so no coordinator interface commits. `federation-linking` (`crates/mandate-federation`), `graph-policy` (`crates/mandate-graph`, `crates/mandate-policy`), `session-epochs` (`crates/mandate-identity`), `tenancy-topology` (`crates/mandate-model`). Zero shared files among the four. Briefs at the wave scratch root, base `59246579b178a7357a98d57f45e81b62d0e03dd8` plus the closing store commit.
