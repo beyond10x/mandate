@@ -7,17 +7,21 @@
   "properties": {
     "context": {
       "$ref": "#/$defs/mandate.core.VerifiedContext"
+    },
+    "id": {
+      "$ref": "#/$defs/mandate.core.OrganizationMembershipId"
     }
   },
   "required": [
-    "context"
+    "context",
+    "id"
   ],
   "additionalProperties": false,
   "x-ess-provenance": {
     "system": "mandate",
     "specification_version": "v1",
-    "source_digest": "681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8",
-    "contract_digest": "slice-sha256/2:a64f6a5d4e723b6be91eb2494aae52f03483e1793536fc8e3701b7e34724c1a6",
+    "source_digest": "49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40",
+    "contract_digest": "slice-sha256/2:f5d26f6bd7253dda7a070ddf6710422b4300761be04c1f98d849189471b93366",
     "regenerate": "ess generate"
   },
   "$defs": {
@@ -60,6 +64,14 @@
     "mandate.core.OrganizationId": {
       "title": "OrganizationId",
       "x-ess-name": "mandate.core.OrganizationId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.OrganizationMembershipId": {
+      "title": "OrganizationMembershipId",
+      "x-ess-name": "mandate.core.OrganizationMembershipId",
       "x-ess-kind": "newtype",
       "type": "string",
       "format": "uuid",

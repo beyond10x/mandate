@@ -128,7 +128,8 @@ fn provisioned(
     at: &str,
 ) -> FederationEvent {
     FederationEvent::ExternalPrincipalProvisioned {
-        context: context(organization_id),
+        organization_id,
+        correlation: CorrelationId::new("federation-linking"),
         connection_id,
         principal_id,
         kind: PrincipalKind::User,

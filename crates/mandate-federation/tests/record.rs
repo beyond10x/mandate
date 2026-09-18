@@ -21,7 +21,7 @@ use mandate_types::value::Uuid;
 use mandate_types::{
     Audience, ClientId, CorrelationId, CredentialId, DenialReason, ExternalLinkMethod,
     ExternalPrincipalId, ExternalSubject, FederationConnectionId, Issuer, OAuthClientId,
-    OrganizationId, PrincipalId, PrincipalKind, Timestamp, VerifiedContext,
+    OrganizationId, PrincipalId, PrincipalKind, SessionId, Timestamp, VerifiedContext,
 };
 
 fn uuid(tag: u8) -> Uuid {
@@ -42,6 +42,16 @@ fn principal(tag: u8) -> PrincipalId {
 
 fn external_principal(tag: u8) -> ExternalPrincipalId {
     ExternalPrincipalId::new(uuid(tag))
+}
+
+fn session(tag: u8) -> SessionId {
+    SessionId::new(uuid(tag))
+}
+
+/// The `correlation` the two context-free events declare, in place of the one a
+/// `VerifiedContext` used to carry.
+fn correlation() -> CorrelationId {
+    CorrelationId::new("federation-linking")
 }
 
 fn context(organization_id: OrganizationId) -> VerifiedContext {
@@ -78,7 +88,8 @@ fn provisioned(
     kind: PrincipalKind,
 ) -> FederationEvent {
     FederationEvent::ExternalPrincipalProvisioned {
-        context: context(organization_id),
+        organization_id,
+        correlation: correlation(),
         connection_id,
         principal_id: principal(0x21),
         kind,
@@ -350,7 +361,10 @@ fn every_event_naming_an_absent_connection_is_refused() {
             connection_id: connection(1),
         },
         FederationEvent::FederationAuthenticated {
-            context: context(organization(10)),
+            session_id: session(0x91),
+            principal_id: principal(0x21),
+            audience: Audience::new("mandate"),
+            correlation: correlation(),
             connection_id: connection(1),
         },
         linked(
@@ -815,7 +829,8 @@ fn the_principal_a_losing_link_created_is_answerable_from_the_conflict() {
             PrincipalKind::User,
         ),
         FederationEvent::ExternalPrincipalProvisioned {
-            context: context(organization(10)),
+            organization_id: organization(10),
+            correlation: correlation(),
             connection_id: connection(1),
             principal_id: principal(0x22),
             kind: PrincipalKind::User,

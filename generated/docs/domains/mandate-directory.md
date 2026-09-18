@@ -1,7 +1,7 @@
 <!--
 generated from mandate v1
-model digest 681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8
-contract digest slice-sha256/2:f3f78aa9656e5e085e0c6c76f0a2dbf0e33490e653a02b5bd346ff3a290a0960
+model digest 49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40
+contract digest slice-sha256/2:e3af0fa3e1220fdfb1a24652605aff975d1125745cf7db0eb7f3ee819c73b32c
 do not edit: regenerate with `ess generate`
 -->
 
@@ -247,7 +247,7 @@ It takes:
 
 It has two outcomes.
 
-**`accepted`** — The default branch, taken when no other outcome's condition matched. No entity in this specification changes. It emits `mandate.directory.DirectoryGroupTeamMappingCreated`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+**`accepted`** — One mapping row, and the mapping-derived contribution rows the reconciliation wrote named by identity alone. Each contribution's own fields are on its MembershipContributionRecorded; nothing here is read positionally. The default branch, taken when no other outcome's condition matched. No entity in this specification changes. It emits `mandate.directory.DirectoryGroupTeamMappingCreated`. A test reaches it by constructing an input that satisfies no other outcome's condition.
 
 **`denied`** — Decided outside the input: Caller lacks mapping authority, group/team is unknown, the group is retired, the team is retired, either target is outside the verified organization, or provenance-preserving contribution reconciliation fails.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.directory.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
@@ -338,7 +338,7 @@ It takes:
 
 It has two outcomes.
 
-**`accepted`** — The default branch, taken when no other outcome's condition matched. No entity in this specification changes. It emits `mandate.directory.DirectoryGroupMembershipChanged`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+**`accepted`** — The membership rows this run wrote, named by identity alone and nothing else. They are the additions the run resolved, never the group's full membership, and each row's own fields are on its own DirectoryGroupMembershipRecorded. A membership this run no longer resolves is removed only by RemoveDirectoryGroupMembership, whose DirectoryGroupMembershipRemoved names the row; absence from this list removes nothing. The default branch, taken when no other outcome's condition matched. No entity in this specification changes. It emits `mandate.directory.DirectoryGroupMembershipChanged`. A test reaches it by constructing an input that satisfies no other outcome's condition.
 
 **`denied`** — Decided outside the input: Caller is not an admitted provisioning source, the group is retired, group/member organization mismatches, or synchronization would grant authority without an explicit valid team mapping.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.directory.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
@@ -352,9 +352,25 @@ It carries:
 
 - `context` — `mandate.core.VerifiedContext`
 - `group_id` — `mandate.core.DirectoryGroupId`
+- `membership_ids` — `List<mandate.core.DirectoryGroupMembershipId>`
 - `contributions` — `List<mandate.core.MembershipContributionId>`
 
 Emitted by `mandate.directory.SyncDirectoryMembership` on its `accepted` outcome.
+
+Nothing in this system reacts to it.
+
+### `DirectoryGroupMembershipRecorded`
+
+`mandate.directory.DirectoryGroupMembershipRecorded`.
+
+It carries:
+
+- `id` — `mandate.core.DirectoryGroupMembershipId`
+- `organization_id` — `mandate.core.OrganizationId`
+- `group_id` — `mandate.core.DirectoryGroupId`
+- `principal_id` — `mandate.core.PrincipalId`
+
+No command in this system emits it, so something outside the specification does.
 
 Nothing in this system reacts to it.
 
@@ -365,8 +381,24 @@ Nothing in this system reacts to it.
 It carries:
 
 - `context` — `mandate.core.VerifiedContext`
+- `id` — `mandate.core.DirectoryGroupMembershipId`
 
 Emitted by `mandate.directory.RemoveDirectoryGroupMembership` on its `accepted` outcome.
+
+Nothing in this system reacts to it.
+
+### `DirectoryGroupRecorded`
+
+`mandate.directory.DirectoryGroupRecorded`.
+
+It carries:
+
+- `id` — `mandate.core.DirectoryGroupId`
+- `organization_id` — `mandate.core.OrganizationId`
+- `display_name` — `String`
+- `source` — `String`
+
+No command in this system emits it, so something outside the specification does.
 
 Nothing in this system reacts to it.
 
@@ -390,8 +422,11 @@ Nothing in this system reacts to it.
 It carries:
 
 - `context` — `mandate.core.VerifiedContext`
+- `mapping_id` — `mandate.core.DirectoryGroupTeamMappingId`
 - `group_id` — `mandate.core.DirectoryGroupId`
 - `team_id` — `mandate.core.TeamId`
+- `created_by` — `mandate.core.PrincipalId`
+- `created_at` — `Timestamp`
 - `contributions` — `List<mandate.core.MembershipContributionId>`
 
 Emitted by `mandate.directory.CreateDirectoryGroupTeamMapping` on its `accepted` outcome.
@@ -405,8 +440,26 @@ Nothing in this system reacts to it.
 It carries:
 
 - `context` — `mandate.core.VerifiedContext`
+- `id` — `mandate.core.DirectoryGroupTeamMappingId`
 
 Emitted by `mandate.directory.RemoveDirectoryGroupTeamMapping` on its `accepted` outcome.
+
+Nothing in this system reacts to it.
+
+### `MembershipContributionRecorded`
+
+`mandate.directory.MembershipContributionRecorded`.
+
+It carries:
+
+- `id` — `mandate.core.MembershipContributionId`
+- `organization_id` — `mandate.core.OrganizationId`
+- `team_membership_id` — `mandate.core.TeamMembershipId`
+- `source` — `mandate.core.MembershipSource`
+- `mapping_id` — `Optional<mandate.core.DirectoryGroupTeamMappingId>`, which may be absent
+- `created_by` — `mandate.core.PrincipalId`
+
+No command in this system emits it, so something outside the specification does.
 
 Nothing in this system reacts to it.
 
@@ -417,6 +470,7 @@ Nothing in this system reacts to it.
 It carries:
 
 - `context` — `mandate.core.VerifiedContext`
+- `id` — `mandate.core.MembershipContributionId`
 
 Emitted by `mandate.directory.RemoveMembershipContribution` on its `accepted` outcome.
 
@@ -445,6 +499,21 @@ It carries:
 - `id` — `mandate.core.SyncJobId`
 
 Emitted by `mandate.directory.FailSyncJob` on its `accepted` outcome.
+
+Nothing in this system reacts to it.
+
+### `SyncJobRecorded`
+
+`mandate.directory.SyncJobRecorded`.
+
+It carries:
+
+- `id` — `mandate.core.SyncJobId`
+- `organization_id` — `mandate.core.OrganizationId`
+- `connection_id` — `mandate.core.FederationConnectionId`
+- `correlation` — `mandate.core.CorrelationId`
+
+No command in this system emits it, so something outside the specification does.
 
 Nothing in this system reacts to it.
 
@@ -477,4 +546,4 @@ Reported by `mandate.directory.SyncDirectoryMembership` on its `denied` outcome.
 
 ---
 
-Generated from mandate v1 · model digest `681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8` · contract digest `slice-sha256/2:f3f78aa9656e5e085e0c6c76f0a2dbf0e33490e653a02b5bd346ff3a290a0960`. Do not edit this file; change the specification and regenerate it with `ess generate`.
+Generated from mandate v1 · model digest `49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40` · contract digest `slice-sha256/2:e3af0fa3e1220fdfb1a24652605aff975d1125745cf7db0eb7f3ee819c73b32c`. Do not edit this file; change the specification and regenerate it with `ess generate`.

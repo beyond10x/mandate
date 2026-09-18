@@ -138,26 +138,38 @@ pub enum DenialClause {
 
 /// What the adapter carries that neither a command input nor the read model supplies.
 ///
-/// `federation.yaml` declares the `context` of `FederationAuthenticated` and
-/// `ExternalPrincipalProvisioned` as `generated: true`, and `mandate.core.VerifiedContext`
-/// requires an audience, a credential and a correlation. The subject, the organization
-/// and — for an authentication — the credential are resolved here. These are the fields
-/// that are left.
+/// `federation.yaml` no longer declares a `context` on `FederationAuthenticated` or
+/// `ExternalPrincipalProvisioned`. Both are reached without a verified caller — an
+/// authentication is what *establishes* a context, and `ProvisionExternalPrincipal` mints
+/// no session and no credential ("No session is minted here; the adapter calls
+/// AuthenticateFederation again") — so a `mandate.core.VerifiedContext`, whose `credential`
+/// is required, had no source on either. The contract declares the fields the records
+/// actually need instead: `session_id`, `principal_id`, `audience`, `correlation` and
+/// `connection_id` on the authentication, and `organization_id` plus `correlation` on the
+/// provisioning. Of those, the audience and the correlation are the adapter's; the rest
+/// are resolved from the proof, the connection or the issuer.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RequestContext {
     /// The audience the control plane establishes the context for.
+    ///
+    /// Carried onto `mandate.federation.FederationAuthenticated`.
     pub audience: Audience,
     /// The correlation carried through the request.
+    ///
+    /// Carried onto both context-free events.
     pub correlation: CorrelationId,
     /// The credential the trusted federation endpoint was reached with.
     ///
-    /// `ProvisionExternalPrincipal` mints no session and no credential — "No session is
-    /// minted here; the adapter calls AuthenticateFederation again" — and its event
-    /// nevertheless carries a `VerifiedContext`, whose `credential` is required. The
-    /// contract names no source for it. An authentication does not read this field: it
-    /// names the credential [`SessionIssuer`] minted.
+    /// No event of this domain carries it: the two that once demanded one through a
+    /// `VerifiedContext` no longer declare a context at all, and the credential an
+    /// authentication mints is [`SessionIssuer`]'s, named by `mandate.identity` against
+    /// the `session_id` the authentication declares. It is kept because the adapter that
+    /// reached the endpoint holds it and the audit path is `mandate.audit`'s, not this
+    /// crate's to drop on its behalf.
     pub credential: CredentialId,
     /// The moment the request is being served. A clock is an adapter concern.
+    ///
+    /// Carried onto both link events as `linked_at`.
     pub at: Timestamp,
 }
 

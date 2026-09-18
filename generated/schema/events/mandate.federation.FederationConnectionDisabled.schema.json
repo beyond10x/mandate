@@ -7,17 +7,21 @@
   "properties": {
     "context": {
       "$ref": "#/$defs/mandate.core.VerifiedContext"
+    },
+    "id": {
+      "$ref": "#/$defs/mandate.core.FederationConnectionId"
     }
   },
   "required": [
-    "context"
+    "context",
+    "id"
   ],
   "additionalProperties": false,
   "x-ess-provenance": {
     "system": "mandate",
     "specification_version": "v1",
-    "source_digest": "681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8",
-    "contract_digest": "slice-sha256/2:37444d4954880825154849c3ece5bce690f25ea3220e13695cd5aa4897e28a80",
+    "source_digest": "49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40",
+    "contract_digest": "slice-sha256/2:95e2e200b629651f7dc899c1f3f88e486f5e22339c1522b8e2714411fd507885",
     "regenerate": "ess generate"
   },
   "$defs": {
@@ -52,6 +56,14 @@
     "mandate.core.ExecutionId": {
       "title": "ExecutionId",
       "x-ess-name": "mandate.core.ExecutionId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.FederationConnectionId": {
+      "title": "FederationConnectionId",
+      "x-ess-name": "mandate.core.FederationConnectionId",
       "x-ess-kind": "newtype",
       "type": "string",
       "format": "uuid",

@@ -1,6 +1,6 @@
 # generated from mandate v1
-# model digest 681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8
-# contract digest slice-sha256/2:1d9a0f740e9bed15db6735d4b4cf968207754c0c63f4219b54fc72541ac71e45
+# model digest 49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40
+# contract digest slice-sha256/2:369e7fe06860ab40032a843cc9f3773db80371905f1d47f1e2c9f6933524dbdd
 # do not edit: regenerate with `ess generate`
 openapi: 3.1.0
 info:
@@ -14,8 +14,8 @@ info:
   x-ess-provenance:
     system: mandate
     specification_version: v1
-    source_digest: 681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8
-    contract_digest: slice-sha256/2:1d9a0f740e9bed15db6735d4b4cf968207754c0c63f4219b54fc72541ac71e45
+    source_digest: 49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40
+    contract_digest: slice-sha256/2:369e7fe06860ab40032a843cc9f3773db80371905f1d47f1e2c9f6933524dbdd
 tags:
 - name: delegation
 - name: directory
@@ -1726,7 +1726,7 @@ components:
       additionalProperties: false
     mandate.directory.CreateDirectoryGroupTeamMapping.accepted.Response:
       additionalProperties: false
-      description: Taken when no other outcome's condition matched. Emits `DirectoryGroupTeamMappingCreated`, published to consumers rather than returned here.
+      description: One mapping row, and the mapping-derived contribution rows the reconciliation wrote named by identity alone. Each contribution's own fields are on its MembershipContributionRecorded; nothing here is read positionally. Taken when no other outcome's condition matched. Emits `DirectoryGroupTeamMappingCreated`, published to consumers rather than returned here.
       properties:
         outcome:
           const: accepted
@@ -1995,7 +1995,7 @@ components:
       additionalProperties: false
     mandate.directory.SyncDirectoryMembership.accepted.Response:
       additionalProperties: false
-      description: Taken when no other outcome's condition matched. Emits `DirectoryGroupMembershipChanged`, published to consumers rather than returned here.
+      description: The membership rows this run wrote, named by identity alone and nothing else. They are the additions the run resolved, never the group's full membership, and each row's own fields are on its own DirectoryGroupMembershipRecorded. A membership this run no longer resolves is removed only by RemoveDirectoryGroupMembership, whose DirectoryGroupMembershipRemoved names the row; absence from this list removes nothing. Taken when no other outcome's condition matched. Emits `DirectoryGroupMembershipChanged`, published to consumers rather than returned here.
       properties:
         outcome:
           const: accepted

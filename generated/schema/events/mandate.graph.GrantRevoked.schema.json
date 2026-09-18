@@ -7,17 +7,21 @@
   "properties": {
     "context": {
       "$ref": "#/$defs/mandate.core.VerifiedContext"
+    },
+    "id": {
+      "$ref": "#/$defs/mandate.core.GrantId"
     }
   },
   "required": [
-    "context"
+    "context",
+    "id"
   ],
   "additionalProperties": false,
   "x-ess-provenance": {
     "system": "mandate",
     "specification_version": "v1",
-    "source_digest": "681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8",
-    "contract_digest": "slice-sha256/2:1b7a6979bc543744d87b0d8ecaad566789f27e7e5b795a10583e6cd5891fab2c",
+    "source_digest": "49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40",
+    "contract_digest": "slice-sha256/2:00dff4ea051d6bb4625955d8035ab88e18d9946d4f01dbdb1be95e297ac165fd",
     "regenerate": "ess generate"
   },
   "$defs": {
@@ -52,6 +56,14 @@
     "mandate.core.ExecutionId": {
       "title": "ExecutionId",
       "x-ess-name": "mandate.core.ExecutionId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.GrantId": {
+      "title": "GrantId",
+      "x-ess-name": "mandate.core.GrantId",
       "x-ess-kind": "newtype",
       "type": "string",
       "format": "uuid",

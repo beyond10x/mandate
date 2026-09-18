@@ -468,7 +468,8 @@ fn the_fold_admits_a_provisioned_link_whose_method_is_not_configured_federation(
             true,
         ),
         FederationEvent::ExternalPrincipalProvisioned {
-            context: context(organization(10)),
+            organization_id: organization(10),
+            correlation: CorrelationId::new("adversary-federation-linking"),
             connection_id: connection(1),
             principal_id: PrincipalId::new(uuid(0x21)),
             kind: PrincipalKind::User,

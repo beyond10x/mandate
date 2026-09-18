@@ -10,18 +10,22 @@
     },
     "organization_id": {
       "$ref": "#/$defs/mandate.core.OrganizationId"
+    },
+    "display_name": {
+      "type": "string"
     }
   },
   "required": [
     "context",
-    "organization_id"
+    "organization_id",
+    "display_name"
   ],
   "additionalProperties": false,
   "x-ess-provenance": {
     "system": "mandate",
     "specification_version": "v1",
-    "source_digest": "681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8",
-    "contract_digest": "slice-sha256/2:e377751bf10c28a7a1211ed8d1b95a501ae945464f8cf707c3b68ef68c81e311",
+    "source_digest": "49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40",
+    "contract_digest": "slice-sha256/2:d03c0d9cd4b5c9500ee6cfa54ec8b9e17a8aabec28c25802844679196282e139",
     "regenerate": "ess generate"
   },
   "$defs": {

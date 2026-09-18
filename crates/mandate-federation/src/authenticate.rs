@@ -21,7 +21,7 @@ use std::collections::BTreeSet;
 use mandate_model::TenantResolutionRule;
 use mandate_types::{
     CredentialProof, DenialReason, ExternalLinkMethod, ExternalPrincipalId, ExternalSubject,
-    FederationConnectionId, OrganizationId, PrincipalId, PrincipalKind, SessionId, VerifiedContext,
+    FederationConnectionId, OrganizationId, PrincipalId, PrincipalKind, SessionId,
 };
 
 use crate::record::{
@@ -124,16 +124,10 @@ pub fn authenticate_federation(
         organization_id: resolved.organization_id,
         principal_id: link.principal_id,
         event: FederationEvent::FederationAuthenticated {
-            context: VerifiedContext {
-                subject: link.principal_id,
-                actor: None,
-                organization: resolved.organization_id,
-                audience: request.audience.clone(),
-                credential: issued.credential_id,
-                delegation: None,
-                execution: None,
-                correlation: request.correlation.clone(),
-            },
+            session_id: issued.session_id,
+            principal_id: link.principal_id,
+            audience: request.audience.clone(),
+            correlation: request.correlation.clone(),
             connection_id: resolved.connection.id,
         },
     })
@@ -185,16 +179,8 @@ pub fn provision_external_principal(
         principal_id,
         subject: resolved.key.subject.clone(),
         event: FederationEvent::ExternalPrincipalProvisioned {
-            context: VerifiedContext {
-                subject: principal_id,
-                actor: None,
-                organization: resolved.organization_id,
-                audience: request.audience.clone(),
-                credential: request.credential,
-                delegation: None,
-                execution: None,
-                correlation: request.correlation.clone(),
-            },
+            organization_id: resolved.organization_id,
+            correlation: request.correlation.clone(),
             connection_id: resolved.connection.id,
             principal_id,
             kind: PrincipalKind::User,

@@ -13,19 +13,36 @@
     },
     "principal_id": {
       "$ref": "#/$defs/mandate.core.PrincipalId"
+    },
+    "external_principal_id": {
+      "$ref": "#/$defs/mandate.core.ExternalPrincipalId"
+    },
+    "subject": {
+      "$ref": "#/$defs/mandate.core.ExternalSubject"
+    },
+    "link_method": {
+      "$ref": "#/$defs/mandate.core.ExternalLinkMethod"
+    },
+    "linked_at": {
+      "type": "string",
+      "format": "date-time"
     }
   },
   "required": [
     "context",
     "connection_id",
-    "principal_id"
+    "principal_id",
+    "external_principal_id",
+    "subject",
+    "link_method",
+    "linked_at"
   ],
   "additionalProperties": false,
   "x-ess-provenance": {
     "system": "mandate",
     "specification_version": "v1",
-    "source_digest": "681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8",
-    "contract_digest": "slice-sha256/2:f4b769bd92660b82aa9a27f321c0d85b00fa9024ffe706a37ff07afa0f410176",
+    "source_digest": "49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40",
+    "contract_digest": "slice-sha256/2:07e0b858944faa55fd480e52ccaf8e6b1253ec75ea5474021b68550520b43f6a",
     "regenerate": "ess generate"
   },
   "$defs": {
@@ -64,6 +81,33 @@
       "type": "string",
       "format": "uuid",
       "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.ExternalLinkMethod": {
+      "title": "ExternalLinkMethod",
+      "x-ess-name": "mandate.core.ExternalLinkMethod",
+      "x-ess-kind": "enum",
+      "type": "string",
+      "enum": [
+        "Administrator",
+        "AuthenticatedConfirmation",
+        "VerifiedMigration",
+        "ConfiguredFederation",
+        "SecuritySupport"
+      ]
+    },
+    "mandate.core.ExternalPrincipalId": {
+      "title": "ExternalPrincipalId",
+      "x-ess-name": "mandate.core.ExternalPrincipalId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.ExternalSubject": {
+      "title": "ExternalSubject",
+      "x-ess-name": "mandate.core.ExternalSubject",
+      "x-ess-kind": "newtype",
+      "type": "string"
     },
     "mandate.core.FederationConnectionId": {
       "title": "FederationConnectionId",

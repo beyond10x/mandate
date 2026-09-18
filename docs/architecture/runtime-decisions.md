@@ -10,7 +10,7 @@ A decision may remain unanswered and this dossier still be complete. Completenes
 
 ## How the matrix was derived
 
-The blocker set and the affected-stories column come from `aep plan artifact blocked`, run against the planning store, not from the `AEP:` lines in [unmapped semantics](unmapped.md). The register is a prose companion to the store; the store is authoritative for which stories a blocker holds. The command returned thirteen blocker groups: these eleven runtime rows, plus two Drive execution-tooling blockers recorded as excluded below.
+The blocker set and the affected-stories column come from `aep plan artifact blocked`, run against the planning store, not from the `AEP:` lines in [unmapped semantics](unmapped.md). The register is a prose companion to the store; the store is authoritative for which stories a blocker holds. The command returned fourteen blocker groups: these eleven runtime rows, two Drive execution-tooling blockers recorded as excluded below, and `decision-blocker:jit-provisioning`, a runtime blocker filed after this dossier and recorded in [federated login](federated-login.md).
 
 ## Where the register disagrees with the store
 
@@ -35,14 +35,14 @@ No source this document may cite names an individual for any of these decisions,
 | # | Blocker | Marker | Affected stories (store) |
 |---|---|---|---|
 | 1 | `decision-blocker:epoch` | UNMAPPED-EPOCH | `story:session-epochs` |
-| 2 | `decision-blocker:lifecycle` | UNMAPPED-LIFECYCLE | `story:audit-worker-delivery`, `story:domain-runtime` |
-| 3 | `decision-blocker:guards` | UNMAPPED-GUARDS, UNMAPPED-DENIAL-AUDIT | `story:audit-client`, `story:protocol-adapters` |
+| 2 | `decision-blocker:lifecycle` | UNMAPPED-LIFECYCLE | `story:audit-worker-delivery`, `story:domain-runtime`, `story:graph-policy-adapter` |
+| 3 | `decision-blocker:guards` | UNMAPPED-GUARDS, UNMAPPED-DENIAL-AUDIT | `story:audit-client`, `story:product-listener`, `story:protocol-adapters` |
 | 4 | `decision-blocker:epoch-atomicity` | UNMAPPED-ATOMICITY | `story:directory-provenance`, `story:oauth-integration`, `story:session-epochs` |
-| 5 | `decision-blocker:backend` | UNMAPPED-BACKEND | `story:graph-policy` |
+| 5 | `decision-blocker:backend` | UNMAPPED-BACKEND | `story:graph-policy-adapter` |
 | 6 | `decision-blocker:global-trust` | UNMAPPED-GLOBAL | `story:advanced-delegation` |
-| 7 | `decision-blocker:subject-relations` | UNMAPPED-SUBJECT-RELATIONS | `story:graph-policy` |
+| 7 | `decision-blocker:subject-relations` | UNMAPPED-SUBJECT-RELATIONS | `story:graph-policy-adapter` |
 | 8 | `decision-blocker:identity-uniqueness` | UNMAPPED-UNIQUENESS | `story:agent-authority-kernel`, `story:agent-security`, `story:credential-profiles`, `story:federation-linking` |
-| 9 | `decision-blocker:algorithm-policy` | UNMAPPED-ALGORITHM-POLICY | `story:credential-profiles`, `story:federation-linking` |
+| 9 | `decision-blocker:algorithm-policy` | UNMAPPED-ALGORITHM-POLICY | `story:credential-profiles`, `story:federation-linking`, `story:signing-and-verification` |
 | 10 | `decision-blocker:audit-routing` | UNMAPPED-AUDIT-ROUTING, UNMAPPED-AUDIT-VOCABULARY | `story:audit-client`, `story:audit-worker-delivery`, `story:constrained-exchange` |
 | 11 | `decision-blocker:worker-orchestration` | UNMAPPED-ORCHESTRATION | `story:audit-worker-delivery`, `story:directory-provenance`, `story:domain-runtime` |
 
@@ -86,7 +86,7 @@ Out of bounds: inferring any transition from `Recorded` (`combined.md:19`); rely
 
 **Proposed owner.** Joint, and it cannot be split: the control-plane owner of `mandate-model` record lifecycles (`ownership.md:8`, `:9`, `:10`) together with the `mandate-audit` retention owner (`ownership.md:18`). The domain owner cannot decide the audit-retention half alone, because the constraint that audit survives deprovisioning is what bounds the domain answer.
 
-**Affected stories (store).** `story:audit-worker-delivery`, `story:domain-runtime`. The register names only the second (`unmapped.md:15`).
+**Affected stories (store).** `story:audit-worker-delivery`, `story:domain-runtime`, `story:graph-policy-adapter`. The register names only the second (`unmapped.md:15`).
 
 **Exact evidence required to clear.**
 
@@ -111,7 +111,7 @@ Out of bounds: an ESS error outcome that also emits an event (`unmapped.md:44`);
 
 **Proposed owner.** The shared transport and authentication adapter owner, `mandate-server` (`ownership.md:20`), with `mandate-audit` (`ownership.md:18`) co-owning the denial-record half. `ownership.md:20` also states the server adapter does not acquire PDP or token-issuance authority; proposing it as the guard owner does not grant it either.
 
-**Affected stories (store).** `story:audit-client`, `story:protocol-adapters`.
+**Affected stories (store).** `story:audit-client`, `story:product-listener`, `story:protocol-adapters`.
 
 **Exact evidence required to clear.**
 
@@ -269,7 +269,7 @@ Out of bounds: selecting the algorithm from the token header (`../sources/origin
 
 **Proposed owner.** The allowlist half belongs to the `mandate-token` owner in the STS deployment, which alone issues, resolves, exchanges and revokes credentials (`ownership.md:15`). For the `kid`, rotation and emergency-revocation half, **no ownership-map owner exists**: the map assigns through its domain table (`ownership.md:5-18`) and its four cross-domain libraries (`ownership.md:20`), and key material appears in neither. `combined.md:67` lists the key provider among the items that still need a reviewed decision — which records that the decision is open, not who owns it — and `../sources/original-design.md:2499-2509` states that half's requirements without assigning them to anyone. Naming an owner for it here would be inventing one.
 
-**Affected stories (store).** `story:credential-profiles`, `story:federation-linking`.
+**Affected stories (store).** `story:credential-profiles`, `story:federation-linking`, `story:signing-and-verification`.
 
 **Exact evidence required to clear.**
 
@@ -339,7 +339,7 @@ Out of bounds: inferring a lifecycle or queue protocol from the deployment's nam
 
 ## Excluded: execution tooling, not runtime decisions
 
-Two further open `decision-blocker` artifacts exist in the planning store and are **deliberately not rows above**. They block `task:canonical-types-drive`, which is execution tooling for a governed Drive run, not runtime behaviour of the platform. They are recorded here so a reviewer who counts thirteen blockers in the store and eleven rows in this dossier can see that the difference is intentional.
+Two further open `decision-blocker` artifacts exist in the planning store and are **deliberately not rows above**. They block `task:canonical-types-drive`, which is execution tooling for a governed Drive run, not runtime behaviour of the platform. They are recorded here so a reviewer who counts fourteen blockers in the store and eleven rows in this dossier can see that the difference is intentional: these two, and `decision-blocker:jit-provisioning`, which is a runtime blocker filed after this dossier and carried in [federated login](federated-login.md) rather than here.
 
 | Blocker | Title | Blocks |
 |---|---|---|

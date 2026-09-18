@@ -12,27 +12,33 @@
 //! [`mandate_types::PersistedValue`]; the assertion at the end of this module is that
 //! bound, and it does not compile if a field is added that the boundary does not admit.
 //!
-//! # These projections are not rebuildable from the log today
+//! # These projections are rebuildable from the log
 //!
 //! `docs/adr/0009-event-sourced-persistence.md` states that the events are the record and
-//! that state tables are "derived, droppable, rebuildable, never authoritative". Three of
-//! these five are not, and saying so is the point of this section:
+//! that state tables are "derived, droppable, rebuildable, never authoritative". All five
+//! are, and saying so is the point of this section:
 //!
-//! | required field | the event that would carry it | what it declares |
+//! | required field | the event that carries it | what it declares |
 //! |---|---|---|
-//! | `Organization.display_name` | `mandate.tenancy.OrganizationCreated` | `context`, `organization_id` |
-//! | `Team.display_name` | `mandate.tenancy.TeamCreated` | `context`, `team_id` |
-//! | `Space.display_name` | `mandate.tenancy.SpaceCreated` | `context`, `space_id` |
+//! | `Organization.display_name` | `mandate.tenancy.OrganizationCreated` | `context`, `organization_id`, `display_name` |
+//! | `Team.display_name` | `mandate.tenancy.TeamCreated` | `context`, `team_id`, `display_name` |
+//! | `Space.display_name` | `mandate.tenancy.SpaceCreated` | `context`, `space_id`, `display_name` |
 //!
-//! The compiled entity marks each `display_name` required, so dropping the projection and
-//! replaying the log loses all three: the identity and the organization come back and the
-//! name does not. `mandate.graph.Resource.resource_type` is the same gap in `crate::graph`.
-//! Until the events carry them, these are method arguments here and the fold is
-//! authoritative for those three fields, not derived. The fix is to the contract, which is
-//! `story:event-payloads-for-folds`'s to make; no event is invented here to paper over it.
+//! The compiled entity marks each `display_name` required, and until
+//! `story:event-payloads-for-folds` landed no event declared one: dropping the projection
+//! and replaying the log brought the identity and the organization back and lost the name,
+//! and this fold was authoritative for those three fields rather than derived. The three
+//! creation events now declare `display_name`, so every required field of all five reads
+//! out of the log. `crate::graph` records the same close for
+//! `mandate.graph.Resource.resource_type`.
 //!
-//! Everything else is rebuildable: every other field, and every decision below, reads only
-//! what its event declares or the aggregate instance that event is appended at.
+//! `crates/mandate-model/tests/adversary_tenancy_topology.rs`
+//! `every_required_projection_field_is_carried_by_a_declared_event` decides this against
+//! `generated/schema`, for these five and for `mandate.graph.Resource`: it asserts the set
+//! of orphaned required fields is empty, so a field dropping out of an event turns it red.
+//!
+//! Every other field, and every decision below, likewise reads only what its event
+//! declares or the aggregate instance that event is appended at.
 //!
 //! # Deciding and applying are separate where a decision needs what no event carries
 //!

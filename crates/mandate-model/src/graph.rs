@@ -32,27 +32,29 @@
 //! bounds the channel is that a `ResourceId` is a UUID, so an enumerating caller has
 //! nothing to enumerate.
 //!
-//! # `space_id` has no writer, and a rebuild loses `resource_type`
+//! # `space_id` still has no writer; the rebuild no longer loses `resource_type`
 //!
 //! `Resource` declares `space_id`, and no command in `systems/mandate` carries a space
 //! into it: `RegisterResource` takes `context`, `resource` and `parent`, and no other
 //! command writes a resource. The projection carries the field because the entity
 //! declares it; this fold leaves it absent rather than inventing an input the contract
-//! does not declare.
+//! does not declare. The compiled entity does not mark it required, so a rebuild that
+//! leaves it absent is a rebuild of the whole declared record.
 //!
-//! `mandate.graph.ResourceRegistered` declares `context` and nothing else — not the
-//! identity, not the type, not the parent — while the compiled entity marks `id`,
-//! `organization_id`, `resource_type` and `state` required. `RegisterResource` declares no
-//! `moves` and no `instance` either, so unlike every removal command in these two domains
-//! the registration does not even pin its record through a stream coordinate:
-//! `organization_id` is readable from `context.organization`, `id` only from the later
-//! `mandate.graph.ResourceDeregistered`, and `resource_type` and `parent` from nothing at
-//! all. Dropping this projection and replaying the log therefore does not rebuild it,
-//! exactly as `crate::tenancy` loses three `display_name`s. Until the event carries them,
-//! [`Topology`] is authoritative rather than derived, and
-//! `docs/adr/0009-event-sourced-persistence.md`'s "derived, droppable, rebuildable" does
-//! not yet hold for it. The fix is to the contract and is
-//! `story:event-payloads-for-folds`'s; no event is invented here.
+//! `mandate.graph.ResourceRegistered` declared `context` and nothing else until
+//! `story:event-payloads-for-folds` landed — not the identity, not the type, not the
+//! parent — while the compiled entity marks `id`, `organization_id`, `resource_type` and
+//! `state` required. It now declares `context`, `resource: mandate.core.ResourceRef` and
+//! `parent`, and `ResourceRef` carries `resource_id` and `resource_type`. So `id` and
+//! `resource_type` come off the registration itself, `organization_id` off
+//! `context.organization`, and `state` off the declared `initial` and each outcome's
+//! `moves`. Dropping this projection and replaying the log rebuilds it, exactly as
+//! `crate::tenancy` now recovers its three `display_name`s, and
+//! `docs/adr/0009-event-sourced-persistence.md`'s "derived, droppable, rebuildable" holds
+//! for [`Topology`]. `crates/mandate-model/tests/adversary_tenancy_topology.rs`
+//! `every_required_projection_field_is_carried_by_a_declared_event` decides it against
+//! `generated/schema`, descending one level into a struct an event carries by value so
+//! that the members of `resource` count as carried.
 
 use std::collections::BTreeMap;
 
