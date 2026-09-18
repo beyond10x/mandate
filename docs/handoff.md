@@ -8,7 +8,7 @@ Canonical-type scope and exclusions are unchanged: four type/model/token/protoco
 
 ## Integration and publication
 
-The operator-selected flow is story/feature branches → integration/wave-YYYYMMDD-NNN → PR to main when the accumulated batch is selected → tag only after merge and release checks. This overrides automatic merge-to-main at each wave close. See [ADR 0008](adr/0008-integration-batches.md). Current preparation batch: integration/wave-20260918-001. Foundations is already published on main; the old foundations checkout is an intact, privately archived prepublication snapshot, not a branch with missing commits to integrate.
+The operator-selected flow is story/feature branches → integration/wave-YYYYMMDD-NNN → PR to main when the accumulated batch is selected → tag only after merge and release checks. This overrides automatic merge-to-main at each wave close. See [ADR 0008](adr/0008-integration-batches.md). The operator selected preparation batch integration/wave-20260918-001 for main through [PR #4](https://github.com/beyond10x/mandate/pull/4). Foundations is already published on main. Its obsolete checkout was retired through the worktree manager on 2026-09-18 after all 391 residual source files and the ESS ownership record were preserved and byte-verified in private recovery storage. No unique foundation commit was missing from main. The next implementation batch starts from verified main after this PR merges; implementation and release still require their own approval.
 
 ## Separate Drive task — not launched
 
