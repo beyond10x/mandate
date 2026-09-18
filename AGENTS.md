@@ -14,6 +14,8 @@ AEP 0.55.0 is the sole writer of `.engineering/planning`. ESS 0.25.0 `ess/4` in 
 
 Run `task check` before publication. Repository checkers and production executables are Rust. Preserve dependency direction. Authentication context comes from credential validation, never independent organization/audience selectors. Raw credentials must never enter logs, audit records, fixtures or persistent domain records.
 
+Python, shell and other scripting languages are for quick tests, probes and reviews only, and stay outside the repository: never commit a script as a persistent check, gate or tool. A check that is worth keeping is written in Rust — as an `xtask` step, a test, or a workspace binary.
+
 Every durable state is event-sourced through the organization `eventlog` kit: commands produce events, events are the record, reads are folds, state tables are projections. Nothing is deleted; privacy obligations are met by redaction. See `docs/adr/0009-event-sourced-persistence.md`.
 
 ## Integration batches
