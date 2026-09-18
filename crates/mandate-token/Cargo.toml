@@ -12,3 +12,7 @@ workspace = true
 
 [dependencies]
 mandate-types = { version = "0.1.0", path = "../mandate-types" }
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
