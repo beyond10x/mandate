@@ -10,12 +10,13 @@ relations:
 - depends_on: story:pkce-sessions
 - depends_on: story:credential-profiles
 - depends_on: story:protocol-adapters
+- informed_by: initiative:next-ten-waves
 scope:
 - confidence: cited
   path: crates/mandate-server
 - confidence: cited
   path: services/sts
-revision: 3
+revision: 4
 ---
 # Integrate public-client endpoints with STS
 
@@ -35,3 +36,7 @@ Run all PKCE corpus cases against actual federation/session/STS adapters, includ
 ## Contract
 
 `systems/mandate/ess-inputs.yaml`; `docs/architecture/combined.md`; `task check` and named runtime suites.
+
+## Atomic redemption ownership
+
+Consume the non-consuming validation candidate from pkce-sessions, then re-read/revalidate current code, session/epoch, client, redirect and target inside the authoritative STS transaction. Code consumption, credential creation and audit outbox must commit together or all roll back. Race two valid candidates: exactly one transaction may issue, and crash/retry at every commit boundary must not leave consumed-without-issued or issued-without-audit state. Source: docs/architecture/ownership.md:28; docs/architecture/unmapped.md:25.

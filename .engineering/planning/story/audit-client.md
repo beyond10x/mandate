@@ -8,6 +8,7 @@ relations:
 - decomposes: epic:authorization
 - serves: vision:mandate
 - depends_on: story:check-api
+- informed_by: initiative:next-ten-waves
 scope:
 - confidence: cited
   path: crates/mandate-audit

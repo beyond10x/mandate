@@ -8,12 +8,16 @@ relations:
 - decomposes: epic:foundations
 - serves: vision:mandate
 - depends_on: story:canonical-types
+- depends_on: story:runtime-decision-dossier
+- informed_by: initiative:next-ten-waves
 scope:
 - confidence: cited
   path: docs/architecture
 - confidence: cited
+  path: generated
+- confidence: cited
   path: systems/mandate
-revision: 3
+revision: 5
 ---
 # Settle remaining domain lifecycle contracts
 
@@ -33,3 +37,7 @@ Resolve UNMAPPED-LIFECYCLE with source-backed lifecycle decisions, deletion/rete
 ## Validation and contract
 
 `task check` and the runtime tests named above. `tests/security/cases.json` is a contract corpus, not runtime evidence. ESS: `systems/mandate/ess-inputs.yaml`. Source: `docs/requirements.md` and combined architecture.
+
+## Integration obligations
+
+ESS changes in this story also regenerate and review generated/ through ESS; the typed scope includes that projection tree. This contract unit must freeze the canonical type/port surface before the concurrent federation and graph units begin, or replan the affected units. Changing runtime behavior is not implied by projection validation.

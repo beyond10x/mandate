@@ -9,6 +9,7 @@ relations:
 - serves: vision:mandate
 - depends_on: story:pkce-sessions
 - depends_on: story:audit-client
+- informed_by: initiative:next-ten-waves
 scope:
 - confidence: cited
   path: crates/mandate-token

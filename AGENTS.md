@@ -14,6 +14,14 @@ AEP 0.55.0 is the sole writer of `.engineering/planning`. ESS 0.25.0 `ess/4` in 
 
 Run `task check` before publication. Repository checkers and production executables are Rust. Preserve dependency direction. Authentication context comes from credential validation, never independent organization/audience selectors. Raw credentials must never enter logs, audit records, fixtures or persistent domain records.
 
+## Integration batches
+
+Implement stories/features in managed unit worktrees based on the active `integration/wave-YYYYMMDD-NNN` branch. Reviewed, green units merge into that integration branch; multiple approved waves may accumulate there. The coordinator alone writes the planning store and shared integration files. Replan after every wave against the integration branch's actual state.
+
+This repository's delivery boundary overrides the generic Wave skill's automatic merge to `main`: a completed wave stops at the gated integration branch. Publishing that branch supplies recovery proof and does not approve a PR merge or a release. When the operator selects the accumulated batch, open one PR from the integration branch to `main`, validate the exact candidate and required checks, and merge through the bot-authorized PR workflow. Keep the primary checkout clean.
+
+Tag only the resulting merged `main` commit, after the requested version, repository release requirements and exact-commit checks are satisfied. PR merge and release are separate decisions; no tag is cut from an integration or feature branch. See `docs/adr/0008-integration-batches.md` for the complete flow and recovery rules.
+
 ## Milestone boundary
 
 Runtime enforcement belongs to subsequent stories. Corpus validation is not security implementation. Wave and Drive have separate lifecycle owners. Do not launch Drive without a reviewed task and operator-supplied budget and assumed cost. Source publication does not authorize a release, deployment, Identity migration or downstream website changes.

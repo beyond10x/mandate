@@ -8,6 +8,7 @@ relations:
 - decomposes: epic:foundations
 - serves: vision:mandate
 - depends_on: story:foundation-contracts
+- informed_by: initiative:next-ten-waves
 scope:
 - confidence: cited
   path: Cargo.lock
@@ -23,7 +24,7 @@ scope:
   path: crates/mandate-types
 - confidence: cited
   path: dependency-boundaries.json
-revision: 9
+revision: 10
 ---
 # Realize accepted canonical Rust types
 
@@ -37,10 +38,24 @@ Realize the explicitly accepted ESS identifier, enum, record and wire types with
 
 ## Scope
 
-- `crates/mandate-types` — cited planned scope; canonical directory granularity.
-- `crates/mandate-model` — cited planned scope; canonical directory granularity.
-- `crates/mandate-token` — cited planned scope; canonical directory granularity.
-- `crates/mandate-proto` — cited planned scope; canonical directory granularity.
+Derived 2026-09-18 by `story-scoper`. Every entry is marked cited or inferred.
+
+- **Primary surface:** `crates/mandate-types` — cited; identifiers, enums and shared value records, including identifier separation and transient credential boundary types.
+- **Primary surface:** `crates/mandate-model` — cited; accepted domain records and credential-containment conformance.
+- **Additional surface:** `crates/mandate-token` — cited; accepted credential-format types only.
+- **Additional surface:** `crates/mandate-proto` — cited; accepted wire contracts and explicit conversions.
+- **Shared file:** `dependency-boundaries.json` — cited; admit reviewed serialization dependencies for the consuming crates while preserving dependency direction.
+- **Shared file:** `Cargo.toml` — cited; declare reviewed workspace serialization dependencies.
+- **Shared file:** `Cargo.lock` — cited; pin the resulting dependency resolution.
+- **Contained implementation files:** source modules, crate manifests and crate-local conformance tests within the four declared crate directories — inferred; their precise layout remains undecided.
+- **Symbols and observations:** `PrincipalId`, `OrganizationId`, `CredentialSecret`, `CredentialProof`, `AuthoritySubject`; deterministic serialization, round trips, identifier non-substitutability, optional actor preservation and secret containment — cited.
+- **Accepted boundary:** realize `AuthoritySubject` as its declared tagged value; retain `EpochSnapshotRef` solely as an immutable record handle — cited.
+- **Excluded types:** `PrincipalSecurityEpoch`, `OrganizationSecurityEpoch`, `FederationSecurityEpoch` ownership placeholders and the incomplete `SecurityEpochSnapshot` representation pending `UNMAPPED-EPOCH` — cited.
+- **Excluded semantics:** numeric generations and arithmetic, conditional subject storage foreign keys, invented lifecycle behavior, cryptography, PDP evaluation and HTTP implementation — cited.
+- **Execution boundary:** the separate Drive property verifier, driver-map changes and launch prerequisites belong to the separate governed-execution proposal — cited.
+- **Documents:** no separate document write surface established; the accepted-type and exclusion inventory is mandatory before dispatch, but its destination is unspecified — inferred.
+- **Confidence:** high for the seven write surfaces and explicit exclusions because the story and execution handoff name them; individual type allocation remains unresolved — cited.
+- **Would collide with:** changes to any of the four declared crate directories, workspace dependency declarations, the workspace lockfile or dependency-boundary policy — cited.
 
 ## Validation and contract
 

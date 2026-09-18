@@ -7,6 +7,7 @@ title: UNMAPPED-ORCHESTRATION
 relations:
 - blocks: story:directory-provenance
 - blocks: story:domain-runtime
+- blocks: story:audit-worker-delivery
 revision: 1
 ---
 The worker currently declares the audit append port. Decide and validate job scheduling, synchronization invocation, cleanup/export scheduling, retries and delivery guarantees. Directory records and mutation commands remain control-plane-owned. Do not infer a queue protocol or lifecycle from the planned worker boundary.

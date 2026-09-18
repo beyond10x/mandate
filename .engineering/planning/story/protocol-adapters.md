@@ -12,12 +12,14 @@ relations:
 - depends_on: story:check-api
 - depends_on: story:constrained-exchange
 - depends_on: story:directory-provenance
+- informed_by: initiative:next-ten-waves
+- depends_on: story:audit-worker-delivery
 scope:
 - confidence: cited
   path: crates/mandate-proto
 - confidence: cited
   path: crates/mandate-server
-revision: 3
+revision: 4
 ---
 # Implement product routes and OAuth adapters
 
@@ -37,3 +39,7 @@ Resolve UNMAPPED-GUARDS before exposing routes; trusted adapter constructs conte
 ## Validation and contract
 
 `task check` and the runtime tests named above. `tests/security/cases.json` is a contract corpus, not runtime evidence. ESS: `systems/mandate/ess-inputs.yaml`. Source: `docs/requirements.md` and combined architecture.
+
+## Integration obligations
+
+The trusted worker RecordAuditEvent ingress is part of this adapter delivery: authenticate the emitter independently of optional event subject/tenant, preserve unknown tenant on invalid-proof denials, and reject forged emitter or client-supplied tenant authority. Expose the completed worker append port through the actual adapter so audit-recovery-conformance can exercise it. Source: docs/architecture/audit-routing.md:3 and systems/mandate/domains/audit.yaml:113.

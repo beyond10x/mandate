@@ -9,6 +9,7 @@ relations:
 - serves: vision:mandate
 - depends_on: story:tenancy-topology
 - depends_on: story:graph-policy
+- informed_by: initiative:next-ten-waves
 scope:
 - confidence: cited
   path: crates/mandate-authz
