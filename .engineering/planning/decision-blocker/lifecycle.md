@@ -7,6 +7,7 @@ title: UNMAPPED-LIFECYCLE
 relations:
 - blocks: story:domain-runtime
 - blocks: story:audit-worker-delivery
+- blocks: story:graph-policy-adapter
 revision: 1
 ---
 Recorded entity lifecycles are immutable snapshots only. Source documents do not settle deletion, reactivation, retention, execution completion or mapping transaction lifecycle. Review concrete lifecycle and retention decisions before implementing those mutations.
