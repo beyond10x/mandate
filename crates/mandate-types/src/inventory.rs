@@ -464,18 +464,21 @@ pub const ACCEPTED: &[Accepted] = &[
 pub const EXCLUDED_ENTITIES: &[Excluded] = &[
     Excluded {
         ess_name: "mandate.identity.PrincipalSecurityEpoch",
-        reason: "generation ownership placeholder with no declared field; a representation \
-                 would have to be invented, and the numeric epoch it implies is blocked by \
-                 UNMAPPED-EPOCH",
+        reason: "the contract declares the generation as a non-negative Integer, but the \
+                 arithmetic over it — monotonic increment, comparison and denial at the \
+                 maximum — is not realized here, and no Rust representation of the record \
+                 is accepted by this milestone; see UNMAPPED-EPOCH",
     },
     Excluded {
         ess_name: "mandate.identity.OrganizationSecurityEpoch",
-        reason: "generation ownership placeholder with no declared field; see \
+        reason: "the declared non-negative Integer generation is realized by no type here; \
+                 increment, comparison and overflow denial remain unrealized; see \
                  UNMAPPED-EPOCH",
     },
     Excluded {
         ess_name: "mandate.identity.FederationSecurityEpoch",
-        reason: "generation ownership placeholder with no declared field; see \
+        reason: "the declared non-negative Integer generation is realized by no type here; \
+                 increment, comparison and overflow denial remain unrealized; see \
                  UNMAPPED-EPOCH",
     },
     Excluded {

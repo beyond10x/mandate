@@ -1,8 +1,8 @@
-# UNMAPPED-LIFECYCLE: Recorded is an immutable snapshot, not a runtime lifecycle; see decision-blocker:lifecycle.
+# Lifecycle is immutable-with-status, and for an audit event that means redaction. Retention obligations are met by rewriting the record in place and keeping the fact that it existed and was redacted; no command deletes an audit event, and deprovisioning a principal or closing an organization destroys none. See decision-blocker:lifecycle and docs/adr/0009-event-sourced-persistence.md.
 # Unknown identity/tenant on invalid-credential denial is represented by absence, never fabricated from unverified selectors.
 # UNMAPPED-AUDIT-VOCABULARY: named AuditAction/AuditOutcome preserve original extensibility; admission of concrete values and redacted metadata is an adapter contract, not arbitrary accepted text.
 # RecordAuditEvent is the trusted worker append port; domain producers preserve subject/actor and decision correlation in the redacted AuditRecord.
-# UNMAPPED-AUDIT-ROUTING: per-event field mappings, durable outbox transport/deduplication, retention and audit-failure behavior require acceptance before audit/client runtime work. No automatic binding or persistence algorithm is fabricated.
+# UNMAPPED-AUDIT-ROUTING: per-event field mappings, durable outbox transport/deduplication, the concrete retention floor and audit-failure behavior require acceptance before audit/client runtime work. Retention is met by redaction and never by deletion; no automatic binding or persistence algorithm is fabricated.
 domain: mandate.audit
 entities:
   - name: mandate.audit.AuditEvent
@@ -56,8 +56,14 @@ entities:
       initial: Recorded
       states:
         - Recorded
+        - Redacted
       terminal:
-        - Recorded
+        - Redacted
+      transitions:
+        - name: redact
+          from:
+            - Recorded
+          to: Redacted
     relations:
       - name: subject_record
         kind: references
@@ -111,6 +117,12 @@ events:
         type: mandate.core.AuditEventId
       - name: record
         type: mandate.core.AuditRecord
+  - name: mandate.audit.AuditEventRedacted
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: id
+        type: mandate.core.AuditEventId
 commands:
   - name: mandate.audit.RecordAuditEvent
     input:
@@ -134,10 +146,30 @@ commands:
     response:
       - name: id
         type: mandate.core.AuditEventId
+  - name: mandate.audit.RedactAuditEvent
+    input:
+      - name: id
+        type: mandate.core.AuditEventId
+      - name: context
+        type: mandate.core.VerifiedContext
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.audit.AuditEventRedacted
+        payload:
+          mandate.audit.AuditEventRedacted:
+            context: input.context
+            id: input.id
+        moves: mandate.audit.AuditEvent.redact
+        instance: id
+        summary: The only answer to a retention or erasure obligation. The record keeps its identity, its correlation and the fact that it was redacted; the redacted content does not reappear in this event. Deletion of an audit event is admitted by no command.
+      - name: denied
+        external: Caller lacks audit-redaction authority for the verified organization, the event is unresolved, the applicable retention floor has not passed, the request would remove the record rather than redact it, or redaction cannot rewrite the projection while retaining that the record existed and was redacted.
+        error: mandate.audit.Denied
 errors:
   - name: mandate.audit.Denied
     summary: No audit record or credential mutation is admitted on refusal; required audit failure behavior remains an explicit runtime obligation.
     fields:
       - name: reason
         type: mandate.core.DenialReason
-summary: "Canonical redacted audit records and the trusted worker append port. UNMAPPED-AUDIT-ROUTING: per-domain event mapping, durable outbox transport, retention and failure policy remain required. Named AuditAction and AuditOutcome do not admit arbitrary values."
+summary: "Canonical redacted audit records and the trusted worker append port. UNMAPPED-AUDIT-ROUTING: per-domain event mapping, durable outbox transport, the concrete retention floor and failure policy remain required; retention itself is redaction, never deletion. Named AuditAction and AuditOutcome do not admit arbitrary values."

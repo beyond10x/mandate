@@ -1,4 +1,7 @@
-# UNMAPPED-LIFECYCLE: Recorded is an immutable snapshot, not a runtime lifecycle; see decision-blocker:lifecycle.
+# Lifecycle is immutable-with-status: nothing is destroyed, and every change is a new recorded state; see decision-blocker:lifecycle and docs/adr/0009-event-sourced-persistence.md.
+# A capability ceiling is immutable: a changed ceiling is a new record and the previous one is superseded, which is how one current ceiling per (agent, organization-or-platform) stays true.
+# An execution is never expired by a recorded move: eligibility is read from expires_at, and completion is the only declared transition.
+# An approval is one-use and is never reinstated: it is consumed by exactly one decision, or it expires by its own expires_at with no recorded move.
 # A ceiling has its own identity. organization_id absent means a platform ceiling; present means a tenant ceiling. All applicable platform/tenant ceilings intersect.
 # UNMAPPED-UNIQUENESS: enforce one current ceiling per (agent, organization-or-platform), with trusted Agent-kind and organization checks.
 # CreateDelegation fixes transitive=false; the entity invariant also refuses transitive declarations.
@@ -77,8 +80,14 @@ entities:
       initial: Recorded
       states:
         - Recorded
+        - Retired
       terminal:
-        - Recorded
+        - Retired
+      transitions:
+        - name: retire
+          from:
+            - Recorded
+          to: Retired
     relations:
       - name: organization_id_record
         kind: references
@@ -106,8 +115,14 @@ entities:
       initial: Recorded
       states:
         - Recorded
+        - Superseded
       terminal:
-        - Recorded
+        - Superseded
+      transitions:
+        - name: supersede
+          from:
+            - Recorded
+          to: Superseded
     relations:
       - name: organization_id_record
         kind: references
@@ -144,8 +159,14 @@ entities:
       initial: Recorded
       states:
         - Recorded
+        - Completed
       terminal:
-        - Recorded
+        - Completed
+      transitions:
+        - name: complete
+          from:
+            - Recorded
+          to: Completed
     relations:
       - name: organization_id_record
         kind: references
@@ -195,8 +216,14 @@ entities:
       initial: Recorded
       states:
         - Recorded
+        - Consumed
       terminal:
-        - Recorded
+        - Consumed
+      transitions:
+        - name: consume
+          from:
+            - Recorded
+          to: Consumed
     relations:
       - name: organization_id_record
         kind: references
@@ -266,6 +293,86 @@ commands:
     response:
       - name: delegation_id
         type: mandate.core.DelegationId
+  - name: mandate.delegation.RetireAgent
+    input:
+      - name: id
+        type: mandate.core.PrincipalId
+      - name: context
+        type: mandate.core.VerifiedContext
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.delegation.AgentRetired
+        payload:
+          mandate.delegation.AgentRetired:
+            context: input.context
+            id: input.id
+        moves: mandate.delegation.Agent.retire
+        instance: id
+        summary: The installation is withdrawn, not deleted. A retired agent starts no execution and is admitted by no exchange; its executions, delegations and audit history are preserved, and disabling the agent's principal remains a separate identity command.
+      - name: denied
+        external: Caller lacks agent-administration authority, the agent is outside the verified organization, or retirement cannot stop new executions and exchanges under its ceiling.
+        error: mandate.delegation.Denied
+  - name: mandate.delegation.SupersedeAgentCapabilityCeiling
+    input:
+      - name: id
+        type: mandate.core.AgentCapabilityCeilingId
+      - name: context
+        type: mandate.core.VerifiedContext
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.delegation.AgentCapabilityCeilingSuperseded
+        payload:
+          mandate.delegation.AgentCapabilityCeilingSuperseded:
+            context: input.context
+            id: input.id
+        moves: mandate.delegation.AgentCapabilityCeiling.supersede
+        instance: id
+        summary: A ceiling is never edited. The replacement is a new ceiling record and this one stops being current, which is what keeps exactly one current ceiling per (agent, organization-or-platform); every applicable platform and tenant ceiling still intersects.
+      - name: denied
+        external: Caller lacks ceiling-administration authority, the ceiling is outside the verified organization or platform scope, no later ceiling covers the same agent and scope, or supersession cannot take effect before the next exchange is evaluated.
+        error: mandate.delegation.Denied
+  - name: mandate.delegation.CompleteExecution
+    input:
+      - name: id
+        type: mandate.core.ExecutionId
+      - name: context
+        type: mandate.core.VerifiedContext
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.delegation.ExecutionCompleted
+        payload:
+          mandate.delegation.ExecutionCompleted:
+            context: input.context
+            id: input.id
+        moves: mandate.delegation.Execution.complete
+        instance: id
+        summary: The recorded end of one agent invocation. No further tool call is admitted under the execution; the record, its delegation binding and its policy version are preserved. An execution past expires_at is ineligible without any recorded move.
+      - name: denied
+        external: Caller is not the agent runtime that holds this execution, the execution is outside the verified organization, or completion cannot durably stop further tool calls bound to it.
+        error: mandate.delegation.Denied
+  - name: mandate.delegation.ConsumeApproval
+    input:
+      - name: id
+        type: mandate.core.ApprovalId
+      - name: context
+        type: mandate.core.VerifiedContext
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.delegation.ApprovalConsumed
+        payload:
+          mandate.delegation.ApprovalConsumed:
+            context: input.context
+            id: input.id
+        moves: mandate.delegation.Approval.consume
+        instance: id
+        summary: One approval satisfies exactly one decision. Consumption commits with the decision that used it; a consumed approval never satisfies a second check and is never reinstated.
+      - name: denied
+        external: Caller does not hold the decision context the approval answers, the approval is outside the verified organization, its subject/actor/action/resource or expiry does not match the check being satisfied, or one-use consumption cannot commit atomically with that decision.
+        error: mandate.delegation.Denied
 events:
   - name: mandate.delegation.DelegationRevoked
     fields:
@@ -275,6 +382,30 @@ events:
     fields:
       - name: context
         type: mandate.core.VerifiedContext
+  - name: mandate.delegation.AgentRetired
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: id
+        type: mandate.core.PrincipalId
+  - name: mandate.delegation.AgentCapabilityCeilingSuperseded
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: id
+        type: mandate.core.AgentCapabilityCeilingId
+  - name: mandate.delegation.ExecutionCompleted
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: id
+        type: mandate.core.ExecutionId
+  - name: mandate.delegation.ApprovalConsumed
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: id
+        type: mandate.core.ApprovalId
 errors:
   - name: mandate.delegation.Denied
     summary: Fail closed; no credential, authority or lifecycle mutation on refusal.

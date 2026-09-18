@@ -1,4 +1,5 @@
-# UNMAPPED-LIFECYCLE: Recorded is an immutable snapshot, not a runtime lifecycle; see decision-blocker:lifecycle.
+# Lifecycle is immutable-with-status: nothing is destroyed, and every change is a new recorded state; see decision-blocker:lifecycle and docs/adr/0009-event-sourced-persistence.md.
+# A workload identity binds a trust domain and external subject to one principal. Revoking it stops the exchange of workload credentials presented under that binding; the record, and the credentials already issued from it, are refused through their own revocation path rather than deleted.
 domain: mandate.workload
 entities:
   - name: mandate.workload.WorkloadIdentity
@@ -18,8 +19,14 @@ entities:
       initial: Recorded
       states:
         - Recorded
+        - Revoked
       terminal:
-        - Recorded
+        - Revoked
+      transitions:
+        - name: revoke
+          from:
+            - Recorded
+          to: Revoked
     relations:
       - name: organization_id_record
         kind: references
@@ -31,3 +38,37 @@ entities:
         target: mandate.identity.Principal
         cardinality: one
         via: principal_id
+commands:
+  - name: mandate.workload.RevokeWorkloadIdentity
+    input:
+      - name: id
+        type: mandate.core.WorkloadIdentityId
+      - name: context
+        type: mandate.core.VerifiedContext
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.workload.WorkloadIdentityRevoked
+        payload:
+          mandate.workload.WorkloadIdentityRevoked:
+            context: input.context
+            id: input.id
+        moves: mandate.workload.WorkloadIdentity.revoke
+        instance: id
+        summary: The binding stops being admitted. A workload credential presented under this trust domain and subject is refused from that point, and the record is kept so past exchanges stay attributable.
+      - name: denied
+        external: Caller lacks workload-identity administration authority, the identity is outside the verified organization, or revocation cannot durably stop the exchange of workload credentials presented under the binding.
+        error: mandate.workload.Denied
+events:
+  - name: mandate.workload.WorkloadIdentityRevoked
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: id
+        type: mandate.core.WorkloadIdentityId
+errors:
+  - name: mandate.workload.Denied
+    summary: Fail closed; no credential, authority or lifecycle mutation on refusal.
+    fields:
+      - name: reason
+        type: mandate.core.DenialReason
