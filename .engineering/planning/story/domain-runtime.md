@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:domain-runtime
 kind: story
-status: draft
+status: active
 title: Settle remaining domain lifecycle contracts
 relations:
 - decomposes: epic:foundations
@@ -53,7 +53,7 @@ scope:
   path: systems/mandate/domains/workload.yaml
 - confidence: cited
   path: tests/security/cases.json
-revision: 11
+revision: 13
 ---
 # Settle remaining domain lifecycle contracts
 
