@@ -10,6 +10,7 @@ relations:
 - depends_on: story:oauth-integration
 - depends_on: story:audit-client
 - depends_on: story:agent-security
+- informed_by: initiative:next-ten-waves
 scope:
 - confidence: cited
   path: bins/mandate

@@ -7,6 +7,7 @@ title: UNMAPPED-AUDIT-ROUTING
 relations:
 - blocks: story:audit-client
 - blocks: story:constrained-exchange
+- blocks: story:audit-worker-delivery
 revision: 1
 ---
 RecordAuditEvent is the trusted worker append port. Specify admitted AuditAction/AuditOutcome values, per-domain event mappings, durable outbox transport/deduplication, retention and failure behavior. Preserve subject/actor and decision/policy correlation; unknown invalid-proof identity stays absent. No raw credentials or upstream secrets enter records. Typed events alone do not implement durable audit.

@@ -8,6 +8,8 @@ relations:
 - decomposes: epic:authentication
 - serves: vision:mandate
 - depends_on: story:canonical-types
+- depends_on: story:runtime-decision-dossier
+- informed_by: initiative:next-ten-waves
 scope:
 - confidence: cited
   path: crates/mandate-federation

@@ -9,6 +9,7 @@ relations:
 - serves: vision:mandate
 - depends_on: story:canonical-types
 - depends_on: story:domain-runtime
+- informed_by: initiative:next-ten-waves
 scope:
 - confidence: cited
   path: crates/mandate-identity
