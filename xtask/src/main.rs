@@ -165,9 +165,10 @@ fn obligations(ir: &Value) -> Result<()> {
         match recorded.get(name) {
             None => return Err(format!("no obligations row for {name}").into()),
             Some(text) if text != cause => {
-                return Err(
-                    format!("obligations row for {name} does not match its declared denial").into(),
-                );
+                return Err(format!(
+                    "obligations row for {name} does not match its declared denial"
+                )
+                .into());
             }
             Some(_) => {}
         }
@@ -177,7 +178,10 @@ fn obligations(ir: &Value) -> Result<()> {
             return Err(format!("obligations row {name} names no declared command").into());
         }
     }
-    println!("{} commands named in command-obligations.md", declared.len());
+    println!(
+        "{} commands named in command-obligations.md",
+        declared.len()
+    );
     Ok(())
 }
 fn corpus() -> Result<()> {
