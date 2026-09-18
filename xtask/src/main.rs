@@ -1,3 +1,4 @@
+mod documents;
 use clap::{Parser, Subcommand};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -20,6 +21,14 @@ enum Action {
     Contracts,
     Boundaries,
     Corpus,
+    Documents {
+        /// The checkout whose *documents* are read. Defaults to this workspace; pointing it at
+        /// a copy is how this step's own failure is reproduced without editing the tree it
+        /// guards. It relocates the documents only: the planning store they are compared against
+        /// is always this workspace's own, so a copy cannot answer for itself.
+        #[arg(long, default_value = ".")]
+        root: PathBuf,
+    },
 }
 fn run(program: &str, args: &[&str]) -> Result<()> {
     let status = Command::new(program).args(args).status()?;
@@ -271,6 +280,16 @@ fn corpus() -> Result<()> {
     );
     Ok(())
 }
+/// Every declared document exists, is not empty, and every row set it says it read from the
+/// planning store still equals what the store answers now. Without this step nothing in the gate
+/// opens `docs/architecture/` beyond `command-obligations.md`, so a document deliverable could be
+/// emptied and every step stayed green.
+fn documents(root: &Path) -> Result<()> {
+    let workspace = std::env::current_dir()?;
+    let blocked = documents::store_blocked(&workspace)?;
+    println!("{}", documents::documents(root, &blocked)?);
+    Ok(())
+}
 fn main() -> ExitCode {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
@@ -284,6 +303,7 @@ fn main() -> ExitCode {
         Action::Contracts => contracts(),
         Action::Boundaries => boundaries(),
         Action::Corpus => corpus(),
+        Action::Documents { root } => documents(&root),
         Action::Check => {
             if !String::from_utf8_lossy(&output("rustc", &["--version"])?)
                 .starts_with("rustc 1.98.1 ")
@@ -311,6 +331,7 @@ fn main() -> ExitCode {
             contracts()?;
             run("cargo", &["deny", "--locked", "check"])?;
             run("aep", &["plan", "artifact", "validate"])?;
+            documents(Path::new("."))?;
             for b in [
                 "mandate",
                 "mandate-authz",

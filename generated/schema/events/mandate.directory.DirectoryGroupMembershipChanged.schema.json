@@ -11,6 +11,12 @@
     "group_id": {
       "$ref": "#/$defs/mandate.core.DirectoryGroupId"
     },
+    "membership_ids": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/mandate.core.DirectoryGroupMembershipId"
+      }
+    },
     "contributions": {
       "type": "array",
       "items": {
@@ -21,14 +27,15 @@
   "required": [
     "context",
     "group_id",
+    "membership_ids",
     "contributions"
   ],
   "additionalProperties": false,
   "x-ess-provenance": {
     "system": "mandate",
     "specification_version": "v1",
-    "source_digest": "681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8",
-    "contract_digest": "slice-sha256/2:e2ef9a9433f879a77b8145c2b39255633e233f50a996f2c70d2b48c41ed3a10e",
+    "source_digest": "49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40",
+    "contract_digest": "slice-sha256/2:26389293caa41799c7d47c22579c05ed0ebbf3951de10cf488dccacb65841909",
     "regenerate": "ess generate"
   },
   "$defs": {
@@ -63,6 +70,14 @@
     "mandate.core.DirectoryGroupId": {
       "title": "DirectoryGroupId",
       "x-ess-name": "mandate.core.DirectoryGroupId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.DirectoryGroupMembershipId": {
+      "title": "DirectoryGroupMembershipId",
+      "x-ess-name": "mandate.core.DirectoryGroupMembershipId",
       "x-ess-kind": "newtype",
       "type": "string",
       "format": "uuid",

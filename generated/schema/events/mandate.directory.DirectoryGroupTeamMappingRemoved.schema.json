@@ -7,17 +7,21 @@
   "properties": {
     "context": {
       "$ref": "#/$defs/mandate.core.VerifiedContext"
+    },
+    "id": {
+      "$ref": "#/$defs/mandate.core.DirectoryGroupTeamMappingId"
     }
   },
   "required": [
-    "context"
+    "context",
+    "id"
   ],
   "additionalProperties": false,
   "x-ess-provenance": {
     "system": "mandate",
     "specification_version": "v1",
-    "source_digest": "681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8",
-    "contract_digest": "slice-sha256/2:32f130d3779595f86efbf8d9f28d7f94e6077026210c8d9038d141bb7a5f29c2",
+    "source_digest": "49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40",
+    "contract_digest": "slice-sha256/2:30d89c2d68ca8771b6f35a47d18283f616fabe741e74beb2d1641b001f32255e",
     "regenerate": "ess generate"
   },
   "$defs": {
@@ -44,6 +48,14 @@
     "mandate.core.DelegationId": {
       "title": "DelegationId",
       "x-ess-name": "mandate.core.DelegationId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.DirectoryGroupTeamMappingId": {
+      "title": "DirectoryGroupTeamMappingId",
+      "x-ess-name": "mandate.core.DirectoryGroupTeamMappingId",
       "x-ess-kind": "newtype",
       "type": "string",
       "format": "uuid",

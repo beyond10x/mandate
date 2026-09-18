@@ -4,6 +4,7 @@
 # UNMAPPED-EPOCH: Integer is the recorded stand-in for the addendum's u64 (decision-blocker:epoch; architecture-addendum.md section 6.3), widened when ESS gains an unsigned primitive. Monotonic increment, denial at the maximum and per-dimension snapshot values remain absent; EpochSnapshotRef is only an immutable record handle, never an epoch number.
 # UNMAPPED-EPOCH-OWNERSHIP: ESS relation carriers cannot reference an entity identity directly; each generation identity is its owning PrincipalId, OrganizationId or FederationConnectionId (one-to-one association).
 # IncrementSecurityEpoch remains an adapter obligation; no fabricated self-loop stands in for numeric mutation.
+# SessionOpened, EpochSnapshotRecorded and SecurityEpochRecorded are seeding events written by the mandate-control-plane component, which publishes them (components.yaml) and hosts the adapter around AuthenticateFederation that mints the session, the epoch snapshot it is bound to and the generation each dimension held. No command outcome emits any of them: no command in this contract creates a session, a snapshot or a generation record, so the adapter writes one event per record it creates and the identity fold consumes them. Precedent for a declared event no command outcome emits: domains/audit.yaml, published by mandate-worker.
 domain: mandate.identity
 entities:
   - name: mandate.identity.Principal
@@ -217,6 +218,7 @@ commands:
         payload:
           mandate.identity.PrincipalDisabled:
             context: input.context
+            id: input.id
         moves: mandate.identity.Principal.disable
         instance: id
       - name: denied
@@ -235,6 +237,7 @@ commands:
         payload:
           mandate.identity.SessionRevoked:
             context: input.context
+            id: input.id
         moves: mandate.identity.Session.revoke
         instance: id
       - name: denied
@@ -253,6 +256,7 @@ commands:
         payload:
           mandate.identity.RefreshCredentialRevoked:
             context: input.context
+            id: input.id
         moves: mandate.identity.RefreshCredential.revoke
         instance: id
       - name: denied
@@ -268,8 +272,8 @@ commands:
           - mandate.identity.SessionRefreshed
         payload:
           mandate.identity.SessionRefreshed:
-            context:
-              generated: true
+            session_id:
+              response: session_id
       - name: denied
         external: Refresh verifier is absent/incorrect, record is expired/revoked, principal/session is disabled, any applicable principal/organization/federation epoch mismatches, or session binding fails.
         error: mandate.identity.Denied
@@ -299,18 +303,54 @@ events:
     fields:
       - name: context
         type: mandate.core.VerifiedContext
+      - name: id
+        type: mandate.core.PrincipalId
   - name: mandate.identity.SessionRevoked
     fields:
       - name: context
         type: mandate.core.VerifiedContext
+      - name: id
+        type: mandate.core.SessionId
   - name: mandate.identity.RefreshCredentialRevoked
     fields:
       - name: context
         type: mandate.core.VerifiedContext
+      - name: id
+        type: mandate.core.RefreshCredentialId
   - name: mandate.identity.SessionRefreshed
     fields:
-      - name: context
-        type: mandate.core.VerifiedContext
+      - name: session_id
+        type: mandate.core.SessionId
+  - name: mandate.identity.SessionOpened
+    fields:
+      - name: id
+        type: mandate.core.SessionId
+      - name: principal_id
+        type: mandate.core.PrincipalId
+      - name: organization_id
+        type: mandate.core.OrganizationId
+      - name: connection_id
+        type: Optional<mandate.core.FederationConnectionId>
+      - name: epochs
+        type: mandate.core.EpochSnapshotRef
+      - name: expires_at
+        type: Timestamp
+  - name: mandate.identity.EpochSnapshotRecorded
+    fields:
+      - name: id
+        type: mandate.core.EpochSnapshotRef
+      - name: principal_id
+        type: mandate.core.PrincipalId
+      - name: organization_id
+        type: mandate.core.OrganizationId
+      - name: connection_id
+        type: Optional<mandate.core.FederationConnectionId>
+  - name: mandate.identity.SecurityEpochRecorded
+    fields:
+      - name: target
+        type: mandate.core.SecurityEpochTarget
+      - name: generation
+        type: Integer
   - name: mandate.identity.SecurityEpochIncremented
     fields:
       - name: context

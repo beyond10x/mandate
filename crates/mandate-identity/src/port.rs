@@ -128,13 +128,13 @@ pub trait SecurityEpochWrite {
 
 /// The recorded events this crate folds.
 ///
-/// Two of these are declared by the contract's `events:` list — `SessionRevoked` and
-/// `SecurityEpochIncremented`. The other three are not: they are the fold inputs that
-/// put a session, a snapshot and a target's first generation into existence, and the
-/// contract declares no event that does so. They are `#[doc(hidden)]`, which keeps them
-/// out of the rendered documentation and takes nothing out of the API, pending
-/// `story:event-payloads-for-folds`, which declares session creation and epoch recording
-/// as contract events.
+/// All five are declared by the contract's `events:` list. `SessionRevoked` and
+/// `SecurityEpochIncremented` always were; `SessionOpened`, `EpochSnapshotRecorded` and
+/// `SecurityEpochRecorded` — the fold inputs that put a session, a snapshot and a
+/// target's first generation into existence — were the crate's own until
+/// `story:event-payloads-for-folds` declared them in `identity.yaml`. While they were
+/// undeclared they carried `#[doc(hidden)]`; they no longer do, because a reader of this
+/// enum can now find every one of them in the contract.
 ///
 /// What this module ships, exactly: the two port traits, and [`IdentityLog`] as an
 /// in-memory double of the event-log adapter that a later story supplies. Its seeding is
@@ -149,24 +149,22 @@ pub trait SecurityEpochWrite {
 pub enum IdentityEvent {
     /// A session came into existence.
     ///
-    /// A fold input, not a declared event. One identity is opened once: a second
+    /// `mandate.identity.SessionOpened`. One identity is opened once: a second
     /// `SessionOpened` for a session the fold already records is refused by
     /// [`IdentityLog::try_record`] and ignored by the fold, because `Revoked` is
     /// declared terminal and no transition leaves it.
-    #[doc(hidden)]
     SessionOpened(Session),
     /// `mandate.identity.SessionRevoked`.
     SessionRevoked(SessionId),
     /// An epoch snapshot was recorded for a session to refer to.
     ///
-    /// A fold input, not a declared event. `EpochSnapshotRef` is an immutable record
-    /// handle and `SecurityEpochSnapshot`'s only lifecycle state is `Recorded`, so a
-    /// second recording of a handle the fold already holds is refused and ignored.
-    #[doc(hidden)]
+    /// `mandate.identity.EpochSnapshotRecorded`. `EpochSnapshotRef` is an immutable
+    /// record handle and `SecurityEpochSnapshot`'s only lifecycle state is `Recorded`, so
+    /// a second recording of a handle the fold already holds is refused and ignored.
     EpochSnapshotRecorded(SecurityEpochSnapshot),
     /// A target's first generation.
     ///
-    /// A fold input, not a declared event, and **not** a reset: the authoritative
+    /// `mandate.identity.SecurityEpochRecorded`, and **not** a reset: the authoritative
     /// generation never moves backwards. A value below the one already folded for that
     /// target is refused by [`IdentityLog::try_record`] and ignored by the fold.
     ///
@@ -174,7 +172,6 @@ pub enum IdentityEvent {
     /// out-of-band recovery the architecture names is not a rewind: it is the revocation
     /// of every session whose snapshot names that target. A generation is never reused,
     /// so a snapshot that was once stale is stale forever.
-    #[doc(hidden)]
     SecurityEpochRecorded {
         /// What the generation applies to.
         target: SecurityEpochTarget,

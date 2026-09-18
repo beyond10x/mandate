@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MembershipContributionRecorded payload",
+  "x-ess-name": "mandate.directory.MembershipContributionRecorded",
+  "x-ess-kind": "event-payload",
+  "type": "object",
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/mandate.core.MembershipContributionId"
+    },
+    "organization_id": {
+      "$ref": "#/$defs/mandate.core.OrganizationId"
+    },
+    "team_membership_id": {
+      "$ref": "#/$defs/mandate.core.TeamMembershipId"
+    },
+    "source": {
+      "$ref": "#/$defs/mandate.core.MembershipSource"
+    },
+    "mapping_id": {
+      "$ref": "#/$defs/mandate.core.DirectoryGroupTeamMappingId"
+    },
+    "created_by": {
+      "$ref": "#/$defs/mandate.core.PrincipalId"
+    }
+  },
+  "required": [
+    "id",
+    "organization_id",
+    "team_membership_id",
+    "source",
+    "created_by"
+  ],
+  "additionalProperties": false,
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40",
+    "contract_digest": "slice-sha256/2:2aeee3d111c9db48d06feb2f2fe47fa8b465e85a09360959002e106f368fab4e",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.core.DirectoryGroupTeamMappingId": {
+      "title": "DirectoryGroupTeamMappingId",
+      "x-ess-name": "mandate.core.DirectoryGroupTeamMappingId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.MembershipContributionId": {
+      "title": "MembershipContributionId",
+      "x-ess-name": "mandate.core.MembershipContributionId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.MembershipSource": {
+      "title": "MembershipSource",
+      "x-ess-name": "mandate.core.MembershipSource",
+      "x-ess-kind": "enum",
+      "type": "string",
+      "enum": [
+        "Manual",
+        "DirectoryMapping"
+      ]
+    },
+    "mandate.core.OrganizationId": {
+      "title": "OrganizationId",
+      "x-ess-name": "mandate.core.OrganizationId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.PrincipalId": {
+      "title": "PrincipalId",
+      "x-ess-name": "mandate.core.PrincipalId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.TeamMembershipId": {
+      "title": "TeamMembershipId",
+      "x-ess-name": "mandate.core.TeamMembershipId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    }
+  }
+}

@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:pkce-sessions
 kind: story
-status: draft
+status: implemented
 title: Implement public-client authentication and sessions
 relations:
 - decomposes: epic:authentication
@@ -11,27 +11,33 @@ relations:
 - depends_on: story:session-epochs
 - informed_by: initiative:next-ten-waves
 scope:
-- confidence: inferred
-  path: Cargo.lock
-- confidence: inferred
-  path: bins/mandate/Cargo.toml
-- confidence: inferred
+- confidence: cited
   path: bins/mandate/src/main.rs
+- confidence: cited
+  path: bins/mandate/tests/adversary_cli.rs
+- confidence: cited
+  path: bins/mandate/tests/adversary_cli_2.rs
 - confidence: inferred
   path: bins/mandate/tests/cli.rs
 - confidence: inferred
-  path: crates/mandate-identity/src/candidate.rs
+  path: crates/mandate-federation/src/authorize.rs
+- confidence: cited
+  path: crates/mandate-federation/src/lib.rs
 - confidence: inferred
-  path: crates/mandate-identity/src/pkce.rs
+  path: crates/mandate-federation/src/pkce.rs
 - confidence: inferred
-  path: crates/mandate-identity/src/publicclient.rs
+  path: crates/mandate-federation/src/publicclient.rs
+- confidence: cited
+  path: crates/mandate-federation/tests/adversary_pkce.rs
+- confidence: cited
+  path: crates/mandate-federation/tests/adversary_pkce_2.rs
 - confidence: inferred
-  path: crates/mandate-identity/tests/candidate.rs
+  path: crates/mandate-federation/tests/authorize.rs
 - confidence: inferred
-  path: crates/mandate-identity/tests/pkce.rs
+  path: crates/mandate-federation/tests/pkce.rs
 - confidence: inferred
-  path: crates/mandate-identity/tests/publicclient.rs
-revision: 11
+  path: crates/mandate-federation/tests/publicclient.rs
+revision: 22
 ---
 # Implement public-client authentication and sessions
 
@@ -87,13 +93,54 @@ Any code store. Any consumption. Any credential creation. `services/sts`, `crate
 
 ## Scope
 
-- `crates/mandate-identity/src/pkce.rs`, `src/publicclient.rs`, `src/candidate.rs` — inferred; do not exist; names chosen for disjointness from `story:session-epochs`.
-- `crates/mandate-identity/tests/pkce.rs`, `tests/publicclient.rs`, `tests/candidate.rs` — inferred.
-- `bins/mandate/src/main.rs` — inferred that this story edits it; cited as the package's only source.
-- `bins/mandate/tests/cli.rs` — inferred; `env!("CARGO_BIN_EXE_mandate")`, no dev-dependency.
-- `bins/mandate/Cargo.toml`, `Cargo.lock` — inferred; coordinator; `sha2`.
-- Not declared on purpose: `crates/mandate-identity/src/lib.rs` — coordinator-owned; `story:session-epochs` holds the cited entry.
-- Would collide with: any unit adding modules to `crates/mandate-identity`; any unit editing `bins/mandate/src/main.rs` or `Cargo.lock`.
+Derived 2026-09-18 by `story-scoper` on `integration/wave-20260918-004` (`20f354d`). Every line is **cited** (read from the story or the tree) or **inferred** (a reading that could be wrong). File granularity; no directory entries.
+
+- **Primary surface:** `crates/mandate-federation` — cited. The contract declares `mandate.federation.AuthorizePublicClient` (`systems/mandate/domains/federation.yaml:269-302`), `components.yaml:2-9,35` hosts it in `mandate-control-plane`, and `crates/mandate-federation/src/authenticate.rs:268-269` defers "step 5, nonce/state/PKCE" to this story from inside that crate.
+- **Crate decision (was `mandate-identity`):** the record the command validates against — `OAuthClient { id, organization_id, public, redirect_uris, pkce_method, state }` — already exists as a fold in `crates/mandate-federation/src/record.rs:113-129` with `Projection::clients()` at `:530-534`; placing the units in `mandate-identity` would force a duplicate of that shape behind a trait in a crate that cannot see the fold. The dependency direction is already declared, `mandate-federation → mandate-identity` (`crates/mandate-federation/Cargo.toml:16`; `dependency-boundaries.json:36-41`), so the session check consumes `mandate_identity::IdentityRead` directly and no inverted trait is needed — cited.
+- **Reused in `mandate-federation`:** `OAuthClient` and `OAuthClientState` (`record.rs:113-129`, `:64-66`), `Projection::clients()` (`record.rs:530-534`) — cited; `ConnectionStore` (`src/lib.rs:229-240`) and its double `RecordedPrincipals` (`:371-378`) as the pattern for the sibling registered-client port and its `pub` double — cited; `Denied`/`DenialClause` (`lib.rs:56-60`, `:86-135`) and `RequestContext.at` (`lib.rs:160`) for refusals and the expiry instant — cited. `SessionIssuer` (`lib.rs:198-211`) is **not** reused: the candidate reads a session, it does not mint one; it takes the `session_id` `AuthenticateFederation` responded with (`Authenticated.session_id`, `authenticate.rs:47-49`) and resolves it through `mandate_identity::IdentityRead::resolve(&SessionId)` (`crates/mandate-identity/src/port.rs:89-91`), `current` (`:96`), `snapshot` (`:99`), `as_of` (`:106`), `Session` (`session.rs:27-36`) and `Eligibility` (`snapshot.rs:43-48`) — cited; `crates/mandate-federation/` imports nothing from `mandate_identity` yet, so this is the edge's first use — cited.
+- **Files:** `bins/mandate/src/main.rs:1-10` — cited; the package's only source, a clap-derive stub with an empty `Args`.
+- **Files:** `crates/mandate-federation/src/pkce.rs`, `src/publicclient.rs`, `src/authorize.rs` — inferred; do not exist; `authorize.rs` follows the crate's command-named files (`authenticate.rs`, `link.rs`) and is disjoint from every existing source.
+- **Files:** `crates/mandate-federation/tests/pkce.rs`, `tests/publicclient.rs`, `tests/authorize.rs`, `bins/mandate/tests/cli.rs` — inferred; do not exist.
+- **Symbols:** `PkceMethod { S256 }` (`crates/mandate-types/src/enumeration.rs:10`), `PkceChallenge`, `RedirectUri`, `CredentialVerifier` (`text.rs:7-8`), `OAuthClientId` (`identifier.rs:16`), `AuthorityScope` (`record.rs:31`), `CredentialSecret`/`CredentialProof` (`credential.rs:8`) — cited. The read-only code-record input is `mandate.credential.AuthorizationCode` (`credential.yaml:109-127`); the port the candidate stops at is `IssueAuthorizationCode` (`credential.yaml:363-381`) — cited.
+- **Also likely:** none — the S256 digest stays a port because neither `mandate-federation` (`dependency-boundaries.json:36-41`) nor `mandate-token` can link `sha2` — cited.
+- **Documents:** none.
+- **Dependency ceiling:** `mandate-federation` = `mandate-types`, `mandate-model`, `mandate-identity`, `mandate-token` (`dependency-boundaries.json:36-41`), dev-dependencies included (`xtask/src/main.rs:116-128` walks every `dependencies` entry without filtering by kind); `mandate` bin = the `external` list (`dependency-boundaries.json`, applied by `xtask/src/main.rs:119`), which holds `sha2`. This story may not widen either — cited.
+- **Gate, per unit:** `cargo fmt -p mandate-federation -- --check && cargo clippy -p mandate-federation --all-targets --locked -- -D warnings && cargo test -p mandate-federation --locked` for A–C; the same with `-p mandate` for D. Not `task check` — cited from the ceiling above.
+- **Case ids:** none owned; all seven `pkce-*` cases carry `story: story:oauth-integration` (`tests/security/cases.json:335-419`) and `xtask/src/main.rs:218-224` validates that field — cited. Underwritten per unit in the table.
+- **Confidence:** high on the crate and on every exclusion — contract, deferral comment, fold and declared dependency edge were all read; the six new file names are inferred and marked so.
+- **Would collide with:** any unit adding modules to `crates/mandate-federation` or editing `crates/mandate-federation/src/lib.rs` or `src/record.rs`; any unit editing `bins/mandate/src/main.rs`; any `Cargo.lock` edit between the coordinator's `sha2` pre-land and the wave's `--locked` gates.
+- **Wave siblings, file overlap:** `story:check-api` (`crates/mandate-authz/**`) — none; `story:directory-provenance` (`crates/mandate-provisioning`, `services/worker`; provisioning does not depend on federation, `dependency-boundaries.json:42-46`) — none; `story:event-payloads-for-folds` (`systems/mandate/domains/*.yaml`, `generated/`) — none on file; this story reads `federation.yaml:269-302` and `credential.yaml:109-127,363-381` and writes neither — cited. Semantic hazard, inferred: if that story reshapes the link events the fold in `record.rs` must follow at integration; `record.rs` is in neither scope.
+
+### Units
+
+| Unit | Owns (source file) | Test file | Produces | Case ids |
+|---|---|---|---|---|
+| A `pkce` | `crates/mandate-federation/src/pkce.rs` | `crates/mandate-federation/tests/pkce.rs` | the S256 digest port with a `pub` double (the crate cannot link `sha2`); challenge well-formedness; `plain` unrepresentable because `PkceMethod` has one variant (`enumeration.rs:10`); the challenge/verifier predicate over a read-only `AuthorizationCode` (`credential.yaml:109-127`); missing and wrong verifier refused | underwrites `pkce-plain` (`cases.json:377`), `pkce-wrong` (`:349`), `pkce-missing` (`:363`); owns none |
+| B `publicclient` | `crates/mandate-federation/src/publicclient.rs` | `crates/mandate-federation/tests/publicclient.rs` | the registered-client read port in the shape of `ConnectionStore` (`lib.rs:229-240`), implemented for `Projection` over `clients()` (`record.rs:530-534`) plus a `pub` double; `public`, `state == Recorded` (`record.rs:64-66`), exact `redirect_uris` match (`federation.yaml:94-95`), `pkce_method`, `organization_id` binding | underwrites `pkce-redirect` (`:405`); owns none |
+| C `authorize` | `crates/mandate-federation/src/authorize.rs` | `crates/mandate-federation/tests/authorize.rs` | `AuthorizePublicClient` (`federation.yaml:269-302`) up to the `IssueAuthorizationCode` input (`credential.yaml:363-381`); session via `IdentityRead::resolve` (`port.rs:91`) and `Eligibility` (`snapshot.rs:43`); state/nonce; expiry against `RequestContext.at` (`lib.rs:160`); active organization; `ValidationCandidate` and its refusal type; two concurrent callers each obtain a candidate; no consumption, no credential | underwrites `pkce-valid` candidate half (`:335`), `pkce-state-nonce` (`:419`), `pkce-reuse` previously-redeemed refusal only (`:391`); owns none |
+| D `cli` | `bins/mandate/src/main.rs` | `bins/mandate/tests/cli.rs` | a clap-derive subcommand: verifier in, S256 challenge out, printed alone, over `sha2` directly (the bin links no workspace crate); `--help`/`--version` exit zero, `serve` non-zero (`xtask/src/main.rs:322-327`); test via `env!("CARGO_BIN_EXE_mandate")`, no dev-dependency | none |
+
+Coordinator ruling for wave 3: one agent runs A–D serially (one agent per story). That agent may add the three `pub mod` lines and any `DenialClause` variants to `crates/mandate-federation/src/lib.rs`, because no other story touches the crate this wave; the exclusion of `lib.rs` below binds every other story, not this one.
+
+### Excluded
+
+- `Cargo.toml` — workspace manifest; `sha2 = "0.10"` is already declared; coordinator.
+- `Cargo.lock` — changes when the `mandate` package gains `sha2`; pre-landed by the coordinator so every `--locked` gate passes.
+- `bins/mandate/Cargo.toml` — the one-line `sha2.workspace = true` lands with the lock; coordinator.
+- `dependency-boundaries.json` — the ceiling; read, not widened.
+- `deny.toml`, `xtask/` — coordinator; the boundary check (`xtask/src/main.rs:96-131`) and the `serve` refusal (`:322-327`) stay as they are.
+- `tests/security/cases.json` — a contract corpus whose seven `pkce-*` rows already name `story:oauth-integration`; no re-ownership.
+- `generated/`, `systems/mandate/domains/*.yaml` — `story:event-payloads-for-folds` owns them this wave; this story reads `federation.yaml` and `credential.yaml`, never writes.
+- `crates/mandate-federation/src/record.rs` — the fold; read, not edited.
+- `crates/mandate-identity/**` — no longer touched; the session read is consumed through the existing crate edge.
+- `services/sts`, `crates/mandate-server`, `crates/mandate-model` — unchanged from the earlier exclusions.
+
+### Not established
+
+- No contract event creates an `OAuthClient` (`crates/mandate-federation/tests/record.rs:184-189`; `federation.yaml` declares only `DisableOAuthClient` `:303` and `OAuthClientDisabled` `:382`), so `Projection::clients()` is empty from any real log — unit B's port has a double but no real source until `story:declared-writers` (execution wave 4) declares the creating command.
+- `AuthorizationCode`'s lifecycle (the consumed state) past `credential.yaml:127` was not read; `pkce-reuse`'s "previously redeemed" refusal is cited to the record shape only.
+- `services/sts` cannot link any workspace library today (`external` allowlist via `xtask/src/main.rs:119`), so `story:oauth-integration`'s reuse of the `pkce.rs` predicate needs a boundary widening that is not this story's.
+- Earlier body citations `federation.yaml:215-248`, `:213`, `:82-94`, `:91-92` and `xtask/src/main.rs:164-171`, `:259-271` are stale on this tree (now `:269-302`, `:212`, `:85-97`, `:94-95`, `xtask:208-224`, `:322-327`).
 
 ## Validation and contract
 
@@ -118,3 +165,23 @@ This explicit matrix answers review-result:ten-waves-acceptance-r2 after the sec
 ## ESS command realized
 
 `mandate.federation.AuthorizePublicClient` (`federation.yaml:215-248`) is realized by this story's `candidate` unit: every validation its denial clause names — session proof, registered public client, exact redirect, state and applicable nonce, S256 challenge, registered target inside the tenant — up to the point where the accepted outcome invokes STS `IssueAuthorizationCode`. That invocation and the code record are `story:oauth-integration`'s (`ownership.md:26-28`); its tests stand in for this command with a fixture and do not re-implement it. The command is control-plane-owned (`components.yaml`); the deployment that hosts it is `story:product-listener`'s. `epic:authentication`'s "public authorization-code/S256 PKCE" is claimed here.
+
+## Coordinator rulings for wave 3, 2026-09-19
+
+- Correction round 1 (`review-result:wave3-pkce-sessions-adversary-1`): F1–F10 fixed, F11 no-op. Accepted: the implementor changed two fixture lines in the coordinator's `tests/adversary_pkce.rs` (a registered target for the `0x7a` fixture; `nonce` from `Some(..)` to a required `String`) because F3 and F8 change the types the fixture constructs; the pre-edit copy shows exactly those two hunks and no assertion moved. The `TargetRegistry` port's real source is `story:credential-profiles`' registry. The implementor's `every_phrase_of_the_declared_denial_is_decided_here_or_assigned_to_sts` enumerates the seven phrases of `federation.yaml:298`; the class check (every declared denial phrase of a realized command named by its realizing crate) is proposed for `xtask`'s `obligations()` and recorded here for `task:runtime-wave-integration`, not built this wave.
+
+## Coordinator ruling after correction round 2, 2026-09-19
+
+- Correction round 2 (`review-result:wave3-pkce-sessions-adversary-2`): G1–G6 fixed; G7 escalated — `with_client` refuses a duplicate registration, `with_target` does not, because the adversary's own case `the_double_answers_the_first_of_two_registrations_of_one_target` pins first-wins and the round may not change an adversary assertion. Residue on the fixture double.
+- Accepted: the implementor's mechanical edits to the four adversary files — call-site arity after G1 (`&clients()` duplicated into `clients, targets`), rustfmt canonicalisation, three `#[allow]` attributes with comments on the probe's deliberate construction — verified by diff against the pre-edit copies: no assertion, expectation or test name changed. The two pass-2 adversary files were delivered not rustfmt-clean and with three clippy errors; the package gate covers `--all-targets`, so they had to be brought to the gate.
+
+## Residue after wave 3
+
+- No contract event creates an `OAuthClient`, so `Projection::clients()` is empty from any real log and `OAuthClientStore for Projection` answers `None`; the real read model arrives with `story:declared-writers`' creating command.
+- The S256 digest is a port (`PkceDigest`) with a `#[doc(hidden)]` stand-in of the right shape and 63 bits of entropy; the real digest is the host adapter's (`sha2` is admitted to the `mandate` binary, not to `mandate-federation`). The stand-in and `RecordedClients` move to `crates/mandate-testkit` under `story:testkit-doubles`.
+- `TargetRegistry` answers three ways; its real source is `story:credential-profiles`' resource-server registry. `RecordedClients::with_target` accepts a duplicate registration and answers the first (fixture residue, pinned by an adversary case).
+- Whether `TenantMismatch` (`TargetOutsideTenant`) is ever rendered to a public client is undecided: through this function the target comes from the code record, but `AuthorizePublicClient` declares `target` as caller input (`federation.yaml:296-297`), so an adapter wiring it straight through would create a cross-tenant existence oracle. For `story:protocol-adapters`.
+- The `instant` RFC 3339 reader is a byte-identical copy of `mandate-identity`'s private one, pinned against it over 12 spellings; a canonical form on `Timestamp` in `mandate-types` would retire both.
+- The seven `pkce-*` corpus cases stay owned by `story:oauth-integration`; this story underwrites their validation half only. Code consumption, credential issuance, code possession and the presented `client_id` are `RedeemAuthorizationCode`'s at STS.
+- `services/sts` cannot link workspace libraries today, so `story:oauth-integration`'s reuse of `pkce.rs` needs a boundary widening under `task:runtime-wave-integration`.
+- The CLI's parser errors never echo an argument; the verifier may arrive on stdin; a positional stays for scripts and is recorded in `argv` by the caller's choice.

@@ -7,25 +7,96 @@
   "properties": {
     "context": {
       "$ref": "#/$defs/mandate.core.VerifiedContext"
+    },
+    "id": {
+      "$ref": "#/$defs/mandate.core.DelegationId"
+    },
+    "delegator": {
+      "$ref": "#/$defs/mandate.core.PrincipalId"
+    },
+    "delegate": {
+      "$ref": "#/$defs/mandate.core.PrincipalId"
+    },
+    "scope": {
+      "$ref": "#/$defs/mandate.core.AuthorityScope"
+    },
+    "audience": {
+      "$ref": "#/$defs/mandate.core.Audience"
+    },
+    "not_before": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "execution_binding": {
+      "$ref": "#/$defs/mandate.core.ExecutionId"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
     }
   },
   "required": [
-    "context"
+    "context",
+    "id",
+    "delegator",
+    "delegate",
+    "scope",
+    "audience",
+    "expires_at",
+    "created_at"
   ],
   "additionalProperties": false,
   "x-ess-provenance": {
     "system": "mandate",
     "specification_version": "v1",
-    "source_digest": "681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8",
-    "contract_digest": "slice-sha256/2:ef4e51ff004b4f3c813889be62c642207b7d8d4c6f1123290ad882caf01ac6eb",
+    "source_digest": "49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40",
+    "contract_digest": "slice-sha256/2:33ba1bef18fa50832776207680b60159b7b5a92e647ccdb9c46624b0aa069288",
     "regenerate": "ess generate"
   },
   "$defs": {
+    "mandate.core.Action": {
+      "title": "Action",
+      "x-ess-name": "mandate.core.Action",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    },
     "mandate.core.Audience": {
       "title": "Audience",
       "x-ess-name": "mandate.core.Audience",
       "x-ess-kind": "newtype",
       "type": "string"
+    },
+    "mandate.core.AuthorityScope": {
+      "title": "AuthorityScope",
+      "x-ess-name": "mandate.core.AuthorityScope",
+      "x-ess-kind": "struct",
+      "type": "object",
+      "properties": {
+        "actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/mandate.core.Action"
+          }
+        },
+        "resources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/mandate.core.ResourceRef"
+          }
+        },
+        "space": {
+          "$ref": "#/$defs/mandate.core.SpaceId"
+        }
+      },
+      "required": [
+        "actions",
+        "resources"
+      ],
+      "additionalProperties": false
     },
     "mandate.core.CorrelationId": {
       "title": "CorrelationId",
@@ -68,6 +139,47 @@
     "mandate.core.PrincipalId": {
       "title": "PrincipalId",
       "x-ess-name": "mandate.core.PrincipalId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.ResourceId": {
+      "title": "ResourceId",
+      "x-ess-name": "mandate.core.ResourceId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.ResourceRef": {
+      "title": "ResourceRef",
+      "x-ess-name": "mandate.core.ResourceRef",
+      "x-ess-kind": "struct",
+      "type": "object",
+      "properties": {
+        "resource_type": {
+          "$ref": "#/$defs/mandate.core.ResourceType"
+        },
+        "resource_id": {
+          "$ref": "#/$defs/mandate.core.ResourceId"
+        }
+      },
+      "required": [
+        "resource_type",
+        "resource_id"
+      ],
+      "additionalProperties": false
+    },
+    "mandate.core.ResourceType": {
+      "title": "ResourceType",
+      "x-ess-name": "mandate.core.ResourceType",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    },
+    "mandate.core.SpaceId": {
+      "title": "SpaceId",
+      "x-ess-name": "mandate.core.SpaceId",
       "x-ess-kind": "newtype",
       "type": "string",
       "format": "uuid",

@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SessionOpened payload",
+  "x-ess-name": "mandate.identity.SessionOpened",
+  "x-ess-kind": "event-payload",
+  "type": "object",
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/mandate.core.SessionId"
+    },
+    "principal_id": {
+      "$ref": "#/$defs/mandate.core.PrincipalId"
+    },
+    "organization_id": {
+      "$ref": "#/$defs/mandate.core.OrganizationId"
+    },
+    "connection_id": {
+      "$ref": "#/$defs/mandate.core.FederationConnectionId"
+    },
+    "epochs": {
+      "$ref": "#/$defs/mandate.core.EpochSnapshotRef"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "id",
+    "principal_id",
+    "organization_id",
+    "epochs",
+    "expires_at"
+  ],
+  "additionalProperties": false,
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40",
+    "contract_digest": "slice-sha256/2:5c199c5d62972d90afea75316780ee3c3459e8adfe378b2d80577a99345e4e49",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.core.EpochSnapshotRef": {
+      "title": "EpochSnapshotRef",
+      "x-ess-name": "mandate.core.EpochSnapshotRef",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.FederationConnectionId": {
+      "title": "FederationConnectionId",
+      "x-ess-name": "mandate.core.FederationConnectionId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.OrganizationId": {
+      "title": "OrganizationId",
+      "x-ess-name": "mandate.core.OrganizationId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.PrincipalId": {
+      "title": "PrincipalId",
+      "x-ess-name": "mandate.core.PrincipalId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.SessionId": {
+      "title": "SessionId",
+      "x-ess-name": "mandate.core.SessionId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    }
+  }
+}

@@ -29,7 +29,10 @@
 //! caller appends, and [`record::Projection::fold`] rebuilds the read model.
 
 pub mod authenticate;
+pub mod authorize;
 pub mod link;
+pub mod pkce;
+pub mod publicclient;
 pub mod record;
 pub mod verifier;
 
@@ -130,6 +133,64 @@ pub enum DenialClause {
     /// unadmitted". Two organizations cannot share an issuer when either resolves it
     /// unconditionally; see [`record::register_federation_connection`].
     TenantResolutionUnadmitted,
+    /// `AuthorizePublicClient`: "S256 challenge is absent/invalid": the recorded
+    /// challenge is not in the declared S256 form.
+    ChallengeMalformed,
+    /// "S256 challenge is absent/invalid": no code verifier was presented.
+    VerifierMissing,
+    /// "S256 challenge is absent/invalid": the presented verifier is not in the form
+    /// RFC 7636 section 4.1 declares.
+    VerifierMalformed,
+    /// "S256 challenge is absent/invalid": the presented verifier does not digest to the
+    /// recorded challenge.
+    VerifierMismatch,
+    /// `AuthorizePublicClient`: "client is not a registered public client": the read
+    /// model answers no client with that identity.
+    ClientUnknown,
+    /// "client is not a registered public client": the client is not a public client.
+    ClientNotPublic,
+    /// "the client is disabled": the client is in the terminal `Disabled` state.
+    ClientDisabled,
+    /// "exact redirect URI ... binding fails": the presented redirect URI is not
+    /// byte-identical to a registered one, or to the one the code record bound.
+    RedirectMismatch,
+    /// "Session proof is invalid/stale": the code names a session the read model does
+    /// not resolve.
+    SessionUnknown,
+    /// "Session proof is invalid/stale": the session is in the terminal `Revoked` state.
+    SessionRevoked,
+    /// "Session proof is invalid/stale": the session's epoch snapshot does not resolve,
+    /// or is bound to another subject.
+    SessionEpochUnresolved,
+    /// "source/session epoch is stale" (`credential.yaml:223`): an applicable generation
+    /// no longer matches the authoritative one.
+    SessionStale,
+    /// "Session proof is invalid/stale": the session's own expiry has passed.
+    SessionExpired,
+    /// "code is consumed/expired" (`credential.yaml:223`): the code record is in the
+    /// declared terminal `Consumed` state. The concurrent second redemption is the STS
+    /// transaction's to refuse, not this one's.
+    CodePreviouslyRedeemed,
+    /// "code is consumed/expired": the code record's expiry has passed, or names no
+    /// instant. The request instant naming none is this clause with the reason
+    /// `Unavailable` — the reader cannot be dated, which is not the record expiring.
+    CodeExpired,
+    /// "target is unregistered/outside tenant": the registry answers no organization for
+    /// the target the code names.
+    TargetUnknown,
+    /// "target is unregistered/outside tenant": the target is registered to another
+    /// organization than the verified one.
+    TargetOutsideTenant,
+    /// The registry cannot answer for the target at all, which is not a decision that it
+    /// is unregistered. The reason is `Unavailable`, as for a request that names no
+    /// instant.
+    TargetUnanswerable,
+    /// "state/applicable nonce binding fails": the presented state is not the one the
+    /// authorization request recorded.
+    StateMismatch,
+    /// "state/applicable nonce binding fails": the applicable nonce is absent, unbound or
+    /// not the one the authorization request recorded.
+    NonceMismatch,
     /// The verifier's configured algorithm allowlist is not an admitted one.
     /// `decision-blocker:algorithm-policy`: an empty set is rejected. The admitted names
     /// themselves are withheld, so none is named here.
@@ -138,26 +199,38 @@ pub enum DenialClause {
 
 /// What the adapter carries that neither a command input nor the read model supplies.
 ///
-/// `federation.yaml` declares the `context` of `FederationAuthenticated` and
-/// `ExternalPrincipalProvisioned` as `generated: true`, and `mandate.core.VerifiedContext`
-/// requires an audience, a credential and a correlation. The subject, the organization
-/// and — for an authentication — the credential are resolved here. These are the fields
-/// that are left.
+/// `federation.yaml` no longer declares a `context` on `FederationAuthenticated` or
+/// `ExternalPrincipalProvisioned`. Both are reached without a verified caller — an
+/// authentication is what *establishes* a context, and `ProvisionExternalPrincipal` mints
+/// no session and no credential ("No session is minted here; the adapter calls
+/// AuthenticateFederation again") — so a `mandate.core.VerifiedContext`, whose `credential`
+/// is required, had no source on either. The contract declares the fields the records
+/// actually need instead: `session_id`, `principal_id`, `audience`, `correlation` and
+/// `connection_id` on the authentication, and `organization_id` plus `correlation` on the
+/// provisioning. Of those, the audience and the correlation are the adapter's; the rest
+/// are resolved from the proof, the connection or the issuer.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RequestContext {
     /// The audience the control plane establishes the context for.
+    ///
+    /// Carried onto `mandate.federation.FederationAuthenticated`.
     pub audience: Audience,
     /// The correlation carried through the request.
+    ///
+    /// Carried onto both context-free events.
     pub correlation: CorrelationId,
     /// The credential the trusted federation endpoint was reached with.
     ///
-    /// `ProvisionExternalPrincipal` mints no session and no credential — "No session is
-    /// minted here; the adapter calls AuthenticateFederation again" — and its event
-    /// nevertheless carries a `VerifiedContext`, whose `credential` is required. The
-    /// contract names no source for it. An authentication does not read this field: it
-    /// names the credential [`SessionIssuer`] minted.
+    /// No event of this domain carries it: the two that once demanded one through a
+    /// `VerifiedContext` no longer declare a context at all, and the credential an
+    /// authentication mints is [`SessionIssuer`]'s, named by `mandate.identity` against
+    /// the `session_id` the authentication declares. It is kept because the adapter that
+    /// reached the endpoint holds it and the audit path is `mandate.audit`'s, not this
+    /// crate's to drop on its behalf.
     pub credential: CredentialId,
     /// The moment the request is being served. A clock is an adapter concern.
+    ///
+    /// Carried onto both link events as `linked_at`.
     pub at: Timestamp,
 }
 

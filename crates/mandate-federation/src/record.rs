@@ -20,9 +20,9 @@
 
 use mandate_model::TenantResolutionRule;
 use mandate_types::{
-    ClientId, ExternalLinkMethod, ExternalPrincipalId, ExternalSubject, FederationConnectionId,
-    Issuer, OAuthClientId, OrganizationId, PersistedValue, PkceMethod, PrincipalId, PrincipalKind,
-    RedirectUri, Timestamp, VerifiedContext,
+    Audience, ClientId, CorrelationId, ExternalLinkMethod, ExternalPrincipalId, ExternalSubject,
+    FederationConnectionId, Issuer, OAuthClientId, OrganizationId, PersistedValue, PkceMethod,
+    PrincipalId, PrincipalKind, RedirectUri, SessionId, Timestamp, VerifiedContext,
 };
 
 use mandate_types::DenialReason;
@@ -170,9 +170,16 @@ pub enum FederationEvent {
         linked_at: Timestamp,
     },
     /// `mandate.federation.ExternalPrincipalProvisioned`.
+    ///
+    /// `ProvisionExternalPrincipal` has no verified caller and mints no credential, so
+    /// this payload declares no `context`: `federation.yaml` names the two context fields
+    /// the record actually needs — the resolved `organization_id` and the request's
+    /// `correlation` — and nothing that would have to be invented.
     ExternalPrincipalProvisioned {
-        /// The declared `context`.
-        context: VerifiedContext,
+        /// The declared `organization_id`: the organization the connection resolved to.
+        organization_id: OrganizationId,
+        /// The declared `correlation`.
+        correlation: CorrelationId,
         /// The declared `connection_id`.
         connection_id: FederationConnectionId,
         /// The declared `principal_id`.
@@ -191,9 +198,20 @@ pub enum FederationEvent {
         linked_at: Timestamp,
     },
     /// `mandate.federation.FederationAuthenticated`.
+    ///
+    /// The authentication is what establishes a context; it cannot declare one it has not
+    /// yet established. `federation.yaml` declares the four fields the record needs
+    /// instead of a `mandate.core.VerifiedContext` whose `credential` this command has no
+    /// source for.
     FederationAuthenticated {
-        /// The declared `context`.
-        context: VerifiedContext,
+        /// The declared `session_id`: the session this authentication opened.
+        session_id: SessionId,
+        /// The declared `principal_id`: the linked principal that authenticated.
+        principal_id: PrincipalId,
+        /// The declared `audience`.
+        audience: Audience,
+        /// The declared `correlation`.
+        correlation: CorrelationId,
         /// The declared `connection_id`.
         connection_id: FederationConnectionId,
     },
@@ -361,7 +379,10 @@ impl Projection {
                 )?;
             }
             FederationEvent::ExternalPrincipalProvisioned {
-                context: _,
+                // The key's organization is read from the connection, exactly as it is
+                // for `ExternalPrincipalLinked`, so that one key is resolved one way.
+                organization_id: _,
+                correlation: _,
                 connection_id,
                 principal_id,
                 kind,
@@ -401,7 +422,10 @@ impl Projection {
             // itself. It still names a connection, and a name that resolves to nothing
             // is a log this fold cannot read.
             FederationEvent::FederationAuthenticated {
-                context: _,
+                session_id: _,
+                principal_id: _,
+                audience: _,
+                correlation: _,
                 connection_id,
             } => {
                 if !self
@@ -784,7 +808,8 @@ const _: () = {
                 persistable(linked_at);
             }
             FederationEvent::ExternalPrincipalProvisioned {
-                context,
+                organization_id,
+                correlation,
                 connection_id,
                 principal_id,
                 kind,
@@ -794,7 +819,8 @@ const _: () = {
                 link_method,
                 linked_at,
             } => {
-                persistable(context);
+                persistable(organization_id);
+                persistable(correlation);
                 persistable(connection_id);
                 persistable(principal_id);
                 persistable(kind);
@@ -805,10 +831,16 @@ const _: () = {
                 persistable(linked_at);
             }
             FederationEvent::FederationAuthenticated {
-                context,
+                session_id,
+                principal_id,
+                audience,
+                correlation,
                 connection_id,
             } => {
-                persistable(context);
+                persistable(session_id);
+                persistable(principal_id);
+                persistable(audience);
+                persistable(correlation);
                 persistable(connection_id);
             }
             FederationEvent::OAuthClientDisabled { context, id } => {

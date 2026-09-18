@@ -7,17 +7,33 @@
   "properties": {
     "context": {
       "$ref": "#/$defs/mandate.core.VerifiedContext"
+    },
+    "id": {
+      "$ref": "#/$defs/mandate.core.RelationId"
+    },
+    "subject": {
+      "$ref": "#/$defs/mandate.core.AuthoritySubject"
+    },
+    "relation": {
+      "type": "string"
+    },
+    "resource": {
+      "$ref": "#/$defs/mandate.core.ResourceRef"
     }
   },
   "required": [
-    "context"
+    "context",
+    "id",
+    "subject",
+    "relation",
+    "resource"
   ],
   "additionalProperties": false,
   "x-ess-provenance": {
     "system": "mandate",
     "specification_version": "v1",
-    "source_digest": "681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8",
-    "contract_digest": "slice-sha256/2:205c659b058b2700463b8171b68b07fc5ddac1656fda0bf85e277973f0348cab",
+    "source_digest": "49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40",
+    "contract_digest": "slice-sha256/2:01d6b3a537347a472a6b0cc3ea37283c7f2c7e4bd4a8feb1e0a9eb41539eec54",
     "regenerate": "ess generate"
   },
   "$defs": {
@@ -26,6 +42,50 @@
       "x-ess-name": "mandate.core.Audience",
       "x-ess-kind": "newtype",
       "type": "string"
+    },
+    "mandate.core.AuthoritySubject": {
+      "title": "AuthoritySubject",
+      "x-ess-name": "mandate.core.AuthoritySubject",
+      "x-ess-kind": "union",
+      "oneOf": [
+        {
+          "title": "principal",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "principal"
+            },
+            "value": {
+              "$ref": "#/$defs/mandate.core.PrincipalId"
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "title": "team",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "team"
+            },
+            "value": {
+              "$ref": "#/$defs/mandate.core.TeamId"
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ],
+          "additionalProperties": false
+        }
+      ],
+      "x-ess-union-tag": "kind"
     },
     "mandate.core.CorrelationId": {
       "title": "CorrelationId",
@@ -68,6 +128,55 @@
     "mandate.core.PrincipalId": {
       "title": "PrincipalId",
       "x-ess-name": "mandate.core.PrincipalId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.RelationId": {
+      "title": "RelationId",
+      "x-ess-name": "mandate.core.RelationId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.ResourceId": {
+      "title": "ResourceId",
+      "x-ess-name": "mandate.core.ResourceId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.ResourceRef": {
+      "title": "ResourceRef",
+      "x-ess-name": "mandate.core.ResourceRef",
+      "x-ess-kind": "struct",
+      "type": "object",
+      "properties": {
+        "resource_type": {
+          "$ref": "#/$defs/mandate.core.ResourceType"
+        },
+        "resource_id": {
+          "$ref": "#/$defs/mandate.core.ResourceId"
+        }
+      },
+      "required": [
+        "resource_type",
+        "resource_id"
+      ],
+      "additionalProperties": false
+    },
+    "mandate.core.ResourceType": {
+      "title": "ResourceType",
+      "x-ess-name": "mandate.core.ResourceType",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    },
+    "mandate.core.TeamId": {
+      "title": "TeamId",
+      "x-ess-name": "mandate.core.TeamId",
       "x-ess-kind": "newtype",
       "type": "string",
       "format": "uuid",

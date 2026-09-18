@@ -1,9 +1,10 @@
 //! Adversarial cases for `story:tenancy-topology`, driven from the compiled contract.
 //!
-//! `crates/mandate-model/src/tenancy.rs:6-8` states the claim these cases attack:
-//! "Under `docs/adr/0009-event-sourced-persistence.md` the events are the record and
+//! `crates/mandate-model/src/tenancy.rs`, under *These projections are rebuildable from
+//! the log*, states the claim these cases attack: that the events are the record and
 //! these structures are the fold of them, so a [`Tenancy`] is derived, droppable and
-//! rebuildable, never authoritative."
+//! rebuildable, never authoritative. (The same paragraph said the opposite until
+//! `story:event-payloads-for-folds` landed; these cases are what decides which is true.)
 //!
 //! ADR 0009 states the same thing normatively: "A command produces domain events; the
 //! events are the record; every read is a fold over them ... State tables are
@@ -77,7 +78,46 @@ fn property_names(schema: &serde_json::Value) -> BTreeSet<String> {
         .collect()
 }
 
-/// Every property name any event of `domain` declares.
+/// The event's own property names, plus the members of any struct it carries by value.
+///
+/// A field can be carried without being a top-level property of the event:
+/// `mandate.graph.ResourceRegistered` declares `resource: mandate.core.ResourceRef`, and
+/// `ResourceRef` declares `resource_type` and `resource_id`. A fold reading that event has
+/// `resource_type` in hand, so a reader that only looked at top-level names would report a
+/// field the log does carry — a false orphan. One level of descent, the same depth
+/// `crates/mandate-types/tests/adversary_fold_inputs.rs:203` reads at.
+///
+/// `mandate.core.VerifiedContext` is excluded: its members are the caller's, not the
+/// record's, and the one field a fold does take from it — `organization_id` — is exempted
+/// explicitly below so that the exemption stays visible instead of being absorbed here.
+fn property_names_carrying_struct_members(schema: &serde_json::Value) -> BTreeSet<String> {
+    let mut names = property_names(schema);
+    let definitions = &schema["$defs"];
+    for property in schema["properties"]
+        .as_object()
+        .expect("the declared properties")
+        .values()
+    {
+        let Some(reference) = property["$ref"].as_str() else {
+            continue;
+        };
+        let Some(kind) = reference.strip_prefix("#/$defs/") else {
+            continue;
+        };
+        if kind == "mandate.core.VerifiedContext" {
+            continue;
+        }
+        let declared = &definitions[kind];
+        if declared["x-ess-kind"].as_str() != Some("struct") {
+            continue;
+        }
+        names.extend(property_names(declared));
+    }
+    names
+}
+
+/// Every property name any event of `domain` declares, including the members of a struct
+/// an event carries by value.
 ///
 /// Deliberately generous: it unions every event of the domain rather than asking which
 /// event the accepted outcome of the writing command actually emits. A field that only
@@ -99,7 +139,9 @@ fn every_event_property_of(domain: &str) -> BTreeSet<String> {
         if !ess_name.starts_with(&prefix) {
             continue;
         }
-        carried.extend(property_names(&document("events", ess_name)));
+        carried.extend(property_names_carrying_struct_members(&document(
+            "events", ess_name,
+        )));
     }
     assert!(!carried.is_empty(), "{domain}: no compiled event was read");
     carried
@@ -116,12 +158,13 @@ const PROJECTED: [(&str, &str); 6] = [
 ];
 
 /// ADR 0009: "the events are the record; every read is a fold over them ... State tables
-/// are projections: derived, droppable, rebuildable". `src/tenancy.rs:7` and
-/// `src/graph.rs:1` claim it for these six.
+/// are projections: derived, droppable, rebuildable". The module docs of `src/tenancy.rs`
+/// and `src/graph.rs` claim it for these six.
 ///
 /// A projection that is required to carry a field no event declares cannot be rebuilt:
 /// dropping it loses that field for good. This asks, for each of the six, whether every
-/// required field is carried by some event of its own domain.
+/// required field is carried by some event of its own domain — a top-level property of
+/// that event, or a member of a struct it carries by value.
 ///
 /// Two exemptions, both derivable without an event field of their own:
 ///
@@ -129,7 +172,7 @@ const PROJECTED: [(&str, &str); 6] = [
 ///   `moves`, so the event's identity is enough.
 /// * `organization_id` — `mandate.core.VerifiedContext` carries `organization`, and
 ///   every event in both domains declares `context`, so the fold reads it from there.
-///   `src/tenancy.rs:349` and `src/graph.rs:143` both do exactly that.
+///   `src/tenancy.rs:471` and `src/graph.rs:174` both do exactly that.
 #[test]
 fn every_required_projection_field_is_carried_by_a_declared_event() {
     let mut orphaned: Vec<String> = Vec::new();
@@ -150,22 +193,20 @@ fn every_required_projection_field_is_carried_by_a_declared_event() {
             }
         }
     }
-    // Tripwire, placed by the coordinator at integration. The four fields below are
-    // required projection state that no event of their domain carries, so the fold is
-    // authoritative for them and not droppable; `src/tenancy.rs` and `src/graph.rs`
-    // state the gap in their module docs. The contract fix is
-    // `story:event-payloads-for-folds`'s. When the creation events carry these fields,
-    // this assertion fails: retire the tripwire and restore the equality above it.
+    // The tripwire the coordinator placed at integration pinned four orphaned fields —
+    // `Organization.display_name`, `Team.display_name`, `Space.display_name` and
+    // `Resource.resource_type` — and named `story:event-payloads-for-folds` as the fix.
+    // That story landed: the three creation events declare `display_name`, and
+    // `ResourceRegistered` carries `resource: mandate.core.ResourceRef`, whose members are
+    // `resource_type` and `resource_id`. The tripwire is retired and the equality it
+    // replaced is restored: no required field of these six projections is orphaned, so
+    // each is droppable and rebuildable as ADR 0009 requires. A non-empty list here is a
+    // real finding, not a pin to update.
     assert_eq!(
         orphaned,
-        vec![
-            "mandate.tenancy.Organization.display_name".to_owned(),
-            "mandate.tenancy.Team.display_name".to_owned(),
-            "mandate.tenancy.Space.display_name".to_owned(),
-            "mandate.graph.Resource.resource_type".to_owned(),
-        ],
-        "the set of required projection fields no event carries has changed: retire this \
-         tripwire and revisit story:event-payloads-for-folds"
+        Vec::<String>::new(),
+        "a required projection field is carried by no event of its domain, so the \
+         projection is authoritative for it and a rebuild from the log loses it"
     );
 }
 

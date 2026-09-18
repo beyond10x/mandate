@@ -8,11 +8,21 @@
     "context": {
       "$ref": "#/$defs/mandate.core.VerifiedContext"
     },
+    "mapping_id": {
+      "$ref": "#/$defs/mandate.core.DirectoryGroupTeamMappingId"
+    },
     "group_id": {
       "$ref": "#/$defs/mandate.core.DirectoryGroupId"
     },
     "team_id": {
       "$ref": "#/$defs/mandate.core.TeamId"
+    },
+    "created_by": {
+      "$ref": "#/$defs/mandate.core.PrincipalId"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
     },
     "contributions": {
       "type": "array",
@@ -23,16 +33,19 @@
   },
   "required": [
     "context",
+    "mapping_id",
     "group_id",
     "team_id",
+    "created_by",
+    "created_at",
     "contributions"
   ],
   "additionalProperties": false,
   "x-ess-provenance": {
     "system": "mandate",
     "specification_version": "v1",
-    "source_digest": "681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8",
-    "contract_digest": "slice-sha256/2:7d210b6b57e1255f0b40ee8df96b6a81ccc6be85e471a376cb2f6024a70ea866",
+    "source_digest": "49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40",
+    "contract_digest": "slice-sha256/2:b5bce762ed51815b52ad3f7e5e4e78db2e7a648fb6bc88daa156a3ae72fec2fa",
     "regenerate": "ess generate"
   },
   "$defs": {
@@ -67,6 +80,14 @@
     "mandate.core.DirectoryGroupId": {
       "title": "DirectoryGroupId",
       "x-ess-name": "mandate.core.DirectoryGroupId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.DirectoryGroupTeamMappingId": {
+      "title": "DirectoryGroupTeamMappingId",
+      "x-ess-name": "mandate.core.DirectoryGroupTeamMappingId",
       "x-ess-kind": "newtype",
       "type": "string",
       "format": "uuid",

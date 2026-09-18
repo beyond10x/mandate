@@ -10,18 +10,22 @@
     },
     "team_id": {
       "$ref": "#/$defs/mandate.core.TeamId"
+    },
+    "display_name": {
+      "type": "string"
     }
   },
   "required": [
     "context",
-    "team_id"
+    "team_id",
+    "display_name"
   ],
   "additionalProperties": false,
   "x-ess-provenance": {
     "system": "mandate",
     "specification_version": "v1",
-    "source_digest": "681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8",
-    "contract_digest": "slice-sha256/2:29d711a3534cb06c700f8d825617ce56beb35ba8e5a20f5fcfdc520bd0c8f54d",
+    "source_digest": "49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40",
+    "contract_digest": "slice-sha256/2:ec87b16aebe7f4b50b89d3335b43314d7a62fda09e15f9e03f62c4666cfd7deb",
     "regenerate": "ess generate"
   },
   "$defs": {

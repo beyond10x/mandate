@@ -5,23 +5,35 @@
   "x-ess-kind": "event-payload",
   "type": "object",
   "properties": {
-    "context": {
-      "$ref": "#/$defs/mandate.core.VerifiedContext"
+    "session_id": {
+      "$ref": "#/$defs/mandate.core.SessionId"
+    },
+    "principal_id": {
+      "$ref": "#/$defs/mandate.core.PrincipalId"
+    },
+    "audience": {
+      "$ref": "#/$defs/mandate.core.Audience"
+    },
+    "correlation": {
+      "$ref": "#/$defs/mandate.core.CorrelationId"
     },
     "connection_id": {
       "$ref": "#/$defs/mandate.core.FederationConnectionId"
     }
   },
   "required": [
-    "context",
+    "session_id",
+    "principal_id",
+    "audience",
+    "correlation",
     "connection_id"
   ],
   "additionalProperties": false,
   "x-ess-provenance": {
     "system": "mandate",
     "specification_version": "v1",
-    "source_digest": "681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8",
-    "contract_digest": "slice-sha256/2:9ad280603d20ae41b950050858abc82758dceb309d263814d8cc0cfbe57b162f",
+    "source_digest": "49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40",
+    "contract_digest": "slice-sha256/2:ff0679399b52a9192b9486cf5618e3febf34d4944393a540d9a77b9c0f1f967d",
     "regenerate": "ess generate"
   },
   "$defs": {
@@ -37,41 +49,9 @@
       "x-ess-kind": "newtype",
       "type": "string"
     },
-    "mandate.core.CredentialId": {
-      "title": "CredentialId",
-      "x-ess-name": "mandate.core.CredentialId",
-      "x-ess-kind": "newtype",
-      "type": "string",
-      "format": "uuid",
-      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
-    },
-    "mandate.core.DelegationId": {
-      "title": "DelegationId",
-      "x-ess-name": "mandate.core.DelegationId",
-      "x-ess-kind": "newtype",
-      "type": "string",
-      "format": "uuid",
-      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
-    },
-    "mandate.core.ExecutionId": {
-      "title": "ExecutionId",
-      "x-ess-name": "mandate.core.ExecutionId",
-      "x-ess-kind": "newtype",
-      "type": "string",
-      "format": "uuid",
-      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
-    },
     "mandate.core.FederationConnectionId": {
       "title": "FederationConnectionId",
       "x-ess-name": "mandate.core.FederationConnectionId",
-      "x-ess-kind": "newtype",
-      "type": "string",
-      "format": "uuid",
-      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
-    },
-    "mandate.core.OrganizationId": {
-      "title": "OrganizationId",
-      "x-ess-name": "mandate.core.OrganizationId",
       "x-ess-kind": "newtype",
       "type": "string",
       "format": "uuid",
@@ -85,45 +65,13 @@
       "format": "uuid",
       "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
     },
-    "mandate.core.VerifiedContext": {
-      "title": "VerifiedContext",
-      "x-ess-name": "mandate.core.VerifiedContext",
-      "x-ess-kind": "struct",
-      "type": "object",
-      "properties": {
-        "subject": {
-          "$ref": "#/$defs/mandate.core.PrincipalId"
-        },
-        "actor": {
-          "$ref": "#/$defs/mandate.core.PrincipalId"
-        },
-        "organization": {
-          "$ref": "#/$defs/mandate.core.OrganizationId"
-        },
-        "audience": {
-          "$ref": "#/$defs/mandate.core.Audience"
-        },
-        "credential": {
-          "$ref": "#/$defs/mandate.core.CredentialId"
-        },
-        "delegation": {
-          "$ref": "#/$defs/mandate.core.DelegationId"
-        },
-        "execution": {
-          "$ref": "#/$defs/mandate.core.ExecutionId"
-        },
-        "correlation": {
-          "$ref": "#/$defs/mandate.core.CorrelationId"
-        }
-      },
-      "required": [
-        "subject",
-        "organization",
-        "audience",
-        "credential",
-        "correlation"
-      ],
-      "additionalProperties": false
+    "mandate.core.SessionId": {
+      "title": "SessionId",
+      "x-ess-name": "mandate.core.SessionId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
     }
   }
 }

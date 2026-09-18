@@ -15,8 +15,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8",
-          "contract_digest": "262e38dd723f39883dd1448842535be88c36521c49c96d7d8e789487f111e4de"
+          "source_digest": "49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40",
+          "contract_digest": "6f04cb1563cdfb944daa32526112a69b9e51e8bcd644afa9ee7e6d3ee5e792f4"
         },
         "slice": {
           "of": "whole-model"
@@ -46,7 +46,7 @@
             {
               "block": "diagram",
               "kind": "system",
-              "source": "flowchart TB\n    subgraph unit0[\"mandate-authorization\"]\n        cmd2[\"mandate.authorization.Check\"]\n        cmd36[\"mandate.graph.DeregisterResource\"]\n        cmd37[\"mandate.graph.RegisterResource\"]\n        cmd38[\"mandate.graph.RemoveRelation\"]\n        cmd39[\"mandate.graph.RevokeGrant\"]\n        cmd40[\"mandate.graph.WriteRelationship\"]\n        cmd46[\"mandate.policy.SupersedeAuthorizationModel\"]\n        cmd47[\"mandate.policy.SupersedePolicy\"]\n        evt7[\"mandate.authorization.DecisionRecorded\"]\n        evt42[\"mandate.graph.GrantRevoked\"]\n        evt43[\"mandate.graph.RelationRemoved\"]\n        evt44[\"mandate.graph.RelationshipWritten\"]\n        evt45[\"mandate.graph.ResourceDeregistered\"]\n        evt46[\"mandate.graph.ResourceRegistered\"]\n        evt52[\"mandate.policy.AuthorizationModelSuperseded\"]\n        evt53[\"mandate.policy.PolicySuperseded\"]\n    end\n    subgraph unit1[\"mandate-control-plane\"]\n        cmd14[\"mandate.delegation.CompleteExecution\"]\n        cmd15[\"mandate.delegation.ConsumeApproval\"]\n        cmd16[\"mandate.delegation.CreateDelegation\"]\n        cmd17[\"mandate.delegation.RetireAgent\"]\n        cmd18[\"mandate.delegation.RevokeDelegation\"]\n        cmd19[\"mandate.delegation.SupersedeAgentCapabilityCeiling\"]\n        cmd20[\"mandate.directory.CompleteSyncJob\"]\n        cmd21[\"mandate.directory.CreateDirectoryGroupTeamMapping\"]\n        cmd22[\"mandate.directory.FailSyncJob\"]\n        cmd23[\"mandate.directory.RemoveDirectoryGroupMembership\"]\n        cmd24[\"mandate.directory.RemoveDirectoryGroupTeamMapping\"]\n        cmd25[\"mandate.directory.RemoveMembershipContribution\"]\n        cmd26[\"mandate.directory.RetireDirectoryGroup\"]\n        cmd27[\"mandate.directory.SyncDirectoryMembership\"]\n        cmd28[\"mandate.federation.AuthenticateFederation\"]\n        cmd29[\"mandate.federation.AuthorizePublicClient\"]\n        cmd30[\"mandate.federation.DisableFederationConnection\"]\n        cmd31[\"mandate.federation.DisableOAuthClient\"]\n        cmd32[\"mandate.federation.LinkExternalPrincipal\"]\n        cmd33[\"mandate.federation.ProvisionExternalPrincipal\"]\n        cmd34[\"mandate.federation.RegisterFederationConnection\"]\n        cmd35[\"mandate.federation.UnlinkExternalPrincipal\"]\n        cmd41[\"mandate.identity.DisablePrincipal\"]\n        cmd42[\"mandate.identity.IncrementSecurityEpoch\"]\n        cmd43[\"mandate.identity.RefreshSession\"]\n        cmd44[\"mandate.identity.RevokeRefreshCredential\"]\n        cmd45[\"mandate.identity.RevokeSession\"]\n        cmd48[\"mandate.tenancy.AddOrganizationMembership\"]\n        cmd49[\"mandate.tenancy.AddTeamMembership\"]\n        cmd50[\"mandate.tenancy.CloseOrganization\"]\n        cmd51[\"mandate.tenancy.CreateOrganization\"]\n        cmd52[\"mandate.tenancy.CreateSpace\"]\n        cmd53[\"mandate.tenancy.CreateTeam\"]\n        cmd54[\"mandate.tenancy.RemoveOrganizationMembership\"]\n        cmd55[\"mandate.tenancy.RemoveTeamMembership\"]\n        cmd56[\"mandate.tenancy.RetireSpace\"]\n        cmd57[\"mandate.tenancy.RetireTeam\"]\n        cmd58[\"mandate.workload.RevokeWorkloadIdentity\"]\n        evt20[\"mandate.delegation.AgentCapabilityCeilingSuperseded\"]\n        evt21[\"mandate.delegation.AgentRetired\"]\n        evt22[\"mandate.delegation.ApprovalConsumed\"]\n        evt23[\"mandate.delegation.DelegationCreated\"]\n        evt24[\"mandate.delegation.DelegationRevoked\"]\n        evt25[\"mandate.delegation.ExecutionCompleted\"]\n        evt26[\"mandate.directory.DirectoryGroupMembershipChanged\"]\n        evt27[\"mandate.directory.DirectoryGroupMembershipRemoved\"]\n        evt28[\"mandate.directory.DirectoryGroupRetired\"]\n        evt29[\"mandate.directory.DirectoryGroupTeamMappingCreated\"]\n        evt30[\"mandate.directory.DirectoryGroupTeamMappingRemoved\"]\n        evt31[\"mandate.directory.MembershipContributionRemoved\"]\n        evt32[\"mandate.directory.SyncJobCompleted\"]\n        evt33[\"mandate.directory.SyncJobFailed\"]\n        evt34[\"mandate.federation.AuthorizationCodeIssued\"]\n        evt35[\"mandate.federation.ExternalPrincipalLinked\"]\n        evt36[\"mandate.federation.ExternalPrincipalProvisioned\"]\n        evt37[\"mandate.federation.ExternalPrincipalUnlinked\"]\n        evt38[\"mandate.federation.FederationAuthenticated\"]\n        evt39[\"mandate.federation.FederationConnectionCreated\"]\n        evt40[\"mandate.federation.FederationConnectionDisabled\"]\n        evt41[\"mandate.federation.OAuthClientDisabled\"]\n        evt47[\"mandate.identity.PrincipalDisabled\"]\n        evt48[\"mandate.identity.RefreshCredentialRevoked\"]\n        evt49[\"mandate.identity.SecurityEpochIncremented\"]\n        evt50[\"mandate.identity.SessionRefreshed\"]\n        evt51[\"mandate.identity.SessionRevoked\"]\n        evt54[\"mandate.tenancy.OrganizationClosed\"]\n        evt55[\"mandate.tenancy.OrganizationCreated\"]\n        evt56[\"mandate.tenancy.OrganizationMembershipAdded\"]\n        evt57[\"mandate.tenancy.OrganizationMembershipRemoved\"]\n        evt58[\"mandate.tenancy.SpaceCreated\"]\n        evt59[\"mandate.tenancy.SpaceRetired\"]\n        evt60[\"mandate.tenancy.TeamCreated\"]\n        evt61[\"mandate.tenancy.TeamMembershipAdded\"]\n        evt62[\"mandate.tenancy.TeamMembershipRemoved\"]\n        evt63[\"mandate.tenancy.TeamRetired\"]\n        evt64[\"mandate.workload.WorkloadIdentityRevoked\"]\n    end\n    subgraph unit2[\"mandate-sts\"]\n        cmd3[\"mandate.credential.DisableResourceServer\"]\n        cmd4[\"mandate.credential.ExchangeCredential\"]\n        cmd5[\"mandate.credential.IntrospectCredential\"]\n        cmd6[\"mandate.credential.IssueAuthorizationCode\"]\n        cmd7[\"mandate.credential.IssueReferenceCredential\"]\n        cmd8[\"mandate.credential.IssueSelfContainedCredential\"]\n        cmd9[\"mandate.credential.RedeemAuthorizationCode\"]\n        cmd10[\"mandate.credential.RegisterResourceServer\"]\n        cmd11[\"mandate.credential.RetireSigningKey\"]\n        cmd12[\"mandate.credential.RevokeAccessCredential\"]\n        cmd13[\"mandate.credential.RevokeSigningKey\"]\n        evt8[\"mandate.credential.AccessCredentialRevoked\"]\n        evt9[\"mandate.credential.AuthorizationCodeIssued\"]\n        evt10[\"mandate.credential.AuthorizationCodeRedeemed\"]\n        evt11[\"mandate.credential.CredentialIntrospected\"]\n        evt12[\"mandate.credential.CredentialReferenceIssued\"]\n        evt13[\"mandate.credential.CredentialSelfContainedIssued\"]\n        evt14[\"mandate.credential.ResourceServerDisabled\"]\n        evt15[\"mandate.credential.ResourceServerRegistered\"]\n        evt16[\"mandate.credential.SigningKeyRetired\"]\n        evt17[\"mandate.credential.SigningKeyRevoked\"]\n        evt18[\"mandate.credential.TokenExchangeAllowed\"]\n        evt19[\"mandate.credential.TokenExchangeDenied\"]\n    end\n    subgraph unit3[\"mandate-worker\"]\n        cmd0[\"mandate.audit.RecordAuditEvent\"]\n        cmd1[\"mandate.audit.RedactAuditEvent\"]\n        evt0[\"mandate.audit.AuditEventRecorded\"]\n        evt1[\"mandate.audit.AuditEventRedacted\"]\n        evt2[\"mandate.audit.CredentialRevoked\"]\n        evt3[\"mandate.audit.DirectoryGroupCreated\"]\n        evt4[\"mandate.audit.ExternalPrincipalUnlinked\"]\n        evt5[\"mandate.audit.FederationConnectionChanged\"]\n        evt6[\"mandate.audit.TokenExchangeDenied\"]\n    end\n    cmd0 -->|\"recorded\"| evt0\n    cmd1 -->|\"accepted\"| evt1\n    cmd2 -->|\"accepted\"| evt7\n    cmd3 -->|\"accepted\"| evt14\n    cmd4 -->|\"accepted\"| evt18\n    cmd5 -->|\"accepted\"| evt11\n    cmd6 -->|\"accepted\"| evt9\n    cmd7 -->|\"accepted\"| evt12\n    cmd8 -->|\"accepted\"| evt13\n    cmd9 -->|\"accepted\"| evt10\n    cmd10 -->|\"accepted\"| evt15\n    cmd11 -->|\"accepted\"| evt16\n    cmd12 -->|\"accepted\"| evt8\n    cmd13 -->|\"accepted\"| evt17\n    cmd14 -->|\"accepted\"| evt25\n    cmd15 -->|\"accepted\"| evt22\n    cmd16 -->|\"accepted\"| evt23\n    cmd17 -->|\"accepted\"| evt21\n    cmd18 -->|\"accepted\"| evt24\n    cmd19 -->|\"accepted\"| evt20\n    cmd20 -->|\"accepted\"| evt32\n    cmd21 -->|\"accepted\"| evt29\n    cmd22 -->|\"accepted\"| evt33\n    cmd23 -->|\"accepted\"| evt27\n    cmd24 -->|\"accepted\"| evt30\n    cmd25 -->|\"accepted\"| evt31\n    cmd26 -->|\"accepted\"| evt28\n    cmd27 -->|\"accepted\"| evt26\n    cmd28 -->|\"accepted\"| evt38\n    cmd29 -->|\"accepted\"| evt34\n    cmd30 -->|\"accepted\"| evt40\n    cmd31 -->|\"accepted\"| evt41\n    cmd32 -->|\"accepted\"| evt35\n    cmd33 -->|\"accepted\"| evt36\n    cmd34 -->|\"accepted\"| evt39\n    cmd35 -->|\"accepted\"| evt37\n    cmd36 -->|\"accepted\"| evt45\n    cmd37 -->|\"accepted\"| evt46\n    cmd38 -->|\"accepted\"| evt43\n    cmd39 -->|\"accepted\"| evt42\n    cmd40 -->|\"accepted\"| evt44\n    cmd41 -->|\"accepted\"| evt47\n    cmd42 -->|\"accepted\"| evt49\n    cmd43 -->|\"accepted\"| evt50\n    cmd44 -->|\"accepted\"| evt48\n    cmd45 -->|\"accepted\"| evt51\n    cmd46 -->|\"accepted\"| evt52\n    cmd47 -->|\"accepted\"| evt53\n    cmd48 -->|\"accepted\"| evt56\n    cmd49 -->|\"accepted\"| evt61\n    cmd50 -->|\"accepted\"| evt54\n    cmd51 -->|\"accepted\"| evt55\n    cmd52 -->|\"accepted\"| evt58\n    cmd53 -->|\"accepted\"| evt60\n    cmd54 -->|\"accepted\"| evt57\n    cmd55 -->|\"accepted\"| evt62\n    cmd56 -->|\"accepted\"| evt59\n    cmd57 -->|\"accepted\"| evt63\n    cmd58 -->|\"accepted\"| evt64"
+              "source": "flowchart TB\n    subgraph unit0[\"mandate-authorization\"]\n        cmd2[\"mandate.authorization.Check\"]\n        cmd36[\"mandate.graph.DeregisterResource\"]\n        cmd37[\"mandate.graph.RegisterResource\"]\n        cmd38[\"mandate.graph.RemoveRelation\"]\n        cmd39[\"mandate.graph.RevokeGrant\"]\n        cmd40[\"mandate.graph.WriteRelationship\"]\n        cmd46[\"mandate.policy.SupersedeAuthorizationModel\"]\n        cmd47[\"mandate.policy.SupersedePolicy\"]\n        evt7[\"mandate.authorization.DecisionRecorded\"]\n        evt46[\"mandate.graph.GrantRevoked\"]\n        evt47[\"mandate.graph.RelationRemoved\"]\n        evt48[\"mandate.graph.RelationshipWritten\"]\n        evt49[\"mandate.graph.ResourceDeregistered\"]\n        evt50[\"mandate.graph.ResourceRegistered\"]\n        evt59[\"mandate.policy.AuthorizationModelSuperseded\"]\n        evt60[\"mandate.policy.PolicySuperseded\"]\n    end\n    subgraph unit1[\"mandate-control-plane\"]\n        cmd14[\"mandate.delegation.CompleteExecution\"]\n        cmd15[\"mandate.delegation.ConsumeApproval\"]\n        cmd16[\"mandate.delegation.CreateDelegation\"]\n        cmd17[\"mandate.delegation.RetireAgent\"]\n        cmd18[\"mandate.delegation.RevokeDelegation\"]\n        cmd19[\"mandate.delegation.SupersedeAgentCapabilityCeiling\"]\n        cmd20[\"mandate.directory.CompleteSyncJob\"]\n        cmd21[\"mandate.directory.CreateDirectoryGroupTeamMapping\"]\n        cmd22[\"mandate.directory.FailSyncJob\"]\n        cmd23[\"mandate.directory.RemoveDirectoryGroupMembership\"]\n        cmd24[\"mandate.directory.RemoveDirectoryGroupTeamMapping\"]\n        cmd25[\"mandate.directory.RemoveMembershipContribution\"]\n        cmd26[\"mandate.directory.RetireDirectoryGroup\"]\n        cmd27[\"mandate.directory.SyncDirectoryMembership\"]\n        cmd28[\"mandate.federation.AuthenticateFederation\"]\n        cmd29[\"mandate.federation.AuthorizePublicClient\"]\n        cmd30[\"mandate.federation.DisableFederationConnection\"]\n        cmd31[\"mandate.federation.DisableOAuthClient\"]\n        cmd32[\"mandate.federation.LinkExternalPrincipal\"]\n        cmd33[\"mandate.federation.ProvisionExternalPrincipal\"]\n        cmd34[\"mandate.federation.RegisterFederationConnection\"]\n        cmd35[\"mandate.federation.UnlinkExternalPrincipal\"]\n        cmd41[\"mandate.identity.DisablePrincipal\"]\n        cmd42[\"mandate.identity.IncrementSecurityEpoch\"]\n        cmd43[\"mandate.identity.RefreshSession\"]\n        cmd44[\"mandate.identity.RevokeRefreshCredential\"]\n        cmd45[\"mandate.identity.RevokeSession\"]\n        cmd48[\"mandate.tenancy.AddOrganizationMembership\"]\n        cmd49[\"mandate.tenancy.AddTeamMembership\"]\n        cmd50[\"mandate.tenancy.CloseOrganization\"]\n        cmd51[\"mandate.tenancy.CreateOrganization\"]\n        cmd52[\"mandate.tenancy.CreateSpace\"]\n        cmd53[\"mandate.tenancy.CreateTeam\"]\n        cmd54[\"mandate.tenancy.RemoveOrganizationMembership\"]\n        cmd55[\"mandate.tenancy.RemoveTeamMembership\"]\n        cmd56[\"mandate.tenancy.RetireSpace\"]\n        cmd57[\"mandate.tenancy.RetireTeam\"]\n        cmd58[\"mandate.workload.RevokeWorkloadIdentity\"]\n        evt20[\"mandate.delegation.AgentCapabilityCeilingSuperseded\"]\n        evt21[\"mandate.delegation.AgentRetired\"]\n        evt22[\"mandate.delegation.ApprovalConsumed\"]\n        evt23[\"mandate.delegation.DelegationCreated\"]\n        evt24[\"mandate.delegation.DelegationRevoked\"]\n        evt25[\"mandate.delegation.ExecutionCompleted\"]\n        evt26[\"mandate.directory.DirectoryGroupMembershipChanged\"]\n        evt27[\"mandate.directory.DirectoryGroupMembershipRecorded\"]\n        evt28[\"mandate.directory.DirectoryGroupMembershipRemoved\"]\n        evt29[\"mandate.directory.DirectoryGroupRecorded\"]\n        evt30[\"mandate.directory.DirectoryGroupRetired\"]\n        evt31[\"mandate.directory.DirectoryGroupTeamMappingCreated\"]\n        evt32[\"mandate.directory.DirectoryGroupTeamMappingRemoved\"]\n        evt33[\"mandate.directory.MembershipContributionRecorded\"]\n        evt34[\"mandate.directory.MembershipContributionRemoved\"]\n        evt35[\"mandate.directory.SyncJobCompleted\"]\n        evt36[\"mandate.directory.SyncJobFailed\"]\n        evt37[\"mandate.directory.SyncJobRecorded\"]\n        evt38[\"mandate.federation.AuthorizationCodeIssued\"]\n        evt39[\"mandate.federation.ExternalPrincipalLinked\"]\n        evt40[\"mandate.federation.ExternalPrincipalProvisioned\"]\n        evt41[\"mandate.federation.ExternalPrincipalUnlinked\"]\n        evt42[\"mandate.federation.FederationAuthenticated\"]\n        evt43[\"mandate.federation.FederationConnectionCreated\"]\n        evt44[\"mandate.federation.FederationConnectionDisabled\"]\n        evt45[\"mandate.federation.OAuthClientDisabled\"]\n        evt51[\"mandate.identity.EpochSnapshotRecorded\"]\n        evt52[\"mandate.identity.PrincipalDisabled\"]\n        evt53[\"mandate.identity.RefreshCredentialRevoked\"]\n        evt54[\"mandate.identity.SecurityEpochIncremented\"]\n        evt55[\"mandate.identity.SecurityEpochRecorded\"]\n        evt56[\"mandate.identity.SessionOpened\"]\n        evt57[\"mandate.identity.SessionRefreshed\"]\n        evt58[\"mandate.identity.SessionRevoked\"]\n        evt61[\"mandate.tenancy.OrganizationClosed\"]\n        evt62[\"mandate.tenancy.OrganizationCreated\"]\n        evt63[\"mandate.tenancy.OrganizationMembershipAdded\"]\n        evt64[\"mandate.tenancy.OrganizationMembershipRemoved\"]\n        evt65[\"mandate.tenancy.SpaceCreated\"]\n        evt66[\"mandate.tenancy.SpaceRetired\"]\n        evt67[\"mandate.tenancy.TeamCreated\"]\n        evt68[\"mandate.tenancy.TeamMembershipAdded\"]\n        evt69[\"mandate.tenancy.TeamMembershipRemoved\"]\n        evt70[\"mandate.tenancy.TeamRetired\"]\n        evt71[\"mandate.workload.WorkloadIdentityRevoked\"]\n    end\n    subgraph unit2[\"mandate-sts\"]\n        cmd3[\"mandate.credential.DisableResourceServer\"]\n        cmd4[\"mandate.credential.ExchangeCredential\"]\n        cmd5[\"mandate.credential.IntrospectCredential\"]\n        cmd6[\"mandate.credential.IssueAuthorizationCode\"]\n        cmd7[\"mandate.credential.IssueReferenceCredential\"]\n        cmd8[\"mandate.credential.IssueSelfContainedCredential\"]\n        cmd9[\"mandate.credential.RedeemAuthorizationCode\"]\n        cmd10[\"mandate.credential.RegisterResourceServer\"]\n        cmd11[\"mandate.credential.RetireSigningKey\"]\n        cmd12[\"mandate.credential.RevokeAccessCredential\"]\n        cmd13[\"mandate.credential.RevokeSigningKey\"]\n        evt8[\"mandate.credential.AccessCredentialRevoked\"]\n        evt9[\"mandate.credential.AuthorizationCodeIssued\"]\n        evt10[\"mandate.credential.AuthorizationCodeRedeemed\"]\n        evt11[\"mandate.credential.CredentialIntrospected\"]\n        evt12[\"mandate.credential.CredentialReferenceIssued\"]\n        evt13[\"mandate.credential.CredentialSelfContainedIssued\"]\n        evt14[\"mandate.credential.ResourceServerDisabled\"]\n        evt15[\"mandate.credential.ResourceServerRegistered\"]\n        evt16[\"mandate.credential.SigningKeyRetired\"]\n        evt17[\"mandate.credential.SigningKeyRevoked\"]\n        evt18[\"mandate.credential.TokenExchangeAllowed\"]\n        evt19[\"mandate.credential.TokenExchangeDenied\"]\n    end\n    subgraph unit3[\"mandate-worker\"]\n        cmd0[\"mandate.audit.RecordAuditEvent\"]\n        cmd1[\"mandate.audit.RedactAuditEvent\"]\n        evt0[\"mandate.audit.AuditEventRecorded\"]\n        evt1[\"mandate.audit.AuditEventRedacted\"]\n        evt2[\"mandate.audit.CredentialRevoked\"]\n        evt3[\"mandate.audit.DirectoryGroupCreated\"]\n        evt4[\"mandate.audit.ExternalPrincipalUnlinked\"]\n        evt5[\"mandate.audit.FederationConnectionChanged\"]\n        evt6[\"mandate.audit.TokenExchangeDenied\"]\n    end\n    cmd0 -->|\"recorded\"| evt0\n    cmd1 -->|\"accepted\"| evt1\n    cmd2 -->|\"accepted\"| evt7\n    cmd3 -->|\"accepted\"| evt14\n    cmd4 -->|\"accepted\"| evt18\n    cmd5 -->|\"accepted\"| evt11\n    cmd6 -->|\"accepted\"| evt9\n    cmd7 -->|\"accepted\"| evt12\n    cmd8 -->|\"accepted\"| evt13\n    cmd9 -->|\"accepted\"| evt10\n    cmd10 -->|\"accepted\"| evt15\n    cmd11 -->|\"accepted\"| evt16\n    cmd12 -->|\"accepted\"| evt8\n    cmd13 -->|\"accepted\"| evt17\n    cmd14 -->|\"accepted\"| evt25\n    cmd15 -->|\"accepted\"| evt22\n    cmd16 -->|\"accepted\"| evt23\n    cmd17 -->|\"accepted\"| evt21\n    cmd18 -->|\"accepted\"| evt24\n    cmd19 -->|\"accepted\"| evt20\n    cmd20 -->|\"accepted\"| evt35\n    cmd21 -->|\"accepted\"| evt31\n    cmd22 -->|\"accepted\"| evt36\n    cmd23 -->|\"accepted\"| evt28\n    cmd24 -->|\"accepted\"| evt32\n    cmd25 -->|\"accepted\"| evt34\n    cmd26 -->|\"accepted\"| evt30\n    cmd27 -->|\"accepted\"| evt26\n    cmd28 -->|\"accepted\"| evt42\n    cmd29 -->|\"accepted\"| evt38\n    cmd30 -->|\"accepted\"| evt44\n    cmd31 -->|\"accepted\"| evt45\n    cmd32 -->|\"accepted\"| evt39\n    cmd33 -->|\"accepted\"| evt40\n    cmd34 -->|\"accepted\"| evt43\n    cmd35 -->|\"accepted\"| evt41\n    cmd36 -->|\"accepted\"| evt49\n    cmd37 -->|\"accepted\"| evt50\n    cmd38 -->|\"accepted\"| evt47\n    cmd39 -->|\"accepted\"| evt46\n    cmd40 -->|\"accepted\"| evt48\n    cmd41 -->|\"accepted\"| evt52\n    cmd42 -->|\"accepted\"| evt54\n    cmd43 -->|\"accepted\"| evt57\n    cmd44 -->|\"accepted\"| evt53\n    cmd45 -->|\"accepted\"| evt58\n    cmd46 -->|\"accepted\"| evt59\n    cmd47 -->|\"accepted\"| evt60\n    cmd48 -->|\"accepted\"| evt63\n    cmd49 -->|\"accepted\"| evt68\n    cmd50 -->|\"accepted\"| evt61\n    cmd51 -->|\"accepted\"| evt62\n    cmd52 -->|\"accepted\"| evt65\n    cmd53 -->|\"accepted\"| evt67\n    cmd54 -->|\"accepted\"| evt64\n    cmd55 -->|\"accepted\"| evt69\n    cmd56 -->|\"accepted\"| evt66\n    cmd57 -->|\"accepted\"| evt70\n    cmd58 -->|\"accepted\"| evt71"
             },
             {
               "block": "prose",
@@ -319,7 +319,7 @@
                       },
                       {
                         "inline": "text",
-                        "text": " No types, five entities, no views, eight commands, eight events, one error and no actors."
+                        "text": " No types, five entities, no views, eight commands, 12 events, one error and no actors."
                       }
                     ]
                   }
@@ -450,7 +450,7 @@
                       },
                       {
                         "inline": "text",
-                        "text": " No types, seven entities, no views, five commands, five events, one error and no actors."
+                        "text": " No types, seven entities, no views, five commands, eight events, one error and no actors."
                       }
                     ]
                   }
@@ -1337,7 +1337,23 @@
                 },
                 {
                   "inline": "code",
+                  "text": "mandate.directory.DirectoryGroupMembershipRecorded"
+                },
+                {
+                  "inline": "text",
+                  "text": ", "
+                },
+                {
+                  "inline": "code",
                   "text": "mandate.directory.DirectoryGroupMembershipRemoved"
+                },
+                {
+                  "inline": "text",
+                  "text": ", "
+                },
+                {
+                  "inline": "code",
+                  "text": "mandate.directory.DirectoryGroupRecorded"
                 },
                 {
                   "inline": "text",
@@ -1369,6 +1385,14 @@
                 },
                 {
                   "inline": "code",
+                  "text": "mandate.directory.MembershipContributionRecorded"
+                },
+                {
+                  "inline": "text",
+                  "text": ", "
+                },
+                {
+                  "inline": "code",
                   "text": "mandate.directory.MembershipContributionRemoved"
                 },
                 {
@@ -1386,6 +1410,14 @@
                 {
                   "inline": "code",
                   "text": "mandate.directory.SyncJobFailed"
+                },
+                {
+                  "inline": "text",
+                  "text": ", "
+                },
+                {
+                  "inline": "code",
+                  "text": "mandate.directory.SyncJobRecorded"
                 },
                 {
                   "inline": "text",
@@ -1457,6 +1489,14 @@
                 },
                 {
                   "inline": "code",
+                  "text": "mandate.identity.EpochSnapshotRecorded"
+                },
+                {
+                  "inline": "text",
+                  "text": ", "
+                },
+                {
+                  "inline": "code",
                   "text": "mandate.identity.PrincipalDisabled"
                 },
                 {
@@ -1474,6 +1514,22 @@
                 {
                   "inline": "code",
                   "text": "mandate.identity.SecurityEpochIncremented"
+                },
+                {
+                  "inline": "text",
+                  "text": ", "
+                },
+                {
+                  "inline": "code",
+                  "text": "mandate.identity.SecurityEpochRecorded"
+                },
+                {
+                  "inline": "text",
+                  "text": ", "
+                },
+                {
+                  "inline": "code",
+                  "text": "mandate.identity.SessionOpened"
                 },
                 {
                   "inline": "text",
@@ -2433,8 +2489,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8",
-          "contract_digest": "slice-sha256/2:f3f78aa9656e5e085e0c6c76f0a2dbf0e33490e653a02b5bd346ff3a290a0960"
+          "source_digest": "49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40",
+          "contract_digest": "slice-sha256/2:e3af0fa3e1220fdfb1a24652605aff975d1125745cf7db0eb7f3ee819c73b32c"
         },
         "slice": {
           "of": "constructs",
@@ -4782,8 +4838,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8",
-          "contract_digest": "slice-sha256/2:f3f78aa9656e5e085e0c6c76f0a2dbf0e33490e653a02b5bd346ff3a290a0960"
+          "source_digest": "49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40",
+          "contract_digest": "slice-sha256/2:e3af0fa3e1220fdfb1a24652605aff975d1125745cf7db0eb7f3ee819c73b32c"
         },
         "slice": {
           "of": "constructs",
@@ -5341,8 +5397,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8",
-          "contract_digest": "slice-sha256/2:0a625454dcc050a36cd27ab032be02dd1248a703e30ce877570b5e9d20352fbf"
+          "source_digest": "49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40",
+          "contract_digest": "slice-sha256/2:ce74d46398fac85c08f01caa5a7ae38525c74ba47211774141c7ed3f745754c0"
         },
         "slice": {
           "of": "constructs",
@@ -10160,8 +10216,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8",
-          "contract_digest": "slice-sha256/2:f3f78aa9656e5e085e0c6c76f0a2dbf0e33490e653a02b5bd346ff3a290a0960"
+          "source_digest": "49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40",
+          "contract_digest": "slice-sha256/2:e3af0fa3e1220fdfb1a24652605aff975d1125745cf7db0eb7f3ee819c73b32c"
         },
         "slice": {
           "of": "constructs",
@@ -15056,6 +15112,25 @@
                           }
                         ]
                       }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.CredentialId"
+                          }
+                        ]
+                      }
                     ]
                   ]
                 },
@@ -15287,6 +15362,25 @@
                           {
                             "inline": "code",
                             "text": "mandate.core.VerifiedContext"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "code_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.AuthorizationCodeId"
                           }
                         ]
                       }
@@ -15838,6 +15932,25 @@
                           }
                         ]
                       }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.ResourceServerId"
+                          }
+                        ]
+                      }
                     ]
                   ]
                 },
@@ -15933,6 +16046,82 @@
                           {
                             "inline": "code",
                             "text": "mandate.core.VerifiedContext"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.ResourceServerId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "audience"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.Audience"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "credential_profile"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.CredentialProfile"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "allowed_exchange_sources"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "List<mandate.core.ResourceServerId>"
                           }
                         ]
                       }
@@ -16861,8 +17050,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8",
-          "contract_digest": "slice-sha256/2:f3f78aa9656e5e085e0c6c76f0a2dbf0e33490e653a02b5bd346ff3a290a0960"
+          "source_digest": "49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40",
+          "contract_digest": "slice-sha256/2:e3af0fa3e1220fdfb1a24652605aff975d1125745cf7db0eb7f3ee819c73b32c"
         },
         "slice": {
           "of": "constructs",
@@ -21652,6 +21841,185 @@
                           }
                         ]
                       }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.DelegationId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "delegator"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.PrincipalId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "delegate"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.PrincipalId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "scope"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.AuthorityScope"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "audience"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.Audience"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "not_before"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Optional<Timestamp>"
+                          },
+                          {
+                            "inline": "text",
+                            "text": ", which may be absent"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "expires_at"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Timestamp"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "execution_binding"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Optional<mandate.core.ExecutionId>"
+                          },
+                          {
+                            "inline": "text",
+                            "text": ", which may be absent"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "created_at"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Timestamp"
+                          }
+                        ]
+                      }
                     ]
                   ]
                 },
@@ -21747,6 +22115,25 @@
                           {
                             "inline": "code",
                             "text": "mandate.core.VerifiedContext"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.DelegationId"
                           }
                         ]
                       }
@@ -22154,8 +22541,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8",
-          "contract_digest": "slice-sha256/2:f3f78aa9656e5e085e0c6c76f0a2dbf0e33490e653a02b5bd346ff3a290a0960"
+          "source_digest": "49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40",
+          "contract_digest": "slice-sha256/2:e3af0fa3e1220fdfb1a24652605aff975d1125745cf7db0eb7f3ee819c73b32c"
         },
         "slice": {
           "of": "constructs",
@@ -22242,7 +22629,15 @@
             },
             {
               "kind": "event",
+              "name": "mandate.directory.DirectoryGroupMembershipRecorded"
+            },
+            {
+              "kind": "event",
               "name": "mandate.directory.DirectoryGroupMembershipRemoved"
+            },
+            {
+              "kind": "event",
+              "name": "mandate.directory.DirectoryGroupRecorded"
             },
             {
               "kind": "event",
@@ -22258,6 +22653,10 @@
             },
             {
               "kind": "event",
+              "name": "mandate.directory.MembershipContributionRecorded"
+            },
+            {
+              "kind": "event",
               "name": "mandate.directory.MembershipContributionRemoved"
             },
             {
@@ -22267,6 +22666,10 @@
             {
               "kind": "event",
               "name": "mandate.directory.SyncJobFailed"
+            },
+            {
+              "kind": "event",
+              "name": "mandate.directory.SyncJobRecorded"
             },
             {
               "kind": "error",
@@ -25060,6 +25463,10 @@
                     },
                     {
                       "inline": "text",
+                      "text": "One mapping row, and the mapping-derived contribution rows the reconciliation wrote named by identity alone. Each contribution's own fields are on its MembershipContributionRecorded; nothing here is read positionally. "
+                    },
+                    {
+                      "inline": "text",
                       "text": "The default branch, taken when no other outcome's condition matched."
                     },
                     {
@@ -26551,6 +26958,10 @@
                     },
                     {
                       "inline": "text",
+                      "text": "The membership rows this run wrote, named by identity alone and nothing else. They are the additions the run resolved, never the group's full membership, and each row's own fields are on its own DirectoryGroupMembershipRecorded. A membership this run no longer resolves is removed only by RemoveDirectoryGroupMembership, whose DirectoryGroupMembershipRemoved names the row; absence from this list removes nothing. "
+                    },
+                    {
+                      "inline": "text",
                       "text": "The default branch, taken when no other outcome's condition matched."
                     },
                     {
@@ -26745,6 +27156,25 @@
                         "text": [
                           {
                             "inline": "code",
+                            "text": "membership_ids"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "List<mandate.core.DirectoryGroupMembershipId>"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
                             "text": "contributions"
                           },
                           {
@@ -26782,6 +27212,145 @@
                     {
                       "inline": "text",
                       "text": " outcome."
+                    }
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "text",
+                      "text": "Nothing in this system reacts to it."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "block": "section",
+              "level": 3,
+              "title": [
+                {
+                  "inline": "code",
+                  "text": "DirectoryGroupMembershipRecorded"
+                }
+              ],
+              "anchor": "directorygroupmembershiprecorded",
+              "about": {
+                "kind": "event",
+                "name": "mandate.directory.DirectoryGroupMembershipRecorded"
+              },
+              "blocks": [
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "code",
+                      "text": "mandate.directory.DirectoryGroupMembershipRecorded"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    }
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "text",
+                      "text": "It carries:"
+                    }
+                  ]
+                },
+                {
+                  "block": "list",
+                  "ordered": false,
+                  "items": [
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.DirectoryGroupMembershipId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "organization_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.OrganizationId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "group_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.DirectoryGroupId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "principal_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.PrincipalId"
+                          }
+                        ]
+                      }
+                    ]
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "text",
+                      "text": "No command in this system emits it, so something outside the specification does."
                     }
                   ]
                 },
@@ -26855,6 +27424,25 @@
                           }
                         ]
                       }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.DirectoryGroupMembershipId"
+                          }
+                        ]
+                      }
                     ]
                   ]
                 },
@@ -26880,6 +27468,145 @@
                     {
                       "inline": "text",
                       "text": " outcome."
+                    }
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "text",
+                      "text": "Nothing in this system reacts to it."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "block": "section",
+              "level": 3,
+              "title": [
+                {
+                  "inline": "code",
+                  "text": "DirectoryGroupRecorded"
+                }
+              ],
+              "anchor": "directorygrouprecorded",
+              "about": {
+                "kind": "event",
+                "name": "mandate.directory.DirectoryGroupRecorded"
+              },
+              "blocks": [
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "code",
+                      "text": "mandate.directory.DirectoryGroupRecorded"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    }
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "text",
+                      "text": "It carries:"
+                    }
+                  ]
+                },
+                {
+                  "block": "list",
+                  "ordered": false,
+                  "items": [
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.DirectoryGroupId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "organization_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.OrganizationId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "display_name"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "String"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "source"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "String"
+                          }
+                        ]
+                      }
+                    ]
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "text",
+                      "text": "No command in this system emits it, so something outside the specification does."
                     }
                   ]
                 },
@@ -27077,6 +27804,25 @@
                         "text": [
                           {
                             "inline": "code",
+                            "text": "mapping_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.DirectoryGroupTeamMappingId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
                             "text": "group_id"
                           },
                           {
@@ -27105,6 +27851,44 @@
                           {
                             "inline": "code",
                             "text": "mandate.core.TeamId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "created_by"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.PrincipalId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "created_at"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Timestamp"
                           }
                         ]
                       }
@@ -27225,6 +28009,25 @@
                           }
                         ]
                       }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.DirectoryGroupTeamMappingId"
+                          }
+                        ]
+                      }
                     ]
                   ]
                 },
@@ -27250,6 +28053,187 @@
                     {
                       "inline": "text",
                       "text": " outcome."
+                    }
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "text",
+                      "text": "Nothing in this system reacts to it."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "block": "section",
+              "level": 3,
+              "title": [
+                {
+                  "inline": "code",
+                  "text": "MembershipContributionRecorded"
+                }
+              ],
+              "anchor": "membershipcontributionrecorded",
+              "about": {
+                "kind": "event",
+                "name": "mandate.directory.MembershipContributionRecorded"
+              },
+              "blocks": [
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "code",
+                      "text": "mandate.directory.MembershipContributionRecorded"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    }
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "text",
+                      "text": "It carries:"
+                    }
+                  ]
+                },
+                {
+                  "block": "list",
+                  "ordered": false,
+                  "items": [
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.MembershipContributionId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "organization_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.OrganizationId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "team_membership_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.TeamMembershipId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "source"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.MembershipSource"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "mapping_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Optional<mandate.core.DirectoryGroupTeamMappingId>"
+                          },
+                          {
+                            "inline": "text",
+                            "text": ", which may be absent"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "created_by"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.PrincipalId"
+                          }
+                        ]
+                      }
+                    ]
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "text",
+                      "text": "No command in this system emits it, so something outside the specification does."
                     }
                   ]
                 },
@@ -27320,6 +28304,25 @@
                           {
                             "inline": "code",
                             "text": "mandate.core.VerifiedContext"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.MembershipContributionId"
                           }
                         ]
                       }
@@ -27582,6 +28585,145 @@
                     {
                       "inline": "text",
                       "text": " outcome."
+                    }
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "text",
+                      "text": "Nothing in this system reacts to it."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "block": "section",
+              "level": 3,
+              "title": [
+                {
+                  "inline": "code",
+                  "text": "SyncJobRecorded"
+                }
+              ],
+              "anchor": "syncjobrecorded",
+              "about": {
+                "kind": "event",
+                "name": "mandate.directory.SyncJobRecorded"
+              },
+              "blocks": [
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "code",
+                      "text": "mandate.directory.SyncJobRecorded"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    }
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "text",
+                      "text": "It carries:"
+                    }
+                  ]
+                },
+                {
+                  "block": "list",
+                  "ordered": false,
+                  "items": [
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.SyncJobId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "organization_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.OrganizationId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "connection_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.FederationConnectionId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "correlation"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.CorrelationId"
+                          }
+                        ]
+                      }
+                    ]
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "text",
+                      "text": "No command in this system emits it, so something outside the specification does."
                     }
                   ]
                 },
@@ -27894,8 +29036,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8",
-          "contract_digest": "slice-sha256/2:f3f78aa9656e5e085e0c6c76f0a2dbf0e33490e653a02b5bd346ff3a290a0960"
+          "source_digest": "49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40",
+          "contract_digest": "slice-sha256/2:e3af0fa3e1220fdfb1a24652605aff975d1125745cf7db0eb7f3ee819c73b32c"
         },
         "slice": {
           "of": "constructs",
@@ -31428,7 +32570,7 @@
                         "text": [
                           {
                             "inline": "code",
-                            "text": "context"
+                            "text": "organization_id"
                           },
                           {
                             "inline": "text",
@@ -31436,7 +32578,178 @@
                           },
                           {
                             "inline": "code",
-                            "text": "mandate.core.VerifiedContext"
+                            "text": "mandate.core.OrganizationId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "correlation"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.CorrelationId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "code_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.AuthorizationCodeId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "client_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.OAuthClientId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "session_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.SessionId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "redirect_uri"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.RedirectUri"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "challenge"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.PkceChallenge"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "method"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.PkceMethod"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "target"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.ResourceServerId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "requested_scope"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.AuthorityScope"
                           }
                         ]
                       }
@@ -31576,6 +32889,82 @@
                           }
                         ]
                       }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "external_principal_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.ExternalPrincipalId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "subject"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.ExternalSubject"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "link_method"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.ExternalLinkMethod"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "linked_at"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Timestamp"
+                          }
+                        ]
+                      }
                     ]
                   ]
                 },
@@ -31662,7 +33051,7 @@
                         "text": [
                           {
                             "inline": "code",
-                            "text": "context"
+                            "text": "organization_id"
                           },
                           {
                             "inline": "text",
@@ -31670,7 +33059,26 @@
                           },
                           {
                             "inline": "code",
-                            "text": "mandate.core.VerifiedContext"
+                            "text": "mandate.core.OrganizationId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "correlation"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.CorrelationId"
                           }
                         ]
                       }
@@ -31807,6 +33215,25 @@
                           }
                         ]
                       }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "linked_at"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Timestamp"
+                          }
+                        ]
+                      }
                     ]
                   ]
                 },
@@ -31905,6 +33332,25 @@
                           }
                         ]
                       }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.ExternalPrincipalId"
+                          }
+                        ]
+                      }
                     ]
                   ]
                 },
@@ -31991,7 +33437,7 @@
                         "text": [
                           {
                             "inline": "code",
-                            "text": "context"
+                            "text": "session_id"
                           },
                           {
                             "inline": "text",
@@ -31999,7 +33445,64 @@
                           },
                           {
                             "inline": "code",
-                            "text": "mandate.core.VerifiedContext"
+                            "text": "mandate.core.SessionId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "principal_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.PrincipalId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "audience"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.Audience"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "correlation"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.CorrelationId"
                           }
                         ]
                       }
@@ -32310,6 +33813,25 @@
                           {
                             "inline": "code",
                             "text": "mandate.core.VerifiedContext"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.FederationConnectionId"
                           }
                         ]
                       }
@@ -32767,8 +34289,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8",
-          "contract_digest": "slice-sha256/2:f3f78aa9656e5e085e0c6c76f0a2dbf0e33490e653a02b5bd346ff3a290a0960"
+          "source_digest": "49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40",
+          "contract_digest": "slice-sha256/2:e3af0fa3e1220fdfb1a24652605aff975d1125745cf7db0eb7f3ee819c73b32c"
         },
         "slice": {
           "of": "constructs",
@@ -35485,6 +37007,25 @@
                           }
                         ]
                       }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.GrantId"
+                          }
+                        ]
+                      }
                     ]
                   ]
                 },
@@ -35583,6 +37124,25 @@
                           }
                         ]
                       }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.RelationId"
+                          }
+                        ]
+                      }
                     ]
                   ]
                 },
@@ -35678,6 +37238,82 @@
                           {
                             "inline": "code",
                             "text": "mandate.core.VerifiedContext"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.RelationId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "subject"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.AuthoritySubject"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "relation"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "String"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "resource"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.ResourceRef"
                           }
                         ]
                       }
@@ -35893,6 +37529,48 @@
                           {
                             "inline": "code",
                             "text": "mandate.core.VerifiedContext"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "resource"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.ResourceRef"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "parent"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Optional<mandate.core.ResourceId>"
+                          },
+                          {
+                            "inline": "text",
+                            "text": ", which may be absent"
                           }
                         ]
                       }
@@ -36158,8 +37836,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8",
-          "contract_digest": "slice-sha256/2:2eb25e1035e6bb0b208744dce0b5191efb12773f3e54cd7de34e540dfc21ce37"
+          "source_digest": "49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40",
+          "contract_digest": "slice-sha256/2:0dc028ea7ef427e0fa9066ccef2b34978205aeab7d42799c9721e35026db8853"
         },
         "slice": {
           "of": "constructs",
@@ -36246,6 +37924,10 @@
             },
             {
               "kind": "event",
+              "name": "mandate.identity.EpochSnapshotRecorded"
+            },
+            {
+              "kind": "event",
               "name": "mandate.identity.PrincipalDisabled"
             },
             {
@@ -36255,6 +37937,14 @@
             {
               "kind": "event",
               "name": "mandate.identity.SecurityEpochIncremented"
+            },
+            {
+              "kind": "event",
+              "name": "mandate.identity.SecurityEpochRecorded"
+            },
+            {
+              "kind": "event",
+              "name": "mandate.identity.SessionOpened"
             },
             {
               "kind": "event",
@@ -39838,6 +41528,149 @@
               "title": [
                 {
                   "inline": "code",
+                  "text": "EpochSnapshotRecorded"
+                }
+              ],
+              "anchor": "epochsnapshotrecorded",
+              "about": {
+                "kind": "event",
+                "name": "mandate.identity.EpochSnapshotRecorded"
+              },
+              "blocks": [
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "code",
+                      "text": "mandate.identity.EpochSnapshotRecorded"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    }
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "text",
+                      "text": "It carries:"
+                    }
+                  ]
+                },
+                {
+                  "block": "list",
+                  "ordered": false,
+                  "items": [
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.EpochSnapshotRef"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "principal_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.PrincipalId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "organization_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.OrganizationId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "connection_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Optional<mandate.core.FederationConnectionId>"
+                          },
+                          {
+                            "inline": "text",
+                            "text": ", which may be absent"
+                          }
+                        ]
+                      }
+                    ]
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "text",
+                      "text": "No command in this system emits it, so something outside the specification does."
+                    }
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "text",
+                      "text": "Nothing in this system reacts to it."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "block": "section",
+              "level": 3,
+              "title": [
+                {
+                  "inline": "code",
                   "text": "PrincipalDisabled"
                 }
               ],
@@ -39888,6 +41721,25 @@
                           {
                             "inline": "code",
                             "text": "mandate.core.VerifiedContext"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.PrincipalId"
                           }
                         ]
                       }
@@ -39986,6 +41838,25 @@
                           {
                             "inline": "code",
                             "text": "mandate.core.VerifiedContext"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.RefreshCredentialId"
                           }
                         ]
                       }
@@ -40151,6 +42022,288 @@
               "title": [
                 {
                   "inline": "code",
+                  "text": "SecurityEpochRecorded"
+                }
+              ],
+              "anchor": "securityepochrecorded",
+              "about": {
+                "kind": "event",
+                "name": "mandate.identity.SecurityEpochRecorded"
+              },
+              "blocks": [
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "code",
+                      "text": "mandate.identity.SecurityEpochRecorded"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    }
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "text",
+                      "text": "It carries:"
+                    }
+                  ]
+                },
+                {
+                  "block": "list",
+                  "ordered": false,
+                  "items": [
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "target"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.SecurityEpochTarget"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "generation"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Integer"
+                          }
+                        ]
+                      }
+                    ]
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "text",
+                      "text": "No command in this system emits it, so something outside the specification does."
+                    }
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "text",
+                      "text": "Nothing in this system reacts to it."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "block": "section",
+              "level": 3,
+              "title": [
+                {
+                  "inline": "code",
+                  "text": "SessionOpened"
+                }
+              ],
+              "anchor": "sessionopened",
+              "about": {
+                "kind": "event",
+                "name": "mandate.identity.SessionOpened"
+              },
+              "blocks": [
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "code",
+                      "text": "mandate.identity.SessionOpened"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    }
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "text",
+                      "text": "It carries:"
+                    }
+                  ]
+                },
+                {
+                  "block": "list",
+                  "ordered": false,
+                  "items": [
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.SessionId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "principal_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.PrincipalId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "organization_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.OrganizationId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "connection_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Optional<mandate.core.FederationConnectionId>"
+                          },
+                          {
+                            "inline": "text",
+                            "text": ", which may be absent"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "epochs"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.EpochSnapshotRef"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "expires_at"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Timestamp"
+                          }
+                        ]
+                      }
+                    ]
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "text",
+                      "text": "No command in this system emits it, so something outside the specification does."
+                    }
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "text",
+                      "text": "Nothing in this system reacts to it."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "block": "section",
+              "level": 3,
+              "title": [
+                {
+                  "inline": "code",
                   "text": "SessionRefreshed"
                 }
               ],
@@ -40192,7 +42345,7 @@
                         "text": [
                           {
                             "inline": "code",
-                            "text": "context"
+                            "text": "session_id"
                           },
                           {
                             "inline": "text",
@@ -40200,7 +42353,7 @@
                           },
                           {
                             "inline": "code",
-                            "text": "mandate.core.VerifiedContext"
+                            "text": "mandate.core.SessionId"
                           }
                         ]
                       }
@@ -40299,6 +42452,25 @@
                           {
                             "inline": "code",
                             "text": "mandate.core.VerifiedContext"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.SessionId"
                           }
                         ]
                       }
@@ -40564,8 +42736,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8",
-          "contract_digest": "slice-sha256/2:f3f78aa9656e5e085e0c6c76f0a2dbf0e33490e653a02b5bd346ff3a290a0960"
+          "source_digest": "49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40",
+          "contract_digest": "slice-sha256/2:e3af0fa3e1220fdfb1a24652605aff975d1125745cf7db0eb7f3ee819c73b32c"
         },
         "slice": {
           "of": "constructs",
@@ -42304,8 +44476,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8",
-          "contract_digest": "slice-sha256/2:f3f78aa9656e5e085e0c6c76f0a2dbf0e33490e653a02b5bd346ff3a290a0960"
+          "source_digest": "49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40",
+          "contract_digest": "slice-sha256/2:e3af0fa3e1220fdfb1a24652605aff975d1125745cf7db0eb7f3ee819c73b32c"
         },
         "slice": {
           "of": "constructs",
@@ -46840,6 +49012,25 @@
                           }
                         ]
                       }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "display_name"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "String"
+                          }
+                        ]
+                      }
                     ]
                   ]
                 },
@@ -47093,6 +49284,25 @@
                           }
                         ]
                       }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.OrganizationMembershipId"
+                          }
+                        ]
+                      }
                     ]
                   ]
                 },
@@ -47207,6 +49417,25 @@
                           {
                             "inline": "code",
                             "text": "mandate.core.SpaceId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "display_name"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "String"
                           }
                         ]
                       }
@@ -47441,6 +49670,25 @@
                           {
                             "inline": "code",
                             "text": "mandate.core.TeamId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "display_name"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "String"
                           }
                         ]
                       }
@@ -48239,8 +50487,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8",
-          "contract_digest": "slice-sha256/2:f3f78aa9656e5e085e0c6c76f0a2dbf0e33490e653a02b5bd346ff3a290a0960"
+          "source_digest": "49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40",
+          "contract_digest": "slice-sha256/2:e3af0fa3e1220fdfb1a24652605aff975d1125745cf7db0eb7f3ee819c73b32c"
         },
         "slice": {
           "of": "constructs",
@@ -49270,8 +51518,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8",
-          "contract_digest": "262e38dd723f39883dd1448842535be88c36521c49c96d7d8e789487f111e4de"
+          "source_digest": "49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40",
+          "contract_digest": "6f04cb1563cdfb944daa32526112a69b9e51e8bcd644afa9ee7e6d3ee5e792f4"
         },
         "slice": {
           "of": "whole-model"
@@ -49645,7 +51893,29 @@
                     "text": [
                       {
                         "inline": "code",
+                        "text": "mandate.directory.DirectoryGroupMembershipRecorded"
+                      }
+                    ]
+                  }
+                ],
+                [
+                  {
+                    "block": "prose",
+                    "text": [
+                      {
+                        "inline": "code",
                         "text": "mandate.directory.DirectoryGroupMembershipRemoved"
+                      }
+                    ]
+                  }
+                ],
+                [
+                  {
+                    "block": "prose",
+                    "text": [
+                      {
+                        "inline": "code",
+                        "text": "mandate.directory.DirectoryGroupRecorded"
                       }
                     ]
                   }
@@ -49689,6 +51959,17 @@
                     "text": [
                       {
                         "inline": "code",
+                        "text": "mandate.directory.MembershipContributionRecorded"
+                      }
+                    ]
+                  }
+                ],
+                [
+                  {
+                    "block": "prose",
+                    "text": [
+                      {
+                        "inline": "code",
                         "text": "mandate.directory.MembershipContributionRemoved"
                       }
                     ]
@@ -49712,6 +51993,17 @@
                       {
                         "inline": "code",
                         "text": "mandate.directory.SyncJobFailed"
+                      }
+                    ]
+                  }
+                ],
+                [
+                  {
+                    "block": "prose",
+                    "text": [
+                      {
+                        "inline": "code",
+                        "text": "mandate.directory.SyncJobRecorded"
                       }
                     ]
                   }
@@ -49865,6 +52157,17 @@
                     "text": [
                       {
                         "inline": "code",
+                        "text": "mandate.identity.EpochSnapshotRecorded"
+                      }
+                    ]
+                  }
+                ],
+                [
+                  {
+                    "block": "prose",
+                    "text": [
+                      {
+                        "inline": "code",
                         "text": "mandate.identity.PrincipalDisabled"
                       }
                     ]
@@ -49888,6 +52191,28 @@
                       {
                         "inline": "code",
                         "text": "mandate.identity.SecurityEpochIncremented"
+                      }
+                    ]
+                  }
+                ],
+                [
+                  {
+                    "block": "prose",
+                    "text": [
+                      {
+                        "inline": "code",
+                        "text": "mandate.identity.SecurityEpochRecorded"
+                      }
+                    ]
+                  }
+                ],
+                [
+                  {
+                    "block": "prose",
+                    "text": [
+                      {
+                        "inline": "code",
+                        "text": "mandate.identity.SessionOpened"
                       }
                     ]
                   }
@@ -50080,8 +52405,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8",
-          "contract_digest": "262e38dd723f39883dd1448842535be88c36521c49c96d7d8e789487f111e4de"
+          "source_digest": "49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40",
+          "contract_digest": "6f04cb1563cdfb944daa32526112a69b9e51e8bcd644afa9ee7e6d3ee5e792f4"
         },
         "slice": {
           "of": "whole-model"
@@ -50159,8 +52484,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "681f078732c124046a9ff450a65ec56586fcf6aed8d35a4d157e3016633caba8",
-          "contract_digest": "262e38dd723f39883dd1448842535be88c36521c49c96d7d8e789487f111e4de"
+          "source_digest": "49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40",
+          "contract_digest": "6f04cb1563cdfb944daa32526112a69b9e51e8bcd644afa9ee7e6d3ee5e792f4"
         },
         "slice": {
           "of": "whole-model"
