@@ -57,6 +57,9 @@ components:
         - mandate.identity.RefreshCredentialRevoked
         - mandate.identity.SessionRefreshed
         - mandate.identity.SecurityEpochIncremented
+        - mandate.identity.SessionOpened
+        - mandate.identity.EpochSnapshotRecorded
+        - mandate.identity.SecurityEpochRecorded
         - mandate.tenancy.OrganizationMembershipRemoved
         - mandate.tenancy.OrganizationCreated
         - mandate.tenancy.OrganizationClosed
@@ -75,6 +78,10 @@ components:
         - mandate.federation.AuthorizationCodeIssued
         - mandate.federation.ExternalPrincipalProvisioned
         - mandate.federation.OAuthClientDisabled
+        - mandate.directory.DirectoryGroupRecorded
+        - mandate.directory.SyncJobRecorded
+        - mandate.directory.DirectoryGroupMembershipRecorded
+        - mandate.directory.MembershipContributionRecorded
         - mandate.directory.MembershipContributionRemoved
         - mandate.directory.DirectoryGroupMembershipRemoved
         - mandate.directory.DirectoryGroupTeamMappingRemoved

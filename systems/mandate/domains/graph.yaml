@@ -127,6 +127,7 @@ commands:
         payload:
           mandate.graph.RelationRemoved:
             context: input.context
+            id: input.id
         moves: mandate.graph.Relation.remove
         instance: id
       - name: denied
@@ -145,6 +146,7 @@ commands:
         payload:
           mandate.graph.GrantRevoked:
             context: input.context
+            id: input.id
         moves: mandate.graph.Grant.revoke
         instance: id
       - name: denied
@@ -165,6 +167,8 @@ commands:
         payload:
           mandate.graph.ResourceRegistered:
             context: input.context
+            resource: input.resource
+            parent: input.parent
       - name: denied
         external: Caller lacks resource registration/ownership authority, parent is unresolved or belongs to another organization, or hierarchy admission fails.
         error: mandate.graph.Denied
@@ -185,6 +189,11 @@ commands:
         payload:
           mandate.graph.RelationshipWritten:
             context: input.context
+            id:
+              generated: true
+            subject: input.subject
+            relation: input.relation
+            resource: input.resource
       - name: denied
         external: Caller lacks relationship-write authority, the chosen principal/team subject is unresolved or outside tenant membership, resource tenancy mismatches, or the relationship is not admitted by the authorization model.
         error: mandate.graph.Denied
@@ -216,18 +225,34 @@ events:
     fields:
       - name: context
         type: mandate.core.VerifiedContext
+      - name: id
+        type: mandate.core.RelationId
   - name: mandate.graph.GrantRevoked
     fields:
       - name: context
         type: mandate.core.VerifiedContext
+      - name: id
+        type: mandate.core.GrantId
   - name: mandate.graph.ResourceRegistered
     fields:
       - name: context
         type: mandate.core.VerifiedContext
+      - name: resource
+        type: mandate.core.ResourceRef
+      - name: parent
+        type: Optional<mandate.core.ResourceId>
   - name: mandate.graph.RelationshipWritten
     fields:
       - name: context
         type: mandate.core.VerifiedContext
+      - name: id
+        type: mandate.core.RelationId
+      - name: subject
+        type: mandate.core.AuthoritySubject
+      - name: relation
+        type: String
+      - name: resource
+        type: mandate.core.ResourceRef
   - name: mandate.graph.ResourceDeregistered
     fields:
       - name: context
