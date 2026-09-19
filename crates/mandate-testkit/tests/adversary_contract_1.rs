@@ -127,13 +127,27 @@ fn audit_event_recorded(occurred_at: &str) -> Value {
 /// An optional input the contract permits to be absent is not a source disagreement.
 #[test]
 fn an_absent_optional_input_is_not_a_source_failure() {
+    // Aligned at regeneration: the compiled contract sources `resource_id` from the
+    // `RegisterResource` response, so the root-resource payload carries it; `parent`
+    // stays the absent optional this case is about.
+    let resource_id = resource_ref()["resource_id"].clone();
     let input = json!({ "context": context(), "resource": resource_ref() });
-    let event = json!({ "context": context(), "resource": resource_ref() });
+    let response = json!({ "resource_id": resource_id });
+    let event = json!({
+        "context": context(),
+        "resource_id": resource_id,
+        "resource": resource_ref(),
+    });
     check_event_conforms(RESOURCE_REGISTERED, &event)
         .expect("`parent` is outside `required`, so a root resource is a conforming event");
-    check_payload_sources(REGISTER_RESOURCE, &input, None, RESOURCE_REGISTERED, &event).expect(
-        "an absent optional input and an absent optional event field agree with each other",
-    );
+    check_payload_sources(
+        REGISTER_RESOURCE,
+        &input,
+        Some(&response),
+        RESOURCE_REGISTERED,
+        &event,
+    )
+    .expect("an absent optional input and an absent optional event field agree with each other");
 }
 
 /// A field the contract declares no source for is a field the command was not given.
