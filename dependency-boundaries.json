@@ -4,6 +4,10 @@
       "serde",
       "serde_json"
     ],
+    "mandate-contract": [
+      "serde",
+      "serde_json"
+    ],
     "mandate-model": [
       "mandate-types",
       "serde",
@@ -65,7 +69,25 @@
     "mandate-testkit": [
       "mandate-types",
       "mandate-model",
-      "mandate-authz"
+      "mandate-authz",
+      "jsonschema",
+      "serde",
+      "serde_json"
+    ],
+    "mandate-conformance": [
+      "mandate-types",
+      "mandate-model",
+      "mandate-federation",
+      "mandate-identity",
+      "mandate-authz",
+      "mandate-graph",
+      "mandate-policy",
+      "serde",
+      "serde_json",
+      "ess-conformance",
+      "ess-primitives",
+      "ess-domain",
+      "clap"
     ]
   },
   "external": [

@@ -10,7 +10,7 @@ Use the Worktree skill and CLI; change source only in a managed checkout with an
 
 Use Connectors for integrations; report a missing operation before an alternative client. Organization commits and pushes use the existing Atlas bot publication path. Never bypass hooks or publish private policy, credentials or operator provenance.
 
-AEP 0.55.0 is the sole writer of `.engineering/planning`. ESS 0.25.0 `ess/4` in `systems/mandate` owns contracts; only ESS writes generated projections. Addendum refinements take precedence. See `docs/requirements.md` and `docs/architecture/unmapped.md`.
+AEP 0.55.0 is the sole writer of `.engineering/planning`. ESS 0.26.0 `ess/4` in `systems/mandate` owns contracts; only ESS writes generated projections; ESS 0.26.0 refuses to overwrite output it does not own, so in a fresh checkout run `cargo xtask adopt` once before `cargo xtask generate`. Addendum refinements take precedence. See `docs/requirements.md` and `docs/architecture/unmapped.md`.
 
 Run `task check` before publication. Repository checkers and production executables are Rust. Preserve dependency direction. Authentication context comes from credential validation, never independent organization/audience selectors. Raw credentials must never enter logs, audit records, fixtures or persistent domain records.
 

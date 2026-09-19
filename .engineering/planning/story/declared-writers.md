@@ -8,6 +8,7 @@ relations:
 - decomposes: epic:foundations
 - serves: vision:mandate
 - depends_on: story:domain-runtime
+- depends_on: story:contract-creates
 scope:
 - confidence: cited
   path: crates/mandate-types/tests/contract_adversary.rs

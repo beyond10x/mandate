@@ -1,11 +1,14 @@
 [advisories]
 yanked = "deny"
 [licenses]
-allow = ["Apache-2.0", "MIT", "Unicode-3.0", "Zlib"]
+allow = ["Apache-2.0", "MIT", "MIT-0", "Unicode-3.0", "Zlib"]
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"
 [sources]
 unknown-registry = "deny"
 unknown-git = "deny"
-allow-git = ["https://github.com/beyond10x/eventlog.git"]
+allow-git = [
+  "https://github.com/beyond10x/eventlog.git",
+  "https://github.com/beyond10x/ess.git",
+]
