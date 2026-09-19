@@ -52,7 +52,7 @@ scope:
   path: systems/mandate/domains/policy.yaml
 - confidence: cited
   path: systems/mandate/domains/workload.yaml
-revision: 13
+revision: 16
 ---
 # Every record has a declared writer
 
@@ -150,3 +150,9 @@ Coordinator, after `review-result:wave-b-parallel-r1` and `review-result:wave-b-
 ## Inherited from the wave B contract round, 2026-09-19
 
 - From the wave B contract-round adversaries (2026-09-19): ESS 0.26.0's synthesizer builds the same constant for every `Timestamp` input and never consults an entity invariant when building a creating command's input, so `mandate.credential.SigningKey`'s `not_before < expires_at` yields an accepted scenario no conforming handler passes (`RegisterSigningKey/outcome/accepted`); publishing a view adds an invariant scenario that is unsatisfiable for the same reason. Routed to the ESS wave as a synthesizer gap. ESS also does not type an invariant's comparison (a string newtype against a `Timestamp` validates), so chronological versus lexicographic is fixed nowhere; routed beside `story:invariant-boundary-validation`. Until both land, the `keys` unit's tests are the check, and the conform gate (`story:conform-gate`) expects that scenario `failed` with this note as its `blocked_on`.
+
+- From the wave C scoping of `story:oauth-transaction` (2026-09-19), three contract gaps in `credential.yaml` for this story's next contract round: (1) `RedeemAuthorizationCode.accepted` (`:222-232`) emits `AuthorizationCodeRedeemed` with `context`, `code_id`, `descriptor` and no `credential_id`, and declares `moves: AuthorizationCode.consume` with no `creates:`, so the credential it issues is not in the log — give the event `credential_id` (from the response) and `reference_verifier` (generated), and declare in the header that it also seeds an `AccessCredential` (the one-subject-per-outcome limit, routed to the ESS wave as `creates-entity-discrimination`); (2) the command takes no `context` (`:210-220`) while the event declares `context: generated: true` (`:227-228`) and the denial names a stale source/session epoch (`:239`) — state in the accepted summary that both are read from the code record (`:120-121`); (3) `pkce_verifier` is non-optional (`:217-218`), so `pkce-missing` is the adapter's case — no contract change, the corpus row's note.
+
+- Correction at the wave C opening, after `review-result:wave-c-parallel-r1`: gap 3 (`pkce_verifier` non-optional; `pkce-missing` is the adapter's case) is no contract change and no deliverable of this story; the coordinator reassigned the corpus rows (`pkce-valid`, `pkce-wrong`, `pkce-redirect`, `pkce-reuse` → `story:oauth-transaction`; `pkce-missing`, `pkce-plain` → `story:protocol-adapters`; `pkce-state-nonce` → `story:pkce-sessions`) in the opening commit. This story's contract round 2 is gaps 1 and 2 only.
+
+- Correction at the wave C opening, after `review-result:wave-c-design-r1`: gap 1's field set is the whole `AccessCredential` record — `AuthorizationCodeRedeemed` mirrors `CredentialReferenceIssued`'s record fields (`credential_id` and `target` from a widened `RedeemAuthorizationCode` response, `descriptor`, `reference_verifier` and `issued_at` generated), with the header declaration that it seeds an `AccessCredential`.
