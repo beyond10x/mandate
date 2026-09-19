@@ -11,15 +11,25 @@ relations:
 - depends_on: story:event-validation-harness
 scope:
 - confidence: inferred
+  path: crates/mandate-federation/src/authorize.rs
+- confidence: inferred
   path: crates/mandate-federation/src/disable.rs
 - confidence: cited
   path: crates/mandate-federation/src/lib.rs
 - confidence: cited
   path: crates/mandate-federation/src/record.rs
 - confidence: inferred
+  path: crates/mandate-federation/tests/adversary_pkce.rs
+- confidence: inferred
+  path: crates/mandate-federation/tests/authenticate.rs
+- confidence: inferred
+  path: crates/mandate-federation/tests/authorize.rs
+- confidence: inferred
   path: crates/mandate-federation/tests/contract_agreement.rs
 - confidence: inferred
   path: crates/mandate-federation/tests/emitted_events.rs
+- confidence: inferred
+  path: crates/mandate-federation/tests/link.rs
 - confidence: inferred
   path: crates/mandate-federation/tests/replay.rs
 - confidence: cited
@@ -36,7 +46,7 @@ scope:
   path: crates/mandate-identity/tests/emitted_events.rs
 - confidence: inferred
   path: crates/mandate-identity/tests/replay.rs
-revision: 4
+revision: 11
 ---
 ## Acceptance
 
@@ -79,3 +89,15 @@ One agent, serially; `Cargo.toml` dev-dependencies on `mandate-contract` and `ma
 ## Inherited from wave E1, 2026-09-19
 
 - Surfaced by `contract-creates` adversary pass 2 (A2-9): `crates/mandate-federation/src/authorize.rs:293-295` returns `DenialReason::Denied` for a consumed authorization code and quotes the yaml text the contract no longer carries; the contract routes a consumed code to the `wrong-state` outcome (409). Align the handler and its two cases (`tests/authorize.rs:280`, `tests/adversary_pkce.rs:550`) to the wrong-state outcome.
+
+## Coordinator rulings at wave opening, 2026-09-19
+
+- This story owns `crates/mandate-federation/src/lib.rs` for the auth wave; the opening commit pre-lands `pub mod verifier_real;` over a stub, which the story keeps in place. `crates/mandate-federation/src/verifier.rs` and `verifier_real.rs` are `story:signing-and-verification`'s; the doubles in `verifier.rs` stay until every accepted path has a real-verifier case.
+- Dev-dependencies on `mandate-contract` and `mandate-testkit` for both crates are pre-landed in the opening commit.
+- The consumed-authorization-code alignment inherited from wave E1 (`authorize.rs:293-295` returns `Denied` where the contract says wrong-state) is in scope here: the handler's refusal reason distinguishes the wrong-state outcome, and the two cases follow.
+
+## Coordinator rulings after critic round 1, 2026-09-19
+
+- Opening a Session from the login (design D3): `mandate-identity` cannot see `FederationEvent` (direction `mandate-federation → mandate-identity`, never the reverse, per `story:pkce-sessions`'s ruling). The identity fold therefore consumes the generated contract payload `mandate_contract::events::MandateFederationFederationAuthenticated` — `mandate-contract` is admitted as a regular dependency of `mandate-identity` in the opening commit — and `IdentityLog` gains a fold arm that materializes the Session (`session_id`, `principal_id`, `organization_id`, `connection_id`, `epochs`, `expires_at`) from it; `SessionOpened` stays the seeding event for a non-federated open and a second open of a session already held is refused by the fold. This is the `identity-shapes` unit's (`src/port.rs`, `src/session.rs`) with its proof in `identity-proofs` (`tests/replay.rs`: login → refresh → revoke folds from the two events alone). The federation handler keeps returning `FederationAuthenticated`; appending it to the identity aggregate is the adapter's (control-plane), outside this crate.
+- `crates/mandate-federation/src/authorize.rs`, `tests/authorize.rs`, `tests/adversary_pkce.rs` join this story's scope for the consumed-code alignment (design D4); `pkce.rs`, `publicclient.rs`, `verifier.rs` stay excluded.
+- `tests/link.rs` and `tests/authenticate.rs` are this story's this wave (parallel PS1); the verifier unit does not write them.

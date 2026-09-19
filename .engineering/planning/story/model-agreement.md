@@ -11,12 +11,18 @@ relations:
 - depends_on: story:tenancy-graph-events
 scope:
 - confidence: inferred
+  path: crates/mandate-model/src/lib.rs
+- confidence: inferred
   path: crates/mandate-model/tests/contract_agreement.rs
 - confidence: cited
   path: crates/mandate-model/tests/projections.rs
+- confidence: inferred
+  path: crates/mandate-types/src/inventory.rs
 - confidence: cited
   path: crates/mandate-types/tests/conformance.rs
-revision: 3
+- confidence: inferred
+  path: crates/mandate-types/tests/inventory.rs
+revision: 8
 ---
 ## Acceptance
 
@@ -40,3 +46,11 @@ One agent; two units (`model`, `types`), disjoint files.
 ### Gate
 
 `cargo test -p mandate-model -p mandate-types --locked`.
+
+## Coordinator rulings at wave opening, 2026-09-19
+
+- Dev-dependency on `mandate-contract` for `mandate-model` and `mandate-types` is pre-landed in the opening commit. The `realizes!` registrations for the six entities and twelve events go in `crates/mandate-model/src/lib.rs` (this story's, this wave).
+
+## Coordinator rulings after critic round 1, 2026-09-19
+
+- The `types` unit's account of the 36 `.State` enums needs `crates/mandate-types/src/inventory.rs` (`EXCLUDED_SEMANTICS`) and `crates/mandate-types/tests/inventory.rs`; both join this story's scope (parallel item 5); no other unit touches `mandate-types`.

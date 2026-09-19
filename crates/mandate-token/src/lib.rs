@@ -179,6 +179,8 @@ mandate_types::canonical_record!(
     ]
 );
 
+pub mod signing_real;
+
 /// The conformance registry for the accepted credential-format types.
 pub mod conformance {
     use mandate_types::conformance::{Case, Entry};

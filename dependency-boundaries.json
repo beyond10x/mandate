@@ -2,7 +2,8 @@
   "libraries": {
     "mandate-types": [
       "serde",
-      "serde_json"
+      "serde_json",
+      "mandate-contract"
     ],
     "mandate-contract": [
       "serde",
@@ -11,7 +12,9 @@
     "mandate-model": [
       "mandate-types",
       "serde",
-      "serde_json"
+      "serde_json",
+      "mandate-contract",
+      "mandate-testkit"
     ],
     "mandate-graph": [
       "mandate-types",
@@ -30,17 +33,29 @@
     "mandate-token": [
       "mandate-types",
       "serde",
-      "serde_json"
+      "serde_json",
+      "rand",
+      "jsonwebtoken",
+      "aws-lc-rs"
     ],
     "mandate-identity": [
       "mandate-types",
-      "mandate-model"
+      "mandate-model",
+      "mandate-contract",
+      "mandate-testkit"
     ],
     "mandate-federation": [
       "mandate-types",
       "mandate-model",
       "mandate-identity",
-      "mandate-token"
+      "mandate-token",
+      "serde_json",
+      "ureq",
+      "rand",
+      "mandate-contract",
+      "mandate-testkit",
+      "jsonwebtoken",
+      "aws-lc-rs"
     ],
     "mandate-provisioning": [
       "mandate-types",

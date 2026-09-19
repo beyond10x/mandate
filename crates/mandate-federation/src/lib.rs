@@ -35,6 +35,7 @@ pub mod pkce;
 pub mod publicclient;
 pub mod record;
 pub mod verifier;
+pub mod verifier_real;
 
 use core::fmt;
 

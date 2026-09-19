@@ -1,5 +1,6 @@
 mod documents;
 mod emit;
+mod licenses;
 use clap::{Parser, Subcommand};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -22,6 +23,7 @@ enum Action {
     Generate,
     Contracts,
     Boundaries,
+    Licenses,
     Corpus,
     Documents {
         /// The checkout whose *documents* are read. Defaults to this workspace; pointing it at
@@ -223,6 +225,18 @@ fn boundaries() -> Result<()> {
     println!("{PACKAGES} packages satisfy metadata and dependency boundaries");
     Ok(())
 }
+/// Every crate the lock resolves carries a license `deny.toml` allows, including the ones
+/// cargo-deny's own graph drops. The fold and the reason for it are in [`licenses`].
+fn licenses() -> Result<()> {
+    let allowed = licenses::allowed(&fs::read_to_string("deny.toml")?)?;
+    let metadata: Value = serde_json::from_slice(&output(
+        "cargo",
+        &["metadata", "--locked", "--format-version", "1"],
+    )?)?;
+    let counted = licenses::audit(&metadata, &allowed)?;
+    println!("{counted} resolved crates carry an allowed license");
+    Ok(())
+}
 /// Every command the contract declares is named in `command-obligations.md`, with its declared
 /// denial text verbatim, and the table names nothing the contract does not declare. A command
 /// missing from the table is a denial no reader of the contract can find; a row whose text has
@@ -409,6 +423,7 @@ fn main() -> ExitCode {
         Action::Generate => generate(Path::new("generated")),
         Action::Contracts => contracts(),
         Action::Boundaries => boundaries(),
+        Action::Licenses => licenses(),
         Action::Corpus => corpus(),
         Action::Documents { root } => documents(&root),
         Action::Check => {
@@ -437,6 +452,7 @@ fn main() -> ExitCode {
             corpus()?;
             contracts()?;
             run("cargo", &["deny", "--locked", "check"])?;
+            licenses()?;
             run("aep", &["plan", "artifact", "validate"])?;
             documents(Path::new("."))?;
             for b in [
