@@ -10,25 +10,41 @@
 //! domain's decision and is not made here; the verified context is carried through to the
 //! event the accepted outcome emits.
 
+use serde::Serialize;
+
 use mandate_types::{SecurityEpochTarget, VerifiedContext};
 
 use crate::{Denial, SecurityEpochWrite, StreamVersion};
 
 /// The command input: a verified context and the one target it selects.
-#[derive(Debug, Clone, PartialEq, Eq)]
+///
+/// The declared input, field for field (`identity.yaml`,
+/// `mandate.identity.IncrementSecurityEpoch`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct IncrementSecurityEpoch {
     context: VerifiedContext,
     target: SecurityEpochTarget,
 }
 
 /// `mandate.identity.SecurityEpochIncremented`, the event the accepted outcome emits.
-#[derive(Debug, Clone, PartialEq, Eq)]
+///
+/// The declared payload, field for field: the verified context the command was evaluated
+/// in, and the one target that advanced. The context is the command's own
+/// (`context: input.context`), which is why the write port that appends this event is
+/// handed one rather than inventing it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct SecurityEpochIncremented {
     context: VerifiedContext,
     target: SecurityEpochTarget,
 }
 
 impl SecurityEpochIncremented {
+    /// The payload for a verified context and the target that advanced.
+    #[must_use]
+    pub const fn new(context: VerifiedContext, target: SecurityEpochTarget) -> Self {
+        Self { context, target }
+    }
+
     /// The context the command was evaluated in.
     #[must_use]
     pub const fn context(&self) -> &VerifiedContext {
@@ -76,10 +92,10 @@ impl IncrementSecurityEpoch {
     where
         W: SecurityEpochWrite + ?Sized,
     {
-        epochs.increment(&self.target, expected)?;
-        Ok(SecurityEpochIncremented {
-            context: self.context.clone(),
-            target: self.target.clone(),
-        })
+        epochs.increment(&self.context, &self.target, expected)?;
+        Ok(SecurityEpochIncremented::new(
+            self.context.clone(),
+            self.target.clone(),
+        ))
     }
 }

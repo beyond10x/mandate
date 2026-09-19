@@ -42,8 +42,8 @@
 //!
 //! ```
 //! use mandate_identity::{
-//!     Generation, IdentityEvent, IdentityLog, IdentityRead, IncrementSecurityEpoch,
-//!     SecurityEpochSnapshot, Session, refresh_session,
+//!     EpochSnapshotRecorded, Generation, IdentityEvent, IdentityLog, IdentityRead,
+//!     IncrementSecurityEpoch, SecurityEpochRecorded, SessionOpened, refresh_session,
 //! };
 //! use mandate_types::{
 //!     Audience, CorrelationId, CredentialId, DenialReason, EpochSnapshotRef, OrganizationId,
@@ -57,24 +57,32 @@
 //! let target = SecurityEpochTarget::Principal(principal);
 //!
 //! let mut log = IdentityLog::new().with_as_of(Timestamp::new("2026-09-18T00:00:00Z"));
-//! log.record(IdentityEvent::SecurityEpochRecorded {
+//! log.record(IdentityEvent::SecurityEpochRecorded(SecurityEpochRecorded {
 //!     target: target.clone(),
 //!     generation: Generation::new(41).unwrap(),
-//! });
-//! log.record(IdentityEvent::EpochSnapshotRecorded(SecurityEpochSnapshot::new(
-//!     handle,
-//!     principal,
-//!     Generation::new(41).unwrap(),
-//!     organization,
-//!     Generation::ZERO,
-//! )));
-//! log.record(IdentityEvent::SessionOpened(Session::new(
-//!     session,
-//!     principal,
-//!     organization,
-//!     handle,
-//!     Timestamp::new("2026-12-31T00:00:00Z"),
-//! )));
+//! }));
+//! log.record(IdentityEvent::SecurityEpochRecorded(SecurityEpochRecorded {
+//!     target: SecurityEpochTarget::Organization(organization),
+//!     generation: Generation::ZERO,
+//! }));
+//! // The snapshot carries no generation: it is bound to what each dimension held at the
+//! // position it was recorded at, which is 41 for the principal and 0 for the
+//! // organization. Both dimensions have stated a generation by now, which is what the log
+//! // requires of a recording.
+//! log.record(IdentityEvent::EpochSnapshotRecorded(EpochSnapshotRecorded {
+//!     id: handle,
+//!     principal_id: principal,
+//!     organization_id: organization,
+//!     connection_id: None,
+//! }));
+//! log.record(IdentityEvent::SessionOpened(SessionOpened {
+//!     id: session,
+//!     principal_id: principal,
+//!     organization_id: organization,
+//!     connection_id: None,
+//!     epochs: handle,
+//!     expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+//! }));
 //!
 //! assert!(refresh_session(&log, &session).is_ok());
 //!
@@ -104,10 +112,16 @@
 //!
 //! ```compile_fail
 //! use mandate_identity::{IdentityRead, StreamVersion};
-//! use mandate_types::SecurityEpochTarget;
+//! use mandate_types::{SecurityEpochTarget, VerifiedContext};
 //!
-//! fn advance(epochs: &dyn IdentityRead, target: &SecurityEpochTarget) {
-//!     epochs.increment(target, StreamVersion::INITIAL).unwrap();
+//! fn advance(
+//!     epochs: &dyn IdentityRead,
+//!     context: &VerifiedContext,
+//!     target: &SecurityEpochTarget,
+//! ) {
+//!     epochs
+//!         .increment(context, target, StreamVersion::INITIAL)
+//!         .unwrap();
 //! }
 //! ```
 
@@ -124,23 +138,187 @@ mod snapshot;
 pub use generation::Generation;
 pub use increment::{IncrementSecurityEpoch, SecurityEpochIncremented};
 pub use port::{
-    EpochState, IdentityEvent, IdentityLog, IdentityRead, SecurityEpochWrite, StreamVersion,
+    EpochSnapshotRecorded, EpochState, IdentityEvent, IdentityLog, IdentityRead,
+    SecurityEpochRecorded, SecurityEpochWrite, StreamVersion,
 };
-pub use session::{Session, SessionRefreshed, SessionState, refresh_session};
+pub use session::{
+    Session, SessionOpened, SessionRefreshed, SessionRevoked, SessionState, refresh_session,
+    revoke_session,
+};
 pub use snapshot::{Eligibility, EpochDimension, SecurityEpochSnapshot};
+
+// Every `mandate.identity` element this crate realizes, against the item that realizes
+// it. Each entry is expanded into a `use` of the named symbol, so a registry line whose
+// symbol was renamed, moved or deleted does not compile
+// (`crates/mandate-types/src/macros.rs`), and
+// `crates/mandate-identity/tests/contract_agreement.rs` reads every name on the left back
+// out of `generated/ir/system.json`.
+//
+// What this crate does *not* realize is [`ESS_UNREALIZED`], named element by element with
+// the reason: a registry that lists what is covered and waves at the rest overstates
+// itself in the one direction that matters, and
+// `crates/mandate-identity/tests/contract_agreement.rs` decides both directions against
+// the contract's own index.
+mandate_types::realizes! {
+    "mandate.identity.RevokeSession" => crate::session::revoke_session,
+    "mandate.identity.RefreshSession" => crate::session::refresh_session,
+    "mandate.identity.IncrementSecurityEpoch" => crate::increment::IncrementSecurityEpoch,
+    "mandate.identity.SessionOpened" => crate::session::SessionOpened,
+    "mandate.identity.SessionRevoked" => crate::session::SessionRevoked,
+    "mandate.identity.SessionRefreshed" => crate::session::SessionRefreshed,
+    "mandate.identity.EpochSnapshotRecorded" => crate::port::EpochSnapshotRecorded,
+    "mandate.identity.SecurityEpochRecorded" => crate::port::SecurityEpochRecorded,
+    "mandate.identity.SecurityEpochIncremented" => crate::increment::SecurityEpochIncremented,
+    "mandate.identity.Session" => crate::session::Session,
+    "mandate.identity.SecurityEpochSnapshot" => crate::snapshot::SecurityEpochSnapshot,
+    // One projection realizes all three generation records: the fold *is* the record
+    // (`docs/adr/0009-event-sourced-persistence.md`), each is declared as one
+    // non-negative `generation` keyed by its owning identity, and
+    // [`IdentityRead::current`] answers that generation for a `SecurityEpochTarget`
+    // together with the stream version a compare-and-set is made against.
+    // `crates/mandate-identity/tests/replay.rs` rebuilds all three from their events.
+    "mandate.identity.PrincipalSecurityEpoch" => crate::port::EpochState,
+    "mandate.identity.OrganizationSecurityEpoch" => crate::port::EpochState,
+    "mandate.identity.FederationSecurityEpoch" => crate::port::EpochState,
+    "mandate.identity.Denied" => crate::Denial,
+    "mandate.identity.Session.State" => crate::session::SessionState,
+}
+
+/// Every declared `mandate.identity` element this crate does **not** realize, with the
+/// reason.
+///
+/// A coverage registry that names what it covers and says nothing about the rest is read as
+/// a claim about the whole domain. This is the other half of [`ESS_REALIZATIONS`], and
+/// `crates/mandate-identity/tests/contract_agreement.rs` decides the pair against
+/// `generated/ir/system.json` in both directions: an element this list names and the
+/// registry also realizes is a contradiction, and an element neither one names is an
+/// element nobody accounted for.
+///
+/// Two groups, and neither is an oversight:
+///
+/// * The `Principal` and `RefreshCredential` records, their lifecycle moves and the
+///   commands that make them. This crate folds sessions and generations; neither record is
+///   projected here. `mandate.identity.Principal.State` alone *is* realized — by
+///   `mandate_federation::PrincipalState`, for the port `mandate.federation` reads that
+///   record through — and is named here because this crate does not realize it.
+/// * The single-state lifecycles. `SecurityEpochSnapshot` and the three generation records
+///   each declare exactly one state, `Recorded`, which no value in this crate names: there
+///   is no transition to fold and an enum of one variant would decide nothing. The records
+///   themselves are realized.
+pub const ESS_UNREALIZED: &[(&str, &str)] = &[
+    (
+        "mandate.identity.DisablePrincipal",
+        "the Principal record is not projected here",
+    ),
+    (
+        "mandate.identity.Principal",
+        "not projected here; story:declared-writers owns its creation",
+    ),
+    (
+        "mandate.identity.PrincipalDisabled",
+        "the Principal record is not projected here",
+    ),
+    (
+        "mandate.identity.Principal.State",
+        "realized by mandate_federation::PrincipalState, for the port it is read through",
+    ),
+    (
+        "mandate.identity.RefreshCredential",
+        "not projected here; no handler in this crate writes one",
+    ),
+    (
+        "mandate.identity.RefreshCredentialRevoked",
+        "the RefreshCredential record is not projected here",
+    ),
+    (
+        "mandate.identity.RefreshCredential.State",
+        "the RefreshCredential record is not projected here",
+    ),
+    (
+        "mandate.identity.RevokeRefreshCredential",
+        "the RefreshCredential record is not projected here",
+    ),
+    (
+        "mandate.identity.SecurityEpochSnapshot.State",
+        "a single-state lifecycle: no transition to fold",
+    ),
+    (
+        "mandate.identity.PrincipalSecurityEpoch.State",
+        "a single-state lifecycle: no transition to fold",
+    ),
+    (
+        "mandate.identity.OrganizationSecurityEpoch.State",
+        "a single-state lifecycle: no transition to fold",
+    ),
+    (
+        "mandate.identity.FederationSecurityEpoch.State",
+        "a single-state lifecycle: no transition to fold",
+    ),
+];
+
+/// Which declared refusing outcome a [`Denial`] is.
+///
+/// A command that moves an entity along its lifecycle declares **two** error outcomes,
+/// not one: the external `denied` and the `wrong-state` taken "when the subject is in a
+/// state none of that command's declared moves start from", which "reports the same
+/// `Denied` error and renders as HTTP 409 in the OpenAPI projection rather than the 502
+/// an external denial renders as" (`docs/architecture/command-obligations.md`).
+/// `RevokeSession`, `DisablePrincipal` and `RevokeRefreshCredential` each declare one.
+///
+/// The distinction cannot live in [`DenialReason`]: that enum is the contract's, it is
+/// closed, and it declares no wrong-state reason. [`RefusedOutcome::ir_name`] is the name
+/// the outcome carries in `generated/ir/system.json`, which is what
+/// `crates/mandate-identity/tests/emitted_events.rs` looks the refusal up by.
+///
+/// `mandate-federation` declares the same enum for the same reason. The shared home for
+/// both is `mandate-types`, which neither this story nor its wave may edit; until one
+/// does, the duplication is two declarations of one contract rule rather than two rules.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum RefusedOutcome {
+    /// The declared `denied` outcome: an externally caused refusal.
+    Denied,
+    /// The declared `wrong-state` outcome: the named record is in a state none of the
+    /// command's declared moves start from.
+    WrongState,
+}
+
+impl RefusedOutcome {
+    /// The name this outcome carries in the compiled contract.
+    #[must_use]
+    pub const fn ir_name(self) -> &'static str {
+        match self {
+            Self::Denied => "denied",
+            Self::WrongState => "wrong-state",
+        }
+    }
+}
 
 /// `mandate.identity.Denied`: fail closed; no credential, authority or lifecycle
 /// mutation on refusal.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Denial {
     reason: DenialReason,
+    outcome: RefusedOutcome,
 }
 
 impl Denial {
-    /// The refusal carrying a declared reason.
+    /// The refusal carrying a declared reason, through the declared `denied` outcome.
     #[must_use]
     pub const fn new(reason: DenialReason) -> Self {
-        Self { reason }
+        Self {
+            reason,
+            outcome: RefusedOutcome::Denied,
+        }
+    }
+
+    /// The refusal through the declared `wrong-state` outcome: the named record is in a
+    /// state none of the command's declared moves start from.
+    #[must_use]
+    pub const fn wrong_state(reason: DenialReason) -> Self {
+        Self {
+            reason,
+            outcome: RefusedOutcome::WrongState,
+        }
     }
 
     /// The declared reason.
@@ -148,11 +326,17 @@ impl Denial {
     pub const fn reason(&self) -> DenialReason {
         self.reason
     }
+
+    /// Which declared refusing outcome this is.
+    #[must_use]
+    pub const fn outcome(&self) -> RefusedOutcome {
+        self.outcome
+    }
 }
 
 impl fmt::Display for Denial {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(formatter, "denied: {:?}", self.reason)
+        write!(formatter, "{}: {:?}", self.outcome.ir_name(), self.reason)
     }
 }
 

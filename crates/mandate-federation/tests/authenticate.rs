@@ -447,7 +447,11 @@ fn jit_conflict() {
         issuer: Issuer::new(ISSUER_ONE),
         subject: ExternalSubject::new(SUBJECT),
     };
-    assert_eq!(poisoned.links().len(), 1, "one key, one record");
+    assert_eq!(
+        poisoned.links().len(),
+        2,
+        "both records are materialized; the key resolves to one of them"
+    );
     assert_eq!(
         poisoned.link(&key).map(|link| link.principal_id),
         Some(first.principal_id),
@@ -496,7 +500,7 @@ fn a_disabled_connection_denies() {
         linked(connection(1), organization(10), SUBJECT, principal(0x21)),
         FederationEvent::FederationConnectionDisabled {
             context: context(organization(10)),
-            connection_id: connection(1),
+            id: connection(1),
         },
     ];
     let projection = Projection::fold(&log).expect("one connection, one link");

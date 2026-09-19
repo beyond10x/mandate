@@ -1,5 +1,7 @@
 //! `mandate.federation.LinkExternalPrincipal`.
 
+use serde::Serialize;
+
 use mandate_types::{
     DenialReason, ExternalLinkMethod, ExternalPrincipalId, ExternalSubject, FederationConnectionId,
     PrincipalId, VerifiedContext,
@@ -11,7 +13,7 @@ use crate::record::{ConnectionState, ExternalKey, FederationEvent, LinkState};
 use crate::{ConnectionStore, DenialClause, Denied, IdentityAllocator, LinkStore, PrincipalStore};
 
 /// `mandate.federation.LinkExternalPrincipal`.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct LinkExternalPrincipal {
     /// The declared `context`.
     pub context: VerifiedContext,

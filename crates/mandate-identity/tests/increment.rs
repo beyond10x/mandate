@@ -3,8 +3,8 @@
 //! write port, and the concurrent disable/refresh race.
 
 use mandate_identity::{
-    Generation, IdentityEvent, IdentityLog, IdentityRead, IncrementSecurityEpoch,
-    SecurityEpochSnapshot, Session, StreamVersion, refresh_session,
+    EpochSnapshotRecorded, Generation, IdentityEvent, IdentityLog, IdentityRead,
+    IncrementSecurityEpoch, SecurityEpochRecorded, SessionOpened, StreamVersion, refresh_session,
 };
 use mandate_types::{
     Audience, CorrelationId, CredentialId, DenialReason, EpochSnapshotRef, FederationConnectionId,
@@ -51,10 +51,12 @@ fn context() -> VerifiedContext {
 fn recorded(entries: &[(SecurityEpochTarget, i64)]) -> IdentityLog {
     let mut log = IdentityLog::new().with_as_of(Timestamp::new("2026-09-18T00:00:00Z"));
     for (target, value) in entries {
-        log.record(IdentityEvent::SecurityEpochRecorded {
-            target: target.clone(),
-            generation: generation(*value),
-        });
+        log.record(IdentityEvent::SecurityEpochRecorded(
+            SecurityEpochRecorded {
+                target: target.clone(),
+                generation: generation(*value),
+            },
+        ));
     }
     log
 }
@@ -63,10 +65,12 @@ fn recorded(entries: &[(SecurityEpochTarget, i64)]) -> IdentityLog {
 fn epoch_overflow_an_increment_at_the_maximum_is_denied_and_the_generation_does_not_move() {
     let target = SecurityEpochTarget::Principal(principal());
     let mut log = recorded(&[]);
-    log.record(IdentityEvent::SecurityEpochRecorded {
-        target: target.clone(),
-        generation: Generation::MAX,
-    });
+    log.record(IdentityEvent::SecurityEpochRecorded(
+        SecurityEpochRecorded {
+            target: target.clone(),
+            generation: Generation::MAX,
+        },
+    ));
     let before = log.current(&target);
 
     let refused = IncrementSecurityEpoch::new(context(), target.clone())
@@ -185,43 +189,46 @@ fn a_refresh_racing_a_committed_disable_driven_increment_is_denied_and_the_other
     let session_in_b = SessionId::new(uuid(21));
     let expires_at = Timestamp::new("2026-12-31T00:00:00Z");
 
+    // Every dimension the two snapshots name states its generation first, zero included:
+    // `IdentityLog` refuses a recording whose dimensions the log has said nothing about.
     let mut log = recorded(&[
         (target.clone(), 3),
         (SecurityEpochTarget::Organization(organization_a()), 7),
         (SecurityEpochTarget::Organization(organization_b()), 5),
+        (SecurityEpochTarget::Principal(PrincipalId::new(uuid(6))), 0),
     ]);
     log.record(IdentityEvent::EpochSnapshotRecorded(
-        SecurityEpochSnapshot::new(
-            in_a,
-            principal(),
-            generation(3),
-            organization_a(),
-            generation(7),
-        ),
+        EpochSnapshotRecorded {
+            id: in_a,
+            principal_id: principal(),
+            organization_id: organization_a(),
+            connection_id: None,
+        },
     ));
     log.record(IdentityEvent::EpochSnapshotRecorded(
-        SecurityEpochSnapshot::new(
-            in_b,
-            PrincipalId::new(uuid(6)),
-            generation(0),
-            organization_b(),
-            generation(5),
-        ),
+        EpochSnapshotRecorded {
+            id: in_b,
+            principal_id: PrincipalId::new(uuid(6)),
+            organization_id: organization_b(),
+            connection_id: None,
+        },
     ));
-    log.record(IdentityEvent::SessionOpened(Session::new(
-        session_in_a,
-        principal(),
-        organization_a(),
-        in_a,
-        expires_at.clone(),
-    )));
-    log.record(IdentityEvent::SessionOpened(Session::new(
-        session_in_b,
-        PrincipalId::new(uuid(6)),
-        organization_b(),
-        in_b,
+    log.record(IdentityEvent::SessionOpened(SessionOpened {
+        id: session_in_a,
+        principal_id: principal(),
+        organization_id: organization_a(),
+        connection_id: None,
+        epochs: in_a,
+        expires_at: expires_at.clone(),
+    }));
+    log.record(IdentityEvent::SessionOpened(SessionOpened {
+        id: session_in_b,
+        principal_id: PrincipalId::new(uuid(6)),
+        organization_id: organization_b(),
+        connection_id: None,
+        epochs: in_b,
         expires_at,
-    )));
+    }));
 
     assert!(refresh_session(&log, &session_in_a).is_ok());
 

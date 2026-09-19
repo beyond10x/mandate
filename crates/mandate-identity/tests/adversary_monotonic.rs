@@ -14,8 +14,8 @@
 //! was denied `StaleEpoch` refreshes again.
 
 use mandate_identity::{
-    Generation, IdentityEvent, IdentityLog, IdentityRead, SecurityEpochSnapshot, Session,
-    refresh_session,
+    EpochSnapshotRecorded, Generation, IdentityEvent, IdentityLog, IdentityRead,
+    SecurityEpochRecorded, SessionOpened, refresh_session,
 };
 use mandate_types::{
     DenialReason, EpochSnapshotRef, OrganizationId, PrincipalId, SecurityEpochTarget, SessionId,
@@ -52,32 +52,48 @@ fn generation(value: i64) -> Generation {
 
 /// A session snapshotted at principal generation 41 against an authority at 42: the
 /// `epoch-principal` case, already denied.
+///
+/// The snapshot is recorded while the authority is at 41 and the authority moves to 42
+/// after it. That ordering *is* the case: `mandate.identity.EpochSnapshotRecorded`
+/// declares the record's own fields and no generation, so a snapshot is bound to what each
+/// of its dimensions held at the position it was recorded at, and a log is the only place
+/// a difference between the two can come from.
 fn denied_world() -> IdentityLog {
     let mut log = IdentityLog::new();
-    log.record(IdentityEvent::SecurityEpochRecorded {
-        target: subject(),
-        generation: generation(42),
-    });
-    log.record(IdentityEvent::SecurityEpochRecorded {
-        target: SecurityEpochTarget::Organization(organization()),
-        generation: generation(7),
-    });
-    log.record(IdentityEvent::EpochSnapshotRecorded(
-        SecurityEpochSnapshot::new(
-            handle(),
-            principal(),
-            generation(41),
-            organization(),
-            generation(7),
-        ),
+    log.record(IdentityEvent::SecurityEpochRecorded(
+        SecurityEpochRecorded {
+            target: subject(),
+            generation: generation(41),
+        },
     ));
-    log.record(IdentityEvent::SessionOpened(Session::new(
-        session_id(),
-        principal(),
-        organization(),
-        handle(),
-        Timestamp::new("2026-09-18T00:00:00Z"),
-    )));
+    log.record(IdentityEvent::SecurityEpochRecorded(
+        SecurityEpochRecorded {
+            target: SecurityEpochTarget::Organization(organization()),
+            generation: generation(7),
+        },
+    ));
+    log.record(IdentityEvent::EpochSnapshotRecorded(
+        EpochSnapshotRecorded {
+            id: handle(),
+            principal_id: principal(),
+            organization_id: organization(),
+            connection_id: None,
+        },
+    ));
+    log.record(IdentityEvent::SecurityEpochRecorded(
+        SecurityEpochRecorded {
+            target: subject(),
+            generation: generation(42),
+        },
+    ));
+    log.record(IdentityEvent::SessionOpened(SessionOpened {
+        id: session_id(),
+        principal_id: principal(),
+        organization_id: organization(),
+        connection_id: None,
+        epochs: handle(),
+        expires_at: Timestamp::new("2026-09-18T00:00:00Z"),
+    }));
     log
 }
 
@@ -87,10 +103,12 @@ fn an_out_of_band_record_never_moves_the_authoritative_generation_backwards() {
     let before = log.current(&subject()).generation();
     assert_eq!(before, generation(42), "the authority is at 42");
 
-    log.record(IdentityEvent::SecurityEpochRecorded {
-        target: subject(),
-        generation: generation(41),
-    });
+    log.record(IdentityEvent::SecurityEpochRecorded(
+        SecurityEpochRecorded {
+            target: subject(),
+            generation: generation(41),
+        },
+    ));
 
     let after = log.current(&subject()).generation();
     assert!(
@@ -109,10 +127,12 @@ fn a_session_denied_as_stale_is_not_made_current_again_by_reusing_its_generation
         DenialReason::StaleEpoch
     );
 
-    log.record(IdentityEvent::SecurityEpochRecorded {
-        target: subject(),
-        generation: generation(41),
-    });
+    log.record(IdentityEvent::SecurityEpochRecorded(
+        SecurityEpochRecorded {
+            target: subject(),
+            generation: generation(41),
+        },
+    ));
 
     assert_eq!(
         refresh_session(&log, &session_id())
@@ -127,40 +147,44 @@ fn a_generation_reset_to_zero_does_not_resurrect_every_snapshot_that_recorded_ze
     // The contract's answer at `Generation::MAX` is an out-of-band reset
     // (`src/port.rs:120-123`). A reset that lands on a value already issued against
     // re-validates every snapshot holding it, which is the reuse `epoch-overflow` forbids.
+    // The snapshot is recorded first, so it binds the generation 0 both dimensions then
+    // held; the authority moves to the maximum after it. A snapshot carries no generation
+    // of its own (`mandate.identity.EpochSnapshotRecorded`), so the log's order is where
+    // the difference comes from.
     let mut log = IdentityLog::new();
-    log.record(IdentityEvent::SecurityEpochRecorded {
-        target: subject(),
-        generation: Generation::MAX,
-    });
-    log.record(IdentityEvent::SecurityEpochRecorded {
-        target: SecurityEpochTarget::Organization(organization()),
-        generation: Generation::ZERO,
-    });
     log.record(IdentityEvent::EpochSnapshotRecorded(
-        SecurityEpochSnapshot::new(
-            handle(),
-            principal(),
-            Generation::ZERO,
-            organization(),
-            Generation::ZERO,
-        ),
+        EpochSnapshotRecorded {
+            id: handle(),
+            principal_id: principal(),
+            organization_id: organization(),
+            connection_id: None,
+        },
     ));
-    log.record(IdentityEvent::SessionOpened(Session::new(
-        session_id(),
-        principal(),
-        organization(),
-        handle(),
-        Timestamp::new("2026-09-18T00:00:00Z"),
-    )));
+    log.record(IdentityEvent::SecurityEpochRecorded(
+        SecurityEpochRecorded {
+            target: subject(),
+            generation: Generation::MAX,
+        },
+    ));
+    log.record(IdentityEvent::SessionOpened(SessionOpened {
+        id: session_id(),
+        principal_id: principal(),
+        organization_id: organization(),
+        connection_id: None,
+        epochs: handle(),
+        expires_at: Timestamp::new("2026-09-18T00:00:00Z"),
+    }));
     assert!(
         refresh_session(&log, &session_id()).is_err(),
         "a snapshot at generation 0 against an authority at the maximum is stale"
     );
 
-    log.record(IdentityEvent::SecurityEpochRecorded {
-        target: subject(),
-        generation: Generation::ZERO,
-    });
+    log.record(IdentityEvent::SecurityEpochRecorded(
+        SecurityEpochRecorded {
+            target: subject(),
+            generation: Generation::ZERO,
+        },
+    ));
 
     assert!(
         refresh_session(&log, &session_id()).is_err(),

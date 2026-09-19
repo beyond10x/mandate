@@ -4,12 +4,13 @@
 //! input.
 
 use mandate_identity::{
-    Generation, IdentityEvent, IdentityLog, IdentityRead, SecurityEpochSnapshot,
-    SecurityEpochWrite, Session, SessionState, refresh_session,
+    EpochSnapshotRecorded, Generation, IdentityEvent, IdentityLog, IdentityRead,
+    SecurityEpochRecorded, SecurityEpochWrite, Session, SessionOpened, SessionRevoked,
+    SessionState, refresh_session,
 };
 use mandate_types::{
-    DenialReason, EpochSnapshotRef, FederationConnectionId, OrganizationId, PrincipalId,
-    SecurityEpochTarget, SessionId, Timestamp, Uuid,
+    Audience, CorrelationId, CredentialId, DenialReason, EpochSnapshotRef, FederationConnectionId,
+    OrganizationId, PrincipalId, SecurityEpochTarget, SessionId, Timestamp, Uuid, VerifiedContext,
 };
 
 fn uuid(tag: u8) -> Uuid {
@@ -67,10 +68,12 @@ fn world() -> IdentityLog {
         (SecurityEpochTarget::Organization(organization_b()), 5),
         (SecurityEpochTarget::Federation(connection()), 1),
     ] {
-        log.record(IdentityEvent::SecurityEpochRecorded {
-            target,
-            generation: generation(value),
-        });
+        log.record(IdentityEvent::SecurityEpochRecorded(
+            SecurityEpochRecorded {
+                target,
+                generation: generation(value),
+            },
+        ));
     }
 
     let in_a = EpochSnapshotRef::new(uuid(10));
@@ -78,58 +81,54 @@ fn world() -> IdentityLog {
     let federated = EpochSnapshotRef::new(uuid(12));
 
     log.record(IdentityEvent::EpochSnapshotRecorded(
-        SecurityEpochSnapshot::new(
-            in_a,
-            principal(),
-            generation(3),
-            organization_a(),
-            generation(7),
-        ),
+        EpochSnapshotRecorded {
+            id: in_a,
+            principal_id: principal(),
+            organization_id: organization_a(),
+            connection_id: None,
+        },
     ));
     log.record(IdentityEvent::EpochSnapshotRecorded(
-        SecurityEpochSnapshot::new(
-            in_b,
-            principal(),
-            generation(3),
-            organization_b(),
-            generation(5),
-        ),
+        EpochSnapshotRecorded {
+            id: in_b,
+            principal_id: principal(),
+            organization_id: organization_b(),
+            connection_id: None,
+        },
     ));
     log.record(IdentityEvent::EpochSnapshotRecorded(
-        SecurityEpochSnapshot::new(
-            federated,
-            principal(),
-            generation(3),
-            organization_a(),
-            generation(7),
-        )
-        .with_federation(connection(), generation(1)),
+        EpochSnapshotRecorded {
+            id: federated,
+            principal_id: principal(),
+            organization_id: organization_a(),
+            connection_id: Some(connection()),
+        },
     ));
 
-    log.record(IdentityEvent::SessionOpened(Session::new(
-        session_in_a(),
-        principal(),
-        organization_a(),
-        in_a,
-        expires_at(),
-    )));
-    log.record(IdentityEvent::SessionOpened(Session::new(
-        session_in_b(),
-        principal(),
-        organization_b(),
-        in_b,
-        expires_at(),
-    )));
-    log.record(IdentityEvent::SessionOpened(
-        Session::new(
-            federated_session(),
-            principal(),
-            organization_a(),
-            federated,
-            expires_at(),
-        )
-        .with_connection(connection()),
-    ));
+    log.record(IdentityEvent::SessionOpened(SessionOpened {
+        id: session_in_a(),
+        principal_id: principal(),
+        organization_id: organization_a(),
+        connection_id: None,
+        epochs: in_a,
+        expires_at: expires_at(),
+    }));
+    log.record(IdentityEvent::SessionOpened(SessionOpened {
+        id: session_in_b(),
+        principal_id: principal(),
+        organization_id: organization_b(),
+        connection_id: None,
+        epochs: in_b,
+        expires_at: expires_at(),
+    }));
+    log.record(IdentityEvent::SessionOpened(SessionOpened {
+        id: federated_session(),
+        principal_id: principal(),
+        organization_id: organization_a(),
+        connection_id: Some(connection()),
+        epochs: federated,
+        expires_at: expires_at(),
+    }));
 
     log
 }
@@ -145,7 +144,7 @@ fn replayed_without_an_instant(log: &IdentityLog) -> IdentityLog {
 
 fn advance(log: &mut IdentityLog, target: &SecurityEpochTarget) {
     let expected = log.current(target).version();
-    log.increment(target, expected)
+    log.increment(&context(), target, expected)
         .expect("the authority advances the generation");
 }
 
@@ -226,7 +225,10 @@ fn epoch_isolation_only_organization_a_is_reset_so_the_b_session_stays_eligible(
 #[test]
 fn a_revoked_session_is_refused_even_though_every_generation_still_matches() {
     let mut log = world();
-    log.record(IdentityEvent::SessionRevoked(session_in_a()));
+    log.record(IdentityEvent::SessionRevoked(SessionRevoked {
+        context: context(),
+        id: session_in_a(),
+    }));
 
     let session = log
         .resolve(&session_in_a())
@@ -263,21 +265,21 @@ fn a_session_whose_snapshot_is_bound_to_another_organization_is_refused() {
     let mut log = world();
     let borrowed = EpochSnapshotRef::new(uuid(13));
     log.record(IdentityEvent::EpochSnapshotRecorded(
-        SecurityEpochSnapshot::new(
-            borrowed,
-            principal(),
-            generation(3),
-            organization_b(),
-            generation(5),
-        ),
+        EpochSnapshotRecorded {
+            id: borrowed,
+            principal_id: principal(),
+            organization_id: organization_b(),
+            connection_id: None,
+        },
     ));
-    log.record(IdentityEvent::SessionOpened(Session::new(
-        SessionId::new(uuid(23)),
-        principal(),
-        organization_a(),
-        borrowed,
-        expires_at(),
-    )));
+    log.record(IdentityEvent::SessionOpened(SessionOpened {
+        id: SessionId::new(uuid(23)),
+        principal_id: principal(),
+        organization_id: organization_a(),
+        connection_id: None,
+        epochs: borrowed,
+        expires_at: expires_at(),
+    }));
 
     assert_eq!(
         refresh_session(&log, &SessionId::new(uuid(23)))
@@ -287,19 +289,36 @@ fn a_session_whose_snapshot_is_bound_to_another_organization_is_refused() {
     );
 }
 
+/// A session whose snapshot handle resolves to nothing is refused — and no log can put
+/// one in front of this crate's own fold.
+///
+/// Both halves matter. `IdentityLog::try_record` refuses an opening whose `epochs` handle
+/// it does not already record, so the state is unreachable through the seeding path; the
+/// refusal on the read side still has to hold, because [`IdentityRead`] is a port and an
+/// adapter over another store can answer a session this fold would never have built. The
+/// session is therefore constructed directly and asked the same question.
 #[test]
 fn a_session_whose_snapshot_handle_resolves_to_nothing_is_refused() {
     let mut log = world();
-    log.record(IdentityEvent::SessionOpened(Session::new(
-        SessionId::new(uuid(24)),
-        principal(),
-        organization_a(),
-        EpochSnapshotRef::new(uuid(98)),
-        expires_at(),
-    )));
+    let dangling = SessionOpened {
+        id: SessionId::new(uuid(24)),
+        principal_id: principal(),
+        organization_id: organization_a(),
+        connection_id: None,
+        epochs: EpochSnapshotRef::new(uuid(98)),
+        expires_at: expires_at(),
+    };
+    let held = log.clone();
+    log.record(IdentityEvent::SessionOpened(dangling.clone()));
+    assert_eq!(
+        log, held,
+        "the log refuses an opening whose snapshot it does not record"
+    );
 
     assert_eq!(
-        refresh_session(&log, &SessionId::new(uuid(24)))
+        dangling
+            .session()
+            .refresh(&log, &as_of())
             .expect_err("the handle resolves to no snapshot")
             .reason(),
         DenialReason::Denied
@@ -398,6 +417,21 @@ fn expiring_at(text: &str) -> Session {
     )
 }
 
+/// The verified context `RevokeSession` is evaluated in. `mandate.identity.SessionRevoked`
+/// declares one (`context: input.context`), so every recorded revocation carries it.
+fn context() -> VerifiedContext {
+    VerifiedContext {
+        subject: principal(),
+        actor: None,
+        organization: organization_a(),
+        audience: Audience::new("mandate"),
+        credential: CredentialId::new(uuid(0xcd)),
+        delegation: None,
+        execution: None,
+        correlation: CorrelationId::new("correlation"),
+    }
+}
+
 #[test]
 fn an_expiry_is_compared_as_an_instant_and_not_as_bytes() {
     // 2026-09-18T20:00:00-05:00 is 2026-09-19T01:00:00Z: later than an instant whose text
@@ -477,13 +511,14 @@ fn an_hour_of_twenty_four_names_no_instant_and_the_last_second_of_a_day_does() {
 #[test]
 fn an_expiry_that_names_no_instant_denies_the_refresh_as_an_invalid_record() {
     let mut log = world();
-    log.record(IdentityEvent::SessionOpened(Session::new(
-        SessionId::new(uuid(25)),
-        principal(),
-        organization_a(),
-        EpochSnapshotRef::new(uuid(10)),
-        Timestamp::new("the thirty-first of Octember"),
-    )));
+    log.record(IdentityEvent::SessionOpened(SessionOpened {
+        id: SessionId::new(uuid(25)),
+        principal_id: principal(),
+        organization_id: organization_a(),
+        connection_id: None,
+        epochs: EpochSnapshotRef::new(uuid(10)),
+        expires_at: Timestamp::new("the thirty-first of Octember"),
+    }));
 
     assert_eq!(
         refresh_session(&log, &SessionId::new(uuid(25)))

@@ -42,13 +42,16 @@
       "mandate-types",
       "mandate-model",
       "mandate-contract",
-      "mandate-testkit"
+      "serde",
+      "mandate-testkit",
+      "serde_json"
     ],
     "mandate-federation": [
       "mandate-types",
       "mandate-model",
       "mandate-identity",
       "mandate-token",
+      "serde",
       "serde_json",
       "ureq",
       "rand",

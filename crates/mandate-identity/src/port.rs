@@ -12,9 +12,14 @@
 //! generation through the type it holds, which is what keeps a non-consuming reader of
 //! this crate non-consuming.
 
-use mandate_types::{DenialReason, EpochSnapshotRef, SecurityEpochTarget, SessionId, Timestamp};
+use mandate_contract::events::MandateFederationFederationAuthenticated;
+use mandate_types::{
+    DenialReason, EpochSnapshotRef, FederationConnectionId, OrganizationId, PrincipalId,
+    SecurityEpochTarget, SessionId, Timestamp, VerifiedContext,
+};
+use serde::{Serialize, Serializer};
 
-use crate::{Denial, Generation, SecurityEpochSnapshot, Session};
+use crate::{Denial, Generation, SecurityEpochSnapshot, Session, SessionOpened, SessionRevoked};
 
 /// The expected version of one target's event stream.
 ///
@@ -114,6 +119,10 @@ pub trait IdentityRead {
 pub trait SecurityEpochWrite {
     /// Advance one target's generation, if the stream is still at `expected`.
     ///
+    /// The verified context is the command's own: `mandate.identity.SecurityEpochIncremented`
+    /// declares `context: input.context`, and this is the operation that appends that
+    /// event, so it is handed the context rather than inventing one.
+    ///
     /// # Errors
     ///
     /// Returns the declared refusal when the stream has moved since it was read, and
@@ -121,20 +130,74 @@ pub trait SecurityEpochWrite {
     /// than wrapping or reusing a generation.
     fn increment(
         &mut self,
+        context: &VerifiedContext,
         target: &SecurityEpochTarget,
         expected: StreamVersion,
     ) -> Result<EpochState, Denial>;
 }
 
+/// `mandate.identity.EpochSnapshotRecorded`: the seeding event of one epoch snapshot.
+///
+/// The declared payload, field for field. It carries **no generation**, because the
+/// declared record carries none — "EpochSnapshotRef is only an immutable record handle,
+/// never an epoch number" (`identity.yaml`, `UNMAPPED-EPOCH`). The per-dimension
+/// generations the addendum requires are the ones the authority held when this event was
+/// recorded, and the fold reads them off the log at that point; see
+/// [`IdentityRead::snapshot`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct EpochSnapshotRecorded {
+    /// The declared `id`: the handle a session refers to the snapshot by.
+    pub id: EpochSnapshotRef,
+    /// The declared `principal_id`.
+    pub principal_id: PrincipalId,
+    /// The declared `organization_id`.
+    pub organization_id: OrganizationId,
+    /// The declared `connection_id`, when the snapshot covers a federation connection.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub connection_id: Option<FederationConnectionId>,
+}
+
+/// `mandate.identity.SecurityEpochRecorded`: one target's generation, as recorded.
+///
+/// **Not a reset**: the authoritative generation never moves backwards. A value below the
+/// one already folded for that target is refused by [`IdentityLog::try_record`] and
+/// ignored by the fold.
+///
+/// At [`Generation::MAX`] the increment denies for that target from then on, and the
+/// out-of-band recovery the architecture names is not a rewind: it is the revocation of
+/// every session whose snapshot names that target. A generation is never reused, so a
+/// snapshot that was once stale is stale forever.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SecurityEpochRecorded {
+    /// The declared `target`: what the generation applies to.
+    pub target: SecurityEpochTarget,
+    /// The declared `generation`, an ESS `Integer` constrained non-negative.
+    #[serde(serialize_with = "declared_integer")]
+    pub generation: Generation,
+}
+
+/// The contract declares `generation` as an ESS `Integer`, so it is written as a JSON
+/// number and not as the opaque value [`Generation`] is in Rust.
+fn declared_integer<S: Serializer>(
+    generation: &Generation,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    serializer.serialize_i64(generation.get())
+}
+
 /// The recorded events this crate folds.
 ///
-/// All five are declared by the contract's `events:` list. `SessionRevoked` and
-/// `SecurityEpochIncremented` always were; `SessionOpened`, `EpochSnapshotRecorded` and
-/// `SecurityEpochRecorded` — the fold inputs that put a session, a snapshot and a
-/// target's first generation into existence — were the crate's own until
-/// `story:event-payloads-for-folds` declared them in `identity.yaml`. While they were
-/// undeclared they carried `#[doc(hidden)]`; they no longer do, because a reader of this
-/// enum can now find every one of them in the contract.
+/// Each variant carries one declared payload, field for field: the payload's fields are
+/// the compiled event's `properties`, with the same names and the same types, which
+/// `crates/mandate-identity/tests/contract_agreement.rs` decides against the generated
+/// shape of the element [`IdentityEvent::ess_name`] answers. `#[serde(untagged)]` is what
+/// makes that true on the wire — a variant serializes as the bare payload object, with no
+/// discriminant wrapping it.
+///
+/// **`Serialize` only, deliberately: this enum does not round-trip and no code should
+/// assume it does.** Under `#[serde(untagged)]` a reader cannot tell one `{context, id}`
+/// payload from another, and reading an event back needs a tagged envelope carrying the
+/// ESS name beside the payload, which belongs to the persistence story.
 ///
 /// What this module ships, exactly: the two port traits, and [`IdentityLog`] as an
 /// in-memory double of the event-log adapter that a later story supplies. Its seeding is
@@ -143,46 +206,119 @@ pub trait SecurityEpochWrite {
 /// [`SecurityEpochWrite::increment`], which is the compare-and-set
 /// `decision-blocker:epoch-atomicity` requires. A caller holding this type can seed a
 /// target at any generation, including [`Generation::MAX`], which is how the overflow
-/// cases are written; what it cannot do is move one backwards, reopen a revoked session
-/// or rewrite a snapshot, because every append goes through the same guards.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// cases are written; what it cannot do is move one backwards, reopen a session identity
+/// any event already names or rewrite a snapshot, because every append goes through the
+/// same guards.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(untagged)]
 pub enum IdentityEvent {
-    /// A session came into existence.
+    /// A session came into existence without a federation connection.
     ///
-    /// `mandate.identity.SessionOpened`. One identity is opened once: a second
-    /// `SessionOpened` for a session the fold already records is refused by
-    /// [`IdentityLog::try_record`] and ignored by the fold, because `Revoked` is
-    /// declared terminal and no transition leaves it.
-    SessionOpened(Session),
+    /// `mandate.identity.SessionOpened`. No command in this contract declares such an
+    /// open and no outcome emits it; it is reserved for the control-plane component that
+    /// publishes it (`identity.yaml`). One identity is opened once: a second
+    /// `SessionOpened` for a session any recorded event already names is refused by
+    /// [`IdentityLog::try_record`] and ignored by the fold, because `Revoked` is declared
+    /// terminal and no transition leaves it.
+    SessionOpened(SessionOpened),
+    /// A session came into existence through a federated login.
+    ///
+    /// `mandate.federation.FederationAuthenticated`, whose accepted outcome **creates**
+    /// `mandate.identity.Session` with `session_id` as its instance (`federation.yaml`).
+    /// The payload "carries the whole Session record ... so the identity fold materializes
+    /// the session from this event alone and reads no command input or response".
+    ///
+    /// It is the *generated* shape and not a hand-written copy: the dependency direction
+    /// is `mandate-federation → mandate-identity` and never the reverse, so this crate
+    /// cannot see `mandate_federation::record::FederationEvent`. `mandate-contract`
+    /// re-exports generated structure and reaches no Mandate domain crate.
+    ///
+    /// The same identity rule applies as to [`IdentityEvent::SessionOpened`], and across
+    /// both: whichever of the two arrives first opens the session, and the second is
+    /// refused.
+    FederationAuthenticated(MandateFederationFederationAuthenticated),
     /// `mandate.identity.SessionRevoked`.
-    SessionRevoked(SessionId),
+    SessionRevoked(SessionRevoked),
     /// An epoch snapshot was recorded for a session to refer to.
     ///
     /// `mandate.identity.EpochSnapshotRecorded`. `EpochSnapshotRef` is an immutable
     /// record handle and `SecurityEpochSnapshot`'s only lifecycle state is `Recorded`, so
     /// a second recording of a handle the fold already holds is refused and ignored.
-    EpochSnapshotRecorded(SecurityEpochSnapshot),
-    /// A target's first generation.
-    ///
-    /// `mandate.identity.SecurityEpochRecorded`, and **not** a reset: the authoritative
-    /// generation never moves backwards. A value below the one already folded for that
-    /// target is refused by [`IdentityLog::try_record`] and ignored by the fold.
-    ///
-    /// At [`Generation::MAX`] the increment denies for that target from then on, and the
-    /// out-of-band recovery the architecture names is not a rewind: it is the revocation
-    /// of every session whose snapshot names that target. A generation is never reused,
-    /// so a snapshot that was once stale is stale forever.
-    SecurityEpochRecorded {
-        /// What the generation applies to.
-        target: SecurityEpochTarget,
-        /// The generation the target is set to.
-        generation: Generation,
-    },
+    EpochSnapshotRecorded(EpochSnapshotRecorded),
+    /// A target's first generation. `mandate.identity.SecurityEpochRecorded`.
+    SecurityEpochRecorded(SecurityEpochRecorded),
     /// `mandate.identity.SecurityEpochIncremented`: one target advanced by exactly one.
-    SecurityEpochIncremented {
-        /// What advanced.
-        target: SecurityEpochTarget,
-    },
+    SecurityEpochIncremented(crate::SecurityEpochIncremented),
+}
+
+impl IdentityEvent {
+    /// The qualified ESS name of the payload this event is.
+    ///
+    /// The match is exhaustive and carries no wildcard arm, so a variant added without a
+    /// name here does not compile.
+    #[must_use]
+    pub fn ess_name(&self) -> &'static str {
+        match self {
+            Self::SessionOpened(_) => "mandate.identity.SessionOpened",
+            Self::FederationAuthenticated(_) => "mandate.federation.FederationAuthenticated",
+            Self::SessionRevoked(_) => "mandate.identity.SessionRevoked",
+            Self::EpochSnapshotRecorded(_) => "mandate.identity.EpochSnapshotRecorded",
+            Self::SecurityEpochRecorded(_) => "mandate.identity.SecurityEpochRecorded",
+            Self::SecurityEpochIncremented(_) => "mandate.identity.SecurityEpochIncremented",
+        }
+    }
+
+    /// The session identity this event names, when it names one.
+    ///
+    /// The match is exhaustive and carries no wildcard arm, so a variant added that names
+    /// a session — and would therefore have to be refused as a second open — does not
+    /// compile until this answers for it.
+    fn names_session(&self) -> Option<SessionId> {
+        match self {
+            Self::SessionOpened(opened) => Some(opened.id),
+            Self::SessionRevoked(revoked) => Some(revoked.id),
+            Self::FederationAuthenticated(login) => declared_session_id(login),
+            Self::EpochSnapshotRecorded(_)
+            | Self::SecurityEpochRecorded(_)
+            | Self::SecurityEpochIncremented(_) => None,
+        }
+    }
+}
+
+/// The session identity a federated login names, when its declared lexical form is one
+/// the contract admits.
+fn declared_session_id(login: &MandateFederationFederationAuthenticated) -> Option<SessionId> {
+    SessionId::parse(&login.session_id.0).ok()
+}
+
+/// The `mandate.identity.Session` a federated login materializes, when every identifier
+/// it carries is in the lexical form the contract declares.
+///
+/// `mandate-contract` states structure and not lexical form — "a Rust type that claimed
+/// them here would be claiming validation it does not do"
+/// (`crates/mandate-contract/src/lib.rs`) — so the form is decided here, once, for **every**
+/// declared field and not only the identifiers: the expiry is an RFC 3339 `date-time` and
+/// is read the same way. A payload that fails any of them is refused by
+/// [`IdentityLog::try_record`] rather than folded into a session the entity's own schema
+/// would refuse.
+fn session_of(login: &MandateFederationFederationAuthenticated) -> Option<Session> {
+    let expires_at = Timestamp::new(login.expires_at.clone());
+    // `expires_at` is a declared `date-time` and is decided exactly as the identifiers
+    // are: the schema refuses a value that names no instant, and a session whose expiry
+    // cannot be read could never be shown unexpired.
+    if !crate::session::names_an_instant(&expires_at) {
+        return None;
+    }
+    Some(
+        Session::new(
+            declared_session_id(login)?,
+            PrincipalId::parse(&login.principal_id.0).ok()?,
+            OrganizationId::parse(&login.organization_id.0).ok()?,
+            EpochSnapshotRef::parse(&login.epochs.0).ok()?,
+            expires_at,
+        )
+        .with_connection(FederationConnectionId::parse(&login.connection_id.0).ok()?),
+    )
 }
 
 /// An event log held in memory, and the fold over it.
@@ -190,16 +326,35 @@ pub enum IdentityEvent {
 /// The SQLite backend the ADR names is `:memory:`-capable for the same reason: what is
 /// proved over this fold is proved over the deployment's.
 ///
+/// # What the host owes this log, in order
+///
+/// A session's `epochs` handle must already be recorded when the session is opened:
+/// append `mandate.identity.EpochSnapshotRecorded` for the snapshot **before** the
+/// `SessionOpened` or `mandate.federation.FederationAuthenticated` that names it. An
+/// opening that arrives first is refused ([`IdentityLog::try_record`]) rather than
+/// admitted, because the snapshot carries no generation of its own and the fold reads each
+/// dimension off the log at the recording's position — so the two orders do not describe
+/// the same session.
+///
+/// A target's generation is stated the same way and is enforced the same way: every
+/// dimension a snapshot names — the principal, the organization and the connection when it
+/// carries one — must already have a `SecurityEpochRecorded` (or an increment) in the log,
+/// **including when its generation is zero**, or the recording is refused. A generation
+/// that arrives after a snapshot bound it at zero is indistinguishable from the authority
+/// advancing, and it makes every session on that snapshot permanently stale.
+///
 /// Every append is guarded, because there is no other way to reach the events. The
 /// vector is not exposed for writing:
 ///
 /// ```compile_fail
-/// use mandate_identity::{IdentityEvent, IdentityLog};
+/// use mandate_identity::{IdentityEvent, IdentityLog, SessionRevoked};
 /// use mandate_types::{SessionId, Uuid};
 ///
 /// let mut log = IdentityLog::new();
-/// log.events()
-///     .push(IdentityEvent::SessionRevoked(SessionId::new(Uuid::from_bytes([20; 16]))));
+/// log.events().push(IdentityEvent::SessionRevoked(SessionRevoked {
+///     context: todo!(),
+///     id: SessionId::new(Uuid::from_bytes([20; 16])),
+/// }));
 /// ```
 ///
 /// and the type cannot be assembled around it either:
@@ -212,7 +367,7 @@ pub enum IdentityEvent {
 ///     as_of: None,
 /// };
 /// ```
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct IdentityLog {
     events: Vec<IdentityEvent>,
     as_of: Option<Timestamp>,
@@ -276,38 +431,101 @@ impl IdentityLog {
     /// on one is a guard on the order they arrived in.
     fn refusal(&self, event: &IdentityEvent) -> Option<Denial> {
         let refused = match event {
-            IdentityEvent::SecurityEpochRecorded { target, generation } => {
-                let state = self.current(target);
+            IdentityEvent::SecurityEpochRecorded(recorded) => {
+                let state = self.current(&recorded.target);
                 // A first recording seeds the target. Afterwards a recording must move
                 // the generation: one that does not is not an event, and appending it
                 // would consume a stream version and invalidate every concurrent
                 // writer's compare-and-set token for nothing.
-                state.version() > StreamVersion::INITIAL && *generation <= state.generation()
+                state.version() > StreamVersion::INITIAL
+                    && recorded.generation <= state.generation()
             }
+            // Two rules, both on the two opening events.
+            //
             // `Revoked` is terminal for the identity, not for one projection of it: an
-            // identity any recorded event names has been opened once already.
-            IdentityEvent::SessionOpened(session) => self.records_session(session.id()),
-            IdentityEvent::EpochSnapshotRecorded(snapshot) => self.records_snapshot(snapshot.id()),
-            IdentityEvent::SessionRevoked(_) | IdentityEvent::SecurityEpochIncremented { .. } => {
-                false
+            // identity any recorded event names has been opened once already. The two
+            // opening events are one rule here, not two: a session opened by a federated
+            // login is not opened again by a `SessionOpened`, or the other way round.
+            //
+            // And the snapshot the `epochs` handle names must already be recorded. The
+            // handle is what every eligibility decision resolves through, and
+            // `mandate.identity.EpochSnapshotRecorded` carries no generation: the fold
+            // binds each dimension to what the authority held **at the position the
+            // recording appears at**. A recording that lands after the session it is
+            // named by would therefore bind a generation the session was never issued
+            // against — an increment between the two would be invisible — so an opening
+            // whose handle the log does not yet record is refused rather than folded into
+            // a session whose epochs are decided by an ordering nobody stated. The
+            // ordering obligation this puts on the host is stated on [`IdentityLog`].
+            // That the contract carries no generation on the snapshot at all stays filed
+            // under `decision-blocker:epoch`.
+            IdentityEvent::SessionOpened(opened) => {
+                // Every declared form this payload carries, decided exactly as the login
+                // arm decides the same fields. The identifiers are parsed types here —
+                // `SessionId`, `PrincipalId`, `OrganizationId`, `EpochSnapshotRef` cannot
+                // hold a form the contract refuses — and `expires_at` is a `Timestamp`,
+                // which carries a lexical form verbatim, so it is the one field a host can
+                // get wrong. A payload the closed schema refuses is never appended.
+                !crate::session::names_an_instant(&opened.expires_at)
+                    || self.records_session(&opened.id)
+                    || !self.records_snapshot(&opened.epochs)
             }
+            IdentityEvent::FederationAuthenticated(login) => {
+                // A payload whose declared forms are not the ones the contract admits
+                // materializes no session, and appending it would record a login the fold
+                // could never resolve. Fail closed.
+                match session_of(login) {
+                    None => true,
+                    Some(session) => {
+                        self.records_session(session.id())
+                            || !self.records_snapshot(session.epochs())
+                    }
+                }
+            }
+            IdentityEvent::EpochSnapshotRecorded(snapshot) => {
+                self.records_snapshot(&snapshot.id) || !self.records_every_dimension(snapshot)
+            }
+            IdentityEvent::SessionRevoked(_) | IdentityEvent::SecurityEpochIncremented(_) => false,
         };
         refused.then(|| Denial::new(DenialReason::Denied))
     }
 
     /// Whether any recorded event names this session identity.
     fn records_session(&self, id: &SessionId) -> bool {
-        self.events.iter().any(|event| match event {
-            IdentityEvent::SessionOpened(session) => session.id() == id,
-            IdentityEvent::SessionRevoked(revoked) => revoked == id,
-            _ => false,
-        })
+        self.events
+            .iter()
+            .any(|event| event.names_session().as_ref() == Some(id))
+    }
+
+    /// Whether the log states a generation for every dimension a snapshot names.
+    ///
+    /// The second half of the ordering obligation [`IdentityLog`] documents. The snapshot
+    /// carries no generation of its own, so the fold binds each dimension to what the log
+    /// says was in force at the recording's position: a dimension the log has said nothing
+    /// about yet binds [`Generation::ZERO`], and a `SecurityEpochRecorded` for it landing
+    /// afterwards is indistinguishable from the authority advancing — it makes every
+    /// session on that snapshot permanently stale, which is a failure no caller can act on.
+    /// So the generation is stated first, explicitly, including when it is zero.
+    ///
+    /// "States a generation" is the stream having moved at all, which an increment does as
+    /// well as a recording: both are the authority speaking about that target.
+    fn records_every_dimension(&self, snapshot: &EpochSnapshotRecorded) -> bool {
+        let mut dimensions = vec![
+            SecurityEpochTarget::Principal(snapshot.principal_id),
+            SecurityEpochTarget::Organization(snapshot.organization_id),
+        ];
+        if let Some(connection) = snapshot.connection_id {
+            dimensions.push(SecurityEpochTarget::Federation(connection));
+        }
+        dimensions
+            .iter()
+            .all(|target| self.current(target).version() > StreamVersion::INITIAL)
     }
 
     /// Whether any recorded event names this snapshot handle.
     fn records_snapshot(&self, id: &EpochSnapshotRef) -> bool {
         self.events.iter().any(|event| match event {
-            IdentityEvent::EpochSnapshotRecorded(snapshot) => snapshot.id() == id,
+            IdentityEvent::EpochSnapshotRecorded(snapshot) => snapshot.id == *id,
             _ => false,
         })
     }
@@ -320,18 +538,28 @@ impl IdentityLog {
 }
 
 impl IdentityRead for IdentityLog {
+    /// The session an event opened and every later event moved.
+    ///
+    /// Two events open one: `mandate.identity.SessionOpened` for a session opened without
+    /// a federation connection, and `mandate.federation.FederationAuthenticated` for the
+    /// federated login, whose accepted outcome creates the record. Both carry the whole
+    /// declared record, so the fold materializes it from the event alone and consults no
+    /// command input, no response and no request context.
     fn resolve(&self, id: &SessionId) -> Option<Session> {
         let mut resolved: Option<Session> = None;
         for event in &self.events {
             match event {
-                IdentityEvent::SessionOpened(session)
-                    if session.id() == id && resolved.is_none() =>
-                {
+                IdentityEvent::SessionOpened(opened) if opened.id == *id && resolved.is_none() => {
                     // `Revoked` is declared terminal and no transition leaves it, so a
                     // replayed open of a session the fold already holds changes nothing.
-                    resolved = Some(session.clone());
+                    resolved = Some(opened.session());
                 }
-                IdentityEvent::SessionRevoked(revoked) if revoked == id => {
+                IdentityEvent::FederationAuthenticated(login) if resolved.is_none() => {
+                    if let Some(session) = session_of(login).filter(|s| s.id() == id) {
+                        resolved = Some(session);
+                    }
+                }
+                IdentityEvent::SessionRevoked(revoked) if revoked.id == *id => {
                     resolved = resolved.map(Session::revoke);
                 }
                 _ => {}
@@ -341,59 +569,93 @@ impl IdentityRead for IdentityLog {
     }
 
     fn current(&self, target: &SecurityEpochTarget) -> EpochState {
-        let mut generation = Generation::ZERO;
-        let mut version = StreamVersion::INITIAL;
-        for event in &self.events {
-            match event {
-                IdentityEvent::SecurityEpochRecorded {
-                    target: recorded,
-                    generation: value,
-                } if recorded == target => {
-                    // The authoritative generation never moves backwards, whoever built
-                    // the log: a recorded value below the folded one is not applied.
-                    if *value > generation {
-                        generation = *value;
-                    }
-                    version = version.advance();
-                }
-                IdentityEvent::SecurityEpochIncremented {
-                    target: incremented,
-                } if incremented == target => {
-                    // The write port refuses to advance past the maximum, so no log it
-                    // produced holds this event at the maximum; a hand-recorded one that
-                    // does holds there rather than wrapping.
-                    generation = generation.advance().unwrap_or(generation);
-                    version = version.advance();
-                }
-                _ => {}
-            }
-        }
-        EpochState::new(generation, version)
+        generations_at(&self.events, target)
     }
 
     fn as_of(&self) -> Option<Timestamp> {
         self.as_of.clone()
     }
 
+    /// The snapshot a handle refers to, with the generations the authority held when it
+    /// was recorded.
+    ///
+    /// `mandate.identity.EpochSnapshotRecorded` declares the record's own fields and no
+    /// generation, because the declared record carries none. The per-dimension values the
+    /// addendum requires are therefore read off the log: a snapshot binds what each of its
+    /// dimensions was at the position the recording appears at, which is what "the
+    /// generations a session was issued against" means for a log. Nothing invents them,
+    /// and a replay of the same log binds the same values.
     fn snapshot(&self, id: &EpochSnapshotRef) -> Option<SecurityEpochSnapshot> {
-        let mut resolved: Option<SecurityEpochSnapshot> = None;
-        for event in &self.events {
+        for (position, event) in self.events.iter().enumerate() {
             // An `EpochSnapshotRef` is an immutable record handle: the first recording
             // of it is the record, and a later one does not rewrite it.
-            if let IdentityEvent::EpochSnapshotRecorded(snapshot) = event
-                && snapshot.id() == id
-                && resolved.is_none()
-            {
-                resolved = Some(snapshot.clone());
+            let IdentityEvent::EpochSnapshotRecorded(recorded) = event else {
+                continue;
+            };
+            if recorded.id != *id {
+                continue;
             }
+            let held = &self.events[..position];
+            let snapshot = SecurityEpochSnapshot::new(
+                recorded.id,
+                recorded.principal_id,
+                generations_at(held, &SecurityEpochTarget::Principal(recorded.principal_id))
+                    .generation(),
+                recorded.organization_id,
+                generations_at(
+                    held,
+                    &SecurityEpochTarget::Organization(recorded.organization_id),
+                )
+                .generation(),
+            );
+            return Some(match recorded.connection_id {
+                Some(connection) => snapshot.with_federation(
+                    connection,
+                    generations_at(held, &SecurityEpochTarget::Federation(connection)).generation(),
+                ),
+                None => snapshot,
+            });
         }
-        resolved
+        None
     }
+}
+
+/// One target's authoritative generation over a run of events, and the version it is at.
+///
+/// The whole log answers [`IdentityRead::current`]; a prefix of it answers what a snapshot
+/// recorded at that point was issued against.
+fn generations_at(events: &[IdentityEvent], target: &SecurityEpochTarget) -> EpochState {
+    let mut generation = Generation::ZERO;
+    let mut version = StreamVersion::INITIAL;
+    for event in events {
+        match event {
+            IdentityEvent::SecurityEpochRecorded(recorded) if recorded.target == *target => {
+                // The authoritative generation never moves backwards, whoever built the
+                // log: a recorded value below the folded one is not applied.
+                if recorded.generation > generation {
+                    generation = recorded.generation;
+                }
+                version = version.advance();
+            }
+            IdentityEvent::SecurityEpochIncremented(incremented)
+                if incremented.target() == target =>
+            {
+                // The write port refuses to advance past the maximum, so no log it
+                // produced holds this event at the maximum; a hand-recorded one that
+                // does holds there rather than wrapping.
+                generation = generation.advance().unwrap_or(generation);
+                version = version.advance();
+            }
+            _ => {}
+        }
+    }
+    EpochState::new(generation, version)
 }
 
 impl SecurityEpochWrite for IdentityLog {
     fn increment(
         &mut self,
+        context: &VerifiedContext,
         target: &SecurityEpochTarget,
         expected: StreamVersion,
     ) -> Result<EpochState, Denial> {
@@ -408,9 +670,9 @@ impl SecurityEpochWrite for IdentityLog {
         if version <= state.version() {
             return Err(Denial::new(DenialReason::Unavailable));
         }
-        self.append(IdentityEvent::SecurityEpochIncremented {
-            target: target.clone(),
-        });
+        self.append(IdentityEvent::SecurityEpochIncremented(
+            crate::SecurityEpochIncremented::new(context.clone(), target.clone()),
+        ));
         Ok(EpochState::new(generation, version))
     }
 }

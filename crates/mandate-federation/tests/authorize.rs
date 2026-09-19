@@ -19,13 +19,16 @@ use mandate_federation::authorize::{
 use mandate_federation::pkce::{PkceDigest, StandInDigest};
 use mandate_federation::publicclient::{OAuthClientStore, RecordedClients};
 use mandate_federation::record::{OAuthClient, OAuthClientState, Projection};
-use mandate_federation::{DenialClause, RequestContext};
-use mandate_identity::{Generation, IdentityEvent, IdentityLog, SecurityEpochSnapshot, Session};
+use mandate_federation::{DenialClause, RefusedOutcome, RequestContext};
+use mandate_identity::{
+    EpochSnapshotRecorded, Generation, IdentityEvent, IdentityLog, SecurityEpochIncremented,
+    SecurityEpochRecorded, Session, SessionOpened, SessionRevoked,
+};
 use mandate_types::value::Uuid;
 use mandate_types::{
     Action, Audience, AuthorityScope, AuthorizationCodeId, CorrelationId, CredentialId,
     CredentialProof, DenialReason, OAuthClientId, OrganizationId, PkceMethod, PrincipalId,
-    RedirectUri, ResourceServerId, SecurityEpochTarget, SessionId, Timestamp,
+    RedirectUri, ResourceServerId, SecurityEpochTarget, SessionId, Timestamp, VerifiedContext,
 };
 
 const REGISTERED: &str = "https://app.example/callback";
@@ -45,6 +48,24 @@ fn organization() -> OrganizationId {
 
 fn principal() -> PrincipalId {
     PrincipalId::new(uuid(0xa1))
+}
+
+/// The verified context the two identity-domain events declare.
+///
+/// `mandate.identity.SessionRevoked` and `mandate.identity.SecurityEpochIncremented` each
+/// declare a `mandate.core.VerifiedContext` (`context: input.context`), so a case that
+/// records one carries it.
+fn identity_context() -> VerifiedContext {
+    VerifiedContext {
+        subject: principal(),
+        actor: None,
+        organization: organization(),
+        audience: Audience::new("mandate"),
+        credential: CredentialId::new(uuid(0xcd)),
+        delegation: None,
+        execution: None,
+        correlation: CorrelationId::new("federation-alignment"),
+    }
 }
 
 fn session_id() -> SessionId {
@@ -112,30 +133,34 @@ fn clients() -> RecordedClients {
 fn sessions() -> IdentityLog {
     let handle = mandate_types::EpochSnapshotRef::new(uuid(0x3e));
     let mut log = IdentityLog::new();
-    log.record(IdentityEvent::SecurityEpochRecorded {
-        target: SecurityEpochTarget::Principal(principal()),
-        generation: Generation::new(3).expect("a declared generation"),
-    });
-    log.record(IdentityEvent::SecurityEpochRecorded {
-        target: SecurityEpochTarget::Organization(organization()),
-        generation: Generation::new(2).expect("a declared generation"),
-    });
-    log.record(IdentityEvent::EpochSnapshotRecorded(
-        SecurityEpochSnapshot::new(
-            handle,
-            principal(),
-            Generation::new(3).expect("a declared generation"),
-            organization(),
-            Generation::new(2).expect("a declared generation"),
-        ),
+    log.record(IdentityEvent::SecurityEpochRecorded(
+        SecurityEpochRecorded {
+            target: SecurityEpochTarget::Principal(principal()),
+            generation: Generation::new(3).expect("a declared generation"),
+        },
     ));
-    log.record(IdentityEvent::SessionOpened(Session::new(
-        session_id(),
-        principal(),
-        organization(),
-        handle,
-        Timestamp::new("2026-12-31T00:00:00Z"),
-    )));
+    log.record(IdentityEvent::SecurityEpochRecorded(
+        SecurityEpochRecorded {
+            target: SecurityEpochTarget::Organization(organization()),
+            generation: Generation::new(2).expect("a declared generation"),
+        },
+    ));
+    log.record(IdentityEvent::EpochSnapshotRecorded(
+        EpochSnapshotRecorded {
+            id: handle,
+            principal_id: principal(),
+            organization_id: organization(),
+            connection_id: None,
+        },
+    ));
+    log.record(IdentityEvent::SessionOpened(SessionOpened {
+        id: session_id(),
+        principal_id: principal(),
+        organization_id: organization(),
+        connection_id: None,
+        epochs: handle,
+        expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+    }));
     log
 }
 
@@ -278,6 +303,13 @@ fn a_previously_redeemed_code_is_refused() {
 
     assert_eq!(denied.reason, DenialReason::Denied);
     assert_eq!(denied.clause, DenialClause::CodePreviouslyRedeemed);
+    // The refusal names which declared outcome it is, and `AuthorizePublicClient` — the
+    // element this handler realizes — declares `accepted` and `denied` alone, because it
+    // is non-consuming and moves no record. The code record's own terminal state is
+    // `mandate.credential.RedeemAuthorizationCode`'s `wrong-state` outcome, which the STS
+    // transaction returns (`story:oauth-integration`).
+    assert_eq!(denied.outcome, RefusedOutcome::Denied);
+    assert_eq!(denied.outcome.ir_name(), "denied");
 }
 
 #[test]
@@ -528,7 +560,10 @@ fn a_session_the_identity_read_does_not_resolve_is_refused() {
 #[test]
 fn a_revoked_session_is_refused() {
     let mut identity = sessions();
-    identity.record(IdentityEvent::SessionRevoked(session_id()));
+    identity.record(IdentityEvent::SessionRevoked(SessionRevoked {
+        context: identity_context(),
+        id: session_id(),
+    }));
 
     let denied = validate_authorization_code(
         &input(),
@@ -547,9 +582,12 @@ fn a_revoked_session_is_refused() {
 #[test]
 fn a_session_whose_epoch_snapshot_is_stale_is_refused() {
     let mut identity = sessions();
-    identity.record(IdentityEvent::SecurityEpochIncremented {
-        target: SecurityEpochTarget::Organization(organization()),
-    });
+    identity.record(IdentityEvent::SecurityEpochIncremented(
+        SecurityEpochIncremented::new(
+            identity_context(),
+            SecurityEpochTarget::Organization(organization()),
+        ),
+    ));
 
     let denied = validate_authorization_code(
         &input(),
@@ -734,50 +772,103 @@ fn the_code_expiry_reading_agrees_with_the_session_expiry_reading() {
 #[test]
 fn a_session_whose_epoch_snapshot_does_not_resolve_is_refused() {
     let unrecorded = mandate_types::EpochSnapshotRef::new(uuid(0x3f));
-    let mut dangling = IdentityLog::new();
-    dangling.record(IdentityEvent::SessionOpened(Session::new(
-        session_id(),
-        principal(),
-        organization(),
-        unrecorded,
-        Timestamp::new("2026-12-31T00:00:00Z"),
-    )));
+    // `mandate_identity::IdentityLog` refuses an opening whose snapshot handle it does not
+    // already record, so a dangling handle cannot be reached through *that* store. This
+    // command reads a port, and an adapter over another store can answer a session that
+    // fold would never have built, so the port is answered directly here. The refusal is
+    // the command's, and it is the half this case is about.
+    struct Dangling(mandate_identity::Session);
+
+    impl mandate_identity::IdentityRead for Dangling {
+        fn resolve(&self, id: &SessionId) -> Option<mandate_identity::Session> {
+            (self.0.id() == id).then(|| self.0.clone())
+        }
+
+        fn current(&self, _target: &SecurityEpochTarget) -> mandate_identity::EpochState {
+            mandate_identity::EpochState::new(
+                Generation::ZERO,
+                mandate_identity::StreamVersion::INITIAL,
+            )
+        }
+
+        fn snapshot(
+            &self,
+            _id: &mandate_types::EpochSnapshotRef,
+        ) -> Option<mandate_identity::SecurityEpochSnapshot> {
+            None
+        }
+
+        fn as_of(&self) -> Option<Timestamp> {
+            Some(Timestamp::new(NOW))
+        }
+    }
+
+    let dangling = Dangling(
+        SessionOpened {
+            id: session_id(),
+            principal_id: principal(),
+            organization_id: organization(),
+            connection_id: None,
+            epochs: unrecorded,
+            expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+        }
+        .session(),
+    );
 
     let mut misbound = IdentityLog::new();
-    misbound.record(IdentityEvent::EpochSnapshotRecorded(
-        SecurityEpochSnapshot::new(
-            unrecorded,
-            PrincipalId::new(uuid(0xa2)),
-            Generation::ZERO,
-            organization(),
-            Generation::ZERO,
-        ),
-    ));
-    misbound.record(IdentityEvent::SessionOpened(Session::new(
-        session_id(),
-        principal(),
-        organization(),
-        unrecorded,
-        Timestamp::new("2026-12-31T00:00:00Z"),
-    )));
-
-    for (identity, reason) in [
-        (dangling, DenialReason::Denied),
-        (misbound, DenialReason::TenantMismatch),
+    // The dimensions the snapshot names state their generation first: `IdentityLog`
+    // refuses a recording whose dimensions the log has said nothing about.
+    for target in [
+        SecurityEpochTarget::Principal(PrincipalId::new(uuid(0xa2))),
+        SecurityEpochTarget::Organization(organization()),
     ] {
-        let denied = validate_authorization_code(
-            &input(),
-            &request(),
-            &clients(),
-            &clients(),
-            &identity,
-            &StandInDigest,
-        )
-        .expect_err("a session whose snapshot does not resolve is not an eligible one");
-
-        assert_eq!(denied.reason, reason);
-        assert_eq!(denied.clause, DenialClause::SessionEpochUnresolved);
+        misbound.record(IdentityEvent::SecurityEpochRecorded(
+            SecurityEpochRecorded {
+                target,
+                generation: Generation::ZERO,
+            },
+        ));
     }
+    misbound.record(IdentityEvent::EpochSnapshotRecorded(
+        EpochSnapshotRecorded {
+            id: unrecorded,
+            principal_id: PrincipalId::new(uuid(0xa2)),
+            organization_id: organization(),
+            connection_id: None,
+        },
+    ));
+    misbound.record(IdentityEvent::SessionOpened(SessionOpened {
+        id: session_id(),
+        principal_id: principal(),
+        organization_id: organization(),
+        connection_id: None,
+        epochs: unrecorded,
+        expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+    }));
+
+    let unresolved = validate_authorization_code(
+        &input(),
+        &request(),
+        &clients(),
+        &clients(),
+        &dangling,
+        &StandInDigest,
+    )
+    .expect_err("a session whose snapshot does not resolve is not an eligible one");
+    assert_eq!(unresolved.reason, DenialReason::Denied);
+    assert_eq!(unresolved.clause, DenialClause::SessionEpochUnresolved);
+
+    let bound_elsewhere = validate_authorization_code(
+        &input(),
+        &request(),
+        &clients(),
+        &clients(),
+        &misbound,
+        &StandInDigest,
+    )
+    .expect_err("a snapshot bound to another subject is not this session's");
+    assert_eq!(bound_elsewhere.reason, DenialReason::TenantMismatch);
+    assert_eq!(bound_elsewhere.clause, DenialClause::SessionEpochUnresolved);
 }
 
 /// The declared denial of `AuthorizePublicClient` (`federation.yaml:298`) names seven
