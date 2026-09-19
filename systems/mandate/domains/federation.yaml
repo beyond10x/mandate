@@ -292,7 +292,7 @@ commands:
               response: principal_id
             kind: User
             display_name:
-              generated: true
+              response: display_name
             external_principal_id:
               response: external_principal_id
             subject:
@@ -302,7 +302,7 @@ commands:
               generated: true
         creates: mandate.federation.ExternalPrincipal
         instance: external_principal_id
-        summary: "Just-in-time provisioning on first login. The outcome creates exactly one record, the mandate.federation.ExternalPrincipal linking the principal with ExternalLinkMethod::ConfiguredFederation. The event also names the mandate.identity.Principal of kind User the provisioning produced, and no outcome in this contract declares that Principal's creation. Both identities and the external subject are bound from the response rather than left to the implementation. The composite key is (organization, connection issuer, external subject), with the issuer read from the validated connection and the subject from the validated proof, never from the caller. No session is minted here; the adapter calls AuthenticateFederation again."
+        summary: "Just-in-time provisioning on first login. The outcome creates exactly one record, the mandate.federation.ExternalPrincipal linking the principal with ExternalLinkMethod::ConfiguredFederation. The event also names the mandate.identity.Principal of kind User the provisioning produced, and no outcome in this contract declares that Principal's creation. Both identities, the external subject and the display name are bound from the response rather than left to the implementation; the display name is the validated subject until a connection admits a display-name claim, which no connection declares yet (story:federation-linking). The composite key is (organization, connection issuer, external subject), with the issuer read from the validated connection and the subject from the validated proof, never from the caller. No session is minted here; the adapter calls AuthenticateFederation again."
       - name: denied
         external: Connection is disabled/untrusted, proof signature/issuer/audience/expiry is invalid, tenant resolution has zero or multiple matches, principal linking is conflicting, connection does not admit provisioning, the composite (organization, configured issuer, subject) key already exists, or any email-domain/unverified-input fallback would be required.
         error: mandate.federation.Denied
@@ -315,6 +315,8 @@ commands:
         type: mandate.core.OrganizationId
       - name: subject
         type: mandate.core.ExternalSubject
+      - name: display_name
+        type: String
   - name: mandate.federation.AuthorizePublicClient
     input:
       - name: client_id
@@ -364,6 +366,41 @@ commands:
         type: mandate.core.AuthorizationCodeId
       - name: code
         type: mandate.core.CredentialSecret
+  - name: mandate.federation.RegisterOAuthClient
+    input:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: public
+        type: Boolean
+      - name: redirect_uris
+        type: List<mandate.core.RedirectUri>
+      - name: pkce_method
+        type: mandate.core.PkceMethod
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.federation.OAuthClientRegistered
+        payload:
+          mandate.federation.OAuthClientRegistered:
+            context: input.context
+            id:
+              response: id
+            organization_id:
+              response: organization_id
+            public: input.public
+            redirect_uris: input.redirect_uris
+            pkce_method: input.pkce_method
+        creates: mandate.federation.OAuthClient
+        instance: id
+        summary: The client is bound to the organization the verified context carries; the command takes no organization input, so no caller selects the tenant a client is registered into. OAuthClientRegistered carries the whole mandate.federation.OAuthClient record — the client identity, its organization, whether it is a public client, its exact redirect set and its PKCE method — so the federation fold materializes the client from this event alone and reads no command input or response. The identity and the organization are the ones this outcome decided and returned, read from the response rather than from a value the implementation invented. An empty redirect set is admitted and is not a denial — the client it registers is inert, because AuthorizePublicClient matches the presented redirect against the registered set exactly and an empty set matches nothing, so every authorization request to that client is refused. mandate.core.PkceMethod admits S256 and nothing else, so no registration can name another method and none is refused for naming one. A registration whose redirect surface or PKCE method must change is disabled and registered again; there is no update command.
+      - name: denied
+        external: Caller lacks client-administration authority, a redirect URI is unadmitted, or organization binding is invalid.
+        error: mandate.federation.Denied
+    response:
+      - name: id
+        type: mandate.core.OAuthClientId
+      - name: organization_id
+        type: mandate.core.OrganizationId
   - name: mandate.federation.DisableOAuthClient
     input:
       - name: id
@@ -492,6 +529,20 @@ events:
         type: mandate.core.ResourceServerId
       - name: requested_scope
         type: mandate.core.AuthorityScope
+  - name: mandate.federation.OAuthClientRegistered
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: id
+        type: mandate.core.OAuthClientId
+      - name: organization_id
+        type: mandate.core.OrganizationId
+      - name: public
+        type: Boolean
+      - name: redirect_uris
+        type: List<mandate.core.RedirectUri>
+      - name: pkce_method
+        type: mandate.core.PkceMethod
   - name: mandate.federation.OAuthClientDisabled
     fields:
       - name: context
