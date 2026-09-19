@@ -1,0 +1,7 @@
+{
+  "crate": "mandate-sts",
+  "test_target": "store",
+  "test": "a_redemption_after_the_terminal_state_writes_nothing",
+  "kill": "test-fails",
+  "anchor": "services/sts/src/store.rs:328"
+}

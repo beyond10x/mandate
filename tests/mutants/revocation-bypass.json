@@ -1,0 +1,7 @@
+{
+  "crate": "mandate-sts",
+  "test_target": "binding",
+  "test": "each_way_a_session_fails_the_re_read_names_a_declared_clause",
+  "kill": "test-fails",
+  "anchor": "services/sts/src/binding.rs:267"
+}

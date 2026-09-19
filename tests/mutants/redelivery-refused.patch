@@ -1,0 +1,16 @@
+diff --git a/services/sts/src/store.rs b/services/sts/src/store.rs
+--- a/services/sts/src/store.rs
++++ b/services/sts/src/store.rs
+@@ -325,9 +325,10 @@ impl CodeProjection {
+                 // read the record from. The *command* is refused through the declared
+                 // `wrong-state` outcome ([`crate::redemption`]); this is the fold's half of
+                 // the same rule.
+-                if code.state == AuthorizationCodeState::Issued {
+-                    code.state = AuthorizationCodeState::Consumed;
++                if code.state != AuthorizationCodeState::Issued {
++                    return Err(CodeFoldError::UnknownAuthorizationCode { id: *code_id });
+                 }
++                code.state = AuthorizationCodeState::Consumed;
+             }
+         }
+         Ok(())

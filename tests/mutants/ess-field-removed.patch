@@ -1,0 +1,21 @@
+diff --git a/systems/mandate/domains/credential.yaml b/systems/mandate/domains/credential.yaml
+--- a/systems/mandate/domains/credential.yaml
++++ b/systems/mandate/domains/credential.yaml
+@@ -232,8 +232,6 @@ commands:
+               response: credential_id
+             reference_verifier:
+               generated: true
+-            epochs:
+-              response: epochs
+             issued_at:
+               generated: true
+             descriptor:
+@@ -607,8 +605,6 @@ events:
+         type: mandate.core.CredentialId
+       - name: reference_verifier
+         type: Optional<mandate.core.CredentialVerifier>
+-      - name: epochs
+-        type: Optional<mandate.core.EpochSnapshotRef>
+       - name: issued_at
+         type: Timestamp
+       - name: descriptor

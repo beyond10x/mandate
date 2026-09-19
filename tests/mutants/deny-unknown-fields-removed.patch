@@ -1,0 +1,11 @@
+diff --git a/xtask/src/emit.rs b/xtask/src/emit.rs
+--- a/xtask/src/emit.rs
++++ b/xtask/src/emit.rs
+@@ -729,7 +729,6 @@ impl<'a> Emitter<'a> {
+         let mut out = String::new();
+         writeln!(out, "/// `{declared}` — {kind}.")?;
+         out.push_str(DERIVE);
+-        out.push_str("#[serde(deny_unknown_fields)]\n");
+         if fields.is_empty() {
+             writeln!(out, "pub struct {rust} {{}}")?;
+             return Ok(out);
