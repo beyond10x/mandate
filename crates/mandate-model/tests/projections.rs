@@ -6,6 +6,21 @@
 //! enters `conformance::entries()`. What holds that claim up is here: the registry is
 //! still exactly wave 1's four records, `Owner::Model` is still 4, and each projection is
 //! checked against the compiled entity in `generated/schema/entities` instead.
+//!
+//! The key-set comparison this file used to carry —
+//! `every_projection_encodes_exactly_the_fields_its_compiled_entity_declares` — read the
+//! emitted keys against the compiled entity's `properties` and `required` lists and read
+//! no value at all. `crates/mandate-model/tests/contract_agreement.rs` decides the same
+//! six against the generated `mandate_contract` record as a round trip, which refuses the
+//! same two things and every undeclared *value* besides, over every state each projection
+//! holds rather than one sample each. The `x-ess-kind`, `additionalProperties` and
+//! sample-coverage assertions that case also carried are kept, in
+//! `every_projected_state_is_a_variant_the_compiled_state_enum_declares` below.
+//!
+//! Everything else here stays, and one of them is what the round trip cannot see: a
+//! declared optional the projection never writes is a document the contract admits, so
+//! `an_absent_optional_field_is_not_written_and_a_present_one_round_trips` is the only
+//! case in this crate that turns red for it.
 
 use mandate_model::conformance;
 use mandate_model::graph::{Resource, ResourceState};
@@ -169,12 +184,12 @@ fn no_projection_this_story_declares_is_an_accepted_type() {
 }
 
 #[test]
-fn every_projection_encodes_exactly_the_fields_its_compiled_entity_declares() {
+fn every_projected_state_is_a_variant_the_compiled_state_enum_declares() {
     let samples = encoded_samples();
     let names: Vec<&str> = samples.iter().map(|(name, _)| *name).collect();
     assert_eq!(names, PROJECTED, "every projected entity has a sample");
 
-    for (ess_name, encoded) in &samples {
+    for (ess_name, encoded) in samples {
         let schema = entity(ess_name);
         assert_eq!(schema["x-ess-kind"], "entity", "{ess_name}");
         assert_eq!(
@@ -182,31 +197,6 @@ fn every_projection_encodes_exactly_the_fields_its_compiled_entity_declares() {
             serde_json::Value::Bool(false),
             "{ess_name}"
         );
-        let value: serde_json::Value = serde_json::from_str(encoded).expect("the encoded form");
-        let object = value.as_object().expect("encodes as a JSON object");
-        let properties = schema["properties"]
-            .as_object()
-            .expect("the declared properties");
-        for key in object.keys() {
-            assert!(
-                properties.contains_key(key),
-                "{ess_name}: undeclared field {key}"
-            );
-        }
-        for required in schema["required"].as_array().expect("the required list") {
-            let required = required.as_str().expect("a required name");
-            assert!(
-                object.contains_key(required),
-                "{ess_name}: missing {required}"
-            );
-        }
-    }
-}
-
-#[test]
-fn every_projected_state_is_a_variant_the_compiled_state_enum_declares() {
-    for (ess_name, encoded) in encoded_samples() {
-        let schema = entity(ess_name);
         let declared = schema["$defs"][format!("{ess_name}.State")]["enum"]
             .as_array()
             .unwrap_or_else(|| panic!("{ess_name}: no compiled state enum"))

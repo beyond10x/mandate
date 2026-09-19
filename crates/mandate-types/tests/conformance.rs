@@ -1,10 +1,66 @@
-//! Round-trip conformance for every `mandate.core` type realized in `mandate-types`.
+//! Round-trip conformance for every type the compiled index declares.
 //!
 //! Every case is decided against `generated/schema/types`, the ESS projection that
 //! `cargo xtask contracts` byte-compares. Nothing here asserts runtime enforcement.
+//!
+//! The index holds 110 entries: the 74 authored `mandate.core` types, which
+//! `mandate_types::conformance::cases()` realizes and the cases below decide, and the 36
+//! derived `<Entity>.State` enums, which join the same account at the end of this file.
+//!
+//! # The rule the state account applies, and exactly what it covers
+//!
+//! **A `.State` enum has no hand-written representation in `mandate-types`, and none is
+//! invented for it.** The macros in `crates/mandate-types/src/macros.rs` hardcode the
+//! `mandate.core.` prefix, every derived state enum is `mandate.<domain>.<Entity>.State`,
+//! and no crate this one depends on declares one. What every reader of the contract does
+//! get is the generated `mandate_contract::entities::<Entity>State` shape, a dev-dependency
+//! here, so each of the 36 compiled declarations is paired with the generated enum that
+//! realizes it and decided through it: every declared variant is read back, re-serialized
+//! and put through the same [`assert_encoding_matches_schema`] every authored type goes
+//! through, and an undeclared variant is refused. That is 36 of 36 — and it is worth being
+//! plain about what that kind of coverage is and is not:
+//!
+//! * **Six are decided against the contract through a domain enum as well.**
+//!   `OrganizationState`, `OrganizationMembershipState`, `TeamState`,
+//!   `TeamMembershipState`, `SpaceState` and `ResourceState` are declared in
+//!   `mandate-model` and put through the generated shape, variant for variant, by
+//!   `crates/mandate-model/tests/contract_agreement.rs`. For these six a hand-written
+//!   representation is measured against the contract.
+//! * **The other 30 are accounted through the generated enum only.** The generated crate
+//!   and the JSON Schema projection are two emissions of one compiled model, so a case
+//!   over both says they agree with each other; it does not say any hand-written Rust
+//!   agrees with either, because for these 30 this crate has none. They are named in
+//!   `mandate_types::inventory::DERIVED_STATE_ENUMS` — the 36 minus the six above.
+//! * **Ten of those 30 do have a domain enum, in a crate this one cannot reach**, and each
+//!   is decided by the story that owns its crate, not here. In `mandate-federation`:
+//!   `ConnectionState` (`mandate.federation.FederationConnection.State`), `LinkState`
+//!   (`mandate.federation.ExternalPrincipal.State`), `OAuthClientState`
+//!   (`mandate.federation.OAuthClient.State`), `PrincipalState`
+//!   (`mandate.identity.Principal.State`) and `AuthorizationCodeState`
+//!   (`mandate.credential.AuthorizationCode.State`); in `mandate-identity`, `SessionState`
+//!   (`mandate.identity.Session.State`) — those six belong to
+//!   `story:federation-identity-alignment`. In `mandate-graph`, `RelationState`
+//!   (`mandate.graph.Relation.State`) and `GrantState` (`mandate.graph.Grant.State`); in
+//!   `mandate-policy`, `PolicyState` (`mandate.policy.Policy.State`) and
+//!   `AuthorizationModelState` (`mandate.policy.AuthorizationModel.State`) — those four
+//!   belong to `story:graph-policy-adapter`. `mandate-types` is a leaf and depends on none
+//!   of these crates; a case here could not construct their values.
+//! * **The remaining twenty have no domain enum anywhere in this workspace**, so for them
+//!   the generated shape is the only realization there is to decide.
+//!
+//! The pairing is the only hand-written part of the account, and two things hold it to the
+//! contract. It is asserted equal to `mandate_types::inventory::DERIVED_STATE_ENUMS`,
+//! which `tests/inventory.rs` asserts is exactly the `.State` half of the compiled index;
+//! and each pair is asserted to be the type its element name *derives* to under ESS's own
+//! `declaration_name` rule, because the procedure alone cannot tell paired enums apart —
+//! 23 of the 36 declarations share a variant list with another, and every cross-pairing
+//! among them passes every other assertion here unchanged.
 
+use std::collections::BTreeSet;
+
+use mandate_contract::entities;
 use mandate_types::conformance::{self, Canonical, Case};
-use mandate_types::inventory::{ACCEPTED, Owner};
+use mandate_types::inventory::{ACCEPTED, DERIVED_STATE_ENUMS, Owner};
 use mandate_types::{
     Audience, AuthoritySubject, CorrelationId, CredentialId, CredentialProof, CredentialSecret,
     EpochSnapshotRef, OrganizationId, PrincipalId, SecurityEpochTarget, VerifiedContext,
@@ -394,4 +450,219 @@ fn a_container_that_must_carry_credential_material_names_the_helper_at_the_field
         !encoded.contains("proof"),
         "an absent optional stays absent: {encoded}"
     );
+}
+
+/// ESS's `declaration_name`, the rule that decides which Rust name an element takes.
+///
+/// Reproduced from `xtask/src/emit.rs:266-279`, which reproduces ESS 0.26.0's own rule:
+/// split on every character Rust cannot carry, upper-case the first letter of each part,
+/// and join. `mandate.tenancy.Organization.State` becomes
+/// `MandateTenancyOrganizationState`.
+fn declaration_name(ess_name: &str) -> String {
+    let mut derived = String::new();
+    for part in ess_name
+        .split(|character: char| !character.is_ascii_alphanumeric())
+        .filter(|part| !part.is_empty())
+    {
+        let mut characters = part.chars();
+        if let Some(first) = characters.next() {
+            derived.push(first.to_ascii_uppercase());
+            derived.push_str(characters.as_str());
+        }
+    }
+    derived
+}
+
+/// One derived `<Entity>.State` enum, decided through the generated shape that realizes it.
+struct StateEnum {
+    /// The compiled declaration this case covers.
+    ess_name: &'static str,
+    /// The generated enum it is paired with, as `std::any::type_name` writes it.
+    rust_name: &'static str,
+    /// Read one declared variant back through the generated shape and re-serialize it.
+    /// `None` when the shape refuses the variant.
+    encode: fn(&str) -> Option<String>,
+}
+
+fn through_generated_shape<T: serde::Serialize + serde::de::DeserializeOwned>(
+    variant: &str,
+) -> Option<String> {
+    let wire = serde_json::to_string(variant).expect("a variant name encodes as a JSON string");
+    let decoded: T = serde_json::from_str(&wire).ok()?;
+    Some(serde_json::to_string(&decoded).expect("the generated shape encodes"))
+}
+
+/// Pair each compiled `<Entity>.State` declaration with the generated enum that realizes it.
+///
+/// The table is a literal, and a literal pairing is a claim, not evidence: the procedure
+/// reads the variants out of the file named on the left and pushes them through the type
+/// named on the right, and where two declarations carry the same variant list — 23 of the
+/// 36 do — the right side can name another element's enum with nothing failing. So the
+/// Rust name is captured here and
+/// `every_derived_state_enum_joins_the_per_type_schema_account` asserts it is the name the
+/// left side derives to.
+macro_rules! state_enums {
+    ($($ess:literal => $shape:ty),+ $(,)?) => {
+        fn state_enums() -> Vec<StateEnum> {
+            vec![$(StateEnum {
+                ess_name: $ess,
+                rust_name: std::any::type_name::<$shape>(),
+                encode: through_generated_shape::<$shape>,
+            }),+]
+        }
+    };
+}
+
+state_enums! {
+    "mandate.audit.AuditEvent.State" => entities::MandateAuditAuditEventState,
+    "mandate.credential.AccessCredential.State" => entities::MandateCredentialAccessCredentialState,
+    "mandate.credential.AuthorizationCode.State" => entities::MandateCredentialAuthorizationCodeState,
+    "mandate.credential.ResourceServer.State" => entities::MandateCredentialResourceServerState,
+    "mandate.credential.SigningKey.State" => entities::MandateCredentialSigningKeyState,
+    "mandate.delegation.Agent.State" => entities::MandateDelegationAgentState,
+    "mandate.delegation.AgentCapabilityCeiling.State" => entities::MandateDelegationAgentCapabilityCeilingState,
+    "mandate.delegation.Approval.State" => entities::MandateDelegationApprovalState,
+    "mandate.delegation.Delegation.State" => entities::MandateDelegationDelegationState,
+    "mandate.delegation.Execution.State" => entities::MandateDelegationExecutionState,
+    "mandate.directory.DirectoryGroup.State" => entities::MandateDirectoryDirectoryGroupState,
+    "mandate.directory.DirectoryGroupMembership.State" => entities::MandateDirectoryDirectoryGroupMembershipState,
+    "mandate.directory.DirectoryGroupTeamMapping.State" => entities::MandateDirectoryDirectoryGroupTeamMappingState,
+    "mandate.directory.MembershipContribution.State" => entities::MandateDirectoryMembershipContributionState,
+    "mandate.directory.SyncJob.State" => entities::MandateDirectorySyncJobState,
+    "mandate.federation.ExternalPrincipal.State" => entities::MandateFederationExternalPrincipalState,
+    "mandate.federation.FederationConnection.State" => entities::MandateFederationFederationConnectionState,
+    "mandate.federation.OAuthClient.State" => entities::MandateFederationOAuthClientState,
+    "mandate.graph.Grant.State" => entities::MandateGraphGrantState,
+    "mandate.graph.Relation.State" => entities::MandateGraphRelationState,
+    "mandate.graph.Resource.State" => entities::MandateGraphResourceState,
+    "mandate.identity.FederationSecurityEpoch.State" => entities::MandateIdentityFederationSecurityEpochState,
+    "mandate.identity.OrganizationSecurityEpoch.State" => entities::MandateIdentityOrganizationSecurityEpochState,
+    "mandate.identity.Principal.State" => entities::MandateIdentityPrincipalState,
+    "mandate.identity.PrincipalSecurityEpoch.State" => entities::MandateIdentityPrincipalSecurityEpochState,
+    "mandate.identity.RefreshCredential.State" => entities::MandateIdentityRefreshCredentialState,
+    "mandate.identity.SecurityEpochSnapshot.State" => entities::MandateIdentitySecurityEpochSnapshotState,
+    "mandate.identity.Session.State" => entities::MandateIdentitySessionState,
+    "mandate.policy.AuthorizationModel.State" => entities::MandatePolicyAuthorizationModelState,
+    "mandate.policy.Policy.State" => entities::MandatePolicyPolicyState,
+    "mandate.tenancy.Organization.State" => entities::MandateTenancyOrganizationState,
+    "mandate.tenancy.OrganizationMembership.State" => entities::MandateTenancyOrganizationMembershipState,
+    "mandate.tenancy.Space.State" => entities::MandateTenancySpaceState,
+    "mandate.tenancy.Team.State" => entities::MandateTenancyTeamState,
+    "mandate.tenancy.TeamMembership.State" => entities::MandateTenancyTeamMembershipState,
+    "mandate.workload.WorkloadIdentity.State" => entities::MandateWorkloadWorkloadIdentityState,
+}
+
+#[test]
+fn every_derived_state_enum_joins_the_per_type_schema_account() {
+    let enums = state_enums();
+    let covered: BTreeSet<&str> = enums.iter().map(|state| state.ess_name).collect();
+    assert_eq!(covered.len(), enums.len(), "the account holds no duplicate");
+    assert_eq!(
+        covered,
+        DERIVED_STATE_ENUMS
+            .iter()
+            .copied()
+            .collect::<BTreeSet<&str>>(),
+        "the state account is not the account tests/inventory.rs decides against the \
+         compiled index",
+    );
+
+    let mut decided = 0_usize;
+    for state in &enums {
+        let node = schema_node(state.ess_name);
+        assert_eq!(node["x-ess-kind"], "enum", "{}", state.ess_name);
+        assert_eq!(
+            node["x-ess-name"].as_str(),
+            Some(state.ess_name),
+            "{}: the compiled declaration this case reads names {}",
+            state.ess_name,
+            node["x-ess-name"],
+        );
+
+        // The pairing itself, by ESS's own derivation rule. Without this the procedure
+        // below is blind to a right-hand side naming another element's enum.
+        let derived = declaration_name(state.ess_name);
+        let paired = state
+            .rust_name
+            .rsplit("::")
+            .next()
+            .expect("a Rust type path");
+        assert_eq!(
+            paired, derived,
+            "{}: paired with {}, which is not the {derived} its name derives to",
+            state.ess_name, state.rust_name,
+        );
+        assert!(
+            state.rust_name.ends_with(&derived),
+            "{}: {} does not end with {derived}",
+            state.ess_name,
+            state.rust_name,
+        );
+        let declared = node["enum"]
+            .as_array()
+            .unwrap_or_else(|| panic!("{}: no declared variants", state.ess_name))
+            .clone();
+        assert!(
+            !declared.is_empty(),
+            "{}: no declared variant",
+            state.ess_name
+        );
+        for variant in &declared {
+            let variant = variant.as_str().unwrap_or_else(|| {
+                panic!("{}: a declared variant is not a string", state.ess_name)
+            });
+            let encoded = (state.encode)(variant).unwrap_or_else(|| {
+                panic!(
+                    "{}: the generated shape refuses the declared variant {variant}",
+                    state.ess_name
+                )
+            });
+            assert_eq!(
+                encoded,
+                format!("\"{variant}\""),
+                "{}: {variant} does not re-serialize to itself",
+                state.ess_name
+            );
+            assert_encoding_matches_schema(state.ess_name, &encoded);
+            decided += 1;
+        }
+        assert!(
+            (state.encode)("MandateUndeclaredVariant").is_none(),
+            "{}: the generated shape accepted an undeclared variant",
+            state.ess_name
+        );
+    }
+    assert_eq!(enums.len(), 36, "derived state enums decided");
+    assert_eq!(decided, 70, "declared variants decided");
+
+    // The rule has to discriminate to be evidence: two declarations deriving to one Rust
+    // name would leave a swap between them undetectable. ESS refuses that itself
+    // (`name_collision`, reproduced at `xtask/src/emit.rs:505-528`); this is that refusal
+    // over the derived half of the index.
+    let derived: BTreeSet<String> = enums
+        .iter()
+        .map(|state| declaration_name(state.ess_name))
+        .collect();
+    assert_eq!(
+        derived.len(),
+        enums.len(),
+        "two derived declarations reach one Rust name, so the pairing check cannot \
+         discriminate between them",
+    );
+}
+
+#[test]
+fn no_derived_state_enum_reaches_the_accepted_account_of_this_crate() {
+    for name in DERIVED_STATE_ENUMS {
+        assert!(
+            !ACCEPTED.iter().any(|accepted| accepted.ess_name == *name),
+            "{name} entered the accepted account",
+        );
+        assert!(
+            !conformance::cases()
+                .iter()
+                .any(|case| case.ess_name == *name),
+            "{name} entered this crate's own realization registry",
+        );
+    }
 }
