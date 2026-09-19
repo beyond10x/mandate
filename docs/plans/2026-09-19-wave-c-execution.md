@@ -46,10 +46,29 @@ Through `atlas/scripts/as-bot.sh`, author and committer `b10x-bot[bot]`: this op
 - Contract adversary (`review-result:wave-c-writers-contract-adversary-1`): 19 probe cases, 11 red; 2 blockers (`epochs` sourced `generated` unlike the other three creators; the context account missing `credential` and `correlation`), 3 warnings, 3 notes; ruled. Correction 1 green: the response carries `epochs`, the context account names every field, the header names the issuing registration; 51/51 probe cases; adversary probes 16/20 green, 4 red by ruling (the generated-Optional class ×2, the IR's three creators, the design row until aligned).
 - Unit commit `46c9a39`; merge `6fe547b`; coordinator regeneration (`MandateCredentialRedeemAuthorizationCodeResponse` +3 fields, `MandateCredentialAuthorizationCodeRedeemed` +5; no count pin moves) and `docs/architecture/federated-login.md:52` aligned to the five-field response.
 
+- Regeneration commit `f951f9d`; `task check` on it: exit 0, 1205 tests across 173 targets. Transaction tree cut from it.
+- `oauth-transaction` implementor green: 18 files +5589/−144 — `store` (the `AuthorizationCode` record, events, fold, the compare-and-set port and its fake), `code`, `binding` (the session/epoch port mirrored over `mandate-types` values), `redemption` (the one-winner race pinned), the `AccessCredential` fold arm from the redeemed event in `mandate-token`, the registries (STS realizes 6 more elements; `AuthorizationCode.State` leaves federation's), `DenialClause` +16 variants (one per declared denial phrase); three crates 500 → 558 tests, workspace 1263; fmt, clippy, boundaries, corpus green. Judgement calls recorded in the module docs: the credential's expiry is the minimum of the profile's `max_ttl` and the code's `expires_at`; the issuance target rule is wave B's `admitted_target` (no holder test); no code-lifetime ceiling exists in the contract (residue). Adversary 1 dispatched.
+- Transaction adversary 1 (`review-result:wave-c-oauth-transaction-adversary-1`): 24 cases, all green, retained; no blocker; 3 warnings (`public` and the exact redirect not re-checked at issuance; no code-lifetime ceiling), 2 notes; ruled; correction 1 dispatched.
+- Transaction correction 1 green: `is_public` and `redirect_registered` on the client port with refusals at issuance; `CodeIssuance::new(CodeLifetime)` carries the deployment's ceiling; the session clauses merged into the two phrases the denial carries; `tests/declared_denials.rs` (62 rows, both directions for the two code commands). The coordinator amended the pass-1 adversary file: the mechanical adaptation, the two characterizing cases rewritten to the ruled behaviour (refused with `RedirectUnregistered`/`ExpiryUnbounded`, nothing minted), the property case issuing under a wide ceiling. Three crates 558 → 591 tests; fmt, clippy green. Adversary 2 dispatched.
+- Transaction adversary 2 (`review-result:wave-c-oauth-transaction-adversary-2`): 2 cases, both red; no blocker; 3 warnings (a missing denial-table row; the verifier decided after the session re-reads; the session clause rowed to the wrong phrase), 3 notes; ruled; correction 2 dispatched. Two contract observations and the scope-narrowing residue routed on `story:declared-writers`.
+
 ## Declared deviations
 
-None yet.
+1. Four prose and allowance edits outside the transaction unit's file set (`crates/mandate-token/{src,tests}/verifier.rs` "used by nothing in this wave"; `crates/mandate-federation/src/lib.rs` `ESS_UNREALIZED` reason; `crates/mandate-federation/tests/contract_agreement.rs` — the `cross_domain` allowance for `AuthorizationCode.State` became unreachable once the line moved to the STS registry) were written by the implementor as patches and applied by the coordinator inside the unit tree before the adversary pass, so they land in the unit's commit rather than an alignment commit.
 
 ## Close
 
-Pending.
+| Measure | Value |
+|---|---|
+| Closing gate | `658f396`, `task check` exit 0, 1306 tests across 181 targets (opening: 1205 / 173) |
+| Units | contract round 2 `46c9a39` (merge `6fe547b`), transaction `e7ff558` (merge `658f396`) |
+| Coordinator commits | opening `975788e`, regeneration `f951f9d`, the closing store commit |
+| Adversary passes | 3 (1 contract, 2 transaction), 19 findings, all ruled; 26 adversary cases retained |
+| Stories | `oauth-transaction` implemented on the gate's record; `declared-writers` stays active (contract rounds 1–2 landed; units B and C2 remain) |
+| Blockers | none cleared; `decision-blocker:epoch-atomicity` advanced by the race case, not cleared (isolation level per boundary undecidable in these crates) |
+| Deviations | 1 (four prose and allowance edits applied inside the unit tree) |
+| Release | none |
+
+Routed onward: the `RedeemAuthorizationCode` and `IntrospectCredential` denial phrases the STS cannot row exactly (a session unresolved, revoked or expired; a presented credential of another organization) and the `RegisterSigningKey` window phrase (`story:declared-writers`, contract); scope narrowing at issuance (`mandate-authz`, the composition); the refusal constructor demanding a phrase (four handler files, a later STS story); the ESS one-subject-per-outcome limit (ESS wave).
+
+Next on the road: `story:protocol-adapters` and `story:product-listener` (the endpoint and the served route), then `story:oauth-integration`'s acceptance over HTTP.

@@ -52,7 +52,7 @@ scope:
   path: systems/mandate/domains/policy.yaml
 - confidence: cited
   path: systems/mandate/domains/workload.yaml
-revision: 16
+revision: 17
 ---
 # Every record has a declared writer
 
@@ -156,3 +156,5 @@ Coordinator, after `review-result:wave-b-parallel-r1` and `review-result:wave-b-
 - Correction at the wave C opening, after `review-result:wave-c-parallel-r1`: gap 3 (`pkce_verifier` non-optional; `pkce-missing` is the adapter's case) is no contract change and no deliverable of this story; the coordinator reassigned the corpus rows (`pkce-valid`, `pkce-wrong`, `pkce-redirect`, `pkce-reuse` → `story:oauth-transaction`; `pkce-missing`, `pkce-plain` → `story:protocol-adapters`; `pkce-state-nonce` → `story:pkce-sessions`) in the opening commit. This story's contract round 2 is gaps 1 and 2 only.
 
 - Correction at the wave C opening, after `review-result:wave-c-design-r1`: gap 1's field set is the whole `AccessCredential` record — `AuthorizationCodeRedeemed` mirrors `CredentialReferenceIssued`'s record fields (`credential_id` and `target` from a widened `RedeemAuthorizationCode` response, `descriptor`, `reference_verifier` and `issued_at` generated), with the header declaration that it seeds an `AccessCredential`.
+
+- From the wave C transaction adversaries (2026-09-19), two `credential.yaml` observations for a later contract round: `RedeemAuthorizationCode`'s denial declares no phrase for a session that is unresolved, revoked or expired (the STS rows those refusals under "source/session epoch is stale"); `IntrospectCredential`'s denial declares no phrase for a presented credential of another organization (rowed under "for the registered server/tenant"). And a residue of `story:oauth-transaction`: `AuthorizationCodeIssued.scope` is declared `generated` and the summary says "narrowed"; the STS emits the requested scope verbatim because narrowing is `mandate-authz`'s, outside its dependency ceiling (`story:check-api`/`story:graph-policy-adapter` composition).

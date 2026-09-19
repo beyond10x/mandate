@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:oauth-transaction
 kind: story
-status: active
+status: implemented
 title: Issue and redeem authorization codes at the STS, behind ports
 relations:
 - decomposes: epic:sts-credentials
@@ -46,7 +46,7 @@ scope:
   path: services/sts/tests/store.rs
 - confidence: cited
   path: tests/security/cases.json
-revision: 8
+revision: 9
 ---
 # Issue and redeem authorization codes at the STS, behind ports
 
