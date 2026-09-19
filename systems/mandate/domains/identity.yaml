@@ -4,7 +4,9 @@
 # UNMAPPED-EPOCH: Integer is the recorded stand-in for the addendum's u64 (decision-blocker:epoch; architecture-addendum.md section 6.3), widened when ESS gains an unsigned primitive. Monotonic increment, denial at the maximum and per-dimension snapshot values remain absent; EpochSnapshotRef is only an immutable record handle, never an epoch number.
 # UNMAPPED-EPOCH-OWNERSHIP: ESS relation carriers cannot reference an entity identity directly; each generation identity is its owning PrincipalId, OrganizationId or FederationConnectionId (one-to-one association).
 # IncrementSecurityEpoch remains an adapter obligation; no fabricated self-loop stands in for numeric mutation.
-# SessionOpened, EpochSnapshotRecorded and SecurityEpochRecorded are seeding events written by the mandate-control-plane component, which publishes them (components.yaml) and hosts the adapter around AuthenticateFederation that mints the session, the epoch snapshot it is bound to and the generation each dimension held. No command outcome emits any of them: no command in this contract creates a session, a snapshot or a generation record, so the adapter writes one event per record it creates and the identity fold consumes them. Precedent for a declared event no command outcome emits: domains/audit.yaml, published by mandate-worker.
+# mandate.federation.AuthenticateFederation's accepted outcome creates mandate.identity.Session, with session_id on FederationAuthenticated as its instance. That event carries the whole Session record — session_id, principal_id, organization_id, connection_id, epochs, expires_at — so the identity fold materializes the session from it alone, reading no command input or response. The audience and the correlation ride beside the record and are not Session fields.
+# SessionOpened carries the same six Session fields for a session opened without federation. No command in this contract declares such an open, so no outcome emits it today, and it is reserved rather than dead: the writer is the mandate-control-plane component that publishes it (components.yaml). The two events name the record's identity differently — SessionOpened by id, FederationAuthenticated by session_id — and nothing here declares what a fold does when both arrive for one session; that is story:federation-identity-alignment's to settle. This file states no refusal of a second open: no invariant, no view, no open command and no outcome in the compiled model could carry one.
+# EpochSnapshotRecorded and SecurityEpochRecorded are the seeding events for the snapshot and the generation each dimension held. No command outcome creates a snapshot or a generation record and no outcome emits either event, so the adapter writes one per record it seeds and the identity fold consumes them. AuthenticateFederation mints the snapshot handle the session is bound to; the snapshot's own contents arrive on EpochSnapshotRecorded. Precedent for a declared event no command outcome emits: domains/audit.yaml, published by mandate-worker.
 domain: mandate.identity
 entities:
   - name: mandate.identity.Principal
@@ -221,6 +223,9 @@ commands:
             id: input.id
         moves: mandate.identity.Principal.disable
         instance: id
+      - name: wrong-state
+        wrong_state: true
+        error: mandate.identity.Denied
       - name: denied
         external: Caller lacks principal-administration authority, principal does not exist, or disablement cannot atomically trigger the required session/credential invalidation.
         error: mandate.identity.Denied
@@ -240,6 +245,9 @@ commands:
             id: input.id
         moves: mandate.identity.Session.revoke
         instance: id
+      - name: wrong-state
+        wrong_state: true
+        error: mandate.identity.Denied
       - name: denied
         external: Caller lacks authority over this session, session is outside the verified organization, or revocation cannot be durably observed under the applicable profile.
         error: mandate.identity.Denied
@@ -259,6 +267,9 @@ commands:
             id: input.id
         moves: mandate.identity.RefreshCredential.revoke
         instance: id
+      - name: wrong-state
+        wrong_state: true
+        error: mandate.identity.Denied
       - name: denied
         external: Caller lacks authority over the resolved refresh credential, tenant/session binding mismatches, or durable revocation fails.
         error: mandate.identity.Denied

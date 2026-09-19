@@ -26,7 +26,7 @@ sequenceDiagram
   else connection.jit_provisioning and no link
     CP-->>U: denied (linking absent)
     U->>CP: ProvisionExternalPrincipal(connection_id, proof)
-    CP->>CP: create Principal, ExternalPrincipal{link_method: ConfiguredFederation}
+    CP->>CP: create ExternalPrincipal{link_method: ConfiguredFederation} · Principal record: story:declared-writers
     U->>CP: AuthenticateFederation(connection_id, proof)
     CP->>CP: 7 resolve ExternalPrincipal · 8 organization context
   end
@@ -44,13 +44,13 @@ sequenceDiagram
 
 | Step | Command | Source |
 |---|---|---|
-| Register the customer's IdP once, bound to one organization | `RegisterFederationConnection(context, issuer, client_id, tenant_resolution, jit_provisioning)` → `FederationConnectionId` | `../../systems/mandate/domains/federation.yaml:171-193` |
-| Link an external account to a principal (administrative path) | `LinkExternalPrincipal(context, connection_id, external_subject, principal_id, method)` → `ExternalPrincipalId` | `federation.yaml:144-170` |
-| Create the principal and link on first login (JIT path, new) | `ProvisionExternalPrincipal(connection_id, proof)` → `ExternalPrincipalId` | owned by `story:domain-runtime`; see below |
-| Validate the proof and mint a session | `AuthenticateFederation(connection_id, proof)` → `SessionId` | `federation.yaml:194-214` |
-| Turn the session into an authorization code | `AuthorizePublicClient(…)` → `code` | `federation.yaml:215-248` |
-| Consume the code, issue the credential | `RedeemAuthorizationCode(code_id, client_id, code, pkce_verifier, redirect_uri)` → `credential`, `descriptor` | `../../systems/mandate/domains/credential.yaml:183-215` |
-| A resource server trusts the Mandate credential, never the customer IdP | `IntrospectCredential` | `credential.yaml:325-348` |
+| Register the customer's IdP once, bound to one organization | `RegisterFederationConnection(context, issuer, client_id, tenant_resolution, jit_provisioning)` → `connection_id` | `../../systems/mandate/domains/federation.yaml`, command `mandate.federation.RegisterFederationConnection` |
+| Link an external account to a principal (administrative path) | `LinkExternalPrincipal(context, connection_id, external_subject, principal_id, method)` → `external_principal_id` | `federation.yaml`, command `mandate.federation.LinkExternalPrincipal` |
+| Record one link on first login, the `ExternalPrincipal` (JIT path, new) | `ProvisionExternalPrincipal(connection_id, proof)` → `external_principal_id`, `principal_id`, `organization_id`, `subject` | `federation.yaml`, command `mandate.federation.ProvisionExternalPrincipal`; the Principal record's writer is `story:declared-writers` |
+| Validate the proof and mint a session | `AuthenticateFederation(connection_id, proof)` → `session_id`, `principal_id`, `organization_id`, `epochs`, `expires_at` | `federation.yaml`, command `mandate.federation.AuthenticateFederation` |
+| Turn the session into an authorization code | `AuthorizePublicClient(…)` → `code_id`, `code` | `federation.yaml`, command `mandate.federation.AuthorizePublicClient`; the code record is created by `mandate.credential.IssueAuthorizationCode` behind the STS port |
+| Consume the code, issue the credential | `RedeemAuthorizationCode(code_id, client_id, code, pkce_verifier, redirect_uri)` → `credential`, `descriptor` | `../../systems/mandate/domains/credential.yaml`, command `mandate.credential.RedeemAuthorizationCode` |
+| A resource server trusts the Mandate credential, never the customer IdP | `IntrospectCredential` | `credential.yaml`, command `mandate.credential.IntrospectCredential` |
 
 The numbers 1–9 in the diagram are the resolution order the addendum mandates (`../sources/architecture-addendum.md:344-360`): select configured trust relationship; validate issuer; validate signature; validate audience/client binding; validate nonce/state/PKCE as applicable; validate configured organization/tenant claim or binding; resolve external principal; establish Mandate organization context; issue session/credential. If tenant resolution is ambiguous, Mandate denies rather than guesses (`architecture-addendum.md:360`).
 
@@ -81,28 +81,28 @@ stateDiagram-v2
   }
 ```
 
-Sources: `federation.yaml:23-34`, `:64-75`; `../../systems/mandate/domains/identity.yaml:43-57`; `credential.yaml:95-146`. Every terminal state is reached by a recorded transition; nothing is deleted (`decision-blocker:lifecycle`, below).
+Sources: `federation.yaml`, entities `mandate.federation.ExternalPrincipal` and `mandate.federation.FederationConnection`; `../../systems/mandate/domains/identity.yaml`, entity `mandate.identity.Session`; `credential.yaml`, entity `mandate.credential.AuthorizationCode`. Every terminal state is reached by a recorded transition; nothing is deleted (`decision-blocker:lifecycle`, below).
 
 ## What the contract refuses, and where
 
 | Rule | Source |
 |---|---|
 | The canonical external key is `(organization, connection.issuer, external subject)`; the issuer is derived from the validated connection, never caller-supplied | `federation.yaml:1` |
-| Email equality never authorizes linking | `federation.yaml:166`; `architecture-addendum.md:283-295` |
-| Zero or multiple tenant matches deny; no guessed tenant | `federation.yaml:210`; `architecture-addendum.md:360` |
-| No email-domain, hostname or unverified-input fallback may be required at any point | `federation.yaml:210`; `architecture-addendum.md:328-342` |
-| Tenant comes only from `TenantResolutionRule{configured_organization, verified_claim_name, verified_claim_value}` | `../../systems/mandate/domains/core.yaml:266-275` |
-| A session records the connection it came from and an epoch snapshot handle | `identity.yaml:30-44` |
-| A denial mutates no credential, authority or lifecycle | `federation.yaml:281-285` |
+| Email equality never authorizes linking | `federation.yaml`, `LinkExternalPrincipal.denied`; `architecture-addendum.md:283-295` |
+| Zero or multiple tenant matches deny; no guessed tenant | `federation.yaml`, `AuthenticateFederation.denied`; `architecture-addendum.md:360` |
+| No email-domain, hostname or unverified-input fallback may be required at any point | `federation.yaml`, `AuthenticateFederation.denied`; `architecture-addendum.md:328-342` |
+| Tenant comes only from `TenantResolutionRule{configured_organization, verified_claim_name, verified_claim_value}` | `../../systems/mandate/domains/core.yaml`, type `mandate.core.TenantResolutionRule` |
+| A session records the connection it came from and an epoch snapshot handle | `identity.yaml`, entity `mandate.identity.Session` |
+| A denial mutates no credential, authority or lifecycle | `federation.yaml`, error `mandate.federation.Denied` |
 | A connection's issuer is immutable; changing it means a new connection and explicit relinking | `federation.yaml:2` |
 
 ## The gap the contract had, and how it is closed
 
-`AuthenticateFederation` denies when "principal linking is absent/conflicting" (`federation.yaml:210`). `LinkExternalPrincipal` takes a `VerifiedContext` (`federation.yaml:147`; `core.yaml:211-223`) — a caller that is already authenticated to Mandate. A customer's user logging in for the first time has neither a link nor a context. As declared, the contract supports only the provisioned mode: somebody creates the principal and the link before the first login.
+`AuthenticateFederation` denies when "principal linking is absent/conflicting" (`federation.yaml`, `AuthenticateFederation.denied`). `LinkExternalPrincipal` takes a `VerifiedContext` (`federation.yaml`, `LinkExternalPrincipal` input; `core.yaml`, type `mandate.core.VerifiedContext`) — a caller that is already authenticated to Mandate. A customer's user logging in for the first time has neither a link nor a context. As declared, the contract supports only the provisioned mode: somebody creates the principal and the link before the first login.
 
 The preserved source names just-in-time provisioning as a mode — "An authenticated, trusted external identity creates or resolves a principal during login" (`../sources/original-design.md:923-925`) — and leaves the choice open (`original-design.md:3399`: "JIT by default or invitation/provision only?"). That open question is not one of the twelve `UNMAPPED` markers in `unmapped.md`, so it had no blocker artifact and no dossier row. It is now `decision-blocker:jit-provisioning`, and the operator's answer is JIT: nobody does per-user work, not Mandate and not the customer.
 
-**Shape of the change.** Every command in this system has exactly one accepted outcome and emits exactly one event; this holds across all twelve domain files. JIT is therefore a new command, `ProvisionExternalPrincipal(connection_id, proof)`, not a second accepted outcome on `AuthenticateFederation`. Its accepted outcome creates the principal and the `ExternalPrincipal` with `link_method: ConfiguredFederation` — a variant `ExternalLinkMethod` already declares (`core.yaml:169-176`) — and emits one event. Its denial clause carries the same proof, tenant and trust conditions as `AuthenticateFederation`, plus: the connection's `jit_provisioning` is false, or the composite key already exists. The switch is a `Boolean` field `jit_provisioning` on `FederationConnection`.
+**Shape of the change.** Every command in this system has exactly one accepted outcome and emits exactly one event; this holds across all twelve domain files. JIT is therefore a new command, `ProvisionExternalPrincipal(connection_id, proof)`, not a second accepted outcome on `AuthenticateFederation`. Its accepted outcome creates one record, the `ExternalPrincipal` with `link_method: ConfiguredFederation` — a variant `ExternalLinkMethod` already declares (`core.yaml`, type `mandate.core.ExternalLinkMethod`) — and emits one event. The event also names the `mandate.identity.Principal` of kind `User` the provisioning produced; no outcome in this contract declares that Principal's creation, and its writer is `story:declared-writers`. Its denial clause carries the same proof, tenant and trust conditions as `AuthenticateFederation`, plus: the connection's `jit_provisioning` is false, or the composite key already exists. The switch is a `Boolean` field `jit_provisioning` on `FederationConnection`.
 
 **Why a Boolean and not a rule type.** `crates/mandate-types/tests/inventory.rs` asserts the compiled type index is exactly 110 entries — 74 authored `mandate.core.*` types and 36 derived `.State` enums — and that there are exactly 36 entities (`inventory.rs:35,40,46,86-89,98,111`). A new type or entity breaks six assertions in a crate owned by `story:canonical-types`, which is already implemented. A new command and a new event break nothing: `generated/schema/commands/` and `generated/schema/events/` are not asserted. A Boolean field on an existing entity adds no type and no entity.
 
