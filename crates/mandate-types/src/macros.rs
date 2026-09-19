@@ -470,20 +470,43 @@ macro_rules! canonical_record {
 /// ```
 #[macro_export]
 macro_rules! realizes {
-    ($($element:literal => $symbol:path),+ $(,)?) => {
-        $(
-            const _: () = {
-                #[allow(unused_imports)]
-                use $symbol as _;
-            };
-        )+
+    ($($entry:tt)*) => {
+        $crate::__realizes!(@accumulate [] $($entry)*);
+    };
+}
 
+/// The entry-by-entry reader behind [`realizes!`]: an entry written `@ Type::method` names an
+/// associated function, which `use` cannot name, so the compiler proves it by taking it as a
+/// value; every other entry is a type, an enum variant or a free function and is proven by a
+/// `use`. The pairs accumulate into the one `ESS_REALIZATIONS` constant.
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __realizes {
+    (@accumulate [$($acc:tt)*] $element:literal => @ $method:path, $($rest:tt)*) => {
+        const _: () = {
+            let _ = $method;
+        };
+        $crate::__realizes!(@accumulate [$($acc)* ($element, stringify!($method)),] $($rest)*);
+    };
+    (@accumulate [$($acc:tt)*] $element:literal => @ $method:path) => {
+        $crate::__realizes!(@accumulate [$($acc)*] $element => @ $method,);
+    };
+    (@accumulate [$($acc:tt)*] $element:literal => $symbol:path, $($rest:tt)*) => {
+        const _: () = {
+            #[allow(unused_imports)]
+            use $symbol as _;
+        };
+        $crate::__realizes!(@accumulate [$($acc)* ($element, stringify!($symbol)),] $($rest)*);
+    };
+    (@accumulate [$($acc:tt)*] $element:literal => $symbol:path) => {
+        $crate::__realizes!(@accumulate [$($acc)*] $element => $symbol,);
+    };
+    (@accumulate [$($acc:tt)*]) => {
         #[doc = "Every ESS element this crate realizes, paired with the symbol that realizes it."]
         #[doc = ""]
         #[doc = "Written by [`mandate_types::realizes!`](mandate_types::realizes); read by"]
-        #[doc = "`cargo xtask coverage` through this crate's own lib test."]
-        pub const ESS_REALIZATIONS: &[(&str, &str)] = &[
-            $(($element, stringify!($symbol))),+
-        ];
+        #[doc = "`cargo xtask coverage` through this crate's own lib test. An entry written"]
+        #[doc = "`@ Type::method` names an associated function as the realization."]
+        pub const ESS_REALIZATIONS: &[(&str, &str)] = &[$($acc)*];
     };
 }

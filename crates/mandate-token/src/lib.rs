@@ -179,6 +179,27 @@ mandate_types::canonical_record!(
     ]
 );
 
+// The authored `mandate.core` types this crate declares, paired with the symbols that
+// declare them.
+//
+// `mandate_types::realizes!` expands each right-hand side into a `use`, so a symbol that
+// moved does not build, and `tests/contract_agreement.rs` asserts the coverage manifest's
+// entries for this crate are exactly these pairs. Until this registry existed the crate ran
+// an agreement suite that reconciled no coverage entry at all, and `contracts/coverage.json`
+// reported both types `deferred` on a decision blocker while this crate round-tripped them
+// against the generated shapes in the same commit.
+//
+// Only these two, and that is a rule rather than an omission. The credential projections
+// this crate holds — `projection::{CredentialEvent, ResourceServer, AccessCredential,
+// SigningKey}` and their state enums — are registered by the STS
+// (`services/sts/src/lib.rs`), the crate whose handlers write them. One declared element
+// has one registry entry; naming them here as well would be the second realizer the wave D
+// ruling refuses.
+mandate_types::realizes! {
+    "mandate.core.CredentialDescriptor" => crate::CredentialDescriptor,
+    "mandate.core.CredentialProfile" => crate::CredentialProfile,
+}
+
 pub mod projection;
 pub mod signing_real;
 pub mod verifier;

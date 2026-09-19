@@ -463,50 +463,57 @@ pub const ACCEPTED: &[Accepted] = &[
 /// These are not accepted types and no entry of [`ACCEPTED`] names one: this crate
 /// declares no Rust representation for any of them and invents none. Its declaration
 /// forms in `crates/mandate-types/src/macros.rs` hardcode the `mandate.core.` prefix and
-/// every name here is `mandate.<domain>.<Entity>.State`; the six that a fold actually
-/// writes are declared in `mandate-model`, which this crate does not depend on.
+/// every name here is `mandate.<domain>.<Entity>.State`; the ones a fold actually writes
+/// are declared in the crates that fold them, which this crate does not depend on.
 ///
-/// What realizes each of them for every reader that depends on this crate alone is the
-/// generated `mandate_contract::entities::<Entity>State` shape, and that is what the
-/// account decides them through. `tests/inventory.rs` asserts this list is exactly the
-/// `.State` half of the compiled index, and `tests/conformance.rs` pairs every name on it
-/// with the generated enum — by ESS's own `declaration_name` derivation, because 23 of the
-/// 36 share a variant list and a literal pairing among those is not evidence — and puts
-/// each declared variant through the same schema account the 74 authored types go through.
-/// A `.State` enum the contract adds therefore fails the inventory case until it is listed
-/// here, and fails the conformance case until it is paired there.
+/// `tests/conformance.rs` pairs every name on this list with the generated
+/// `mandate_contract::entities::<Entity>State` shape — by ESS's own `declaration_name`
+/// derivation, because 23 of the 36 share a variant list and a literal pairing among those
+/// is not evidence — and puts each declared variant through the same schema account the 74
+/// authored types go through. `tests/inventory.rs` asserts this list is exactly the `.State`
+/// half of the compiled index. A `.State` enum the contract adds therefore fails the
+/// inventory case until it is listed here, and fails the conformance case until it is paired
+/// there.
 ///
-/// # What that coverage is, and what it is not
+/// # What that pairing is, and what it is not
 ///
-/// Six of the 36 also have a **domain** enum, in `mandate-model`, and those six are
-/// measured against the contract as hand-written Rust:
-/// `mandate.tenancy.Organization.State`, `mandate.tenancy.OrganizationMembership.State`,
-/// `mandate.tenancy.Team.State`, `mandate.tenancy.TeamMembership.State`,
-/// `mandate.tenancy.Space.State` and `mandate.graph.Resource.State`, by
-/// `crates/mandate-model/tests/contract_agreement.rs`.
+/// It is a check that two emissions of one compiled model agree. It is **not** a claim that
+/// anything implements the element: ESS emits one `<Entity>State` shape for every declared
+/// entity whether a fold writes the record or not, so the shape distinguishes a realized
+/// lifecycle from an unrealized one in no way at all. Wave D's correction round settled that
+/// for `contracts/coverage.json`, where 23 of these names were `implemented` by this crate
+/// paired with the generated shape — six of them while the crate that owns the domain
+/// registered the element in its own `ESS_UNREALIZED` list as one it does not realize.
 ///
-/// The other 30 are accounted **through the generated enum only**. The generated crate and
-/// the JSON Schema projection are two emissions of one compiled model, so a case over both
-/// says those two agree — not that any hand-written Rust does.
+/// # Where the coverage manifest accounts for each of them
 ///
-/// Thirteen of those 30 do have a domain enum, in a crate this one cannot reach, and each
-/// is decided by the story that owns its crate. `story:federation-identity-alignment` owns
-/// six: `mandate.federation.FederationConnection.State`,
-/// `mandate.federation.ExternalPrincipal.State`, `mandate.federation.OAuthClient.State`
-/// and `mandate.credential.AuthorizationCode.State` in `mandate-federation`, and
-/// `mandate.identity.Principal.State` (realized there since wave B; `mandate-federation`
-/// keeps a port view of the same name) and `mandate.identity.Session.State` in
-/// `mandate-identity`. `story:credential-profiles` owns three in `mandate-token`:
-/// `mandate.credential.ResourceServer.State` (`ResourceServerState`),
-/// `mandate.credential.AccessCredential.State` (`AccessCredentialState`) and
-/// `mandate.credential.SigningKey.State` (`SigningKeyState`).
-/// `story:graph-policy-adapter` owns four: `mandate.graph.Relation.State` and
-/// `mandate.graph.Grant.State` in `mandate-graph`, `mandate.policy.Policy.State` and
-/// `mandate.policy.AuthorizationModel.State` in `mandate-policy`. `mandate-types` is a
-/// leaf and depends on none of them, so no case here can construct their values.
+/// Nineteen have a hand-written enum in the crate that folds the record, registered there
+/// through `mandate_types::realizes!` and reconciled by that crate's own agreement case:
+/// six in `mandate-model` (`mandate.tenancy.Organization.State`,
+/// `mandate.tenancy.OrganizationMembership.State`, `mandate.tenancy.Team.State`,
+/// `mandate.tenancy.TeamMembership.State`, `mandate.tenancy.Space.State` and
+/// `mandate.graph.Resource.State`); four in the STS
+/// (`mandate.credential.ResourceServer.State`, `mandate.credential.AccessCredential.State`
+/// and `mandate.credential.SigningKey.State`, whose enums `mandate-token` declares and the
+/// STS registers as the crate that writes them, and `mandate.credential.AuthorizationCode.State`);
+/// three in `mandate-federation` (`mandate.federation.FederationConnection.State`,
+/// `mandate.federation.ExternalPrincipal.State`, `mandate.federation.OAuthClient.State`);
+/// two in `mandate-identity` (`mandate.identity.Principal.State`,
+/// `mandate.identity.Session.State`); two in `mandate-graph`
+/// (`mandate.graph.Relation.State`, `mandate.graph.Grant.State`); and two in
+/// `mandate-policy` (`mandate.policy.Policy.State`,
+/// `mandate.policy.AuthorizationModel.State`).
 ///
-/// The remaining seventeen have no domain enum anywhere in this workspace, and for them
-/// the generated shape is the only realization there is to decide.
+/// The other seventeen have no hand-written enum anywhere in this workspace, and each
+/// carries the status of the record it belongs to: the five identity epoch and snapshot
+/// states are `declared` on `story:federation-identity-alignment`, which
+/// `mandate-identity`'s own `ESS_UNREALIZED` reasons name as single-state lifecycles with no
+/// transition to fold, and the remaining twelve follow their records' `declared` or
+/// `deferred` entries.
+///
+/// `mandate-types` is a leaf and depends on none of those crates, so no case here can
+/// construct their values — which is why the account here is the pairing above and the claim
+/// is made where the value lives.
 pub const DERIVED_STATE_ENUMS: &[&str] = &[
     "mandate.audit.AuditEvent.State",
     "mandate.credential.AccessCredential.State",
