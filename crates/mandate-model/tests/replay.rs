@@ -1080,7 +1080,7 @@ fn every_tenancy_event_serializes_to_its_declared_payload_keys() {
 ///
 /// The coordinator's ruling of 2026-09-19 (`story:tenancy-graph-events`, PS3/D2): this
 /// crate emits `{context, resource_id, resource, parent}` for `ResourceRegistered` — the
-/// shape the payload takes once `story:contract-creates` adds `resource_id` as the
+/// shape the compiled contract declares since `story:contract-creates` added `resource_id` as the
 /// `instance:` of `creates: Resource`. The compiled schema on this branch predates that
 /// and declares `required: [context, resource]`, so this one event is asserted against the
 /// ruled literal set rather than against the file. `parent` is optional in both the ruled
@@ -1144,36 +1144,14 @@ fn every_payload_value_is_the_shape_its_ref_declares() {
     for (event, name) in resource_samples() {
         let value = serde_json::to_value(&event).expect("the payload serializes");
         let declared = schema(name);
-        let mut value = value;
         if matches!(event, ResourceEvent::Registered { .. }) {
-            // `resource_id` is ruled ahead of the contract it will be compiled into
-            // (`story:contract-creates` sources it from the `RegisterResource` response),
-            // so the compiled schema declares no property for it yet and `check` would
-            // report it as undeclared. It is lifted out rather than dropped: the payload
-            // carries the resource identity twice, and the agreement of the two is the one
-            // emitted key the schema cannot decide, so it is asserted here.
-            let lifted = value
-                .as_object_mut()
-                .expect("the payload object")
-                .remove("resource_id")
-                .expect("the ruled resource_id is emitted");
+            // The payload carries the resource identity twice — `resource_id` (the
+            // `instance:` the contract sources from the `RegisterResource` response) and
+            // `resource.resource_id` — and their agreement is the one thing the schema
+            // cannot decide, so it is asserted here; `check` below decides both keys.
             assert_eq!(
-                lifted, value["resource"]["resource_id"],
+                value["resource_id"], value["resource"]["resource_id"],
                 "{name}: resource_id and resource.resource_id name different resources"
-            );
-            // And the lifted value is still decided against the type the contract gives
-            // the identity everywhere else it appears.
-            let node = declared["properties"]["resource"]["$ref"]
-                .as_str()
-                .map(|_| &declared["properties"]["resource"])
-                .expect("resource is declared by reference");
-            let resource_ref = resolved(&declared, node);
-            check(
-                &declared,
-                &resource_ref["properties"]["resource_id"],
-                &lifted,
-                &format!("{name}.resource_id"),
-                &mut problems,
             );
         }
         check(&declared, &declared, &value, name, &mut problems);
