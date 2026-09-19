@@ -21,6 +21,10 @@
 //! `mandate.credential.Denied`'s "fail closed; no credential, authority or lifecycle mutation
 //! on refusal" in the only form a fold can carry.
 
+use mandate_sts::binding::{RecordedSessions, SessionBinding};
+use mandate_sts::code::{
+    AuthorizationCodeParts, CodeIssuance, CodeLifetime, IssueAuthorizationCode, RecordedClients,
+};
 use mandate_sts::issue::{
     IssueReferenceCredential, IssueSelfContainedCredential, ReferenceParts, SelfContainedParts,
     Sha256Digest, StaticSigner, issue_reference_credential, issue_self_contained_credential,
@@ -28,6 +32,9 @@ use mandate_sts::issue::{
 use mandate_sts::keys::{
     KeyMaterialResolver, RegisterSigningKey, RetireSigningKey, RevokeSigningKey,
     SigningKeyAdministration, retire_signing_key, revoke_signing_key,
+};
+use mandate_sts::redemption::{
+    BoundReads, RedeemAuthorizationCode, RedemptionParts, redeem_authorization_code,
 };
 use mandate_sts::registry::{
     DisableResourceServer, RegisterResourceServer, disable_resource_server,
@@ -37,6 +44,7 @@ use mandate_sts::resolve::{
     IntrospectCredential, IntrospectionParts, RevokeAccessCredential, introspect_credential,
     revoke_access_credential,
 };
+use mandate_sts::store::{AuthorizationCodeEvent, CodeProjection};
 use mandate_sts::{
     CountingSecrets, IdentityAllocator, RequestContext, SecretSource, SequentialAllocator,
 };
@@ -47,10 +55,11 @@ use mandate_token::CredentialProfile;
 use mandate_token::projection::{CredentialEvent, Denied, Projection};
 use mandate_token::signing_real::AllowedAlgorithms;
 use mandate_types::{
-    Audience, AuthorityScope, CorrelationId, CredentialId, CredentialKind, CredentialProof,
-    Duration, EpochSnapshotRef, Issuer, KeyReference, OrganizationId, PrincipalId,
-    ResourceServerId, RevocationGuarantee, SigningAlgorithm, SigningKeyId, Timestamp, Transient,
-    Uuid, VerifiedContext,
+    Audience, AuthorityScope, AuthorizationCodeId, CorrelationId, CredentialId, CredentialKind,
+    CredentialProof, Duration, EpochSnapshotRef, Issuer, KeyReference, OAuthClientId,
+    OrganizationId, PkceChallenge, PkceMethod, PrincipalId, RedirectUri, ResourceServerId,
+    RevocationGuarantee, SessionId, SigningAlgorithm, SigningKeyId, Timestamp, Transient, Uuid,
+    VerifiedContext,
 };
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -64,6 +73,12 @@ const REVOKE_CREDENTIAL: &str = "mandate.credential.RevokeAccessCredential";
 const REGISTER_KEY: &str = "mandate.credential.RegisterSigningKey";
 const RETIRE_KEY: &str = "mandate.credential.RetireSigningKey";
 const REVOKE_KEY: &str = "mandate.credential.RevokeSigningKey";
+const ISSUE_CODE: &str = "mandate.credential.IssueAuthorizationCode";
+const REDEEM_CODE: &str = "mandate.credential.RedeemAuthorizationCode";
+
+/// RFC 7636 appendix B: the example code verifier and the S256 challenge it redeems.
+const PKCE_VERIFIER: &str = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
+const PKCE_CHALLENGE: &str = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM";
 
 fn uuid(tag: u8) -> Uuid {
     Uuid::from_bytes([tag; 16])
@@ -133,6 +148,22 @@ fn encoded<T: Serialize>(value: &T) -> Value {
 /// `response` is built from what the handler returned, never from the event: the whole point
 /// of the source check is that the two agree.
 fn accepted(command: &str, input: &Value, response: Option<&Value>, event: &CredentialEvent) {
+    let payload = encoded(event);
+    let name = event.ess_name();
+    assert_single_emission(command, "accepted", &[(name, &payload)]);
+    assert_event_conforms(name, &payload);
+    assert_payload_sources(command, input, response, name, &payload);
+}
+
+/// The same three checks, for an event the code store declares rather than the credential
+/// fold. `AuthorizationCodeEvent` carries the same payloads under its own `ess_name`, so the
+/// harness reads the same generated schema and the same IR node.
+fn accepted_code(
+    command: &str,
+    input: &Value,
+    response: Option<&Value>,
+    event: &AuthorizationCodeEvent,
+) {
     let payload = encoded(event);
     let name = event.ess_name();
     assert_single_emission(command, "accepted", &[(name, &payload)]);
@@ -951,4 +982,342 @@ fn a_refused_key_revocation_emits_nothing_through_the_outcome_it_names() {
 
     refused(REVOKE_KEY, &denied);
     assert_eq!(Projection::fold(&log).expect("the same log"), held);
+}
+
+// --- the authorization-code transaction -------------------------------------------------
+
+fn oauth_client() -> OAuthClientId {
+    OAuthClientId::new(uuid(0x0c))
+}
+
+fn oauth_session() -> SessionId {
+    SessionId::new(uuid(0x5e))
+}
+
+fn code_clients() -> RecordedClients {
+    RecordedClients::new()
+        .enabled(oauth_client(), organization(10))
+        .redirect(
+            oauth_client(),
+            RedirectUri::new("https://client.example/callback"),
+        )
+}
+
+fn code_sessions(epochs: Option<EpochSnapshotRef>) -> RecordedSessions {
+    let sessions = RecordedSessions::new().session(SessionBinding {
+        id: oauth_session(),
+        subject: PrincipalId::new(uuid(0x51)),
+        organization: organization(10),
+        epochs,
+        expires_at: Timestamp::new("2026-09-19T12:00:00Z"),
+        revoked: false,
+    });
+    match epochs {
+        Some(snapshot) => sessions.current(snapshot),
+        None => sessions,
+    }
+}
+
+fn code_input(target: ResourceServerId) -> IssueAuthorizationCode {
+    IssueAuthorizationCode {
+        context: context(organization(10)),
+        client_id: oauth_client(),
+        session_id: oauth_session(),
+        target,
+        requested_scope: scope(),
+        challenge: PkceChallenge::new(PKCE_CHALLENGE),
+        method: PkceMethod::S256,
+        redirect_uri: RedirectUri::new("https://client.example/callback"),
+        expires_at: Timestamp::new("2026-09-19T00:05:00Z"),
+    }
+}
+
+/// One code, issued through the real handler, with the code log it created and the proof of
+/// holding it.
+fn issued_code(
+    held: &Projection,
+    target: ResourceServerId,
+) -> (
+    Vec<AuthorizationCodeEvent>,
+    AuthorizationCodeId,
+    CredentialProof,
+) {
+    let mut secrets = CountingSecrets::new();
+    let mut allocator = SequentialAllocator::new();
+    let outcome = CodeIssuance::new(CodeLifetime::new(Duration::new("PT5M")))
+        .issue(
+            &code_input(target),
+            &request(),
+            held,
+            &code_clients(),
+            AuthorizationCodeParts {
+                digest: &Sha256Digest,
+                secrets: &mut secrets,
+                allocator: &mut allocator,
+            },
+        )
+        .expect("a registered enabled target and client");
+    let proof = CredentialProof::from_bytes(outcome.code.expose_material().to_vec());
+    (vec![outcome.event], outcome.code_id, proof)
+}
+
+fn redemption(code_id: AuthorizationCodeId, proof: &CredentialProof) -> RedeemAuthorizationCode {
+    RedeemAuthorizationCode {
+        code_id,
+        client_id: oauth_client(),
+        code: CredentialProof::from_bytes(proof.expose_material().to_vec()),
+        pkce_verifier: CredentialProof::from_bytes(PKCE_VERIFIER.as_bytes().to_vec()),
+        redirect_uri: RedirectUri::new("https://client.example/callback"),
+    }
+}
+
+#[test]
+fn issue_authorization_code_emits_exactly_the_declared_event() {
+    let (held, _, id) = registered(organization(10), "api-a", reference_profile());
+    let mut secrets = CountingSecrets::new();
+    let mut allocator = SequentialAllocator::new();
+    let input = code_input(id);
+
+    let outcome = CodeIssuance::new(CodeLifetime::new(Duration::new("PT5M")))
+        .issue(
+            &input,
+            &request(),
+            &held,
+            &code_clients(),
+            AuthorizationCodeParts {
+                digest: &Sha256Digest,
+                secrets: &mut secrets,
+                allocator: &mut allocator,
+            },
+        )
+        .expect("a registered enabled target and client of the caller's organization");
+
+    accepted_code(
+        ISSUE_CODE,
+        &encoded(&input),
+        Some(&json!({ "code_id": encoded(&outcome.code_id) })),
+        &outcome.event,
+    );
+}
+
+#[test]
+fn a_refused_code_issuance_emits_nothing_and_leaves_both_folds_unchanged() {
+    let (held, log, id) = registered(organization(10), "api-a", reference_profile());
+    let (code_log, _, _) = issued_code(&held, id);
+    let codes = CodeProjection::fold(&code_log).expect("one creation");
+    let mut secrets = CountingSecrets::new();
+    let mut allocator = SequentialAllocator::new();
+
+    let denied = CodeIssuance::new(CodeLifetime::new(Duration::new("PT5M")))
+        .issue(
+            &IssueAuthorizationCode {
+                target: ResourceServerId::new(uuid(0x99)),
+                ..code_input(id)
+            },
+            &request(),
+            &held,
+            &code_clients(),
+            AuthorizationCodeParts {
+                digest: &Sha256Digest,
+                secrets: &mut secrets,
+                allocator: &mut allocator,
+            },
+        )
+        .expect_err("no event registered that target");
+
+    refused(ISSUE_CODE, &denied);
+    assert_eq!(Projection::fold(&log).expect("the same log"), held);
+    assert_eq!(
+        CodeProjection::fold(&code_log).expect("the same log"),
+        codes
+    );
+}
+
+#[test]
+fn redeem_authorization_code_emits_exactly_the_declared_event() {
+    let (held, _, id) = registered(organization(10), "api-a", reference_profile());
+    let (code_log, code_id, proof) = issued_code(&held, id);
+    let codes = CodeProjection::fold(&code_log).expect("one creation");
+    let mut secrets = CountingSecrets::new();
+    let mut allocator = SequentialAllocator::new();
+    let input = redemption(code_id, &proof);
+    let sessions = code_sessions(Some(EpochSnapshotRef::new(uuid(0x60))));
+    let clients = code_clients();
+
+    let outcome = redeem_authorization_code(
+        &input,
+        &request(),
+        &codes,
+        BoundReads {
+            servers: &held,
+            clients: &clients,
+            sessions: &sessions,
+        },
+        RedemptionParts {
+            digest: &Sha256Digest,
+            secrets: &mut secrets,
+            allocator: &mut allocator,
+        },
+    )
+    .expect("the matching verifier, client and redirect");
+
+    accepted_code(
+        REDEEM_CODE,
+        &encoded(&input),
+        Some(&json!({
+            "credential_id": encoded(&outcome.credential_id),
+            "descriptor": encoded(&outcome.descriptor),
+            "epochs": encoded(&outcome.epochs),
+            "target": encoded(&outcome.target),
+        })),
+        &outcome.event,
+    );
+}
+
+/// The same command with the optional the response declares absent: the contract's
+/// optional-to-optional mapping, which is the one shape a source check can get wrong in both
+/// directions. A session that names no snapshot binds no epoch.
+#[test]
+fn redeem_authorization_code_without_an_epoch_snapshot_emits_the_declared_event() {
+    let (held, _, id) = registered(organization(10), "api-a", reference_profile());
+    let (code_log, code_id, proof) = issued_code(&held, id);
+    let codes = CodeProjection::fold(&code_log).expect("one creation");
+    let mut secrets = CountingSecrets::new();
+    let mut allocator = SequentialAllocator::new();
+    let input = redemption(code_id, &proof);
+    let sessions = code_sessions(None);
+    let clients = code_clients();
+
+    let outcome = redeem_authorization_code(
+        &input,
+        &request(),
+        &codes,
+        BoundReads {
+            servers: &held,
+            clients: &clients,
+            sessions: &sessions,
+        },
+        RedemptionParts {
+            digest: &Sha256Digest,
+            secrets: &mut secrets,
+            allocator: &mut allocator,
+        },
+    )
+    .expect("a live session that names no snapshot");
+
+    assert_eq!(outcome.epochs, None);
+    accepted_code(
+        REDEEM_CODE,
+        &encoded(&input),
+        Some(&json!({
+            "credential_id": encoded(&outcome.credential_id),
+            "descriptor": encoded(&outcome.descriptor),
+            "target": encoded(&outcome.target),
+        })),
+        &outcome.event,
+    );
+}
+
+/// The `AccessCredential` the redemption seeds is materialized by the `mandate-token` fold
+/// from the same payload, which is the other half of what the event is for.
+#[test]
+fn the_redeemed_event_seeds_the_credential_record_in_the_credential_log() {
+    let (held, log, id) = registered(organization(10), "api-a", reference_profile());
+    let (code_log, code_id, proof) = issued_code(&held, id);
+    let codes = CodeProjection::fold(&code_log).expect("one creation");
+    let mut secrets = CountingSecrets::new();
+    let mut allocator = SequentialAllocator::new();
+    let sessions = code_sessions(Some(EpochSnapshotRef::new(uuid(0x60))));
+    let clients = code_clients();
+
+    let outcome = redeem_authorization_code(
+        &redemption(code_id, &proof),
+        &request(),
+        &codes,
+        BoundReads {
+            servers: &held,
+            clients: &clients,
+            sessions: &sessions,
+        },
+        RedemptionParts {
+            digest: &Sha256Digest,
+            secrets: &mut secrets,
+            allocator: &mut allocator,
+        },
+    )
+    .expect("a fresh code");
+
+    let mut log = log;
+    log.push(
+        outcome
+            .event
+            .credential_event()
+            .expect("the redemption seeds a credential"),
+    );
+    let rebuilt = Projection::fold(&log).expect("the registration and the redemption");
+    assert_eq!(rebuilt.credentials().len(), 1);
+    assert_eq!(
+        rebuilt
+            .access_credential(&outcome.credential_id)
+            .map(|record| record.descriptor),
+        Some(outcome.descriptor)
+    );
+}
+
+/// Every denied path of the redemption emits nothing, through the outcome the refusal names
+/// — including the `wrong-state` the contract renders differently — and leaves both folds
+/// exactly as they were.
+#[test]
+fn every_refused_redemption_emits_nothing_through_the_outcome_it_names() {
+    let (held, log, id) = registered(organization(10), "api-a", reference_profile());
+    let (code_log, code_id, proof) = issued_code(&held, id);
+    let codes = CodeProjection::fold(&code_log).expect("one creation");
+    let sessions = code_sessions(Some(EpochSnapshotRef::new(uuid(0x60))));
+    let clients = code_clients();
+
+    let refuse = |input: &RedeemAuthorizationCode, codes: &CodeProjection| {
+        let mut secrets = CountingSecrets::new();
+        let mut allocator = SequentialAllocator::new();
+        redeem_authorization_code(
+            input,
+            &request(),
+            codes,
+            BoundReads {
+                servers: &held,
+                clients: &clients,
+                sessions: &sessions,
+            },
+            RedemptionParts {
+                digest: &Sha256Digest,
+                secrets: &mut secrets,
+                allocator: &mut allocator,
+            },
+        )
+    };
+
+    // The external denial: a proof that resolves to no code.
+    let denied = refuse(
+        &RedeemAuthorizationCode {
+            code: CredentialProof::from_bytes(b"not-the-code".to_vec()),
+            ..redemption(code_id, &proof)
+        },
+        &codes,
+    )
+    .expect_err("the proof is not the one the record's verifier came from");
+    refused(REDEEM_CODE, &denied);
+
+    // The wrong-state branch, which the contract renders differently.
+    let accepted_once = refuse(&redemption(code_id, &proof), &codes).expect("the first");
+    let mut code_log = code_log;
+    code_log.push(accepted_once.event);
+    let consumed = CodeProjection::fold(&code_log).expect("a creation and its move");
+    let denied = refuse(&redemption(code_id, &proof), &consumed)
+        .expect_err("`consume` starts from `Issued` alone");
+    refused(REDEEM_CODE, &denied);
+
+    assert_eq!(Projection::fold(&log).expect("the same log"), held);
+    assert_eq!(
+        CodeProjection::fold(&code_log).expect("the same log"),
+        consumed
+    );
 }

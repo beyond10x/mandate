@@ -139,10 +139,10 @@ fn a_length_difference_is_a_difference_and_no_prefix_matches() {
 /// **One piece of material, three domains, three verifiers.**
 ///
 /// The property the separation exists for: a value of one kind cannot resolve to a record of
-/// another. A deployment holds reference secrets, self-contained tokens and — when
-/// `story:oauth-integration` lands — authorization-code verifiers in one index, and an
-/// authorization code presented where a credential proof is expected must resolve to
-/// nothing.
+/// another. A deployment holds reference secrets, self-contained tokens and
+/// authorization-code verifiers in one index — `services/sts` stores the third
+/// (`services/sts/src/store.rs`) — and an authorization code presented where a credential
+/// proof is expected must resolve to nothing.
 #[test]
 fn one_material_derives_a_different_verifier_in_every_domain() {
     let material = secret(b"the-same-bytes");

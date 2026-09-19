@@ -42,9 +42,9 @@ use mandate_sts::{
 use mandate_token::CredentialProfile;
 use mandate_token::projection::{CredentialEvent, DenialClause, Projection};
 use mandate_types::{
-    Audience, AuthorityScope, CorrelationId, CredentialId, CredentialKind, CredentialProof,
-    Duration, OrganizationId, PrincipalId, ResourceServerId, RevocationGuarantee, SigningKeyId,
-    Timestamp, Transient, Uuid, VerifiedContext,
+    Audience, AuthorityScope, AuthorizationCodeId, CorrelationId, CredentialId, CredentialKind,
+    CredentialProof, Duration, OrganizationId, PrincipalId, ResourceServerId, RevocationGuarantee,
+    SigningKeyId, Timestamp, Transient, Uuid, VerifiedContext,
 };
 
 fn tagged(prefix: u8, ordinal: u8) -> Uuid {
@@ -307,8 +307,8 @@ fn a_disabled_registrations_credential_is_still_accepted_as_the_caller_proof() {
 /// An allocator that hands out resource-server identities a case chose, so two concurrent
 /// registrations can be given the order `Projection::registered` decides on.
 ///
-/// Credential and signing-key identities come from the ordinary fixture, so two issuances
-/// are two credentials.
+/// Credential, signing-key and authorization-code identities come from the ordinary
+/// fixture, so two issuances are two credentials.
 struct ChosenServers {
     servers: Vec<ResourceServerId>,
     rest: SequentialAllocator,
@@ -325,6 +325,10 @@ impl IdentityAllocator for ChosenServers {
 
     fn next_signing_key_id(&mut self) -> SigningKeyId {
         self.rest.next_signing_key_id()
+    }
+
+    fn next_authorization_code_id(&mut self) -> AuthorizationCodeId {
+        self.rest.next_authorization_code_id()
     }
 }
 

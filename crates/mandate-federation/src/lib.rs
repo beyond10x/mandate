@@ -79,21 +79,28 @@ mandate_types::realizes! {
     "mandate.federation.FederationConnection.State" => crate::record::ConnectionState,
     "mandate.federation.ExternalPrincipal.State" => crate::record::LinkState,
     "mandate.federation.OAuthClient.State" => crate::record::OAuthClientState,
-    // One lifecycle enum of another domain's record, which this crate holds because it
-    // reads that record through a port and decides its state itself: a port cannot make a
-    // lifecycle check a property of the command. `mandate.credential.AuthorizationCode` is
-    // the read-only input `authorize` validates, STS owns the code record, and nothing
-    // else realizes that element.
+    // This registry names elements of `mandate.federation` and of no other domain.
     //
-    // `mandate.identity.Principal.State` is **not** here, though [`PrincipalState`] holds
-    // the same two declared states: one declared element has one realizer, and since the
-    // realization round of `story:declared-writers` that realizer is
-    // `mandate_identity::PrincipalState`, beside the `mandate.identity.Principal` record
-    // that crate's own fold materializes. This crate's enum is the port's view of that
-    // record and not a second realization of the element; see [`PrincipalState`]. Its
-    // agreement with the generated shape is still decided, in
-    // `crates/mandate-federation/tests/contract_agreement.rs`.
-    "mandate.credential.AuthorizationCode.State" => crate::authorize::AuthorizationCodeState,
+    // Two lifecycle enums of other domains' records live in this crate, and **neither** is
+    // realized here: one declared element has one realizer, and for both of these it is the
+    // crate that folds the record.
+    //
+    // * [`PrincipalState`] — `mandate.identity.Principal.State`. Realized by
+    //   `mandate_identity::PrincipalState`, beside the `mandate.identity.Principal` record
+    //   that crate's own fold materializes, since the realization round of
+    //   `story:declared-writers`.
+    // * [`authorize::AuthorizationCodeState`] — `mandate.credential.AuthorizationCode.State`.
+    //   Realized by `mandate_sts::store::AuthorizationCodeState`, beside the
+    //   `mandate.credential.AuthorizationCode` record `services/sts/src/store.rs` folds,
+    //   since `story:oauth-transaction`. "STS alone owns authorization-code verifier storage
+    //   and consumption" (`credential.yaml`), and what this crate holds is the **port view**
+    //   of that record: `authorize::AuthorizationCode` is a caller-supplied read-only input
+    //   that `AuthorizePublicClient` validates non-consumingly, and it deliberately mirrors
+    //   neither the declared `verifier` nor the store behind it.
+    //
+    // Both enums are still decided against their generated shapes, in
+    // `crates/mandate-federation/tests/contract_agreement.rs`: an unrealized type that
+    // disagrees with the contract is still a type that disagrees with the contract.
 }
 
 /// Every declared `mandate.federation` element this crate does **not** realize, with the
@@ -109,13 +116,15 @@ mandate_types::realizes! {
 /// There is one, and it is not an oversight. `mandate.federation.AuthorizePublicClient` is
 /// realized here up to the STS call its accepted outcome makes;
 /// [`authorize::validate_authorization_code`] is non-consuming and returns a validation
-/// candidate carrying no event, and the event that outcome declares is emitted by the STS
-/// transaction that issues the code. A variant for it on [`record::FederationEvent`] would
-/// be a payload nothing in this crate can fill.
+/// candidate carrying no event. The event that outcome declares is **not**
+/// `mandate.credential.AuthorizationCodeIssued`, which `mandate_sts::code` emits since
+/// `story:oauth-transaction`; it is this domain's own event, which the adapter that carries
+/// the validation candidate into the STS call emits. A variant for it on
+/// [`record::FederationEvent`] would be a payload nothing in this crate can fill.
 pub const ESS_UNREALIZED: &[(&str, &str)] = &[(
     "mandate.federation.AuthorizationCodeIssued",
-    "emitted by the STS transaction that issues the code, not by this crate; owner \
-     story:oauth-integration",
+    "emitted by the adapter that carries this crate's validation candidate into the STS \
+     call, not by this crate; owner story:oauth-integration",
 )];
 
 use core::fmt;

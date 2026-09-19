@@ -402,11 +402,13 @@ fn every_lifecycle_enum_agrees_with_the_state_element_it_names() {
         &clients,
     );
 
-    // The two lifecycle enums this crate holds for another domain's record. Only the
-    // authorization code's is realized here (`src/lib.rs`); `PrincipalState` is the view
-    // `PrincipalStore` is answered through, and it is decided against the generated shape
-    // all the same — an unrealized type that disagrees with the contract is still a type
-    // that disagrees with the contract.
+    // The two lifecycle enums this crate holds for another domain's record. **Neither is
+    // realized here** (`src/lib.rs`): `PrincipalState` is the view `PrincipalStore` is
+    // answered through, and `AuthorizationCodeState` is the view the non-consuming
+    // `AuthorizePublicClient` validation reads a caller-supplied code record through —
+    // `mandate_sts::store` folds that record and realizes both the entity and its state.
+    // Both are decided against the generated shape all the same: an unrealized type that
+    // disagrees with the contract is still a type that disagrees with the contract.
     let principals = [PrincipalState::Active, PrincipalState::Disabled];
     for state in principals {
         match state {
@@ -445,12 +447,6 @@ fn every_lifecycle_enum_agrees_with_the_state_element_it_names() {
 fn every_realized_element_is_one_the_contract_declares() {
     let ir = system_ir();
     let kinds = ["commands", "events", "entities", "errors", "types"];
-    // The one element of another domain this crate realizes, because it holds the
-    // lifecycle enum of a record it reads through a port and nothing else realizes it; see
-    // the registry in `src/lib.rs`. `mandate.identity.Principal.State` was here and is not:
-    // one declared element has one realizer, and that record is folded — with its lifecycle
-    // enum — by `mandate-identity`. This crate's `PrincipalState` is the port's view of it.
-    let cross_domain = ["mandate.credential.AuthorizationCode.State"];
 
     assert!(
         !mandate_federation::ESS_REALIZATIONS.is_empty(),
@@ -464,10 +460,15 @@ fn every_realized_element_is_one_the_contract_declares() {
             "{element} (realized by {symbol}) is declared by no commands, events, \
              entities, errors or types index of generated/ir/system.json"
         );
+        // This crate realizes elements of its own domain and of no other. Both cross-domain
+        // lifecycle enums it holds are port views of records other crates fold —
+        // `PrincipalState` since `story:declared-writers`' realization round,
+        // `AuthorizationCodeState` since `story:oauth-transaction` — and one declared
+        // element has one realizer. An allowance for a cross-domain realization would be an
+        // allowance for a second one.
         assert!(
-            element.starts_with("mandate.federation.") || cross_domain.contains(element),
-            "{element} (realized by {symbol}) is neither an element of this crate's domain \
-             nor one of the lifecycle enums it holds for another domain's record"
+            element.starts_with("mandate.federation."),
+            "{element} (realized by {symbol}) is not an element of this crate's domain"
         );
     }
 }
