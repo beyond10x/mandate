@@ -478,11 +478,12 @@ fn main() -> ExitCode {
             run("aep", &["plan", "artifact", "validate"])?;
             documents(Path::new("."))?;
             coverage_map(Path::new("."))?;
+            // Five binaries refuse `serve`; `mandate-control-plane` serves the login road
+            // (`story:product-listener`, ruling D3) and is proven by its own listener cases.
             for b in [
                 "mandate",
                 "mandate-authz",
                 "mandate-conform",
-                "mandate-control-plane",
                 "mandate-sts",
                 "mandate-worker",
             ] {
