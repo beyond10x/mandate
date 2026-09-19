@@ -121,6 +121,24 @@
       "ess-primitives",
       "ess-domain",
       "clap"
+    ],
+    "mandate-control-plane": [
+      "clap",
+      "serde",
+      "serde_json",
+      "httparse",
+      "mandate-types",
+      "mandate-model",
+      "mandate-token",
+      "mandate-identity",
+      "mandate-federation",
+      "mandate-server",
+      "mandate-proto",
+      "mandate-sts",
+      "mandate-contract",
+      "mandate-testkit",
+      "aws-lc-rs",
+      "rand"
     ]
   },
   "external": [

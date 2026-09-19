@@ -15,15 +15,10 @@ relations:
 - informed_by: initiative:next-ten-waves
 - depends_on: story:audit-worker-delivery
 - depends_on: story:credential-profiles
+- depends_on: story:login-adapters
 scope:
 - confidence: cited
   path: crates/mandate-proto/src/lib.rs
-- confidence: inferred
-  path: crates/mandate-proto/src/oauth.rs
-- confidence: inferred
-  path: crates/mandate-proto/tests/oauth.rs
-- confidence: inferred
-  path: crates/mandate-server/src/context.rs
 - confidence: inferred
   path: crates/mandate-server/src/denial.rs
 - confidence: inferred
@@ -31,28 +26,10 @@ scope:
 - confidence: cited
   path: crates/mandate-server/src/lib.rs
 - confidence: inferred
-  path: crates/mandate-server/src/metadata.rs
-- confidence: inferred
-  path: crates/mandate-server/src/obligations.rs
-- confidence: inferred
-  path: crates/mandate-server/src/routes.rs
-- confidence: inferred
-  path: crates/mandate-server/tests/conformance.rs
-- confidence: inferred
-  path: crates/mandate-server/tests/context.rs
-- confidence: inferred
   path: crates/mandate-server/tests/denial.rs
 - confidence: inferred
   path: crates/mandate-server/tests/ingress.rs
-- confidence: inferred
-  path: crates/mandate-server/tests/metadata.rs
-- confidence: inferred
-  path: crates/mandate-server/tests/obligations.rs
-- confidence: inferred
-  path: crates/mandate-server/tests/routes.rs
-- confidence: inferred
-  path: docs/architecture/adapter-contract.md
-revision: 9
+revision: 12
 ---
 # Implement product routes and OAuth adapters
 
@@ -78,18 +55,7 @@ The generated surface is exactly 34 routes, all `POST /<domain>/commands/<Comman
 
 ## Units
 
-Two coordinator interface commits — `crates/mandate-server/src/lib.rs` with six module stubs, and `pub mod oauth;` in `crates/mandate-proto/src/lib.rs:209-223` — then seven units, five concurrent at most.
-
-| Unit | Owns | Test file | Delivers |
-|---|---|---|---|
-| coordinator, first | `crates/mandate-server/src/lib.rs`; `crates/mandate-proto/src/lib.rs` | `crates/mandate-server/tests/conformance.rs` | `mod` lines, stubs, crate docs |
-| `context` | `crates/mandate-server/src/context.rs` | `tests/context.rs` | `VerifiedContext` construction from validated credential evidence (`record.rs:63-94`); selectors stripped (`combined.md:51`); **the acceptance**, case `credential-containment` |
-| `obligations` | `src/obligations.rs` | `tests/obligations.rs` | the typed registry and the equality test against the OpenAPI `operationId`s; one negative test per deny clause |
-| `denial` | `src/denial.rs` | `tests/denial.rs` | denial → `AuditRecord` through an out-of-band append port on the rejection path (`decision-blocker:guards`); real append is `story:audit-worker-delivery`'s |
-| `ingress` | `src/ingress.rs` | `tests/ingress.rs` | `RecordAuditEvent` emitter authentication independent of event subject and tenant; unknown tenant preserved; forged emitter and client-supplied tenant rejected (`audit-routing.md:3`; `audit.yaml:113`) |
-| `routes` | `src/routes.rs` | `tests/routes.rs` | the product route table as data; the proof its intersection with `/<domain>/commands/` is empty |
-| `metadata` | `src/metadata.rs` | `tests/metadata.rs` | the RFC 8414 document *shape* built from the route table; the JWKS document *shape*; nothing served, no key material |
-| `oauth` | `crates/mandate-proto/src/oauth.rs` | `crates/mandate-proto/tests/oauth.rs` | `application/x-www-form-urlencoded` encoding; the standard OAuth error bodies |
+Superseded at the wave D opening (2026-09-19): units `context`, `obligations`, `routes`, `metadata` and `oauth` and their files are `story:login-adapters`' (as its `decode`, `obligations`, `routes`, `metadata`, `oauth`), and that story closes on them. What stays here: `denial` and `ingress` (behind `decision-blocker:audit-routing` and outside `mandate-server`'s ceiling until `AuditRecord` is reachable), the exchange, SCIM, revocation and other product rows of the route table, the `credential-containment` case over product routes that carry a `context`, and the three draft `depends_on` edges. This story closes on that residue, not on the road units.
 
 ## Case ids
 

@@ -9,9 +9,29 @@ publish.workspace = true
 [lints]
 workspace = true
 
+[lib]
+path = "src/lib.rs"
+
 [[bin]]
 name = "mandate-control-plane"
 path = "src/main.rs"
 
 [dependencies]
 clap.workspace = true
+serde = { workspace = true }
+serde_json = { workspace = true }
+httparse = { workspace = true }
+mandate-types = { version = "0.2.0", path = "../../crates/mandate-types" }
+mandate-model = { version = "0.2.0", path = "../../crates/mandate-model" }
+mandate-token = { version = "0.2.0", path = "../../crates/mandate-token" }
+mandate-identity = { version = "0.2.0", path = "../../crates/mandate-identity" }
+mandate-federation = { version = "0.2.0", path = "../../crates/mandate-federation" }
+mandate-server = { version = "0.2.0", path = "../../crates/mandate-server" }
+mandate-proto = { version = "0.2.0", path = "../../crates/mandate-proto" }
+mandate-sts = { version = "0.2.0", path = "../sts" }
+
+[dev-dependencies]
+mandate-contract = { version = "0.2.0", path = "../../crates/mandate-contract" }
+mandate-testkit = { version = "0.2.0", path = "../../crates/mandate-testkit" }
+aws-lc-rs = { workspace = true }
+rand = { workspace = true }

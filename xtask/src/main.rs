@@ -185,10 +185,10 @@ fn adopt() -> Result<()> {
 /// entry falls through to the `external` allowlist and is checked against the wrong policy,
 /// so the count is what makes the policy's silence a failure rather than a default.
 const PACKAGES: usize = 22;
-/// Every member that has its own entry: the workspace's libraries and `mandate-sts`, which
-/// gained a library target in wave B; everything but the other three service binaries,
-/// `bins/mandate` and `xtask`.
-const LIBRARIES: usize = 17;
+/// Every member that has its own entry: the workspace's libraries, `mandate-sts` (a library
+/// target since wave B) and `mandate-control-plane` (the composition, a library target since
+/// wave D); everything but the other two service binaries, `bins/mandate` and `xtask`.
+const LIBRARIES: usize = 18;
 fn boundaries() -> Result<()> {
     let metadata: Value = serde_json::from_slice(&output(
         "cargo",

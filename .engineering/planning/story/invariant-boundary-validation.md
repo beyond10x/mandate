@@ -8,6 +8,7 @@ relations:
 - decomposes: epic:hardening
 - serves: vision:mandate
 - depends_on: story:protocol-adapters
+- depends_on: story:login-adapters
 scope:
 - confidence: cited
   path: crates/mandate-server/src/context.rs
@@ -19,7 +20,7 @@ scope:
   path: crates/mandate-server/tests/context.rs
 - confidence: inferred
   path: crates/mandate-server/tests/invariants.rs
-revision: 4
+revision: 5
 ---
 # Enforce entity invariants at the boundary the schema projection drops them at
 
@@ -90,3 +91,5 @@ Per unit: `cargo fmt -p mandate-server -- --check && cargo clippy -p mandate-ser
 - The decode hook: no compiled command, event or response body carries `generation` or `transitive`, so where an out-of-bound value can arrive at a product adapter today is unplaced.
 - How unit A reads the IR without `serde_json`: the std-only yaml scan is inferred from `contract_adversary.rs:121-123`.
 - The `invariants.rs` / `context.rs` split is the scoper's, not the story's; the story names one file.
+
+- At the wave D opening (2026-09-19): the `context` unit this story names as its mitigation surface moved to `story:login-adapters` as `decode` (the decoding boundary for the road commands; `VerifiedContext` construction stays with `story:protocol-adapters`); `depends_on story:login-adapters` recorded.
