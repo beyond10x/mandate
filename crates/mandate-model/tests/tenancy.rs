@@ -10,8 +10,8 @@ use mandate_model::tenancy::{
     TeamMembershipState, TeamState, Tenancy,
 };
 use mandate_types::{
-    Audience, CorrelationId, CredentialId, DenialReason, OrganizationId, OrganizationMembershipId,
-    PrincipalId, SpaceId, TeamId, TeamMembershipId, VerifiedContext,
+    Audience, CorrelationId, CredentialId, DenialReason, MembershipContributionId, OrganizationId,
+    OrganizationMembershipId, PrincipalId, SpaceId, TeamId, TeamMembershipId, VerifiedContext,
 };
 
 fn uuid(tag: u16) -> String {
@@ -42,6 +42,10 @@ fn space(tag: u16) -> SpaceId {
     SpaceId::parse(&uuid(tag)).expect("space identity")
 }
 
+fn contribution(tag: u16) -> MembershipContributionId {
+    MembershipContributionId::parse(&uuid(tag)).expect("contribution identity")
+}
+
 fn context(organization: OrganizationId, subject: PrincipalId) -> VerifiedContext {
     VerifiedContext {
         subject,
@@ -55,6 +59,35 @@ fn context(organization: OrganizationId, subject: PrincipalId) -> VerifiedContex
     }
 }
 
+/// The platform administrator's verified context.
+///
+/// `CreateOrganization` and `CloseOrganization` are platform-scoped and
+/// `AddOrganizationMembership` has a platform path, so the organization this names is the
+/// administrator's own and never the one being written. Every one of the three declares a
+/// `mandate.core.VerifiedContext` in its payload, so every one of them takes one.
+fn platform() -> VerifiedContext {
+    context(organization(0xfff0), principal(0xfff1))
+}
+
+/// A refusal writes nothing.
+///
+/// `tenancy.yaml` gives each command one `denied` clause carrying one
+/// `mandate_types::DenialReason`, and `src/tenancy.rs` decides before it applies. So
+/// every denied path has the same two observable halves: the declared reason, and a
+/// projection identical to the one the decision was read from. Cloning first is what
+/// makes the second half an assertion rather than a claim.
+macro_rules! refuses {
+    ($fold:expr, $decided:expr, $why:literal) => {{
+        let before = $fold.clone();
+        let denial = $decided.expect_err($why);
+        assert_eq!(denial.reason, DenialReason::Denied, $why);
+        assert_eq!(
+            $fold, before,
+            concat!("a refused command changed the projection: ", $why)
+        );
+    }};
+}
+
 /// `tenancy.yaml`, CreateOrganization: "It is created empty, and no membership, team,
 /// space or grant exists inside it until that record's own command writes one.
 /// AddOrganizationMembership is the one command that can name this organization rather
@@ -64,8 +97,12 @@ fn an_organization_is_created_empty_and_takes_its_first_member_through_the_platf
     let mut tenancy = Tenancy::new();
     let acme = organization(1);
     let other = organization(2);
-    tenancy.create_organization(acme, "Acme").expect("acme");
-    tenancy.create_organization(other, "Other").expect("other");
+    tenancy
+        .create_organization(&platform(), acme, "Acme")
+        .expect("acme");
+    tenancy
+        .create_organization(&platform(), other, "Other")
+        .expect("other");
 
     assert_eq!(
         tenancy.organization(acme).expect("acme resolves").state,
@@ -98,7 +135,13 @@ fn an_organization_is_created_empty_and_takes_its_first_member_through_the_platf
         )
         .expect("the platform path admits the first membership");
     tenancy
-        .add_organization_membership(membership(20), acme, principal(11))
+        .add_organization_membership(
+            &platform(),
+            MembershipAuthority::PlatformOrganizationAdministration,
+            membership(20),
+            acme,
+            principal(11),
+        )
         .expect("the platform path seeds the first membership");
     assert_eq!(tenancy.members_of(acme), vec![principal(11)]);
     assert_eq!(
@@ -119,8 +162,12 @@ fn a_principal_joins_two_organizations_and_no_record_carries_a_global_role() {
     let acme = organization(1);
     let other = organization(2);
     let joiner = principal(11);
-    tenancy.create_organization(acme, "Acme").expect("acme");
-    tenancy.create_organization(other, "Other").expect("other");
+    tenancy
+        .create_organization(&platform(), acme, "Acme")
+        .expect("acme");
+    tenancy
+        .create_organization(&platform(), other, "Other")
+        .expect("other");
 
     for (identity, target) in [(membership(20), acme), (membership(21), other)] {
         tenancy
@@ -132,7 +179,13 @@ fn a_principal_joins_two_organizations_and_no_record_carries_a_global_role() {
             )
             .expect("the platform path admits the membership");
         tenancy
-            .add_organization_membership(identity, target, joiner)
+            .add_organization_membership(
+                &platform(),
+                MembershipAuthority::PlatformOrganizationAdministration,
+                identity,
+                target,
+                joiner,
+            )
             .expect("membership is recorded");
     }
 
@@ -169,8 +222,12 @@ fn a_team_and_a_space_take_their_organization_from_the_verified_context() {
     let mut tenancy = Tenancy::new();
     let acme = organization(1);
     let other = organization(2);
-    tenancy.create_organization(acme, "Acme").expect("acme");
-    tenancy.create_organization(other, "Other").expect("other");
+    tenancy
+        .create_organization(&platform(), acme, "Acme")
+        .expect("acme");
+    tenancy
+        .create_organization(&platform(), other, "Other")
+        .expect("other");
     let caller = context(acme, principal(10));
 
     tenancy
@@ -227,8 +284,12 @@ fn a_record_in_another_organization_refuses_exactly_as_an_unrecorded_one_does() 
     let mut tenancy = Tenancy::new();
     let acme = organization(1);
     let other = organization(2);
-    tenancy.create_organization(acme, "Acme").expect("acme");
-    tenancy.create_organization(other, "Other").expect("other");
+    tenancy
+        .create_organization(&platform(), acme, "Acme")
+        .expect("acme");
+    tenancy
+        .create_organization(&platform(), other, "Other")
+        .expect("other");
     tenancy
         .create_team(&context(acme, principal(10)), team(30), "Platform")
         .expect("team");
@@ -250,7 +311,9 @@ fn team_membership_requires_organization_membership_first_and_is_recorded_once()
     let mut tenancy = Tenancy::new();
     let acme = organization(1);
     let joiner = principal(11);
-    tenancy.create_organization(acme, "Acme").expect("acme");
+    tenancy
+        .create_organization(&platform(), acme, "Acme")
+        .expect("acme");
     let caller = context(acme, principal(10));
     tenancy
         .create_team(&caller, team(30), "Platform")
@@ -258,7 +321,13 @@ fn team_membership_requires_organization_membership_first_and_is_recorded_once()
 
     assert_eq!(
         tenancy
-            .add_team_membership(&caller, team_membership(50), team(30), joiner)
+            .add_team_membership(
+                &caller,
+                team_membership(50),
+                team(30),
+                joiner,
+                contribution(60)
+            )
             .expect_err("the principal is not a member of the organization")
             .reason,
         DenialReason::Denied
@@ -266,10 +335,22 @@ fn team_membership_requires_organization_membership_first_and_is_recorded_once()
     assert!(tenancy.team_membership(team_membership(50)).is_none());
 
     tenancy
-        .add_organization_membership(membership(20), acme, joiner)
+        .add_organization_membership(
+            &platform(),
+            MembershipAuthority::PlatformOrganizationAdministration,
+            membership(20),
+            acme,
+            joiner,
+        )
         .expect("organization membership");
     tenancy
-        .add_team_membership(&caller, team_membership(50), team(30), joiner)
+        .add_team_membership(
+            &caller,
+            team_membership(50),
+            team(30),
+            joiner,
+            contribution(60),
+        )
         .expect("team membership");
     assert_eq!(
         tenancy
@@ -281,7 +362,13 @@ fn team_membership_requires_organization_membership_first_and_is_recorded_once()
 
     assert_eq!(
         tenancy
-            .add_team_membership(&caller, team_membership(51), team(30), joiner)
+            .add_team_membership(
+                &caller,
+                team_membership(51),
+                team(30),
+                joiner,
+                contribution(61)
+            )
             .expect_err("the principal is already a member of that team")
             .reason,
         DenialReason::Denied
@@ -297,16 +384,30 @@ fn every_closure_retirement_and_removal_keeps_its_record_and_only_moves_a_state(
     let mut tenancy = Tenancy::new();
     let acme = organization(1);
     let joiner = principal(11);
-    tenancy.create_organization(acme, "Acme").expect("acme");
+    tenancy
+        .create_organization(&platform(), acme, "Acme")
+        .expect("acme");
     let caller = context(acme, principal(10));
     tenancy
-        .add_organization_membership(membership(20), acme, joiner)
+        .add_organization_membership(
+            &platform(),
+            MembershipAuthority::PlatformOrganizationAdministration,
+            membership(20),
+            acme,
+            joiner,
+        )
         .expect("organization membership");
     tenancy
         .create_team(&caller, team(30), "Platform")
         .expect("team");
     tenancy
-        .add_team_membership(&caller, team_membership(50), team(30), joiner)
+        .add_team_membership(
+            &caller,
+            team_membership(50),
+            team(30),
+            joiner,
+            contribution(60),
+        )
         .expect("team membership");
     tenancy
         .create_space(&caller, space(40), "Production")
@@ -327,7 +428,7 @@ fn every_closure_retirement_and_removal_keeps_its_record_and_only_moves_a_state(
         .remove_organization_membership(&caller, membership(20))
         .expect("membership removed");
     tenancy
-        .close_organization(acme)
+        .close_organization(&platform(), acme)
         .expect("organization closed");
 
     assert_eq!(tenancy.record_count(), recorded, "no record was destroyed");
@@ -365,7 +466,7 @@ fn every_closure_retirement_and_removal_keeps_its_record_and_only_moves_a_state(
 
     assert_eq!(
         tenancy
-            .close_organization(acme)
+            .close_organization(&platform(), acme)
             .expect_err("a terminal state does not move twice")
             .reason,
         DenialReason::Denied
@@ -378,12 +479,16 @@ fn every_closure_retirement_and_removal_keeps_its_record_and_only_moves_a_state(
 fn a_closed_organization_admits_no_new_membership_team_or_space() {
     let mut tenancy = Tenancy::new();
     let acme = organization(1);
-    tenancy.create_organization(acme, "Acme").expect("acme");
+    tenancy
+        .create_organization(&platform(), acme, "Acme")
+        .expect("acme");
     let caller = context(acme, principal(10));
     tenancy
         .create_team(&caller, team(30), "Platform")
         .expect("team");
-    tenancy.close_organization(acme).expect("closed");
+    tenancy
+        .close_organization(&platform(), acme)
+        .expect("closed");
     assert!(!tenancy.admits(acme));
 
     assert_eq!(
@@ -430,10 +535,12 @@ fn a_closed_organization_admits_no_new_membership_team_or_space() {
 fn a_recorded_identity_is_never_overwritten_by_a_second_write() {
     let mut tenancy = Tenancy::new();
     let acme = organization(1);
-    tenancy.create_organization(acme, "Acme").expect("acme");
+    tenancy
+        .create_organization(&platform(), acme, "Acme")
+        .expect("acme");
     assert_eq!(
         tenancy
-            .create_organization(acme, "Impostor")
+            .create_organization(&platform(), acme, "Impostor")
             .expect_err("the identity is already recorded")
             .reason,
         DenialReason::Denied
@@ -465,27 +572,34 @@ fn a_recorded_identity_is_never_overwritten_by_a_second_write() {
 
 /// `mandate.tenancy.OrganizationMembershipAdded` declares `context`, `organization_id`,
 /// `principal_id` and `membership_id`, and no field from which the authority path could be
-/// read back. So the authority decides in [`Tenancy::may_add_organization_membership`],
-/// which a command path runs before it appends the event, and the fold that applies the
-/// event never consults it: whichever value is handed to it, the row it writes is the row
-/// the event describes.
+/// read back. So the authority decides in [`Tenancy::may_add_organization_membership`] and
+/// in `decide_add_organization_membership`, which a command path runs before it appends
+/// the event — and the half that *writes* never sees it.
+///
+/// That is not a convention here, it is the type: `Tenancy::apply` takes a `&TenancyEvent`
+/// and `Tenancy::fold` takes a `&[TenancyEvent]`, and a `MembershipAuthority` cannot be
+/// handed to either. This case is the two halves side by side: the tenant path is refused
+/// and the platform path admitted at the decision, and the event the platform decision
+/// returned rebuilds the same row through a fold that was told nothing at all.
 #[test]
 fn the_authority_decides_before_the_event_and_the_fold_applies_it_without_one() {
     let acme = organization(1);
     let elsewhere = organization(2);
-    let platform = context(elsewhere, principal(9));
+    let administrator = context(elsewhere, principal(9));
     let joiner = principal(11);
 
     let mut tenancy = Tenancy::new();
-    tenancy.create_organization(acme, "Acme").expect("acme");
-    tenancy
-        .create_organization(elsewhere, "Platform")
+    let created_acme = tenancy
+        .create_organization(&administrator, acme, "Acme")
+        .expect("acme");
+    let created_elsewhere = tenancy
+        .create_organization(&administrator, elsewhere, "Platform")
         .expect("elsewhere");
 
     assert_eq!(
         tenancy
             .may_add_organization_membership(
-                &platform,
+                &administrator,
                 MembershipAuthority::VerifiedOrganization,
                 acme,
                 joiner,
@@ -494,27 +608,34 @@ fn the_authority_decides_before_the_event_and_the_fold_applies_it_without_one() 
             .reason,
         DenialReason::Denied
     );
-    tenancy
-        .may_add_organization_membership(
-            &platform,
+    assert_eq!(
+        tenancy
+            .decide_add_organization_membership(
+                &administrator,
+                MembershipAuthority::VerifiedOrganization,
+                membership(20),
+                acme,
+                joiner,
+            )
+            .expect_err("and the command that runs it refuses on the same rule")
+            .reason,
+        DenialReason::Denied
+    );
+
+    let seeded = tenancy
+        .add_organization_membership(
+            &administrator,
             MembershipAuthority::PlatformOrganizationAdministration,
+            membership(20),
             acme,
             joiner,
         )
         .expect("the platform path may");
 
-    let mut replayed = Tenancy::new();
-    replayed.create_organization(acme, "Acme").expect("acme");
-    replayed
-        .create_organization(elsewhere, "Platform")
-        .expect("elsewhere");
-    for fold in [&mut tenancy, &mut replayed] {
-        fold.add_organization_membership(membership(20), acme, joiner)
-            .expect("the fold applies the event it is given");
-    }
+    let replayed = Tenancy::fold(&[created_acme, created_elsewhere, seeded]);
     assert_eq!(
         replayed, tenancy,
-        "the fold that was never told an authority records the same row"
+        "a fold that cannot be handed an authority records the same row"
     );
     assert_eq!(replayed.members_of(acme), vec![joiner]);
 }
@@ -531,20 +652,40 @@ fn the_fold_refuses_what_would_leave_the_projection_malformed() {
 
     assert_eq!(
         tenancy
-            .add_organization_membership(membership(20), acme, joiner)
+            .add_organization_membership(
+                &platform(),
+                MembershipAuthority::PlatformOrganizationAdministration,
+                membership(20),
+                acme,
+                joiner
+            )
             .expect_err("no record of that organization exists")
             .reason,
         DenialReason::Denied
     );
 
-    tenancy.create_organization(acme, "Acme").expect("acme");
     tenancy
-        .add_organization_membership(membership(20), acme, joiner)
+        .create_organization(&platform(), acme, "Acme")
+        .expect("acme");
+    tenancy
+        .add_organization_membership(
+            &platform(),
+            MembershipAuthority::PlatformOrganizationAdministration,
+            membership(20),
+            acme,
+            joiner,
+        )
         .expect("membership");
     for identity in [membership(20), membership(21)] {
         assert_eq!(
             tenancy
-                .add_organization_membership(identity, acme, joiner,)
+                .add_organization_membership(
+                    &platform(),
+                    MembershipAuthority::PlatformOrganizationAdministration,
+                    identity,
+                    acme,
+                    joiner,
+                )
                 .expect_err("neither the identity nor the membership is written twice")
                 .reason,
             DenialReason::Denied
@@ -563,18 +704,34 @@ fn a_scoped_read_answers_only_inside_the_callers_organization_and_only_for_a_liv
     let other = organization(2);
     let joiner = principal(11);
     let mut tenancy = Tenancy::new();
-    tenancy.create_organization(acme, "Acme").expect("acme");
-    tenancy.create_organization(other, "Other").expect("other");
+    tenancy
+        .create_organization(&platform(), acme, "Acme")
+        .expect("acme");
+    tenancy
+        .create_organization(&platform(), other, "Other")
+        .expect("other");
     let caller = context(acme, principal(10));
     let outsider = context(other, principal(12));
     tenancy
-        .add_organization_membership(membership(20), acme, joiner)
+        .add_organization_membership(
+            &platform(),
+            MembershipAuthority::PlatformOrganizationAdministration,
+            membership(20),
+            acme,
+            joiner,
+        )
         .expect("membership");
     tenancy
         .create_team(&caller, team(30), "Platform")
         .expect("team");
     tenancy
-        .add_team_membership(&caller, team_membership(50), team(30), joiner)
+        .add_team_membership(
+            &caller,
+            team_membership(50),
+            team(30),
+            joiner,
+            contribution(60),
+        )
         .expect("team membership");
     tenancy
         .create_space(&caller, space(40), "Production")
@@ -636,7 +793,9 @@ fn a_scoped_read_answers_only_inside_the_callers_organization_and_only_for_a_liv
     tenancy
         .remove_organization_membership(&caller, membership(20))
         .expect("removed");
-    tenancy.close_organization(acme).expect("closed");
+    tenancy
+        .close_organization(&platform(), acme)
+        .expect("closed");
     assert!(tenancy.resolve_organization(&caller, acme).is_none());
     assert!(
         tenancy
@@ -654,5 +813,580 @@ fn a_scoped_read_answers_only_inside_the_callers_organization_and_only_for_a_liv
         tenancy.record_count(),
         held,
         "a record that stops resolving is still held"
+    );
+}
+
+/// `CreateOrganization` denied: "the requested display name is not admitted" has no
+/// realization (`src/tenancy.rs`), so the one decided path is an identity already
+/// recorded.
+#[test]
+fn create_organization_denials_leave_the_projection_unchanged() {
+    let acme = organization(1);
+    let caller = context(acme, principal(10));
+    let mut tenancy = Tenancy::new();
+    tenancy
+        .create_organization(&platform(), acme, "Acme")
+        .expect("acme");
+
+    refuses!(
+        tenancy,
+        tenancy.decide_create_organization(&caller, acme, "Impostor"),
+        "the identity is already recorded"
+    );
+    refuses!(
+        tenancy,
+        tenancy.create_organization(&platform(), acme, "Impostor"),
+        "the command wrapper refuses the identity the decide half refuses"
+    );
+}
+
+/// `CloseOrganization` denied: the organization does not resolve, or has already been
+/// closed.
+#[test]
+fn close_organization_denials_leave_the_projection_unchanged() {
+    let acme = organization(1);
+    let caller = context(acme, principal(10));
+    let mut tenancy = Tenancy::new();
+    tenancy
+        .create_organization(&platform(), acme, "Acme")
+        .expect("acme");
+
+    refuses!(
+        tenancy,
+        tenancy.decide_close_organization(&caller, organization(2)),
+        "no record of that organization exists"
+    );
+    tenancy
+        .close_organization(&platform(), acme)
+        .expect("closed");
+    refuses!(
+        tenancy,
+        tenancy.decide_close_organization(&caller, acme),
+        "a terminal state does not move twice"
+    );
+    refuses!(
+        tenancy,
+        tenancy.close_organization(&platform(), acme),
+        "the command wrapper refuses what the decide half refuses"
+    );
+}
+
+/// `AddOrganizationMembership` denied: the named organization is not the verified one on
+/// the tenant path, does not resolve or is closed, the identity is already held, or the
+/// principal already holds an active membership there.
+#[test]
+fn add_organization_membership_denials_leave_the_projection_unchanged() {
+    let acme = organization(1);
+    let other = organization(2);
+    let caller = context(acme, principal(10));
+    let joiner = principal(11);
+    let mut tenancy = Tenancy::new();
+    tenancy
+        .create_organization(&platform(), acme, "Acme")
+        .expect("acme");
+    tenancy
+        .create_organization(&platform(), other, "Other")
+        .expect("other");
+    tenancy
+        .add_organization_membership(
+            &platform(),
+            MembershipAuthority::PlatformOrganizationAdministration,
+            membership(20),
+            acme,
+            joiner,
+        )
+        .expect("membership");
+
+    refuses!(
+        tenancy,
+        tenancy.decide_add_organization_membership(
+            &caller,
+            MembershipAuthority::VerifiedOrganization,
+            membership(21),
+            other,
+            principal(12),
+        ),
+        "the tenant path may not name an organization other than the verified one"
+    );
+    refuses!(
+        tenancy,
+        tenancy.decide_add_organization_membership(
+            &caller,
+            MembershipAuthority::PlatformOrganizationAdministration,
+            membership(21),
+            organization(3),
+            principal(12),
+        ),
+        "no record of that organization exists"
+    );
+    refuses!(
+        tenancy,
+        tenancy.decide_add_organization_membership(
+            &caller,
+            MembershipAuthority::VerifiedOrganization,
+            membership(20),
+            acme,
+            principal(12),
+        ),
+        "the identity is already held"
+    );
+    refuses!(
+        tenancy,
+        tenancy.decide_add_organization_membership(
+            &caller,
+            MembershipAuthority::VerifiedOrganization,
+            membership(21),
+            acme,
+            joiner,
+        ),
+        "the principal already holds an active membership there"
+    );
+    refuses!(
+        tenancy,
+        tenancy.add_organization_membership(
+            &platform(),
+            MembershipAuthority::PlatformOrganizationAdministration,
+            membership(21),
+            acme,
+            joiner
+        ),
+        "the command wrapper refuses what the decide half refuses"
+    );
+
+    tenancy
+        .close_organization(&platform(), acme)
+        .expect("closed");
+    refuses!(
+        tenancy,
+        tenancy.decide_add_organization_membership(
+            &caller,
+            MembershipAuthority::VerifiedOrganization,
+            membership(22),
+            acme,
+            principal(13),
+        ),
+        "a closed organization admits no new membership"
+    );
+}
+
+/// `RemoveOrganizationMembership` denied: the membership does not resolve, is outside the
+/// verified organization, or has already been removed.
+#[test]
+fn remove_organization_membership_denials_leave_the_projection_unchanged() {
+    let acme = organization(1);
+    let other = organization(2);
+    let caller = context(acme, principal(10));
+    let outsider = context(other, principal(12));
+    let joiner = principal(11);
+    let mut tenancy = Tenancy::new();
+    tenancy
+        .create_organization(&platform(), acme, "Acme")
+        .expect("acme");
+    tenancy
+        .create_organization(&platform(), other, "Other")
+        .expect("other");
+    tenancy
+        .add_organization_membership(
+            &platform(),
+            MembershipAuthority::PlatformOrganizationAdministration,
+            membership(20),
+            acme,
+            joiner,
+        )
+        .expect("membership");
+
+    refuses!(
+        tenancy,
+        tenancy.decide_remove_organization_membership(&caller, membership(21)),
+        "no record of that membership exists"
+    );
+    refuses!(
+        tenancy,
+        tenancy.decide_remove_organization_membership(&outsider, membership(20)),
+        "a membership of another organization is not the outsider's to remove"
+    );
+    refuses!(
+        tenancy,
+        tenancy.remove_organization_membership(&outsider, membership(20)),
+        "and the command wrapper refuses it too"
+    );
+
+    tenancy
+        .remove_organization_membership(&caller, membership(20))
+        .expect("removed");
+    refuses!(
+        tenancy,
+        tenancy.decide_remove_organization_membership(&caller, membership(20)),
+        "a terminal state does not move twice"
+    );
+}
+
+/// `CreateTeam` denied: the verified organization does not resolve or is closed, or the
+/// identity is already recorded.
+#[test]
+fn create_team_denials_leave_the_projection_unchanged() {
+    let acme = organization(1);
+    let caller = context(acme, principal(10));
+    let stranger = context(organization(2), principal(12));
+    let mut tenancy = Tenancy::new();
+    tenancy
+        .create_organization(&platform(), acme, "Acme")
+        .expect("acme");
+    tenancy
+        .create_team(&caller, team(30), "Platform")
+        .expect("team");
+
+    refuses!(
+        tenancy,
+        tenancy.decide_create_team(&stranger, team(31), "Nowhere"),
+        "no record of the verified organization exists"
+    );
+    refuses!(
+        tenancy,
+        tenancy.decide_create_team(&caller, team(30), "Impostor"),
+        "the identity is already recorded"
+    );
+    refuses!(
+        tenancy,
+        tenancy.create_team(&caller, team(30), "Impostor"),
+        "and the command wrapper refuses it too"
+    );
+
+    tenancy
+        .close_organization(&platform(), acme)
+        .expect("closed");
+    refuses!(
+        tenancy,
+        tenancy.decide_create_team(&caller, team(32), "Later"),
+        "a closed organization admits no team"
+    );
+}
+
+/// `RetireTeam` denied: the team does not resolve, is outside the verified organization,
+/// or has already been retired.
+#[test]
+fn retire_team_denials_leave_the_projection_unchanged() {
+    let acme = organization(1);
+    let other = organization(2);
+    let caller = context(acme, principal(10));
+    let outsider = context(other, principal(12));
+    let mut tenancy = Tenancy::new();
+    tenancy
+        .create_organization(&platform(), acme, "Acme")
+        .expect("acme");
+    tenancy
+        .create_organization(&platform(), other, "Other")
+        .expect("other");
+    tenancy
+        .create_team(&caller, team(30), "Platform")
+        .expect("team");
+
+    refuses!(
+        tenancy,
+        tenancy.decide_retire_team(&caller, team(31)),
+        "no record of that team exists"
+    );
+    refuses!(
+        tenancy,
+        tenancy.decide_retire_team(&outsider, team(30)),
+        "a team in another organization is not the outsider's to retire"
+    );
+    refuses!(
+        tenancy,
+        tenancy.retire_team(&outsider, team(30)),
+        "and the command wrapper refuses it too"
+    );
+
+    tenancy.retire_team(&caller, team(30)).expect("retired");
+    refuses!(
+        tenancy,
+        tenancy.decide_retire_team(&caller, team(30)),
+        "a terminal state does not move twice"
+    );
+}
+
+/// `AddTeamMembership` denied: the verified organization is closed, the team does not
+/// resolve inside it or is retired, the principal is not a member of that organization,
+/// the identity is already recorded, or the principal already holds a membership of that
+/// team.
+#[test]
+fn add_team_membership_denials_leave_the_projection_unchanged() {
+    let acme = organization(1);
+    let other = organization(2);
+    let caller = context(acme, principal(10));
+    let outsider = context(other, principal(12));
+    let joiner = principal(11);
+    let mut tenancy = Tenancy::new();
+    tenancy
+        .create_organization(&platform(), acme, "Acme")
+        .expect("acme");
+    tenancy
+        .create_organization(&platform(), other, "Other")
+        .expect("other");
+    tenancy
+        .add_organization_membership(
+            &platform(),
+            MembershipAuthority::PlatformOrganizationAdministration,
+            membership(20),
+            acme,
+            joiner,
+        )
+        .expect("membership");
+    tenancy
+        .create_team(&caller, team(30), "Platform")
+        .expect("team");
+    tenancy
+        .create_team(&caller, team(31), "Retired")
+        .expect("team");
+    tenancy.retire_team(&caller, team(31)).expect("retired");
+    tenancy
+        .add_team_membership(
+            &caller,
+            team_membership(50),
+            team(30),
+            joiner,
+            contribution(60),
+        )
+        .expect("team membership");
+
+    refuses!(
+        tenancy,
+        tenancy.decide_add_team_membership(
+            &caller,
+            team_membership(51),
+            team(32),
+            joiner,
+            contribution(61)
+        ),
+        "no record of that team exists"
+    );
+    refuses!(
+        tenancy,
+        tenancy.decide_add_team_membership(
+            &outsider,
+            team_membership(51),
+            team(30),
+            joiner,
+            contribution(61)
+        ),
+        "a team in another organization is not the outsider's to write into"
+    );
+    refuses!(
+        tenancy,
+        tenancy.decide_add_team_membership(
+            &caller,
+            team_membership(51),
+            team(31),
+            joiner,
+            contribution(61)
+        ),
+        "a retired team admits no membership"
+    );
+    refuses!(
+        tenancy,
+        tenancy.decide_add_team_membership(
+            &caller,
+            team_membership(51),
+            team(30),
+            principal(13),
+            contribution(61)
+        ),
+        "the principal is not a member of that organization"
+    );
+    refuses!(
+        tenancy,
+        tenancy.decide_add_team_membership(
+            &caller,
+            team_membership(50),
+            team(30),
+            joiner,
+            contribution(61)
+        ),
+        "the identity is already recorded"
+    );
+    refuses!(
+        tenancy,
+        tenancy.decide_add_team_membership(
+            &caller,
+            team_membership(51),
+            team(30),
+            joiner,
+            contribution(61)
+        ),
+        "the principal already holds a membership of that team"
+    );
+    refuses!(
+        tenancy,
+        tenancy.add_team_membership(
+            &caller,
+            team_membership(51),
+            team(30),
+            joiner,
+            contribution(61)
+        ),
+        "and the command wrapper refuses it too"
+    );
+
+    tenancy
+        .close_organization(&platform(), acme)
+        .expect("closed");
+    refuses!(
+        tenancy,
+        tenancy.decide_add_team_membership(
+            &caller,
+            team_membership(52),
+            team(30),
+            joiner,
+            contribution(62)
+        ),
+        "a closed organization admits no new team membership"
+    );
+}
+
+/// `RemoveTeamMembership` denied: the membership does not resolve, is outside the
+/// verified organization, or has already been removed.
+#[test]
+fn remove_team_membership_denials_leave_the_projection_unchanged() {
+    let acme = organization(1);
+    let other = organization(2);
+    let caller = context(acme, principal(10));
+    let outsider = context(other, principal(12));
+    let joiner = principal(11);
+    let mut tenancy = Tenancy::new();
+    tenancy
+        .create_organization(&platform(), acme, "Acme")
+        .expect("acme");
+    tenancy
+        .create_organization(&platform(), other, "Other")
+        .expect("other");
+    tenancy
+        .add_organization_membership(
+            &platform(),
+            MembershipAuthority::PlatformOrganizationAdministration,
+            membership(20),
+            acme,
+            joiner,
+        )
+        .expect("membership");
+    tenancy
+        .create_team(&caller, team(30), "Platform")
+        .expect("team");
+    tenancy
+        .add_team_membership(
+            &caller,
+            team_membership(50),
+            team(30),
+            joiner,
+            contribution(60),
+        )
+        .expect("team membership");
+
+    refuses!(
+        tenancy,
+        tenancy.decide_remove_team_membership(&caller, team_membership(51)),
+        "no record of that team membership exists"
+    );
+    refuses!(
+        tenancy,
+        tenancy.decide_remove_team_membership(&outsider, team_membership(50)),
+        "a team membership of another organization is not the outsider's to remove"
+    );
+    refuses!(
+        tenancy,
+        tenancy.remove_team_membership(&outsider, team_membership(50)),
+        "and the command wrapper refuses it too"
+    );
+
+    tenancy
+        .remove_team_membership(&caller, team_membership(50))
+        .expect("removed");
+    refuses!(
+        tenancy,
+        tenancy.decide_remove_team_membership(&caller, team_membership(50)),
+        "a terminal state does not move twice"
+    );
+}
+
+/// `CreateSpace` denied: the verified organization does not resolve or is closed, or the
+/// identity is already recorded.
+#[test]
+fn create_space_denials_leave_the_projection_unchanged() {
+    let acme = organization(1);
+    let caller = context(acme, principal(10));
+    let stranger = context(organization(2), principal(12));
+    let mut tenancy = Tenancy::new();
+    tenancy
+        .create_organization(&platform(), acme, "Acme")
+        .expect("acme");
+    tenancy
+        .create_space(&caller, space(40), "Production")
+        .expect("space");
+
+    refuses!(
+        tenancy,
+        tenancy.decide_create_space(&stranger, space(41), "Nowhere"),
+        "no record of the verified organization exists"
+    );
+    refuses!(
+        tenancy,
+        tenancy.decide_create_space(&caller, space(40), "Impostor"),
+        "the identity is already recorded"
+    );
+    refuses!(
+        tenancy,
+        tenancy.create_space(&caller, space(40), "Impostor"),
+        "and the command wrapper refuses it too"
+    );
+
+    tenancy
+        .close_organization(&platform(), acme)
+        .expect("closed");
+    refuses!(
+        tenancy,
+        tenancy.decide_create_space(&caller, space(42), "Later"),
+        "a closed organization admits no space"
+    );
+}
+
+/// `RetireSpace` denied: the space does not resolve, is outside the verified
+/// organization, or has already been retired.
+#[test]
+fn retire_space_denials_leave_the_projection_unchanged() {
+    let acme = organization(1);
+    let other = organization(2);
+    let caller = context(acme, principal(10));
+    let outsider = context(other, principal(12));
+    let mut tenancy = Tenancy::new();
+    tenancy
+        .create_organization(&platform(), acme, "Acme")
+        .expect("acme");
+    tenancy
+        .create_organization(&platform(), other, "Other")
+        .expect("other");
+    tenancy
+        .create_space(&caller, space(40), "Production")
+        .expect("space");
+
+    refuses!(
+        tenancy,
+        tenancy.decide_retire_space(&caller, space(41)),
+        "no record of that space exists"
+    );
+    refuses!(
+        tenancy,
+        tenancy.decide_retire_space(&outsider, space(40)),
+        "a space in another organization is not the outsider's to retire"
+    );
+    refuses!(
+        tenancy,
+        tenancy.retire_space(&outsider, space(40)),
+        "and the command wrapper refuses it too"
+    );
+
+    tenancy.retire_space(&caller, space(40)).expect("retired");
+    refuses!(
+        tenancy,
+        tenancy.decide_retire_space(&caller, space(40)),
+        "a terminal state does not move twice"
     );
 }

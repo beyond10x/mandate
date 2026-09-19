@@ -22,7 +22,7 @@ use mandate_graph::revocation::RevisionView;
 use mandate_graph::topology::{Placement, ResourceLookup, ResourceRegistry};
 use mandate_model::Decision;
 use mandate_model::graph::Topology;
-use mandate_model::tenancy::Tenancy;
+use mandate_model::tenancy::{MembershipAuthority, Tenancy};
 use mandate_policy::double::PolicyDouble;
 use mandate_policy::port::{AttributeSet, ChallengeRequirement};
 use mandate_policy::record::{AuthorizationModel, Policy};
@@ -84,10 +84,12 @@ fn context() -> VerifiedContext {
 fn tenancy() -> Tenancy {
     let mut tenancy = Tenancy::new();
     tenancy
-        .create_organization(organization(), "acme")
+        .create_organization(&context(), organization(), "acme")
         .expect("the organization is recorded");
     tenancy
         .add_organization_membership(
+            &context(),
+            MembershipAuthority::VerifiedOrganization,
             OrganizationMembershipId::new(uuid(3)),
             organization(),
             principal(),
@@ -656,7 +658,7 @@ fn the_reasons_a_check_can_produce_today_are_these_six() {
     let mut closed = World::new();
     closed
         .tenancy
-        .close_organization(organization())
+        .close_organization(&context(), organization())
         .expect("the organization is closed");
     produced.push(closed.reason());
 
@@ -665,7 +667,7 @@ fn the_reasons_a_check_can_produce_today_are_these_six() {
     stranger.tenancy = Tenancy::new();
     stranger
         .tenancy
-        .create_organization(organization(), "acme")
+        .create_organization(&context(), organization(), "acme")
         .expect("the organization is recorded");
     produced.push(stranger.reason());
 

@@ -17,11 +17,11 @@
 use std::collections::BTreeSet;
 
 use mandate_model::tenancy::{
-    MembershipAuthority, OrganizationMembershipState, TeamMembershipState, Tenancy,
+    MembershipAuthority, OrganizationMembershipState, TeamMembershipState, Tenancy, TenancyEvent,
 };
 use mandate_types::{
-    Audience, CorrelationId, CredentialId, DenialReason, OrganizationId, OrganizationMembershipId,
-    PrincipalId, TeamId, TeamMembershipId, VerifiedContext,
+    Audience, CorrelationId, CredentialId, DenialReason, MembershipContributionId, OrganizationId,
+    OrganizationMembershipId, PrincipalId, TeamId, TeamMembershipId, VerifiedContext,
 };
 
 const SCHEMA: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../generated/schema");
@@ -50,6 +50,10 @@ fn team_membership(tag: u16) -> TeamMembershipId {
     TeamMembershipId::parse(&uuid(tag)).expect("team membership identity")
 }
 
+fn contribution(tag: u16) -> MembershipContributionId {
+    MembershipContributionId::parse(&uuid(tag)).expect("contribution identity")
+}
+
 fn context(organization: OrganizationId, subject: PrincipalId) -> VerifiedContext {
     VerifiedContext {
         subject,
@@ -61,6 +65,16 @@ fn context(organization: OrganizationId, subject: PrincipalId) -> VerifiedContex
         execution: None,
         correlation: CorrelationId::new("correlation"),
     }
+}
+
+/// The platform administrator's verified context.
+///
+/// `CreateOrganization` and `CloseOrganization` are platform-scoped and
+/// `AddOrganizationMembership` has a platform path, so the organization this names is the
+/// administrator's own and never the one being written. Every one of the three declares a
+/// `mandate.core.VerifiedContext` in its payload, so every one of them takes one.
+fn platform() -> VerifiedContext {
+    context(organization(0xfff0), principal(0xfff1))
 }
 
 fn document(kind: &str, ess_name: &str) -> serde_json::Value {
@@ -215,29 +229,62 @@ fn every_required_projection_field_is_carried_by_a_declared_event() {
 /// holding platform organization-administration authority, which is how the organization
 /// CreateOrganization returns is first populated".
 ///
-/// `src/tenancy.rs:75-81` makes that distinction a fold *input*, [`MembershipAuthority`],
-/// and refuses the write on the tenant path. `mandate.tenancy.OrganizationMembershipAdded`
-/// declares no field from which that input can be read, so the accepted history below —
-/// the contract's own "how the organization is first populated" — cannot be replayed
-/// from its declared events, and the row is lost on a rebuild.
+/// `src/tenancy.rs` makes that distinction a *decide-side* input,
+/// [`MembershipAuthority`], read by `may_add_organization_membership` and by
+/// `decide_add_organization_membership` and by nothing else.
+/// `mandate.tenancy.OrganizationMembershipAdded` declares no field from which it could be
+/// read back, so the question this case asks is whether the accepted history below — the
+/// contract's own "how the organization is first populated" — survives a rebuild that
+/// has no authority to hand.
 ///
-/// Deriving "platform" from `organization_id != context.organization` is not available
-/// to a replayer: that is inferring the authority from the very mismatch the authority
-/// was required to write, which is the inference `src/tenancy.rs:280-284` exists to
-/// refuse.
+/// Until `story:tenancy-graph-events` landed, this case answered it by *re-executing the
+/// commands* into a second projection, which proves nothing about a log: re-running a
+/// command runs its guards again with the same inputs, and the inputs are what a replayer
+/// does not have. It now captures the events the commands returned and folds those,
+/// through `Tenancy::fold`, which takes a `&[TenancyEvent]` and cannot be handed a
+/// [`MembershipAuthority`] at all.
+///
+/// Deriving "platform" from `organization_id != context.organization` is not available to
+/// a replayer either: that is inferring the authority from the very mismatch the authority
+/// was required to write.
 #[test]
 fn a_platform_written_membership_replays_from_its_declared_event_alone() {
     let acme = organization(1);
     let elsewhere = organization(2);
-    let _platform = context(elsewhere, principal(9));
+    let platform = context(elsewhere, principal(9));
     let joiner = principal(11);
 
     let mut live = Tenancy::new();
-    live.create_organization(acme, "Acme").expect("acme");
-    live.create_organization(elsewhere, "Platform")
+    let mut log = Vec::new();
+
+    let created = live
+        .decide_create_organization(&platform, acme, "Acme")
+        .expect("acme");
+    live.apply(&created);
+    log.push(created);
+
+    let created = live
+        .decide_create_organization(&platform, elsewhere, "Platform")
         .expect("the platform administrator's own organization");
-    live.add_organization_membership(membership(20), acme, joiner)
+    live.apply(&created);
+    log.push(created);
+
+    let seeded = live
+        .decide_add_organization_membership(
+            &platform,
+            MembershipAuthority::PlatformOrganizationAdministration,
+            membership(20),
+            acme,
+            joiner,
+        )
         .expect("the platform path seeds the first membership of acme");
+    live.apply(&seeded);
+    log.push(seeded);
+
+    assert_ne!(
+        platform.organization, acme,
+        "the membership was written by a caller verified in another organization"
+    );
 
     let declared = property_names(&document(
         "events",
@@ -254,36 +301,57 @@ fn a_platform_written_membership_replays_from_its_declared_event_alone() {
         "the declared event is the whole record of what happened"
     );
 
-    let mut replayed = Tenancy::new();
-    replayed.create_organization(acme, "Acme").expect("acme");
-    replayed
-        .create_organization(elsewhere, "Platform")
-        .expect("the platform administrator's own organization");
-    replayed
-        .add_organization_membership(membership(20), acme, joiner)
-        .expect("the declared event carries no authority path, so replaying it must not need one");
+    let appended = log.last().expect("the membership event was captured");
+    assert_eq!(
+        appended.ess_name(),
+        "mandate.tenancy.OrganizationMembershipAdded"
+    );
+    let payload = serde_json::to_value(appended).expect("the payload serializes");
+    let carried: BTreeSet<String> = payload
+        .as_object()
+        .expect("the payload is an object")
+        .keys()
+        .cloned()
+        .collect();
+    assert_eq!(
+        carried, declared,
+        "what went on the log is exactly the declared payload, and no authority went with it"
+    );
 
+    let replayed = Tenancy::fold(&log);
     assert_eq!(replayed, live, "a rebuild reproduces the fold it dropped");
+    assert_eq!(
+        replayed.members_of(acme),
+        vec![joiner],
+        "including the platform-written first membership of the organization"
+    );
 }
 
 /// `tenancy.yaml`, AddOrganizationMembership denied: "... **the named organization is
 /// closed** ...". CloseOrganization accepted: "The tenant stops admitting authority and
 /// nothing it owns is destroyed."
 ///
-/// That rule is not the authority rule, and the reason the authority rule had to leave the
-/// apply half does not reach it: `mandate.tenancy.OrganizationClosed` declares `id`, so a
-/// replayer knows a closed organization when it sees one, and a log applied in order never
-/// presents `OrganizationMembershipAdded` after it. The closed rule is therefore
-/// recoverable — the test `src/tenancy.rs:52-54` sets for a guard that may stay in the
-/// fold — and `create_team` and `create_space` both keep it (`self.admits(...)`).
+/// Where that guard lives is the question, and the answer this case drives is the one
+/// `src/tenancy.rs` states: **the guard is at `decide`, and `apply` is total.** Both
+/// halves are exercised below, in the order a command path runs them.
 ///
-/// `add_organization_membership` does not: it tests
-/// `self.organizations.contains_key(&organization_id)` alone, so the only method that
-/// writes the row admits one into a `Closed` organization. Deciding and applying are two
-/// calls with nothing between them, so a closure that lands between them — the sequence
-/// below, and the sequence the module's own decide-then-apply protocol (`src/tenancy.rs:
-/// 46-50`) invites — writes an `Active` membership of a tenant that admits no authority.
-/// No accepted history produces that state, so no replay can rebuild it either.
+/// * The command — `add_organization_membership`, which decides and then applies —
+///   refuses a closed organization outright, and writes nothing.
+/// * A *held* event, decided while the organization was open and applied after it closed,
+///   **is written**. `apply` re-checks nothing, because a fold that refuses is not a
+///   rebuild (`docs/adr/0009-event-sourced-persistence.md`).
+///
+/// The second is not a defect in this crate and is not this crate's to prevent. ADR 0009
+/// makes the decide-and-append step one transaction whose append is a compare-and-set on
+/// the expected stream version, so the held decision loses that compare-and-set against
+/// the closure that moved the stream and is retried against the state that moved it. This
+/// case pins both halves so that neither can be quietly changed into the other: a guard
+/// migrating into `apply` breaks the second assertion, and a guard leaving `decide` breaks
+/// the first.
+///
+/// The earlier version of this case named the decide-then-apply sequence in its doc and
+/// drove only the re-deciding command, so it was green without covering the sequence it
+/// described (adversary pass 2, finding A2-5).
 #[test]
 fn a_closed_organization_admits_no_membership_through_the_half_that_writes() {
     let acme = organization(1);
@@ -291,7 +359,9 @@ fn a_closed_organization_admits_no_membership_through_the_half_that_writes() {
     let joiner = principal(11);
 
     let mut tenancy = Tenancy::new();
-    tenancy.create_organization(acme, "Acme").expect("acme");
+    tenancy
+        .create_organization(&platform(), acme, "Acme")
+        .expect("acme");
     tenancy
         .may_add_organization_membership(
             &caller,
@@ -301,11 +371,31 @@ fn a_closed_organization_admits_no_membership_through_the_half_that_writes() {
         )
         .expect("the decide half admits the write while the organization is open");
 
-    tenancy.close_organization(acme).expect("closed");
+    // The event a command path would hold between its decision and its append.
+    let held = tenancy
+        .decide_add_organization_membership(
+            &caller,
+            MembershipAuthority::VerifiedOrganization,
+            membership(20),
+            acme,
+            joiner,
+        )
+        .expect("the decide half returns the event while the organization is open");
+
+    tenancy
+        .close_organization(&platform(), acme)
+        .expect("closed");
     assert!(!tenancy.admits(acme), "the tenant admits no new authority");
 
+    // Half one: the command decides again, against the projection as it now stands.
     let denial = tenancy
-        .add_organization_membership(membership(20), acme, joiner)
+        .add_organization_membership(
+            &platform(),
+            MembershipAuthority::PlatformOrganizationAdministration,
+            membership(20),
+            acme,
+            joiner,
+        )
         .expect_err("a closed organization admits no new membership");
     assert_eq!(denial.reason, DenialReason::Denied);
     assert!(
@@ -317,6 +407,56 @@ fn a_closed_organization_admits_no_membership_through_the_half_that_writes() {
         1,
         "nothing but the organization was ever written"
     );
+    assert_eq!(
+        tenancy
+            .decide_add_organization_membership(
+                &caller,
+                MembershipAuthority::VerifiedOrganization,
+                membership(20),
+                acme,
+                joiner,
+            )
+            .expect_err("and the decide half alone refuses it, which is where the guard is")
+            .reason,
+        DenialReason::Denied
+    );
+
+    // Half two: the held event, applied. `apply` is total and writes it.
+    let mut applied = tenancy.clone();
+    applied.apply(&held);
+    assert_eq!(
+        applied.members_of(acme),
+        vec![joiner],
+        "apply re-checked a guard that belongs to decide; a fold that refuses is not a \
+         rebuild"
+    );
+    assert_eq!(
+        applied
+            .organization_membership(membership(20))
+            .expect("the row apply was handed")
+            .state,
+        OrganizationMembershipState::Active
+    );
+
+    // And that state is not one an accepted history reaches: the append the command path
+    // would have made loses its compare-and-set against the closure, so the log holds the
+    // closure alone and the fold of it holds no membership.
+    let accepted = Tenancy::fold(&[
+        TenancyEvent::OrganizationCreated {
+            context: platform(),
+            organization_id: acme,
+            display_name: "Acme".to_owned(),
+        },
+        TenancyEvent::OrganizationClosed {
+            context: platform(),
+            id: acme,
+        },
+    ]);
+    assert_eq!(
+        accepted, tenancy,
+        "the accepted history is the one the command path appended"
+    );
+    assert!(accepted.members_of(acme).is_empty());
 }
 
 /// `tenancy.yaml`, RemoveOrganizationMembership denied: "membership is outside the
@@ -343,16 +483,32 @@ fn a_removal_is_confined_to_the_verified_organization() {
     let joiner = principal(11);
 
     let mut tenancy = Tenancy::new();
-    tenancy.create_organization(acme, "Acme").expect("acme");
-    tenancy.create_organization(other, "Other").expect("other");
     tenancy
-        .add_organization_membership(membership(20), acme, joiner)
+        .create_organization(&platform(), acme, "Acme")
+        .expect("acme");
+    tenancy
+        .create_organization(&platform(), other, "Other")
+        .expect("other");
+    tenancy
+        .add_organization_membership(
+            &platform(),
+            MembershipAuthority::PlatformOrganizationAdministration,
+            membership(20),
+            acme,
+            joiner,
+        )
         .expect("membership");
     tenancy
         .create_team(&caller, team(30), "Platform")
         .expect("team");
     tenancy
-        .add_team_membership(&caller, team_membership(50), team(30), joiner)
+        .add_team_membership(
+            &caller,
+            team_membership(50),
+            team(30),
+            joiner,
+            contribution(60),
+        )
         .expect("team membership");
 
     assert_eq!(
@@ -410,14 +566,24 @@ fn a_closed_organization_admits_no_new_team_membership() {
     let joiner = principal(11);
 
     let mut tenancy = Tenancy::new();
-    tenancy.create_organization(acme, "Acme").expect("acme");
     tenancy
-        .add_organization_membership(membership(20), acme, joiner)
+        .create_organization(&platform(), acme, "Acme")
+        .expect("acme");
+    tenancy
+        .add_organization_membership(
+            &platform(),
+            MembershipAuthority::PlatformOrganizationAdministration,
+            membership(20),
+            acme,
+            joiner,
+        )
         .expect("membership");
     tenancy
         .create_team(&caller, team(30), "Platform")
         .expect("team");
-    tenancy.close_organization(acme).expect("closed");
+    tenancy
+        .close_organization(&platform(), acme)
+        .expect("closed");
 
     assert!(tenancy.is_member(acme, joiner), "the membership is kept");
     assert!(
@@ -426,7 +592,13 @@ fn a_closed_organization_admits_no_new_team_membership() {
     );
     assert_eq!(
         tenancy
-            .add_team_membership(&caller, team_membership(50), team(30), joiner)
+            .add_team_membership(
+                &caller,
+                team_membership(50),
+                team(30),
+                joiner,
+                contribution(60)
+            )
             .expect_err("a closed organization admits no new team membership")
             .reason,
         DenialReason::Denied

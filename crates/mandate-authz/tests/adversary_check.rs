@@ -13,7 +13,7 @@ use mandate_graph::record::Grant;
 use mandate_graph::topology::ResourceRegistry;
 use mandate_model::Decision;
 use mandate_model::graph::Topology;
-use mandate_model::tenancy::Tenancy;
+use mandate_model::tenancy::{MembershipAuthority, Tenancy};
 use mandate_policy::double::PolicyDouble;
 use mandate_policy::port::{
     AttributeSet, Challenge, ChallengeRequirement, Evaluation, PolicyEffect, PolicyError,
@@ -90,10 +90,12 @@ fn context() -> VerifiedContext {
 fn tenancy() -> Tenancy {
     let mut tenancy = Tenancy::new();
     tenancy
-        .create_organization(organization(), "acme")
+        .create_organization(&context(), organization(), "acme")
         .expect("the organization is recorded");
     tenancy
         .add_organization_membership(
+            &context(),
+            MembershipAuthority::VerifiedOrganization,
             OrganizationMembershipId::new(uuid(3)),
             organization(),
             principal(),

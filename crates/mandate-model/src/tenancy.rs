@@ -40,36 +40,55 @@
 //! Every other field, and every decision below, likewise reads only what its event
 //! declares or the aggregate instance that event is appended at.
 //!
-//! # Deciding and applying are separate where a decision needs what no event carries
+//! # Deciding, applying and folding are three separate things
 //!
+//! Each of the ten commands is split in three, and [`TenancyEvent`] is what passes
+//! between them:
+//!
+//! * `decide_*` takes `&self`, reads the projection, and returns either the declared
+//!   event or [`Denied`]. It writes nothing: a refusal leaves the projection exactly as
+//!   it found it, which is asserted per denied path in
+//!   `crates/mandate-model/tests/tenancy.rs`.
+//! * [`Tenancy::apply`] takes the event and writes it. It cannot refuse and it is handed
+//!   no verified context and no authority beyond what the event itself declares.
+//! * [`Tenancy::fold`] applies a whole log to an empty projection. That is the rebuild
+//!   `docs/adr/0009-event-sourced-persistence.md` requires, and
+//!   `crates/mandate-model/tests/replay.rs` decides it field for field against the live
+//!   projection the same commands wrote.
+//!
+//! The split is what keeps an undeclared input out of the rebuild.
 //! `AddOrganizationMembership` may name an organization other than the verified one, and
 //! only "for a caller holding platform organization-administration authority"
 //! (`tenancy.yaml`). Nothing in `mandate.tenancy.OrganizationMembershipAdded` —
 //! `context`, `organization_id`, `principal_id`, `membership_id` — says which path was
 //! taken, so a fold that refused on that basis could not replay its own accepted history.
-//! The two halves are therefore separate:
+//! [`Tenancy::may_add_organization_membership`] is the only reader of
+//! [`MembershipAuthority`] in this crate, [`Tenancy::decide_add_organization_membership`]
+//! runs it, and [`Tenancy::apply`] never sees it. `authority` is the only input in this
+//! module that decides an outcome and that nothing in the log can supply.
 //!
-//! * [`Tenancy::may_add_organization_membership`] **decides**, and is the only reader of
-//!   [`MembershipAuthority`] in this crate. A command path runs it before it appends the
-//!   event.
-//! * [`Tenancy::add_organization_membership`] **applies**, taking the event's own
-//!   `membership_id`, `organization_id` and `principal_id` and nothing else. It cannot be
-//!   handed an authority, so it cannot re-decide the one rule a replay could not
-//!   reproduce.
+//! # Where a guard lives, and what closes the window after it
 //!
-//! Only that rule moved. Every guard that a replayer *can* evaluate stays in the fold, and
-//! the test for which is which is whether the log supplies it: the organization must still
-//! admit authority when the row is written, and `mandate.tenancy.OrganizationClosed`
-//! declares the `id` it closes, so the apply half keeps that guard — a closure that lands
-//! between the two calls is refused rather than written into a closed tenant.
+//! **Every guard is enforced by a `decide_*` half, against the projection it reads.**
+//! [`Tenancy::apply`] and [`Tenancy::fold`] are **total**: they write what they are handed
+//! and re-check nothing. That is not an omission, it is what a rebuild is — a fold that
+//! refuses is not a rebuild of an accepted history, and
+//! `docs/adr/0009-event-sourced-persistence.md` makes every read a fold over the events.
+//! A log is the record of what was accepted; replaying it does not ask to accept it again.
 //!
-//! The other nine commands decide and apply in one step, and are correct that way because
-//! every input their decision reads is recoverable from the event they append: a replayer
-//! evaluating the same guard on the same event reaches the same outcome. Each removal and
-//! closure event declares `context` and, where the command does not already pin it through
-//! its declared `instance`, the identity it moves; each creation event declares the
-//! identity it returns. `authority` is the only input in this module that decides an
-//! outcome and that nothing in the log can supply.
+//! So this crate does not close the window between a decision and the append that follows
+//! it, and no method here promises to. **The command path closes it**: ADR 0009 makes the
+//! decide-and-append step one transaction, whose aggregate append is "a compare-and-set on
+//! the expected stream version", so a decision read from a state that has since moved
+//! fails the append and is retried against the state that moved it. Every cross-record
+//! rule this module decides rests on that and on nothing here — a closure landing after a
+//! membership was decided, and equally the one-active-membership-per-principal rule, which
+//! two concurrent deciders reading one unwritten state would both admit.
+//!
+//! What this module owes, and holds, is that each guard is evaluated once, at decide, from
+//! inputs a replayer would have: the organization must admit authority when the decision is
+//! made, and `mandate.tenancy.OrganizationClosed` declares the `id` it closes, so a log
+//! applied in order presents no membership after the closure that accepted it.
 //!
 //! Whether a caller holds the authority a command names — membership administration, team
 //! administration, platform organization administration — is `mandate-authz`'s and is
@@ -85,13 +104,35 @@
 //! identity. That record belongs to `mandate.directory` and to
 //! `story:directory-provenance`, so what is owed here is this sentence, not the record.
 //!
-//! `CreateOrganization`, `CreateTeam` and `CreateSpace` each deny when "the display name
-//! is not admitted", and this fold admits every string, the empty one included and nothing
-//! trimmed. No admission rule exists to implement: the compiled entity declares
-//! `display_name` as a bare string with no pattern, length or uniqueness, and no document
-//! in `systems/mandate` states one. So the denial clause has no realization here and this
-//! sentence is the record of that, in the same way the `space_id` section in
-//! `crate::graph` records a field with no writer.
+//! # Every denial clause this fold does not realize
+//!
+//! A `denied` clause with no code behind it is a gap, and the gap is only visible if it is
+//! written down. These are all of them, and nothing else in `tenancy.yaml` is unrealized
+//! here:
+//!
+//! * **The display name.** `CreateOrganization`, `CreateTeam` and `CreateSpace` each deny
+//!   when "the display name is not admitted", and this fold admits every string, the empty
+//!   one included and nothing trimmed. No admission rule exists to implement: the compiled
+//!   entity declares `display_name` as a bare string with no pattern, length or
+//!   uniqueness, and no document in `systems/mandate` states one. This one is owed to no
+//!   story; it is owed to a rule nobody has written.
+//! * **`RetireTeam`, the directory-mapping clause.** Denied when "a directory mapping
+//!   still contributes to it". `mandate.directory.DirectoryGroupTeamMappingCreated` and
+//!   the contributions that follow it are `mandate.directory`'s records and no projection
+//!   here holds one, so this fold cannot see a contributing mapping to refuse on. Owed to
+//!   `story:directory-provenance`.
+//! * **`RemoveTeamMembership`, the mapping-contribution clause.** Denied when "a
+//!   `mandate.directory` mapping contribution still supports it". The same record and the
+//!   same reason: `mandate.directory.MembershipContribution` is not projected here. Owed
+//!   to `story:directory-provenance`.
+//!
+//! `AddTeamMembership`'s accepted outcome is realized in part for the same reason, and is
+//! recorded in its own section above; `story:directory-provenance` owns that too. Every
+//! other clause of every other command is decided by a `decide_*` half and covered by a
+//! case in `crates/mandate-model/tests/tenancy.rs`.
+//!
+//! This is the same kind of record the `space_id` section in `crate::graph` keeps for a
+//! field with no writer.
 //!
 //! # Every refusal carries one reason, and one channel stays open
 //!
@@ -124,8 +165,8 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use mandate_types::{
-    DenialReason, OrganizationId, OrganizationMembershipId, PrincipalId, SpaceId, TeamId,
-    TeamMembershipId, VerifiedContext,
+    DenialReason, MembershipContributionId, OrganizationId, OrganizationMembershipId, PrincipalId,
+    SpaceId, TeamId, TeamMembershipId, VerifiedContext,
 };
 
 /// `mandate.tenancy.Denied`: the fold refused, and wrote nothing.
@@ -156,8 +197,8 @@ impl Denied {
 ///
 /// This is a **decide-side** input, read by [`Tenancy::may_add_organization_membership`]
 /// alone. `mandate.tenancy.OrganizationMembershipAdded` declares no field it could be read
-/// back from, so [`Tenancy::add_organization_membership`], which applies that event, does
-/// not consult it and a replay of the log does not need it.
+/// back from, so [`Tenancy::apply`], which writes that event, is handed no such value and
+/// a replay of the log does not need one.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MembershipAuthority {
     /// The caller writes inside the organization its verified context names.
@@ -285,6 +326,148 @@ pub struct Space {
     pub state: SpaceState,
 }
 
+/// The ten declared `mandate.tenancy` event payloads.
+///
+/// Each variant is one compiled payload under `generated/schema/events`, field for field:
+/// the variant's fields are that payload's `properties`, with the same names and the same
+/// types. `#[serde(untagged)]` is what makes that true on the wire — a variant serializes
+/// as the bare payload object, with no discriminant wrapping it — and
+/// `crates/mandate-model/tests/replay.rs` decides it against each payload's compiled
+/// `required` list.
+///
+/// Every variant carries the `mandate.core.VerifiedContext` its command was given,
+/// because every compiled payload declares one and because [`Tenancy::apply`] reads
+/// `organization` out of it: `TeamCreated`, `SpaceCreated` and `TeamMembershipAdded`
+/// declare no organization of their own, and the record they write has one.
+///
+/// **`Serialize` only, deliberately: this enum does not round-trip and no code should
+/// assume it does.** Under `#[serde(untagged)]` a reader cannot tell
+/// `OrganizationClosed`, `OrganizationMembershipRemoved`, `TeamRetired`,
+/// `TeamMembershipRemoved` and `SpaceRetired` apart — all five serialize exactly
+/// `{context, id}`, and the five `id`s are all uuid strings. Reading an event back needs
+/// a tagged envelope carrying the ESS name beside the payload, which belongs to the
+/// persistence story; `story:model-agreement` round-trips through the generated contract
+/// shapes rather than through these enums. Deriving `Deserialize` here would compile and
+/// would silently resolve four of those five to the first variant that fits.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(untagged)]
+pub enum TenancyEvent {
+    /// `mandate.tenancy.OrganizationCreated`.
+    OrganizationCreated {
+        /// The caller's verified context.
+        context: VerifiedContext,
+        /// The identity `CreateOrganization` returns.
+        organization_id: OrganizationId,
+        /// The declared display name.
+        display_name: String,
+    },
+    /// `mandate.tenancy.OrganizationClosed`.
+    OrganizationClosed {
+        /// The caller's verified context.
+        context: VerifiedContext,
+        /// The organization that stops admitting authority.
+        id: OrganizationId,
+    },
+    /// `mandate.tenancy.OrganizationMembershipAdded`.
+    OrganizationMembershipAdded {
+        /// The caller's verified context.
+        context: VerifiedContext,
+        /// The organization the membership is in, which need not be the verified one.
+        organization_id: OrganizationId,
+        /// The principal the membership binds.
+        principal_id: PrincipalId,
+        /// The identity `AddOrganizationMembership` returns.
+        membership_id: OrganizationMembershipId,
+    },
+    /// `mandate.tenancy.OrganizationMembershipRemoved`.
+    OrganizationMembershipRemoved {
+        /// The caller's verified context.
+        context: VerifiedContext,
+        /// The membership that stops binding its principal.
+        id: OrganizationMembershipId,
+    },
+    /// `mandate.tenancy.TeamCreated`.
+    TeamCreated {
+        /// The caller's verified context; the team belongs to the organization it names.
+        context: VerifiedContext,
+        /// The identity `CreateTeam` returns.
+        team_id: TeamId,
+        /// The declared display name.
+        display_name: String,
+    },
+    /// `mandate.tenancy.TeamRetired`.
+    TeamRetired {
+        /// The caller's verified context.
+        context: VerifiedContext,
+        /// The team that stops resolving as an authorization subject.
+        id: TeamId,
+    },
+    /// `mandate.tenancy.TeamMembershipAdded`.
+    TeamMembershipAdded {
+        /// The caller's verified context; the membership is in the organization it names.
+        context: VerifiedContext,
+        /// The team the membership is of.
+        team_id: TeamId,
+        /// The principal the membership binds.
+        principal_id: PrincipalId,
+        /// The identity `AddTeamMembership` returns.
+        team_membership_id: TeamMembershipId,
+        /// The identity of the manual `mandate.directory.MembershipContribution` the same
+        /// accepted outcome records. That record belongs to `mandate.directory` and is
+        /// not written here; the payload declares the identity, so the event carries it.
+        contribution_id: MembershipContributionId,
+    },
+    /// `mandate.tenancy.TeamMembershipRemoved`.
+    TeamMembershipRemoved {
+        /// The caller's verified context.
+        context: VerifiedContext,
+        /// The team membership that stops binding its principal.
+        id: TeamMembershipId,
+    },
+    /// `mandate.tenancy.SpaceCreated`.
+    SpaceCreated {
+        /// The caller's verified context; the space belongs to the organization it names.
+        context: VerifiedContext,
+        /// The identity `CreateSpace` returns.
+        space_id: SpaceId,
+        /// The declared display name.
+        display_name: String,
+    },
+    /// `mandate.tenancy.SpaceRetired`.
+    SpaceRetired {
+        /// The caller's verified context.
+        context: VerifiedContext,
+        /// The space that stops admitting authority.
+        id: SpaceId,
+    },
+}
+
+impl TenancyEvent {
+    /// The qualified ESS name of the payload this event is.
+    ///
+    /// The match is exhaustive and carries no wildcard arm, so a variant added without a
+    /// name here does not compile.
+    #[must_use]
+    pub fn ess_name(&self) -> &'static str {
+        match self {
+            Self::OrganizationCreated { .. } => "mandate.tenancy.OrganizationCreated",
+            Self::OrganizationClosed { .. } => "mandate.tenancy.OrganizationClosed",
+            Self::OrganizationMembershipAdded { .. } => {
+                "mandate.tenancy.OrganizationMembershipAdded"
+            }
+            Self::OrganizationMembershipRemoved { .. } => {
+                "mandate.tenancy.OrganizationMembershipRemoved"
+            }
+            Self::TeamCreated { .. } => "mandate.tenancy.TeamCreated",
+            Self::TeamRetired { .. } => "mandate.tenancy.TeamRetired",
+            Self::TeamMembershipAdded { .. } => "mandate.tenancy.TeamMembershipAdded",
+            Self::TeamMembershipRemoved { .. } => "mandate.tenancy.TeamMembershipRemoved",
+            Self::SpaceCreated { .. } => "mandate.tenancy.SpaceCreated",
+            Self::SpaceRetired { .. } => "mandate.tenancy.SpaceRetired",
+        }
+    }
+}
+
 /// The fold of the `mandate.tenancy` events: five projections and what writes them.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Tenancy {
@@ -302,51 +485,173 @@ impl Tenancy {
         Self::default()
     }
 
-    /// The record half of `CreateOrganization`.
+    /// The projection every event of a log has been applied to, from empty.
+    ///
+    /// `docs/adr/0009-event-sourced-persistence.md`: state tables are "derived,
+    /// droppable, rebuildable, never authoritative". This is that rebuild. It takes no
+    /// verified context and no authority, because a log supplies neither, and it cannot
+    /// refuse, because a log records what was accepted rather than asking to accept it
+    /// again.
+    #[must_use]
+    pub fn fold(events: &[TenancyEvent]) -> Self {
+        let mut fold = Self::new();
+        for event in events {
+            fold.apply(event);
+        }
+        fold
+    }
+
+    /// Write one declared event into the projection.
+    ///
+    /// **Total, and re-checks nothing.** Every guard belongs to a `decide_*` half, which
+    /// reads the projection before the event exists and returns the refusal instead of the
+    /// event; this writes what it is handed. A fold that re-checks a guard is not a rebuild
+    /// of an accepted history, and `docs/adr/0009-event-sourced-persistence.md` makes every
+    /// read a fold. The window between a decision and its append belongs to the command
+    /// path's transaction, not here; see the module documentation.
+    ///
+    /// Applying is a keyed write — an insert-if-absent at the record's own identity, or a
+    /// state move at it — so a log applied in order reproduces the projection its commands
+    /// left, and a log applied twice reaches the same projection again.
+    ///
+    /// No authority reaches here. `MembershipAuthority` decides one rule that no event
+    /// declares, and a replayer holds no such input; see the module documentation.
+    pub fn apply(&mut self, event: &TenancyEvent) {
+        match event {
+            TenancyEvent::OrganizationCreated {
+                organization_id,
+                display_name,
+                ..
+            } => self.write_organization(*organization_id, display_name.clone()),
+            TenancyEvent::OrganizationClosed { id, .. } => {
+                self.move_organization(*id, OrganizationState::Closed);
+            }
+            TenancyEvent::OrganizationMembershipAdded {
+                organization_id,
+                principal_id,
+                membership_id,
+                ..
+            } => {
+                self.write_organization_membership(*membership_id, *organization_id, *principal_id)
+            }
+            TenancyEvent::OrganizationMembershipRemoved { id, .. } => {
+                self.move_organization_membership(*id, OrganizationMembershipState::Removed);
+            }
+            TenancyEvent::TeamCreated {
+                context,
+                team_id,
+                display_name,
+            } => self.write_team(*team_id, context.organization, display_name.clone()),
+            TenancyEvent::TeamRetired { id, .. } => self.move_team(*id, TeamState::Retired),
+            TenancyEvent::TeamMembershipAdded {
+                context,
+                team_id,
+                principal_id,
+                team_membership_id,
+                ..
+            } => self.write_team_membership(
+                *team_membership_id,
+                context.organization,
+                *team_id,
+                *principal_id,
+            ),
+            TenancyEvent::TeamMembershipRemoved { id, .. } => {
+                self.move_team_membership(*id, TeamMembershipState::Removed);
+            }
+            TenancyEvent::SpaceCreated {
+                context,
+                space_id,
+                display_name,
+            } => self.write_space(*space_id, context.organization, display_name.clone()),
+            TenancyEvent::SpaceRetired { id, .. } => self.move_space(*id, SpaceState::Retired),
+        }
+    }
+
+    /// The decide half of `CreateOrganization`: the declared event, or the refusal.
     ///
     /// The isolation root is created empty: no membership, team, space or grant exists
     /// inside it until that record's own command writes one.
+    ///
+    /// Nothing is written here. A command path appends the returned
+    /// `mandate.tenancy.OrganizationCreated` and applies it.
+    ///
+    /// # Errors
+    ///
+    /// Refuses an identity that is already recorded.
+    pub fn decide_create_organization(
+        &self,
+        context: &VerifiedContext,
+        id: OrganizationId,
+        display_name: impl Into<String>,
+    ) -> Result<TenancyEvent, Denied> {
+        if self.organizations.contains_key(&id) {
+            return Err(Denied::refusal());
+        }
+        Ok(TenancyEvent::OrganizationCreated {
+            context: context.clone(),
+            organization_id: id,
+            display_name: display_name.into(),
+        })
+    }
+
+    /// The record half of `CreateOrganization`: decide, apply, return the event a command
+    /// path appends.
     ///
     /// # Errors
     ///
     /// Refuses an identity that is already recorded.
     pub fn create_organization(
         &mut self,
+        context: &VerifiedContext,
         id: OrganizationId,
         display_name: impl Into<String>,
-    ) -> Result<(), Denied> {
-        if self.organizations.contains_key(&id) {
-            return Err(Denied::refusal());
-        }
-        self.organizations.insert(
-            id,
-            Organization {
-                id,
-                display_name: display_name.into(),
-                state: OrganizationState::Recorded,
-            },
-        );
-        Ok(())
+    ) -> Result<TenancyEvent, Denied> {
+        let event = self.decide_create_organization(context, id, display_name)?;
+        self.apply(&event);
+        Ok(event)
     }
 
-    /// The record half of `CloseOrganization`.
+    /// The decide half of `CloseOrganization`: the declared event, or the refusal.
     ///
     /// Nothing the organization owns is destroyed; it stops admitting authority. The
-    /// command is platform-scoped, so no verified organization bounds it.
+    /// command is platform-scoped, so no verified organization bounds which organization
+    /// may be named.
     ///
     /// # Errors
     ///
     /// Refuses an organization that does not resolve or has already been closed.
-    pub fn close_organization(&mut self, id: OrganizationId) -> Result<(), Denied> {
-        let organization = self
+    pub fn decide_close_organization(
+        &self,
+        context: &VerifiedContext,
+        id: OrganizationId,
+    ) -> Result<TenancyEvent, Denied> {
+        let admitted = self
             .organizations
-            .get_mut(&id)
-            .ok_or_else(Denied::refusal)?;
-        if organization.state != OrganizationState::Recorded {
+            .get(&id)
+            .is_some_and(|record| record.state == OrganizationState::Recorded);
+        if !admitted {
             return Err(Denied::refusal());
         }
-        organization.state = OrganizationState::Closed;
-        Ok(())
+        Ok(TenancyEvent::OrganizationClosed {
+            context: context.clone(),
+            id,
+        })
+    }
+
+    /// The record half of `CloseOrganization`: decide, apply, return the event a command
+    /// path appends.
+    ///
+    /// # Errors
+    ///
+    /// Refuses an organization that does not resolve or has already been closed.
+    pub fn close_organization(
+        &mut self,
+        context: &VerifiedContext,
+        id: OrganizationId,
+    ) -> Result<TenancyEvent, Denied> {
+        let event = self.decide_close_organization(context, id)?;
+        self.apply(&event);
+        Ok(event)
     }
 
     /// The decide half of `AddOrganizationMembership`: whether this membership may be
@@ -379,50 +684,108 @@ impl Tenancy {
         Ok(())
     }
 
-    /// The apply half of `AddOrganizationMembership`: the fold of
-    /// `mandate.tenancy.OrganizationMembershipAdded`.
+    /// The decide half of `AddOrganizationMembership`: the declared event, or the
+    /// refusal.
     ///
-    /// It takes what the event declares — `membership_id`, `organization_id`,
-    /// `principal_id` — and nothing else. It takes no authority, because nothing in the
-    /// event could supply one on a replay, and it takes no context, because
-    /// `organization_id` names the target outright. That is what lets an accepted history,
-    /// including the platform-written first membership of an organization, replay from its
-    /// declared events alone.
+    /// It runs both halves of the decision — the authority rule of
+    /// [`Tenancy::may_add_organization_membership`], which no event can carry, and the
+    /// record guards that every replayer can evaluate for itself — and returns
+    /// `mandate.tenancy.OrganizationMembershipAdded`, whose `organization_id` names the
+    /// target outright. That is what lets an accepted history, including the
+    /// platform-written first membership of an organization, replay from its declared
+    /// events alone.
     ///
     /// # Errors
     ///
-    /// Refuses an organization that does not resolve or no longer admits authority, an
-    /// identity it already holds, and a principal that already holds an active membership
-    /// there. Every one of those is recoverable from the log — `OrganizationClosed`
-    /// declares the `id` it closes — so a log applied in order satisfies all three, and a
-    /// closure that lands between the decide call and this one is refused here rather than
-    /// written. The authority rule, the one thing no event carries, is
-    /// [`Tenancy::may_add_organization_membership`]'s alone.
-    pub fn add_organization_membership(
-        &mut self,
+    /// Refuses a named organization other than the verified one on the tenant path, an
+    /// organization that does not resolve or no longer admits authority, an identity it
+    /// already holds, and a principal that already holds an active membership there.
+    pub fn decide_add_organization_membership(
+        &self,
+        context: &VerifiedContext,
+        authority: MembershipAuthority,
         id: OrganizationMembershipId,
         organization_id: OrganizationId,
         principal_id: PrincipalId,
-    ) -> Result<(), Denied> {
-        if !self.admits(organization_id)
-            || self.organization_memberships.contains_key(&id)
-            || self.is_member(organization_id, principal_id)
+    ) -> Result<TenancyEvent, Denied> {
+        self.may_add_organization_membership(context, authority, organization_id, principal_id)?;
+        if self.organization_memberships.contains_key(&id) {
+            return Err(Denied::refusal());
+        }
+        Ok(TenancyEvent::OrganizationMembershipAdded {
+            context: context.clone(),
+            organization_id,
+            principal_id,
+            membership_id: id,
+        })
+    }
+
+    /// The record half of `AddOrganizationMembership`: decide, apply, return the event a
+    /// command path appends.
+    ///
+    /// The `authority` reaches [`Tenancy::decide_add_organization_membership`] and stops
+    /// there. [`Tenancy::apply`], which performs the write, is handed the event and
+    /// nothing else, so the one rule no event declares cannot be re-decided on a replay.
+    ///
+    /// # Errors
+    ///
+    /// Refuses a named organization other than the verified one on the tenant path, an
+    /// organization that does not resolve or no longer admits authority, an identity it
+    /// already holds, and a principal that already holds an active membership there.
+    ///
+    /// Each of those is decided here, once, against the projection as it stands; none is
+    /// re-checked by [`Tenancy::apply`], which is total. A decision invalidated before its
+    /// append — by a closure, or by a second principal admitted concurrently — is refused
+    /// by the command path's transaction, not by this method; see the module
+    /// documentation.
+    pub fn add_organization_membership(
+        &mut self,
+        context: &VerifiedContext,
+        authority: MembershipAuthority,
+        id: OrganizationMembershipId,
+        organization_id: OrganizationId,
+        principal_id: PrincipalId,
+    ) -> Result<TenancyEvent, Denied> {
+        let event = self.decide_add_organization_membership(
+            context,
+            authority,
+            id,
+            organization_id,
+            principal_id,
+        )?;
+        self.apply(&event);
+        Ok(event)
+    }
+
+    /// The decide half of `RemoveOrganizationMembership`: the declared event, or the
+    /// refusal.
+    ///
+    /// # Errors
+    ///
+    /// Refuses a membership that does not resolve inside the verified organization, and
+    /// one that has already been removed.
+    pub fn decide_remove_organization_membership(
+        &self,
+        context: &VerifiedContext,
+        id: OrganizationMembershipId,
+    ) -> Result<TenancyEvent, Denied> {
+        let membership = self
+            .organization_memberships
+            .get(&id)
+            .ok_or_else(Denied::refusal)?;
+        if membership.organization_id != context.organization
+            || membership.state != OrganizationMembershipState::Active
         {
             return Err(Denied::refusal());
         }
-        self.organization_memberships.insert(
+        Ok(TenancyEvent::OrganizationMembershipRemoved {
+            context: context.clone(),
             id,
-            OrganizationMembership {
-                id,
-                organization_id,
-                principal_id,
-                state: OrganizationMembershipState::Active,
-            },
-        );
-        Ok(())
+        })
     }
 
-    /// The record half of `RemoveOrganizationMembership`.
+    /// The record half of `RemoveOrganizationMembership`: decide, apply, return the
+    /// event a command path appends.
     ///
     /// # Errors
     ///
@@ -432,24 +795,40 @@ impl Tenancy {
         &mut self,
         context: &VerifiedContext,
         id: OrganizationMembershipId,
-    ) -> Result<(), Denied> {
-        let membership = self
-            .organization_memberships
-            .get_mut(&id)
-            .ok_or_else(Denied::refusal)?;
-        if membership.organization_id != context.organization
-            || membership.state != OrganizationMembershipState::Active
-        {
-            return Err(Denied::refusal());
-        }
-        membership.state = OrganizationMembershipState::Removed;
-        Ok(())
+    ) -> Result<TenancyEvent, Denied> {
+        let event = self.decide_remove_organization_membership(context, id)?;
+        self.apply(&event);
+        Ok(event)
     }
 
-    /// The record half of `CreateTeam`.
+    /// The decide half of `CreateTeam`: the declared event, or the refusal.
     ///
     /// The team belongs to the organization the verified context names; no selector
-    /// carries one.
+    /// carries one, and `mandate.tenancy.TeamCreated` declares none, so the fold reads it
+    /// back off the event's own `context`.
+    ///
+    /// # Errors
+    ///
+    /// Refuses a verified organization that does not resolve or is closed, and an
+    /// identity that is already recorded.
+    pub fn decide_create_team(
+        &self,
+        context: &VerifiedContext,
+        id: TeamId,
+        display_name: impl Into<String>,
+    ) -> Result<TenancyEvent, Denied> {
+        if !self.admits(context.organization) || self.teams.contains_key(&id) {
+            return Err(Denied::refusal());
+        }
+        Ok(TenancyEvent::TeamCreated {
+            context: context.clone(),
+            team_id: id,
+            display_name: display_name.into(),
+        })
+    }
+
+    /// The record half of `CreateTeam`: decide, apply, return the event a command path
+    /// appends.
     ///
     /// # Errors
     ///
@@ -460,38 +839,57 @@ impl Tenancy {
         context: &VerifiedContext,
         id: TeamId,
         display_name: impl Into<String>,
-    ) -> Result<(), Denied> {
-        if !self.admits(context.organization) || self.teams.contains_key(&id) {
-            return Err(Denied::refusal());
-        }
-        self.teams.insert(
-            id,
-            Team {
-                id,
-                organization_id: context.organization,
-                display_name: display_name.into(),
-                state: TeamState::Recorded,
-            },
-        );
-        Ok(())
+    ) -> Result<TenancyEvent, Denied> {
+        let event = self.decide_create_team(context, id, display_name)?;
+        self.apply(&event);
+        Ok(event)
     }
 
-    /// The record half of `RetireTeam`.
+    /// The decide half of `RetireTeam`: the declared event, or the refusal.
     ///
     /// # Errors
     ///
     /// Refuses a team that does not resolve inside the verified organization, and one
     /// that has already been retired.
-    pub fn retire_team(&mut self, context: &VerifiedContext, id: TeamId) -> Result<(), Denied> {
-        let team = self.teams.get_mut(&id).ok_or_else(Denied::refusal)?;
+    pub fn decide_retire_team(
+        &self,
+        context: &VerifiedContext,
+        id: TeamId,
+    ) -> Result<TenancyEvent, Denied> {
+        let team = self.teams.get(&id).ok_or_else(Denied::refusal)?;
         if team.organization_id != context.organization || team.state != TeamState::Recorded {
             return Err(Denied::refusal());
         }
-        team.state = TeamState::Retired;
-        Ok(())
+        Ok(TenancyEvent::TeamRetired {
+            context: context.clone(),
+            id,
+        })
     }
 
-    /// The record half of `AddTeamMembership`.
+    /// The record half of `RetireTeam`: decide, apply, return the event a command path
+    /// appends.
+    ///
+    /// # Errors
+    ///
+    /// Refuses a team that does not resolve inside the verified organization, and one
+    /// that has already been retired.
+    pub fn retire_team(
+        &mut self,
+        context: &VerifiedContext,
+        id: TeamId,
+    ) -> Result<TenancyEvent, Denied> {
+        let event = self.decide_retire_team(context, id)?;
+        self.apply(&event);
+        Ok(event)
+    }
+
+    /// The decide half of `AddTeamMembership`: the declared event, or the refusal.
+    ///
+    /// `mandate.tenancy.TeamMembershipAdded` declares `contribution_id`, the identity of
+    /// the manual `mandate.directory.MembershipContribution` the same accepted outcome
+    /// records. This fold does not write that record — it belongs to `mandate.directory`
+    /// and to `story:directory-provenance` — and the event carries the identity all the
+    /// same, because the payload declares it.
     ///
     /// # Errors
     ///
@@ -499,13 +897,14 @@ impl Tenancy {
     /// does not resolve inside it or is retired, a principal that is not a member of that
     /// organization, an identity that is already recorded, and a principal that already
     /// holds a membership of that team.
-    pub fn add_team_membership(
-        &mut self,
+    pub fn decide_add_team_membership(
+        &self,
         context: &VerifiedContext,
         id: TeamMembershipId,
         team_id: TeamId,
         principal_id: PrincipalId,
-    ) -> Result<(), Denied> {
+        contribution_id: MembershipContributionId,
+    ) -> Result<TenancyEvent, Denied> {
         if !self.admits(context.organization) {
             return Err(Denied::refusal());
         }
@@ -519,20 +918,63 @@ impl Tenancy {
         {
             return Err(Denied::refusal());
         }
-        self.team_memberships.insert(
-            id,
-            TeamMembership {
-                id,
-                organization_id: context.organization,
-                team_id,
-                principal_id,
-                state: TeamMembershipState::Recorded,
-            },
-        );
-        Ok(())
+        Ok(TenancyEvent::TeamMembershipAdded {
+            context: context.clone(),
+            team_id,
+            principal_id,
+            team_membership_id: id,
+            contribution_id,
+        })
     }
 
-    /// The record half of `RemoveTeamMembership`.
+    /// The record half of `AddTeamMembership`: decide, apply, return the event a command
+    /// path appends.
+    ///
+    /// # Errors
+    ///
+    /// Refuses a verified organization that does not resolve or is closed, a team that
+    /// does not resolve inside it or is retired, a principal that is not a member of that
+    /// organization, an identity that is already recorded, and a principal that already
+    /// holds a membership of that team.
+    pub fn add_team_membership(
+        &mut self,
+        context: &VerifiedContext,
+        id: TeamMembershipId,
+        team_id: TeamId,
+        principal_id: PrincipalId,
+        contribution_id: MembershipContributionId,
+    ) -> Result<TenancyEvent, Denied> {
+        let event =
+            self.decide_add_team_membership(context, id, team_id, principal_id, contribution_id)?;
+        self.apply(&event);
+        Ok(event)
+    }
+
+    /// The decide half of `RemoveTeamMembership`: the declared event, or the refusal.
+    ///
+    /// # Errors
+    ///
+    /// Refuses a membership that does not resolve inside the verified organization, and
+    /// one that has already been removed.
+    pub fn decide_remove_team_membership(
+        &self,
+        context: &VerifiedContext,
+        id: TeamMembershipId,
+    ) -> Result<TenancyEvent, Denied> {
+        let membership = self.team_memberships.get(&id).ok_or_else(Denied::refusal)?;
+        if membership.organization_id != context.organization
+            || membership.state != TeamMembershipState::Recorded
+        {
+            return Err(Denied::refusal());
+        }
+        Ok(TenancyEvent::TeamMembershipRemoved {
+            context: context.clone(),
+            id,
+        })
+    }
+
+    /// The record half of `RemoveTeamMembership`: decide, apply, return the event a
+    /// command path appends.
     ///
     /// # Errors
     ///
@@ -542,23 +984,40 @@ impl Tenancy {
         &mut self,
         context: &VerifiedContext,
         id: TeamMembershipId,
-    ) -> Result<(), Denied> {
-        let membership = self
-            .team_memberships
-            .get_mut(&id)
-            .ok_or_else(Denied::refusal)?;
-        if membership.organization_id != context.organization
-            || membership.state != TeamMembershipState::Recorded
-        {
-            return Err(Denied::refusal());
-        }
-        membership.state = TeamMembershipState::Removed;
-        Ok(())
+    ) -> Result<TenancyEvent, Denied> {
+        let event = self.decide_remove_team_membership(context, id)?;
+        self.apply(&event);
+        Ok(event)
     }
 
-    /// The record half of `CreateSpace`.
+    /// The decide half of `CreateSpace`: the declared event, or the refusal.
     ///
-    /// Creating the boundary grants nothing inside it.
+    /// Creating the boundary grants nothing inside it. The space belongs to the
+    /// organization the verified context names; `mandate.tenancy.SpaceCreated` declares
+    /// none, so the fold reads it back off the event's own `context`.
+    ///
+    /// # Errors
+    ///
+    /// Refuses a verified organization that does not resolve or is closed, and an
+    /// identity that is already recorded.
+    pub fn decide_create_space(
+        &self,
+        context: &VerifiedContext,
+        id: SpaceId,
+        display_name: impl Into<String>,
+    ) -> Result<TenancyEvent, Denied> {
+        if !self.admits(context.organization) || self.spaces.contains_key(&id) {
+            return Err(Denied::refusal());
+        }
+        Ok(TenancyEvent::SpaceCreated {
+            context: context.clone(),
+            space_id: id,
+            display_name: display_name.into(),
+        })
+    }
+
+    /// The record half of `CreateSpace`: decide, apply, return the event a command path
+    /// appends.
     ///
     /// # Errors
     ///
@@ -569,35 +1028,48 @@ impl Tenancy {
         context: &VerifiedContext,
         id: SpaceId,
         display_name: impl Into<String>,
-    ) -> Result<(), Denied> {
-        if !self.admits(context.organization) || self.spaces.contains_key(&id) {
-            return Err(Denied::refusal());
-        }
-        self.spaces.insert(
-            id,
-            Space {
-                id,
-                organization_id: context.organization,
-                display_name: display_name.into(),
-                state: SpaceState::Recorded,
-            },
-        );
-        Ok(())
+    ) -> Result<TenancyEvent, Denied> {
+        let event = self.decide_create_space(context, id, display_name)?;
+        self.apply(&event);
+        Ok(event)
     }
 
-    /// The record half of `RetireSpace`.
+    /// The decide half of `RetireSpace`: the declared event, or the refusal.
     ///
     /// # Errors
     ///
     /// Refuses a space that does not resolve inside the verified organization, and one
     /// that has already been retired.
-    pub fn retire_space(&mut self, context: &VerifiedContext, id: SpaceId) -> Result<(), Denied> {
-        let space = self.spaces.get_mut(&id).ok_or_else(Denied::refusal)?;
+    pub fn decide_retire_space(
+        &self,
+        context: &VerifiedContext,
+        id: SpaceId,
+    ) -> Result<TenancyEvent, Denied> {
+        let space = self.spaces.get(&id).ok_or_else(Denied::refusal)?;
         if space.organization_id != context.organization || space.state != SpaceState::Recorded {
             return Err(Denied::refusal());
         }
-        space.state = SpaceState::Retired;
-        Ok(())
+        Ok(TenancyEvent::SpaceRetired {
+            context: context.clone(),
+            id,
+        })
+    }
+
+    /// The record half of `RetireSpace`: decide, apply, return the event a command path
+    /// appends.
+    ///
+    /// # Errors
+    ///
+    /// Refuses a space that does not resolve inside the verified organization, and one
+    /// that has already been retired.
+    pub fn retire_space(
+        &mut self,
+        context: &VerifiedContext,
+        id: SpaceId,
+    ) -> Result<TenancyEvent, Denied> {
+        let event = self.decide_retire_space(context, id)?;
+        self.apply(&event);
+        Ok(event)
     }
 
     /// The organization as the verified caller can read it: its own, and still `Recorded`.
@@ -802,6 +1274,114 @@ impl Tenancy {
                 && membership.principal_id == principal
                 && membership.state == TeamMembershipState::Recorded
         })
+    }
+
+    /// The ten keyed writes [`Tenancy::apply`] performs, and the only writes in this
+    /// module. Each is an insert at the record's own identity or a state move at it, so
+    /// applying a log in order rebuilds what its commands wrote.
+    ///
+    /// **A creation is insert-if-absent: the first one for an identity is the one that
+    /// stands.** A creation names the first event of a record, so a redelivered creation —
+    /// which the kit's at-least-once delivery admits, and which no `decide_*` path emits —
+    /// must write nothing rather than return a record from a terminal state to its initial
+    /// one. `or_insert_with` is that rule; a state move is already idempotent because the
+    /// target state is absorbing. `crates/mandate-model/tests/replay.rs`
+    /// `a_redelivered_creation_after_a_terminal_state_writes_nothing` decides it for all
+    /// six creating events.
+    fn write_organization(&mut self, id: OrganizationId, display_name: String) {
+        self.organizations
+            .entry(id)
+            .or_insert_with(|| Organization {
+                id,
+                display_name,
+                state: OrganizationState::Recorded,
+            });
+    }
+
+    fn move_organization(&mut self, id: OrganizationId, state: OrganizationState) {
+        if let Some(record) = self.organizations.get_mut(&id) {
+            record.state = state;
+        }
+    }
+
+    fn write_organization_membership(
+        &mut self,
+        id: OrganizationMembershipId,
+        organization_id: OrganizationId,
+        principal_id: PrincipalId,
+    ) {
+        self.organization_memberships
+            .entry(id)
+            .or_insert_with(|| OrganizationMembership {
+                id,
+                organization_id,
+                principal_id,
+                state: OrganizationMembershipState::Active,
+            });
+    }
+
+    fn move_organization_membership(
+        &mut self,
+        id: OrganizationMembershipId,
+        state: OrganizationMembershipState,
+    ) {
+        if let Some(record) = self.organization_memberships.get_mut(&id) {
+            record.state = state;
+        }
+    }
+
+    fn write_team(&mut self, id: TeamId, organization_id: OrganizationId, display_name: String) {
+        self.teams.entry(id).or_insert_with(|| Team {
+            id,
+            organization_id,
+            display_name,
+            state: TeamState::Recorded,
+        });
+    }
+
+    fn move_team(&mut self, id: TeamId, state: TeamState) {
+        if let Some(record) = self.teams.get_mut(&id) {
+            record.state = state;
+        }
+    }
+
+    fn write_team_membership(
+        &mut self,
+        id: TeamMembershipId,
+        organization_id: OrganizationId,
+        team_id: TeamId,
+        principal_id: PrincipalId,
+    ) {
+        self.team_memberships
+            .entry(id)
+            .or_insert_with(|| TeamMembership {
+                id,
+                organization_id,
+                team_id,
+                principal_id,
+                state: TeamMembershipState::Recorded,
+            });
+    }
+
+    fn move_team_membership(&mut self, id: TeamMembershipId, state: TeamMembershipState) {
+        if let Some(record) = self.team_memberships.get_mut(&id) {
+            record.state = state;
+        }
+    }
+
+    fn write_space(&mut self, id: SpaceId, organization_id: OrganizationId, display_name: String) {
+        self.spaces.entry(id).or_insert_with(|| Space {
+            id,
+            organization_id,
+            display_name,
+            state: SpaceState::Recorded,
+        });
+    }
+
+    fn move_space(&mut self, id: SpaceId, state: SpaceState) {
+        if let Some(record) = self.spaces.get_mut(&id) {
+            record.state = state;
+        }
     }
 }
 
