@@ -7292,6 +7292,33 @@
           "naming": {}
         },
         {
+          "name": "credential_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.CredentialId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "epochs",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.EpochSnapshotRef"
+            }
+          },
+          "naming": {}
+        },
+        {
+          "name": "target",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.ResourceServerId"
+          },
+          "naming": {}
+        },
+        {
           "name": "descriptor",
           "type_ref": {
             "kind": "declared",
@@ -7362,6 +7389,65 @@
                   }
                 },
                 {
+                  "target": "credential_id",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.CredentialId"
+                  },
+                  "value": {
+                    "kind": "response_field",
+                    "field": "credential_id",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.CredentialId"
+                    }
+                  }
+                },
+                {
+                  "target": "reference_verifier",
+                  "target_type": {
+                    "kind": "optional",
+                    "of": {
+                      "kind": "declared",
+                      "name": "mandate.core.CredentialVerifier"
+                    }
+                  },
+                  "value": {
+                    "kind": "generated"
+                  }
+                },
+                {
+                  "target": "epochs",
+                  "target_type": {
+                    "kind": "optional",
+                    "of": {
+                      "kind": "declared",
+                      "name": "mandate.core.EpochSnapshotRef"
+                    }
+                  },
+                  "value": {
+                    "kind": "response_field",
+                    "field": "epochs",
+                    "type_ref": {
+                      "kind": "optional",
+                      "of": {
+                        "kind": "declared",
+                        "name": "mandate.core.EpochSnapshotRef"
+                      }
+                    }
+                  }
+                },
+                {
+                  "target": "issued_at",
+                  "target_type": {
+                    "kind": "primitive",
+                    "name": "timestamp"
+                  },
+                  "value": {
+                    "kind": "generated"
+                  }
+                },
+                {
                   "target": "descriptor",
                   "target_type": {
                     "kind": "declared",
@@ -7375,11 +7461,26 @@
                       "name": "mandate.core.CredentialDescriptor"
                     }
                   }
+                },
+                {
+                  "target": "target",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.ResourceServerId"
+                  },
+                  "value": {
+                    "kind": "response_field",
+                    "field": "target",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.ResourceServerId"
+                    }
+                  }
                 }
               ]
             }
           ],
-          "summary": "STS atomically consumes the code and persists the narrowed credential and audit outbox. The returned credential remains bound to the code target, scope, session and expiry; a failed or replayed transaction produces no credential."
+          "summary": "STS atomically consumes the code and persists the narrowed credential and audit outbox. The returned credential remains bound to the code target, scope, session and expiry; a failed or replayed transaction produces no credential. The command takes no context input and admits no caller-supplied selector — the generated context on the emitted event takes its subject, organization and audience from the code record and the session it names through the STS's session port, its credential as the credential_id this outcome issues, its correlation as the one the outcome mints for this request, and its actor, delegation and execution as absent unless the code record names them. The audience is the one published by the registration the code record's target names. The epoch whose staleness the denial names is the session's own, resolved through that same port, because a redemption presents no source credential of its own. The credential this outcome issues is recorded by mandate.credential.AuthorizationCodeRedeemed, which carries the whole mandate.credential.AccessCredential record, and the epoch snapshot it binds is the one this command answers in its response; the outcome's one subject stays the code it consumes, so the seeding is declared in this domain's header."
         },
         {
           "name": "wrong-state",
@@ -14702,10 +14803,56 @@
           "naming": {}
         },
         {
+          "name": "credential_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.CredentialId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "reference_verifier",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.CredentialVerifier"
+            }
+          },
+          "naming": {}
+        },
+        {
+          "name": "epochs",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.EpochSnapshotRef"
+            }
+          },
+          "naming": {}
+        },
+        {
+          "name": "issued_at",
+          "type_ref": {
+            "kind": "primitive",
+            "name": "timestamp"
+          },
+          "naming": {}
+        },
+        {
           "name": "descriptor",
           "type_ref": {
             "kind": "declared",
             "name": "mandate.core.CredentialDescriptor"
+          },
+          "naming": {}
+        },
+        {
+          "name": "target",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.ResourceServerId"
           },
           "naming": {}
         }

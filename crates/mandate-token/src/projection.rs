@@ -12,8 +12,16 @@
 //! folding crate in any case.
 //!
 //! `mandate.credential.AuthorizationCode` is **not** projected here: `services/sts` owns
-//! the code record and its verifier storage (`credential.yaml:4`), and
-//! `story:oauth-integration` lands it.
+//! the code record and its verifier storage (`credential.yaml:4`) and folds it in
+//! `services/sts/src/store.rs`.
+//!
+//! `mandate.credential.AuthorizationCodeRedeemed` is folded here all the same, because it
+//! writes two records. `credential.yaml`'s header declares that the event "also seeds a
+//! `mandate.credential.AccessCredential`" — the redemption's one outcome subject is the code
+//! it consumes, and an ESS outcome declares one `creates`/`moves`/`updates` — and that it
+//! "carries the whole AccessCredential record ... so a fold materializes the credential from
+//! the event and the issuing registration the log already holds, reading no command input or
+//! response". The code half of that event is `services/sts`'s; this is the credential half.
 //!
 //! # Decide, apply, fold
 //!
@@ -59,9 +67,9 @@ use core::fmt;
 use serde::Serialize;
 
 use mandate_types::{
-    Audience, AuthorityScope, CredentialId, CredentialVerifier, DenialReason, EpochSnapshotRef,
-    KeyReference, OrganizationId, PersistedValue, ResourceServerId, SigningAlgorithm, SigningKeyId,
-    Timestamp, VerifiedContext,
+    Audience, AuthorityScope, AuthorizationCodeId, CredentialId, CredentialVerifier, DenialReason,
+    EpochSnapshotRef, KeyReference, OrganizationId, PersistedValue, ResourceServerId,
+    SigningAlgorithm, SigningKeyId, Timestamp, VerifiedContext,
 };
 
 use crate::{CredentialDescriptor, CredentialProfile};
@@ -202,11 +210,16 @@ pub struct SigningKey {
 /// string for the `id`. Reading an event back needs a tagged envelope carrying the ESS name
 /// beside the payload, which belongs to the persistence story.
 ///
-/// Four declared events of this domain have no variant here, and none is an oversight:
-/// `AuthorizationCodeIssued` and `AuthorizationCodeRedeemed` belong to the code record
-/// `story:oauth-integration` lands, and `TokenExchangeAllowed` and `TokenExchangeDenied` to
-/// `story:constrained-exchange`. `services/sts/src/lib.rs` names all four as unrealized with
-/// their owning story.
+/// Three declared events of this domain have no variant here, and none is an oversight:
+/// `AuthorizationCodeIssued` writes the code record alone and is folded where that record
+/// lives (`services/sts/src/store.rs`), and `TokenExchangeAllowed` and `TokenExchangeDenied`
+/// belong to `story:constrained-exchange`, which `services/sts/src/lib.rs` names as
+/// unrealized with its owning story.
+///
+/// [`CredentialEvent::AuthorizationCodeRedeemed`] is the one payload of this domain **two**
+/// folds read, because it writes two records; see the module documentation.
+/// `services/sts/src/store.rs` declares the same payload for the code half and
+/// `services/sts/tests/store.rs` decides that the two encode identically.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(untagged)]
 pub enum CredentialEvent {
@@ -329,6 +342,34 @@ pub enum CredentialEvent {
         /// The declared `id`: the instance the declared `moves` names.
         id: SigningKeyId,
     },
+    /// `mandate.credential.AuthorizationCodeRedeemed`.
+    ///
+    /// The credential half. The declared `moves` of the outcome that emits it names the
+    /// authorization code, which `services/sts` folds; the record *this* fold materializes
+    /// is the `AccessCredential` the domain header declares the event seeds.
+    AuthorizationCodeRedeemed {
+        /// The declared `context`.
+        context: VerifiedContext,
+        /// The declared `code_id`: the code the emitting outcome consumes. Not a name this
+        /// fold resolves — the code record lives in `services/sts` — and carried because the
+        /// payload is one declaration read by two folds.
+        code_id: AuthorizationCodeId,
+        /// The declared `credential_id`: the command's response identity.
+        credential_id: CredentialId,
+        /// The declared `reference_verifier`: non-reversible, never the credential.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        reference_verifier: Option<CredentialVerifier>,
+        /// The declared `epochs`.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        epochs: Option<EpochSnapshotRef>,
+        /// The declared `issued_at`.
+        issued_at: Timestamp,
+        /// The declared `descriptor`.
+        descriptor: CredentialDescriptor,
+        /// The declared `target`: the registration whose published guarantee the credential
+        /// carries.
+        target: ResourceServerId,
+    },
 }
 
 impl CredentialEvent {
@@ -352,6 +393,9 @@ impl CredentialEvent {
             Self::SigningKeyRegistered { .. } => "mandate.credential.SigningKeyRegistered",
             Self::SigningKeyRetired { .. } => "mandate.credential.SigningKeyRetired",
             Self::SigningKeyRevoked { .. } => "mandate.credential.SigningKeyRevoked",
+            Self::AuthorizationCodeRedeemed { .. } => {
+                "mandate.credential.AuthorizationCodeRedeemed"
+            }
         }
     }
 }
@@ -547,6 +591,73 @@ pub enum DenialClause {
     NoReplacementKey,
     /// The `wrong-state` branch: the key is in a state no declared move starts from.
     KeyNotRecorded,
+    /// `IssueAuthorizationCode`: "S256 policy" — the challenge offered is not in the
+    /// declared S256 form, so it is the challenge of no verifier that exists.
+    /// `RedeemAuthorizationCode`: "S256 verifier mismatches", for a recorded challenge in
+    /// that same shape.
+    ChallengeMalformed,
+    /// `RedeemAuthorizationCode`: "S256 verifier mismatches" — the presented verifier is not
+    /// in the form RFC 7636 declares.
+    VerifierMalformed,
+    /// The same clause: the presented verifier does not redeem the recorded challenge.
+    VerifierMismatch,
+    /// "Code proof does not match the server-resolved code_id": the proof presented is not
+    /// the one the record's verifier was derived from.
+    CodeProofMismatch,
+    /// The same clause: the `code_id` resolves to no record, so there is no server-resolved
+    /// code for a proof to match.
+    ///
+    /// It carries the same [`DenialReason`] as [`DenialClause::CodeProofMismatch`] —
+    /// `InvalidCredential` — deliberately. The reason is the contract's only wire field on
+    /// this error, and a caller that could tell "this code_id exists and your proof is
+    /// wrong" from "no such code_id" would hold an oracle over the code space.
+    CodeUnknown,
+    /// "code is expired".
+    CodeExpired,
+    /// The `wrong-state` branch: the code is already in the terminal `Consumed` state. The
+    /// contract declares this outcome by the transition's `from:` set and gives it no prose,
+    /// which is why no phrase is quoted here.
+    CodeConsumed,
+    /// "client ... mismatches": the presented client is not the one the code is bound to.
+    ClientMismatch,
+    /// `IssueAuthorizationCode`: "registered public client" — the client the code would be
+    /// bound to is registered nowhere this deployment can read.
+    /// `RedeemAuthorizationCode`: the same fact, under "client ... mismatches".
+    ClientUnregistered,
+    /// `IssueAuthorizationCode`: "registered public client" — the registry does not answer
+    /// that this client is a public one, or cannot answer at all. The authorization-code
+    /// road with PKCE is the public-client road, and the STS is the second line behind the
+    /// adapter that has already decided it.
+    ClientNotPublic,
+    /// "the client the code would be bound to is disabled" / "the bound client is disabled".
+    ClientDisabled,
+    /// The tenant half: the client is registered to another organization. "tenant/target
+    /// agreement" at issuance, "client ... mismatches" at redemption.
+    ClientOutsideOrganization,
+    /// `IssueAuthorizationCode`: "exact redirect URI" — the redirect a code would be bound
+    /// to is not one the client's registration carries, byte for byte.
+    RedirectUnregistered,
+    /// `RedeemAuthorizationCode`: "redirect URI ... mismatches" — the presented redirect is
+    /// not the one the code authorized, byte for byte.
+    RedirectMismatch,
+    /// "source/session epoch is stale": the epoch snapshot the session names has moved, or
+    /// cannot be resolved — and a snapshot that cannot be resolved has not been shown to be
+    /// current. [`Denied::reason`] tells the two apart: `StaleEpoch` for a generation that
+    /// moved, `Unavailable` for a reader that could not answer.
+    SessionEpochStale,
+    /// "source/session epoch is stale": the session the code names resolves to no record,
+    /// has been revoked, or has expired.
+    ///
+    /// The nearest declared phrase and not an exact one, which is the whole of why this is a
+    /// separate clause from [`DenialClause::SessionEpochStale`] rather than the same one:
+    /// `RedeemAuthorizationCode`'s denial names a stale session *epoch* and **no phrase at
+    /// all** for an unresolved, revoked or expired session, while its accepted summary reads
+    /// the session through the STS's session port
+    /// (`systems/mandate/domains/credential.yaml:245`). The gap is a contract observation,
+    /// routed to the contract and recorded here and on this clause's row in
+    /// `services/sts/tests/declared_denials.rs`, rather than papered over with a clause that
+    /// quotes nothing.
+    SessionUnusable,
 }
 
 /// `mandate.credential.Denied`: fail closed; no credential, authority or lifecycle mutation
@@ -695,31 +806,37 @@ impl Projection {
                 target,
                 requested_scope: _,
             } => {
-                if self.access_credential(credential_id).is_some() {
-                    return Ok(());
-                }
-                // The registration the credential was issued under, read here and kept on
-                // the record: the guarantee a credential carries is the one published when
-                // it was issued, and the registration holding that audience later may
-                // publish another (see [`AccessCredential`]). A target no event registered
-                // is a log this fold cannot read, for the same reason a lifecycle event
-                // naming no record is.
-                let issuing =
-                    self.resource_server(target)
-                        .ok_or(FoldError::UnknownIssuingTarget {
-                            id: *credential_id,
-                            target: *target,
-                        })?;
-                self.credentials.push(AccessCredential {
-                    id: *credential_id,
-                    descriptor: descriptor.clone(),
-                    reference_verifier: reference_verifier.clone(),
-                    epochs: *epochs,
-                    issued_at: issued_at.clone(),
-                    state: AccessCredentialState::Active,
-                    target: *target,
-                    issuing_profile: issuing.credential_profile,
-                });
+                self.record_credential(
+                    credential_id,
+                    reference_verifier,
+                    epochs,
+                    issued_at,
+                    descriptor,
+                    target,
+                )?;
+            }
+            // The third creator of an `AccessCredential`, and the same record from the same
+            // two sources: this event and the issuing registration the log already holds.
+            // `code_id` names the code record, which `services/sts` folds and this one does
+            // not.
+            CredentialEvent::AuthorizationCodeRedeemed {
+                context: _,
+                code_id: _,
+                credential_id,
+                reference_verifier,
+                epochs,
+                issued_at,
+                descriptor,
+                target,
+            } => {
+                self.record_credential(
+                    credential_id,
+                    reference_verifier,
+                    epochs,
+                    issued_at,
+                    descriptor,
+                    target,
+                )?;
             }
             CredentialEvent::AccessCredentialRevoked { context: _, id } => {
                 let credential = self
@@ -777,6 +894,57 @@ impl Projection {
                 )?;
             }
         }
+        Ok(())
+    }
+
+    /// Write one `AccessCredential` record, from the event that creates it and the
+    /// registration the log already holds.
+    ///
+    /// Three declared events create this record — `CredentialReferenceIssued`,
+    /// `CredentialSelfContainedIssued` and `AuthorizationCodeRedeemed` — and each carries
+    /// the same record fields, so each creates it the same way. Writing it in one place is
+    /// what makes that true rather than what asserts it: a fourth creator added to the
+    /// contract gets this body or does not compile.
+    ///
+    /// Insert-if-absent at the record's own identity, for the reason every creation arm
+    /// here is: the kit's at-least-once delivery admits a redelivered event, and applying
+    /// one must write nothing.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FoldError::UnknownIssuingTarget`] when no event registered the target the
+    /// event names: the guarantee a credential carries is the one published by the
+    /// registration it was issued under — the registration holding that audience later may
+    /// publish another (see [`AccessCredential`]) — so a log that cannot answer it is a log
+    /// this fold cannot read, for the same reason a lifecycle event naming no record is.
+    fn record_credential(
+        &mut self,
+        credential_id: &CredentialId,
+        reference_verifier: &Option<CredentialVerifier>,
+        epochs: &Option<EpochSnapshotRef>,
+        issued_at: &Timestamp,
+        descriptor: &CredentialDescriptor,
+        target: &ResourceServerId,
+    ) -> Result<(), FoldError> {
+        if self.access_credential(credential_id).is_some() {
+            return Ok(());
+        }
+        let issuing = self
+            .resource_server(target)
+            .ok_or(FoldError::UnknownIssuingTarget {
+                id: *credential_id,
+                target: *target,
+            })?;
+        self.credentials.push(AccessCredential {
+            id: *credential_id,
+            descriptor: descriptor.clone(),
+            reference_verifier: reference_verifier.clone(),
+            epochs: *epochs,
+            issued_at: issued_at.clone(),
+            state: AccessCredentialState::Active,
+            target: *target,
+            issuing_profile: issuing.credential_profile,
+        });
         Ok(())
     }
 
@@ -1109,6 +1277,25 @@ const _: () = {
             | CredentialEvent::SigningKeyRevoked { context, id } => {
                 persistable(context);
                 persistable(id);
+            }
+            CredentialEvent::AuthorizationCodeRedeemed {
+                context,
+                code_id,
+                credential_id,
+                reference_verifier,
+                epochs,
+                issued_at,
+                descriptor,
+                target,
+            } => {
+                persistable(context);
+                persistable(code_id);
+                persistable(credential_id);
+                persistable(reference_verifier);
+                persistable(epochs);
+                persistable(issued_at);
+                persistable(descriptor);
+                persistable(target);
             }
         }
     }

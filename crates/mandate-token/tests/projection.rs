@@ -27,10 +27,10 @@ use mandate_token::projection::{
 };
 use mandate_token::{CredentialDescriptor, CredentialProfile};
 use mandate_types::{
-    Audience, AuthorityScope, CorrelationId, CredentialId, CredentialKind, CredentialVerifier,
-    DenialReason, Duration, EpochSnapshotRef, KeyReference, OrganizationId, PrincipalId,
-    ResourceServerId, RevocationGuarantee, SigningAlgorithm, SigningKeyId, Timestamp, Uuid,
-    VerifiedContext,
+    Audience, AuthorityScope, AuthorizationCodeId, CorrelationId, CredentialId, CredentialKind,
+    CredentialVerifier, DenialReason, Duration, EpochSnapshotRef, KeyReference, OrganizationId,
+    PrincipalId, ResourceServerId, RevocationGuarantee, SigningAlgorithm, SigningKeyId, Timestamp,
+    Uuid, VerifiedContext,
 };
 
 fn uuid(tag: u8) -> Uuid {
@@ -127,6 +127,24 @@ fn issued(id: CredentialId, organization_id: OrganizationId, audience: &str) -> 
             resources: Vec::new(),
             space: None,
         },
+    }
+}
+
+/// `mandate.credential.AuthorizationCodeRedeemed`, the third event that creates a credential
+/// record. `credential.yaml`'s header declares that it "also seeds a
+/// `mandate.credential.AccessCredential`" and "carries the whole AccessCredential record ...
+/// so a fold materializes the credential from the event and the issuing registration the log
+/// already holds, reading no command input or response".
+fn redeemed(id: CredentialId, organization_id: OrganizationId, audience: &str) -> CredentialEvent {
+    CredentialEvent::AuthorizationCodeRedeemed {
+        context: context(organization_id),
+        code_id: AuthorizationCodeId::new(uuid(0xac)),
+        credential_id: id,
+        reference_verifier: Some(CredentialVerifier::new("digest-of-the-secret")),
+        epochs: None,
+        issued_at: Timestamp::new("2026-09-19T00:00:00Z"),
+        descriptor: descriptor(organization_id, audience),
+        target: target(0x30),
     }
 }
 
@@ -266,6 +284,79 @@ fn self_contained_issuance_creates_the_credential_the_same_way() {
     assert_eq!(record.descriptor.kind, CredentialKind::SelfContained);
     assert_eq!(record.epochs, Some(EpochSnapshotRef::new(uuid(0x60))));
     assert_eq!(record.state, AccessCredentialState::Active);
+}
+
+/// A redemption creates the credential record exactly as an issuance does: from the event
+/// and the issuing registration the log already holds, and from no command input or response.
+#[test]
+fn a_redemption_creates_the_credential_the_way_an_issuance_does() {
+    let log = vec![
+        registered(target(0x30), organization(10), "api-a"),
+        redeemed(credential(0x42), organization(10), "api-a"),
+    ];
+
+    let held = Projection::fold(&log).expect("a registration and one redemption");
+
+    assert_eq!(
+        held.credentials(),
+        [AccessCredential {
+            id: credential(0x42),
+            descriptor: descriptor(organization(10), "api-a"),
+            reference_verifier: Some(CredentialVerifier::new("digest-of-the-secret")),
+            epochs: None,
+            issued_at: Timestamp::new("2026-09-19T00:00:00Z"),
+            state: AccessCredentialState::Active,
+            target: target(0x30),
+            issuing_profile: reference_profile(),
+        }]
+    );
+    assert_eq!(
+        held.access_credential(&credential(0x42)),
+        Projection::fold(&[
+            registered(target(0x30), organization(10), "api-a"),
+            issued(credential(0x42), organization(10), "api-a"),
+        ])
+        .expect("the same record from the issuance event")
+        .access_credential(&credential(0x42)),
+        "the redeemed event seeds the record the issuance event seeds"
+    );
+}
+
+/// The same refusal an issuance gets, for the same reason: the guarantee the credential was
+/// issued under is not recoverable from a log that never registered its target.
+#[test]
+fn a_redemption_naming_no_recorded_registration_is_a_log_the_fold_cannot_read() {
+    let log = vec![redeemed(credential(0x42), organization(10), "api-a")];
+
+    assert_eq!(
+        Projection::fold(&log),
+        Err(FoldError::UnknownIssuingTarget {
+            id: credential(0x42),
+            target: target(0x30),
+        })
+    );
+}
+
+/// The record a redemption seeded is an `AccessCredential` like any other: it is revoked
+/// through the declared move and reaches the declared terminal state.
+#[test]
+fn a_credential_a_redemption_seeded_is_revoked_like_any_other() {
+    let log = vec![
+        registered(target(0x30), organization(10), "api-a"),
+        redeemed(credential(0x42), organization(10), "api-a"),
+        CredentialEvent::AccessCredentialRevoked {
+            context: context(organization(10)),
+            id: credential(0x42),
+        },
+    ];
+
+    let held = Projection::fold(&log).expect("a creation and its move");
+
+    assert_eq!(
+        held.access_credential(&credential(0x42))
+            .map(|record| record.state),
+        Some(AccessCredentialState::Revoked)
+    );
 }
 
 #[test]
@@ -606,6 +697,8 @@ fn a_redelivered_creation_writes_nothing() {
         registered(target(0x30), organization(10), "api-a"),
         issued(credential(0x40), organization(10), "api-a"),
         issued(credential(0x40), organization(10), "api-a"),
+        redeemed(credential(0x42), organization(10), "api-a"),
+        redeemed(credential(0x42), organization(10), "api-a"),
         key_registered(key(0x70), "kms://one", "thumb-one"),
         key_registered(key(0x70), "kms://one", "thumb-one"),
     ];
@@ -618,7 +711,7 @@ fn a_redelivered_creation_writes_nothing() {
             .map(|server| server.state),
         Some(ResourceServerState::Disabled)
     );
-    assert_eq!(held.credentials().len(), 1);
+    assert_eq!(held.credentials().len(), 2);
     assert_eq!(held.signing_keys().len(), 1);
 }
 
@@ -664,6 +757,7 @@ fn every_event_names_the_element_it_is() {
             context: context(organization(10)),
             id: key(0x70),
         },
+        redeemed(credential(0x42), organization(10), "api-a"),
     ]
     .iter()
     .map(CredentialEvent::ess_name)
@@ -681,6 +775,7 @@ fn every_event_names_the_element_it_is() {
             "mandate.credential.SigningKeyRegistered",
             "mandate.credential.SigningKeyRetired",
             "mandate.credential.SigningKeyRevoked",
+            "mandate.credential.AuthorizationCodeRedeemed",
         ]
     );
 }

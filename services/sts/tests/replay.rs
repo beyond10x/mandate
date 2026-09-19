@@ -14,6 +14,10 @@
 //! compiled entity marks required. The equality says the rebuild is complete; the literal
 //! says the log is what it was rebuilt from.
 
+use mandate_sts::binding::{RecordedSessions, SessionBinding};
+use mandate_sts::code::{
+    AuthorizationCodeParts, CodeIssuance, CodeLifetime, IssueAuthorizationCode, RecordedClients,
+};
 use mandate_sts::issue::{
     IssueReferenceCredential, IssueSelfContainedCredential, ReferenceParts, SelfContainedParts,
     Sha256Digest, StaticSigner, issue_reference_credential, issue_self_contained_credential,
@@ -21,6 +25,9 @@ use mandate_sts::issue::{
 use mandate_sts::keys::{
     KeyMaterialResolver, RegisterSigningKey, RetireSigningKey, RevokeSigningKey,
     SigningKeyAdministration, retire_signing_key, revoke_signing_key,
+};
+use mandate_sts::redemption::{
+    BoundReads, RedeemAuthorizationCode, RedemptionParts, redeem_and_consume,
 };
 use mandate_sts::registry::{
     DisableResourceServer, RegisterResourceServer, disable_resource_server,
@@ -30,6 +37,9 @@ use mandate_sts::resolve::{
     IntrospectCredential, IntrospectionParts, RevokeAccessCredential, introspect_credential,
     revoke_access_credential,
 };
+use mandate_sts::store::{
+    AuthorizationCode, AuthorizationCodeState, CodeProjection, InMemoryCodeLog, StreamVersion,
+};
 use mandate_sts::{CountingSecrets, RequestContext, SequentialAllocator};
 use mandate_token::CredentialProfile;
 use mandate_token::projection::{
@@ -37,11 +47,12 @@ use mandate_token::projection::{
     ResourceServerState, SigningKey, SigningKeyState,
 };
 use mandate_token::signing_real::AllowedAlgorithms;
-use mandate_token::verifier::verifier_for;
+use mandate_token::verifier::{CredentialDomain, verifier_for, verifier_in};
 use mandate_types::{
     Audience, AuthorityScope, CorrelationId, CredentialId, CredentialKind, CredentialProof,
-    Duration, EpochSnapshotRef, Issuer, KeyReference, OrganizationId, PrincipalId,
-    RevocationGuarantee, SigningAlgorithm, Timestamp, Transient, Uuid, VerifiedContext,
+    Duration, EpochSnapshotRef, Issuer, KeyReference, OAuthClientId, OrganizationId, PkceChallenge,
+    PkceMethod, PrincipalId, RedirectUri, RevocationGuarantee, SessionId, SigningAlgorithm,
+    Timestamp, Transient, Uuid, VerifiedContext,
 };
 
 fn uuid(tag: u8) -> Uuid {
@@ -473,4 +484,200 @@ fn an_empty_log_rebuilds_to_an_empty_projection() {
     assert!(rebuilt.credentials().is_empty());
     assert!(rebuilt.signing_keys().is_empty());
     assert!(rebuilt.audience_conflicts().is_empty());
+}
+
+// --- the authorization-code transaction -------------------------------------------------
+
+/// RFC 7636 appendix B: the example code verifier and the S256 challenge it redeems.
+const PKCE_VERIFIER: &str = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
+const PKCE_CHALLENGE: &str = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM";
+
+fn oauth_client() -> OAuthClientId {
+    OAuthClientId::new(uuid(0x0c))
+}
+
+fn oauth_session() -> SessionId {
+    SessionId::new(uuid(0x5e))
+}
+
+/// **The whole transaction rebuilds from its events alone, in both logs.**
+///
+/// One code issued and one code redeemed. The code record is rebuilt from the code log, the
+/// credential the redemption seeded is rebuilt from the credential log, and each rebuilt
+/// record is asserted against a literal carrying every field its compiled entity marks
+/// required — so the equality says the rebuild is complete and the literal says the log is
+/// what it was rebuilt from.
+#[test]
+fn the_authorization_code_and_the_credential_it_issues_are_rebuilt_from_their_events() {
+    let mut deployment = Deployment::default();
+    let mut allocator = SequentialAllocator::new();
+    let mut secrets = CountingSecrets::new();
+    let registered = register_resource_server(
+        &RegisterResourceServer {
+            context: context(),
+            audience: Audience::new("api-a"),
+            profile: reference_profile(),
+            allowed_exchange_sources: Vec::new(),
+        },
+        &deployment.live,
+        &mut allocator,
+    )
+    .expect("a free audience");
+    let target = registered.resource_server_id;
+    deployment.record(registered.event);
+
+    let clients = RecordedClients::new()
+        .enabled(oauth_client(), organization())
+        .redirect(
+            oauth_client(),
+            RedirectUri::new("https://client.example/callback"),
+        );
+    let issued = CodeIssuance::new(CodeLifetime::new(Duration::new("PT5M")))
+        .issue(
+            &IssueAuthorizationCode {
+                context: context(),
+                client_id: oauth_client(),
+                session_id: oauth_session(),
+                target,
+                requested_scope: scope(),
+                challenge: PkceChallenge::new(PKCE_CHALLENGE),
+                method: PkceMethod::S256,
+                redirect_uri: RedirectUri::new("https://client.example/callback"),
+                expires_at: Timestamp::new("2026-09-19T00:05:00Z"),
+            },
+            &request(),
+            &deployment.live,
+            &clients,
+            AuthorizationCodeParts {
+                digest: &Sha256Digest,
+                secrets: &mut secrets,
+                allocator: &mut allocator,
+            },
+        )
+        .expect("a registered enabled target and client");
+    let code_id = issued.code_id;
+    let code_verifier = verifier_in(
+        &Sha256Digest,
+        CredentialDomain::AuthorizationCodeVerifier,
+        &issued.code,
+    );
+    let proof = CredentialProof::from_bytes(issued.code.expose_material().to_vec());
+    let mut codes = InMemoryCodeLog::new();
+    codes
+        .append(
+            &code_id,
+            StreamVersion::INITIAL,
+            std::slice::from_ref(&issued.event),
+        )
+        .expect("an untouched stream");
+
+    // The code record, rebuilt from the code log alone.
+    assert_eq!(
+        CodeProjection::fold(&codes.events(&code_id)).expect("a log of accepted events"),
+        *codes.projection()
+    );
+    assert_eq!(
+        codes.projection().authorization_code(&code_id),
+        Some(AuthorizationCode {
+            id: code_id,
+            client_id: oauth_client(),
+            session_id: oauth_session(),
+            verifier: code_verifier,
+            challenge: PkceChallenge::new(PKCE_CHALLENGE),
+            method: PkceMethod::S256,
+            redirect_uri: RedirectUri::new("https://client.example/callback"),
+            expires_at: Timestamp::new("2026-09-19T00:05:00Z"),
+            target,
+            scope: scope(),
+            state: AuthorizationCodeState::Issued,
+        })
+    );
+
+    let sessions = RecordedSessions::new()
+        .session(SessionBinding {
+            id: oauth_session(),
+            subject: PrincipalId::new(uuid(0x51)),
+            organization: organization(),
+            epochs: Some(EpochSnapshotRef::new(uuid(0x60))),
+            expires_at: Timestamp::new("2026-09-19T12:00:00Z"),
+            revoked: false,
+        })
+        .current(EpochSnapshotRef::new(uuid(0x60)));
+    let servers = deployment.live.clone();
+    let redeemed = redeem_and_consume(
+        &RedeemAuthorizationCode {
+            code_id,
+            client_id: oauth_client(),
+            code: proof,
+            pkce_verifier: CredentialProof::from_bytes(PKCE_VERIFIER.as_bytes().to_vec()),
+            redirect_uri: RedirectUri::new("https://client.example/callback"),
+        },
+        &request(),
+        &mut codes,
+        BoundReads {
+            servers: &servers,
+            clients: &clients,
+            sessions: &sessions,
+        },
+        RedemptionParts {
+            digest: &Sha256Digest,
+            secrets: &mut secrets,
+            allocator: &mut allocator,
+        },
+    )
+    .expect("the matching verifier, client and redirect");
+    let credential_verifier = verifier_in(
+        &Sha256Digest,
+        CredentialDomain::ReferenceSecret,
+        &redeemed.credential,
+    );
+    deployment.record(
+        redeemed
+            .event
+            .credential_event()
+            .expect("the redemption seeds a credential"),
+    );
+
+    // The code record, moved to its terminal state, rebuilt from the code log alone.
+    assert_eq!(
+        CodeProjection::fold(&codes.events(&code_id)).expect("a log of accepted events"),
+        *codes.projection()
+    );
+    assert_eq!(
+        codes
+            .projection()
+            .authorization_code(&code_id)
+            .map(|code| code.state),
+        Some(AuthorizationCodeState::Consumed)
+    );
+
+    // The credential the redemption seeded, rebuilt from the credential log alone.
+    assert_eq!(deployment.rebuilt(), deployment.live);
+    assert_eq!(
+        deployment
+            .rebuilt()
+            .access_credential(&redeemed.credential_id),
+        Some(AccessCredential {
+            id: redeemed.credential_id,
+            descriptor: redeemed.descriptor.clone(),
+            reference_verifier: Some(credential_verifier),
+            epochs: Some(EpochSnapshotRef::new(uuid(0x60))),
+            issued_at: Timestamp::new("2026-09-19T00:00:00Z"),
+            state: AccessCredentialState::Active,
+            target,
+            issuing_profile: reference_profile(),
+        }),
+        "the credential fold materializes the record from the redeemed event and the \
+         registration the log already holds"
+    );
+
+    // And from `&[]`: a fresh deployment has a readable history in both logs.
+    assert_eq!(
+        CodeProjection::fold(&[]).expect("an empty log"),
+        CodeProjection::default()
+    );
+    assert_eq!(
+        Projection::fold(&[]).expect("an empty log"),
+        Projection::default()
+    );
 }

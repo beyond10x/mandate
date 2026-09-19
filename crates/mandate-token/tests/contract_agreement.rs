@@ -16,12 +16,17 @@
 //!
 //! # What this crate holds no shape for
 //!
-//! `mandate.credential.AuthorizationCode` and the two events that write it, and the two
-//! token-exchange events. `services/sts` owns the code record and `story:oauth-integration`
-//! and `story:constrained-exchange` land them; a shape here would be a payload nothing in
-//! this crate can fill. `services/sts/src/lib.rs` names all five as unrealized, with the
-//! owning story, and `services/sts/tests/contract_agreement.rs` decides that list against
-//! the contract's own index.
+//! `mandate.credential.AuthorizationCode`, the `AuthorizationCodeIssued` that creates it,
+//! and the two token-exchange events. `services/sts` owns the code record and folds it
+//! (`services/sts/src/store.rs`), and `story:constrained-exchange` lands the exchange; a
+//! shape here would be a payload nothing in this crate can fill.
+//!
+//! `mandate.credential.AuthorizationCodeRedeemed` **is** here, and it is the one payload of
+//! this domain two folds read. `credential.yaml`'s header declares that it "also seeds a
+//! `mandate.credential.AccessCredential`" and "carries the whole AccessCredential record",
+//! so the code fold in `services/sts` consumes the code with it and this crate materializes
+//! the credential from it. `services/sts/tests/store.rs` decides that the two declarations
+//! encode identically.
 
 use mandate_contract::{entities, events};
 use mandate_token::projection::{
@@ -30,10 +35,10 @@ use mandate_token::projection::{
 };
 use mandate_token::{CredentialDescriptor, CredentialProfile};
 use mandate_types::{
-    Action, Audience, AuthorityScope, CorrelationId, CredentialId, CredentialKind,
-    CredentialVerifier, DelegationId, Duration, EpochSnapshotRef, ExecutionId, KeyReference,
-    OrganizationId, PrincipalId, ResourceRef, ResourceServerId, ResourceType, RevocationGuarantee,
-    SigningAlgorithm, SigningKeyId, Timestamp, Uuid, VerifiedContext,
+    Action, Audience, AuthorityScope, AuthorizationCodeId, CorrelationId, CredentialId,
+    CredentialKind, CredentialVerifier, DelegationId, Duration, EpochSnapshotRef, ExecutionId,
+    KeyReference, OrganizationId, PrincipalId, ResourceRef, ResourceServerId, ResourceType,
+    RevocationGuarantee, SigningAlgorithm, SigningKeyId, Timestamp, Uuid, VerifiedContext,
 };
 use serde::{Serialize, de::DeserializeOwned};
 use serde_json::Value;
@@ -178,7 +183,7 @@ fn carries_no_null(document: &Value, path: &str) {
     }
 }
 
-/// The nine `mandate.credential` payloads this crate folds, over one context and one
+/// The ten `mandate.credential` payloads this crate folds, over one context and one
 /// descriptor — carrying every optional, or none of them.
 fn folded_events(carried: bool) -> Vec<CredentialEvent> {
     let context = if carried {
@@ -256,8 +261,19 @@ fn folded_events(carried: bool) -> Vec<CredentialEvent> {
             id: signing_key_id(),
         },
         CredentialEvent::SigningKeyRevoked {
-            context,
+            context: context.clone(),
             id: signing_key_id(),
+        },
+        // The one payload of this domain two folds read; see the module documentation.
+        CredentialEvent::AuthorizationCodeRedeemed {
+            context,
+            code_id: AuthorizationCodeId::new(uuid(0xac)),
+            credential_id: credential_id(),
+            reference_verifier: carried.then(|| CredentialVerifier::new("digest")),
+            epochs: carried.then(|| EpochSnapshotRef::new(uuid(0x60))),
+            issued_at: Timestamp::new("2026-09-19T00:00:00Z"),
+            descriptor,
+            target: target(),
         },
     ]
 }
@@ -297,12 +313,15 @@ fn each_event_agrees(carried: bool) -> Vec<Value> {
             CredentialEvent::SigningKeyRevoked { .. } => {
                 agrees::<_, events::MandateCredentialSigningKeyRevoked>(event, element)
             }
+            CredentialEvent::AuthorizationCodeRedeemed { .. } => {
+                agrees::<_, events::MandateCredentialAuthorizationCodeRedeemed>(event, element)
+            }
         };
         encoded.push(document);
     }
     assert_eq!(
         encoded.len(),
-        9,
+        10,
         "every event payload this crate declares is round-tripped"
     );
     encoded

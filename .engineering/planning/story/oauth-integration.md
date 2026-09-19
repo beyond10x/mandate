@@ -12,38 +12,17 @@ relations:
 - depends_on: story:protocol-adapters
 - informed_by: initiative:next-ten-waves
 - depends_on: story:product-listener
+- depends_on: story:oauth-transaction
 scope:
 - confidence: cited
   path: services/sts/Cargo.toml
-- confidence: inferred
-  path: services/sts/src/audit.rs
-- confidence: inferred
-  path: services/sts/src/binding.rs
-- confidence: inferred
-  path: services/sts/src/code.rs
-- confidence: inferred
-  path: services/sts/src/lib.rs
 - confidence: cited
   path: services/sts/src/main.rs
 - confidence: inferred
-  path: services/sts/src/redemption.rs
-- confidence: inferred
-  path: services/sts/src/store.rs
-- confidence: inferred
-  path: services/sts/tests/audit.rs
-- confidence: inferred
-  path: services/sts/tests/binding.rs
-- confidence: inferred
   path: services/sts/tests/cli.rs
 - confidence: inferred
-  path: services/sts/tests/code.rs
-- confidence: inferred
-  path: services/sts/tests/redemption.rs
-- confidence: inferred
-  path: services/sts/tests/store.rs
-- confidence: inferred
   path: services/sts/tests/surface.rs
-revision: 11
+revision: 14
 ---
 # Integrate public-client endpoints with STS
 
@@ -69,16 +48,7 @@ The transaction logic and all seven cases as deterministic tests against an in-m
 
 ## Units
 
-| Unit | Owns | Test file | ESS command | Cases |
-|---|---|---|---|---|
-| U1 `store` | `services/sts/src/store.rs` | `services/sts/tests/store.rs` | — the event-log port trait and its `pub` in-memory fake (CAS on expected version) | none directly; supplies U4's conflict injection |
-| U2 `code` | `src/code.rs` | `tests/code.rs` | `IssueAuthorizationCode` (`credential.yaml:349`) | `pkce-plain`, `pkce-missing`, `pkce-wrong` |
-| U3 `binding` | `src/binding.rs` | `tests/binding.rs` | the client/redirect/epoch/state-nonce re-reads inside redemption | `pkce-redirect`, `pkce-state-nonce` |
-| U4 `redemption` | `src/redemption.rs` | `tests/redemption.rs` | `RedeemAuthorizationCode` (`credential.yaml:183`) | `pkce-valid`, `pkce-reuse` |
-| U5 `audit` | `src/audit.rs` | `tests/audit.rs` | `RecordAuditEvent` (`audit.yaml:113`), rejection path only | every case's no-secret and denial-audit assertions |
-| coordinator | `src/lib.rs`, `src/main.rs`, `services/sts/Cargo.toml` | `tests/surface.rs`, `tests/cli.rs` | — | `serve` still fails via `env!("CARGO_BIN_EXE_mandate-sts")` |
-
-The fake store is a `pub` item in `src/store.rs`, not a `tests/common/mod.rs`, which would put one file in six rows. `AuthorizePublicClient` is named by all seven cases but is control-plane-owned (`ownership.md:26`); this story stands in for it with a fixture.
+Superseded at the wave C opening (2026-09-19): units U1 `store`, U2 `code`, U3 `binding`, U4 `redemption` and their files are `story:oauth-transaction`'s (see its Units table); U5 `audit` is residue there until `decision-blocker:audit-routing` answers. This story's own units are the endpoint's and are decided when `story:protocol-adapters` and `story:product-listener` land.
 
 ## Records
 
@@ -106,12 +76,7 @@ Today `clap`, `serde_json`, `sha2`. After the coordinator's admission: additiona
 
 ## Scope
 
-- `services/sts/src/main.rs`, `services/sts/Cargo.toml` — cited; the package's two files today; coordinator.
-- `services/sts/src/lib.rs`, `store.rs`, `code.rs`, `binding.rs`, `redemption.rs`, `audit.rs` — inferred; do not exist.
-- `services/sts/tests/surface.rs`, `store.rs`, `code.rs`, `binding.rs`, `redemption.rs`, `audit.rs`, `cli.rs` — inferred; do not exist.
-- Removed: `crates/mandate-server`.
-- Not written, prerequisite: `dependency-boundaries.json`, `Cargo.toml`, `Cargo.lock`, `xtask/src/main.rs` — coordinator.
-- Would collide with: `story:constrained-exchange` and `story:credential-profiles`, both holding `services/sts` as cited scope; the file split between them is settled when they are refined.
+Re-recorded at the wave C opening (2026-09-19). The STS-side transaction (the `AuthorizationCode` record, `IssueAuthorizationCode`, `RedeemAuthorizationCode`, the session/epoch and event-log ports with their doubles, the one-winner race) is `story:oauth-transaction`'s, on which this story now `depends_on`. What stays here is the endpoint: the actual OAuth token endpoint over `story:protocol-adapters`' form encoding and error bodies and `story:product-listener`'s listener, the seven `pkce-*` cases executed over HTTP, and the `AuthorizePublicClient`-to-STS adapter by value (`crates/mandate-federation/src/authorize.rs:194-213`, `:248`) in the composition. Files: `services/sts/src/serve.rs` is `story:product-listener`'s; this story's own files are decided when that story lands. The *Cannot be completed under current policy* paragraph above is superseded: the `[lib]` target and the `mandate-*` admission landed in wave B (`services/sts/Cargo.toml:12-13,24-26`).
 
 ## Contract
 

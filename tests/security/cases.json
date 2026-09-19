@@ -334,7 +334,7 @@
     {
       "id": "pkce-valid",
       "category": "pkce",
-      "story": "story:oauth-integration",
+      "story": "story:oauth-transaction",
       "given": "S256 challenge, matching verifier, exact redirect, fresh code and state/nonce",
       "action": "Redeem code",
       "expected": "one credential; code consumed atomically",
@@ -348,7 +348,7 @@
     {
       "id": "pkce-wrong",
       "category": "pkce",
-      "story": "story:oauth-integration",
+      "story": "story:oauth-transaction",
       "given": "Wrong verifier",
       "action": "Redeem code",
       "expected": "deny; no credential",
@@ -362,7 +362,7 @@
     {
       "id": "pkce-missing",
       "category": "pkce",
-      "story": "story:oauth-integration",
+      "story": "story:protocol-adapters",
       "given": "Public client omits verifier",
       "action": "Redeem code",
       "expected": "deny",
@@ -376,7 +376,7 @@
     {
       "id": "pkce-plain",
       "category": "pkce",
-      "story": "story:oauth-integration",
+      "story": "story:protocol-adapters",
       "given": "Challenge method plain",
       "action": "Authorize public client",
       "expected": "deny unsupported method",
@@ -390,7 +390,7 @@
     {
       "id": "pkce-reuse",
       "category": "pkce",
-      "story": "story:oauth-integration",
+      "story": "story:oauth-transaction",
       "given": "Previously redeemed code or concurrent second redemption",
       "action": "Redeem code",
       "expected": "deny; at most one issuance",
@@ -404,7 +404,7 @@
     {
       "id": "pkce-redirect",
       "category": "pkce",
-      "story": "story:oauth-integration",
+      "story": "story:oauth-transaction",
       "given": "Redirect differs from exact registered/authorized URI",
       "action": "Redeem code",
       "expected": "deny",
