@@ -1030,12 +1030,14 @@ dependencies = [
 name = "mandate-sts"
 version = "0.2.0"
 dependencies = [
+ "aws-lc-rs",
  "clap",
  "mandate-contract",
  "mandate-model",
  "mandate-testkit",
  "mandate-token",
  "mandate-types",
+ "rand",
  "serde",
  "serde_json",
  "sha2 0.10.9",

@@ -28,3 +28,5 @@ mandate-token = { version = "0.2.0", path = "../../crates/mandate-token" }
 [dev-dependencies]
 mandate-contract = { version = "0.2.0", path = "../../crates/mandate-contract" }
 mandate-testkit = { version = "0.2.0", path = "../../crates/mandate-testkit" }
+aws-lc-rs = { workspace = true }
+rand = { workspace = true }
