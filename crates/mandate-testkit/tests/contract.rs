@@ -876,8 +876,8 @@ fn created_delegation() -> (Value, Value, Value) {
 /// `descriptor` — the contract's one optional `response_field` target — absent from
 /// both, as an introspection that resolved no descriptor returns.
 fn introspected_without_a_descriptor() -> (Value, Value) {
-    let response = json!({ "active": true });
-    let event = json!({ "context": encoded(&context()) });
+    let response = json!({ "active": false });
+    let event = json!({ "context": encoded(&context()), "active": false });
     (response, event)
 }
 
@@ -894,6 +894,7 @@ fn provisioned() -> (Value, Value, Value) {
         "external_principal_id": encoded(&ExternalPrincipalId::new(uuid(6))),
         "subject": "external-subject",
         "organization_id": encoded(&OrganizationId::new(uuid(1))),
+        "display_name": "External User",
     });
     let event = json!({
         "organization_id": encoded(&OrganizationId::new(uuid(1))),

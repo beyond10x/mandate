@@ -86,6 +86,9 @@ pub struct Provisioned {
     pub principal_id: PrincipalId,
     /// The declared `subject` response, read from the validated proof.
     pub subject: ExternalSubject,
+    /// The declared `display_name` response: the name the created Principal record
+    /// carries, decided here from the validated subject, never from unvalidated input.
+    pub display_name: String,
     /// The event the accepted outcome emits.
     pub event: FederationEvent,
 }
@@ -190,13 +193,15 @@ pub fn provision_external_principal(
     }
     let principal_id = allocator.next_principal_id();
     let external_principal_id = allocator.next_external_principal_id();
-    // `display_name` is declared `generated: true`. It is generated from the validated
-    // subject, so no unvalidated input contributes to a persisted record.
+    // `display_name` is a response field the event sources (`federation.yaml`, wave B):
+    // decided from the validated subject, so no unvalidated input contributes to a
+    // persisted record, and the response and the event carry the same value.
     let display_name = resolved.key.subject.as_str().to_owned();
     Ok(Provisioned {
         external_principal_id,
         principal_id,
         subject: resolved.key.subject.clone(),
+        display_name: display_name.clone(),
         event: FederationEvent::ExternalPrincipalProvisioned {
             organization_id: resolved.organization_id,
             correlation: request.correlation.clone(),

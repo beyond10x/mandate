@@ -1,6 +1,6 @@
 # generated from mandate v1
-# model digest 01de9945d788263e9f6df566e556a0cc122f96c94d48538ad2536276eac2bc74
-# contract digest slice-sha256/2:840ced1b3d8af7264134deb859e77963dfe465d786e4e659ccf0792134aa5af6
+# model digest e6c0315aa5b87175ed6d714a2786c1f14085b00a46145448d5f73eb6cd4b4fd7
+# contract digest slice-sha256/2:9e128e4f5a8d9719cc45282c9559b492aded75158b8be10c4ba0168cdbdd7908
 # do not edit: regenerate with `ess generate`
 openapi: 3.1.0
 info:
@@ -14,8 +14,8 @@ info:
   x-ess-provenance:
     system: mandate
     specification_version: v1
-    source_digest: 01de9945d788263e9f6df566e556a0cc122f96c94d48538ad2536276eac2bc74
-    contract_digest: slice-sha256/2:840ced1b3d8af7264134deb859e77963dfe465d786e4e659ccf0792134aa5af6
+    source_digest: e6c0315aa5b87175ed6d714a2786c1f14085b00a46145448d5f73eb6cd4b4fd7
+    contract_digest: slice-sha256/2:9e128e4f5a8d9719cc45282c9559b492aded75158b8be10c4ba0168cdbdd7908
 tags:
 - name: audit
   description: 'Canonical redacted audit records and the trusted worker append port. UNMAPPED-AUDIT-ROUTING: per-domain event mapping, durable outbox transport, the concrete retention floor and failure policy remain required; retention itself is redaction, never deletion. Named AuditAction and AuditOutcome do not admit arbitrary values.'

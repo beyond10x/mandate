@@ -1,7 +1,7 @@
 <!--
 generated from mandate v1
-model digest 01de9945d788263e9f6df566e556a0cc122f96c94d48538ad2536276eac2bc74
-contract digest slice-sha256/2:8abb0a4ca94d7d73526464782bcd76187c286a63e3d553aa733d9f9e4902b7e6
+model digest e6c0315aa5b87175ed6d714a2786c1f14085b00a46145448d5f73eb6cd4b4fd7
+contract digest slice-sha256/2:c08703f021338427d43ecff373e76cbadb8630c54c4828f6ce34dade006fe7bc
 do not edit: regenerate with `ess generate`
 -->
 
@@ -147,13 +147,14 @@ An instance is identified by `id`, a `mandate.core.SigningKeyId`. The name is pa
 It holds:
 
 - `key_reference` — `mandate.core.KeyReference`
+- `thumbprint` — `String`
 - `algorithm` — `mandate.core.SigningAlgorithm`
 - `not_before` — `Timestamp`
 - `expires_at` — `Timestamp`
 
 It declares no relation to another entity, and no other entity names it.
 
-No invariant is declared, so nothing here constrains an instance at rest.
+Every instance satisfies `not_before < expires_at` — a predicate over this entity's own fields, checked against them rather than stored as a sentence, so an invariant reading something the entity does not have is refused instead of documented.
 
 Its state is a `mandate.credential.SigningKey.State`, one of `Recorded`, `Retired` and `Revoked`. That enum is synthesised from the lifecycle rather than declared beside it, so the states a view's filter compares and the states drawn below cannot disagree.
 
@@ -174,7 +175,7 @@ Each move is taken by a declared command outcome, and a move nothing takes is re
 - `retire` — taken by `mandate.credential.RetireSigningKey` on its `accepted` outcome
 - `revoke` — taken by `mandate.credential.RevokeSigningKey` on its `accepted` outcome
 
-No command here creates one, so an instance arrives from outside this specification.
+An instance is brought into existence by `mandate.credential.RegisterSigningKey` on its `accepted` outcome.
 
 Illegal transitions are illegal by absence: no rule forbids them, there is simply no arrow, because a rule would be a second place for the same truth to live. A diagram cannot show an absence, so the pairs it does not connect are listed here, derived from the same transitions — anything named below is a move this specification does not permit.
 
@@ -232,9 +233,9 @@ It takes:
 
 It has two outcomes.
 
-**`accepted`** — The default branch, taken when no other outcome's condition matched. No entity in this specification changes. It emits `mandate.credential.CredentialIntrospected`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+**`accepted`** — An active answer carries the descriptor and the credential_id of the record this log holds. An inactive answer carries neither — that is the answer for a credential this deployment revoked, one whose expiry has passed, and a well-formed proof that resolves to no record at all, which are one answer here and not three. The three are distinguished by nothing this event carries, deliberately, because a caller holding a well-formed proof learns only whether it is usable. This outcome creates, moves and updates nothing, and CredentialIntrospected folds into no record — its credential_id names an instance only when one exists in this log, and a fold reading it must not take the name for the existence of a record some other event created. The presented credential may have been issued by a deployment this log never saw, which is why the field is optional rather than the event's subject. The default branch, taken when no other outcome's condition matched. No entity in this specification changes. It emits `mandate.credential.CredentialIntrospected`. A test reaches it by constructing an input that satisfies no other outcome's condition.
 
-**`denied`** — Decided outside the input: Caller proof lacks introspection authority for the registered server/tenant, presented verifier is invalid/revoked/expired, principal/connection/epoch validation fails, audience mismatches, or authoritative online resolution is unavailable.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
+**`denied`** — Decided outside the input: Caller proof lacks introspection authority for the registered server/tenant or is itself invalid, revoked or expired, the presented credential proof is malformed, principal/connection/epoch validation fails, audience mismatches, or authoritative online resolution is unavailable.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
 ### `IssueAuthorizationCode`
 
@@ -327,6 +328,24 @@ It has two outcomes.
 
 **`denied`** — Decided outside the input: Caller lacks resource-server administration authority, audience registration is ambiguous, profile semantics are unadmitted, or an allowed source server is unresolved/disabled/outside the verified organization.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
+### `RegisterSigningKey`
+
+`mandate.credential.RegisterSigningKey`.
+
+It takes:
+
+- `context` — `mandate.core.VerifiedContext`
+- `key_reference` — `mandate.core.KeyReference`
+- `algorithm` — `mandate.core.SigningAlgorithm`
+- `not_before` — `Timestamp`
+- `expires_at` — `Timestamp`
+
+It has two outcomes.
+
+**`accepted`** — The key enters the contract Recorded, which is what rotation requires — RetireSigningKey denies a retirement with no overlapping replacement published for continued verification, and no replacement can exist until a key can be registered. SigningKeyRegistered carries the whole mandate.credential.SigningKey record — the key identity, the reference the deployment resolves to the material, the thumbprint of the public key, the algorithm name and the validity window — so the credential fold materializes the key from this event alone and reads no command input or response. The mandate.core.SigningKeyId is the kid the signer publishes and a credential names; the thumbprint is the RFC 7638 JWK thumbprint of the public key this outcome resolved from key_reference, so a revocation record naming a kid and a thumbprint is rebuilt from this log without resolving the material of a key that was revoked as compromised. Both are decided by this outcome and read from its response. No key material enters the contract — KeyReference is a handle to material the deployment holds, and no event here carries a secret. The algorithm is a name and not an admitted algorithm (UNMAPPED-ALGORITHM-POLICY); the deployment's verifier-side allowlist admits it or the registration is denied. A key reference, or the key material it resolves to, already held by a recorded key is refused in every state that key can be in, including Retired and Revoked, so material the deployment revoked never returns under a second identity. The window ordering is the entity's invariant, checked by the deciding handler; the synthesized accepted scenario builds an equal window and is expected to fail until ESS's synthesizer consults entity invariants (routed to the ESS wave). No command replaces a key in place; rotation registers the successor and retires the predecessor. The default branch, taken when no other outcome's condition matched. It creates a `mandate.credential.SigningKey`, which starts in `Recorded`. The new instance's identity is published as `id` on `mandate.credential.SigningKeyRegistered`. It emits `mandate.credential.SigningKeyRegistered`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+
+**`denied`** — Decided outside the input: Caller lacks platform signing-key administration authority, the algorithm is outside the deployment's admitted set, the key reference is unresolvable, or the key reference or the key material is already recorded.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
+
 ### `RetireSigningKey`
 
 `mandate.credential.RetireSigningKey`.
@@ -342,7 +361,7 @@ It has three outcomes.
 
 **`wrong-state`** — Taken when the subject is resting in a state none of this command's moves start from — a `mandate.credential.SigningKey` in `Retired` and `Revoked`, which is what is left of the lifecycle once this command's own moves are taken away. The document lists none of it. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by driving an instance into one of those states and then issuing the command, because no input selects this branch.
 
-**`denied`** — Decided outside the input: Caller lacks signing-key administration authority, the key is unresolved, no overlapping replacement key is published for continued verification, or retirement cannot durably stop further issuance under the key.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
+**`denied`** — Decided outside the input: Caller lacks platform signing-key administration authority, the key is unresolved, no overlapping replacement key is published for continued verification, or retirement cannot durably stop further issuance under the key.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
 ### `RevokeAccessCredential`
 
@@ -376,7 +395,7 @@ It has three outcomes.
 
 **`wrong-state`** — Taken when the subject is resting in a state none of this command's moves start from — a `mandate.credential.SigningKey` in `Revoked`, which is what is left of the lifecycle once this command's own moves are taken away. The document lists none of it. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by driving an instance into one of those states and then issuing the command, because no input selects this branch.
 
-**`denied`** — Decided outside the input: Caller lacks signing-key administration authority, the key is unresolved, or emergency revocation cannot durably stop both issuance and verification under the key and refuse the credentials it signed.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
+**`denied`** — Decided outside the input: Caller lacks platform signing-key administration authority, the key is unresolved, or emergency revocation cannot durably stop both issuance and verification under the key and refuse the credentials it signed.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
 ## Events
 
@@ -437,6 +456,8 @@ It carries:
 
 - `context` — `mandate.core.VerifiedContext`
 - `descriptor` — `Optional<mandate.core.CredentialDescriptor>`, which may be absent
+- `active` — `Boolean`
+- `credential_id` — `Optional<mandate.core.CredentialId>`, which may be absent
 
 Emitted by `mandate.credential.IntrospectCredential` on its `accepted` outcome.
 
@@ -506,6 +527,24 @@ It carries:
 - `allowed_exchange_sources` — `List<mandate.core.ResourceServerId>`
 
 Emitted by `mandate.credential.RegisterResourceServer` on its `accepted` outcome.
+
+Nothing in this system reacts to it.
+
+### `SigningKeyRegistered`
+
+`mandate.credential.SigningKeyRegistered`.
+
+It carries:
+
+- `context` — `mandate.core.VerifiedContext`
+- `id` — `mandate.core.SigningKeyId`
+- `key_reference` — `mandate.core.KeyReference`
+- `thumbprint` — `String`
+- `algorithm` — `mandate.core.SigningAlgorithm`
+- `not_before` — `Timestamp`
+- `expires_at` — `Timestamp`
+
+Emitted by `mandate.credential.RegisterSigningKey` on its `accepted` outcome.
 
 Nothing in this system reacts to it.
 
@@ -594,6 +633,8 @@ Reported by `mandate.credential.RedeemAuthorizationCode` on its `wrong-state` an
 
 Reported by `mandate.credential.RegisterResourceServer` on its `denied` outcome.
 
+Reported by `mandate.credential.RegisterSigningKey` on its `denied` outcome.
+
 Reported by `mandate.credential.RetireSigningKey` on its `wrong-state` and `denied` outcomes.
 
 Reported by `mandate.credential.RevokeAccessCredential` on its `wrong-state` and `denied` outcomes.
@@ -603,4 +644,4 @@ Reported by `mandate.credential.RevokeSigningKey` on its `wrong-state` and `deni
 
 ---
 
-Generated from mandate v1 · model digest `01de9945d788263e9f6df566e556a0cc122f96c94d48538ad2536276eac2bc74` · contract digest `slice-sha256/2:8abb0a4ca94d7d73526464782bcd76187c286a63e3d553aa733d9f9e4902b7e6`. Do not edit this file; change the specification and regenerate it with `ess generate`.
+Generated from mandate v1 · model digest `e6c0315aa5b87175ed6d714a2786c1f14085b00a46145448d5f73eb6cd4b4fd7` · contract digest `slice-sha256/2:c08703f021338427d43ecff373e76cbadb8630c54c4828f6ce34dade006fe7bc`. Do not edit this file; change the specification and regenerate it with `ess generate`.

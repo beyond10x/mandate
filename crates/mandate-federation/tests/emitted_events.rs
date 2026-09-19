@@ -387,6 +387,7 @@ fn provision_external_principal_emits_exactly_the_declared_event() {
             "principal_id": encoded(&outcome.principal_id),
             "organization_id": encoded(&organization(10)),
             "subject": encoded(&outcome.subject),
+            "display_name": outcome.display_name,
         })),
         &outcome.event,
     );

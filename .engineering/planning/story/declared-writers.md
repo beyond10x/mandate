@@ -52,7 +52,7 @@ scope:
   path: systems/mandate/domains/policy.yaml
 - confidence: cited
   path: systems/mandate/domains/workload.yaml
-revision: 12
+revision: 13
 ---
 # Every record has a declared writer
 
@@ -146,3 +146,7 @@ Coordinator, after `review-result:wave-b-parallel-r1` and `review-result:wave-b-
 5. **A3 and the Session arm.** The identity fold does not refuse an opening whose principal has no record: the explicit-link path (`LinkExternalPrincipal`) names a principal no event creates until a `RegisterPrincipal` lands (C2, later wave). The fold answers `None` for such a principal; the test pins both paths (design 7). A3 also edits `crates/mandate-identity/src/lib.rs:208-216` (Principal leaves `ESS_UNREALIZED`).
 6. **Exclusions amended** (design 8): A3 and A4 realize in `crates/mandate-identity` and `crates/mandate-federation` because the stories that own those crates are `implemented`; every other realization stays its owning story's.
 7. **Every creator's event carries its record**, foreign keys from response fields the outcome decides — wave E1's rule, applied to A2 and C1.
+
+## Inherited from the wave B contract round, 2026-09-19
+
+- From the wave B contract-round adversaries (2026-09-19): ESS 0.26.0's synthesizer builds the same constant for every `Timestamp` input and never consults an entity invariant when building a creating command's input, so `mandate.credential.SigningKey`'s `not_before < expires_at` yields an accepted scenario no conforming handler passes (`RegisterSigningKey/outcome/accepted`); publishing a view adds an invariant scenario that is unsatisfiable for the same reason. Routed to the ESS wave as a synthesizer gap. ESS also does not type an invariant's comparison (a string newtype against a `Timestamp` validates), so chronological versus lexicographic is fixed nowhere; routed beside `story:invariant-boundary-validation`. Until both land, the `keys` unit's tests are the check, and the conform gate (`story:conform-gate`) expects that scenario `failed` with this note as its `blocked_on`.

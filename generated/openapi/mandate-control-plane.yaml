@@ -1,6 +1,6 @@
 # generated from mandate v1
-# model digest 01de9945d788263e9f6df566e556a0cc122f96c94d48538ad2536276eac2bc74
-# contract digest slice-sha256/2:af295d07f7763a175450945406fdc40b2e84e45db30ad2f577abf72c32d2c64b
+# model digest e6c0315aa5b87175ed6d714a2786c1f14085b00a46145448d5f73eb6cd4b4fd7
+# contract digest slice-sha256/2:24f8b7ca816042022e388db8c5cf68284342a9907ab949a26ab7a1be1af618cc
 # do not edit: regenerate with `ess generate`
 openapi: 3.1.0
 info:
@@ -14,8 +14,8 @@ info:
   x-ess-provenance:
     system: mandate
     specification_version: v1
-    source_digest: 01de9945d788263e9f6df566e556a0cc122f96c94d48538ad2536276eac2bc74
-    contract_digest: slice-sha256/2:af295d07f7763a175450945406fdc40b2e84e45db30ad2f577abf72c32d2c64b
+    source_digest: e6c0315aa5b87175ed6d714a2786c1f14085b00a46145448d5f73eb6cd4b4fd7
+    contract_digest: slice-sha256/2:24f8b7ca816042022e388db8c5cf68284342a9907ab949a26ab7a1be1af618cc
 tags:
 - name: delegation
 - name: directory
@@ -649,6 +649,32 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.federation.RegisterFederationConnection.denied.Response'
+  /federation/commands/RegisterOAuthClient:
+    post:
+      operationId: mandate.federation.RegisterOAuthClient
+      summary: RegisterOAuthClient
+      tags:
+      - federation
+      requestBody:
+        description: The input `mandate.federation.RegisterOAuthClient` declares.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/mandate.federation.RegisterOAuthClient.Input'
+      responses:
+        '202':
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers, not returned here.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.federation.RegisterOAuthClient.accepted.Response'
+        '502':
+          description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.federation.RegisterOAuthClient.denied.Response'
   /federation/commands/UnlinkExternalPrincipal:
     post:
       operationId: mandate.federation.UnlinkExternalPrincipal
@@ -2661,7 +2687,7 @@ components:
       additionalProperties: false
     mandate.federation.ProvisionExternalPrincipal.accepted.Response:
       additionalProperties: false
-      description: Just-in-time provisioning on first login. The outcome creates exactly one record, the mandate.federation.ExternalPrincipal linking the principal with ExternalLinkMethod::ConfiguredFederation. The event also names the mandate.identity.Principal of kind User the provisioning produced, and no outcome in this contract declares that Principal's creation. Both identities and the external subject are bound from the response rather than left to the implementation. The composite key is (organization, connection issuer, external subject), with the issuer read from the validated connection and the subject from the validated proof, never from the caller. No session is minted here; the adapter calls AuthenticateFederation again. Taken when no other outcome's condition matched. A `mandate.federation.ExternalPrincipal` now exists, in `Linked`. Its identity is published as `external_principal_id` on `mandate.federation.ExternalPrincipalProvisioned`. Emits `ExternalPrincipalProvisioned`, published to consumers rather than returned here.
+      description: Just-in-time provisioning on first login. The outcome creates exactly one record, the mandate.federation.ExternalPrincipal linking the principal with ExternalLinkMethod::ConfiguredFederation. The event also names the mandate.identity.Principal of kind User the provisioning produced, and no outcome in this contract declares that Principal's creation. Both identities, the external subject and the display name are bound from the response rather than left to the implementation; the display name is the validated subject until a connection admits a display-name claim, which no connection declares yet (story:federation-linking). The composite key is (organization, connection issuer, external subject), with the issuer read from the validated connection and the subject from the validated proof, never from the caller. No session is minted here; the adapter calls AuthenticateFederation again. Taken when no other outcome's condition matched. A `mandate.federation.ExternalPrincipal` now exists, in `Linked`. Its identity is published as `external_principal_id` on `mandate.federation.ExternalPrincipalProvisioned`. Emits `ExternalPrincipalProvisioned`, published to consumers rather than returned here.
       properties:
         outcome:
           const: accepted
@@ -2723,6 +2749,56 @@ components:
     mandate.federation.RegisterFederationConnection.denied.Response:
       additionalProperties: false
       description: 'Decided outside the request: Caller lacks federation-administration authority, issuer/client/trust, tenant-resolution or just-in-time provisioning configuration is unadmitted, or organization binding is invalid..'
+      properties:
+        error:
+          const: mandate.federation.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.federation.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
+    mandate.federation.RegisterOAuthClient.Input:
+      title: RegisterOAuthClient input
+      x-ess-name: mandate.federation.RegisterOAuthClient
+      x-ess-kind: command-input
+      type: object
+      properties:
+        context:
+          $ref: '#/components/schemas/mandate.core.VerifiedContext'
+        public:
+          type: boolean
+        redirect_uris:
+          type: array
+          items:
+            $ref: '#/components/schemas/mandate.core.RedirectUri'
+        pkce_method:
+          $ref: '#/components/schemas/mandate.core.PkceMethod'
+      required:
+      - context
+      - public
+      - redirect_uris
+      - pkce_method
+      additionalProperties: false
+    mandate.federation.RegisterOAuthClient.accepted.Response:
+      additionalProperties: false
+      description: The client is bound to the organization the verified context carries; the command takes no organization input, so no caller selects the tenant a client is registered into. OAuthClientRegistered carries the whole mandate.federation.OAuthClient record — the client identity, its organization, whether it is a public client, its exact redirect set and its PKCE method — so the federation fold materializes the client from this event alone and reads no command input or response. The identity and the organization are the ones this outcome decided and returned, read from the response rather than from a value the implementation invented. An empty redirect set is admitted and is not a denial — the client it registers is inert, because AuthorizePublicClient matches the presented redirect against the registered set exactly and an empty set matches nothing, so every authorization request to that client is refused. mandate.core.PkceMethod admits S256 and nothing else, so no registration can name another method and none is refused for naming one. A registration whose redirect surface or PKCE method must change is disabled and registered again; there is no update command. Taken when no other outcome's condition matched. A `mandate.federation.OAuthClient` now exists, in `Recorded`. Its identity is published as `id` on `mandate.federation.OAuthClientRegistered`. Emits `OAuthClientRegistered`, published to consumers rather than returned here.
+      properties:
+        outcome:
+          const: accepted
+          description: Which declared outcome the command took.
+      required:
+      - outcome
+      type: object
+    mandate.federation.RegisterOAuthClient.denied.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: Caller lacks client-administration authority, a redirect URI is unadmitted, or organization binding is invalid..'
       properties:
         error:
           const: mandate.federation.Denied
