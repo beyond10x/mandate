@@ -1,6 +1,6 @@
 # generated from mandate v1
-# model digest 49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40
-# contract digest slice-sha256/2:710614d8ebff4d78d21598525f9b5062555974c27529640e8ac7eda219742b48
+# model digest 01de9945d788263e9f6df566e556a0cc122f96c94d48538ad2536276eac2bc74
+# contract digest slice-sha256/2:2bfff111b18a2f3949a6b7c7d0ed64e54e670c22313d97347bca2165b796d26b
 # do not edit: regenerate with `ess generate`
 openapi: 3.1.0
 info:
@@ -14,8 +14,8 @@ info:
   x-ess-provenance:
     system: mandate
     specification_version: v1
-    source_digest: 49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40
-    contract_digest: slice-sha256/2:710614d8ebff4d78d21598525f9b5062555974c27529640e8ac7eda219742b48
+    source_digest: 01de9945d788263e9f6df566e556a0cc122f96c94d48538ad2536276eac2bc74
+    contract_digest: slice-sha256/2:2bfff111b18a2f3949a6b7c7d0ed64e54e670c22313d97347bca2165b796d26b
 tags:
 - name: authorization
 - name: graph
@@ -68,6 +68,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.graph.DeregisterResource.accepted.Response'
+        '409':
+          description: 'Outcome `wrong-state`: the input was acceptable and the subject is in a state this command does not act from. Resending the same request changes nothing until something else moves it.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.graph.DeregisterResource.wrong-state.Response'
         '502':
           description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
           content:
@@ -120,6 +126,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.graph.RemoveRelation.accepted.Response'
+        '409':
+          description: 'Outcome `wrong-state`: the input was acceptable and the subject is in a state this command does not act from. Resending the same request changes nothing until something else moves it.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.graph.RemoveRelation.wrong-state.Response'
         '502':
           description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
           content:
@@ -146,6 +158,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.graph.RevokeGrant.accepted.Response'
+        '409':
+          description: 'Outcome `wrong-state`: the input was acceptable and the subject is in a state this command does not act from. Resending the same request changes nothing until something else moves it.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.graph.RevokeGrant.wrong-state.Response'
         '502':
           description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
           content:
@@ -198,6 +216,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.policy.SupersedeAuthorizationModel.accepted.Response'
+        '409':
+          description: 'Outcome `wrong-state`: the input was acceptable and the subject is in a state this command does not act from. Resending the same request changes nothing until something else moves it.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.policy.SupersedeAuthorizationModel.wrong-state.Response'
         '502':
           description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
           content:
@@ -224,6 +248,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.policy.SupersedePolicy.accepted.Response'
+        '409':
+          description: 'Outcome `wrong-state`: the input was acceptable and the subject is in a state this command does not act from. Resending the same request changes nothing until something else moves it.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.policy.SupersedePolicy.wrong-state.Response'
         '502':
           description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
           content:
@@ -526,6 +556,24 @@ components:
       - error
       - payload
       type: object
+    mandate.graph.DeregisterResource.wrong-state.Response:
+      additionalProperties: false
+      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's.
+      properties:
+        error:
+          const: mandate.graph.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: wrong-state
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.graph.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
     mandate.graph.RegisterResource.Input:
       title: RegisterResource input
       x-ess-name: mandate.graph.RegisterResource
@@ -544,7 +592,7 @@ components:
       additionalProperties: false
     mandate.graph.RegisterResource.accepted.Response:
       additionalProperties: false
-      description: Taken when no other outcome's condition matched. Emits `ResourceRegistered`, published to consumers rather than returned here.
+      description: Taken when no other outcome's condition matched. A `mandate.graph.Resource` now exists, in `Recorded`. Its identity is published as `resource_id` on `mandate.graph.ResourceRegistered`. Emits `ResourceRegistered`, published to consumers rather than returned here.
       properties:
         outcome:
           const: accepted
@@ -612,6 +660,24 @@ components:
       - error
       - payload
       type: object
+    mandate.graph.RemoveRelation.wrong-state.Response:
+      additionalProperties: false
+      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's.
+      properties:
+        error:
+          const: mandate.graph.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: wrong-state
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.graph.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
     mandate.graph.RevokeGrant.Input:
       title: RevokeGrant input
       x-ess-name: mandate.graph.RevokeGrant
@@ -654,6 +720,24 @@ components:
       - error
       - payload
       type: object
+    mandate.graph.RevokeGrant.wrong-state.Response:
+      additionalProperties: false
+      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's.
+      properties:
+        error:
+          const: mandate.graph.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: wrong-state
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.graph.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
     mandate.graph.WriteRelationship.Input:
       title: WriteRelationship input
       x-ess-name: mandate.graph.WriteRelationship
@@ -676,7 +760,7 @@ components:
       additionalProperties: false
     mandate.graph.WriteRelationship.accepted.Response:
       additionalProperties: false
-      description: Taken when no other outcome's condition matched. Emits `RelationshipWritten`, published to consumers rather than returned here.
+      description: Taken when no other outcome's condition matched. A `mandate.graph.Relation` now exists, in `Active`. Its identity is published as `id` on `mandate.graph.RelationshipWritten`. Emits `RelationshipWritten`, published to consumers rather than returned here.
       properties:
         outcome:
           const: accepted
@@ -756,6 +840,24 @@ components:
       - error
       - payload
       type: object
+    mandate.policy.SupersedeAuthorizationModel.wrong-state.Response:
+      additionalProperties: false
+      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's.
+      properties:
+        error:
+          const: mandate.policy.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: wrong-state
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.policy.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
     mandate.policy.SupersedePolicy.Input:
       title: SupersedePolicy input
       x-ess-name: mandate.policy.SupersedePolicy
@@ -790,6 +892,24 @@ components:
           type: string
         outcome:
           const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.policy.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
+    mandate.policy.SupersedePolicy.wrong-state.Response:
+      additionalProperties: false
+      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's.
+      properties:
+        error:
+          const: mandate.policy.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: wrong-state
           description: Which declared outcome the command took.
         payload:
           $ref: '#/components/schemas/mandate.policy.Denied.Error'

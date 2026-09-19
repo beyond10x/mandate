@@ -8,6 +8,9 @@
     "context": {
       "$ref": "#/$defs/mandate.core.VerifiedContext"
     },
+    "resource_id": {
+      "$ref": "#/$defs/mandate.core.ResourceId"
+    },
     "resource": {
       "$ref": "#/$defs/mandate.core.ResourceRef"
     },
@@ -17,14 +20,15 @@
   },
   "required": [
     "context",
+    "resource_id",
     "resource"
   ],
   "additionalProperties": false,
   "x-ess-provenance": {
     "system": "mandate",
     "specification_version": "v1",
-    "source_digest": "49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40",
-    "contract_digest": "slice-sha256/2:55679d43f99202cc8c818f758b0ecdf6795329fd5bb07a7a135e901274c8ef00",
+    "source_digest": "01de9945d788263e9f6df566e556a0cc122f96c94d48538ad2536276eac2bc74",
+    "contract_digest": "slice-sha256/2:3a79c0843f10698efa55ead039a61b90dd6efe822af55cae8bf58768b9797b84",
     "regenerate": "ess generate"
   },
   "$defs": {

@@ -1,7 +1,7 @@
 <!--
 generated from mandate v1
-model digest 49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40
-contract digest slice-sha256/2:e3af0fa3e1220fdfb1a24652605aff975d1125745cf7db0eb7f3ee819c73b32c
+model digest 01de9945d788263e9f6df566e556a0cc122f96c94d48538ad2536276eac2bc74
+contract digest slice-sha256/2:8abb0a4ca94d7d73526464782bcd76187c286a63e3d553aa733d9f9e4902b7e6
 do not edit: regenerate with `ess generate`
 -->
 
@@ -45,7 +45,7 @@ Each move is taken by a declared command outcome, and a move nothing takes is re
 
 - `revoke` — taken by `mandate.credential.RevokeAccessCredential` on its `accepted` outcome
 
-No command here creates one, so an instance arrives from outside this specification.
+An instance is brought into existence by `mandate.credential.ExchangeCredential` on its `accepted` outcome, `mandate.credential.IssueReferenceCredential` on its `accepted` outcome and `mandate.credential.IssueSelfContainedCredential` on its `accepted` outcome.
 
 Illegal transitions are illegal by absence: no rule forbids them, there is simply no arrow, because a rule would be a second place for the same truth to live. A diagram cannot show an absence, so the pairs it does not connect are listed here, derived from the same transitions — anything named below is a move this specification does not permit.
 
@@ -90,7 +90,7 @@ Each move is taken by a declared command outcome, and a move nothing takes is re
 
 - `consume` — taken by `mandate.credential.RedeemAuthorizationCode` on its `accepted` outcome
 
-No command here creates one, so an instance arrives from outside this specification.
+An instance is brought into existence by `mandate.credential.IssueAuthorizationCode` on its `accepted` outcome.
 
 Illegal transitions are illegal by absence: no rule forbids them, there is simply no arrow, because a rule would be a second place for the same truth to live. A diagram cannot show an absence, so the pairs it does not connect are listed here, derived from the same transitions — anything named below is a move this specification does not permit.
 
@@ -130,7 +130,7 @@ Each move is taken by a declared command outcome, and a move nothing takes is re
 
 - `disable` — taken by `mandate.credential.DisableResourceServer` on its `accepted` outcome
 
-No command here creates one, so an instance arrives from outside this specification.
+An instance is brought into existence by `mandate.credential.RegisterResourceServer` on its `accepted` outcome.
 
 Illegal transitions are illegal by absence: no rule forbids them, there is simply no arrow, because a rule would be a second place for the same truth to live. A diagram cannot show an absence, so the pairs it does not connect are listed here, derived from the same transitions — anything named below is a move this specification does not permit.
 
@@ -195,9 +195,11 @@ It takes:
 - `id` — `mandate.core.ResourceServerId`
 - `context` — `mandate.core.VerifiedContext`
 
-It has two outcomes.
+It has three outcomes.
 
 **`accepted`** — The default branch, taken when no other outcome's condition matched. It moves a `mandate.credential.ResourceServer` from `Enabled` to `Disabled`, along the declared move `disable`. The instance is the one named by the input field `id`. It emits `mandate.credential.ResourceServerDisabled`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+
+**`wrong-state`** — Taken when the subject is resting in a state none of this command's moves start from — a `mandate.credential.ResourceServer` in `Disabled`, which is what is left of the lifecycle once this command's own moves are taken away. The document lists none of it. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by driving an instance into one of those states and then issuing the command, because no input selects this branch.
 
 **`denied`** — Decided outside the input: Caller lacks resource-server administration authority, server is outside the verified organization, or durable disablement cannot prevent subsequent issuance.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
@@ -215,7 +217,7 @@ It takes:
 
 It has two outcomes.
 
-**`accepted`** — The default branch, taken when no other outcome's condition matched. No entity in this specification changes. It emits `mandate.credential.TokenExchangeAllowed`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+**`accepted`** — The default branch, taken when no other outcome's condition matched. It creates a `mandate.credential.AccessCredential`, which starts in `Active`. The new instance's identity is published as `credential_id` on `mandate.credential.TokenExchangeAllowed`. It emits `mandate.credential.TokenExchangeAllowed`. A test reaches it by constructing an input that satisfies no other outcome's condition.
 
 **`denied`** — Decided outside the input: Either independently validated proof is invalid/revoked/expired/stale; actor, tenant, registered target/source, scope, space, delegation or ceiling binding fails; transitive delegation is requested; approval is required; or authority/expiry narrowing and durable audit fail.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
@@ -252,7 +254,7 @@ It takes:
 
 It has two outcomes.
 
-**`accepted`** — STS stores only a non-reversible verifier bound to the validated client, session, exact redirect, S256 challenge, registered target, narrowed scope and bounded expiry. Only the transient code is returned to the public-client adapter. The default branch, taken when no other outcome's condition matched. No entity in this specification changes. It emits `mandate.credential.AuthorizationCodeIssued`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+**`accepted`** — STS stores only a non-reversible verifier bound to the validated client, session, exact redirect, S256 challenge, registered target, narrowed scope and bounded expiry. Only the transient code is returned to the public-client adapter. The default branch, taken when no other outcome's condition matched. It creates a `mandate.credential.AuthorizationCode`, which starts in `Issued`. The new instance's identity is published as `code_id` on `mandate.credential.AuthorizationCodeIssued`. It emits `mandate.credential.AuthorizationCodeIssued`. A test reaches it by constructing an input that satisfies no other outcome's condition.
 
 **`denied`** — Decided outside the input: Trusted control-plane caller/session context, registered public client, exact redirect URI, S256 policy, tenant/target agreement, authority narrowing or bounded expiry validation fails, or the client the code would be bound to is disabled.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
@@ -268,7 +270,7 @@ It takes:
 
 It has two outcomes.
 
-**`accepted`** — The default branch, taken when no other outcome's condition matched. No entity in this specification changes. It emits `mandate.credential.CredentialReferenceIssued`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+**`accepted`** — The default branch, taken when no other outcome's condition matched. It creates a `mandate.credential.AccessCredential`, which starts in `Active`. The new instance's identity is published as `credential_id` on `mandate.credential.CredentialReferenceIssued`. It emits `mandate.credential.CredentialReferenceIssued`. A test reaches it by constructing an input that satisfies no other outcome's condition.
 
 **`denied`** — Decided outside the input: Validated context is expired/revoked/stale, subject/actor authority or ceilings do not cover requested scope, target/profile is unregistered/disabled/outside tenant, expiry cannot be bounded, or verifier-only persistence and required audit cannot commit.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
@@ -284,7 +286,7 @@ It takes:
 
 It has two outcomes.
 
-**`accepted`** — The default branch, taken when no other outcome's condition matched. No entity in this specification changes. It emits `mandate.credential.CredentialSelfContainedIssued`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+**`accepted`** — The default branch, taken when no other outcome's condition matched. It creates a `mandate.credential.AccessCredential`, which starts in `Active`. The new instance's identity is published as `credential_id` on `mandate.credential.CredentialSelfContainedIssued`. It emits `mandate.credential.CredentialSelfContainedIssued`. A test reaches it by constructing an input that satisfies no other outcome's condition.
 
 **`denied`** — Decided outside the input: Validated context is expired/revoked/stale, subject/actor authority or ceilings do not cover requested scope, target/profile/signing algorithm or key is unadmitted, expiry cannot be bounded, or the promised revocation/audit guarantee cannot be met.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
@@ -300,11 +302,13 @@ It takes:
 - `pkce_verifier` — `mandate.core.CredentialProof`
 - `redirect_uri` — `mandate.core.RedirectUri`
 
-It has two outcomes.
+It has three outcomes.
 
 **`accepted`** — STS atomically consumes the code and persists the narrowed credential and audit outbox. The returned credential remains bound to the code target, scope, session and expiry; a failed or replayed transaction produces no credential. The default branch, taken when no other outcome's condition matched. It moves a `mandate.credential.AuthorizationCode` from `Issued` to `Consumed`, along the declared move `consume`. The instance is the one named by the input field `code_id`. It emits `mandate.credential.AuthorizationCodeRedeemed`. A test reaches it by constructing an input that satisfies no other outcome's condition.
 
-**`denied`** — Decided outside the input: Code proof does not match the server-resolved code_id; code is consumed/expired; client, redirect URI or S256 verifier mismatches; the bound client is disabled; source/session epoch is stale; registered target is disabled or outside the verified tenant; or narrowing/atomic issuance validation fails.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
+**`wrong-state`** — Taken when the subject is resting in a state none of this command's moves start from — a `mandate.credential.AuthorizationCode` in `Consumed`, which is what is left of the lifecycle once this command's own moves are taken away. The document lists none of it. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by driving an instance into one of those states and then issuing the command, because no input selects this branch.
+
+**`denied`** — Decided outside the input: Code proof does not match the server-resolved code_id; code is expired; client, redirect URI or S256 verifier mismatches; the bound client is disabled; source/session epoch is stale; registered target is disabled or outside the verified tenant; or narrowing/atomic issuance validation fails.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
 ### `RegisterResourceServer`
 
@@ -319,7 +323,7 @@ It takes:
 
 It has two outcomes.
 
-**`accepted`** — The default branch, taken when no other outcome's condition matched. No entity in this specification changes. It emits `mandate.credential.ResourceServerRegistered`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+**`accepted`** — The default branch, taken when no other outcome's condition matched. It creates a `mandate.credential.ResourceServer`, which starts in `Enabled`. The new instance's identity is published as `id` on `mandate.credential.ResourceServerRegistered`. It emits `mandate.credential.ResourceServerRegistered`. A test reaches it by constructing an input that satisfies no other outcome's condition.
 
 **`denied`** — Decided outside the input: Caller lacks resource-server administration authority, audience registration is ambiguous, profile semantics are unadmitted, or an allowed source server is unresolved/disabled/outside the verified organization.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
@@ -332,9 +336,11 @@ It takes:
 - `id` — `mandate.core.SigningKeyId`
 - `context` — `mandate.core.VerifiedContext`
 
-It has two outcomes.
+It has three outcomes.
 
 **`accepted`** — Rotation, not revocation. A retired key signs nothing further; it remains admitted for verifying credentials already issued under it until they expire, which is the overlapping rotation period the key requirements demand. The default branch, taken when no other outcome's condition matched. It moves a `mandate.credential.SigningKey` from `Recorded` to `Retired`, along the declared move `retire`. The instance is the one named by the input field `id`. It emits `mandate.credential.SigningKeyRetired`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+
+**`wrong-state`** — Taken when the subject is resting in a state none of this command's moves start from — a `mandate.credential.SigningKey` in `Retired` and `Revoked`, which is what is left of the lifecycle once this command's own moves are taken away. The document lists none of it. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by driving an instance into one of those states and then issuing the command, because no input selects this branch.
 
 **`denied`** — Decided outside the input: Caller lacks signing-key administration authority, the key is unresolved, no overlapping replacement key is published for continued verification, or retirement cannot durably stop further issuance under the key.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
@@ -347,9 +353,11 @@ It takes:
 - `id` — `mandate.core.CredentialId`
 - `context` — `mandate.core.VerifiedContext`
 
-It has two outcomes.
+It has three outcomes.
 
 **`accepted`** — The default branch, taken when no other outcome's condition matched. It moves a `mandate.credential.AccessCredential` from `Active` to `Revoked`, along the declared move `revoke`. The instance is the one named by the input field `id`. It emits `mandate.credential.AccessCredentialRevoked`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+
+**`wrong-state`** — Taken when the subject is resting in a state none of this command's moves start from — a `mandate.credential.AccessCredential` in `Revoked`, which is what is left of the lifecycle once this command's own moves are taken away. The document lists none of it. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by driving an instance into one of those states and then issuing the command, because no input selects this branch.
 
 **`denied`** — Decided outside the input: Caller lacks credential-revocation authority, resolved credential is outside the verified organization, or the named profile revocation guarantee cannot be met.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
@@ -362,9 +370,11 @@ It takes:
 - `id` — `mandate.core.SigningKeyId`
 - `context` — `mandate.core.VerifiedContext`
 
-It has two outcomes.
+It has three outcomes.
 
 **`accepted`** — The emergency procedure. A revoked key is admitted for neither issuance nor verification, and the self-contained credentials it signed are refused from that point; the key record itself is kept. The default branch, taken when no other outcome's condition matched. It moves a `mandate.credential.SigningKey` from `Recorded` and `Retired` to `Revoked`, along the declared move `revoke`. The instance is the one named by the input field `id`. It emits `mandate.credential.SigningKeyRevoked`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+
+**`wrong-state`** — Taken when the subject is resting in a state none of this command's moves start from — a `mandate.credential.SigningKey` in `Revoked`, which is what is left of the lifecycle once this command's own moves are taken away. The document lists none of it. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by driving an instance into one of those states and then issuing the command, because no input selects this branch.
 
 **`denied`** — Decided outside the input: Caller lacks signing-key administration authority, the key is unresolved, or emergency revocation cannot durably stop both issuance and verification under the key and refuse the credentials it signed.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
@@ -391,7 +401,15 @@ It carries:
 
 - `context` — `mandate.core.VerifiedContext`
 - `code_id` — `mandate.core.AuthorizationCodeId`
+- `client_id` — `mandate.core.OAuthClientId`
+- `session_id` — `mandate.core.SessionId`
+- `verifier` — `mandate.core.CredentialVerifier`
+- `challenge` — `mandate.core.PkceChallenge`
+- `method` — `mandate.core.PkceMethod`
+- `redirect_uri` — `mandate.core.RedirectUri`
+- `expires_at` — `Timestamp`
 - `target` — `mandate.core.ResourceServerId`
+- `scope` — `mandate.core.AuthorityScope`
 
 Emitted by `mandate.credential.IssueAuthorizationCode` on its `accepted` outcome.
 
@@ -431,6 +449,10 @@ Nothing in this system reacts to it.
 It carries:
 
 - `context` — `mandate.core.VerifiedContext`
+- `credential_id` — `mandate.core.CredentialId`
+- `reference_verifier` — `Optional<mandate.core.CredentialVerifier>`, which may be absent
+- `epochs` — `Optional<mandate.core.EpochSnapshotRef>`, which may be absent
+- `issued_at` — `Timestamp`
 - `descriptor` — `mandate.core.CredentialDescriptor`
 - `target` — `mandate.core.ResourceServerId`
 - `requested_scope` — `mandate.core.AuthorityScope`
@@ -446,6 +468,10 @@ Nothing in this system reacts to it.
 It carries:
 
 - `context` — `mandate.core.VerifiedContext`
+- `credential_id` — `mandate.core.CredentialId`
+- `reference_verifier` — `Optional<mandate.core.CredentialVerifier>`, which may be absent
+- `epochs` — `Optional<mandate.core.EpochSnapshotRef>`, which may be absent
+- `issued_at` — `Timestamp`
 - `descriptor` — `mandate.core.CredentialDescriptor`
 - `target` — `mandate.core.ResourceServerId`
 - `requested_scope` — `mandate.core.AuthorityScope`
@@ -516,6 +542,10 @@ Nothing in this system reacts to it.
 It carries:
 
 - `context` — `mandate.core.VerifiedContext`
+- `credential_id` — `mandate.core.CredentialId`
+- `reference_verifier` — `Optional<mandate.core.CredentialVerifier>`, which may be absent
+- `epochs` — `Optional<mandate.core.EpochSnapshotRef>`, which may be absent
+- `issued_at` — `Timestamp`
 - `descriptor` — `mandate.core.CredentialDescriptor`
 - `target` — `mandate.core.ResourceServerId`
 - `requested_scope` — `mandate.core.AuthorityScope`
@@ -548,7 +578,7 @@ It carries:
 
 - `reason` — `mandate.core.DenialReason`
 
-Reported by `mandate.credential.DisableResourceServer` on its `denied` outcome.
+Reported by `mandate.credential.DisableResourceServer` on its `wrong-state` and `denied` outcomes.
 
 Reported by `mandate.credential.ExchangeCredential` on its `denied` outcome.
 
@@ -560,17 +590,17 @@ Reported by `mandate.credential.IssueReferenceCredential` on its `denied` outcom
 
 Reported by `mandate.credential.IssueSelfContainedCredential` on its `denied` outcome.
 
-Reported by `mandate.credential.RedeemAuthorizationCode` on its `denied` outcome.
+Reported by `mandate.credential.RedeemAuthorizationCode` on its `wrong-state` and `denied` outcomes.
 
 Reported by `mandate.credential.RegisterResourceServer` on its `denied` outcome.
 
-Reported by `mandate.credential.RetireSigningKey` on its `denied` outcome.
+Reported by `mandate.credential.RetireSigningKey` on its `wrong-state` and `denied` outcomes.
 
-Reported by `mandate.credential.RevokeAccessCredential` on its `denied` outcome.
+Reported by `mandate.credential.RevokeAccessCredential` on its `wrong-state` and `denied` outcomes.
 
-Reported by `mandate.credential.RevokeSigningKey` on its `denied` outcome.
+Reported by `mandate.credential.RevokeSigningKey` on its `wrong-state` and `denied` outcomes.
 
 
 ---
 
-Generated from mandate v1 · model digest `49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40` · contract digest `slice-sha256/2:e3af0fa3e1220fdfb1a24652605aff975d1125745cf7db0eb7f3ee819c73b32c`. Do not edit this file; change the specification and regenerate it with `ess generate`.
+Generated from mandate v1 · model digest `01de9945d788263e9f6df566e556a0cc122f96c94d48538ad2536276eac2bc74` · contract digest `slice-sha256/2:8abb0a4ca94d7d73526464782bcd76187c286a63e3d553aa733d9f9e4902b7e6`. Do not edit this file; change the specification and regenerate it with `ess generate`.

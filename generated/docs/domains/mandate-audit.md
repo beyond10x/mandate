@@ -1,7 +1,7 @@
 <!--
 generated from mandate v1
-model digest 49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40
-contract digest slice-sha256/2:e3af0fa3e1220fdfb1a24652605aff975d1125745cf7db0eb7f3ee819c73b32c
+model digest 01de9945d788263e9f6df566e556a0cc122f96c94d48538ad2536276eac2bc74
+contract digest slice-sha256/2:8abb0a4ca94d7d73526464782bcd76187c286a63e3d553aa733d9f9e4902b7e6
 do not edit: regenerate with `ess generate`
 -->
 
@@ -64,7 +64,7 @@ Each move is taken by a declared command outcome, and a move nothing takes is re
 
 - `redact` — taken by `mandate.audit.RedactAuditEvent` on its `accepted` outcome
 
-No command here creates one, so an instance arrives from outside this specification.
+An instance is brought into existence by `mandate.audit.RecordAuditEvent` on its `recorded` outcome.
 
 Illegal transitions are illegal by absence: no rule forbids them, there is simply no arrow, because a rule would be a second place for the same truth to live. A diagram cannot show an absence, so the pairs it does not connect are listed here, derived from the same transitions — anything named below is a move this specification does not permit.
 
@@ -85,7 +85,7 @@ It takes:
 
 It has two outcomes.
 
-**`recorded`** — The trusted append adapter must persist one validated, redacted record before acknowledging its identifier; durable storage/outbox semantics are required under UNMAPPED-AUDIT-ROUTING. The default branch, taken when no other outcome's condition matched. No entity in this specification changes. It emits `mandate.audit.AuditEventRecorded`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+**`recorded`** — The trusted append adapter must persist one validated, redacted record before acknowledging its identifier; durable storage/outbox semantics are required under UNMAPPED-AUDIT-ROUTING. The default branch, taken when no other outcome's condition matched. It creates a `mandate.audit.AuditEvent`, which starts in `Recorded`. The new instance's identity is published as `id` on `mandate.audit.AuditEventRecorded`. It emits `mandate.audit.AuditEventRecorded`. A test reaches it by constructing an input that satisfies no other outcome's condition.
 
 **`denied`** — Decided outside the input: Emitter is not an authorized trusted event producer, subject/actor/correlation was changed, action/result is unadmitted, payload contains secret material, or durable append/outbox validation fails.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.audit.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
@@ -98,9 +98,11 @@ It takes:
 - `id` — `mandate.core.AuditEventId`
 - `context` — `mandate.core.VerifiedContext`
 
-It has two outcomes.
+It has three outcomes.
 
 **`accepted`** — The only answer to a retention or erasure obligation. The record keeps its identity, its correlation and the fact that it was redacted; the redacted content does not reappear in this event. Deletion of an audit event is admitted by no command. The default branch, taken when no other outcome's condition matched. It moves a `mandate.audit.AuditEvent` from `Recorded` to `Redacted`, along the declared move `redact`. The instance is the one named by the input field `id`. It emits `mandate.audit.AuditEventRedacted`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+
+**`wrong-state`** — Taken when the subject is resting in a state none of this command's moves start from — a `mandate.audit.AuditEvent` in `Redacted`, which is what is left of the lifecycle once this command's own moves are taken away. The document lists none of it. No entity in this specification changes. It reports `mandate.audit.Denied`, carrying `reason`. It emits nothing. A test reaches it by driving an instance into one of those states and then issuing the command, because no input selects this branch.
 
 **`denied`** — Decided outside the input: Caller lacks audit-redaction authority for the verified organization, the event is unresolved, the applicable retention floor has not passed, the request would remove the record rather than redact it, or redaction cannot rewrite the projection while retaining that the record existed and was redacted.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.audit.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
@@ -204,9 +206,9 @@ It carries:
 
 Reported by `mandate.audit.RecordAuditEvent` on its `denied` outcome.
 
-Reported by `mandate.audit.RedactAuditEvent` on its `denied` outcome.
+Reported by `mandate.audit.RedactAuditEvent` on its `wrong-state` and `denied` outcomes.
 
 
 ---
 
-Generated from mandate v1 · model digest `49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40` · contract digest `slice-sha256/2:e3af0fa3e1220fdfb1a24652605aff975d1125745cf7db0eb7f3ee819c73b32c`. Do not edit this file; change the specification and regenerate it with `ess generate`.
+Generated from mandate v1 · model digest `01de9945d788263e9f6df566e556a0cc122f96c94d48538ad2536276eac2bc74` · contract digest `slice-sha256/2:8abb0a4ca94d7d73526464782bcd76187c286a63e3d553aa733d9f9e4902b7e6`. Do not edit this file; change the specification and regenerate it with `ess generate`.

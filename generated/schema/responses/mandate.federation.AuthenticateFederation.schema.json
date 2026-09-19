@@ -7,20 +7,61 @@
   "properties": {
     "session_id": {
       "$ref": "#/$defs/mandate.core.SessionId"
+    },
+    "principal_id": {
+      "$ref": "#/$defs/mandate.core.PrincipalId"
+    },
+    "organization_id": {
+      "$ref": "#/$defs/mandate.core.OrganizationId"
+    },
+    "epochs": {
+      "$ref": "#/$defs/mandate.core.EpochSnapshotRef"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
     }
   },
   "required": [
-    "session_id"
+    "session_id",
+    "principal_id",
+    "organization_id",
+    "epochs",
+    "expires_at"
   ],
   "additionalProperties": false,
   "x-ess-provenance": {
     "system": "mandate",
     "specification_version": "v1",
-    "source_digest": "49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40",
-    "contract_digest": "slice-sha256/2:069694f4f5ef2e966b549611284937ee7a7875220e6f5d5c4a362ec8776e9675",
+    "source_digest": "01de9945d788263e9f6df566e556a0cc122f96c94d48538ad2536276eac2bc74",
+    "contract_digest": "slice-sha256/2:e05b88e497cef1aa2138fc92613b4159680a7aeb3021ef792772c948d1e512a1",
     "regenerate": "ess generate"
   },
   "$defs": {
+    "mandate.core.EpochSnapshotRef": {
+      "title": "EpochSnapshotRef",
+      "x-ess-name": "mandate.core.EpochSnapshotRef",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.OrganizationId": {
+      "title": "OrganizationId",
+      "x-ess-name": "mandate.core.OrganizationId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.PrincipalId": {
+      "title": "PrincipalId",
+      "x-ess-name": "mandate.core.PrincipalId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
     "mandate.core.SessionId": {
       "title": "SessionId",
       "x-ess-name": "mandate.core.SessionId",

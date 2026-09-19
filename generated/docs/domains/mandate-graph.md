@@ -1,7 +1,7 @@
 <!--
 generated from mandate v1
-model digest 49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40
-contract digest slice-sha256/2:e3af0fa3e1220fdfb1a24652605aff975d1125745cf7db0eb7f3ee819c73b32c
+model digest 01de9945d788263e9f6df566e556a0cc122f96c94d48538ad2536276eac2bc74
+contract digest slice-sha256/2:8abb0a4ca94d7d73526464782bcd76187c286a63e3d553aa733d9f9e4902b7e6
 do not edit: regenerate with `ess generate`
 -->
 
@@ -87,7 +87,7 @@ Each move is taken by a declared command outcome, and a move nothing takes is re
 
 - `remove` — taken by `mandate.graph.RemoveRelation` on its `accepted` outcome
 
-No command here creates one, so an instance arrives from outside this specification.
+An instance is brought into existence by `mandate.graph.WriteRelationship` on its `accepted` outcome.
 
 Illegal transitions are illegal by absence: no rule forbids them, there is simply no arrow, because a rule would be a second place for the same truth to live. A diagram cannot show an absence, so the pairs it does not connect are listed here, derived from the same transitions — anything named below is a move this specification does not permit.
 
@@ -127,7 +127,7 @@ Each move is taken by a declared command outcome, and a move nothing takes is re
 
 - `deregister` — taken by `mandate.graph.DeregisterResource` on its `accepted` outcome
 
-No command here creates one, so an instance arrives from outside this specification.
+An instance is brought into existence by `mandate.graph.RegisterResource` on its `accepted` outcome.
 
 Illegal transitions are illegal by absence: no rule forbids them, there is simply no arrow, because a rule would be a second place for the same truth to live. A diagram cannot show an absence, so the pairs it does not connect are listed here, derived from the same transitions — anything named below is a move this specification does not permit.
 
@@ -146,9 +146,11 @@ It takes:
 - `id` — `mandate.core.ResourceId`
 - `context` — `mandate.core.VerifiedContext`
 
-It has two outcomes.
+It has three outcomes.
 
 **`accepted`** — The security record of a deleted resource is kept and stops resolving. Relationship cleanup is the durable outbox job's, and each removal is its own recorded move; no child resource, relation or grant is destroyed as a side effect of this one. The default branch, taken when no other outcome's condition matched. It moves a `mandate.graph.Resource` from `Recorded` to `Deregistered`, along the declared move `deregister`. The instance is the one named by the input field `id`. It emits `mandate.graph.ResourceDeregistered`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+
+**`wrong-state`** — Taken when the subject is resting in a state none of this command's moves start from — a `mandate.graph.Resource` in `Deregistered`, which is what is left of the lifecycle once this command's own moves are taken away. The document lists none of it. No entity in this specification changes. It reports `mandate.graph.Denied`, carrying `reason`. It emits nothing. A test reaches it by driving an instance into one of those states and then issuing the command, because no input selects this branch.
 
 **`denied`** — Decided outside the input: Caller lacks resource registration/ownership authority, the resource is outside the verified organization, a child resource still resolves through it, or the durable relationship cleanup this deregistration requires cannot be enqueued.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.graph.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
@@ -164,7 +166,7 @@ It takes:
 
 It has two outcomes.
 
-**`accepted`** — The default branch, taken when no other outcome's condition matched. No entity in this specification changes. It emits `mandate.graph.ResourceRegistered`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+**`accepted`** — The default branch, taken when no other outcome's condition matched. It creates a `mandate.graph.Resource`, which starts in `Recorded`. The new instance's identity is published as `resource_id` on `mandate.graph.ResourceRegistered`. It emits `mandate.graph.ResourceRegistered`. A test reaches it by constructing an input that satisfies no other outcome's condition.
 
 **`denied`** — Decided outside the input: Caller lacks resource registration/ownership authority, parent is unresolved or belongs to another organization, or hierarchy admission fails.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.graph.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
@@ -177,9 +179,11 @@ It takes:
 - `id` — `mandate.core.RelationId`
 - `context` — `mandate.core.VerifiedContext`
 
-It has two outcomes.
+It has three outcomes.
 
 **`accepted`** — The default branch, taken when no other outcome's condition matched. It moves a `mandate.graph.Relation` from `Active` to `Removed`, along the declared move `remove`. The instance is the one named by the input field `id`. It emits `mandate.graph.RelationRemoved`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+
+**`wrong-state`** — Taken when the subject is resting in a state none of this command's moves start from — a `mandate.graph.Relation` in `Removed`, which is what is left of the lifecycle once this command's own moves are taken away. The document lists none of it. No entity in this specification changes. It reports `mandate.graph.Denied`, carrying `reason`. It emits nothing. A test reaches it by driving an instance into one of those states and then issuing the command, because no input selects this branch.
 
 **`denied`** — Decided outside the input: Caller lacks relationship-write authority, relation/resource is outside the verified organization, or required graph revocation visibility cannot be satisfied.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.graph.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
@@ -192,9 +196,11 @@ It takes:
 - `id` — `mandate.core.GrantId`
 - `context` — `mandate.core.VerifiedContext`
 
-It has two outcomes.
+It has three outcomes.
 
 **`accepted`** — The default branch, taken when no other outcome's condition matched. It moves a `mandate.graph.Grant` from `Active` to `Revoked`, along the declared move `revoke`. The instance is the one named by the input field `id`. It emits `mandate.graph.GrantRevoked`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+
+**`wrong-state`** — Taken when the subject is resting in a state none of this command's moves start from — a `mandate.graph.Grant` in `Revoked`, which is what is left of the lifecycle once this command's own moves are taken away. The document lists none of it. No entity in this specification changes. It reports `mandate.graph.Denied`, carrying `reason`. It emits nothing. A test reaches it by driving an instance into one of those states and then issuing the command, because no input selects this branch.
 
 **`denied`** — Decided outside the input: Caller lacks grant-revocation authority, grant is outside the verified organization, or required graph revocation visibility cannot be satisfied.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.graph.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
@@ -211,7 +217,7 @@ It takes:
 
 It has two outcomes.
 
-**`accepted`** — The default branch, taken when no other outcome's condition matched. No entity in this specification changes. It emits `mandate.graph.RelationshipWritten`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+**`accepted`** — The default branch, taken when no other outcome's condition matched. It creates a `mandate.graph.Relation`, which starts in `Active`. The new instance's identity is published as `id` on `mandate.graph.RelationshipWritten`. It emits `mandate.graph.RelationshipWritten`. A test reaches it by constructing an input that satisfies no other outcome's condition.
 
 **`denied`** — Decided outside the input: Caller lacks relationship-write authority, the chosen principal/team subject is unresolved or outside tenant membership, resource tenancy mismatches, or the relationship is not admitted by the authorization model.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.graph.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
@@ -279,6 +285,7 @@ Nothing in this system reacts to it.
 It carries:
 
 - `context` — `mandate.core.VerifiedContext`
+- `resource_id` — `mandate.core.ResourceId`
 - `resource` — `mandate.core.ResourceRef`
 - `parent` — `Optional<mandate.core.ResourceId>`, which may be absent
 
@@ -296,17 +303,17 @@ It carries:
 
 - `reason` — `mandate.core.DenialReason`
 
-Reported by `mandate.graph.DeregisterResource` on its `denied` outcome.
+Reported by `mandate.graph.DeregisterResource` on its `wrong-state` and `denied` outcomes.
 
 Reported by `mandate.graph.RegisterResource` on its `denied` outcome.
 
-Reported by `mandate.graph.RemoveRelation` on its `denied` outcome.
+Reported by `mandate.graph.RemoveRelation` on its `wrong-state` and `denied` outcomes.
 
-Reported by `mandate.graph.RevokeGrant` on its `denied` outcome.
+Reported by `mandate.graph.RevokeGrant` on its `wrong-state` and `denied` outcomes.
 
 Reported by `mandate.graph.WriteRelationship` on its `denied` outcome.
 
 
 ---
 
-Generated from mandate v1 · model digest `49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40` · contract digest `slice-sha256/2:e3af0fa3e1220fdfb1a24652605aff975d1125745cf7db0eb7f3ee819c73b32c`. Do not edit this file; change the specification and regenerate it with `ess generate`.
+Generated from mandate v1 · model digest `01de9945d788263e9f6df566e556a0cc122f96c94d48538ad2536276eac2bc74` · contract digest `slice-sha256/2:8abb0a4ca94d7d73526464782bcd76187c286a63e3d553aa733d9f9e4902b7e6`. Do not edit this file; change the specification and regenerate it with `ess generate`.

@@ -76,11 +76,11 @@ fn ten_events_and_five_entities_round_trip_from_a_schema_valid_document() {
     // mandate.graph.ResourceRegistered
     round_trip!(
         events::MandateGraphResourceRegistered,
-        r#"{"context": {"subject": "3f2504e0-4f89-41d3-9a0c-0305e82c3301", "actor": "3f2504e0-4f89-41d3-9a0c-0305e82c3301", "organization": "3f2504e0-4f89-41d3-9a0c-0305e82c3301", "audience": "value-1", "credential": "00000000-0000-4000-8000-000000000001", "delegation": "3f2504e0-4f89-41d3-9a0c-0305e82c3301", "execution": "3f2504e0-4f89-41d3-9a0c-0305e82c3301", "correlation": "value-1"}, "resource": {"resource_type": "value-1", "resource_id": "3f2504e0-4f89-41d3-9a0c-0305e82c3301"}, "parent": "3f2504e0-4f89-41d3-9a0c-0305e82c3301"}"#
+        r#"{"context": {"subject": "3f2504e0-4f89-41d3-9a0c-0305e82c3301", "actor": "3f2504e0-4f89-41d3-9a0c-0305e82c3301", "organization": "3f2504e0-4f89-41d3-9a0c-0305e82c3301", "audience": "value-1", "credential": "00000000-0000-4000-8000-000000000001", "delegation": "3f2504e0-4f89-41d3-9a0c-0305e82c3301", "execution": "3f2504e0-4f89-41d3-9a0c-0305e82c3301", "correlation": "value-1"}, "resource": {"resource_type": "value-1", "resource_id": "3f2504e0-4f89-41d3-9a0c-0305e82c3301"}, "resource_id": "3f2504e0-4f89-41d3-9a0c-0305e82c3301", "parent": "3f2504e0-4f89-41d3-9a0c-0305e82c3301"}"#
     );
     round_trip!(
         events::MandateGraphResourceRegistered,
-        r#"{"context": {"subject": "3f2504e0-4f89-41d3-9a0c-0305e82c3301", "actor": "3f2504e0-4f89-41d3-9a0c-0305e82c3301", "organization": "3f2504e0-4f89-41d3-9a0c-0305e82c3301", "audience": "value-1", "credential": "00000000-0000-4000-8000-000000000001", "delegation": "3f2504e0-4f89-41d3-9a0c-0305e82c3301", "execution": "3f2504e0-4f89-41d3-9a0c-0305e82c3301", "correlation": "value-1"}, "resource": {"resource_type": "value-1", "resource_id": "3f2504e0-4f89-41d3-9a0c-0305e82c3301"}}"#
+        r#"{"context": {"subject": "3f2504e0-4f89-41d3-9a0c-0305e82c3301", "actor": "3f2504e0-4f89-41d3-9a0c-0305e82c3301", "organization": "3f2504e0-4f89-41d3-9a0c-0305e82c3301", "audience": "value-1", "credential": "00000000-0000-4000-8000-000000000001", "delegation": "3f2504e0-4f89-41d3-9a0c-0305e82c3301", "execution": "3f2504e0-4f89-41d3-9a0c-0305e82c3301", "correlation": "value-1"}, "resource": {"resource_type": "value-1", "resource_id": "3f2504e0-4f89-41d3-9a0c-0305e82c3301"}, "resource_id": "3f2504e0-4f89-41d3-9a0c-0305e82c3301"}"#
     );
     // mandate.identity.SessionOpened
     round_trip!(

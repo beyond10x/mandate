@@ -1,7 +1,7 @@
 <!--
 generated from mandate v1
-model digest 49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40
-contract digest slice-sha256/2:e3af0fa3e1220fdfb1a24652605aff975d1125745cf7db0eb7f3ee819c73b32c
+model digest 01de9945d788263e9f6df566e556a0cc122f96c94d48538ad2536276eac2bc74
+contract digest slice-sha256/2:8abb0a4ca94d7d73526464782bcd76187c286a63e3d553aa733d9f9e4902b7e6
 do not edit: regenerate with `ess generate`
 -->
 
@@ -124,7 +124,7 @@ Each move is taken by a declared command outcome, and a move nothing takes is re
 
 - `remove` — taken by `mandate.directory.RemoveDirectoryGroupTeamMapping` on its `accepted` outcome
 
-No command here creates one, so an instance arrives from outside this specification.
+An instance is brought into existence by `mandate.directory.CreateDirectoryGroupTeamMapping` on its `accepted` outcome.
 
 Illegal transitions are illegal by absence: no rule forbids them, there is simply no arrow, because a rule would be a second place for the same truth to live. A diagram cannot show an absence, so the pairs it does not connect are listed here, derived from the same transitions — anything named below is a move this specification does not permit.
 
@@ -229,9 +229,11 @@ It takes:
 - `id` — `mandate.core.SyncJobId`
 - `context` — `mandate.core.VerifiedContext`
 
-It has two outcomes.
+It has three outcomes.
 
 **`accepted`** — One synchronization run is recorded as having applied every membership change it resolved. The queue that delivered the job stays behind its port; this records the outcome, not the transport. The default branch, taken when no other outcome's condition matched. It moves a `mandate.directory.SyncJob` from `Recorded` to `Completed`, along the declared move `complete`. The instance is the one named by the input field `id`. It emits `mandate.directory.SyncJobCompleted`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+
+**`wrong-state`** — Taken when the subject is resting in a state none of this command's moves start from — a `mandate.directory.SyncJob` in `Completed` and `Failed`, which is what is left of the lifecycle once this command's own moves are taken away. The document lists none of it. No entity in this specification changes. It reports `mandate.directory.Denied`, carrying `reason`. It emits nothing. A test reaches it by driving an instance into one of those states and then issuing the command, because no input selects this branch.
 
 **`denied`** — Decided outside the input: Caller is not the trusted synchronization worker, the job is outside the verified organization, or the membership changes the run applied cannot be recorded durably with its completion.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.directory.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
@@ -247,7 +249,7 @@ It takes:
 
 It has two outcomes.
 
-**`accepted`** — One mapping row, and the mapping-derived contribution rows the reconciliation wrote named by identity alone. Each contribution's own fields are on its MembershipContributionRecorded; nothing here is read positionally. The default branch, taken when no other outcome's condition matched. No entity in this specification changes. It emits `mandate.directory.DirectoryGroupTeamMappingCreated`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+**`accepted`** — One mapping row, and the mapping-derived contribution rows the reconciliation wrote named by identity alone. Each contribution's own fields are on its MembershipContributionRecorded; nothing here is read positionally. The default branch, taken when no other outcome's condition matched. It creates a `mandate.directory.DirectoryGroupTeamMapping`, which starts in `Active`. The new instance's identity is published as `mapping_id` on `mandate.directory.DirectoryGroupTeamMappingCreated`. It emits `mandate.directory.DirectoryGroupTeamMappingCreated`. A test reaches it by constructing an input that satisfies no other outcome's condition.
 
 **`denied`** — Decided outside the input: Caller lacks mapping authority, group/team is unknown, the group is retired, the team is retired, either target is outside the verified organization, or provenance-preserving contribution reconciliation fails.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.directory.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
@@ -260,9 +262,11 @@ It takes:
 - `id` — `mandate.core.SyncJobId`
 - `context` — `mandate.core.VerifiedContext`
 
-It has two outcomes.
+It has three outcomes.
 
 **`accepted`** — A run that did not apply its full result is recorded as failed, so stale directory state is visible rather than silent. Redelivery is a new job record; a failed job is never retried in place. The default branch, taken when no other outcome's condition matched. It moves a `mandate.directory.SyncJob` from `Recorded` to `Failed`, along the declared move `fail`. The instance is the one named by the input field `id`. It emits `mandate.directory.SyncJobFailed`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+
+**`wrong-state`** — Taken when the subject is resting in a state none of this command's moves start from — a `mandate.directory.SyncJob` in `Completed` and `Failed`, which is what is left of the lifecycle once this command's own moves are taken away. The document lists none of it. No entity in this specification changes. It reports `mandate.directory.Denied`, carrying `reason`. It emits nothing. A test reaches it by driving an instance into one of those states and then issuing the command, because no input selects this branch.
 
 **`denied`** — Decided outside the input: Caller is not the trusted synchronization worker, the job is outside the verified organization, or the partial run cannot be recorded without implying a completed synchronization.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.directory.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
@@ -275,9 +279,11 @@ It takes:
 - `id` — `mandate.core.DirectoryGroupMembershipId`
 - `context` — `mandate.core.VerifiedContext`
 
-It has two outcomes.
+It has three outcomes.
 
 **`accepted`** — The default branch, taken when no other outcome's condition matched. It moves a `mandate.directory.DirectoryGroupMembership` from `Active` to `Removed`, along the declared move `remove`. The instance is the one named by the input field `id`. It emits `mandate.directory.DirectoryGroupMembershipRemoved`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+
+**`wrong-state`** — Taken when the subject is resting in a state none of this command's moves start from — a `mandate.directory.DirectoryGroupMembership` in `Removed`, which is what is left of the lifecycle once this command's own moves are taken away. The document lists none of it. No entity in this specification changes. It reports `mandate.directory.Denied`, carrying `reason`. It emits nothing. A test reaches it by driving an instance into one of those states and then issuing the command, because no input selects this branch.
 
 **`denied`** — Decided outside the input: Caller lacks trusted provisioning authority, group/member organization mismatches, or derived contribution removal cannot preserve unrelated memberships.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.directory.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
@@ -290,9 +296,11 @@ It takes:
 - `id` — `mandate.core.DirectoryGroupTeamMappingId`
 - `context` — `mandate.core.VerifiedContext`
 
-It has two outcomes.
+It has three outcomes.
 
 **`accepted`** — The default branch, taken when no other outcome's condition matched. It moves a `mandate.directory.DirectoryGroupTeamMapping` from `Active` to `Removed`, along the declared move `remove`. The instance is the one named by the input field `id`. It emits `mandate.directory.DirectoryGroupTeamMappingRemoved`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+
+**`wrong-state`** — Taken when the subject is resting in a state none of this command's moves start from — a `mandate.directory.DirectoryGroupTeamMapping` in `Removed`, which is what is left of the lifecycle once this command's own moves are taken away. The document lists none of it. No entity in this specification changes. It reports `mandate.directory.Denied`, carrying `reason`. It emits nothing. A test reaches it by driving an instance into one of those states and then issuing the command, because no input selects this branch.
 
 **`denied`** — Decided outside the input: Caller lacks mapping authority, mapping is outside the verified organization, or retraction would remove the team, manual membership or another mapping contribution.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.directory.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
@@ -305,9 +313,11 @@ It takes:
 - `id` — `mandate.core.MembershipContributionId`
 - `context` — `mandate.core.VerifiedContext`
 
-It has two outcomes.
+It has three outcomes.
 
 **`accepted`** — The default branch, taken when no other outcome's condition matched. It moves a `mandate.directory.MembershipContribution` from `Active` to `Removed`, along the declared move `remove`. The instance is the one named by the input field `id`. It emits `mandate.directory.MembershipContributionRemoved`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+
+**`wrong-state`** — Taken when the subject is resting in a state none of this command's moves start from — a `mandate.directory.MembershipContribution` in `Removed`, which is what is left of the lifecycle once this command's own moves are taken away. The document lists none of it. No entity in this specification changes. It reports `mandate.directory.Denied`, carrying `reason`. It emits nothing. A test reaches it by driving an instance into one of those states and then issuing the command, because no input selects this branch.
 
 **`denied`** — Decided outside the input: Caller lacks mapping authority, contribution is outside the verified organization, or removal cannot preserve every other valid manual/mapping contribution.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.directory.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
@@ -320,9 +330,11 @@ It takes:
 - `id` — `mandate.core.DirectoryGroupId`
 - `context` — `mandate.core.VerifiedContext`
 
-It has two outcomes.
+It has three outcomes.
 
 **`accepted`** — The group the customer directory no longer publishes stops contributing authority and is kept as a record. Its memberships and team mappings are retracted by their own commands, which is what preserves every other manual or mapping contribution. The default branch, taken when no other outcome's condition matched. It moves a `mandate.directory.DirectoryGroup` from `Recorded` to `Retired`, along the declared move `retire`. The instance is the one named by the input field `id`. It emits `mandate.directory.DirectoryGroupRetired`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+
+**`wrong-state`** — Taken when the subject is resting in a state none of this command's moves start from — a `mandate.directory.DirectoryGroup` in `Retired`, which is what is left of the lifecycle once this command's own moves are taken away. The document lists none of it. No entity in this specification changes. It reports `mandate.directory.Denied`, carrying `reason`. It emits nothing. A test reaches it by driving an instance into one of those states and then issuing the command, because no input selects this branch.
 
 **`denied`** — Decided outside the input: Caller is not an admitted provisioning source, the group is outside the verified organization, or retirement cannot preserve the team, manual memberships and the contributions another mapping still supports.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.directory.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
@@ -527,23 +539,23 @@ It carries:
 
 - `reason` — `mandate.core.DenialReason`
 
-Reported by `mandate.directory.CompleteSyncJob` on its `denied` outcome.
+Reported by `mandate.directory.CompleteSyncJob` on its `wrong-state` and `denied` outcomes.
 
 Reported by `mandate.directory.CreateDirectoryGroupTeamMapping` on its `denied` outcome.
 
-Reported by `mandate.directory.FailSyncJob` on its `denied` outcome.
+Reported by `mandate.directory.FailSyncJob` on its `wrong-state` and `denied` outcomes.
 
-Reported by `mandate.directory.RemoveDirectoryGroupMembership` on its `denied` outcome.
+Reported by `mandate.directory.RemoveDirectoryGroupMembership` on its `wrong-state` and `denied` outcomes.
 
-Reported by `mandate.directory.RemoveDirectoryGroupTeamMapping` on its `denied` outcome.
+Reported by `mandate.directory.RemoveDirectoryGroupTeamMapping` on its `wrong-state` and `denied` outcomes.
 
-Reported by `mandate.directory.RemoveMembershipContribution` on its `denied` outcome.
+Reported by `mandate.directory.RemoveMembershipContribution` on its `wrong-state` and `denied` outcomes.
 
-Reported by `mandate.directory.RetireDirectoryGroup` on its `denied` outcome.
+Reported by `mandate.directory.RetireDirectoryGroup` on its `wrong-state` and `denied` outcomes.
 
 Reported by `mandate.directory.SyncDirectoryMembership` on its `denied` outcome.
 
 
 ---
 
-Generated from mandate v1 · model digest `49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40` · contract digest `slice-sha256/2:e3af0fa3e1220fdfb1a24652605aff975d1125745cf7db0eb7f3ee819c73b32c`. Do not edit this file; change the specification and regenerate it with `ess generate`.
+Generated from mandate v1 · model digest `01de9945d788263e9f6df566e556a0cc122f96c94d48538ad2536276eac2bc74` · contract digest `slice-sha256/2:8abb0a4ca94d7d73526464782bcd76187c286a63e3d553aa733d9f9e4902b7e6`. Do not edit this file; change the specification and regenerate it with `ess generate`.

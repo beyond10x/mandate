@@ -1,7 +1,7 @@
 <!--
 generated from mandate v1
-model digest 49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40
-contract digest slice-sha256/2:e3af0fa3e1220fdfb1a24652605aff975d1125745cf7db0eb7f3ee819c73b32c
+model digest 01de9945d788263e9f6df566e556a0cc122f96c94d48538ad2536276eac2bc74
+contract digest slice-sha256/2:8abb0a4ca94d7d73526464782bcd76187c286a63e3d553aa733d9f9e4902b7e6
 do not edit: regenerate with `ess generate`
 -->
 
@@ -174,7 +174,7 @@ Each move is taken by a declared command outcome, and a move nothing takes is re
 
 - `revoke` — taken by `mandate.delegation.RevokeDelegation` on its `accepted` outcome
 
-No command here creates one, so an instance arrives from outside this specification.
+An instance is brought into existence by `mandate.delegation.CreateDelegation` on its `accepted` outcome.
 
 Illegal transitions are illegal by absence: no rule forbids them, there is simply no arrow, because a rule would be a second place for the same truth to live. A diagram cannot show an absence, so the pairs it does not connect are listed here, derived from the same transitions — anything named below is a move this specification does not permit.
 
@@ -237,9 +237,11 @@ It takes:
 - `id` — `mandate.core.ExecutionId`
 - `context` — `mandate.core.VerifiedContext`
 
-It has two outcomes.
+It has three outcomes.
 
 **`accepted`** — The recorded end of one agent invocation. No further tool call is admitted under the execution; the record, its delegation binding and its policy version are preserved. An execution past expires_at is ineligible without any recorded move. The default branch, taken when no other outcome's condition matched. It moves a `mandate.delegation.Execution` from `Recorded` to `Completed`, along the declared move `complete`. The instance is the one named by the input field `id`. It emits `mandate.delegation.ExecutionCompleted`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+
+**`wrong-state`** — Taken when the subject is resting in a state none of this command's moves start from — a `mandate.delegation.Execution` in `Completed`, which is what is left of the lifecycle once this command's own moves are taken away. The document lists none of it. No entity in this specification changes. It reports `mandate.delegation.Denied`, carrying `reason`. It emits nothing. A test reaches it by driving an instance into one of those states and then issuing the command, because no input selects this branch.
 
 **`denied`** — Decided outside the input: Caller is not the agent runtime that holds this execution, the execution is outside the verified organization, or completion cannot durably stop further tool calls bound to it.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.delegation.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
@@ -252,9 +254,11 @@ It takes:
 - `id` — `mandate.core.ApprovalId`
 - `context` — `mandate.core.VerifiedContext`
 
-It has two outcomes.
+It has three outcomes.
 
 **`accepted`** — One approval satisfies exactly one decision. Consumption commits with the decision that used it; a consumed approval never satisfies a second check and is never reinstated. The default branch, taken when no other outcome's condition matched. It moves a `mandate.delegation.Approval` from `Recorded` to `Consumed`, along the declared move `consume`. The instance is the one named by the input field `id`. It emits `mandate.delegation.ApprovalConsumed`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+
+**`wrong-state`** — Taken when the subject is resting in a state none of this command's moves start from — a `mandate.delegation.Approval` in `Consumed`, which is what is left of the lifecycle once this command's own moves are taken away. The document lists none of it. No entity in this specification changes. It reports `mandate.delegation.Denied`, carrying `reason`. It emits nothing. A test reaches it by driving an instance into one of those states and then issuing the command, because no input selects this branch.
 
 **`denied`** — Decided outside the input: Caller does not hold the decision context the approval answers, the approval is outside the verified organization, its subject/actor/action/resource or expiry does not match the check being satisfied, or one-use consumption cannot commit atomically with that decision.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.delegation.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
@@ -274,7 +278,7 @@ It takes:
 
 It has two outcomes.
 
-**`accepted`** — The default branch, taken when no other outcome's condition matched. No entity in this specification changes. It emits `mandate.delegation.DelegationCreated`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+**`accepted`** — The default branch, taken when no other outcome's condition matched. It creates a `mandate.delegation.Delegation`, which starts in `Active`. The new instance's identity is published as `id` on `mandate.delegation.DelegationCreated`. It emits `mandate.delegation.DelegationCreated`. A test reaches it by constructing an input that satisfies no other outcome's condition.
 
 **`denied`** — Decided outside the input: Caller lacks delegation authority, subject/delegate/tenant/space/registered audience or execution binding fails, requested scope/expiry exceeds source/delegation/policy limits or agent ceilings, or a transitive/approval-required grant would be created.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.delegation.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
@@ -287,9 +291,11 @@ It takes:
 - `id` — `mandate.core.PrincipalId`
 - `context` — `mandate.core.VerifiedContext`
 
-It has two outcomes.
+It has three outcomes.
 
 **`accepted`** — The installation is withdrawn, not deleted. A retired agent starts no execution and is admitted by no exchange; its executions, delegations and audit history are preserved, and disabling the agent's principal remains a separate identity command. The default branch, taken when no other outcome's condition matched. It moves a `mandate.delegation.Agent` from `Recorded` to `Retired`, along the declared move `retire`. The instance is the one named by the input field `id`. It emits `mandate.delegation.AgentRetired`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+
+**`wrong-state`** — Taken when the subject is resting in a state none of this command's moves start from — a `mandate.delegation.Agent` in `Retired`, which is what is left of the lifecycle once this command's own moves are taken away. The document lists none of it. No entity in this specification changes. It reports `mandate.delegation.Denied`, carrying `reason`. It emits nothing. A test reaches it by driving an instance into one of those states and then issuing the command, because no input selects this branch.
 
 **`denied`** — Decided outside the input: Caller lacks agent-administration authority, the agent is outside the verified organization, or retirement cannot stop new executions and exchanges under its ceiling.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.delegation.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
@@ -302,9 +308,11 @@ It takes:
 - `id` — `mandate.core.DelegationId`
 - `context` — `mandate.core.VerifiedContext`
 
-It has two outcomes.
+It has three outcomes.
 
 **`accepted`** — The default branch, taken when no other outcome's condition matched. It moves a `mandate.delegation.Delegation` from `Active` to `Revoked`, along the declared move `revoke`. The instance is the one named by the input field `id`. It emits `mandate.delegation.DelegationRevoked`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+
+**`wrong-state`** — Taken when the subject is resting in a state none of this command's moves start from — a `mandate.delegation.Delegation` in `Revoked`, which is what is left of the lifecycle once this command's own moves are taken away. The document lists none of it. No entity in this specification changes. It reports `mandate.delegation.Denied`, carrying `reason`. It emits nothing. A test reaches it by driving an instance into one of those states and then issuing the command, because no input selects this branch.
 
 **`denied`** — Decided outside the input: Caller lacks delegation-revocation authority, delegation is outside the verified organization, or durable revocation and affected exchange invalidation fail.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.delegation.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
@@ -317,9 +325,11 @@ It takes:
 - `id` — `mandate.core.AgentCapabilityCeilingId`
 - `context` — `mandate.core.VerifiedContext`
 
-It has two outcomes.
+It has three outcomes.
 
 **`accepted`** — A ceiling is never edited. The replacement is a new ceiling record and this one stops being current, which is what keeps exactly one current ceiling per (agent, organization-or-platform); every applicable platform and tenant ceiling still intersects. The default branch, taken when no other outcome's condition matched. It moves a `mandate.delegation.AgentCapabilityCeiling` from `Recorded` to `Superseded`, along the declared move `supersede`. The instance is the one named by the input field `id`. It emits `mandate.delegation.AgentCapabilityCeilingSuperseded`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+
+**`wrong-state`** — Taken when the subject is resting in a state none of this command's moves start from — a `mandate.delegation.AgentCapabilityCeiling` in `Superseded`, which is what is left of the lifecycle once this command's own moves are taken away. The document lists none of it. No entity in this specification changes. It reports `mandate.delegation.Denied`, carrying `reason`. It emits nothing. A test reaches it by driving an instance into one of those states and then issuing the command, because no input selects this branch.
 
 **`denied`** — Decided outside the input: Caller lacks ceiling-administration authority, the ceiling is outside the verified organization or platform scope, no later ceiling covers the same agent and scope, or supersession cannot take effect before the next exchange is evaluated.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.delegation.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
@@ -421,19 +431,19 @@ It carries:
 
 - `reason` — `mandate.core.DenialReason`
 
-Reported by `mandate.delegation.CompleteExecution` on its `denied` outcome.
+Reported by `mandate.delegation.CompleteExecution` on its `wrong-state` and `denied` outcomes.
 
-Reported by `mandate.delegation.ConsumeApproval` on its `denied` outcome.
+Reported by `mandate.delegation.ConsumeApproval` on its `wrong-state` and `denied` outcomes.
 
 Reported by `mandate.delegation.CreateDelegation` on its `denied` outcome.
 
-Reported by `mandate.delegation.RetireAgent` on its `denied` outcome.
+Reported by `mandate.delegation.RetireAgent` on its `wrong-state` and `denied` outcomes.
 
-Reported by `mandate.delegation.RevokeDelegation` on its `denied` outcome.
+Reported by `mandate.delegation.RevokeDelegation` on its `wrong-state` and `denied` outcomes.
 
-Reported by `mandate.delegation.SupersedeAgentCapabilityCeiling` on its `denied` outcome.
+Reported by `mandate.delegation.SupersedeAgentCapabilityCeiling` on its `wrong-state` and `denied` outcomes.
 
 
 ---
 
-Generated from mandate v1 · model digest `49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40` · contract digest `slice-sha256/2:e3af0fa3e1220fdfb1a24652605aff975d1125745cf7db0eb7f3ee819c73b32c`. Do not edit this file; change the specification and regenerate it with `ess generate`.
+Generated from mandate v1 · model digest `01de9945d788263e9f6df566e556a0cc122f96c94d48538ad2536276eac2bc74` · contract digest `slice-sha256/2:8abb0a4ca94d7d73526464782bcd76187c286a63e3d553aa733d9f9e4902b7e6`. Do not edit this file; change the specification and regenerate it with `ess generate`.

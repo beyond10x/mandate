@@ -1,29 +1,29 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "LinkExternalPrincipal response",
-  "x-ess-name": "mandate.federation.LinkExternalPrincipal",
+  "title": "RegisterResource response",
+  "x-ess-name": "mandate.graph.RegisterResource",
   "x-ess-kind": "command-response",
   "type": "object",
   "properties": {
-    "external_principal_id": {
-      "$ref": "#/$defs/mandate.core.ExternalPrincipalId"
+    "resource_id": {
+      "$ref": "#/$defs/mandate.core.ResourceId"
     }
   },
   "required": [
-    "external_principal_id"
+    "resource_id"
   ],
   "additionalProperties": false,
   "x-ess-provenance": {
     "system": "mandate",
     "specification_version": "v1",
     "source_digest": "01de9945d788263e9f6df566e556a0cc122f96c94d48538ad2536276eac2bc74",
-    "contract_digest": "slice-sha256/2:3a076c5bdbb236e12d309b18ab49e96052d417c808f70f57bab8cd9fd40a877c",
+    "contract_digest": "slice-sha256/2:1fa29a04ba6a21fb0cd5b4e321af88700339901179a7825296bd3d7b83b4ea18",
     "regenerate": "ess generate"
   },
   "$defs": {
-    "mandate.core.ExternalPrincipalId": {
-      "title": "ExternalPrincipalId",
-      "x-ess-name": "mandate.core.ExternalPrincipalId",
+    "mandate.core.ResourceId": {
+      "title": "ResourceId",
+      "x-ess-name": "mandate.core.ResourceId",
       "x-ess-kind": "newtype",
       "type": "string",
       "format": "uuid",

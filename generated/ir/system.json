@@ -5661,6 +5661,22 @@
           "condition": {
             "kind": "otherwise"
           },
+          "subject": {
+            "entity": "mandate.audit.AuditEvent",
+            "effect": "creates",
+            "instance": {
+              "from": "observed",
+              "event": "mandate.audit.AuditEventRecorded",
+              "field": {
+                "name": "id",
+                "type_ref": {
+                  "kind": "declared",
+                  "name": "mandate.core.AuditEventId"
+                },
+                "naming": {}
+              }
+            }
+          },
           "test_strategy": "default_branch",
           "emits": [
             "mandate.audit.AuditEventRecorded"
@@ -5808,6 +5824,15 @@
             }
           ],
           "summary": "The only answer to a retention or erasure obligation. The record keeps its identity, its correlation and the fact that it was redacted; the redacted content does not reappear in this event. Deletion of an audit event is admitted by no command."
+        },
+        {
+          "name": "wrong-state",
+          "condition": {
+            "kind": "wrong_state"
+          },
+          "test_strategy": "arrange_state",
+          "emits": [],
+          "error": "mandate.audit.Denied"
         },
         {
           "name": "denied",
@@ -6014,6 +6039,15 @@
           ]
         },
         {
+          "name": "wrong-state",
+          "condition": {
+            "kind": "wrong_state"
+          },
+          "test_strategy": "arrange_state",
+          "emits": [],
+          "error": "mandate.credential.Denied"
+        },
+        {
           "name": "denied",
           "condition": {
             "kind": "external",
@@ -6087,6 +6121,25 @@
           "naming": {}
         },
         {
+          "name": "credential_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.CredentialId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "epochs",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.EpochSnapshotRef"
+            }
+          },
+          "naming": {}
+        },
+        {
           "name": "descriptor",
           "type_ref": {
             "kind": "declared",
@@ -6101,6 +6154,22 @@
           "condition": {
             "kind": "otherwise"
           },
+          "subject": {
+            "entity": "mandate.credential.AccessCredential",
+            "effect": "creates",
+            "instance": {
+              "from": "observed",
+              "event": "mandate.credential.TokenExchangeAllowed",
+              "field": {
+                "name": "credential_id",
+                "type_ref": {
+                  "kind": "declared",
+                  "name": "mandate.core.CredentialId"
+                },
+                "naming": {}
+              }
+            }
+          },
           "test_strategy": "default_branch",
           "emits": [
             "mandate.credential.TokenExchangeAllowed"
@@ -6114,6 +6183,65 @@
                   "target_type": {
                     "kind": "declared",
                     "name": "mandate.core.VerifiedContext"
+                  },
+                  "value": {
+                    "kind": "generated"
+                  }
+                },
+                {
+                  "target": "credential_id",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.CredentialId"
+                  },
+                  "value": {
+                    "kind": "response_field",
+                    "field": "credential_id",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.CredentialId"
+                    }
+                  }
+                },
+                {
+                  "target": "reference_verifier",
+                  "target_type": {
+                    "kind": "optional",
+                    "of": {
+                      "kind": "declared",
+                      "name": "mandate.core.CredentialVerifier"
+                    }
+                  },
+                  "value": {
+                    "kind": "generated"
+                  }
+                },
+                {
+                  "target": "epochs",
+                  "target_type": {
+                    "kind": "optional",
+                    "of": {
+                      "kind": "declared",
+                      "name": "mandate.core.EpochSnapshotRef"
+                    }
+                  },
+                  "value": {
+                    "kind": "response_field",
+                    "field": "epochs",
+                    "type_ref": {
+                      "kind": "optional",
+                      "of": {
+                        "kind": "declared",
+                        "name": "mandate.core.EpochSnapshotRef"
+                      }
+                    }
+                  }
+                },
+                {
+                  "target": "issued_at",
+                  "target_type": {
+                    "kind": "primitive",
+                    "name": "timestamp"
                   },
                   "value": {
                     "kind": "generated"
@@ -6386,6 +6514,22 @@
           "condition": {
             "kind": "otherwise"
           },
+          "subject": {
+            "entity": "mandate.credential.AuthorizationCode",
+            "effect": "creates",
+            "instance": {
+              "from": "observed",
+              "event": "mandate.credential.AuthorizationCodeIssued",
+              "field": {
+                "name": "code_id",
+                "type_ref": {
+                  "kind": "declared",
+                  "name": "mandate.core.AuthorizationCodeId"
+                },
+                "naming": {}
+              }
+            }
+          },
           "test_strategy": "default_branch",
           "emits": [
             "mandate.credential.AuthorizationCodeIssued"
@@ -6425,6 +6569,106 @@
                   }
                 },
                 {
+                  "target": "client_id",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.OAuthClientId"
+                  },
+                  "value": {
+                    "kind": "input_field",
+                    "field": "client_id",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.OAuthClientId"
+                    }
+                  }
+                },
+                {
+                  "target": "session_id",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.SessionId"
+                  },
+                  "value": {
+                    "kind": "input_field",
+                    "field": "session_id",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.SessionId"
+                    }
+                  }
+                },
+                {
+                  "target": "verifier",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.CredentialVerifier"
+                  },
+                  "value": {
+                    "kind": "generated"
+                  }
+                },
+                {
+                  "target": "challenge",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.PkceChallenge"
+                  },
+                  "value": {
+                    "kind": "input_field",
+                    "field": "challenge",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.PkceChallenge"
+                    }
+                  }
+                },
+                {
+                  "target": "method",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.PkceMethod"
+                  },
+                  "value": {
+                    "kind": "input_field",
+                    "field": "method",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.PkceMethod"
+                    }
+                  }
+                },
+                {
+                  "target": "redirect_uri",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.RedirectUri"
+                  },
+                  "value": {
+                    "kind": "input_field",
+                    "field": "redirect_uri",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.RedirectUri"
+                    }
+                  }
+                },
+                {
+                  "target": "expires_at",
+                  "target_type": {
+                    "kind": "primitive",
+                    "name": "timestamp"
+                  },
+                  "value": {
+                    "kind": "input_field",
+                    "field": "expires_at",
+                    "type_ref": {
+                      "kind": "primitive",
+                      "name": "timestamp"
+                    }
+                  }
+                },
+                {
                   "target": "target",
                   "target_type": {
                     "kind": "declared",
@@ -6437,6 +6681,16 @@
                       "kind": "declared",
                       "name": "mandate.core.ResourceServerId"
                     }
+                  }
+                },
+                {
+                  "target": "scope",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.AuthorityScope"
+                  },
+                  "value": {
+                    "kind": "generated"
                   }
                 }
               ]
@@ -6496,6 +6750,25 @@
           "naming": {}
         },
         {
+          "name": "credential_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.CredentialId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "epochs",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.EpochSnapshotRef"
+            }
+          },
+          "naming": {}
+        },
+        {
           "name": "descriptor",
           "type_ref": {
             "kind": "declared",
@@ -6509,6 +6782,22 @@
           "name": "accepted",
           "condition": {
             "kind": "otherwise"
+          },
+          "subject": {
+            "entity": "mandate.credential.AccessCredential",
+            "effect": "creates",
+            "instance": {
+              "from": "observed",
+              "event": "mandate.credential.CredentialReferenceIssued",
+              "field": {
+                "name": "credential_id",
+                "type_ref": {
+                  "kind": "declared",
+                  "name": "mandate.core.CredentialId"
+                },
+                "naming": {}
+              }
+            }
           },
           "test_strategy": "default_branch",
           "emits": [
@@ -6531,6 +6820,65 @@
                       "kind": "declared",
                       "name": "mandate.core.VerifiedContext"
                     }
+                  }
+                },
+                {
+                  "target": "credential_id",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.CredentialId"
+                  },
+                  "value": {
+                    "kind": "response_field",
+                    "field": "credential_id",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.CredentialId"
+                    }
+                  }
+                },
+                {
+                  "target": "reference_verifier",
+                  "target_type": {
+                    "kind": "optional",
+                    "of": {
+                      "kind": "declared",
+                      "name": "mandate.core.CredentialVerifier"
+                    }
+                  },
+                  "value": {
+                    "kind": "generated"
+                  }
+                },
+                {
+                  "target": "epochs",
+                  "target_type": {
+                    "kind": "optional",
+                    "of": {
+                      "kind": "declared",
+                      "name": "mandate.core.EpochSnapshotRef"
+                    }
+                  },
+                  "value": {
+                    "kind": "response_field",
+                    "field": "epochs",
+                    "type_ref": {
+                      "kind": "optional",
+                      "of": {
+                        "kind": "declared",
+                        "name": "mandate.core.EpochSnapshotRef"
+                      }
+                    }
+                  }
+                },
+                {
+                  "target": "issued_at",
+                  "target_type": {
+                    "kind": "primitive",
+                    "name": "timestamp"
+                  },
+                  "value": {
+                    "kind": "generated"
                   }
                 },
                 {
@@ -6634,6 +6982,25 @@
           "naming": {}
         },
         {
+          "name": "credential_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.CredentialId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "epochs",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.EpochSnapshotRef"
+            }
+          },
+          "naming": {}
+        },
+        {
           "name": "descriptor",
           "type_ref": {
             "kind": "declared",
@@ -6647,6 +7014,22 @@
           "name": "accepted",
           "condition": {
             "kind": "otherwise"
+          },
+          "subject": {
+            "entity": "mandate.credential.AccessCredential",
+            "effect": "creates",
+            "instance": {
+              "from": "observed",
+              "event": "mandate.credential.CredentialSelfContainedIssued",
+              "field": {
+                "name": "credential_id",
+                "type_ref": {
+                  "kind": "declared",
+                  "name": "mandate.core.CredentialId"
+                },
+                "naming": {}
+              }
+            }
           },
           "test_strategy": "default_branch",
           "emits": [
@@ -6669,6 +7052,65 @@
                       "kind": "declared",
                       "name": "mandate.core.VerifiedContext"
                     }
+                  }
+                },
+                {
+                  "target": "credential_id",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.CredentialId"
+                  },
+                  "value": {
+                    "kind": "response_field",
+                    "field": "credential_id",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.CredentialId"
+                    }
+                  }
+                },
+                {
+                  "target": "reference_verifier",
+                  "target_type": {
+                    "kind": "optional",
+                    "of": {
+                      "kind": "declared",
+                      "name": "mandate.core.CredentialVerifier"
+                    }
+                  },
+                  "value": {
+                    "kind": "generated"
+                  }
+                },
+                {
+                  "target": "epochs",
+                  "target_type": {
+                    "kind": "optional",
+                    "of": {
+                      "kind": "declared",
+                      "name": "mandate.core.EpochSnapshotRef"
+                    }
+                  },
+                  "value": {
+                    "kind": "response_field",
+                    "field": "epochs",
+                    "type_ref": {
+                      "kind": "optional",
+                      "of": {
+                        "kind": "declared",
+                        "name": "mandate.core.EpochSnapshotRef"
+                      }
+                    }
+                  }
+                },
+                {
+                  "target": "issued_at",
+                  "target_type": {
+                    "kind": "primitive",
+                    "name": "timestamp"
+                  },
+                  "value": {
+                    "kind": "generated"
                   }
                 },
                 {
@@ -6878,10 +7320,19 @@
           "summary": "STS atomically consumes the code and persists the narrowed credential and audit outbox. The returned credential remains bound to the code target, scope, session and expiry; a failed or replayed transaction produces no credential."
         },
         {
+          "name": "wrong-state",
+          "condition": {
+            "kind": "wrong_state"
+          },
+          "test_strategy": "arrange_state",
+          "emits": [],
+          "error": "mandate.credential.Denied"
+        },
+        {
           "name": "denied",
           "condition": {
             "kind": "external",
-            "cause": "Code proof does not match the server-resolved code_id; code is consumed/expired; client, redirect URI or S256 verifier mismatches; the bound client is disabled; source/session epoch is stale; registered target is disabled or outside the verified tenant; or narrowing/atomic issuance validation fails."
+            "cause": "Code proof does not match the server-resolved code_id; code is expired; client, redirect URI or S256 verifier mismatches; the bound client is disabled; source/session epoch is stale; registered target is disabled or outside the verified tenant; or narrowing/atomic issuance validation fails."
           },
           "test_strategy": "inject_fault",
           "emits": [],
@@ -6945,6 +7396,22 @@
           "name": "accepted",
           "condition": {
             "kind": "otherwise"
+          },
+          "subject": {
+            "entity": "mandate.credential.ResourceServer",
+            "effect": "creates",
+            "instance": {
+              "from": "observed",
+              "event": "mandate.credential.ResourceServerRegistered",
+              "field": {
+                "name": "id",
+                "type_ref": {
+                  "kind": "declared",
+                  "name": "mandate.core.ResourceServerId"
+                },
+                "naming": {}
+              }
+            }
           },
           "test_strategy": "default_branch",
           "emits": [
@@ -7145,6 +7612,15 @@
           "summary": "Rotation, not revocation. A retired key signs nothing further; it remains admitted for verifying credentials already issued under it until they expire, which is the overlapping rotation period the key requirements demand."
         },
         {
+          "name": "wrong-state",
+          "condition": {
+            "kind": "wrong_state"
+          },
+          "test_strategy": "arrange_state",
+          "emits": [],
+          "error": "mandate.credential.Denied"
+        },
+        {
           "name": "denied",
           "condition": {
             "kind": "external",
@@ -7247,6 +7723,15 @@
               ]
             }
           ]
+        },
+        {
+          "name": "wrong-state",
+          "condition": {
+            "kind": "wrong_state"
+          },
+          "test_strategy": "arrange_state",
+          "emits": [],
+          "error": "mandate.credential.Denied"
         },
         {
           "name": "denied",
@@ -7355,6 +7840,15 @@
           "summary": "The emergency procedure. A revoked key is admitted for neither issuance nor verification, and the self-contained credentials it signed are refused from that point; the key record itself is kept."
         },
         {
+          "name": "wrong-state",
+          "condition": {
+            "kind": "wrong_state"
+          },
+          "test_strategy": "arrange_state",
+          "emits": [],
+          "error": "mandate.credential.Denied"
+        },
+        {
           "name": "denied",
           "condition": {
             "kind": "external",
@@ -7458,6 +7952,15 @@
             }
           ],
           "summary": "The recorded end of one agent invocation. No further tool call is admitted under the execution; the record, its delegation binding and its policy version are preserved. An execution past expires_at is ineligible without any recorded move."
+        },
+        {
+          "name": "wrong-state",
+          "condition": {
+            "kind": "wrong_state"
+          },
+          "test_strategy": "arrange_state",
+          "emits": [],
+          "error": "mandate.delegation.Denied"
         },
         {
           "name": "denied",
@@ -7565,6 +8068,15 @@
           "summary": "One approval satisfies exactly one decision. Consumption commits with the decision that used it; a consumed approval never satisfies a second check and is never reinstated."
         },
         {
+          "name": "wrong-state",
+          "condition": {
+            "kind": "wrong_state"
+          },
+          "test_strategy": "arrange_state",
+          "emits": [],
+          "error": "mandate.delegation.Denied"
+        },
+        {
           "name": "denied",
           "condition": {
             "kind": "external",
@@ -7652,6 +8164,14 @@
             "name": "mandate.core.DelegationId"
           },
           "naming": {}
+        },
+        {
+          "name": "delegator",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.PrincipalId"
+          },
+          "naming": {}
         }
       ],
       "outcomes": [
@@ -7659,6 +8179,22 @@
           "name": "accepted",
           "condition": {
             "kind": "otherwise"
+          },
+          "subject": {
+            "entity": "mandate.delegation.Delegation",
+            "effect": "creates",
+            "instance": {
+              "from": "observed",
+              "event": "mandate.delegation.DelegationCreated",
+              "field": {
+                "name": "id",
+                "type_ref": {
+                  "kind": "declared",
+                  "name": "mandate.core.DelegationId"
+                },
+                "naming": {}
+              }
+            }
           },
           "test_strategy": "default_branch",
           "emits": [
@@ -7705,7 +8241,12 @@
                     "name": "mandate.core.PrincipalId"
                   },
                   "value": {
-                    "kind": "generated"
+                    "kind": "response_field",
+                    "field": "delegator",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.PrincipalId"
+                    }
                   }
                 },
                 {
@@ -7930,6 +8471,15 @@
           "summary": "The installation is withdrawn, not deleted. A retired agent starts no execution and is admitted by no exchange; its executions, delegations and audit history are preserved, and disabling the agent's principal remains a separate identity command."
         },
         {
+          "name": "wrong-state",
+          "condition": {
+            "kind": "wrong_state"
+          },
+          "test_strategy": "arrange_state",
+          "emits": [],
+          "error": "mandate.delegation.Denied"
+        },
+        {
           "name": "denied",
           "condition": {
             "kind": "external",
@@ -8032,6 +8582,15 @@
               ]
             }
           ]
+        },
+        {
+          "name": "wrong-state",
+          "condition": {
+            "kind": "wrong_state"
+          },
+          "test_strategy": "arrange_state",
+          "emits": [],
+          "error": "mandate.delegation.Denied"
         },
         {
           "name": "denied",
@@ -8139,6 +8698,15 @@
           "summary": "A ceiling is never edited. The replacement is a new ceiling record and this one stops being current, which is what keeps exactly one current ceiling per (agent, organization-or-platform); every applicable platform and tenant ceiling still intersects."
         },
         {
+          "name": "wrong-state",
+          "condition": {
+            "kind": "wrong_state"
+          },
+          "test_strategy": "arrange_state",
+          "emits": [],
+          "error": "mandate.delegation.Denied"
+        },
+        {
           "name": "denied",
           "condition": {
             "kind": "external",
@@ -8244,6 +8812,15 @@
           "summary": "One synchronization run is recorded as having applied every membership change it resolved. The queue that delivered the job stays behind its port; this records the outcome, not the transport."
         },
         {
+          "name": "wrong-state",
+          "condition": {
+            "kind": "wrong_state"
+          },
+          "test_strategy": "arrange_state",
+          "emits": [],
+          "error": "mandate.directory.Denied"
+        },
+        {
           "name": "denied",
           "condition": {
             "kind": "external",
@@ -8293,6 +8870,14 @@
             "name": "mandate.core.DirectoryGroupTeamMappingId"
           },
           "naming": {}
+        },
+        {
+          "name": "created_by",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.PrincipalId"
+          },
+          "naming": {}
         }
       ],
       "outcomes": [
@@ -8300,6 +8885,22 @@
           "name": "accepted",
           "condition": {
             "kind": "otherwise"
+          },
+          "subject": {
+            "entity": "mandate.directory.DirectoryGroupTeamMapping",
+            "effect": "creates",
+            "instance": {
+              "from": "observed",
+              "event": "mandate.directory.DirectoryGroupTeamMappingCreated",
+              "field": {
+                "name": "mapping_id",
+                "type_ref": {
+                  "kind": "declared",
+                  "name": "mandate.core.DirectoryGroupTeamMappingId"
+                },
+                "naming": {}
+              }
+            }
           },
           "test_strategy": "default_branch",
           "emits": [
@@ -8376,7 +8977,12 @@
                     "name": "mandate.core.PrincipalId"
                   },
                   "value": {
-                    "kind": "generated"
+                    "kind": "response_field",
+                    "field": "created_by",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.PrincipalId"
+                    }
                   }
                 },
                 {
@@ -8513,6 +9119,15 @@
           "summary": "A run that did not apply its full result is recorded as failed, so stale directory state is visible rather than silent. Redelivery is a new job record; a failed job is never retried in place."
         },
         {
+          "name": "wrong-state",
+          "condition": {
+            "kind": "wrong_state"
+          },
+          "test_strategy": "arrange_state",
+          "emits": [],
+          "error": "mandate.directory.Denied"
+        },
+        {
           "name": "denied",
           "condition": {
             "kind": "external",
@@ -8615,6 +9230,15 @@
               ]
             }
           ]
+        },
+        {
+          "name": "wrong-state",
+          "condition": {
+            "kind": "wrong_state"
+          },
+          "test_strategy": "arrange_state",
+          "emits": [],
+          "error": "mandate.directory.Denied"
         },
         {
           "name": "denied",
@@ -8721,6 +9345,15 @@
           ]
         },
         {
+          "name": "wrong-state",
+          "condition": {
+            "kind": "wrong_state"
+          },
+          "test_strategy": "arrange_state",
+          "emits": [],
+          "error": "mandate.directory.Denied"
+        },
+        {
           "name": "denied",
           "condition": {
             "kind": "external",
@@ -8823,6 +9456,15 @@
               ]
             }
           ]
+        },
+        {
+          "name": "wrong-state",
+          "condition": {
+            "kind": "wrong_state"
+          },
+          "test_strategy": "arrange_state",
+          "emits": [],
+          "error": "mandate.directory.Denied"
         },
         {
           "name": "denied",
@@ -8928,6 +9570,15 @@
             }
           ],
           "summary": "The group the customer directory no longer publishes stops contributing authority and is kept as a record. Its memberships and team mappings are retracted by their own commands, which is what preserves every other manual or mapping contribution."
+        },
+        {
+          "name": "wrong-state",
+          "condition": {
+            "kind": "wrong_state"
+          },
+          "test_strategy": "arrange_state",
+          "emits": [],
+          "error": "mandate.directory.Denied"
         },
         {
           "name": "denied",
@@ -9091,6 +9742,38 @@
             "name": "mandate.core.SessionId"
           },
           "naming": {}
+        },
+        {
+          "name": "principal_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.PrincipalId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "organization_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.OrganizationId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "epochs",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.EpochSnapshotRef"
+          },
+          "naming": {}
+        },
+        {
+          "name": "expires_at",
+          "type_ref": {
+            "kind": "primitive",
+            "name": "timestamp"
+          },
+          "naming": {}
         }
       ],
       "outcomes": [
@@ -9098,6 +9781,22 @@
           "name": "accepted",
           "condition": {
             "kind": "otherwise"
+          },
+          "subject": {
+            "entity": "mandate.identity.Session",
+            "effect": "creates",
+            "instance": {
+              "from": "observed",
+              "event": "mandate.federation.FederationAuthenticated",
+              "field": {
+                "name": "session_id",
+                "type_ref": {
+                  "kind": "declared",
+                  "name": "mandate.core.SessionId"
+                },
+                "naming": {}
+              }
+            }
           },
           "test_strategy": "default_branch",
           "emits": [
@@ -9129,7 +9828,12 @@
                     "name": "mandate.core.PrincipalId"
                   },
                   "value": {
-                    "kind": "generated"
+                    "kind": "response_field",
+                    "field": "principal_id",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.PrincipalId"
+                    }
                   }
                 },
                 {
@@ -9166,10 +9870,56 @@
                       "name": "mandate.core.FederationConnectionId"
                     }
                   }
+                },
+                {
+                  "target": "organization_id",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.OrganizationId"
+                  },
+                  "value": {
+                    "kind": "response_field",
+                    "field": "organization_id",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.OrganizationId"
+                    }
+                  }
+                },
+                {
+                  "target": "epochs",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.EpochSnapshotRef"
+                  },
+                  "value": {
+                    "kind": "response_field",
+                    "field": "epochs",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.EpochSnapshotRef"
+                    }
+                  }
+                },
+                {
+                  "target": "expires_at",
+                  "target_type": {
+                    "kind": "primitive",
+                    "name": "timestamp"
+                  },
+                  "value": {
+                    "kind": "response_field",
+                    "field": "expires_at",
+                    "type_ref": {
+                      "kind": "primitive",
+                      "name": "timestamp"
+                    }
+                  }
                 }
               ]
             }
-          ]
+          ],
+          "summary": "A validated federated login mints the session, which is step 9 of the resolution order in docs/architecture/federated-login.md. FederationAuthenticated carries the whole mandate.identity.Session record — the new session identity, the principal, the resolved organization, the connection, the epoch snapshot the session is bound to and its expiry — so the identity fold materializes the session from this event alone and reads no command input or response. The audience and the correlation are carried beside the record. The principal, the organization, the epoch snapshot handle and the expiry are the ones this command resolved and returned, so the fold reads each from the response rather than from a value the implementation invented; the snapshot's own contents are recorded by the adapter through EpochSnapshotRecorded."
         },
         {
           "name": "denied",
@@ -9263,6 +10013,14 @@
       ],
       "response": [
         {
+          "name": "code_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.AuthorizationCodeId"
+          },
+          "naming": {}
+        },
+        {
           "name": "code",
           "type_ref": {
             "kind": "declared",
@@ -9312,7 +10070,12 @@
                     "name": "mandate.core.AuthorizationCodeId"
                   },
                   "value": {
-                    "kind": "generated"
+                    "kind": "response_field",
+                    "field": "code_id",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.AuthorizationCodeId"
+                    }
                   }
                 },
                 {
@@ -9417,7 +10180,8 @@
                 }
               ]
             }
-          ]
+          ],
+          "summary": "The control plane orchestrates the verified session and client checks and calls the STS IssueAuthorizationCode port; the STS creates the mandate.credential.AuthorizationCode record and returns its identity, which this event names. This outcome creates nothing — code_id is the code STS minted, not one minted here — and the transient code is returned to the public-client adapter and to nothing else."
         },
         {
           "name": "denied",
@@ -9522,6 +10286,15 @@
               ]
             }
           ]
+        },
+        {
+          "name": "wrong-state",
+          "condition": {
+            "kind": "wrong_state"
+          },
+          "test_strategy": "arrange_state",
+          "emits": [],
+          "error": "mandate.federation.Denied"
         },
         {
           "name": "denied",
@@ -9629,6 +10402,15 @@
           "summary": "A registered public client whose redirect surface is no longer trusted stops being admitted. The registration record is kept. No new authorization code is issued to it, and an outstanding code is refused at redemption, where RedeemAuthorizationCode re-reads the client the code is bound to; no declared move invalidates an outstanding code."
         },
         {
+          "name": "wrong-state",
+          "condition": {
+            "kind": "wrong_state"
+          },
+          "test_strategy": "arrange_state",
+          "emits": [],
+          "error": "mandate.federation.Denied"
+        },
+        {
           "name": "denied",
           "condition": {
             "kind": "external",
@@ -9701,6 +10483,22 @@
           "name": "accepted",
           "condition": {
             "kind": "otherwise"
+          },
+          "subject": {
+            "entity": "mandate.federation.ExternalPrincipal",
+            "effect": "creates",
+            "instance": {
+              "from": "observed",
+              "event": "mandate.federation.ExternalPrincipalLinked",
+              "field": {
+                "name": "external_principal_id",
+                "type_ref": {
+                  "kind": "declared",
+                  "name": "mandate.core.ExternalPrincipalId"
+                },
+                "naming": {}
+              }
+            }
           },
           "test_strategy": "default_branch",
           "emits": [
@@ -9866,6 +10664,14 @@
           "naming": {}
         },
         {
+          "name": "organization_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.OrganizationId"
+          },
+          "naming": {}
+        },
+        {
           "name": "subject",
           "type_ref": {
             "kind": "declared",
@@ -9879,6 +10685,22 @@
           "name": "accepted",
           "condition": {
             "kind": "otherwise"
+          },
+          "subject": {
+            "entity": "mandate.federation.ExternalPrincipal",
+            "effect": "creates",
+            "instance": {
+              "from": "observed",
+              "event": "mandate.federation.ExternalPrincipalProvisioned",
+              "field": {
+                "name": "external_principal_id",
+                "type_ref": {
+                  "kind": "declared",
+                  "name": "mandate.core.ExternalPrincipalId"
+                },
+                "naming": {}
+              }
+            }
           },
           "test_strategy": "default_branch",
           "emits": [
@@ -9895,7 +10717,12 @@
                     "name": "mandate.core.OrganizationId"
                   },
                   "value": {
-                    "kind": "generated"
+                    "kind": "response_field",
+                    "field": "organization_id",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.OrganizationId"
+                    }
                   }
                 },
                 {
@@ -10013,7 +10840,7 @@
               ]
             }
           ],
-          "summary": "Just-in-time provisioning on first login. This event is the creation record for both entities it names — one mandate.identity.Principal of kind User, and one mandate.federation.ExternalPrincipal linking it with ExternalLinkMethod::ConfiguredFederation — because mandate.identity declares no command that creates a Principal, so nothing else in this contract records that one came into existence. Both identities and the external subject are bound from the response rather than left to the implementation. The composite key is (organization, connection issuer, external subject), with the issuer read from the validated connection and the subject from the validated proof, never from the caller. No session is minted here; the adapter calls AuthenticateFederation again."
+          "summary": "Just-in-time provisioning on first login. The outcome creates exactly one record, the mandate.federation.ExternalPrincipal linking the principal with ExternalLinkMethod::ConfiguredFederation. The event also names the mandate.identity.Principal of kind User the provisioning produced, and no outcome in this contract declares that Principal's creation. Both identities and the external subject are bound from the response rather than left to the implementation. The composite key is (organization, connection issuer, external subject), with the issuer read from the validated connection and the subject from the validated proof, never from the caller. No session is minted here; the adapter calls AuthenticateFederation again."
         },
         {
           "name": "denied",
@@ -10088,6 +10915,22 @@
           "name": "accepted",
           "condition": {
             "kind": "otherwise"
+          },
+          "subject": {
+            "entity": "mandate.federation.FederationConnection",
+            "effect": "creates",
+            "instance": {
+              "from": "observed",
+              "event": "mandate.federation.FederationConnectionCreated",
+              "field": {
+                "name": "connection_id",
+                "type_ref": {
+                  "kind": "declared",
+                  "name": "mandate.core.FederationConnectionId"
+                },
+                "naming": {}
+              }
+            }
           },
           "test_strategy": "default_branch",
           "emits": [
@@ -10297,6 +11140,15 @@
           ]
         },
         {
+          "name": "wrong-state",
+          "condition": {
+            "kind": "wrong_state"
+          },
+          "test_strategy": "arrange_state",
+          "emits": [],
+          "error": "mandate.federation.Denied"
+        },
+        {
           "name": "denied",
           "condition": {
             "kind": "external",
@@ -10402,6 +11254,15 @@
           "summary": "The security record of a deleted resource is kept and stops resolving. Relationship cleanup is the durable outbox job's, and each removal is its own recorded move; no child resource, relation or grant is destroyed as a side effect of this one."
         },
         {
+          "name": "wrong-state",
+          "condition": {
+            "kind": "wrong_state"
+          },
+          "test_strategy": "arrange_state",
+          "emits": [],
+          "error": "mandate.graph.Denied"
+        },
+        {
           "name": "denied",
           "condition": {
             "kind": "external",
@@ -10446,11 +11307,37 @@
           "naming": {}
         }
       ],
+      "response": [
+        {
+          "name": "resource_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.ResourceId"
+          },
+          "naming": {}
+        }
+      ],
       "outcomes": [
         {
           "name": "accepted",
           "condition": {
             "kind": "otherwise"
+          },
+          "subject": {
+            "entity": "mandate.graph.Resource",
+            "effect": "creates",
+            "instance": {
+              "from": "observed",
+              "event": "mandate.graph.ResourceRegistered",
+              "field": {
+                "name": "resource_id",
+                "type_ref": {
+                  "kind": "declared",
+                  "name": "mandate.core.ResourceId"
+                },
+                "naming": {}
+              }
+            }
           },
           "test_strategy": "default_branch",
           "emits": [
@@ -10472,6 +11359,21 @@
                     "type_ref": {
                       "kind": "declared",
                       "name": "mandate.core.VerifiedContext"
+                    }
+                  }
+                },
+                {
+                  "target": "resource_id",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.ResourceId"
+                  },
+                  "value": {
+                    "kind": "response_field",
+                    "field": "resource_id",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.ResourceId"
                     }
                   }
                 },
@@ -10620,6 +11522,15 @@
           ]
         },
         {
+          "name": "wrong-state",
+          "condition": {
+            "kind": "wrong_state"
+          },
+          "test_strategy": "arrange_state",
+          "emits": [],
+          "error": "mandate.graph.Denied"
+        },
+        {
           "name": "denied",
           "condition": {
             "kind": "external",
@@ -10724,6 +11635,15 @@
           ]
         },
         {
+          "name": "wrong-state",
+          "condition": {
+            "kind": "wrong_state"
+          },
+          "test_strategy": "arrange_state",
+          "emits": [],
+          "error": "mandate.graph.Denied"
+        },
+        {
           "name": "denied",
           "condition": {
             "kind": "external",
@@ -10775,6 +11695,14 @@
       ],
       "response": [
         {
+          "name": "id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.RelationId"
+          },
+          "naming": {}
+        },
+        {
           "name": "revision",
           "type_ref": {
             "kind": "declared",
@@ -10788,6 +11716,22 @@
           "name": "accepted",
           "condition": {
             "kind": "otherwise"
+          },
+          "subject": {
+            "entity": "mandate.graph.Relation",
+            "effect": "creates",
+            "instance": {
+              "from": "observed",
+              "event": "mandate.graph.RelationshipWritten",
+              "field": {
+                "name": "id",
+                "type_ref": {
+                  "kind": "declared",
+                  "name": "mandate.core.RelationId"
+                },
+                "naming": {}
+              }
+            }
           },
           "test_strategy": "default_branch",
           "emits": [
@@ -10819,7 +11763,12 @@
                     "name": "mandate.core.RelationId"
                   },
                   "value": {
-                    "kind": "generated"
+                    "kind": "response_field",
+                    "field": "id",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.RelationId"
+                    }
                   }
                 },
                 {
@@ -10974,6 +11923,15 @@
               ]
             }
           ]
+        },
+        {
+          "name": "wrong-state",
+          "condition": {
+            "kind": "wrong_state"
+          },
+          "test_strategy": "arrange_state",
+          "emits": [],
+          "error": "mandate.identity.Denied"
         },
         {
           "name": "denied",
@@ -11232,6 +12190,15 @@
           ]
         },
         {
+          "name": "wrong-state",
+          "condition": {
+            "kind": "wrong_state"
+          },
+          "test_strategy": "arrange_state",
+          "emits": [],
+          "error": "mandate.identity.Denied"
+        },
+        {
           "name": "denied",
           "condition": {
             "kind": "external",
@@ -11334,6 +12301,15 @@
               ]
             }
           ]
+        },
+        {
+          "name": "wrong-state",
+          "condition": {
+            "kind": "wrong_state"
+          },
+          "test_strategy": "arrange_state",
+          "emits": [],
+          "error": "mandate.identity.Denied"
         },
         {
           "name": "denied",
@@ -11441,6 +12417,15 @@
           "summary": "The recorded schema version stops being the current one and is kept for attribution. A breaking change is a new model version with its own migration; no superseded model is reactivated and none is deleted."
         },
         {
+          "name": "wrong-state",
+          "condition": {
+            "kind": "wrong_state"
+          },
+          "test_strategy": "arrange_state",
+          "emits": [],
+          "error": "mandate.policy.Denied"
+        },
+        {
           "name": "denied",
           "condition": {
             "kind": "external",
@@ -11546,6 +12531,15 @@
           "summary": "The recorded version stops being the current one. Its source is kept, because every decision already made under it stays attributable to it; a rollback is a new version record carrying the earlier source, never a revival of this one."
         },
         {
+          "name": "wrong-state",
+          "condition": {
+            "kind": "wrong_state"
+          },
+          "test_strategy": "arrange_state",
+          "emits": [],
+          "error": "mandate.policy.Denied"
+        },
+        {
           "name": "denied",
           "condition": {
             "kind": "external",
@@ -11602,6 +12596,22 @@
           "name": "accepted",
           "condition": {
             "kind": "otherwise"
+          },
+          "subject": {
+            "entity": "mandate.tenancy.OrganizationMembership",
+            "effect": "creates",
+            "instance": {
+              "from": "observed",
+              "event": "mandate.tenancy.OrganizationMembershipAdded",
+              "field": {
+                "name": "membership_id",
+                "type_ref": {
+                  "kind": "declared",
+                  "name": "mandate.core.OrganizationMembershipId"
+                },
+                "naming": {}
+              }
+            }
           },
           "test_strategy": "default_branch",
           "emits": [
@@ -11741,6 +12751,22 @@
           "name": "accepted",
           "condition": {
             "kind": "otherwise"
+          },
+          "subject": {
+            "entity": "mandate.tenancy.TeamMembership",
+            "effect": "creates",
+            "instance": {
+              "from": "observed",
+              "event": "mandate.tenancy.TeamMembershipAdded",
+              "field": {
+                "name": "team_membership_id",
+                "type_ref": {
+                  "kind": "declared",
+                  "name": "mandate.core.TeamMembershipId"
+                },
+                "naming": {}
+              }
+            }
           },
           "test_strategy": "default_branch",
           "emits": [
@@ -11936,6 +12962,15 @@
           "summary": "The tenant stops admitting authority and nothing it owns is destroyed. Memberships, grants, delegations and audit history are preserved; sessions and credentials inside it stop being eligible through the organization generation, which IncrementSecurityEpoch advances."
         },
         {
+          "name": "wrong-state",
+          "condition": {
+            "kind": "wrong_state"
+          },
+          "test_strategy": "arrange_state",
+          "emits": [],
+          "error": "mandate.tenancy.Denied"
+        },
+        {
           "name": "denied",
           "condition": {
             "kind": "external",
@@ -11984,6 +13019,22 @@
           "name": "accepted",
           "condition": {
             "kind": "otherwise"
+          },
+          "subject": {
+            "entity": "mandate.tenancy.Organization",
+            "effect": "creates",
+            "instance": {
+              "from": "observed",
+              "event": "mandate.tenancy.OrganizationCreated",
+              "field": {
+                "name": "organization_id",
+                "type_ref": {
+                  "kind": "declared",
+                  "name": "mandate.core.OrganizationId"
+                },
+                "naming": {}
+              }
+            }
           },
           "test_strategy": "default_branch",
           "emits": [
@@ -12093,6 +13144,22 @@
           "condition": {
             "kind": "otherwise"
           },
+          "subject": {
+            "entity": "mandate.tenancy.Space",
+            "effect": "creates",
+            "instance": {
+              "from": "observed",
+              "event": "mandate.tenancy.SpaceCreated",
+              "field": {
+                "name": "space_id",
+                "type_ref": {
+                  "kind": "declared",
+                  "name": "mandate.core.SpaceId"
+                },
+                "naming": {}
+              }
+            }
+          },
           "test_strategy": "default_branch",
           "emits": [
             "mandate.tenancy.SpaceCreated"
@@ -12200,6 +13267,22 @@
           "name": "accepted",
           "condition": {
             "kind": "otherwise"
+          },
+          "subject": {
+            "entity": "mandate.tenancy.Team",
+            "effect": "creates",
+            "instance": {
+              "from": "observed",
+              "event": "mandate.tenancy.TeamCreated",
+              "field": {
+                "name": "team_id",
+                "type_ref": {
+                  "kind": "declared",
+                  "name": "mandate.core.TeamId"
+                },
+                "naming": {}
+              }
+            }
           },
           "test_strategy": "default_branch",
           "emits": [
@@ -12364,6 +13447,15 @@
           ]
         },
         {
+          "name": "wrong-state",
+          "condition": {
+            "kind": "wrong_state"
+          },
+          "test_strategy": "arrange_state",
+          "emits": [],
+          "error": "mandate.tenancy.Denied"
+        },
+        {
           "name": "denied",
           "condition": {
             "kind": "external",
@@ -12467,6 +13559,15 @@
             }
           ],
           "summary": "Taken only once no contribution supports the membership any longer — neither the manual one recorded with it nor any mandate.directory mapping contribution — which is what stops a retracted mapping from removing a membership a manual decision still holds up. The record and its history are kept."
+        },
+        {
+          "name": "wrong-state",
+          "condition": {
+            "kind": "wrong_state"
+          },
+          "test_strategy": "arrange_state",
+          "emits": [],
+          "error": "mandate.tenancy.Denied"
         },
         {
           "name": "denied",
@@ -12574,6 +13675,15 @@
           "summary": "The boundary stops admitting new authority and keeps every resource bound to it. Resources inside are deregistered by their own command; nothing is destroyed by retiring the space around them."
         },
         {
+          "name": "wrong-state",
+          "condition": {
+            "kind": "wrong_state"
+          },
+          "test_strategy": "arrange_state",
+          "emits": [],
+          "error": "mandate.tenancy.Denied"
+        },
+        {
           "name": "denied",
           "condition": {
             "kind": "external",
@@ -12679,6 +13789,15 @@
           "summary": "The explicit request a mapping retraction never makes on its own. The team stops resolving as an authorization subject; its memberships and their provenance are preserved, and the grants that target it are revoked by their own command."
         },
         {
+          "name": "wrong-state",
+          "condition": {
+            "kind": "wrong_state"
+          },
+          "test_strategy": "arrange_state",
+          "emits": [],
+          "error": "mandate.tenancy.Denied"
+        },
+        {
           "name": "denied",
           "condition": {
             "kind": "external",
@@ -12782,6 +13901,15 @@
             }
           ],
           "summary": "The binding stops being admitted. A workload credential presented under this trust domain and subject is refused from that point, and the record is kept so past exchanges stay attributable."
+        },
+        {
+          "name": "wrong-state",
+          "condition": {
+            "kind": "wrong_state"
+          },
+          "test_strategy": "arrange_state",
+          "emits": [],
+          "error": "mandate.workload.Denied"
         },
         {
           "name": "denied",
@@ -12986,10 +14114,74 @@
           "naming": {}
         },
         {
+          "name": "client_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.OAuthClientId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "session_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.SessionId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "verifier",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.CredentialVerifier"
+          },
+          "naming": {}
+        },
+        {
+          "name": "challenge",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.PkceChallenge"
+          },
+          "naming": {}
+        },
+        {
+          "name": "method",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.PkceMethod"
+          },
+          "naming": {}
+        },
+        {
+          "name": "redirect_uri",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.RedirectUri"
+          },
+          "naming": {}
+        },
+        {
+          "name": "expires_at",
+          "type_ref": {
+            "kind": "primitive",
+            "name": "timestamp"
+          },
+          "naming": {}
+        },
+        {
           "name": "target",
           "type_ref": {
             "kind": "declared",
             "name": "mandate.core.ResourceServerId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "scope",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.AuthorityScope"
           },
           "naming": {}
         }
@@ -13066,6 +14258,44 @@
           "naming": {}
         },
         {
+          "name": "credential_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.CredentialId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "reference_verifier",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.CredentialVerifier"
+            }
+          },
+          "naming": {}
+        },
+        {
+          "name": "epochs",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.EpochSnapshotRef"
+            }
+          },
+          "naming": {}
+        },
+        {
+          "name": "issued_at",
+          "type_ref": {
+            "kind": "primitive",
+            "name": "timestamp"
+          },
+          "naming": {}
+        },
+        {
           "name": "descriptor",
           "type_ref": {
             "kind": "declared",
@@ -13101,6 +14331,44 @@
           "type_ref": {
             "kind": "declared",
             "name": "mandate.core.VerifiedContext"
+          },
+          "naming": {}
+        },
+        {
+          "name": "credential_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.CredentialId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "reference_verifier",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.CredentialVerifier"
+            }
+          },
+          "naming": {}
+        },
+        {
+          "name": "epochs",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.EpochSnapshotRef"
+            }
+          },
+          "naming": {}
+        },
+        {
+          "name": "issued_at",
+          "type_ref": {
+            "kind": "primitive",
+            "name": "timestamp"
           },
           "naming": {}
         },
@@ -13259,6 +14527,44 @@
           "type_ref": {
             "kind": "declared",
             "name": "mandate.core.VerifiedContext"
+          },
+          "naming": {}
+        },
+        {
+          "name": "credential_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.CredentialId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "reference_verifier",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.CredentialVerifier"
+            }
+          },
+          "naming": {}
+        },
+        {
+          "name": "epochs",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.EpochSnapshotRef"
+            }
+          },
+          "naming": {}
+        },
+        {
+          "name": "issued_at",
+          "type_ref": {
+            "kind": "primitive",
+            "name": "timestamp"
           },
           "naming": {}
         },
@@ -14258,6 +15564,30 @@
             "name": "mandate.core.FederationConnectionId"
           },
           "naming": {}
+        },
+        {
+          "name": "organization_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.OrganizationId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "epochs",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.EpochSnapshotRef"
+          },
+          "naming": {}
+        },
+        {
+          "name": "expires_at",
+          "type_ref": {
+            "kind": "primitive",
+            "name": "timestamp"
+          },
+          "naming": {}
         }
       ],
       "naming": {}
@@ -14488,6 +15818,14 @@
           "type_ref": {
             "kind": "declared",
             "name": "mandate.core.VerifiedContext"
+          },
+          "naming": {}
+        },
+        {
+          "name": "resource_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.ResourceId"
           },
           "naming": {}
         },

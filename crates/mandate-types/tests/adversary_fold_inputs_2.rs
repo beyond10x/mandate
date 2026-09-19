@@ -321,9 +321,7 @@ fn every_emitted_event_is_published_by_exactly_one_component() {
 /// Measured with the exact-type reader that descends one level into a carried struct, the
 /// residue is smaller. An entity recorded as unfoldable that folds is a record of work
 /// still to do that is already done: it sends the next wave after a writer that exists.
-const RECORDED_RESIDUE: [&str; 14] = [
-    "mandate.credential.AccessCredential",
-    "mandate.credential.AuthorizationCode",
+const RECORDED_RESIDUE: [&str; 12] = [
     "mandate.credential.SigningKey",
     "mandate.delegation.Agent",
     "mandate.delegation.AgentCapabilityCeiling",

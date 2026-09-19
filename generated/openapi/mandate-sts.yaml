@@ -1,6 +1,6 @@
 # generated from mandate v1
-# model digest 49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40
-# contract digest slice-sha256/2:f122d7422e3bc4c647cc640849963159f008abf6519f9108109ea4ca7b346e8c
+# model digest 01de9945d788263e9f6df566e556a0cc122f96c94d48538ad2536276eac2bc74
+# contract digest slice-sha256/2:2f84f495c2f85defdaf76c567efe9e121fdce7462f760633aea2271dd2549802
 # do not edit: regenerate with `ess generate`
 openapi: 3.1.0
 info:
@@ -14,8 +14,8 @@ info:
   x-ess-provenance:
     system: mandate
     specification_version: v1
-    source_digest: 49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40
-    contract_digest: slice-sha256/2:f122d7422e3bc4c647cc640849963159f008abf6519f9108109ea4ca7b346e8c
+    source_digest: 01de9945d788263e9f6df566e556a0cc122f96c94d48538ad2536276eac2bc74
+    contract_digest: slice-sha256/2:2f84f495c2f85defdaf76c567efe9e121fdce7462f760633aea2271dd2549802
 tags:
 - name: credential
 paths:
@@ -39,6 +39,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.credential.DisableResourceServer.accepted.Response'
+        '409':
+          description: 'Outcome `wrong-state`: the input was acceptable and the subject is in a state this command does not act from. Resending the same request changes nothing until something else moves it.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.credential.DisableResourceServer.wrong-state.Response'
         '502':
           description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
           content:
@@ -195,6 +201,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.credential.RedeemAuthorizationCode.accepted.Response'
+        '409':
+          description: 'Outcome `wrong-state`: the input was acceptable and the subject is in a state this command does not act from. Resending the same request changes nothing until something else moves it.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.credential.RedeemAuthorizationCode.wrong-state.Response'
         '502':
           description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
           content:
@@ -247,6 +259,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.credential.RetireSigningKey.accepted.Response'
+        '409':
+          description: 'Outcome `wrong-state`: the input was acceptable and the subject is in a state this command does not act from. Resending the same request changes nothing until something else moves it.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.credential.RetireSigningKey.wrong-state.Response'
         '502':
           description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
           content:
@@ -273,6 +291,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.credential.RevokeAccessCredential.accepted.Response'
+        '409':
+          description: 'Outcome `wrong-state`: the input was acceptable and the subject is in a state this command does not act from. Resending the same request changes nothing until something else moves it.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.credential.RevokeAccessCredential.wrong-state.Response'
         '502':
           description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
           content:
@@ -299,6 +323,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.credential.RevokeSigningKey.accepted.Response'
+        '409':
+          description: 'Outcome `wrong-state`: the input was acceptable and the subject is in a state this command does not act from. Resending the same request changes nothing until something else moves it.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.credential.RevokeSigningKey.wrong-state.Response'
         '502':
           description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
           content:
@@ -609,6 +639,24 @@ components:
       - error
       - payload
       type: object
+    mandate.credential.DisableResourceServer.wrong-state.Response:
+      additionalProperties: false
+      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's.
+      properties:
+        error:
+          const: mandate.credential.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: wrong-state
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.credential.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
     mandate.credential.ExchangeCredential.Input:
       title: ExchangeCredential input
       x-ess-name: mandate.credential.ExchangeCredential
@@ -632,7 +680,7 @@ components:
       additionalProperties: false
     mandate.credential.ExchangeCredential.accepted.Response:
       additionalProperties: false
-      description: Taken when no other outcome's condition matched. Emits `TokenExchangeAllowed`, published to consumers rather than returned here.
+      description: Taken when no other outcome's condition matched. A `mandate.credential.AccessCredential` now exists, in `Active`. Its identity is published as `credential_id` on `mandate.credential.TokenExchangeAllowed`. Emits `TokenExchangeAllowed`, published to consumers rather than returned here.
       properties:
         outcome:
           const: accepted
@@ -738,7 +786,7 @@ components:
       additionalProperties: false
     mandate.credential.IssueAuthorizationCode.accepted.Response:
       additionalProperties: false
-      description: STS stores only a non-reversible verifier bound to the validated client, session, exact redirect, S256 challenge, registered target, narrowed scope and bounded expiry. Only the transient code is returned to the public-client adapter. Taken when no other outcome's condition matched. Emits `AuthorizationCodeIssued`, published to consumers rather than returned here.
+      description: STS stores only a non-reversible verifier bound to the validated client, session, exact redirect, S256 challenge, registered target, narrowed scope and bounded expiry. Only the transient code is returned to the public-client adapter. Taken when no other outcome's condition matched. A `mandate.credential.AuthorizationCode` now exists, in `Issued`. Its identity is published as `code_id` on `mandate.credential.AuthorizationCodeIssued`. Emits `AuthorizationCodeIssued`, published to consumers rather than returned here.
       properties:
         outcome:
           const: accepted
@@ -783,7 +831,7 @@ components:
       additionalProperties: false
     mandate.credential.IssueReferenceCredential.accepted.Response:
       additionalProperties: false
-      description: Taken when no other outcome's condition matched. Emits `CredentialReferenceIssued`, published to consumers rather than returned here.
+      description: Taken when no other outcome's condition matched. A `mandate.credential.AccessCredential` now exists, in `Active`. Its identity is published as `credential_id` on `mandate.credential.CredentialReferenceIssued`. Emits `CredentialReferenceIssued`, published to consumers rather than returned here.
       properties:
         outcome:
           const: accepted
@@ -828,7 +876,7 @@ components:
       additionalProperties: false
     mandate.credential.IssueSelfContainedCredential.accepted.Response:
       additionalProperties: false
-      description: Taken when no other outcome's condition matched. Emits `CredentialSelfContainedIssued`, published to consumers rather than returned here.
+      description: Taken when no other outcome's condition matched. A `mandate.credential.AccessCredential` now exists, in `Active`. Its identity is published as `credential_id` on `mandate.credential.CredentialSelfContainedIssued`. Emits `CredentialSelfContainedIssued`, published to consumers rather than returned here.
       properties:
         outcome:
           const: accepted
@@ -889,7 +937,7 @@ components:
       type: object
     mandate.credential.RedeemAuthorizationCode.denied.Response:
       additionalProperties: false
-      description: 'Decided outside the request: Code proof does not match the server-resolved code_id; code is consumed/expired; client, redirect URI or S256 verifier mismatches; the bound client is disabled; source/session epoch is stale; registered target is disabled or outside the verified tenant; or narrowing/atomic issuance validation fails..'
+      description: 'Decided outside the request: Code proof does not match the server-resolved code_id; code is expired; client, redirect URI or S256 verifier mismatches; the bound client is disabled; source/session epoch is stale; registered target is disabled or outside the verified tenant; or narrowing/atomic issuance validation fails..'
       properties:
         error:
           const: mandate.credential.Denied
@@ -897,6 +945,24 @@ components:
           type: string
         outcome:
           const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.credential.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
+    mandate.credential.RedeemAuthorizationCode.wrong-state.Response:
+      additionalProperties: false
+      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's.
+      properties:
+        error:
+          const: mandate.credential.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: wrong-state
           description: Which declared outcome the command took.
         payload:
           $ref: '#/components/schemas/mandate.credential.Denied.Error'
@@ -929,7 +995,7 @@ components:
       additionalProperties: false
     mandate.credential.RegisterResourceServer.accepted.Response:
       additionalProperties: false
-      description: Taken when no other outcome's condition matched. Emits `ResourceServerRegistered`, published to consumers rather than returned here.
+      description: Taken when no other outcome's condition matched. A `mandate.credential.ResourceServer` now exists, in `Enabled`. Its identity is published as `id` on `mandate.credential.ResourceServerRegistered`. Emits `ResourceServerRegistered`, published to consumers rather than returned here.
       properties:
         outcome:
           const: accepted
@@ -997,6 +1063,24 @@ components:
       - error
       - payload
       type: object
+    mandate.credential.RetireSigningKey.wrong-state.Response:
+      additionalProperties: false
+      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's.
+      properties:
+        error:
+          const: mandate.credential.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: wrong-state
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.credential.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
     mandate.credential.RevokeAccessCredential.Input:
       title: RevokeAccessCredential input
       x-ess-name: mandate.credential.RevokeAccessCredential
@@ -1039,6 +1123,24 @@ components:
       - error
       - payload
       type: object
+    mandate.credential.RevokeAccessCredential.wrong-state.Response:
+      additionalProperties: false
+      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's.
+      properties:
+        error:
+          const: mandate.credential.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: wrong-state
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.credential.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
     mandate.credential.RevokeSigningKey.Input:
       title: RevokeSigningKey input
       x-ess-name: mandate.credential.RevokeSigningKey
@@ -1073,6 +1175,24 @@ components:
           type: string
         outcome:
           const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.credential.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
+    mandate.credential.RevokeSigningKey.wrong-state.Response:
+      additionalProperties: false
+      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's.
+      properties:
+        error:
+          const: mandate.credential.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: wrong-state
           description: Which declared outcome the command took.
         payload:
           $ref: '#/components/schemas/mandate.credential.Denied.Error'
