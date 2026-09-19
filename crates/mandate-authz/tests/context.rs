@@ -12,7 +12,7 @@ use mandate_graph::double::GraphDouble;
 use mandate_graph::port::GraphError;
 use mandate_graph::topology::{Placement, ResourceLookup, ResourceRegistry};
 use mandate_model::graph::Topology;
-use mandate_model::tenancy::Tenancy;
+use mandate_model::tenancy::{MembershipAuthority, Tenancy};
 use mandate_types::{
     Audience, AuthorityScope, AuthoritySubject, CorrelationId, CredentialId, DelegationId,
     DenialReason, ExecutionId, OrganizationId, OrganizationMembershipId, PrincipalId, ResourceId,
@@ -59,10 +59,12 @@ fn context() -> VerifiedContext {
 fn tenancy() -> Tenancy {
     let mut tenancy = Tenancy::new();
     tenancy
-        .create_organization(organization(), "acme")
+        .create_organization(&context(), organization(), "acme")
         .expect("the organization is recorded");
     tenancy
         .add_organization_membership(
+            &context(),
+            MembershipAuthority::VerifiedOrganization,
             OrganizationMembershipId::new(uuid(3)),
             organization(),
             principal(),
@@ -135,7 +137,7 @@ fn an_organization_that_admits_no_authority_refuses_the_context() {
     let resource = resource();
     let mut tenancy = tenancy();
     tenancy
-        .close_organization(organization())
+        .close_organization(&context, organization())
         .expect("the organization is closed");
 
     let refusal = bind(
@@ -159,7 +161,7 @@ fn a_subject_that_is_not_a_member_of_the_verified_organization_is_a_tenant_misma
     let resource = resource();
     let mut elsewhere = Tenancy::new();
     elsewhere
-        .create_organization(organization(), "acme")
+        .create_organization(&context, organization(), "acme")
         .expect("the organization is recorded");
 
     let refusal = bind(

@@ -122,6 +122,70 @@ pub struct Resource {
     pub state: ResourceState,
 }
 
+/// The two declared `mandate.graph` resource event payloads.
+///
+/// `#[serde(untagged)]`, so a variant serializes as the bare payload object; see
+/// [`crate::tenancy::TenancyEvent`], which carries the same shape for the ten tenancy
+/// payloads.
+///
+/// `Registered` carries `resource_id` beside `resource`. The compiled
+/// `mandate.graph.ResourceRegistered` on this branch declares `context`, `resource` and
+/// an optional `parent` and no `resource_id`; the coordinator's ruling of 2026-09-19 for
+/// `story:tenancy-graph-events` fixes the emitted payload at
+/// `{context, resource_id, resource, parent}`, the shape it takes once
+/// `story:contract-creates` adds `resource_id` as the `instance:` of `creates: Resource`.
+/// `crates/mandate-model/tests/replay.rs` asserts that one event against the ruled set
+/// and says so; the other eleven are asserted against their compiled `required` lists.
+///
+/// `parent` is optional and is therefore omitted when absent rather than written as
+/// `null` — the rule for every optional either enum declares.
+///
+/// `Serialize` only, and not round-trippable; see [`crate::tenancy::TenancyEvent`] for
+/// why the untagged encoding cannot be read back and where the envelope belongs.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(untagged)]
+pub enum ResourceEvent {
+    /// `mandate.graph.ResourceRegistered`.
+    Registered {
+        /// The caller's verified context; the resource is recorded in the organization it
+        /// names.
+        context: VerifiedContext,
+        /// The identity `RegisterResource` returns.
+        resource_id: ResourceId,
+        /// The registration itself, which carries the identity and the declared type.
+        resource: ResourceRef,
+        /// The resource this one resolves through, when it has one.
+        ///
+        /// Absent rather than null: the compiled payload makes `parent` optional and
+        /// types it `mandate.core.ResourceId`, a string, so `"parent": null` is a value
+        /// the contract refuses. `skip_serializing_if` is the rule for every optional in
+        /// both event enums, and `parent` is the only one either declares today.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        parent: Option<ResourceId>,
+    },
+    /// `mandate.graph.ResourceDeregistered`.
+    Deregistered {
+        /// The caller's verified context.
+        context: VerifiedContext,
+        /// The resource that stops resolving.
+        id: ResourceId,
+    },
+}
+
+impl ResourceEvent {
+    /// The qualified ESS name of the payload this event is.
+    ///
+    /// The match is exhaustive and carries no wildcard arm, so a variant added without a
+    /// name here does not compile.
+    #[must_use]
+    pub fn ess_name(&self) -> &'static str {
+        match self {
+            Self::Registered { .. } => "mandate.graph.ResourceRegistered",
+            Self::Deregistered { .. } => "mandate.graph.ResourceDeregistered",
+        }
+    }
+}
+
 /// The fold of the `mandate.graph` resource events: the topology and what writes it.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Topology {
@@ -135,10 +199,67 @@ impl Topology {
         Self::default()
     }
 
-    /// The record half of `RegisterResource`.
+    /// The projection every event of a log has been applied to, from empty.
+    ///
+    /// The pair of [`crate::tenancy::Tenancy::fold`], and the rebuild
+    /// `docs/adr/0009-event-sourced-persistence.md` requires of this projection too: it
+    /// takes no verified context, no tenancy and no authority, because a log supplies
+    /// none of them.
+    #[must_use]
+    pub fn fold(events: &[ResourceEvent]) -> Self {
+        let mut fold = Self::new();
+        for event in events {
+            fold.apply(event);
+        }
+        fold
+    }
+
+    /// Write one declared event into the projection.
+    ///
+    /// **Total, and re-checks nothing**, exactly as [`crate::tenancy::Tenancy::apply`] is
+    /// and for the same reason: a fold that refuses is not a rebuild. Every guard belongs
+    /// to a `decide_*` half.
+    ///
+    /// The record's `organization_id` is read off the event's own `context`, its `id` and
+    /// `resource_type` off the registration, and `space_id` stays absent because no
+    /// command in `systems/mandate` carries a space into it — `ResourceRegistered` is
+    /// `{context, resource_id, resource, parent}` and declares no `space_id`.
+    pub fn apply(&mut self, event: &ResourceEvent) {
+        match event {
+            ResourceEvent::Registered {
+                context,
+                resource_id,
+                resource,
+                parent,
+            } => {
+                // Insert-if-absent: the first registration of an identity is the one that
+                // stands, so a redelivered `ResourceRegistered` cannot return a record
+                // from `Deregistered` to `Recorded`. The pair of
+                // `crate::tenancy::Tenancy`'s five creating writes.
+                self.resources
+                    .entry(*resource_id)
+                    .or_insert_with(|| Resource {
+                        id: *resource_id,
+                        organization_id: context.organization,
+                        resource_type: resource.resource_type.clone(),
+                        parent: *parent,
+                        space_id: None,
+                        state: ResourceState::Recorded,
+                    });
+            }
+            ResourceEvent::Deregistered { id, .. } => {
+                if let Some(record) = self.resources.get_mut(id) {
+                    record.state = ResourceState::Deregistered;
+                }
+            }
+        }
+    }
+
+    /// The decide half of `RegisterResource`: the declared event, or the refusal.
     ///
     /// The resource is recorded in the organization the verified context names. A named
-    /// parent is admitted only when it resolves in that same organization.
+    /// parent is admitted only when it resolves in that same organization. Nothing is
+    /// written here; a command path appends the returned event and applies it.
     ///
     /// # Errors
     ///
@@ -146,13 +267,13 @@ impl Topology {
     /// identity that is already registered, and a parent that does not resolve inside the
     /// verified organization — whether because it was never registered, because it has
     /// been deregistered, or because it belongs to another organization.
-    pub fn register(
-        &mut self,
+    pub fn decide_register(
+        &self,
         tenancy: &Tenancy,
         context: &VerifiedContext,
         resource: &ResourceRef,
         parent: Option<ResourceId>,
-    ) -> Result<(), Denied> {
+    ) -> Result<ResourceEvent, Denied> {
         if !tenancy.admits(context.organization)
             || self.resources.contains_key(&resource.resource_id)
         {
@@ -167,21 +288,35 @@ impl Topology {
                 return Err(Denied::refusal());
             }
         }
-        self.resources.insert(
-            resource.resource_id,
-            Resource {
-                id: resource.resource_id,
-                organization_id: context.organization,
-                resource_type: resource.resource_type.clone(),
-                parent,
-                space_id: None,
-                state: ResourceState::Recorded,
-            },
-        );
-        Ok(())
+        Ok(ResourceEvent::Registered {
+            context: context.clone(),
+            resource_id: resource.resource_id,
+            resource: resource.clone(),
+            parent,
+        })
     }
 
-    /// The record half of `DeregisterResource`.
+    /// The record half of `RegisterResource`: decide, apply, return the event a command
+    /// path appends.
+    ///
+    /// # Errors
+    ///
+    /// Refuses a verified organization with no tenancy record or a closed one, an
+    /// identity that is already registered, and a parent that does not resolve inside the
+    /// verified organization.
+    pub fn register(
+        &mut self,
+        tenancy: &Tenancy,
+        context: &VerifiedContext,
+        resource: &ResourceRef,
+        parent: Option<ResourceId>,
+    ) -> Result<ResourceEvent, Denied> {
+        let event = self.decide_register(tenancy, context, resource, parent)?;
+        self.apply(&event);
+        Ok(event)
+    }
+
+    /// The decide half of `DeregisterResource`: the declared event, or the refusal.
     ///
     /// The security record is kept and stops resolving; no child, relation or grant is
     /// destroyed as a side effect.
@@ -190,7 +325,11 @@ impl Topology {
     ///
     /// Refuses a resource that does not resolve inside the verified organization, one
     /// that has already been deregistered, and one a child still resolves through.
-    pub fn deregister(&mut self, context: &VerifiedContext, id: ResourceId) -> Result<(), Denied> {
+    pub fn decide_deregister(
+        &self,
+        context: &VerifiedContext,
+        id: ResourceId,
+    ) -> Result<ResourceEvent, Denied> {
         let resolves = self
             .resources
             .get(&id)
@@ -198,9 +337,27 @@ impl Topology {
         if !resolves || !self.children(id).is_empty() {
             return Err(Denied::refusal());
         }
-        let record = self.resources.get_mut(&id).ok_or_else(Denied::refusal)?;
-        record.state = ResourceState::Deregistered;
-        Ok(())
+        Ok(ResourceEvent::Deregistered {
+            context: context.clone(),
+            id,
+        })
+    }
+
+    /// The record half of `DeregisterResource`: decide, apply, return the event a command
+    /// path appends.
+    ///
+    /// # Errors
+    ///
+    /// Refuses a resource that does not resolve inside the verified organization, one
+    /// that has already been deregistered, and one a child still resolves through.
+    pub fn deregister(
+        &mut self,
+        context: &VerifiedContext,
+        id: ResourceId,
+    ) -> Result<ResourceEvent, Denied> {
+        let event = self.decide_deregister(context, id)?;
+        self.apply(&event);
+        Ok(event)
     }
 
     /// The resource as the verified caller can read it: recorded, and in the
