@@ -1,4 +1,5 @@
 mod documents;
+mod emit;
 use clap::{Parser, Subcommand};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -88,7 +89,11 @@ fn generate(root: &Path) -> Result<()> {
             ],
         )?;
     }
-    ir(root)
+    ir(root)?;
+    // The sixth kind: Rust shapes for the three kinds ESS 0.26.0's Rust target does not admit.
+    // Emitted from the file [`ir`] just wrote, so the shapes and the model [`contracts`]
+    // compares them against are the same bytes rather than two compilations of one source.
+    emit::emit(root)
 }
 /// The fifth kind: the compiled model itself, as canonical JSON.
 ///
