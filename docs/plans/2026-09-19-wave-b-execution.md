@@ -62,6 +62,23 @@ Through `atlas/scripts/as-bot.sh`, author and committer `b10x-bot[bot]`: this op
 
 ## Declared deviations
 
+2. Before publication the branch was rebased (`--rebase-merges`, bot committer) from `main`'s tip `a76267b` onto `5b03caf`, the last bot-only commit with the identical tree (`git diff --stat 5b03caf a76267b` empty): `b10x-gates publish` verifies the bot identity on every commit since the adoption baseline, and `main`'s tip is a GitHub-committed merge. Same trees, new ids — the commit ids named above in this page and in the store's evidence (`f86a485` and earlier) are the pre-rebase ones; the published lineage is:
+
+```
+8bd00bb chore(store): wave B closed on the gate's record — credential profiles implemented, the login road's writers declared and realized
+b663c74 Name the credential state enums in the account of derived state enums
+3df3d33 Align the login design to the realized writers and record the wave B reviews
+9d9b94a Merge impl/credential-profiles: the audience registry and both credential families
+cd7656c Merge impl/writers-realization: the Principal folded in identity, the OAuth client created by its command
+f3b422d Implement the audience registry and both credential families behind the STS library
+fc78d86 Regenerate the projections for the declared writers and align the pins and fixtures
+abc4d8a Realize the login road's writers: the Principal folded in identity, the OAuth client created by its command
+446fe2d Merge impl/writers-contract: the login road's declared writers
+b30c5c7 Open wave B: credential profiles and the login road's declared writers
+5a7ccf8 Declare the login road's writers: OAuth client and signing key creators, the Principal's seeding event
+```
+
+   Rule for the next wave: cut the integration branch from the last bot-only commit whose tree equals `main`'s, not from `main`'s tip.
 1. `aws-lc-rs` and `rand` admitted as dev-dependencies of `mandate-sts` (`services/sts/Cargo.toml`, `dependency-boundaries.json`, `Cargo.lock`) by the coordinator inside the `credential-profiles` unit tree, after adversary 1 found no test instantiates `IssuanceSigner` for `RealSigner` and no STS test could build key material; the three coordinator-owned files therefore land in the unit's commit rather than a coordinator commit. `cargo xtask boundaries`: 22 packages.
 
 ## Close
