@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:federation-identity-alignment
 kind: story
-status: draft
+status: implemented
 title: Federation and identity agree with the contract field for field, emit and replay
 relations:
 - decomposes: epic:foundations
@@ -46,7 +46,7 @@ scope:
   path: crates/mandate-identity/tests/emitted_events.rs
 - confidence: inferred
   path: crates/mandate-identity/tests/replay.rs
-revision: 11
+revision: 17
 ---
 ## Acceptance
 
@@ -101,3 +101,24 @@ One agent, serially; `Cargo.toml` dev-dependencies on `mandate-contract` and `ma
 - Opening a Session from the login (design D3): `mandate-identity` cannot see `FederationEvent` (direction `mandate-federation → mandate-identity`, never the reverse, per `story:pkce-sessions`'s ruling). The identity fold therefore consumes the generated contract payload `mandate_contract::events::MandateFederationFederationAuthenticated` — `mandate-contract` is admitted as a regular dependency of `mandate-identity` in the opening commit — and `IdentityLog` gains a fold arm that materializes the Session (`session_id`, `principal_id`, `organization_id`, `connection_id`, `epochs`, `expires_at`) from it; `SessionOpened` stays the seeding event for a non-federated open and a second open of a session already held is refused by the fold. This is the `identity-shapes` unit's (`src/port.rs`, `src/session.rs`) with its proof in `identity-proofs` (`tests/replay.rs`: login → refresh → revoke folds from the two events alone). The federation handler keeps returning `FederationAuthenticated`; appending it to the identity aggregate is the adapter's (control-plane), outside this crate.
 - `crates/mandate-federation/src/authorize.rs`, `tests/authorize.rs`, `tests/adversary_pkce.rs` join this story's scope for the consumed-code alignment (design D4); `pkce.rs`, `publicclient.rs`, `verifier.rs` stay excluded.
 - `tests/link.rs` and `tests/authenticate.rs` are this story's this wave (parallel PS1); the verifier unit does not write them.
+
+## Coordinator rulings at integration, 2026-09-19
+
+- Manifest edits accepted at merge (implementor ask): `serde` as a regular dependency of `mandate-federation` and `mandate-identity`, `serde_json` as a dev-dependency of `mandate-identity`, the boundaries lines and the lock's dependency edges (no new crate). Each admission carries a case in the crate's `tests/admitted_crates.rs`.
+- Files outside the named set edited because the payload change forced them, accepted: `crates/mandate-federation/src/authenticate.rs`, `src/link.rs` (construction sites; `Serialize` on two command inputs). No other wave unit owns them.
+- Spec gap surfaced (for `decision-blocker:epoch`, `story:session-epochs`): `mandate.identity.EpochSnapshotRecorded` carries no per-dimension generation, so an event-sourced fold can only bind a snapshot to the generations in force at the position the recording appears in the log. The implementor's fold does that and three fixtures' event order moved (no assertion changed). A snapshot event that names the generations it holds would make the binding explicit; recorded here, not decided.
+- Declared, not built (recorded on the story's body by the implementor's report): `AuthorizationCodeIssued` has no `FederationEvent` variant (the STS transaction owns it); `SecurityEpochSnapshot` is not round-tripped (the record carries per-dimension generations the contract's entity does not declare, `UNMAPPED-EPOCH`, pinned by a case); `PrincipalDisabled`/`RefreshCredentialRevoked` have no handler in `mandate-identity`. `RefusedOutcome` is declared once per crate; its shared home is `mandate-types` (next wave that opens that crate).
+
+## Coordinator rulings after adversary pass 1, 2026-09-19
+
+- Consumed code at `AuthorizePublicClient` (adversary A1-1): the E1 inherited item was mis-scoped by the coordinator — the wrong-state outcome is `mandate.credential.RedeemAuthorizationCode`'s and lands with that handler (`story:oauth-integration`). `AuthorizePublicClient` is non-consuming and declares `accepted`/`denied` only, so `validate_authorization_code` refuses a consumed code with `RefusedOutcome::Denied`, its two cases assert `denied`, and the comment cites `AuthorizePublicClient`'s own denial text. Recorded on `story:oauth-integration`.
+- Fold totality across displaced links (A1-2, blocker): the `ExternalPrincipalUnlinked` arm resolves a link the fold displaced into `conflicts` (or displaced links stay resolvable), so a log every handler accepted rebuilds; a fold never aborts on a sequence real handlers produced. Case: create, two links on one key decided against the same projection, unlink of the displaced one, fold equals live.
+- Login payload form (A1-3): `try_record` decides `expires_at` as an RFC 3339 instant the way it decides identifiers; a payload the closed schema refuses is never appended.
+- Epoch binding is explicit (A1-4): an opening event (`FederationAuthenticated`, `SessionOpened`) whose `epochs` handle has no preceding `EpochSnapshotRecorded` in the log is refused by `try_record` (fail closed), and `IdentityLog`'s doc states the host's ordering obligation; the contract gap (`EpochSnapshotRecorded` carries no generations) stays filed for `decision-blocker:epoch`. If the adversary's ordering case cannot hold under this rule, the implementor quotes it and the coordinator amends it.
+- `IdentityEvent::ess_name` gets its oracle (A1-5): `emitted_events.rs` passes `event.ess_name()`, never a literal. The identity registry doc names every unrealized element (15) and a reverse-direction case pins the list (A1-6).
+
+## Coordinator rulings after adversary pass 2, 2026-09-19
+
+- Key resolution is order-independent (adversary-2 A2-1, blocker): two links racing on one composite external key are two `ExternalPrincipal` aggregates whose appends no compare-and-set orders, so "first" cannot be a property of append order. The holder of the key is decided by a total order over the conflicting link records themselves — the lexically smallest `external_principal_id` holds the key, every other link on that key is `Conflicted` — and every link stays resolvable by its own id in `links` (no displacement into a side map), so an unlink of either works, `authenticate` resolves through the holder only, and both append orders fold to one projection. The pass-1 choice (displace into `conflicts`) is withdrawn; `organization_of` and `external_principal` read one map (A2-6).
+- The `SessionOpened` arm decides every lexical form the login arm decides, `expires_at` included (A2-3); the append guard also refuses an `EpochSnapshotRecorded` whose dimensions carry no preceding `SecurityEpochRecorded` (A2-5), so both documented ordering obligations are enforced.
+- The fold-totality class is stated exactly (A2-4): a fold never aborts on a sequence real handlers produced against a store this domain can fill; `disable_oauth_client` is accepted only against an `OAuthClient` record no declared command creates (`story:declared-writers`), documented at the handler.

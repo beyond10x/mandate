@@ -31,7 +31,7 @@ scope:
   path: dependency-boundaries.json
 - confidence: inferred
   path: docs/adr/0010-graph-policy-backend.md
-revision: 7
+revision: 8
 ---
 # Graph and policy adapters for the chosen backend
 
@@ -70,3 +70,7 @@ The four root config files are declared so the scheduler sees this story collide
 ## Inherited from wave E1, 2026-09-19
 
 - Surfaced by `contract-creates` adversary pass 2 (A2-8): four shipped records return `MutationOutcome::AlreadyRecorded` and document "Repeating it is accepted" for a state the contract now declares a `wrong-state` refusal (409): `crates/mandate-graph/src/record.rs:109` (`RemoveRelation`), `:168` (`RevokeGrant`), `crates/mandate-policy/src/record.rs:108` (`SupersedePolicy`), `:164` (`SupersedeAuthorizationModel`). Align them to the contract, or bring a spec change that declares the idempotent accept, before the conformance target maps their outcomes.
+
+## Inherited from wave A, 2026-09-19
+
+- From `model-agreement` adversary pass 1 (2026-09-19): the domain state enums in `crates/mandate-graph` and `crates/mandate-policy` that name a `.State` element are decided against the contract by nobody; this story decides each through its generated enum (`mandate_contract::entities::<Entity>State`) and registers it with `realizes!`.

@@ -8,7 +8,7 @@ relations:
 - designs: epic:authentication
 - informed_by: story:federation-linking
 - informed_by: story:domain-runtime
-revision: 1
+revision: 2
 ---
 # Federated login — design record
 
@@ -29,3 +29,7 @@ The ten on the path — `domain-runtime`, `federation-linking`, `session-epochs`
 ## Not decided here
 
 The signing-algorithm list (`runtime-decisions.md:256`); the graph and policy engines (`decision-blocker:backend`); the dependency decision that admits a signature verifier to `mandate-federation`; the replacement of the `serve` refusal at `xtask/src/main.rs:259-273`.
+
+## Inherited from wave A, 2026-09-19
+
+- From wave A's verifier adversary pass 2 (2026-09-19): the real verifier reads no `nonce`/`jti`, so a captured ID token verifies repeatedly until `exp`; the replay defence belongs to the login flow (the relying party's `nonce` bound to its `state`, checked where the token is redeemed once), which `FederationVerifier::verify(&connection, &proof)` cannot carry. The served-route story carries it.
