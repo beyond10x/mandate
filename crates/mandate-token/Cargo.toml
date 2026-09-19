@@ -11,7 +11,7 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-mandate-types = { version = "0.1.0", path = "../mandate-types" }
+mandate-types = { version = "0.2.0", path = "../mandate-types" }
 serde = { workspace = true }
 
 [dev-dependencies]

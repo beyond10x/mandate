@@ -199,7 +199,7 @@ fn boundaries() -> Result<()> {
     }
     for p in packages {
         let name = p["name"].as_str().ok_or("package name")?;
-        if p["version"] != "0.1.0"
+        if p["version"] != "0.2.0"
             || p["edition"] != "2024"
             || p["rust_version"] != "1.98.1"
             || p["license"] != "Apache-2.0"
