@@ -9,6 +9,7 @@ relations:
 - serves: vision:mandate
 - depends_on: story:protocol-adapters
 - depends_on: story:login-adapters
+- informed_by: initiative:drift-enforcement
 scope:
 - confidence: cited
   path: crates/mandate-server/src/context.rs

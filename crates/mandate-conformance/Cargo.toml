@@ -22,9 +22,13 @@ mandate-identity = { version = "0.2.0", path = "../mandate-identity" }
 mandate-authz = { version = "0.2.0", path = "../mandate-authz" }
 mandate-graph = { version = "0.2.0", path = "../mandate-graph" }
 mandate-policy = { version = "0.2.0", path = "../mandate-policy" }
+mandate-sts = { version = "0.2.0", path = "../../services/sts" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 ess-conformance = { workspace = true }
 ess-primitives = { workspace = true }
 ess-domain = { workspace = true }
 clap = { workspace = true }
+
+[dev-dependencies]
+mandate-testkit = { version = "0.2.0", path = "../mandate-testkit" }

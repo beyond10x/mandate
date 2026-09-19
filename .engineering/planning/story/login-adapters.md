@@ -38,7 +38,7 @@ scope:
   path: crates/mandate-server/tests/routes.rs
 - confidence: inferred
   path: docs/architecture/adapter-contract.md
-revision: 11
+revision: 12
 ---
 # Decode the login road's requests: routes, verified context, form encoding, the obligations registry
 
@@ -97,3 +97,5 @@ Coordinator, after `review-result:wave-d-design-r1`.
 - Correction at the wave D opening: the `metadata` unit is `story:login-adapters`' (not left with `story:protocol-adapters`); the `context` unit is `decode` (ruling 1). The Units table above reads with those two changes.
 
 - Corrections at the wave D opening, after `review-result:wave-d-parallel-r1`: (a) `story:product-listener`'s files are `services/control-plane/**` (ruling D1); the collision statement above that names `services/sts/src/serve.rs` and `crates/mandate-federation/src/adapters.rs` is withdrawn — the two stories share no file. (b) The coordinator writes `xtask/src/main.rs` (`LIBRARIES` 17 → 18) and `dependency-boundaries.json` (the `mandate-control-plane` key) in the wave's opening commit, before this story's tree is cut; this story writes neither. (c) The RFC 8414 metadata and JWKS document paths (`/.well-known/oauth-authorization-server`, `/oauth/jwks`) are entries of this story's route table (`crates/mandate-server/src/routes.rs`), so the disjointness proof covers them; the listener serves the table and nothing outside it. (d) `story:declared-writers` (active) holds `systems/**` and `generated/**`; no unit of it runs in wave D, so the 61 `generated/openapi/*.yaml` operationIds this story's `obligations` equality and disjointness proof pin are fixed for the wave.
+
+- Coordinator review of the route paths (ruling 3), at the unit's adversary pass 1, 2026-09-19: accepted as proposed — `POST /v1/federation/login` (`AuthenticateFederation`; the act, not the connection, in the path), `GET /oauth/authorize` (`AuthorizePublicClient`, `original-design.md:1857`), `POST /oauth/token` (`:1858`), `POST /oauth/introspect` (`:1860`), `GET /.well-known/oauth-authorization-server` (`:1855`), `GET /oauth/jwks` (`:1862`). The session proof at the authorization endpoint travels in `Authorization: Bearer`, never in the query string; a cookie-borne session adapter for browser redirects is named residue for `story:product-listener`. `ErrorCode` carries `unsupported_response_type` as a sixth code (RFC 6749 §4.1.2.1) — accepted. Reported to the operator with the wave.

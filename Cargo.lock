@@ -920,6 +920,8 @@ dependencies = [
  "mandate-identity",
  "mandate-model",
  "mandate-policy",
+ "mandate-sts",
+ "mandate-testkit",
  "mandate-types",
  "serde",
  "serde_json",

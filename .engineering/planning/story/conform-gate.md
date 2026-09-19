@@ -9,6 +9,7 @@ relations:
 - serves: vision:mandate
 - depends_on: story:conformance-target
 - depends_on: story:coverage-map
+- informed_by: initiative:drift-enforcement
 scope:
 - confidence: inferred
   path: docs/adr/0010-drift-enforcement.md
@@ -18,7 +19,7 @@ scope:
   path: xtask/src/conform.rs
 - confidence: inferred
   path: xtask/tests/conform.rs
-revision: 5
+revision: 6
 ---
 ## Acceptance
 
@@ -54,3 +55,5 @@ One agent: `step`, `expected-outcomes`, `adr` serially. The coordinator wires th
 - `conformance-target` produces the first `generated/conformance/{suite,report,run,injections}.json` as part of its deliverable; `conform-gate` owns `expected-outcomes.json` and the byte-compare step (D5).
 - The `obligations()` outcome-selection change (external cause, not the first error outcome) is pre-landed by the coordinator in the opening commit with a test, before `wrong-state` outcomes arrive (D6).
 - `story:declared-writers` gains `depends_on story:contract-creates`; its later creators change the residue after this story's acceptance was evaluated at close, which is the intended order (D7).
+
+- Correction at the wave D enforcement opening, after `review-result:wave-d-enforcement-design-r1`: the synthesize invocation this gate byte-compares is `ess verify conform synthesize --path systems/mandate --scenarios systems/mandate --target ir --compact --suite-format 5 --out target/conformance/suite.json` — format 5 frozen by `story:conformance-target` (format 4 emits no `coverage` key, and `qualification` needs it). The committed location of the target's four outputs and their byte-compare are this story's `conform()` step.
