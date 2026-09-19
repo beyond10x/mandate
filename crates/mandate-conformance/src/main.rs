@@ -1,24 +1,23 @@
 //! `mandate-conform`: run an ESS conformance suite against the real Mandate handlers.
 //!
-//! The surface is frozen here and the behaviour arrives with `story:conformance-target`:
-//! `--suite`, `--impl-digest` and `--out`, and nothing else. Freezing it first is what lets
-//! `story:conform-gate` and the story's own gate name the invocation before there is anything
-//! to invoke; a surface that moved afterwards would invalidate every command line already
-//! written against it.
+//! The surface is the one `story:conform-gate` was written against and this story froze:
+//! `--suite`, `--impl-digest`, `--out`, and nothing else.
 //!
-//! Until then every run refuses, non-zero and by name, so that a caller who wires this into a
-//! pipeline today gets a failure that says which story owns the gap rather than an empty
-//! output directory that reads like a passing run. `xtask`'s binary check
-//! (`xtask/src/main.rs`) holds that open from the other side: `--help` and `--version` must
-//! exit zero and `serve` must not, so this binary cannot quietly grow a runtime command.
+//! # Exit zero on a written report, whatever the report says
+//!
+//! A conformance verdict is a fact the report carries, not a fact the process status
+//! carries, and the two mean different things: a non-zero exit says *the run did not
+//! happen*, and a `conformance_status` of `failed` says *the run happened and the
+//! implementation does not yet satisfy the specification*. Collapsing them would make the
+//! gate unable to tell a target that crashed from one that reported 46 scenarios it cannot
+//! drive — and `initiative:drift-enforcement`'s release stance turns on exactly that
+//! distinction. So a run that wrote a report exits zero and the gate reads the report.
 
 use std::path::PathBuf;
 use std::process::ExitCode;
 
 use clap::Parser;
-
-/// What every run says until `story:conformance-target` lands.
-const UNIMPLEMENTED: &str = "not yet implemented: story:conformance-target";
+use mandate_conformance::Executed;
 
 /// Run a conformance suite against the Mandate implementation and record what happened.
 #[derive(Parser)]
@@ -38,29 +37,44 @@ struct Args {
 }
 
 fn main() -> ExitCode {
-    ExitCode::from(conform(Args::parse()))
+    ExitCode::from(conform(&Args::parse()))
 }
 
-/// Refuse the run, naming the story that will implement it.
+/// Execute the suite and write the three documents, reporting the process status.
 ///
-/// Returns the process status, so the refusal is decided by a value a test can read rather
-/// than by a call to [`std::process::exit`] that a test could only observe by spawning.
-/// Non-zero is the contract `xtask` checks: a caller must not be able to mistake "nothing ran"
-/// for "everything passed".
-fn conform(args: Args) -> u8 {
-    let Args {
-        suite,
-        impl_digest,
-        out,
-    } = args;
-    eprintln!("mandate-conform: {UNIMPLEMENTED}");
+/// Returns the status as a value a test can read rather than calling
+/// [`std::process::exit`], which a test could only observe by spawning.
+fn conform(args: &Args) -> u8 {
+    let suite = match std::fs::read_to_string(&args.suite) {
+        Ok(suite) => suite,
+        Err(error) => {
+            eprintln!(
+                "mandate-conform: {} could not be read: {error}",
+                args.suite.display()
+            );
+            return 1;
+        }
+    };
+    let executed = match Executed::of(&suite, &args.impl_digest) {
+        Ok(executed) => executed,
+        Err(error) => {
+            eprintln!("mandate-conform: the suite was not executed: {error}");
+            return 1;
+        }
+    };
+    if let Err(error) = executed.write(&args.out) {
+        eprintln!(
+            "mandate-conform: {} could not be written: {error}",
+            args.out.display()
+        );
+        return 1;
+    }
     eprintln!(
-        "mandate-conform: no scenario was read from {}, no report was written under {}, and nothing was recorded for implementation {}",
-        suite.display(),
-        out.display(),
-        impl_digest
+        "mandate-conform: {} conformance_status={:?}",
+        args.out.display(),
+        executed.conformance_status
     );
-    1
+    0
 }
 
 #[cfg(test)]
@@ -69,13 +83,8 @@ mod tests {
     use clap::{CommandFactory, Parser};
 
     /// The frozen surface parses, and the three checks `xtask` runs against this binary hold.
-    ///
-    /// `--help` and `--version` exit zero, anything that looks like a runtime command does
-    /// not, and a complete, well-formed invocation still refuses. The last one is the check
-    /// that matters: a binary that exited zero on a run it did not perform would report an
-    /// unimplemented target as a passing conformance run.
     #[test]
-    fn the_frozen_surface_refuses_every_run() {
+    fn the_frozen_surface_parses_and_refuses_what_it_must() {
         Args::command().debug_assert();
 
         for flag in ["--help", "--version"] {
@@ -94,17 +103,24 @@ mod tests {
             .err()
             .expect("no arguments parsed as a run");
         assert_ne!(error.exit_code(), 0, "a bare invocation exits zero");
+    }
 
+    /// A suite that cannot be read is a run that did not happen, and exits non-zero.
+    ///
+    /// The other half of the exit contract argued at the module: a written report exits
+    /// zero whatever its verdict, and nothing else does.
+    #[test]
+    fn a_suite_that_cannot_be_read_exits_non_zero() {
         let args = Args::try_parse_from([
             "mandate-conform",
             "--suite",
-            "suite.json",
+            "a-path-no-run-wrote.json",
             "--impl-digest",
             "000000000000",
             "--out",
-            "out",
+            "a-directory-no-run-wrote",
         ])
         .expect("the frozen surface refused its own arguments");
-        assert_ne!(conform(args), 0, "an unimplemented run exits zero");
+        assert_eq!(conform(&args), 1, "an unreadable suite exited zero");
     }
 }
