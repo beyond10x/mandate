@@ -256,7 +256,7 @@
       "expected": "validity cannot exceed documented TTL/skew bound; no immediate claim",
       "level": "contract-scenario",
       "commands": [
-        "mandate.credential.IssueReferenceCredential",
+        "mandate.credential.IssueSelfContainedCredential",
         "mandate.credential.IntrospectCredential",
         "mandate.authorization.Check"
       ]

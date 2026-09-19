@@ -19,3 +19,5 @@ serde_json = { workspace = true }
 [dev-dependencies]
 aws-lc-rs = { workspace = true }
 rand = { workspace = true }
+mandate-contract = { version = "0.2.0", path = "../mandate-contract" }
+mandate-testkit = { version = "0.2.0", path = "../mandate-testkit" }

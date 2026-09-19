@@ -2,43 +2,37 @@
 format: aep.planning-md/1
 id: story:credential-profiles
 kind: story
-status: draft
+status: active
 title: Implement audience registry and both credential families
 relations:
 - decomposes: epic:sts-credentials
 - serves: vision:mandate
 - depends_on: story:pkce-sessions
-- depends_on: story:audit-client
 - informed_by: initiative:next-ten-waves
+- informed_by: story:audit-client
+- depends_on: story:signing-and-verification
+- depends_on: story:declared-writers
 scope:
-- confidence: inferred
-  path: crates/mandate-token/src/algorithm.rs
 - confidence: cited
   path: crates/mandate-token/src/lib.rs
 - confidence: inferred
   path: crates/mandate-token/src/projection.rs
 - confidence: inferred
-  path: crates/mandate-token/src/signing.rs
-- confidence: inferred
   path: crates/mandate-token/src/verifier.rs
-- confidence: inferred
-  path: crates/mandate-token/tests/algorithm.rs
 - confidence: cited
   path: crates/mandate-token/tests/conformance.rs
 - confidence: inferred
+  path: crates/mandate-token/tests/contract_agreement.rs
+- confidence: inferred
   path: crates/mandate-token/tests/projection.rs
 - confidence: inferred
-  path: crates/mandate-token/tests/signing.rs
-- confidence: inferred
   path: crates/mandate-token/tests/verifier.rs
-- confidence: inferred
-  path: crates/mandate-types/src/inventory.rs
-- confidence: inferred
-  path: crates/mandate-types/tests/inventory.rs
 - confidence: cited
   path: services/sts/Cargo.toml
 - confidence: inferred
   path: services/sts/src/issue.rs
+- confidence: inferred
+  path: services/sts/src/keys.rs
 - confidence: inferred
   path: services/sts/src/lib.rs
 - confidence: inferred
@@ -46,14 +40,22 @@ scope:
 - confidence: inferred
   path: services/sts/src/resolve.rs
 - confidence: inferred
+  path: services/sts/tests/contract_agreement.rs
+- confidence: inferred
   path: services/sts/tests/corpus.rs
+- confidence: inferred
+  path: services/sts/tests/emitted_events.rs
 - confidence: inferred
   path: services/sts/tests/issue.rs
 - confidence: inferred
+  path: services/sts/tests/keys.rs
+- confidence: inferred
   path: services/sts/tests/registry.rs
 - confidence: inferred
+  path: services/sts/tests/replay.rs
+- confidence: inferred
   path: services/sts/tests/resolve.rs
-revision: 9
+revision: 15
 ---
 # Implement audience registry and both credential families
 
@@ -110,12 +112,48 @@ Two coordinator interface commits — one per crate root — then the units. `cr
 
 ## Scope
 
-- `crates/mandate-token/src/lib.rs`, `crates/mandate-token/tests/conformance.rs` — cited; coordinator.
-- `crates/mandate-token/src/projection.rs`, `algorithm.rs`, `signing.rs`, `verifier.rs`; `tests/projection.rs`, `algorithm.rs`, `signing.rs`, `verifier.rs` — inferred; do not exist.
-- `services/sts/Cargo.toml` — cited; coordinator.
-- `services/sts/src/lib.rs`, `registry.rs`, `issue.rs`, `resolve.rs`; `tests/corpus.rs`, `registry.rs`, `issue.rs`, `resolve.rs` — inferred; do not exist.
-- `crates/mandate-types/src/inventory.rs`, `crates/mandate-types/tests/inventory.rs` — inferred; coordinator; the exclusion reasons; sequential with `story:domain-runtime` by a four-edge chain.
-- Would collide with: any unit touching either crate root; `story:domain-runtime` on the two inventory files; `story:oauth-integration` and `story:constrained-exchange` on `services/sts/src/lib.rs`, all sequential by edge.
+Re-derived 2026-09-19 by `story-scoper` on `main` at `a76267b` (wave A merged), replacing the section written before wave A. **Cited** = read from the tree; **inferred** = a reading that could be wrong.
+
+- **Primary surface:** `services/sts` — cited; the acceptance's revoke-then-introspect and three of the five unit rows land there. Co-primary `crates/mandate-token` — cited; the projections and the reference verifier.
+- **Confidence:** high for the two crates and the coordinator set; medium for the per-unit file split (the files do not exist).
+- **Superseded by wave A, dropped from scope:** `crates/mandate-token/src/algorithm.rs`, `src/signing.rs`, `tests/algorithm.rs`, `tests/signing.rs` — cited. `AllowedAlgorithms` (`crates/mandate-token/src/signing_real.rs:156`), `CredentialSigner` (`:662`, `sign<T: Serialize>` at `:669`), `RealSigner<C>` (`:741`), `RevokedKey` (`:706`), `SigningKeyMaterial` (`:413`), `Clock` (`:642`), `StandardClaims` (`:550`), `SignedCredential` (`:563`) exist there. `story:signing-and-verification` owns that file and its four test files; this story consumes the port and edits none of them. `decision-blocker:algorithm-policy` is cleared.
+
+### Units — one implementor this wave; the rows are the order inside it
+
+| Unit | Crate | Files (all to create) | Symbols | ESS commands / events | Test file |
+|---|---|---|---|---|---|
+| `projection` | `crates/mandate-token` | `src/projection.rs`, `tests/projection.rs`, `tests/contract_agreement.rs` | `ResourceServer`, `AccessCredential`, `SigningKey` records and their `State` enums agreeing with `generated/rust/mandate-contract/src/entities.rs`; `CredentialEvent` as the declared payload structs with `ess_name()`; folds; the `(organization_id, audience)` conflict path returning the declared denial (`decision-blocker:identity-uniqueness` evidence) | entities `credential.yaml:10`, `:46`, `:77` — cited | `tests/projection.rs` |
+| `verifier` | `crates/mandate-token` | `src/verifier.rs`, `tests/verifier.rs` | non-reversible reference verifier as a port, digest supplied by the caller (`mandate-token` has no `sha2`: `dependency-boundaries.json:33-40`) — cited; constant-time comparison | — | `tests/verifier.rs` |
+| `registry` | `services/sts` | `src/registry.rs`, `tests/registry.rs` | satisfies `mandate_federation::authorize::TargetRegistry` (`crates/mandate-federation/src/authorize.rs:65-81`) — cited | `RegisterResourceServer` (`credential.yaml:242`), `DisableResourceServer` (`:161`); `ResourceServerRegistered` (`:542`), `ResourceServerDisabled` (`:522`) — cited | `tests/registry.rs` |
+| `issue` | `services/sts` | `src/issue.rs`, `tests/issue.rs` | consumes `CredentialSigner`, `StandardClaims`, `SignedCredential` — cited | `IssueReferenceCredential` (`:272`), `IssueSelfContainedCredential` (`:313`); `CredentialReferenceIssued` (`:554`), `CredentialSelfContainedIssued` (`:572`) — cited | `tests/issue.rs` |
+| `resolve` | `services/sts` | `src/resolve.rs`, `tests/resolve.rs` | the acceptance's revoke-then-introspect over the `AccessCredential` projection | `IntrospectCredential` (`:400`), `RevokeAccessCredential` (`:183`); `CredentialIntrospected` (`:608`), `AccessCredentialRevoked` (`:528`) — cited | `tests/resolve.rs` |
+| crate roots — this story's implementor, shared with no other unit this wave | both | `crates/mandate-token/src/lib.rs` (`pub mod projection; pub mod verifier;` beside `:182`); `services/sts/src/lib.rs`; `services/sts/tests/corpus.rs`, `tests/emitted_events.rs`, `tests/replay.rs` | `realizes!` registry over `mandate.credential`; `ESS_REALIZATIONS` / `ESS_UNREALIZED` | — | `crates/mandate-token/tests/conformance.rs:71` (2 entries, unchanged) — cited |
+
+- **Gate:** `cargo fmt -p mandate-token -p mandate-sts -- --check`; `cargo clippy -p mandate-token -p mandate-sts --all-targets --locked -- -D warnings`; `cargo test -p mandate-token -p mandate-sts --locked`, counts reported.
+- **Minimum set for the acceptance and the five corpus cases:** all five units — cited: `tests/security/cases.json:195, :209, :223, :237, :251` each name `IssueReferenceCredential` and `IntrospectCredential`; `reference-persistence` (`:199`) needs `verifier`; `reference-audience` needs `registry`. `IssueSelfContainedCredential` is named by no case's `commands` list — inferred; its half of `issue` is carried by the Required observations.
+
+### Coordinator-owned — pre-landed in the wave's opening commit; no unit edits them
+
+- `services/sts/Cargo.toml` (`:12-17` today: `[[bin]]` and `clap` alone) — cited; gains a `[lib]` target, `serde`, `serde_json`, `mandate-types`, `mandate-model`, `mandate-token`, and dev `mandate-contract`, `mandate-testkit`.
+- `crates/mandate-token/Cargo.toml:19-21` — inferred; gains dev `mandate-contract`, `mandate-testkit` (pre-landed for four crates in wave A, not this one: `docs/plans/2026-09-19-wave-a-execution.md:21`).
+- `dependency-boundaries.json` — cited; `mandate-sts` has no `libraries` key (`:111-117`, falls through to `external`) and gets its own; `mandate-token` (`:33-40`) gains the two dev crates.
+- `xtask/src/main.rs:190` `LIBRARIES = 16` → 17 and the doc comment at `:188-189` — cited.
+- `Cargo.lock` — inferred; path edges only.
+- `services/sts/src/main.rs:1-10` stays the stub — cited; `xtask/src/main.rs:457-473` keeps asserting `serve` fails.
+- `crates/mandate-types/src/inventory.rs`, `tests/inventory.rs` — not touched: the seven `EXCLUDED_SEMANTICS` entries at `src/inventory.rs:577-584` are `mandate-types`' own value types — inferred.
+
+### Contract facts this story's implementor builds against — settled at the wave B opening
+
+1. `IntrospectCredential` (`credential.yaml:400-423`): the accepted response carries `active: Boolean`; `CredentialIntrospected` (`:608-613`) carries `context` and `descriptor` only. A well-formed credential that is revoked or expired is `accepted` with `active: false` and no descriptor — the reading the corpus states (`reference-revoked`, `reference-expired`: "inactive"). The `denied` clause is corrected by `story:declared-writers` this wave to name a malformed or unresolvable presented proof instead of "invalid/revoked/expired".
+2. `mandate.credential.SigningKey` (`:77`) has no creating command or event — cited. `story:declared-writers` adds `RegisterSigningKey` / `SigningKeyRegistered` this wave; the `projection` unit folds `SigningKey` from the regenerated shape in its correction round, or names the residue.
+3. `profile-offline-bound` (`tests/security/cases.json:251-262`) is a "signed credential" case naming `IssueReferenceCredential` — cited; corrected to `IssueSelfContainedCredential` in the opening commit (coordinator-owned corpus).
+4. `depends_on story:audit-client` carried no reason and nothing here can depend on `crates/mandate-audit` (`dependency-boundaries.json:69-71`; not in `external` at `:111-117`) — cited. Downgraded to `informed_by`; audit on the denial path is a port stand-in, as `story:protocol-adapters`' `denial` unit takes.
+
+### Would collide with
+
+- `story:oauth-integration` (`services/sts/src/main.rs`, `services/sts/Cargo.toml`) and `story:constrained-exchange` on `services/sts` — cited; both `depends_on` this story, sequential by edge.
+- Any unit touching `dependency-boundaries.json`, `Cargo.lock`, `xtask/src/main.rs` — coordinator-only.
+- Not `crates/mandate-token/src/signing_real.rs` or its four test files — `story:signing-and-verification`'s.
 
 ## Validation and contract
 
@@ -124,3 +162,17 @@ Two coordinator interface commits — one per crate root — then the units. `cr
 ## Inherited from wave A, 2026-09-19
 
 - Superseded by wave A (design D2): the `signing` unit row no longer lands the signing port, `kid` or the rotation window in `crates/mandate-token/src/signing.rs`; `story:signing-and-verification`'s `token-signer` declares and implements `CredentialSigner` in `signing_real.rs` first, and this story's issuance consumes that port.
+
+## Rulings — wave B opening, 2026-09-19
+
+Coordinator, after `review-result:wave-b-parallel-r1` and `review-result:wave-b-design-r1`.
+
+1. **Order.** This story's tree is cut only after `story:declared-writers`' contract round has merged and the coordinator has regenerated `generated/**`; `depends_on story:declared-writers` records it. The wave page's "disjoint and parallel" reads as: disjoint by file, sequential by the IR (parallel-safety 1 and 2, design 2).
+2. **Edge direction.** `depends_on story:signing-and-verification` recorded here; that story's `depends_on story:credential-profiles` removed — wave A landed the signer first and the `issue` unit consumes `CredentialSigner` (design 1).
+3. **Crate roots.** `crates/mandate-token/src/lib.rs` and `services/sts/src/lib.rs` are this story's implementor's this wave. The "two coordinator interface commits" paragraph under Units, and the `algorithm` and `signing` rows of that table, are superseded by wave A and by the re-derived Scope (parallel-safety 3).
+4. **One registry.** The `mandate.credential` realization registry lives in `services/sts/src/lib.rs` with its exhaustive test in `services/sts/tests/contract_agreement.rs`; entities and events realized by `mandate-token` types are accounted there by path. `crates/mandate-token` carries no domain registry.
+5. **No federation edge.** The `registry` unit does not implement `mandate_federation::authorize::TargetRegistry`. It exposes the `ResourceServer` fold's read API — the organization a registered target belongs to, and whether it is enabled — and the `TargetRegistry` adapter over it is the composition's (`story:product-listener`, `port-adapters`). `mandate-sts` gains no `mandate-federation` dependency (design 3).
+6. **Sixth unit, `keys`.** `services/sts/src/keys.rs`, `tests/keys.rs`: `RegisterSigningKey`, `RetireSigningKey`, `RevokeSigningKey` deciding over the `SigningKey` projection and emitting `SigningKeyRegistered`, `SigningKeyRetired`, `SigningKeyRevoked`. Rehydrating `RealSigner::new_with_revocations` from the fold is the composition's, named as residue (design 4).
+7. **Introspection.** A well-formed credential that is revoked or expired answers `accepted` with `active: false`, no descriptor; the event carries `active` and `credential_id` after `declared-writers` C0 (design 6). `reference-audience` stays a denial.
+8. **The cached-resolution clause.** The `resolve` acceptance test owns a caching resolver double and shows it is not consulted after `AccessCredentialRevoked`.
+9. **Stale prose.** "`mandate-model` may depend only on `mandate-types`" under *Projections are forced into `mandate-token`* is stale since wave A (`dependency-boundaries.json:12-19` lists five entries); the projections still land in `mandate-token` because `CredentialProfile` and `CredentialDescriptor` are declared there.

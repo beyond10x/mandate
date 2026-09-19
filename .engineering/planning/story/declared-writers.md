@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:declared-writers
 kind: story
-status: draft
+status: active
 title: Every record has a declared writer
 relations:
 - decomposes: epic:foundations
@@ -10,6 +10,24 @@ relations:
 - depends_on: story:domain-runtime
 - depends_on: story:contract-creates
 scope:
+- confidence: inferred
+  path: crates/mandate-federation/src/lib.rs
+- confidence: inferred
+  path: crates/mandate-federation/src/record.rs
+- confidence: inferred
+  path: crates/mandate-federation/src/register_client.rs
+- confidence: inferred
+  path: crates/mandate-federation/tests/contract_agreement.rs
+- confidence: inferred
+  path: crates/mandate-federation/tests/emitted_events.rs
+- confidence: inferred
+  path: crates/mandate-federation/tests/replay.rs
+- confidence: inferred
+  path: crates/mandate-identity/src/lib.rs
+- confidence: inferred
+  path: crates/mandate-identity/src/port.rs
+- confidence: inferred
+  path: crates/mandate-identity/tests/replay.rs
 - confidence: cited
   path: crates/mandate-types/tests/contract_adversary.rs
 - confidence: cited
@@ -34,7 +52,7 @@ scope:
   path: systems/mandate/domains/policy.yaml
 - confidence: cited
   path: systems/mandate/domains/workload.yaml
-revision: 6
+revision: 12
 ---
 # Every record has a declared writer
 
@@ -50,115 +68,63 @@ Per entity the decision is one of two: a command in the contract with one accept
 
 ## Scope
 
-Derived 2026-09-18 by `story-scoper`. Every line is **cited** (read from the story or the tree) or **inferred** (a reading that could be wrong).
+Re-derived 2026-09-19 by `story-scoper` on `main` at `a76267b` (wave E1 and wave A merged), replacing the 2026-09-18 section. **Cited** = read from the tree; **inferred** = a reading that could be wrong.
 
-- **Primary surface:** `systems/mandate/domains/` — eight of its twelve files — cited, the story's own Scope line
-- **Files:** `credential.yaml:77`, `delegation.yaml:70,97,137,196`, `directory.yaml:171`, `federation.yaml:85`, `graph.yaml:85` and `:19-20`, `identity.yaml:161,176,191` (header `:1-6`), `policy.yaml:6,35`, `workload.yaml:5` — cited, every entity found at that line
-- **Symbols:** the eleven entities, `mandate.graph.Resource.space_id`, `generation` on the three epoch entities — cited
-- **Documents:** `docs/architecture/command-obligations.md` — cited; one row per new command, 59 rows today
-- **Also, coordinator-owned:** `systems/mandate/components.yaml` — inferred; 124 `- mandate.*` entries under `accepts:`/`publishes:` = 59 commands + 65 events, so each new command and event is wired there (precedent: `story:domain-runtime`'s coordinator row for `ProvisionExternalPrincipal`)
-- **Also, coordinator-owned:** `crates/mandate-types/tests/contract_adversary.rs:172-176,704-712` — cited; pins 59 commands and 65 events, see *Bounding invariant*
-- **Also, coordinator-owned:** `generated/` — cited; regenerated, never hand-edited
-- **Confidence:** high — the story names all eleven entities by domain and every one resolves to a declaration line in the tree
-- **Would collide with:** any unit editing `credential`, `delegation`, `directory`, `federation`, `graph`, `identity`, `policy` or `workload.yaml`; any unit editing `systems/mandate/components.yaml`, `docs/architecture/command-obligations.md`, `generated/` or `crates/mandate-types/tests/contract_adversary.rs`
+- **Primary surface:** `systems/mandate/domains/` — cited; the story's own scope and its Exclusions ("contract-only"). Wave B lifts the exclusion for two fold arms whose owning stories are closed (see *Rulings — wave B opening*).
+- **Confidence:** high for the two login-road entities; medium on the command and event names, which exist nowhere yet.
+- **Would collide with:** any unit editing `systems/mandate/domains/*.yaml`, `systems/mandate/components.yaml`, `docs/architecture/command-obligations.md`, `docs/architecture/federated-login.md`, `generated/**`, or the count pins named under *Coordinator-owned*.
 
-### Entities, by domain file
+### What wave E1 changed under this story
 
-All lines cited.
+- 19 `creates:` lines exist over 16 entities (`audit.yaml:142`; `credential.yaml:264,299,340,386,464`; `delegation.yaml:306`; `directory.yaml:304`; `federation.yaml:188,221,257,303`; `graph.yaml:180,210`; `tenancy.yaml:190,241,266,319,369`) — cited. 36 entities (`crates/mandate-types/tests/inventory.rs:111`) less 16 leaves 20 creator-less.
+- `mandate.identity.Principal` is out of the unfoldable residue — cited: `crates/mandate-types/tests/adversary_fold_inputs.rs:399-412` and `adversary_fold_inputs_2.rs:324-337` pin 12 entities, Principal in neither. `mandate.federation.ExternalPrincipalProvisioned` carries every Principal field (`federation.yaml:459-464`).
+- `mandate.federation.OAuthClient` is still residue at field `public` — cited, `adversary_fold_inputs.rs:405`.
 
-| File (sections) | Entity | Declared | Fields | Terminal-only moves | Existing move event |
-|---|---|---|---|---|---|
-| `systems/mandate/domains/credential.yaml` (`commands: :160`, `events: :442`; header `:7` "no command deletes a key") | `mandate.credential.SigningKey` | `:77` | `:82-89` | retire `:100-103`, revoke `:104-108` | `SigningKeyRetired :513`, `SigningKeyRevoked :519` |
-| `systems/mandate/domains/delegation.yaml` (`:248`, `:376`) | `mandate.delegation.Agent` | `:70` | `:75-78` | retire `:87-90` | `AgentRetired :385` |
-| | `mandate.delegation.AgentCapabilityCeiling` | `:97` | `:102-113` | supersede `:122-125` | `AgentCapabilityCeilingSuperseded :391` |
-| | `mandate.delegation.Execution` | `:137` | `:142-157` | complete `:166-169` | `ExecutionCompleted :397` |
-| | `mandate.delegation.Approval` | `:196` | `:201-214` | consume `:223-226` | `ApprovalConsumed :403` |
-| `systems/mandate/domains/directory.yaml` (`:211`, `:372`) | `mandate.directory.SyncJob` | `:171` | `:176-181` | complete `:192-195`, fail `:196-199` | `SyncJobCompleted :409`, `SyncJobFailed :415` |
-| `systems/mandate/domains/federation.yaml` (`:116`, `:323`) | `mandate.federation.OAuthClient` | `:85` | `:90-97` | disable `:106-109` | `OAuthClientDisabled :382` |
-| `systems/mandate/domains/graph.yaml` (`:116`, `:214`) | `mandate.graph.Grant` | `:85` | `:90-97` | revoke `:106-109` | `GrantRevoked :219` |
-| | `mandate.graph.Resource.space_id` | `:19-20`, `Optional<mandate.core.SpaceId>` | — | `RegisterResource :153-160` takes `context, resource, parent` and no space; `ResourceRegistered :223-226` carries `context` only | — |
-| `systems/mandate/domains/identity.yaml` (header `:1-6`, `:206`, `:297`) | first `generation` of `PrincipalSecurityEpoch :161`, `OrganizationSecurityEpoch :176`, `FederationSecurityEpoch :191` | `generation: Integer` at `:166-167`, `:181-182`, `:196-197` | — | `Recorded`-only; `IncrementSecurityEpoch :279-296` is an adapter obligation (`:6`, `:293`) | — |
-| | `mandate.identity.Principal :9`, `mandate.identity.SecurityEpochSnapshot :128` | — | — | declaration only, per the story's Required observations | — |
-| `systems/mandate/domains/policy.yaml` (`:64`, `:105`) | `mandate.policy.Policy` | `:6` | `:11-16` | supersede `:25-28` | `PolicySuperseded :106` |
-| | `mandate.policy.AuthorizationModel` | `:35` | `:40-45` | supersede `:54-57` | `AuthorizationModelSuperseded :112` |
-| `systems/mandate/domains/workload.yaml` (`:41`, `:62`) | `mandate.workload.WorkloadIdentity` | `:5` | `:10-17` | revoke `:26-29` | `WorkloadIdentityRevoked :63` |
+### The login road, entity by entity
 
-The form a writer *declaration* takes already exists: header comments `identity.yaml:6` ("IncrementSecurityEpoch remains an adapter obligation") and `credential.yaml:4` ("STS alone owns authorization-code verifier storage and consumption") — cited.
+| Entity | Record | Seeding event today | Needs |
+|---|---|---|---|
+| `mandate.identity.Principal` (`identity.yaml:12-19`: `id`, `kind`, `display_name`) | 3 fields | `ExternalPrincipalProvisioned` carries `principal_id` (`federation.yaml:459-460`), `kind` (`:461-462`), `display_name` (`:463-464`) | a declaration only; no new event — cited |
+| `mandate.federation.OAuthClient` (`federation.yaml:85-98`: `organization_id`, `public`, `redirect_uris`, `pkce_method`) | 4 fields | `OAuthClientDisabled` (`:495-500`) carries `context` and `id` only | a creating command and a creation event — cited |
+| `mandate.credential.SigningKey` (`credential.yaml:77-107`: `key_reference`, `algorithm`, `not_before`, `expires_at`; `Recorded → Retired/Revoked`) | 4 fields | `SigningKeyRetired` (`:646`), `SigningKeyRevoked` (`:652`) move it; nothing creates it | a creating command and a creation event — cited |
 
-`docs/architecture/command-obligations.md`: 59 rows today (lines `:7-65`; header `:5-6`) — cited. The check is `xtask/src/main.rs:137-186 fn obligations`: every compiled command needs a row (`:164-166`), the row's text must equal the command's `external:` denial verbatim (`:167-171`), no row may name an undeclared command (`:176-179`). It runs from `corpus()` at `:267`, which `check` calls at `:310` — cited. Each new command's `external:` text is therefore copied into one new row, alphabetical.
+### The contract gap, at its line
 
-### Bounding invariant
-
-`crates/mandate-types/tests/inventory.rs` — cited: `:35` 110 compiled type entries, `:40` 74 authored, `:46` 36 derived state enums, `:111` 36 entities. No new type (no new `core.yaml` entry) and no new entity.
-
-**Commands and events are pinned** — cited, `crates/mandate-types/tests/contract_adversary.rs`: `:172-176` and `:704-708` assert 59 commands; `:709-712` asserts 65 events. Both readers run `ess specify compile --path systems/mandate` themselves (`:163`, `:693-694`), so `cargo test -p mandate-types` fails in a unit worktree the moment the first command is added, before any regeneration. Raising the pins is the coordinator's edit. `:1128` embeds "all 59" in an assertion message; it goes stale but does not fail.
-
-### Type stop condition — none triggered
-
-Whole-tree check, cited: every `type:` in `systems/mandate/domains/*.yaml` is `mandate.core.*`, a primitive, or `List<>`/`Optional<>` of one; no file but `core.yaml:2` has a `types:` section. Every command also takes `context: mandate.core.VerifiedContext` (`core.yaml:211`; pattern `graph.yaml:155-156`).
-
-| Creating command for | Input types needed | In `core.yaml` at |
-|---|---|---|
-| `SigningKey` | `SigningKeyId`, `KeyReference`, `SigningAlgorithm`, `Timestamp` | `:90`, `:126`, `:312` |
-| `Agent` | `PrincipalId`, `OrganizationId`, `String` | `:3`, `:6` |
-| `AgentCapabilityCeiling` | `AgentCapabilityCeilingId`, `PrincipalId`, `Optional<OrganizationId>`, `List<ActionPattern>`, `AuthorityScope`, `Duration` | `:306`, `:3`, `:6`, `:138`, `:199` |
-| `Execution` | `ExecutionId`, `OrganizationId`, `PrincipalId`, `Optional<DelegationId>`, `Optional<SessionId>`, `PolicyVersion`, `Timestamp` | `:36`, `:6`, `:3`, `:33`, `:60`, `:117` |
-| `Approval` | `ApprovalId`, `OrganizationId`, `PrincipalId`, `Action`, `ResourceRef`, `Timestamp` | `:81`, `:6`, `:3`, `:96`, `:192` |
-| `SyncJob` | `SyncJobId`, `OrganizationId`, `FederationConnectionId`, `CorrelationId` | `:93`, `:6`, `:42`, `:120` |
-| `OAuthClient` | `OAuthClientId`, `OrganizationId`, `Boolean`, `List<RedirectUri>`, `PkceMethod` | `:84`, `:6`, `:132`, `:188` |
-| `Grant` | `GrantId`, `OrganizationId`, `AuthoritySubject`, `AuthorityScope`, `String` | `:27`, `:6`, `:325`, `:199` |
-| `Policy` | `PolicyId`, `OrganizationId`, `PolicyVersion`, `String` | `:72`, `:6`, `:117` |
-| `AuthorizationModel` | `AuthorizationModelId`, `OrganizationId`, `PolicyVersion`, `String` — the entity's `version` is `PolicyVersion` (`policy.yaml:42-43`), not `AuthorizationModelVersion` (`core.yaml:309`) | `:75`, `:6`, `:117` |
-| `WorkloadIdentity` | `WorkloadIdentityId`, `OrganizationId`, `PrincipalId`, `TrustDomain`, `ExternalSubject` | `:78`, `:6`, `:3`, `:135`, `:108` |
-| `Resource.space_id` | `Optional<SpaceId>` added to `RegisterResource :154-160` and `ResourceRegistered :224-226` | `:21` |
-| epoch `generation` | `Integer` — declaration, no command | — |
-
-Stop condition only if an implementor introduces a per-command input struct (a new `mandate.core.*` entry); flat inputs need none — inferred.
-
-### Priority for the customer login vertical
-
-1. `mandate.federation.OAuthClient` — `systems/mandate/domains/federation.yaml:85` — cited. Consumed by `AuthorizePublicClient` (`federation.yaml:269`, input `client_id: mandate.core.OAuthClientId` `:271-272`; header `:3`), by `story:pkce-sessions`' registered-client lookup, and by `crates/mandate-federation/src/record.rs:244-245` whose `UnknownOAuthClient` exists "because the contract declares no command that creates an `OAuthClient`".
-2. `mandate.credential.SigningKey` — `systems/mandate/domains/credential.yaml:77` — cited. Consumed by `story:credential-profiles`; `RetireSigningKey`'s denial requires "an overlapping replacement key" (`command-obligations.md:18`), so the creating command is also the rotation path (`credential.yaml:7`).
+`federation.yaml:303` — cited. `ProvisionExternalPrincipal`'s accepted outcome spends its one `creates:` on `mandate.federation.ExternalPrincipal` (`instance: external_principal_id`, `:304`); under ESS 0.26.0 an outcome declares one of `creates`/`moves`/`updates`, so the Principal the same outcome produces (`:305`) cannot be declared there. Cross-domain `creates:` is not the obstacle (`AuthenticateFederation` at `:257` creates `mandate.identity.Session`). Closure taken: **P1**, a header declaration in `identity.yaml:1-10` in the form `:8` uses for `SessionOpened`, naming `ExternalPrincipalProvisioned` as the Principal's seeding event and the identity fold as its consumer; compiles to nothing, moves no pin. P2 (a `RegisterPrincipal` command) is not taken: it would amend the adapter's two-call sequence at `docs/architecture/federated-login.md:105,118`.
 
 ### Units
 
-No file appears in two rows. Command and event names are placeholders — inferred; none exists anywhere in the tree today.
+| Unit | Wave | Files | Adds | Gate |
+|---|---|---|---|---|
+| A1 `principal-writer` | B, contract round | `systems/mandate/domains/identity.yaml:1-10` | the Principal declaration (P1) | `ess specify validate --path systems/mandate` |
+| A2 `oauth-client-writer` | B, contract round | `systems/mandate/domains/federation.yaml` (command before `DisableOAuthClient` at `:367`; event before `:495`); `systems/mandate/components.yaml:37,80`; `docs/architecture/command-obligations.md` | `mandate.federation.RegisterOAuthClient` → `OAuthClientRegistered` carrying `context`, `id`, `organization_id`, `public`, `redirect_uris`, `pkce_method`; `creates: mandate.federation.OAuthClient`, `instance: id`; a `denied` outcome | same |
+| C1 `signing-key-writer` | B, contract round | `systems/mandate/domains/credential.yaml` (command before `RetireSigningKey` at `:475`; event before `:646`); `components.yaml`; `command-obligations.md` | `mandate.credential.RegisterSigningKey` → `SigningKeyRegistered` carrying `context`, `id`, `key_reference`, `algorithm`, `not_before`, `expires_at`; `creates: mandate.credential.SigningKey`, `instance: id`; a `denied` outcome | same |
+| C0 `introspection-text` | B, contract round | `credential.yaml:417`; `command-obligations.md` row | the `IntrospectCredential` denial names a malformed or unresolvable presented proof, not "invalid/revoked/expired" (ruling on `story:credential-profiles`) | same |
+| A3 `principal-fold` | B, realization round (after the coordinator's regeneration) | `crates/mandate-identity/src/port.rs` (the arm beside `session_of` at `:304-321`), `crates/mandate-identity/tests/replay.rs` | the Principal record folded from `mandate_contract::events::MandateFederationExternalPrincipalProvisioned` (`generated/rust/mandate-contract/src/events.rs:406`); `dependency-boundaries.json:44` already admits `mandate-contract` | `cargo test -p mandate-identity --locked` |
+| A4 `oauth-client-fold` | B, realization round | `crates/mandate-federation/src/register_client.rs` (create), `src/record.rs` (the arm beside `:578-584`, replacing `FoldError::UnknownOAuthClient` at `:338-343`), `src/lib.rs:162-185` (`realizes!`), `tests/replay.rs`, `tests/emitted_events.rs`, `tests/contract_agreement.rs` | the `RegisterOAuthClient` handler and the creation arm | `cargo test -p mandate-federation --locked` |
+| B `delegation-graph-writers`, C2 `policy-directory-workload` | later wave | `delegation.yaml:330,353,376,399`, `graph.yaml:153`, `policy.yaml:79,102`, `directory.yaml:376,399`, `workload.yaml:56`, `identity.yaml` | creators or declarations for the remaining creator-less entities; `RegisterResource` gains the space input | same |
 
-| Unit | Owns (yaml files) | Validation | Produces |
-|---|---|---|---|
-| A `login-writers` | `systems/mandate/domains/federation.yaml`, `systems/mandate/domains/credential.yaml` | `ess specify validate --path systems/mandate` | `OAuthClient` creating command + creation event; `SigningKey` registration/rotation command + event; the verbatim `external:` text of each, handed to the coordinator for the obligations rows |
-| B `delegation-graph-writers` | `systems/mandate/domains/delegation.yaml`, `systems/mandate/domains/graph.yaml` | same | commands + events for `Agent`, `AgentCapabilityCeiling`, `Execution`, `Approval`, `Grant` (or adapter declarations where the story allows); `RegisterResource` gains the space input and `ResourceRegistered` carries it; row text |
-| C `policy-directory-workload-identity` | `systems/mandate/domains/policy.yaml`, `systems/mandate/domains/directory.yaml`, `systems/mandate/domains/workload.yaml`, `systems/mandate/domains/identity.yaml` | same | commands + events for `Policy`, `AuthorizationModel`, `SyncJob`, `WorkloadIdentity` (or declarations); header declarations in `identity.yaml` for the first epoch `generation`, the non-federated `Principal`, and `SecurityEpochSnapshot`, in the `identity.yaml:6` form; row text |
-| coordinator | `docs/architecture/command-obligations.md`; `systems/mandate/components.yaml`; `generated/**`; `crates/mandate-types/tests/contract_adversary.rs:172-176,704-712` | `cargo xtask generate`, `cargo xtask contracts`, `cargo test -p mandate-types --locked`, `cargo xtask corpus`, `task check` | the rows; the `accepts:`/`publishes:` wiring; regeneration; the two count pins raised; the closing report with the printed command count |
+No unit needs a new `mandate.core.*` type: `OAuthClientId` (`core.yaml:84`), `RedirectUri` (`:132`), `PrincipalKind` (`:147`), `PkceMethod` (`:188`), `VerifiedContext` (`:211`), `SigningKeyId`, `KeyReference`, `SigningAlgorithm` exist — cited; the 110-type and 74-authored pins (`inventory.rs:37,40`) do not move.
 
-### Excluded
+### Coordinator-owned
 
-- `generated/` — coordinator regenerates (`xtask/src/main.rs:64-81`); no unit edits it.
-- `tests/security/cases.json` — coordinator-owned; the corpus names `Agent` (`:544`) and `Grant` (`:617`) in `given` prose only. Whether a case per new writer is added is a coordinator call at dispatch.
-- `Cargo.toml`, `Cargo.lock` — no crate changes.
-- `xtask/` — the obligations check reads the document; it needs no edit.
-- `crates/**` realizations — the story's own Exclusions; the two count pins in `contract_adversary.rs` are the one exception, and they are the coordinator's.
+- `generated/**` — `cargo xtask generate` after the contract round merges, never hand-edited.
+- Count pins moved by two new commands and two new events: `crates/mandate-types/tests/adversary_fold_inputs.rs:278-280` and `UNFOLDABLE` `:399-412`; `adversary_fold_inputs_2.rs:192-194,297-298` and `RECORDED_RESIDUE` `:324-337`; `crates/mandate-types/tests/contract_adversary.rs:172-176`; `xtask/tests/emit.rs:190-193`; `inventory.rs:111` (36 entities, unchanged).
+- `docs/architecture/federated-login.md:29,49,105` name this story as the Principal's writer and are rewritten when A3 lands.
+- `tests/security/cases.json` — no case is this story's; a case follows a command, coordinator's call.
 
-### Collision
+### Which crate folds the record
 
-- `story:event-payloads-for-folds` — its scope is seven domain yaml files and `generated/`. Overlap: `credential`, `delegation`, `directory`, `federation`, `graph`, `identity` plus `generated/`; on `graph.yaml`, the same `ResourceRegistered` event (`space_id` here, `resource_type` there). **The two never share a wave.** This story's creation events must carry every required field of the record, so `story:event-payloads-for-folds` goes first and this story writes its events to the fixed shape.
-- `story:invariant-boundary-validation` — `crates/mandate-server/src/context.rs` only. No overlap.
-- `story:testkit-doubles` — `crates/mandate-testkit/src/**`, four crates' `src`/`tests`/`Cargo.toml`, `dependency-boundaries.json`. No overlap.
+Principal folds in `crates/mandate-identity` — the direction constraint decides it (`dependency-boundaries.json:49-61` lets `mandate-federation` see `mandate-identity`, never the reverse) and wave A's Session arm is the exact precedent (`crates/mandate-identity/src/port.rs:15`, `:304-321`). OAuthClient folds in `crates/mandate-federation`, whose projection exists (`src/record.rs:117-130`) and whose fold refuses at `:338-343` "because the contract declares no command that creates an `OAuthClient`". `mandate-model` is not touched. Crate sites naming this story: `crates/mandate-identity/src/lib.rs:214-216`, `crates/mandate-federation/src/disable.rs:180-192`, `src/publicclient.rs:14`, `tests/publicclient.rs:166`, `tests/replay.rs:444`, `crates/mandate-types/tests/adversary_fold_inputs.rs:395`.
 
-### Gate
+### Collisions
 
-Unit: `ess specify validate --path systems/mandate` (`xtask/src/main.rs:84`). `task check` fails with "projection drift" (`:90-91`) until the coordinator regenerates, by design; `cargo test -p mandate-types` fails on the 59-command pin until the coordinator raises it.
-Coordinator: `cargo xtask generate && cargo xtask contracts && cargo test -p mandate-types --locked && cargo xtask corpus && task check`.
-
-### Not established
-
-- Whether `ess specify validate` enforces that every command/event appears in `components.yaml` — not run; the evidence is the 124 = 59 + 65 count and `story:domain-runtime`'s coordinator row.
-- Command/event names — none exists outside `generated/`; the unit table's names are placeholders.
-- Which of `SyncJob`, `Execution`, `Approval` get a command versus an adapter declaration — the story leaves that per entity; the owning file is the same either way.
+- `story:credential-profiles` (same wave): no file collision — its scope is `crates/mandate-token/**`, `services/sts/**` and the coordinator's manifests; this story adds no entity and no `mandate.core.*` type, so `crates/mandate-types/tests/inventory.rs` does not move — cited.
+- `story:product-listener`, `story:testkit-doubles` on `crates/mandate-federation/src/lib.rs` — neither is in wave B.
 
 ## Exclusions
 
-`crates/**` realizations of the new commands are their owning stories'. This story is contract-only.
+`crates/**` realizations of the new commands are their owning stories', with one exception ruled at the wave B opening: the Principal fold arm (`crates/mandate-identity/src/port.rs`, `src/lib.rs`) and the `OAuthClient` creation handler and fold arm (`crates/mandate-federation/src/register_client.rs`, `src/record.rs`, `src/lib.rs`) are this story's, because the stories owning those crates are `implemented`. Everything else here is contract-only.
 
 ## Inherited from wave E1, 2026-09-19
 
@@ -168,3 +134,15 @@ Coordinator: `cargo xtask generate && cargo xtask contracts && cargo test -p man
 ## Inherited from wave E1 adversary pass 2, 2026-09-19
 
 - From `contract-creates` adversary pass 2 (A2-3/A2-4): `ResourceRegistered` does not carry `space_id`; `Resource` stays in the unfoldable residue until this story adds the space input to `RegisterResource` and sources the event field from it.
+
+## Rulings — wave B opening, 2026-09-19
+
+Coordinator, after `review-result:wave-b-parallel-r1` and `review-result:wave-b-design-r1`.
+
+1. **Two rounds.** Contract round first (A1, A2, C0, C1), one adversary pass, merge, then the coordinator's regeneration and re-pin commit; the realization round (A3, A4) and `story:credential-profiles` are cut from that head (parallel-safety 1 and 2).
+2. **A2 shape.** `RegisterOAuthClient` takes `context`, `public`, `redirect_uris`, `pkce_method` — no `organization_id` input. The accepted outcome binds the client to `context.organization`; the response carries `id` and `organization_id`; `OAuthClientRegistered` sources `organization_id` from the response and carries `context`, `id`, `public`, `redirect_uris`, `pkce_method`. Denied: the caller lacks client-administration authority, the redirect set is empty or a URI is unadmitted, or a public client names a PKCE method other than S256 (design 5, and the critic's recommendation; `publicclient.rs:86,106-108` refuses the rest at authorization).
+3. **C0 shape.** `IntrospectCredential`'s response gains `credential_id: Optional<mandate.core.CredentialId>`; `CredentialIntrospected` gains `active: Boolean` (`response: active`) and `credential_id` (`response: credential_id`); the denial text names a malformed or unresolvable presented proof in place of "invalid/revoked/expired" (design 6).
+4. **C1 shape.** `RegisterSigningKey` takes `context`, `key_reference`, `algorithm`, `not_before`, `expires_at`; responds `id`; `SigningKeyRegistered` carries all six with `id` from the response; `creates: mandate.credential.SigningKey`, `instance: id`. Denied: the caller lacks signing-key administration authority, the algorithm is outside the deployment's allowlist, `not_before` is not before `expires_at`, or the key reference is unresolvable. Names no algorithm.
+5. **A3 and the Session arm.** The identity fold does not refuse an opening whose principal has no record: the explicit-link path (`LinkExternalPrincipal`) names a principal no event creates until a `RegisterPrincipal` lands (C2, later wave). The fold answers `None` for such a principal; the test pins both paths (design 7). A3 also edits `crates/mandate-identity/src/lib.rs:208-216` (Principal leaves `ESS_UNREALIZED`).
+6. **Exclusions amended** (design 8): A3 and A4 realize in `crates/mandate-identity` and `crates/mandate-federation` because the stories that own those crates are `implemented`; every other realization stays its owning story's.
+7. **Every creator's event carries its record**, foreign keys from response fields the outcome decides — wave E1's rule, applied to A2 and C1.

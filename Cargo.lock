@@ -1031,6 +1031,14 @@ name = "mandate-sts"
 version = "0.2.0"
 dependencies = [
  "clap",
+ "mandate-contract",
+ "mandate-model",
+ "mandate-testkit",
+ "mandate-token",
+ "mandate-types",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
 ]
 
 [[package]]
@@ -1051,6 +1059,8 @@ version = "0.2.0"
 dependencies = [
  "aws-lc-rs",
  "jsonwebtoken",
+ "mandate-contract",
+ "mandate-testkit",
  "mandate-types",
  "rand",
  "serde",
