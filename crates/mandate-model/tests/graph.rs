@@ -57,6 +57,29 @@ fn context(organization: OrganizationId, subject: PrincipalId) -> VerifiedContex
     }
 }
 
+/// The platform administrator's verified context.
+///
+/// `CreateOrganization` and `CloseOrganization` are platform-scoped and
+/// `AddOrganizationMembership` has a platform path, so the organization this names is the
+/// administrator's own and never the one being written. Every one of the three declares a
+/// `mandate.core.VerifiedContext` in its payload, so every one of them takes one.
+fn platform() -> VerifiedContext {
+    context(organization(0xfff0), principal(0xfff1))
+}
+
+/// A refusal writes nothing; the pair of the macro in `tests/tenancy.rs`.
+macro_rules! refuses {
+    ($fold:expr, $decided:expr, $why:literal) => {{
+        let before = $fold.clone();
+        let denial = $decided.expect_err($why);
+        assert_eq!(denial.reason, DenialReason::Denied, $why);
+        assert_eq!(
+            $fold, before,
+            concat!("a refused command changed the projection: ", $why)
+        );
+    }};
+}
+
 /// Two recorded organizations, each with one member.
 fn two_organizations() -> Tenancy {
     let mut tenancy = Tenancy::new();
@@ -65,7 +88,9 @@ fn two_organizations() -> Tenancy {
         (2, "Other", principal(12), membership(21)),
     ] {
         let target = organization(tag);
-        tenancy.create_organization(target, name).expect("recorded");
+        tenancy
+            .create_organization(&platform(), target, name)
+            .expect("recorded");
         tenancy
             .may_add_organization_membership(
                 &context(target, principal(10)),
@@ -75,7 +100,13 @@ fn two_organizations() -> Tenancy {
             )
             .expect("the platform path admits the membership");
         tenancy
-            .add_organization_membership(identity, target, member)
+            .add_organization_membership(
+                &platform(),
+                MembershipAuthority::PlatformOrganizationAdministration,
+                identity,
+                target,
+                member,
+            )
             .expect("membership");
     }
     tenancy
@@ -269,7 +300,9 @@ fn registration_resolves_its_organization_from_the_verified_context_and_requires
         DenialReason::Denied
     );
 
-    tenancy.close_organization(organization(1)).expect("closed");
+    tenancy
+        .close_organization(&platform(), organization(1))
+        .expect("closed");
     assert_eq!(
         topology
             .register(&tenancy, &acme, &resource_ref(103), None)
@@ -351,4 +384,117 @@ fn a_registered_identity_is_never_overwritten() {
     );
     assert!(topology.resolve(&other, resource(100)).is_none());
     assert_eq!(topology.len(), 1);
+}
+
+/// `RegisterResource` denied: the verified organization has no tenancy record or is
+/// closed, the identity is already registered, or the parent does not resolve inside the
+/// verified organization — never registered, deregistered, or in another organization.
+///
+/// A refusal writes nothing, so the topology it refused from is the topology it leaves.
+#[test]
+fn register_denials_leave_the_projection_unchanged() {
+    let mut tenancy = two_organizations();
+    let acme = context(organization(1), principal(10));
+    let other = context(organization(2), principal(12));
+    let stranger = context(organization(3), principal(13));
+    let mut topology = Topology::new();
+    topology
+        .register(&tenancy, &acme, &resource_ref(100), None)
+        .expect("the parent is registered");
+    topology
+        .register(&tenancy, &acme, &resource_ref(102), Some(resource(100)))
+        .expect("a child is registered");
+    topology
+        .register(&tenancy, &other, &resource_ref(103), None)
+        .expect("a resource of the other organization is registered");
+
+    refuses!(
+        topology,
+        topology.decide_register(&tenancy, &stranger, &resource_ref(104), None),
+        "no tenancy record of the verified organization exists"
+    );
+    refuses!(
+        topology,
+        topology.decide_register(&tenancy, &acme, &resource_ref(100), None),
+        "the identity is already registered"
+    );
+    refuses!(
+        topology,
+        topology.decide_register(&tenancy, &acme, &resource_ref(104), Some(resource(105))),
+        "the parent was never registered"
+    );
+    refuses!(
+        topology,
+        topology.decide_register(&tenancy, &acme, &resource_ref(104), Some(resource(103))),
+        "the parent belongs to another organization"
+    );
+    refuses!(
+        topology,
+        topology.register(&tenancy, &acme, &resource_ref(104), Some(resource(103))),
+        "and the command wrapper refuses it too"
+    );
+
+    topology
+        .deregister(&acme, resource(102))
+        .expect("the child is deregistered");
+    refuses!(
+        topology,
+        topology.decide_register(&tenancy, &acme, &resource_ref(104), Some(resource(102))),
+        "a deregistered parent resolves for nothing"
+    );
+
+    tenancy
+        .close_organization(&platform(), organization(1))
+        .expect("the organization is closed");
+    refuses!(
+        topology,
+        topology.decide_register(&tenancy, &acme, &resource_ref(106), None),
+        "a closed organization admits no resource"
+    );
+}
+
+/// `DeregisterResource` denied: the resource does not resolve inside the verified
+/// organization, has already been deregistered, or a child still resolves through it.
+#[test]
+fn deregister_denials_leave_the_projection_unchanged() {
+    let tenancy = two_organizations();
+    let acme = context(organization(1), principal(10));
+    let other = context(organization(2), principal(12));
+    let mut topology = Topology::new();
+    topology
+        .register(&tenancy, &acme, &resource_ref(100), None)
+        .expect("the parent is registered");
+    topology
+        .register(&tenancy, &acme, &resource_ref(101), Some(resource(100)))
+        .expect("the child is registered");
+
+    refuses!(
+        topology,
+        topology.decide_deregister(&acme, resource(105)),
+        "no record of that resource exists"
+    );
+    refuses!(
+        topology,
+        topology.decide_deregister(&other, resource(100)),
+        "a resource of another organization is not the outsider's to deregister"
+    );
+    refuses!(
+        topology,
+        topology.decide_deregister(&acme, resource(100)),
+        "a child still resolves through it"
+    );
+    refuses!(
+        topology,
+        topology.deregister(&acme, resource(100)),
+        "and the command wrapper refuses it too"
+    );
+
+    topology
+        .deregister(&acme, resource(101))
+        .expect("the child is deregistered");
+    refuses!(
+        topology,
+        topology.decide_deregister(&acme, resource(101)),
+        "a terminal state does not move twice"
+    );
 }

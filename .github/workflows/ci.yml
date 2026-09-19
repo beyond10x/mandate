@@ -21,7 +21,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          for pair in ess:0.25.0 aep:0.55.0; do
+          for pair in ess:0.26.0 aep:0.55.0; do
             tool_name="${pair%%:*}"
             tool_version="${pair#*:}"
             archive="${tool_name}-${tool_version}-x86_64-unknown-linux-gnu.tar.gz"

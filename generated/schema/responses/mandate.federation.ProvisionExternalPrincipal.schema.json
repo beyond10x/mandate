@@ -11,6 +11,9 @@
     "principal_id": {
       "$ref": "#/$defs/mandate.core.PrincipalId"
     },
+    "organization_id": {
+      "$ref": "#/$defs/mandate.core.OrganizationId"
+    },
     "subject": {
       "$ref": "#/$defs/mandate.core.ExternalSubject"
     }
@@ -18,14 +21,15 @@
   "required": [
     "external_principal_id",
     "principal_id",
+    "organization_id",
     "subject"
   ],
   "additionalProperties": false,
   "x-ess-provenance": {
     "system": "mandate",
     "specification_version": "v1",
-    "source_digest": "49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40",
-    "contract_digest": "slice-sha256/2:4bc7d0fd7b826b2727c9fca24a1f8eef99218bc5ae68890e8051942ab63cd6a1",
+    "source_digest": "01de9945d788263e9f6df566e556a0cc122f96c94d48538ad2536276eac2bc74",
+    "contract_digest": "slice-sha256/2:3222cfe32db0e0939c56cbf126a2c30a6f85ebb7f57e12abfd759c11bb9ca91c",
     "regenerate": "ess generate"
   },
   "$defs": {
@@ -42,6 +46,14 @@
       "x-ess-name": "mandate.core.ExternalSubject",
       "x-ess-kind": "newtype",
       "type": "string"
+    },
+    "mandate.core.OrganizationId": {
+      "title": "OrganizationId",
+      "x-ess-name": "mandate.core.OrganizationId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
     },
     "mandate.core.PrincipalId": {
       "title": "PrincipalId",

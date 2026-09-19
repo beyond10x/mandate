@@ -8,6 +8,7 @@ relations:
 - decomposes: epic:foundations
 - serves: vision:mandate
 - depends_on: story:domain-runtime
+- depends_on: story:contract-creates
 scope:
 - confidence: cited
   path: crates/mandate-types/tests/contract_adversary.rs
@@ -33,7 +34,7 @@ scope:
   path: systems/mandate/domains/policy.yaml
 - confidence: cited
   path: systems/mandate/domains/workload.yaml
-revision: 4
+revision: 6
 ---
 # Every record has a declared writer
 
@@ -158,3 +159,12 @@ Coordinator: `cargo xtask generate && cargo xtask contracts && cargo test -p man
 ## Exclusions
 
 `crates/**` realizations of the new commands are their owning stories'. This story is contract-only.
+
+## Inherited from wave E1, 2026-09-19
+
+- From `contract-creates` adversary pass 1 (A1-5): `mandate.identity.Principal` is created by `ProvisionExternalPrincipal`, whose accepted outcome already declares `creates: ExternalPrincipal`, and ESS refuses two subjects on one outcome. Declaring the Principal's creator therefore needs a second emitted event on a second outcome or a dedicated command, not a `creates:` on the existing outcome.
+- The creator-less residue this story inherits is 20 entities: the 16 named in `story:contract-creates` plus `SecurityEpochSnapshot`, `PrincipalSecurityEpoch`, `OrganizationSecurityEpoch`, `FederationSecurityEpoch` (no transitions, adapter-seeded).
+
+## Inherited from wave E1 adversary pass 2, 2026-09-19
+
+- From `contract-creates` adversary pass 2 (A2-3/A2-4): `ResourceRegistered` does not carry `space_id`; `Resource` stays in the unfoldable residue until this story adds the space input to `RegisterResource` and sources the event field from it.

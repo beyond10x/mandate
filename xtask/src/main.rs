@@ -1,4 +1,5 @@
 mod documents;
+mod emit;
 use clap::{Parser, Subcommand};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -17,6 +18,7 @@ struct Args {
 #[derive(Subcommand)]
 enum Action {
     Check,
+    Adopt,
     Generate,
     Contracts,
     Boundaries,
@@ -71,7 +73,7 @@ fn files(root: &Path) -> Result<BTreeMap<PathBuf, Vec<u8>>> {
     Ok(map)
 }
 fn generate(root: &Path) -> Result<()> {
-    version("ess", "ess 0.25.0")?;
+    version("ess", "ess 0.26.0")?;
     for kind in ["schema", "openapi", "docs", "docs-ir"] {
         let out = root;
         run(
@@ -87,6 +89,40 @@ fn generate(root: &Path) -> Result<()> {
             ],
         )?;
     }
+    ir(root)?;
+    // The sixth kind: Rust shapes for the three kinds ESS 0.26.0's Rust target does not admit.
+    // Emitted from the file [`ir`] just wrote, so the shapes and the model [`contracts`]
+    // compares them against are the same bytes rather than two compilations of one source.
+    emit::emit(root)
+}
+/// The fifth kind: the compiled model itself, as canonical JSON.
+///
+/// The other four are projections *of* the model — schemas, an OpenAPI document, prose — and
+/// none of them is the model. `story:contract-shapes` emits Rust shapes from the compiled IR,
+/// so without this file the emitter's input is whatever `ess specify compile` answers at the
+/// moment it runs, and a change in the model reaches the emitted shapes with nothing in
+/// between recording that the input moved. Committed here, it is covered by [`contracts`]
+/// like every other generated file: [`files`] walks the whole tree, so `ir/system.json` is
+/// byte-compared against a fresh compilation on every gate run.
+///
+/// The IR is taken from standard output rather than `ess specify compile --out`, so the path
+/// is this repository's decision and the committed bytes are exactly the ones `corpus` already
+/// reads from the same command.
+fn ir(root: &Path) -> Result<()> {
+    let compiled = output(
+        "ess",
+        &[
+            "specify",
+            "compile",
+            "--path",
+            "systems/mandate",
+            "--format",
+            "json",
+        ],
+    )?;
+    let directory = root.join("ir");
+    fs::create_dir_all(&directory)?;
+    fs::write(directory.join("system.json"), &compiled)?;
     Ok(())
 }
 fn contracts() -> Result<()> {
@@ -102,6 +138,54 @@ fn contracts() -> Result<()> {
     println!("ESS projections match deterministically");
     Ok(())
 }
+/// Enroll the committed `generated/` tree as ESS-owned output. Once per checkout, by hand.
+///
+/// ESS 0.26.0 will not write over bytes it does not own, so `cargo xtask generate` in a fresh
+/// tree stops at `unowned output destination: schema/commands/…` before writing anything.
+/// Ownership is recorded in `generated/.ess-output/`, which `.gitignore` excludes and should:
+/// the ledger states what *this* checkout wrote, which is a fact about a machine and not about
+/// the contract, and committing one would hand every clone another clone's answer. The cost is
+/// that every new worktree starts unowned and needs this step once.
+///
+/// [`contracts`] runs first, and it is doing two jobs. It produces the settled reference the
+/// adoption enrolls against, at `target/xtask-contract-regeneration`. And it refuses if the
+/// committed tree differs from a fresh projection by one byte — which is the check that makes
+/// adoption safe to automate at all. Adopting an already-drifted tree would enroll the drift
+/// as the owned state, and the next `generate` would then overwrite it silently instead of
+/// refusing: a drift check turned into a drift launderer.
+///
+/// Deliberately not part of [`Action::Check`]. The gate's job on an unadopted tree is to fail,
+/// not to repair it; a `check` that adopted its own inputs would report on a tree it had just
+/// changed.
+fn adopt() -> Result<()> {
+    contracts()?;
+    for kind in ["schema", "openapi", "docs", "docs-ir"] {
+        let owner = format!("projection:{kind}");
+        run(
+            "ess",
+            &[
+                "generate",
+                "output",
+                "adopt",
+                "--ownership-root",
+                "generated",
+                "--from",
+                "target/xtask-contract-regeneration",
+                "--owner",
+                &owner,
+            ],
+        )?;
+    }
+    println!("generated/ output adopted for 4 projection owners");
+    Ok(())
+}
+/// Every workspace member, counted. A member added without a `dependency-boundaries.json`
+/// entry falls through to the `external` allowlist and is checked against the wrong policy,
+/// so the count is what makes the policy's silence a failure rather than a default.
+const PACKAGES: usize = 22;
+/// Every member that has its own entry: the workspace's libraries, everything but the four
+/// service binaries, `bins/mandate` and `xtask`.
+const LIBRARIES: usize = 16;
 fn boundaries() -> Result<()> {
     let metadata: Value = serde_json::from_slice(&output(
         "cargo",
@@ -110,12 +194,12 @@ fn boundaries() -> Result<()> {
     let policy: Value = serde_json::from_slice(&fs::read("dependency-boundaries.json")?)?;
     let libraries = policy["libraries"].as_object().ok_or("library policy")?;
     let packages = metadata["packages"].as_array().ok_or("packages")?;
-    if packages.len() != 20 || libraries.len() != 14 {
-        return Err("expected 20 packages and 14 libraries".into());
+    if packages.len() != PACKAGES || libraries.len() != LIBRARIES {
+        return Err(format!("expected {PACKAGES} packages and {LIBRARIES} libraries").into());
     }
     for p in packages {
         let name = p["name"].as_str().ok_or("package name")?;
-        if p["version"] != "0.1.0"
+        if p["version"] != "0.2.0"
             || p["edition"] != "2024"
             || p["rust_version"] != "1.98.1"
             || p["license"] != "Apache-2.0"
@@ -136,23 +220,45 @@ fn boundaries() -> Result<()> {
             }
         }
     }
-    println!("20 packages satisfy metadata and dependency boundaries");
+    println!("{PACKAGES} packages satisfy metadata and dependency boundaries");
     Ok(())
 }
 /// Every command the contract declares is named in `command-obligations.md`, with its declared
 /// denial text verbatim, and the table names nothing the contract does not declare. A command
 /// missing from the table is a denial no reader of the contract can find; a row whose text has
 /// drifted misreports one.
+///
+/// The row's subject is the **externally caused** refusal: the one a caller can provoke and
+/// therefore the one an obligations table is read for. Selecting it by `condition.kind` rather
+/// than by "the first outcome carrying an `error`" is what keeps that true as the contract
+/// grows. A `wrong-state` refusal is an error outcome too, and it is declared before the
+/// external one on any command that has both, so the positional reader would silently start
+/// publishing a state-machine message as the command's obligation — a wrong row, printed by a
+/// green gate. Exactly one externally caused outcome per command is required in both
+/// directions: none leaves the table with nothing to state, and two leave it ambiguous which
+/// text the row must carry.
 fn obligations(ir: &Value) -> Result<()> {
     let commands = ir["commands"].as_object().ok_or("ESS command index")?;
     let mut declared: BTreeMap<String, String> = BTreeMap::new();
     for (name, command) in commands {
-        let refusal = command["outcomes"]
+        let mut external = command["outcomes"]
             .as_array()
             .ok_or("command outcomes")?
             .iter()
-            .find(|outcome| outcome["error"].is_string())
-            .ok_or_else(|| format!("{name} declares no refusal"))?;
+            .filter(|outcome| outcome["condition"]["kind"] == "external");
+        let refusal = external
+            .next()
+            .ok_or_else(|| format!("{name} declares no externally caused outcome"))?;
+        if external.next().is_some() {
+            return Err(format!(
+                "{name} declares more than one externally caused outcome; \
+                 an obligations row can carry only one denial text"
+            )
+            .into());
+        }
+        if !refusal["error"].is_string() {
+            return Err(format!("{name}'s externally caused outcome names no error").into());
+        }
         let cause = refusal["condition"]["cause"]
             .as_str()
             .ok_or_else(|| format!("{name} refusal states no external cause"))?;
@@ -299,6 +405,7 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     }
     let result: Result<()> = (|| match Args::parse().command {
+        Action::Adopt => adopt(),
         Action::Generate => generate(Path::new("generated")),
         Action::Contracts => contracts(),
         Action::Boundaries => boundaries(),
@@ -335,6 +442,7 @@ fn main() -> ExitCode {
             for b in [
                 "mandate",
                 "mandate-authz",
+                "mandate-conform",
                 "mandate-control-plane",
                 "mandate-sts",
                 "mandate-worker",

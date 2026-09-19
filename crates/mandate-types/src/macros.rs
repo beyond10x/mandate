@@ -411,3 +411,79 @@ macro_rules! canonical_record {
         }
     };
 }
+
+/// Record which ESS elements a crate realizes, and prove each named symbol still exists.
+///
+/// A crate invokes this once, at its root, listing every element of the contract it
+/// implements against the Rust item that implements it:
+///
+/// ```text
+/// mandate_types::realizes! {
+///     "mandate.federation.AuthenticateFederation" => crate::authenticate::authenticate_federation,
+///     "mandate.federation.FederationAuthenticated" => crate::record::FederationEvent,
+/// }
+/// ```
+///
+/// It expands to two things. Each entry becomes an anonymous `const` that imports the
+/// named symbol and discards it, so **a registry entry whose symbol was renamed, moved or
+/// deleted does not compile**. And the whole list becomes
+///
+/// ```text
+/// pub const ESS_REALIZATIONS: &[(&str, &str)];
+/// ```
+///
+/// pairing each ESS element with the written path of the symbol, which is what
+/// `cargo xtask coverage` (a later story) reads out of each crate through that crate's own
+/// lib test. The coverage step compares the union of these registries against the elements
+/// the compiled model declares and reports what nothing realizes.
+///
+/// # Why the registry is checked by the compiler and not by the reader
+///
+/// A hand-maintained list of names is a list that drifts, and it drifts silently in the one
+/// direction that matters: an entry survives the deletion of what it names, so coverage
+/// reports an element as realized by a symbol that is no longer there. Nothing downstream
+/// can tell that from a real realization, because both are strings. Touching the symbol at
+/// compile time makes that specific drift a build failure rather than an overstated
+/// coverage report. It says nothing about whether the symbol is *correct* for the element —
+/// that is what `story:conformance-target` measures, by running the contract's own suite.
+///
+/// # What may appear on the right
+///
+/// Any item path: a function, a type, a constant, a static, a trait. The entry is expanded
+/// into a `use`, so an associated item — `Type::method` — is not a path this accepts, and
+/// neither is a path that is private to another module. Both are compile errors at the
+/// invocation, naming the entry.
+///
+/// ```
+/// mandate_types::realizes! {
+///     "mandate.core.PrincipalId" => mandate_types::PrincipalId,
+///     "mandate.core.Audience" => mandate_types::Audience,
+/// }
+///
+/// assert_eq!(
+///     ESS_REALIZATIONS,
+///     [
+///         ("mandate.core.PrincipalId", "mandate_types::PrincipalId"),
+///         ("mandate.core.Audience", "mandate_types::Audience"),
+///     ]
+/// );
+/// ```
+#[macro_export]
+macro_rules! realizes {
+    ($($element:literal => $symbol:path),+ $(,)?) => {
+        $(
+            const _: () = {
+                #[allow(unused_imports)]
+                use $symbol as _;
+            };
+        )+
+
+        #[doc = "Every ESS element this crate realizes, paired with the symbol that realizes it."]
+        #[doc = ""]
+        #[doc = "Written by [`mandate_types::realizes!`](mandate_types::realizes); read by"]
+        #[doc = "`cargo xtask coverage` through this crate's own lib test."]
+        pub const ESS_REALIZATIONS: &[(&str, &str)] = &[
+            $(($element, stringify!($symbol))),+
+        ];
+    };
+}

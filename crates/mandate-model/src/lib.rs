@@ -3,6 +3,21 @@
 //! Foundation scaffold; normative contracts live in `systems/mandate`.
 //! Runtime behavior is not implemented in this milestone.
 //!
+//! # The events are the record
+//!
+//! `docs/adr/0009-event-sourced-persistence.md`: "A command produces domain events; the
+//! events are the record; every read is a fold over them ... State tables are
+//! projections: derived, droppable, rebuildable, never authoritative."
+//!
+//! The twelve declared payloads that write the six projections in [`tenancy`] and
+//! [`graph`] are [`TenancyEvent`] — ten of them — and [`ResourceEvent`] — two. Each
+//! command is three things rather than one: a `decide_*` that reads the projection and
+//! returns the declared event or the refusal without writing, an `apply` that writes the
+//! event and cannot refuse, and a `fold` that replays a whole log from an empty
+//! projection. `crates/mandate-model/tests/replay.rs` folds the events each of the twelve
+//! commands returned and asserts the result equals the projection those same commands
+//! wrote, for all six.
+//!
 //! # Credential containment
 //!
 //! The four accepted `mandate.core` records declared in this file —
@@ -50,6 +65,9 @@
 
 pub mod graph;
 pub mod tenancy;
+
+pub use graph::ResourceEvent;
+pub use tenancy::TenancyEvent;
 
 use serde::{Deserialize, Serialize};
 

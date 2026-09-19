@@ -130,6 +130,9 @@ commands:
             id: input.id
         moves: mandate.graph.Relation.remove
         instance: id
+      - name: wrong-state
+        wrong_state: true
+        error: mandate.graph.Denied
       - name: denied
         external: Caller lacks relationship-write authority, relation/resource is outside the verified organization, or required graph revocation visibility cannot be satisfied.
         error: mandate.graph.Denied
@@ -149,6 +152,9 @@ commands:
             id: input.id
         moves: mandate.graph.Grant.revoke
         instance: id
+      - name: wrong-state
+        wrong_state: true
+        error: mandate.graph.Denied
       - name: denied
         external: Caller lacks grant-revocation authority, grant is outside the verified organization, or required graph revocation visibility cannot be satisfied.
         error: mandate.graph.Denied
@@ -167,11 +173,18 @@ commands:
         payload:
           mandate.graph.ResourceRegistered:
             context: input.context
+            resource_id:
+              response: resource_id
             resource: input.resource
             parent: input.parent
+        creates: mandate.graph.Resource
+        instance: resource_id
       - name: denied
         external: Caller lacks resource registration/ownership authority, parent is unresolved or belongs to another organization, or hierarchy admission fails.
         error: mandate.graph.Denied
+    response:
+      - name: resource_id
+        type: mandate.core.ResourceId
   - name: mandate.graph.WriteRelationship
     input:
       - name: context
@@ -190,14 +203,18 @@ commands:
           mandate.graph.RelationshipWritten:
             context: input.context
             id:
-              generated: true
+              response: id
             subject: input.subject
             relation: input.relation
             resource: input.resource
+        creates: mandate.graph.Relation
+        instance: id
       - name: denied
         external: Caller lacks relationship-write authority, the chosen principal/team subject is unresolved or outside tenant membership, resource tenancy mismatches, or the relationship is not admitted by the authorization model.
         error: mandate.graph.Denied
     response:
+      - name: id
+        type: mandate.core.RelationId
       - name: revision
         type: mandate.core.AuthzRevision
   - name: mandate.graph.DeregisterResource
@@ -217,6 +234,9 @@ commands:
         moves: mandate.graph.Resource.deregister
         instance: id
         summary: The security record of a deleted resource is kept and stops resolving. Relationship cleanup is the durable outbox job's, and each removal is its own recorded move; no child resource, relation or grant is destroyed as a side effect of this one.
+      - name: wrong-state
+        wrong_state: true
+        error: mandate.graph.Denied
       - name: denied
         external: Caller lacks resource registration/ownership authority, the resource is outside the verified organization, a child resource still resolves through it, or the durable relationship cleanup this deregistration requires cannot be enqueued.
         error: mandate.graph.Denied
@@ -237,6 +257,8 @@ events:
     fields:
       - name: context
         type: mandate.core.VerifiedContext
+      - name: resource_id
+        type: mandate.core.ResourceId
       - name: resource
         type: mandate.core.ResourceRef
       - name: parent

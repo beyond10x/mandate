@@ -1,6 +1,6 @@
 # generated from mandate v1
-# model digest 49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40
-# contract digest slice-sha256/2:369e7fe06860ab40032a843cc9f3773db80371905f1d47f1e2c9f6933524dbdd
+# model digest 01de9945d788263e9f6df566e556a0cc122f96c94d48538ad2536276eac2bc74
+# contract digest slice-sha256/2:af295d07f7763a175450945406fdc40b2e84e45db30ad2f577abf72c32d2c64b
 # do not edit: regenerate with `ess generate`
 openapi: 3.1.0
 info:
@@ -14,8 +14,8 @@ info:
   x-ess-provenance:
     system: mandate
     specification_version: v1
-    source_digest: 49c058592f66660a95621e7b7761e19fc9570b248c3357b240ef72ecd6491a40
-    contract_digest: slice-sha256/2:369e7fe06860ab40032a843cc9f3773db80371905f1d47f1e2c9f6933524dbdd
+    source_digest: 01de9945d788263e9f6df566e556a0cc122f96c94d48538ad2536276eac2bc74
+    contract_digest: slice-sha256/2:af295d07f7763a175450945406fdc40b2e84e45db30ad2f577abf72c32d2c64b
 tags:
 - name: delegation
 - name: directory
@@ -45,6 +45,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.delegation.CompleteExecution.accepted.Response'
+        '409':
+          description: 'Outcome `wrong-state`: the input was acceptable and the subject is in a state this command does not act from. Resending the same request changes nothing until something else moves it.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.delegation.CompleteExecution.wrong-state.Response'
         '502':
           description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
           content:
@@ -71,6 +77,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.delegation.ConsumeApproval.accepted.Response'
+        '409':
+          description: 'Outcome `wrong-state`: the input was acceptable and the subject is in a state this command does not act from. Resending the same request changes nothing until something else moves it.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.delegation.ConsumeApproval.wrong-state.Response'
         '502':
           description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
           content:
@@ -123,6 +135,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.delegation.RetireAgent.accepted.Response'
+        '409':
+          description: 'Outcome `wrong-state`: the input was acceptable and the subject is in a state this command does not act from. Resending the same request changes nothing until something else moves it.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.delegation.RetireAgent.wrong-state.Response'
         '502':
           description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
           content:
@@ -149,6 +167,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.delegation.RevokeDelegation.accepted.Response'
+        '409':
+          description: 'Outcome `wrong-state`: the input was acceptable and the subject is in a state this command does not act from. Resending the same request changes nothing until something else moves it.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.delegation.RevokeDelegation.wrong-state.Response'
         '502':
           description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
           content:
@@ -175,6 +199,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.delegation.SupersedeAgentCapabilityCeiling.accepted.Response'
+        '409':
+          description: 'Outcome `wrong-state`: the input was acceptable and the subject is in a state this command does not act from. Resending the same request changes nothing until something else moves it.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.delegation.SupersedeAgentCapabilityCeiling.wrong-state.Response'
         '502':
           description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
           content:
@@ -201,6 +231,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.directory.CompleteSyncJob.accepted.Response'
+        '409':
+          description: 'Outcome `wrong-state`: the input was acceptable and the subject is in a state this command does not act from. Resending the same request changes nothing until something else moves it.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.directory.CompleteSyncJob.wrong-state.Response'
         '502':
           description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
           content:
@@ -253,6 +289,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.directory.FailSyncJob.accepted.Response'
+        '409':
+          description: 'Outcome `wrong-state`: the input was acceptable and the subject is in a state this command does not act from. Resending the same request changes nothing until something else moves it.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.directory.FailSyncJob.wrong-state.Response'
         '502':
           description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
           content:
@@ -279,6 +321,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.directory.RemoveDirectoryGroupMembership.accepted.Response'
+        '409':
+          description: 'Outcome `wrong-state`: the input was acceptable and the subject is in a state this command does not act from. Resending the same request changes nothing until something else moves it.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.directory.RemoveDirectoryGroupMembership.wrong-state.Response'
         '502':
           description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
           content:
@@ -305,6 +353,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.directory.RemoveDirectoryGroupTeamMapping.accepted.Response'
+        '409':
+          description: 'Outcome `wrong-state`: the input was acceptable and the subject is in a state this command does not act from. Resending the same request changes nothing until something else moves it.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.directory.RemoveDirectoryGroupTeamMapping.wrong-state.Response'
         '502':
           description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
           content:
@@ -331,6 +385,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.directory.RemoveMembershipContribution.accepted.Response'
+        '409':
+          description: 'Outcome `wrong-state`: the input was acceptable and the subject is in a state this command does not act from. Resending the same request changes nothing until something else moves it.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.directory.RemoveMembershipContribution.wrong-state.Response'
         '502':
           description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
           content:
@@ -357,6 +417,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.directory.RetireDirectoryGroup.accepted.Response'
+        '409':
+          description: 'Outcome `wrong-state`: the input was acceptable and the subject is in a state this command does not act from. Resending the same request changes nothing until something else moves it.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.directory.RetireDirectoryGroup.wrong-state.Response'
         '502':
           description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
           content:
@@ -461,6 +527,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.federation.DisableFederationConnection.accepted.Response'
+        '409':
+          description: 'Outcome `wrong-state`: the input was acceptable and the subject is in a state this command does not act from. Resending the same request changes nothing until something else moves it.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.federation.DisableFederationConnection.wrong-state.Response'
         '502':
           description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
           content:
@@ -487,6 +559,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.federation.DisableOAuthClient.accepted.Response'
+        '409':
+          description: 'Outcome `wrong-state`: the input was acceptable and the subject is in a state this command does not act from. Resending the same request changes nothing until something else moves it.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.federation.DisableOAuthClient.wrong-state.Response'
         '502':
           description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
           content:
@@ -591,6 +669,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.federation.UnlinkExternalPrincipal.accepted.Response'
+        '409':
+          description: 'Outcome `wrong-state`: the input was acceptable and the subject is in a state this command does not act from. Resending the same request changes nothing until something else moves it.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.federation.UnlinkExternalPrincipal.wrong-state.Response'
         '502':
           description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
           content:
@@ -617,6 +701,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.identity.DisablePrincipal.accepted.Response'
+        '409':
+          description: 'Outcome `wrong-state`: the input was acceptable and the subject is in a state this command does not act from. Resending the same request changes nothing until something else moves it.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.identity.DisablePrincipal.wrong-state.Response'
         '502':
           description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
           content:
@@ -695,6 +785,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.identity.RevokeRefreshCredential.accepted.Response'
+        '409':
+          description: 'Outcome `wrong-state`: the input was acceptable and the subject is in a state this command does not act from. Resending the same request changes nothing until something else moves it.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.identity.RevokeRefreshCredential.wrong-state.Response'
         '502':
           description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
           content:
@@ -721,6 +817,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.identity.RevokeSession.accepted.Response'
+        '409':
+          description: 'Outcome `wrong-state`: the input was acceptable and the subject is in a state this command does not act from. Resending the same request changes nothing until something else moves it.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.identity.RevokeSession.wrong-state.Response'
         '502':
           description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
           content:
@@ -799,6 +901,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.tenancy.CloseOrganization.accepted.Response'
+        '409':
+          description: 'Outcome `wrong-state`: the input was acceptable and the subject is in a state this command does not act from. Resending the same request changes nothing until something else moves it.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.tenancy.CloseOrganization.wrong-state.Response'
         '502':
           description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
           content:
@@ -903,6 +1011,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.tenancy.RemoveOrganizationMembership.accepted.Response'
+        '409':
+          description: 'Outcome `wrong-state`: the input was acceptable and the subject is in a state this command does not act from. Resending the same request changes nothing until something else moves it.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.tenancy.RemoveOrganizationMembership.wrong-state.Response'
         '502':
           description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
           content:
@@ -929,6 +1043,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.tenancy.RemoveTeamMembership.accepted.Response'
+        '409':
+          description: 'Outcome `wrong-state`: the input was acceptable and the subject is in a state this command does not act from. Resending the same request changes nothing until something else moves it.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.tenancy.RemoveTeamMembership.wrong-state.Response'
         '502':
           description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
           content:
@@ -955,6 +1075,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.tenancy.RetireSpace.accepted.Response'
+        '409':
+          description: 'Outcome `wrong-state`: the input was acceptable and the subject is in a state this command does not act from. Resending the same request changes nothing until something else moves it.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.tenancy.RetireSpace.wrong-state.Response'
         '502':
           description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
           content:
@@ -981,6 +1107,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.tenancy.RetireTeam.accepted.Response'
+        '409':
+          description: 'Outcome `wrong-state`: the input was acceptable and the subject is in a state this command does not act from. Resending the same request changes nothing until something else moves it.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.tenancy.RetireTeam.wrong-state.Response'
         '502':
           description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
           content:
@@ -1007,6 +1139,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.workload.RevokeWorkloadIdentity.accepted.Response'
+        '409':
+          description: 'Outcome `wrong-state`: the input was acceptable and the subject is in a state this command does not act from. Resending the same request changes nothing until something else moves it.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.workload.RevokeWorkloadIdentity.wrong-state.Response'
         '502':
           description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
           content:
@@ -1428,6 +1566,24 @@ components:
       - error
       - payload
       type: object
+    mandate.delegation.CompleteExecution.wrong-state.Response:
+      additionalProperties: false
+      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's.
+      properties:
+        error:
+          const: mandate.delegation.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: wrong-state
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.delegation.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
     mandate.delegation.ConsumeApproval.Input:
       title: ConsumeApproval input
       x-ess-name: mandate.delegation.ConsumeApproval
@@ -1470,6 +1626,24 @@ components:
       - error
       - payload
       type: object
+    mandate.delegation.ConsumeApproval.wrong-state.Response:
+      additionalProperties: false
+      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's.
+      properties:
+        error:
+          const: mandate.delegation.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: wrong-state
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.delegation.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
     mandate.delegation.CreateDelegation.Input:
       title: CreateDelegation input
       x-ess-name: mandate.delegation.CreateDelegation
@@ -1501,7 +1675,7 @@ components:
       additionalProperties: false
     mandate.delegation.CreateDelegation.accepted.Response:
       additionalProperties: false
-      description: Taken when no other outcome's condition matched. Emits `DelegationCreated`, published to consumers rather than returned here.
+      description: Taken when no other outcome's condition matched. A `mandate.delegation.Delegation` now exists, in `Active`. Its identity is published as `id` on `mandate.delegation.DelegationCreated`. Emits `DelegationCreated`, published to consumers rather than returned here.
       properties:
         outcome:
           const: accepted
@@ -1581,6 +1755,24 @@ components:
       - error
       - payload
       type: object
+    mandate.delegation.RetireAgent.wrong-state.Response:
+      additionalProperties: false
+      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's.
+      properties:
+        error:
+          const: mandate.delegation.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: wrong-state
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.delegation.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
     mandate.delegation.RevokeDelegation.Input:
       title: RevokeDelegation input
       x-ess-name: mandate.delegation.RevokeDelegation
@@ -1615,6 +1807,24 @@ components:
           type: string
         outcome:
           const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.delegation.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
+    mandate.delegation.RevokeDelegation.wrong-state.Response:
+      additionalProperties: false
+      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's.
+      properties:
+        error:
+          const: mandate.delegation.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: wrong-state
           description: Which declared outcome the command took.
         payload:
           $ref: '#/components/schemas/mandate.delegation.Denied.Error'
@@ -1665,6 +1875,24 @@ components:
       - error
       - payload
       type: object
+    mandate.delegation.SupersedeAgentCapabilityCeiling.wrong-state.Response:
+      additionalProperties: false
+      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's.
+      properties:
+        error:
+          const: mandate.delegation.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: wrong-state
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.delegation.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
     mandate.directory.CompleteSyncJob.Input:
       title: CompleteSyncJob input
       x-ess-name: mandate.directory.CompleteSyncJob
@@ -1707,6 +1935,24 @@ components:
       - error
       - payload
       type: object
+    mandate.directory.CompleteSyncJob.wrong-state.Response:
+      additionalProperties: false
+      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's.
+      properties:
+        error:
+          const: mandate.directory.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: wrong-state
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.directory.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
     mandate.directory.CreateDirectoryGroupTeamMapping.Input:
       title: CreateDirectoryGroupTeamMapping input
       x-ess-name: mandate.directory.CreateDirectoryGroupTeamMapping
@@ -1726,7 +1972,7 @@ components:
       additionalProperties: false
     mandate.directory.CreateDirectoryGroupTeamMapping.accepted.Response:
       additionalProperties: false
-      description: One mapping row, and the mapping-derived contribution rows the reconciliation wrote named by identity alone. Each contribution's own fields are on its MembershipContributionRecorded; nothing here is read positionally. Taken when no other outcome's condition matched. Emits `DirectoryGroupTeamMappingCreated`, published to consumers rather than returned here.
+      description: One mapping row, and the mapping-derived contribution rows the reconciliation wrote named by identity alone. Each contribution's own fields are on its MembershipContributionRecorded; nothing here is read positionally. Taken when no other outcome's condition matched. A `mandate.directory.DirectoryGroupTeamMapping` now exists, in `Active`. Its identity is published as `mapping_id` on `mandate.directory.DirectoryGroupTeamMappingCreated`. Emits `DirectoryGroupTeamMappingCreated`, published to consumers rather than returned here.
       properties:
         outcome:
           const: accepted
@@ -1806,6 +2052,24 @@ components:
       - error
       - payload
       type: object
+    mandate.directory.FailSyncJob.wrong-state.Response:
+      additionalProperties: false
+      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's.
+      properties:
+        error:
+          const: mandate.directory.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: wrong-state
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.directory.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
     mandate.directory.RemoveDirectoryGroupMembership.Input:
       title: RemoveDirectoryGroupMembership input
       x-ess-name: mandate.directory.RemoveDirectoryGroupMembership
@@ -1840,6 +2104,24 @@ components:
           type: string
         outcome:
           const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.directory.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
+    mandate.directory.RemoveDirectoryGroupMembership.wrong-state.Response:
+      additionalProperties: false
+      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's.
+      properties:
+        error:
+          const: mandate.directory.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: wrong-state
           description: Which declared outcome the command took.
         payload:
           $ref: '#/components/schemas/mandate.directory.Denied.Error'
@@ -1890,6 +2172,24 @@ components:
       - error
       - payload
       type: object
+    mandate.directory.RemoveDirectoryGroupTeamMapping.wrong-state.Response:
+      additionalProperties: false
+      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's.
+      properties:
+        error:
+          const: mandate.directory.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: wrong-state
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.directory.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
     mandate.directory.RemoveMembershipContribution.Input:
       title: RemoveMembershipContribution input
       x-ess-name: mandate.directory.RemoveMembershipContribution
@@ -1932,6 +2232,24 @@ components:
       - error
       - payload
       type: object
+    mandate.directory.RemoveMembershipContribution.wrong-state.Response:
+      additionalProperties: false
+      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's.
+      properties:
+        error:
+          const: mandate.directory.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: wrong-state
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.directory.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
     mandate.directory.RetireDirectoryGroup.Input:
       title: RetireDirectoryGroup input
       x-ess-name: mandate.directory.RetireDirectoryGroup
@@ -1966,6 +2284,24 @@ components:
           type: string
         outcome:
           const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.directory.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
+    mandate.directory.RetireDirectoryGroup.wrong-state.Response:
+      additionalProperties: false
+      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's.
+      properties:
+        error:
+          const: mandate.directory.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: wrong-state
           description: Which declared outcome the command took.
         payload:
           $ref: '#/components/schemas/mandate.directory.Denied.Error'
@@ -2037,7 +2373,7 @@ components:
       additionalProperties: false
     mandate.federation.AuthenticateFederation.accepted.Response:
       additionalProperties: false
-      description: Taken when no other outcome's condition matched. Emits `FederationAuthenticated`, published to consumers rather than returned here.
+      description: A validated federated login mints the session, which is step 9 of the resolution order in docs/architecture/federated-login.md. FederationAuthenticated carries the whole mandate.identity.Session record — the new session identity, the principal, the resolved organization, the connection, the epoch snapshot the session is bound to and its expiry — so the identity fold materializes the session from this event alone and reads no command input or response. The audience and the correlation are carried beside the record. The principal, the organization, the epoch snapshot handle and the expiry are the ones this command resolved and returned, so the fold reads each from the response rather than from a value the implementation invented; the snapshot's own contents are recorded by the adapter through EpochSnapshotRecorded. Taken when no other outcome's condition matched. A `mandate.identity.Session` now exists, in `Active`. Its identity is published as `session_id` on `mandate.federation.FederationAuthenticated`. Emits `FederationAuthenticated`, published to consumers rather than returned here.
       properties:
         outcome:
           const: accepted
@@ -2100,7 +2436,7 @@ components:
       additionalProperties: false
     mandate.federation.AuthorizePublicClient.accepted.Response:
       additionalProperties: false
-      description: Taken when no other outcome's condition matched. Emits `AuthorizationCodeIssued`, published to consumers rather than returned here.
+      description: The control plane orchestrates the verified session and client checks and calls the STS IssueAuthorizationCode port; the STS creates the mandate.credential.AuthorizationCode record and returns its identity, which this event names. This outcome creates nothing — code_id is the code STS minted, not one minted here — and the transient code is returned to the public-client adapter and to nothing else. Taken when no other outcome's condition matched. Emits `AuthorizationCodeIssued`, published to consumers rather than returned here.
       properties:
         outcome:
           const: accepted
@@ -2180,6 +2516,24 @@ components:
       - error
       - payload
       type: object
+    mandate.federation.DisableFederationConnection.wrong-state.Response:
+      additionalProperties: false
+      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's.
+      properties:
+        error:
+          const: mandate.federation.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: wrong-state
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.federation.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
     mandate.federation.DisableOAuthClient.Input:
       title: DisableOAuthClient input
       x-ess-name: mandate.federation.DisableOAuthClient
@@ -2222,6 +2576,24 @@ components:
       - error
       - payload
       type: object
+    mandate.federation.DisableOAuthClient.wrong-state.Response:
+      additionalProperties: false
+      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's.
+      properties:
+        error:
+          const: mandate.federation.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: wrong-state
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.federation.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
     mandate.federation.LinkExternalPrincipal.Input:
       title: LinkExternalPrincipal input
       x-ess-name: mandate.federation.LinkExternalPrincipal
@@ -2247,7 +2619,7 @@ components:
       additionalProperties: false
     mandate.federation.LinkExternalPrincipal.accepted.Response:
       additionalProperties: false
-      description: Taken when no other outcome's condition matched. Emits `ExternalPrincipalLinked`, published to consumers rather than returned here.
+      description: Taken when no other outcome's condition matched. A `mandate.federation.ExternalPrincipal` now exists, in `Linked`. Its identity is published as `external_principal_id` on `mandate.federation.ExternalPrincipalLinked`. Emits `ExternalPrincipalLinked`, published to consumers rather than returned here.
       properties:
         outcome:
           const: accepted
@@ -2289,7 +2661,7 @@ components:
       additionalProperties: false
     mandate.federation.ProvisionExternalPrincipal.accepted.Response:
       additionalProperties: false
-      description: Just-in-time provisioning on first login. This event is the creation record for both entities it names — one mandate.identity.Principal of kind User, and one mandate.federation.ExternalPrincipal linking it with ExternalLinkMethod::ConfiguredFederation — because mandate.identity declares no command that creates a Principal, so nothing else in this contract records that one came into existence. Both identities and the external subject are bound from the response rather than left to the implementation. The composite key is (organization, connection issuer, external subject), with the issuer read from the validated connection and the subject from the validated proof, never from the caller. No session is minted here; the adapter calls AuthenticateFederation again. Taken when no other outcome's condition matched. Emits `ExternalPrincipalProvisioned`, published to consumers rather than returned here.
+      description: Just-in-time provisioning on first login. The outcome creates exactly one record, the mandate.federation.ExternalPrincipal linking the principal with ExternalLinkMethod::ConfiguredFederation. The event also names the mandate.identity.Principal of kind User the provisioning produced, and no outcome in this contract declares that Principal's creation. Both identities and the external subject are bound from the response rather than left to the implementation. The composite key is (organization, connection issuer, external subject), with the issuer read from the validated connection and the subject from the validated proof, never from the caller. No session is minted here; the adapter calls AuthenticateFederation again. Taken when no other outcome's condition matched. A `mandate.federation.ExternalPrincipal` now exists, in `Linked`. Its identity is published as `external_principal_id` on `mandate.federation.ExternalPrincipalProvisioned`. Emits `ExternalPrincipalProvisioned`, published to consumers rather than returned here.
       properties:
         outcome:
           const: accepted
@@ -2340,7 +2712,7 @@ components:
       additionalProperties: false
     mandate.federation.RegisterFederationConnection.accepted.Response:
       additionalProperties: false
-      description: The connection is created with its provisioning setting decided here and never changed afterwards. A connection whose issuer or provisioning admission must change is disabled and registered again; there is no update command. Taken when no other outcome's condition matched. Emits `FederationConnectionCreated`, published to consumers rather than returned here.
+      description: The connection is created with its provisioning setting decided here and never changed afterwards. A connection whose issuer or provisioning admission must change is disabled and registered again; there is no update command. Taken when no other outcome's condition matched. A `mandate.federation.FederationConnection` now exists, in `Enabled`. Its identity is published as `connection_id` on `mandate.federation.FederationConnectionCreated`. Emits `FederationConnectionCreated`, published to consumers rather than returned here.
       properties:
         outcome:
           const: accepted
@@ -2408,6 +2780,24 @@ components:
       - error
       - payload
       type: object
+    mandate.federation.UnlinkExternalPrincipal.wrong-state.Response:
+      additionalProperties: false
+      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's.
+      properties:
+        error:
+          const: mandate.federation.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: wrong-state
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.federation.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
     mandate.identity.Denied.Error:
       title: Denied payload
       description: Fail closed; no credential, authority or lifecycle mutation on refusal.
@@ -2454,6 +2844,24 @@ components:
           type: string
         outcome:
           const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.identity.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
+    mandate.identity.DisablePrincipal.wrong-state.Response:
+      additionalProperties: false
+      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's.
+      properties:
+        error:
+          const: mandate.identity.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: wrong-state
           description: Which declared outcome the command took.
         payload:
           $ref: '#/components/schemas/mandate.identity.Denied.Error'
@@ -2585,6 +2993,24 @@ components:
       - error
       - payload
       type: object
+    mandate.identity.RevokeRefreshCredential.wrong-state.Response:
+      additionalProperties: false
+      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's.
+      properties:
+        error:
+          const: mandate.identity.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: wrong-state
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.identity.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
     mandate.identity.RevokeSession.Input:
       title: RevokeSession input
       x-ess-name: mandate.identity.RevokeSession
@@ -2627,6 +3053,24 @@ components:
       - error
       - payload
       type: object
+    mandate.identity.RevokeSession.wrong-state.Response:
+      additionalProperties: false
+      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's.
+      properties:
+        error:
+          const: mandate.identity.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: wrong-state
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.identity.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
     mandate.tenancy.AddOrganizationMembership.Input:
       title: AddOrganizationMembership input
       x-ess-name: mandate.tenancy.AddOrganizationMembership
@@ -2646,7 +3090,7 @@ components:
       additionalProperties: false
     mandate.tenancy.AddOrganizationMembership.accepted.Response:
       additionalProperties: false
-      description: The one membership path, and the only command that names an organization other than the caller's. organization_id must equal the organization in the caller's verified context; it may differ only for a caller holding platform organization-administration authority, which is how the organization CreateOrganization returns is first populated and how it acquires the administrator whose own context every later write inside it resolves from. A directory provisioning source calls this command as an admitted caller; membership carries no authority by itself, which stays with grants and relationships. Taken when no other outcome's condition matched. Emits `OrganizationMembershipAdded`, published to consumers rather than returned here.
+      description: The one membership path, and the only command that names an organization other than the caller's. organization_id must equal the organization in the caller's verified context; it may differ only for a caller holding platform organization-administration authority, which is how the organization CreateOrganization returns is first populated and how it acquires the administrator whose own context every later write inside it resolves from. A directory provisioning source calls this command as an admitted caller; membership carries no authority by itself, which stays with grants and relationships. Taken when no other outcome's condition matched. A `mandate.tenancy.OrganizationMembership` now exists, in `Active`. Its identity is published as `membership_id` on `mandate.tenancy.OrganizationMembershipAdded`. Emits `OrganizationMembershipAdded`, published to consumers rather than returned here.
       properties:
         outcome:
           const: accepted
@@ -2691,7 +3135,7 @@ components:
       additionalProperties: false
     mandate.tenancy.AddTeamMembership.accepted.Response:
       additionalProperties: false
-      description: The manual path, and the only command that records a team membership. It records one membership and the one manual MembershipContribution that says where the membership came from, and returns both identities. A mapping-derived contribution against the same membership is mandate.directory's own record, written by that domain's commands when a group mapping is created or synchronized, so a retracted mapping never removes a membership a manual decision still holds up. Taken when no other outcome's condition matched. Emits `TeamMembershipAdded`, published to consumers rather than returned here.
+      description: The manual path, and the only command that records a team membership. It records one membership and the one manual MembershipContribution that says where the membership came from, and returns both identities. A mapping-derived contribution against the same membership is mandate.directory's own record, written by that domain's commands when a group mapping is created or synchronized, so a retracted mapping never removes a membership a manual decision still holds up. Taken when no other outcome's condition matched. A `mandate.tenancy.TeamMembership` now exists, in `Recorded`. Its identity is published as `team_membership_id` on `mandate.tenancy.TeamMembershipAdded`. Emits `TeamMembershipAdded`, published to consumers rather than returned here.
       properties:
         outcome:
           const: accepted
@@ -2759,6 +3203,24 @@ components:
       - error
       - payload
       type: object
+    mandate.tenancy.CloseOrganization.wrong-state.Response:
+      additionalProperties: false
+      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's.
+      properties:
+        error:
+          const: mandate.tenancy.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: wrong-state
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.tenancy.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
     mandate.tenancy.CreateOrganization.Input:
       title: CreateOrganization input
       x-ess-name: mandate.tenancy.CreateOrganization
@@ -2775,7 +3237,7 @@ components:
       additionalProperties: false
     mandate.tenancy.CreateOrganization.accepted.Response:
       additionalProperties: false
-      description: The isolation root every other tenant-owned record resolves to. It is created empty, and no membership, team, space or grant exists inside it until that record's own command writes one. AddOrganizationMembership is the one command that can name this organization rather than the caller's own, so the first membership inside it is written by a caller holding platform organization-administration authority; every later write resolves the organization from that member's verified context. Taken when no other outcome's condition matched. Emits `OrganizationCreated`, published to consumers rather than returned here.
+      description: The isolation root every other tenant-owned record resolves to. It is created empty, and no membership, team, space or grant exists inside it until that record's own command writes one. AddOrganizationMembership is the one command that can name this organization rather than the caller's own, so the first membership inside it is written by a caller holding platform organization-administration authority; every later write resolves the organization from that member's verified context. Taken when no other outcome's condition matched. A `mandate.tenancy.Organization` now exists, in `Recorded`. Its identity is published as `organization_id` on `mandate.tenancy.OrganizationCreated`. Emits `OrganizationCreated`, published to consumers rather than returned here.
       properties:
         outcome:
           const: accepted
@@ -2817,7 +3279,7 @@ components:
       additionalProperties: false
     mandate.tenancy.CreateSpace.accepted.Response:
       additionalProperties: false
-      description: A security boundary below the organization, with no environment semantics implied by its name. Creating it grants nothing inside it. Taken when no other outcome's condition matched. Emits `SpaceCreated`, published to consumers rather than returned here.
+      description: A security boundary below the organization, with no environment semantics implied by its name. Creating it grants nothing inside it. Taken when no other outcome's condition matched. A `mandate.tenancy.Space` now exists, in `Recorded`. Its identity is published as `space_id` on `mandate.tenancy.SpaceCreated`. Emits `SpaceCreated`, published to consumers rather than returned here.
       properties:
         outcome:
           const: accepted
@@ -2859,7 +3321,7 @@ components:
       additionalProperties: false
     mandate.tenancy.CreateTeam.accepted.Response:
       additionalProperties: false
-      description: A team is created by an organization administrator and never by directory synchronization. A customer directory group populates directory state, and whether that group maps to this team is a separate explicit decision. Taken when no other outcome's condition matched. Emits `TeamCreated`, published to consumers rather than returned here.
+      description: A team is created by an organization administrator and never by directory synchronization. A customer directory group populates directory state, and whether that group maps to this team is a separate explicit decision. Taken when no other outcome's condition matched. A `mandate.tenancy.Team` now exists, in `Recorded`. Its identity is published as `team_id` on `mandate.tenancy.TeamCreated`. Emits `TeamCreated`, published to consumers rather than returned here.
       properties:
         outcome:
           const: accepted
@@ -2939,6 +3401,24 @@ components:
       - error
       - payload
       type: object
+    mandate.tenancy.RemoveOrganizationMembership.wrong-state.Response:
+      additionalProperties: false
+      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's.
+      properties:
+        error:
+          const: mandate.tenancy.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: wrong-state
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.tenancy.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
     mandate.tenancy.RemoveTeamMembership.Input:
       title: RemoveTeamMembership input
       x-ess-name: mandate.tenancy.RemoveTeamMembership
@@ -2973,6 +3453,24 @@ components:
           type: string
         outcome:
           const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.tenancy.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
+    mandate.tenancy.RemoveTeamMembership.wrong-state.Response:
+      additionalProperties: false
+      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's.
+      properties:
+        error:
+          const: mandate.tenancy.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: wrong-state
           description: Which declared outcome the command took.
         payload:
           $ref: '#/components/schemas/mandate.tenancy.Denied.Error'
@@ -3023,6 +3521,24 @@ components:
       - error
       - payload
       type: object
+    mandate.tenancy.RetireSpace.wrong-state.Response:
+      additionalProperties: false
+      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's.
+      properties:
+        error:
+          const: mandate.tenancy.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: wrong-state
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.tenancy.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
     mandate.tenancy.RetireTeam.Input:
       title: RetireTeam input
       x-ess-name: mandate.tenancy.RetireTeam
@@ -3057,6 +3573,24 @@ components:
           type: string
         outcome:
           const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.tenancy.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
+    mandate.tenancy.RetireTeam.wrong-state.Response:
+      additionalProperties: false
+      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's.
+      properties:
+        error:
+          const: mandate.tenancy.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: wrong-state
           description: Which declared outcome the command took.
         payload:
           $ref: '#/components/schemas/mandate.tenancy.Denied.Error'
@@ -3111,6 +3645,24 @@ components:
           type: string
         outcome:
           const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.workload.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
+    mandate.workload.RevokeWorkloadIdentity.wrong-state.Response:
+      additionalProperties: false
+      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's.
+      properties:
+        error:
+          const: mandate.workload.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: wrong-state
           description: Which declared outcome the command took.
         payload:
           $ref: '#/components/schemas/mandate.workload.Denied.Error'

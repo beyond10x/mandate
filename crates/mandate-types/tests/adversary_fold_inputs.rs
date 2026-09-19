@@ -380,18 +380,23 @@ fn every_moves_outcome_emits_an_event_carrying_the_moved_record_identity() {
 /// this file is a tripwire and not a wish: every entity below has a declared transition
 /// and no event that carries its identity and its fields, so its projection cannot be
 /// rebuilt from the log, measured with the exact-type reader of
-/// `adversary_fold_inputs_2.rs`, which descends one level into a carried struct: eleven
-/// are in the seven domain files `story:event-payloads-for-folds` owns; three are in
-/// `policy.yaml` and `workload.yaml`, which its Scope calls untouched. All fourteen
-/// reproduce against the story's base commit. `mandate.audit.AuditEvent` folds through
-/// the `mandate.core.AuditRecord` on `AuditEventRecorded` and `mandate.graph.Relation`
-/// through the `mandate.core.ResourceRef` on `RelationshipWritten`, so neither is residue.
+/// `adversary_fold_inputs_2.rs`, which descends one level into a carried struct: nine are
+/// in the seven domain files `story:event-payloads-for-folds` owns; three are in
+/// `policy.yaml` and `workload.yaml`, which its Scope calls untouched. All fourteen of the
+/// original set reproduce against the story's base commit. `mandate.audit.AuditEvent`
+/// folds through the `mandate.core.AuditRecord` on `AuditEventRecorded` and
+/// `mandate.graph.Relation` through the `mandate.core.ResourceRef` on
+/// `RelationshipWritten`, so neither is residue.
+///
+/// Two left the set in `story:contract-creates`, which made each declared creator emit an
+/// event carrying the record it creates: `mandate.credential.AccessCredential` and
+/// `mandate.credential.AuthorizationCode`, through the issuance events.
+/// `mandate.graph.Resource` stays: `ResourceRegistered` carries no `space_id` because
+/// `RegisterResource` takes no space, and the space input is `story:declared-writers`'.
 ///
 /// An entity leaving this set is the story's work landing and the line being deleted.
 /// An entity entering it is a regression, and this case is what reports it.
-const UNFOLDABLE: [(&str, &str); 14] = [
-    ("mandate.credential.AccessCredential", "descriptor"),
-    ("mandate.credential.AuthorizationCode", "verifier"),
+const UNFOLDABLE: [(&str, &str); 12] = [
     ("mandate.credential.SigningKey", "key_reference"),
     ("mandate.delegation.Agent", "agent_type"),
     ("mandate.delegation.AgentCapabilityCeiling", "agent_id"),

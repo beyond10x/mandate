@@ -4,6 +4,39 @@ All notable changes to Mandate are recorded here. The format follows [Keep a Cha
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-19
+
+Wave E1 of the ESS-to-implementation drift-protection programme: the contract now declares its creators and wrong-state outcomes, the implementation carries generated contract shapes it must agree with, tenancy and resource commands emit their declared events and fold from them, and a harness validates emitted events against the closed contract. The specification changed (widened responses, one outcome per moving command), so this is a minor version under 0.x.
+
+### Added
+
+- `crates/mandate-contract`: structural Rust shapes for all 72 events, 59 command inputs, 24 responses, 11 errors and 36 entities, emitted by `cargo xtask generate` from the compiled model (`generated/ir/system.json`) and byte-compared by `cargo xtask contracts`; `deny_unknown_fields` records, `Presence<T>` for optionals (absent is an absent key, `null` refused), `serde_json::Number` for integers.
+- `crates/mandate-testkit::contract`: `assert_event_conforms`, `assert_single_emission`, `assert_payload_sources` — schema validation with format assertions, one emission per accepted outcome and none per denied, and payload sources decided per `target_type` against the IR.
+- `crates/mandate-model`: `TenancyEvent` (10) and `ResourceEvent` (2); every tenancy and resource command is `decide` + `apply` + `fold`, replay proofs fold each entity from its events alone.
+- `crates/mandate-conformance` and the `mandate-conform` binary (skeleton; refuses until the conformance target lands), ESS 0.26.0 crates and `jsonschema` admitted, `cargo xtask adopt` for ESS output ownership in a fresh checkout, the `realizes!` registry.
+- ESS repinned to 0.26.0.
+
+### Changed
+
+- `systems/mandate`: 16 creators declared (`creates:` + `instance:`), every creating event carries its record with truthful sources; 34 moving commands declare a `wrong-state` outcome; a consumed authorization code is that outcome; `AuthenticateFederation` creates the Session and its response carries `session_id`, `organization_id`, `principal_id`, `epochs`, `expires_at`; `RegisterResource`, the three issuance commands and `WriteRelationship` return their new identity. Synthesis 84 → 132 scenarios, refusals 106 → 59.
+- `docs/architecture/command-obligations.md` and `federated-login.md` follow the contract.
+
+### Conformance at this release
+
+| Measure | Value |
+|---|---|
+| Scenarios the specification synthesizes | 132 |
+| Scenarios executed against the implementation | 0 (no conformance target yet; `story:conformance-target`) |
+| Refusals, named | 59: 57 `ESS-SYNTH-004` on 16 creator-less entities (`story:declared-writers`), 2 `ESS-SYNTH-011` on `Delegation` (invariant read by no view) |
+| Entities the log cannot rebuild | 12 (was 14) |
+| Events with a generated Rust shape | 72 of 72; agreement of the 11 hand-written event variants with those shapes is `story:federation-identity-alignment` |
+| Accepted paths proven only against doubles | unchanged from 0.1.0 |
+| Contract-versus-implementation drift surfaced, open | consumed authorization code returns 502 where the contract says 409; four idempotent-accept records where the contract says 409 (routed to `story:federation-identity-alignment`, `story:graph-policy-adapter`) |
+
+### State at this release
+
+777 tests across 127 targets, `task check` exit 0. Not in this release: everything the 0.1.0 entry lists as absent, plus the conformance run itself.
+
 ## [0.1.0] - 2026-09-19
 
 The first tagged release: the state of `main` after wave 3 of the ten-wave forecast, plus this changelog. Contents are the sum of the four pre-releases below.
@@ -99,7 +132,8 @@ The planning batch ([#4](https://github.com/beyond10x/mandate/pull/4)), on top o
 
 `task check` passed, including AEP validation (72 artifacts), ESS validation and deterministic projections.
 
-[Unreleased]: https://github.com/beyond10x/mandate/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/beyond10x/mandate/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/beyond10x/mandate/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/beyond10x/mandate/compare/v0.1.0-alpha.4...v0.1.0
 [0.1.0-alpha.4]: https://github.com/beyond10x/mandate/compare/v0.1.0-alpha.3...v0.1.0-alpha.4
 [0.1.0-alpha.3]: https://github.com/beyond10x/mandate/compare/v0.1.0-alpha.2...v0.1.0-alpha.3

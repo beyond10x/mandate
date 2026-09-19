@@ -23,7 +23,7 @@ These are required behaviors in the contracts and acceptance scenarios. Runtime 
 
 ## Start with the source
 
-Use Rust 1.98.1, ESS 0.25.0, AEP 0.55.0, Task, and cargo-deny:
+Use Rust 1.98.1, ESS 0.26.0, AEP 0.55.0, Task, and cargo-deny:
 
 ```bash
 task check

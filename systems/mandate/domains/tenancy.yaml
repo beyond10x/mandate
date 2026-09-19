@@ -165,6 +165,9 @@ commands:
             id: input.id
         moves: mandate.tenancy.OrganizationMembership.remove
         instance: id
+      - name: wrong-state
+        wrong_state: true
+        error: mandate.tenancy.Denied
       - name: denied
         external: Caller lacks membership-administration authority, membership is outside the verified organization, or membership and dependent authorization invalidation cannot commit consistently.
         error: mandate.tenancy.Denied
@@ -184,6 +187,8 @@ commands:
             organization_id:
               response: organization_id
             display_name: input.display_name
+        creates: mandate.tenancy.Organization
+        instance: organization_id
         summary: The isolation root every other tenant-owned record resolves to. It is created empty, and no membership, team, space or grant exists inside it until that record's own command writes one. AddOrganizationMembership is the one command that can name this organization rather than the caller's own, so the first membership inside it is written by a caller holding platform organization-administration authority; every later write resolves the organization from that member's verified context.
       - name: denied
         external: Caller lacks platform organization-administration authority, the requested display name is not admitted, or the isolation root cannot be created without implying membership, grants or authority inside it.
@@ -208,6 +213,9 @@ commands:
         moves: mandate.tenancy.Organization.close
         instance: id
         summary: The tenant stops admitting authority and nothing it owns is destroyed. Memberships, grants, delegations and audit history are preserved; sessions and credentials inside it stop being eligible through the organization generation, which IncrementSecurityEpoch advances.
+      - name: wrong-state
+        wrong_state: true
+        error: mandate.tenancy.Denied
       - name: denied
         external: Caller lacks platform organization-administration authority, the organization is unresolved, the sessions, credentials and delegations inside it cannot be invalidated with the closure, or closure would require destroying membership or audit history.
         error: mandate.tenancy.Denied
@@ -230,6 +238,8 @@ commands:
             principal_id: input.principal_id
             membership_id:
               response: membership_id
+        creates: mandate.tenancy.OrganizationMembership
+        instance: membership_id
         summary: The one membership path, and the only command that names an organization other than the caller's. organization_id must equal the organization in the caller's verified context; it may differ only for a caller holding platform organization-administration authority, which is how the organization CreateOrganization returns is first populated and how it acquires the administrator whose own context every later write inside it resolves from. A directory provisioning source calls this command as an admitted caller; membership carries no authority by itself, which stays with grants and relationships.
       - name: denied
         external: Caller lacks membership-administration authority, organization_id differs from the verified organization and the caller lacks platform organization-administration authority, the named organization is closed, the principal is unresolved or disabled, the principal is already a member of that organization, or membership and its dependent authorization cannot commit consistently.
@@ -253,6 +263,8 @@ commands:
             team_id:
               response: team_id
             display_name: input.display_name
+        creates: mandate.tenancy.Team
+        instance: team_id
         summary: A team is created by an organization administrator and never by directory synchronization. A customer directory group populates directory state, and whether that group maps to this team is a separate explicit decision.
       - name: denied
         external: Caller lacks team-administration authority, the display name is not admitted in the verified organization, or the team cannot be created without implying a grant or a directory mapping.
@@ -277,6 +289,9 @@ commands:
         moves: mandate.tenancy.Team.retire
         instance: id
         summary: The explicit request a mapping retraction never makes on its own. The team stops resolving as an authorization subject; its memberships and their provenance are preserved, and the grants that target it are revoked by their own command.
+      - name: wrong-state
+        wrong_state: true
+        error: mandate.tenancy.Denied
       - name: denied
         external: Caller lacks team-administration authority, the team is outside the verified organization, a directory mapping still contributes to it, or retirement cannot revoke the grants that target it while preserving membership provenance.
         error: mandate.tenancy.Denied
@@ -301,6 +316,8 @@ commands:
               response: team_membership_id
             contribution_id:
               response: contribution_id
+        creates: mandate.tenancy.TeamMembership
+        instance: team_membership_id
         summary: The manual path, and the only command that records a team membership. It records one membership and the one manual MembershipContribution that says where the membership came from, and returns both identities. A mapping-derived contribution against the same membership is mandate.directory's own record, written by that domain's commands when a group mapping is created or synchronized, so a retracted mapping never removes a membership a manual decision still holds up.
       - name: denied
         external: Caller lacks team-administration authority, team or principal is unresolved or outside the verified organization, the team is retired, the principal is disabled, the principal is not a member of that organization, the principal is already a member of that team, or the membership and the manual contribution recording its provenance cannot be recorded together.
@@ -327,6 +344,9 @@ commands:
         moves: mandate.tenancy.TeamMembership.remove
         instance: id
         summary: Taken only once no contribution supports the membership any longer — neither the manual one recorded with it nor any mandate.directory mapping contribution — which is what stops a retracted mapping from removing a membership a manual decision still holds up. The record and its history are kept.
+      - name: wrong-state
+        wrong_state: true
+        error: mandate.tenancy.Denied
       - name: denied
         external: Caller lacks team-administration authority, the membership is outside the verified organization, a mandate.directory mapping contribution still supports it, or dependent authorization invalidation cannot commit consistently.
         error: mandate.tenancy.Denied
@@ -346,6 +366,8 @@ commands:
             space_id:
               response: space_id
             display_name: input.display_name
+        creates: mandate.tenancy.Space
+        instance: space_id
         summary: A security boundary below the organization, with no environment semantics implied by its name. Creating it grants nothing inside it.
       - name: denied
         external: Caller lacks space-administration authority, the display name is not admitted in the verified organization, or the space cannot be created without implying a grant or a resource inside it.
@@ -370,6 +392,9 @@ commands:
         moves: mandate.tenancy.Space.retire
         instance: id
         summary: The boundary stops admitting new authority and keeps every resource bound to it. Resources inside are deregistered by their own command; nothing is destroyed by retiring the space around them.
+      - name: wrong-state
+        wrong_state: true
+        error: mandate.tenancy.Denied
       - name: denied
         external: Caller lacks space-administration authority, the space is outside the verified organization, or retirement cannot refuse new authority inside it while preserving the resources and grants already bound to it.
         error: mandate.tenancy.Denied
