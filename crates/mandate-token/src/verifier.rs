@@ -56,9 +56,9 @@ pub trait CredentialDigest {
 /// Which kind of credential material is being digested.
 ///
 /// One deployment stores verifiers for material of several kinds in one place — a reference
-/// secret, a self-contained token, and the authorization-code verifier
-/// `story:oauth-integration` will add (`credential.yaml`: "STS alone owns
-/// authorization-code verifier storage and consumption"). Digesting all three into one
+/// secret, a self-contained token, and the authorization-code verifier `services/sts` stores
+/// (`credential.yaml`: "STS alone owns authorization-code verifier storage and
+/// consumption"). Digesting all three into one
 /// space means a value of one kind can resolve to a record of another: an authorization
 /// code presented where a credential proof is expected resolves to the code's record if the
 /// two digests are the same function of the same bytes.
@@ -75,9 +75,11 @@ pub enum CredentialDomain {
     SelfContainedToken,
     /// The authorization code an `IssueAuthorizationCode` returns.
     ///
-    /// Named here and used by nothing in this wave: the command and the record are
-    /// `story:oauth-integration`'s, and the tag exists so that story adds a call site rather
-    /// than a third digest space.
+    /// Used by `mandate_sts::code::issue_authorization_code`, which derives the recorded
+    /// verifier, and by `mandate_sts::redemption::redeem_authorization_code`, which resolves
+    /// the presented proof against it. The tag was declared here a wave before either
+    /// existed so that the road would add a call site rather than a third digest space, and
+    /// it did.
     AuthorizationCodeVerifier,
 }
 

@@ -8,15 +8,19 @@
 //! Every handler here is the **decide** half: it reads the projection, writes nothing, and
 //! returns either the event its accepted outcome emits or the declared
 //! [`mandate_token::projection::Denied`]. The **apply** half is
-//! [`mandate_token::projection::Projection::apply`], which writes what it is handed and
-//! re-checks no guard, and the **fold** is `Projection::fold`
+//! [`mandate_token::projection::Projection::apply`] — and, for the authorization-code
+//! record this crate folds itself, [`store::CodeProjection::apply`] — which writes what it
+//! is handed and re-checks no guard; the **fold** is `fold`
 //! (`docs/adr/0009-event-sourced-persistence.md`).
 //!
-//! The window between a decision and the append that follows it is not closed here and no
-//! function here promises to close it. The command path closes it: ADR 0009 makes the
-//! decide-and-append step one transaction whose aggregate append is a compare-and-set on
-//! the expected stream version, so a decision read from a state that has since moved fails
-//! the append and is retried against the state that moved it.
+//! The window between a decision and the append that follows it is closed by the command
+//! path, and **one** function here is one: [`redemption::redeem_and_consume`]. ADR 0009
+//! makes the decide-and-append step one transaction whose aggregate append is a
+//! compare-and-set on the expected stream version, so a decision read from a state that has
+//! since moved fails the append and is retried against the state that moved it — which is
+//! how two concurrent redemptions of one code issue at most one credential. Every other
+//! handler here still returns its event and appends nothing; the deployment holds the log
+//! and [`store::AuthorizationCodeLog`] is the port it attaches at.
 //!
 //! # What is decided elsewhere
 //!
@@ -39,16 +43,22 @@
 //!
 //! Every file under `tests/` compiles as its own crate, so a double declared in one of them
 //! is unreachable from the others. The ports whose doubles more than one case needs are
-//! doubled here: [`SequentialAllocator`] and [`CountingSecrets`].
+//! doubled here: [`SequentialAllocator`] and [`CountingSecrets`]. The doubles a single port
+//! needs are `pub` beside that port — [`store::InMemoryCodeLog`],
+//! [`code::RecordedClients`], [`binding::RecordedSessions`] — for the same reason.
 
+pub mod binding;
+pub mod code;
 pub mod issue;
 pub mod keys;
+pub mod redemption;
 pub mod registry;
 pub mod resolve;
+pub mod store;
 
 use mandate_types::{
-    CorrelationId, CredentialId, CredentialSecret, EpochSnapshotRef, ResourceServerId,
-    SigningKeyId, Timestamp, Uuid,
+    AuthorizationCodeId, CorrelationId, CredentialId, CredentialSecret, EpochSnapshotRef,
+    ResourceServerId, SigningKeyId, Timestamp, Uuid,
 };
 
 // Every `mandate.credential` element this workspace realizes, against the item that
@@ -59,8 +69,21 @@ use mandate_types::{
 // `generated/ir/system.json`.
 //
 // One registry for one domain. `crates/mandate-token` projects three of this domain's four
-// entities and folds nine of its thirteen events; those realizations are accounted here, by
-// path, rather than in a second registry that would have to be reconciled with this one.
+// entities and folds ten of its thirteen events; those realizations are accounted here, by
+// path, rather than in a second registry that would have to be reconciled with this one. The
+// fourth entity — `mandate.credential.AuthorizationCode` — is folded in this crate, because
+// "STS alone owns authorization-code verifier storage and consumption"
+// (`credential.yaml`), and since this story it is realized here and nowhere else:
+// `crates/mandate-federation` released `mandate.credential.AuthorizationCode.State` when
+// this crate started folding the record, and what it keeps is a port view.
+//
+// `mandate.credential.AuthorizationCodeRedeemed` writes two records and is therefore read by
+// two folds — the code's consume here, the `AccessCredential` it seeds in
+// `mandate_token::projection` (`credential.yaml`'s header). One element has one registry
+// entry, and it names the writer: `crate::store::AuthorizationCodeEvent`, which is the
+// payload this crate emits. The credential half is accounted the way every other
+// `mandate-token` fold is — by path, on this same list's reading — and
+// `services/sts/tests/store.rs` decides that the two declarations encode identically.
 //
 // What nothing realizes is [`ESS_UNREALIZED`], named element by element with the reason and
 // the owning story: a registry that lists what is covered and waves at the rest overstates
@@ -75,6 +98,8 @@ mandate_types::realizes! {
     "mandate.credential.RegisterSigningKey" => crate::keys::SigningKeyAdministration,
     "mandate.credential.RetireSigningKey" => crate::keys::retire_signing_key,
     "mandate.credential.RevokeSigningKey" => crate::keys::revoke_signing_key,
+    "mandate.credential.IssueAuthorizationCode" => crate::code::CodeIssuance,
+    "mandate.credential.RedeemAuthorizationCode" => crate::redemption::redeem_authorization_code,
     "mandate.credential.ResourceServerRegistered" => mandate_token::projection::CredentialEvent,
     "mandate.credential.ResourceServerDisabled" => mandate_token::projection::CredentialEvent,
     "mandate.credential.CredentialReferenceIssued" => mandate_token::projection::CredentialEvent,
@@ -84,12 +109,16 @@ mandate_types::realizes! {
     "mandate.credential.SigningKeyRegistered" => mandate_token::projection::CredentialEvent,
     "mandate.credential.SigningKeyRetired" => mandate_token::projection::CredentialEvent,
     "mandate.credential.SigningKeyRevoked" => mandate_token::projection::CredentialEvent,
+    "mandate.credential.AuthorizationCodeIssued" => crate::store::AuthorizationCodeEvent,
+    "mandate.credential.AuthorizationCodeRedeemed" => crate::store::AuthorizationCodeEvent,
     "mandate.credential.ResourceServer" => mandate_token::projection::ResourceServer,
     "mandate.credential.AccessCredential" => mandate_token::projection::AccessCredential,
     "mandate.credential.SigningKey" => mandate_token::projection::SigningKey,
+    "mandate.credential.AuthorizationCode" => crate::store::AuthorizationCode,
     "mandate.credential.ResourceServer.State" => mandate_token::projection::ResourceServerState,
     "mandate.credential.AccessCredential.State" => mandate_token::projection::AccessCredentialState,
     "mandate.credential.SigningKey.State" => mandate_token::projection::SigningKeyState,
+    "mandate.credential.AuthorizationCode.State" => crate::store::AuthorizationCodeState,
     "mandate.credential.Denied" => mandate_token::projection::Denied,
 }
 
@@ -101,18 +130,12 @@ mandate_types::realizes! {
 /// list names and the registry also realizes is a contradiction, and an element neither one
 /// names is an element nobody accounted for.
 ///
-/// Three groups, and none is an oversight:
+/// One group, and it is not an oversight: token exchange — `ExchangeCredential` and the two
+/// events it emits — which `story:constrained-exchange` owns.
 ///
-/// * The authorization-code road — `IssueAuthorizationCode`, `RedeemAuthorizationCode`, the
-///   `AuthorizationCode` record and the two events that write it. STS owns that record
-///   ("STS alone owns authorization-code verifier storage and consumption",
-///   `credential.yaml:4`) and `story:oauth-integration` lands it.
-/// * Token exchange — `ExchangeCredential` and its two events, `story:constrained-exchange`.
-/// * `mandate.credential.AuthorizationCode.State`, which is realized, but by
-///   `mandate_federation::authorize::AuthorizationCodeState`: `AuthorizePublicClient`
-///   validates the code record as a read-only input and decides its lifecycle state itself,
-///   because a port cannot make a lifecycle check a property of the command. It is named
-///   here because nothing in *this* crate's registry realizes it.
+/// The authorization-code road left this list when `story:oauth-transaction` landed it:
+/// `IssueAuthorizationCode`, `RedeemAuthorizationCode`, the `AuthorizationCode` record, its
+/// `.State` and the two events that write it are all realized above, in this crate.
 pub const ESS_UNREALIZED: &[(&str, &str)] = &[
     (
         "mandate.credential.ExchangeCredential",
@@ -125,31 +148,6 @@ pub const ESS_UNREALIZED: &[(&str, &str)] = &[
     (
         "mandate.credential.TokenExchangeDenied",
         "story:constrained-exchange owns token exchange",
-    ),
-    (
-        "mandate.credential.IssueAuthorizationCode",
-        "story:oauth-integration owns the authorization-code road",
-    ),
-    (
-        "mandate.credential.RedeemAuthorizationCode",
-        "story:oauth-integration owns the authorization-code road",
-    ),
-    (
-        "mandate.credential.AuthorizationCode",
-        "story:oauth-integration owns the authorization-code record",
-    ),
-    (
-        "mandate.credential.AuthorizationCodeIssued",
-        "story:oauth-integration owns the authorization-code record",
-    ),
-    (
-        "mandate.credential.AuthorizationCodeRedeemed",
-        "story:oauth-integration owns the authorization-code record",
-    ),
-    (
-        "mandate.credential.AuthorizationCode.State",
-        "realized by mandate_federation::authorize::AuthorizationCodeState, for the \
-         read-only code input that crate validates",
     ),
 ];
 
@@ -189,6 +187,12 @@ pub trait IdentityAllocator {
     fn next_credential_id(&mut self) -> CredentialId;
     /// The identity `RegisterSigningKey` responds with, which is also the `kid`.
     fn next_signing_key_id(&mut self) -> SigningKeyId;
+    /// The identity `IssueAuthorizationCode` responds with.
+    ///
+    /// `credential.yaml` binds the emitted `code_id` from the response rather than from the
+    /// caller, exactly as it binds `resource_server_id`, `credential_id` and the signing
+    /// key's `id`.
+    fn next_authorization_code_id(&mut self) -> AuthorizationCodeId;
 }
 
 /// The transient secret a reference issuance returns once, behind a port.
@@ -212,6 +216,7 @@ pub struct SequentialAllocator {
     resource_servers: u8,
     credentials: u8,
     signing_keys: u8,
+    authorization_codes: u8,
 }
 
 impl SequentialAllocator {
@@ -243,6 +248,11 @@ impl IdentityAllocator for SequentialAllocator {
     fn next_signing_key_id(&mut self) -> SigningKeyId {
         self.signing_keys += 1;
         SigningKeyId::new(minted(0x7e, self.signing_keys))
+    }
+
+    fn next_authorization_code_id(&mut self) -> AuthorizationCodeId {
+        self.authorization_codes += 1;
+        AuthorizationCodeId::new(minted(0xac, self.authorization_codes))
     }
 }
 

@@ -19,17 +19,22 @@
 //! required, so a field renamed, added or dropped fails at `from_value` naming the key.
 
 use mandate_contract::commands;
+use mandate_contract::entities;
+use mandate_sts::code::IssueAuthorizationCode;
 use mandate_sts::issue::{IssueReferenceCredential, IssueSelfContainedCredential};
 use mandate_sts::keys::{RegisterSigningKey, RetireSigningKey, RevokeSigningKey};
+use mandate_sts::redemption::RedeemAuthorizationCode;
 use mandate_sts::registry::{DisableResourceServer, RegisterResourceServer};
 use mandate_sts::resolve::{IntrospectCredential, RevokeAccessCredential};
+use mandate_sts::store::{AuthorizationCode, AuthorizationCodeState};
 use mandate_sts::{ESS_REALIZATIONS, ESS_UNREALIZED};
 use mandate_token::CredentialProfile;
 use mandate_types::{
-    Audience, AuthorityScope, CorrelationId, CredentialId, CredentialKind, CredentialProof,
-    DelegationId, Duration, ExecutionId, KeyReference, OrganizationId, PrincipalId,
-    ResourceServerId, RevocationGuarantee, SigningAlgorithm, SigningKeyId, Timestamp, Uuid,
-    VerifiedContext,
+    Audience, AuthorityScope, AuthorizationCodeId, CorrelationId, CredentialId, CredentialKind,
+    CredentialProof, CredentialVerifier, DelegationId, Duration, ExecutionId, KeyReference,
+    OAuthClientId, OrganizationId, PkceChallenge, PkceMethod, PrincipalId, RedirectUri,
+    ResourceServerId, RevocationGuarantee, SessionId, SigningAlgorithm, SigningKeyId, Timestamp,
+    Uuid, VerifiedContext,
 };
 use serde::{Serialize, de::DeserializeOwned};
 use serde_json::Value;
@@ -196,14 +201,86 @@ fn each_input_agrees(context: &VerifiedContext) -> Vec<Value> {
             },
             "mandate.credential.RevokeSigningKey",
         ),
+        agrees::<_, commands::MandateCredentialIssueAuthorizationCodeInput>(
+            &IssueAuthorizationCode {
+                context: context.clone(),
+                client_id: OAuthClientId::new(uuid(0x0c)),
+                session_id: SessionId::new(uuid(0x5e)),
+                target: ResourceServerId::new(uuid(0x30)),
+                requested_scope: scope(),
+                challenge: PkceChallenge::new("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"),
+                method: PkceMethod::S256,
+                redirect_uri: RedirectUri::new("https://client.example/callback"),
+                expires_at: Timestamp::new("2026-09-19T00:05:00Z"),
+            },
+            "mandate.credential.IssueAuthorizationCode",
+        ),
+        // The one command of this crate that declares no `context` input: the context the
+        // emitted event carries is generated from the code record and the session it names
+        // (`credential.yaml`, the accepted summary), so this input is unaffected by which
+        // context a case builds it under.
+        agrees::<_, commands::MandateCredentialRedeemAuthorizationCodeInput>(
+            &RedeemAuthorizationCode {
+                code_id: AuthorizationCodeId::new(uuid(0xac)),
+                client_id: OAuthClientId::new(uuid(0x0c)),
+                code: CredentialProof::from_bytes(b"the-code".to_vec()),
+                pkce_verifier: CredentialProof::from_bytes(
+                    b"dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk".to_vec(),
+                ),
+                redirect_uri: RedirectUri::new("https://client.example/callback"),
+            },
+            "mandate.credential.RedeemAuthorizationCode",
+        ),
     ]
+}
+
+/// The `mandate.credential.AuthorizationCode` record, in each declared lifecycle state.
+///
+/// The fourth entity of this domain and the one `services/sts` folds itself
+/// (`services/sts/src/store.rs`); the other three are `mandate-token`'s and are decided in
+/// that crate's own agreement suite.
+fn code_record(state: AuthorizationCodeState) -> AuthorizationCode {
+    AuthorizationCode {
+        id: AuthorizationCodeId::new(uuid(0xac)),
+        client_id: OAuthClientId::new(uuid(0x0c)),
+        session_id: SessionId::new(uuid(0x5e)),
+        verifier: CredentialVerifier::new("digest-of-the-code"),
+        challenge: PkceChallenge::new("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"),
+        method: PkceMethod::S256,
+        redirect_uri: RedirectUri::new("https://client.example/callback"),
+        expires_at: Timestamp::new("2026-09-19T00:05:00Z"),
+        target: ResourceServerId::new(uuid(0x30)),
+        scope: scope(),
+        state,
+    }
+}
+
+#[test]
+fn the_authorization_code_record_round_trips_in_every_declared_state() {
+    for state in [
+        AuthorizationCodeState::Issued,
+        AuthorizationCodeState::Consumed,
+    ] {
+        match state {
+            AuthorizationCodeState::Issued | AuthorizationCodeState::Consumed => {}
+        }
+        let document = agrees::<_, entities::MandateCredentialAuthorizationCode>(
+            &code_record(state),
+            "mandate.credential.AuthorizationCode",
+        );
+        carries_no_null(&document, "record");
+        agrees::<_, entities::MandateCredentialAuthorizationCodeState>(
+            &state,
+            "mandate.credential.AuthorizationCode.State",
+        );
+    }
 }
 
 #[test]
 fn every_command_input_round_trips_with_every_optional_carried() {
     assert_eq!(
         each_input_agrees(&populated_context()).len(),
-        9,
+        11,
         "one input per command this crate realizes"
     );
 }
@@ -317,9 +394,9 @@ fn every_unrealized_element_names_an_owner() {
 }
 
 /// Every command of this domain is realized here or named as unrealized, and the ones this
-/// crate realizes are the nine its handlers decide.
+/// crate realizes are the eleven its handlers decide.
 #[test]
-fn the_commands_this_crate_realizes_are_the_nine_its_handlers_decide() {
+fn the_commands_this_crate_realizes_are_the_eleven_its_handlers_decide() {
     let ir = system_ir();
     let realized: BTreeSet<&str> = ESS_REALIZATIONS
         .iter()
@@ -332,8 +409,10 @@ fn the_commands_this_crate_realizes_are_the_nine_its_handlers_decide() {
         BTreeSet::from([
             "mandate.credential.DisableResourceServer",
             "mandate.credential.IntrospectCredential",
+            "mandate.credential.IssueAuthorizationCode",
             "mandate.credential.IssueReferenceCredential",
             "mandate.credential.IssueSelfContainedCredential",
+            "mandate.credential.RedeemAuthorizationCode",
             "mandate.credential.RegisterResourceServer",
             "mandate.credential.RegisterSigningKey",
             "mandate.credential.RetireSigningKey",

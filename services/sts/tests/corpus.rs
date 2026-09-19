@@ -1,4 +1,5 @@
-//! The five credential cases of `tests/security/cases.json`, executed.
+//! The five credential cases and the four `pkce` cases of `tests/security/cases.json`,
+//! executed.
 //!
 //! Each case here is named for its id, reads that case out of the corpus, and drives the
 //! commands the corpus says it names. The corpus file is a contract corpus and not runtime
@@ -6,32 +7,56 @@
 //! case asserts both halves: that the entry still says what this test was written against,
 //! and that the handlers do it.
 //!
-//! One command of every entry is **not** driven here: `mandate.authorization.Check` belongs
-//! to `story:check-api` and is realized by no crate in this workspace yet. Every case names
-//! it and says so, rather than quietly executing two thirds of an entry and reporting the
-//! entry as passed.
+//! **Two commands are named by entries here and driven by none of them**, and each case says
+//! so rather than quietly executing part of an entry and reporting the entry as passed:
+//!
+//! - `mandate.authorization.Check`, named by all five credential entries, belongs to
+//!   `story:check-api` and is realized by no crate in this workspace yet.
+//! - `mandate.federation.AuthorizePublicClient`, named by all four `pkce` entries, is
+//!   realized by `crates/mandate-federation` and is unreachable from here:
+//!   `dependency-boundaries.json` admits no `mandate-federation` to `mandate-sts`, and the
+//!   command is non-consuming — it validates and stops at the `IssueAuthorizationCode` input
+//!   the STS decides (`crates/mandate-federation/src/authorize.rs`).
+//!
+//! **What is unrepresentable rather than refused.** `pkce-plain` and `pkce-missing` are
+//! `story:protocol-adapters`' rows and could not be written here in any case:
+//! `mandate.core.PkceMethod` declares exactly one variant, so RFC 7636's `plain` has no Rust
+//! value to construct, and `RedeemAuthorizationCode.pkce_verifier` is non-optional, so an
+//! omitted verifier is not an input this command accepts. Both refusals belong to the wire
+//! adapter. `pkce-state-nonce` is `story:oauth-integration`'s: neither STS command takes a
+//! state or a nonce.
 
 use std::cell::Cell;
 
+use mandate_sts::binding::{RecordedSessions, SessionBinding};
+use mandate_sts::code::{
+    AuthorizationCodeParts, CodeIssuance, CodeLifetime, IssueAuthorizationCode, RecordedClients,
+};
 use mandate_sts::issue::{
     IssueReferenceCredential, IssueSelfContainedCredential, ReferenceParts, SelfContainedParts,
     Sha256Digest, StaticSigner, issue_reference_credential, issue_self_contained_credential,
+};
+use mandate_sts::redemption::{
+    BoundReads, RedeemAuthorizationCode, RedemptionParts, RedemptionRefused, redeem_and_consume,
+    redeem_authorization_code,
 };
 use mandate_sts::registry::{RegisterResourceServer, register_resource_server};
 use mandate_sts::resolve::{
     CredentialResolution, IntrospectCredential, IntrospectionParts, ResolutionUnavailable,
     RevokeAccessCredential, introspect_credential, revoke_access_credential,
 };
+use mandate_sts::store::{AppendRefused, AuthorizationCodeState, InMemoryCodeLog, StreamVersion};
 use mandate_sts::{CountingSecrets, RequestContext, SequentialAllocator};
 use mandate_token::CredentialProfile;
 use mandate_token::projection::{
-    AccessCredential, AccessCredentialState, CredentialEvent, DenialClause, Projection,
+    AccessCredential, AccessCredentialState, CredentialEvent, DenialClause, Denied, Projection,
 };
 use mandate_token::verifier::{CredentialDomain, verifier_for, verifier_in};
 use mandate_types::{
-    Audience, AuthorityScope, CorrelationId, CredentialId, CredentialKind, CredentialProof,
-    CredentialVerifier, DenialReason, Duration, Issuer, OrganizationId, PrincipalId,
-    ResourceServerId, RevocationGuarantee, Timestamp, Transient, Uuid, VerifiedContext,
+    Audience, AuthorityScope, AuthorizationCodeId, CorrelationId, CredentialId, CredentialKind,
+    CredentialProof, CredentialVerifier, DenialReason, Duration, EpochSnapshotRef, Issuer,
+    OAuthClientId, OrganizationId, PkceChallenge, PkceMethod, PrincipalId, RedirectUri,
+    ResourceServerId, RevocationGuarantee, SessionId, Timestamp, Transient, Uuid, VerifiedContext,
 };
 use serde_json::Value;
 
@@ -43,8 +68,13 @@ const CORPUS: &str = concat!(
 const ISSUE_REFERENCE: &str = "mandate.credential.IssueReferenceCredential";
 const ISSUE_SELF_CONTAINED: &str = "mandate.credential.IssueSelfContainedCredential";
 const INTROSPECT: &str = "mandate.credential.IntrospectCredential";
-/// `story:check-api`'s port. Named by every case here and driven by none of them.
+const ISSUE_CODE: &str = "mandate.credential.IssueAuthorizationCode";
+const REDEEM_CODE: &str = "mandate.credential.RedeemAuthorizationCode";
+/// `story:check-api`'s port. Named by every credential case here and driven by none of them.
 const CHECK: &str = "mandate.authorization.Check";
+/// `crates/mandate-federation`'s command. Named by every `pkce` case here and driven by none
+/// of them; see the module documentation.
+const AUTHORIZE: &str = "mandate.federation.AuthorizePublicClient";
 
 /// One corpus entry, read out of the file by id.
 fn case(id: &str) -> Value {
@@ -77,6 +107,32 @@ fn names(id: &str, commands: &[&str]) -> Value {
     assert!(
         declared.contains(&CHECK),
         "{id} is expected to name the authorization check this story does not realize"
+    );
+    case
+}
+
+/// The same, for a `pkce` entry: this story owns it, it names exactly these commands, and
+/// the control-plane command it names is not one this crate can drive.
+fn pkce_names(id: &str) -> Value {
+    let case = case(id);
+    assert_eq!(
+        case["story"], "story:oauth-transaction",
+        "{id} is another story's case"
+    );
+    let declared: Vec<&str> = case["commands"]
+        .as_array()
+        .expect("a case names its commands")
+        .iter()
+        .map(|command| command.as_str().expect("a command name is a string"))
+        .collect();
+    assert_eq!(
+        declared,
+        [AUTHORIZE, ISSUE_CODE, REDEEM_CODE],
+        "{id} names other commands"
+    );
+    assert!(
+        declared.contains(&AUTHORIZE),
+        "{id} is expected to name the control-plane command this crate cannot reach"
     );
     case
 }
@@ -662,5 +718,359 @@ fn profile_offline_bound() {
         1,
         "the cache was asked and its answer was refused by the bound, which is the \
          difference this case is about"
+    );
+}
+
+// --- the `pkce` entries -----------------------------------------------------------------
+
+/// RFC 7636 appendix B: the example code verifier and the S256 challenge it redeems.
+const PKCE_VERIFIER: &str = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
+const PKCE_CHALLENGE: &str = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM";
+/// A second well-formed verifier, whose S256 challenge is not [`PKCE_CHALLENGE`].
+const OTHER_PKCE_VERIFIER: &str = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+
+fn oauth_client() -> OAuthClientId {
+    OAuthClientId::new(uuid(0x0c))
+}
+
+fn oauth_session() -> SessionId {
+    SessionId::new(uuid(0x5e))
+}
+
+fn authorized_redirect_uri() -> RedirectUri {
+    RedirectUri::new("https://client.example/callback")
+}
+
+/// The whole authorization-code road a `pkce` entry runs on: a registered target, a
+/// registered enabled client, an authenticated session, the code log, and the credential log
+/// the redemption seeds a record in.
+struct OAuthDeployment {
+    deployment: Deployment,
+    target: ResourceServerId,
+    codes: InMemoryCodeLog,
+    clients: RecordedClients,
+    sessions: RecordedSessions,
+}
+
+impl OAuthDeployment {
+    fn new() -> Self {
+        let mut deployment = Deployment::new();
+        let target = deployment.register("api-a", reference_profile());
+        let snapshot = EpochSnapshotRef::new(uuid(0x60));
+        Self {
+            deployment,
+            target,
+            codes: InMemoryCodeLog::new(),
+            clients: RecordedClients::new()
+                .enabled(oauth_client(), organization())
+                .redirect(oauth_client(), authorized_redirect_uri()),
+            sessions: RecordedSessions::new()
+                .session(SessionBinding {
+                    id: oauth_session(),
+                    subject: PrincipalId::new(uuid(0x51)),
+                    organization: organization(),
+                    epochs: Some(snapshot),
+                    expires_at: Timestamp::new("2026-09-19T12:00:00Z"),
+                    revoked: false,
+                })
+                .current(snapshot),
+        }
+    }
+
+    /// `IssueAuthorizationCode`, appended to the code's own stream.
+    fn issue_code(&mut self) -> (AuthorizationCodeId, CredentialProof) {
+        let held = self.deployment.held();
+        let outcome = CodeIssuance::new(CodeLifetime::new(Duration::new("PT5M")))
+            .issue(
+                &IssueAuthorizationCode {
+                    context: context(PrincipalId::new(uuid(0x51))),
+                    client_id: oauth_client(),
+                    session_id: oauth_session(),
+                    target: self.target,
+                    requested_scope: scope(),
+                    challenge: PkceChallenge::new(PKCE_CHALLENGE),
+                    method: PkceMethod::S256,
+                    redirect_uri: authorized_redirect_uri(),
+                    expires_at: Timestamp::new("2026-09-19T00:05:00Z"),
+                },
+                &request(),
+                &held,
+                &self.clients,
+                AuthorizationCodeParts {
+                    digest: &Sha256Digest,
+                    secrets: &mut self.deployment.secrets,
+                    allocator: &mut self.deployment.allocator,
+                },
+            )
+            .expect("a registered enabled target and client");
+        let proof = CredentialProof::from_bytes(outcome.code.expose_material().to_vec());
+        self.codes
+            .append(
+                &outcome.code_id,
+                StreamVersion::INITIAL,
+                std::slice::from_ref(&outcome.event),
+            )
+            .expect("an untouched stream");
+        (outcome.code_id, proof)
+    }
+
+    /// `RedeemAuthorizationCode` through the command path, recording the credential the
+    /// accepted outcome seeds in the credential log.
+    fn redeem(
+        &mut self,
+        input: &RedeemAuthorizationCode,
+    ) -> Result<mandate_sts::redemption::AuthorizationCodeRedemption, RedemptionRefused> {
+        let servers = self.deployment.held();
+        let outcome = redeem_and_consume(
+            input,
+            &request(),
+            &mut self.codes,
+            BoundReads {
+                servers: &servers,
+                clients: &self.clients,
+                sessions: &self.sessions,
+            },
+            RedemptionParts {
+                digest: &Sha256Digest,
+                secrets: &mut self.deployment.secrets,
+                allocator: &mut self.deployment.allocator,
+            },
+        )?;
+        if let Some(event) = outcome.event.credential_event() {
+            self.deployment.log.push(event);
+        }
+        Ok(outcome)
+    }
+
+    /// How many `AccessCredential` records the credential log holds.
+    fn credentials(&self) -> usize {
+        self.deployment.held().credentials().len()
+    }
+}
+
+fn presented(code_id: AuthorizationCodeId, proof: &CredentialProof) -> RedeemAuthorizationCode {
+    RedeemAuthorizationCode {
+        code_id,
+        client_id: oauth_client(),
+        code: CredentialProof::from_bytes(proof.expose_material().to_vec()),
+        pkce_verifier: CredentialProof::from_bytes(PKCE_VERIFIER.as_bytes().to_vec()),
+        redirect_uri: authorized_redirect_uri(),
+    }
+}
+
+/// `pkce-valid`: "S256 challenge, matching verifier, exact redirect, fresh code and
+/// state/nonce" → "one credential; code consumed atomically".
+///
+/// The state and the nonce are `AuthorizePublicClient`'s inputs and neither STS command takes
+/// one, so the half of the `given` this crate can execute is the challenge, the verifier, the
+/// redirect and the freshness. "Atomically" is the append: one group on the code's own
+/// stream, compare-and-set on the version the decision was read at.
+#[test]
+fn pkce_valid() {
+    let case = pkce_names("pkce-valid");
+    assert_eq!(case["expected"], "one credential; code consumed atomically");
+
+    let mut deployment = OAuthDeployment::new();
+    let (code_id, proof) = deployment.issue_code();
+    let version = deployment.codes.version(&code_id);
+
+    let outcome = deployment
+        .redeem(&presented(code_id, &proof))
+        .expect("the matching verifier, client and redirect");
+
+    assert_eq!(deployment.credentials(), 1, "one credential");
+    assert_eq!(
+        deployment
+            .codes
+            .projection()
+            .authorization_code(&code_id)
+            .map(|code| code.state),
+        Some(AuthorizationCodeState::Consumed),
+        "the code is consumed"
+    );
+    assert_eq!(
+        deployment.codes.version(&code_id),
+        version.advance(),
+        "one append group, on the code's own stream"
+    );
+    assert_eq!(
+        deployment
+            .deployment
+            .held()
+            .access_credential(&outcome.credential_id)
+            .map(|record| record.state),
+        Some(AccessCredentialState::Active)
+    );
+}
+
+/// `pkce-wrong`: "Wrong verifier" → "deny; no credential".
+#[test]
+fn pkce_wrong() {
+    let case = pkce_names("pkce-wrong");
+    assert_eq!(case["expected"], "deny; no credential");
+
+    let mut deployment = OAuthDeployment::new();
+    let (code_id, proof) = deployment.issue_code();
+    let minted = deployment.deployment.secrets.minted();
+
+    let refused = deployment
+        .redeem(&RedeemAuthorizationCode {
+            pkce_verifier: CredentialProof::from_bytes(OTHER_PKCE_VERIFIER.as_bytes().to_vec()),
+            ..presented(code_id, &proof)
+        })
+        .expect_err("the verifier does not redeem the recorded challenge");
+
+    assert_eq!(
+        refused,
+        RedemptionRefused::Denied(Denied::new(
+            DenialReason::InvalidCredential,
+            DenialClause::VerifierMismatch
+        ))
+    );
+    assert_eq!(deployment.credentials(), 0, "no credential");
+    assert_eq!(
+        deployment.deployment.secrets.minted(),
+        minted,
+        "the refusal mints nothing"
+    );
+    assert_eq!(
+        deployment
+            .codes
+            .projection()
+            .authorization_code(&code_id)
+            .map(|code| code.state),
+        Some(AuthorizationCodeState::Issued),
+        "the code is not consumed"
+    );
+}
+
+/// `pkce-redirect`: "Redirect differs from exact registered/authorized URI" → "deny".
+///
+/// The redirect presented here is the authorized one with a trailing slash — the shape a
+/// normalizing comparison would admit. `services/sts/tests/binding.rs` enumerates the rest of
+/// that class.
+#[test]
+fn pkce_redirect() {
+    let case = pkce_names("pkce-redirect");
+    assert_eq!(case["expected"], "deny");
+
+    let mut deployment = OAuthDeployment::new();
+    let (code_id, proof) = deployment.issue_code();
+
+    let refused = deployment
+        .redeem(&RedeemAuthorizationCode {
+            redirect_uri: RedirectUri::new("https://client.example/callback/"),
+            ..presented(code_id, &proof)
+        })
+        .expect_err("not the exact redirect the code authorized");
+
+    assert_eq!(
+        refused,
+        RedemptionRefused::Denied(Denied::new(
+            DenialReason::Denied,
+            DenialClause::RedirectMismatch
+        ))
+    );
+    assert_eq!(deployment.credentials(), 0);
+    assert_eq!(
+        deployment
+            .codes
+            .projection()
+            .authorization_code(&code_id)
+            .map(|code| code.state),
+        Some(AuthorizationCodeState::Issued)
+    );
+}
+
+/// `pkce-reuse`: "Previously redeemed code **or concurrent second redemption**" → "deny; at
+/// most one issuance".
+///
+/// Both halves of the `given`, because they are refused by different mechanisms and either
+/// one alone would leave the entry half-executed. The sequential half is the declared
+/// `wrong-state` outcome, read off the record. The concurrent half is the compare-and-set:
+/// two deciders read the same version and the same projection, both decide `accepted`, both
+/// append, and the second presents a version the stream has left.
+#[test]
+fn pkce_reuse() {
+    let case = pkce_names("pkce-reuse");
+    assert_eq!(case["expected"], "deny; at most one issuance");
+
+    // The sequential half.
+    let mut deployment = OAuthDeployment::new();
+    let (code_id, proof) = deployment.issue_code();
+    deployment
+        .redeem(&presented(code_id, &proof))
+        .expect("the first redemption");
+
+    let refused = deployment
+        .redeem(&presented(code_id, &proof))
+        .expect_err("the code is already consumed");
+
+    assert_eq!(
+        refused,
+        RedemptionRefused::Denied(Denied::wrong_state(
+            DenialReason::Denied,
+            DenialClause::CodeConsumed
+        ))
+    );
+    assert_eq!(deployment.credentials(), 1, "at most one issuance");
+
+    // The concurrent half.
+    let mut deployment = OAuthDeployment::new();
+    let (code_id, proof) = deployment.issue_code();
+    let input = presented(code_id, &proof);
+    let expected = deployment.codes.version(&code_id);
+    let servers = deployment.deployment.held();
+    let decide = |secrets: &mut CountingSecrets, allocator: &mut SequentialAllocator| {
+        redeem_authorization_code(
+            &input,
+            &request(),
+            deployment.codes.projection(),
+            BoundReads {
+                servers: &servers,
+                clients: &deployment.clients,
+                sessions: &deployment.sessions,
+            },
+            RedemptionParts {
+                digest: &Sha256Digest,
+                secrets,
+                allocator,
+            },
+        )
+    };
+    let mut secrets = CountingSecrets::new();
+    let mut allocator = SequentialAllocator::new();
+    let one = decide(&mut secrets, &mut allocator).expect("the first decision");
+    let two = decide(&mut secrets, &mut allocator).expect("the second, against the same state");
+
+    let winner = deployment
+        .codes
+        .append(&code_id, expected, std::slice::from_ref(&one.event))
+        .expect("the stream is still where it was read");
+    let loser = deployment
+        .codes
+        .append(&code_id, expected, std::slice::from_ref(&two.event))
+        .expect_err("the stream moved under the second writer");
+
+    assert_eq!(
+        loser,
+        AppendRefused::Conflict {
+            expected,
+            actual: winner
+        }
+    );
+    deployment.deployment.log.push(
+        one.event
+            .credential_event()
+            .expect("the redemption seeds a credential"),
+    );
+    assert_eq!(deployment.credentials(), 1, "at most one issuance");
+    assert!(
+        deployment
+            .deployment
+            .held()
+            .access_credential(&two.credential_id)
+            .is_none(),
+        "the loser's credential never reaches a log"
     );
 }
