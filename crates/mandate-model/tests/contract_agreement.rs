@@ -35,7 +35,7 @@
 //!   by ESS's `declaration_name` rule — the round trip cannot do this, because the six
 //!   `{context, id}` payloads are structurally identical and reproduce each other's
 //!   documents exactly;
-//! * that [`mandate_model::ESS_REALIZATIONS`] names exactly the 22 elements this crate
+//! * that [`mandate_model::ESS_REALIZATIONS`] names exactly the 39 elements this crate
 //!   implements — these eighteen and the four accepted `mandate.core` records — that each
 //!   is a compiled declaration under `generated/schema`, and that each symbol is the one
 //!   its element name says it should be.
@@ -99,6 +99,21 @@ fn schema(directory: &str, ess_name: &str) -> Value {
 }
 
 /// Every element the compiled model declares in one directory.
+/// The tenancy commands `Tenancy::decide_*` decides, and the domain's refusal.
+const TENANCY_COMMANDS: [&str; 11] = [
+    "mandate.tenancy.CreateOrganization",
+    "mandate.tenancy.CloseOrganization",
+    "mandate.tenancy.AddOrganizationMembership",
+    "mandate.tenancy.RemoveOrganizationMembership",
+    "mandate.tenancy.CreateTeam",
+    "mandate.tenancy.RetireTeam",
+    "mandate.tenancy.AddTeamMembership",
+    "mandate.tenancy.RemoveTeamMembership",
+    "mandate.tenancy.CreateSpace",
+    "mandate.tenancy.RetireSpace",
+    "mandate.tenancy.Denied",
+];
+
 fn schema_names(directory: &str) -> BTreeSet<String> {
     let path = format!("{SCHEMA}/{directory}");
     std::fs::read_dir(&path)
@@ -743,7 +758,17 @@ fn the_realization_registry_names_exactly_the_projections_payloads_and_records_t
         "the registry holds no duplicate",
     );
 
+    // The lifecycle enum of every projection, derived from `PROJECTED` rather than
+    // repeated: a record this crate folds holds a state, and the element that names it is
+    // the record's own name with `.State`. Registering the record and leaving its state to
+    // the generated contract shape is what put six `.State` elements in the coverage
+    // manifest as implemented by a shape ESS emits for every declared entity.
+    let states: Vec<String> = PROJECTED
+        .iter()
+        .map(|record| format!("{record}.State"))
+        .collect();
     let mut expected: BTreeSet<&str> = PROJECTED.into_iter().collect();
+    expected.extend(states.iter().map(String::as_str));
     let payloads = payload_agreements();
     expected.extend(payloads.iter().map(|agreement| agreement.ess_name));
     // The four accepted `mandate.core` records, taken from this crate's own conformance
@@ -753,23 +778,34 @@ fn the_realization_registry_names_exactly_the_projections_payloads_and_records_t
             .iter()
             .map(|entry| entry.ess_name),
     );
+    // The ten tenancy commands this crate decides and the domain's refusal, registered as
+    // `@ Tenancy::decide_*` and `Denied` since wave D's second correction round.
+    expected.extend(TENANCY_COMMANDS);
     assert_eq!(
         registered, expected,
-        "the registry is not every element this crate implements: six projections, twelve \
-         payloads and four accepted records",
+        "the registry is not every element this crate implements: six projections and their \
+         six lifecycle enums, twelve payloads and four accepted records",
     );
     assert_eq!(
         mandate_model::ESS_REALIZATIONS.len(),
-        22,
-        "the registry pins 22 elements",
+        39,
+        "the registry pins 39 elements: 22 as it stood, the six lifecycle enums wave D's \
+         first correction round moved off the generated shapes, and the ten tenancy \
+         commands this crate decides plus the domain's refusal, registered by the second",
     );
 
     let entities = schema_names("entities");
     let events = schema_names("events");
     let types = schema_names("types");
+    let commands = schema_names("commands");
+    let errors = schema_names("errors");
     for (element, symbol) in mandate_model::ESS_REALIZATIONS {
         assert!(
-            entities.contains(*element) || events.contains(*element) || types.contains(*element),
+            entities.contains(*element)
+                || events.contains(*element)
+                || types.contains(*element)
+                || commands.contains(*element)
+                || errors.contains(*element),
             "{element}: the registry names an element the compiled model does not declare",
         );
         assert!(
@@ -802,10 +838,27 @@ fn the_realization_registry_names_exactly_the_projections_payloads_and_records_t
                 "{element}: the registry names {symbol}, not a variant of an event enum in \
                  {module}",
             );
+        } else if TENANCY_COMMANDS.contains(element) && !element.ends_with(".Denied") {
+            // A tenancy command is decided by the `Tenancy` aggregate: registered as the
+            // deciding function where the compiler can take it as a value, and as the
+            // aggregate itself where the function takes an `impl Trait` argument.
+            assert!(
+                *symbol == "crate::tenancy::Tenancy"
+                    || symbol.starts_with("crate::tenancy::Tenancy::decide_"),
+                "{element}: the registry names {symbol}, not the aggregate that decides it",
+            );
         } else {
             // A record is realized by a type, and the type's own name is the element's
             // local part: `mandate.core.*` is declared at the crate root, every other
-            // domain in the module that domain names.
+            // domain in the module that domain names. A lifecycle enum is the one place the
+            // element's name and the Rust name differ by a rule rather than by identity —
+            // `mandate.graph.Resource.State` is `ResourceState`, beside the record — and the
+            // rule is written here so a state enum registered against the wrong record is
+            // red.
+            let local = match local.strip_suffix(".State") {
+                Some(record) => format!("{record}State"),
+                None => local.to_owned(),
+            };
             let expected = if domain == "core" {
                 format!("crate::{local}")
             } else {
@@ -818,4 +871,86 @@ fn the_realization_registry_names_exactly_the_projections_payloads_and_records_t
             );
         }
     }
+}
+
+/// The coverage manifest's account of this crate is exactly this crate's registry, element
+/// and symbol both.
+///
+/// `contracts/coverage.json` maps every element of the contract to what implements it, and
+/// nothing in the manifest is compiled: a symbol there is a string. This is the case that
+/// makes the string answerable — the registry's right-hand sides are expanded into `use`
+/// declarations by `mandate_types::realizes!`, so they exist or the crate does not build, and
+/// the manifest is asserted equal to them here. An entry claiming this crate realizes an
+/// element it does not, or realizes it with a symbol it does not name, fails in this crate's
+/// own suite rather than in a reader of the manifest.
+///
+/// `cargo xtask coverage` decides the complementary half: that every `implemented` entry of
+/// the manifest names a crate which runs a case like this one. An entry naming a crate that
+/// runs none would be a coverage claim nothing reconciles.
+#[test]
+fn the_coverage_manifest_names_exactly_what_this_crate_realizes() {
+    let registered: BTreeSet<(String, String)> = mandate_model::ESS_REALIZATIONS
+        .iter()
+        .map(|(element, symbol)| ((*element).to_owned(), (*symbol).to_owned()))
+        .collect();
+    assert_eq!(
+        registered.len(),
+        mandate_model::ESS_REALIZATIONS.len(),
+        "the registry holds no duplicate pair"
+    );
+    assert_eq!(
+        coverage_manifest_entries(env!("CARGO_PKG_NAME")),
+        registered,
+        "the coverage manifest's implemented entries for this crate are not its registry"
+    );
+}
+
+/// Every `implemented` entry of the coverage manifest that names `crate_name`, as the element
+/// and the single symbol it pairs with.
+fn coverage_manifest_entries(crate_name: &str) -> BTreeSet<(String, String)> {
+    const MANIFEST: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../contracts/coverage.json");
+    let text = std::fs::read_to_string(MANIFEST).unwrap_or_else(|error| {
+        panic!("{MANIFEST}: {error}");
+    });
+    let manifest: Value = serde_json::from_str(&text).expect("the coverage manifest is JSON");
+    assert_eq!(
+        manifest["format"], "mandate-coverage/1",
+        "unknown coverage manifest format"
+    );
+    let mut entries = BTreeSet::new();
+    for entry in manifest["entries"]
+        .as_array()
+        .expect("the coverage manifest states its entries")
+    {
+        if entry["crate"] != crate_name {
+            continue;
+        }
+        let element = entry["element"]
+            .as_str()
+            .expect("an entry states an element");
+        assert_eq!(
+            entry["status"], "implemented",
+            "{element}: an entry names a crate and is not implemented"
+        );
+        let symbols = entry["impl"]
+            .as_array()
+            .unwrap_or_else(|| panic!("{element}: the entry states no impl list"));
+        assert_eq!(
+            symbols.len(),
+            1,
+            "{element}: one element has one realizer, and one realizer names one symbol"
+        );
+        entries.insert((
+            element.to_owned(),
+            symbols[0]
+                .as_str()
+                .unwrap_or_else(|| panic!("{element}: the symbol is no path"))
+                .to_owned(),
+        ));
+    }
+    assert!(
+        !entries.is_empty(),
+        "the coverage manifest names no entry for {crate_name}, so this case decides nothing"
+    );
+    entries
 }

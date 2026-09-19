@@ -266,3 +266,151 @@ fn no_persisted_projection_carries_a_transient_credential_value() {
         }
     }
 }
+
+const MANIFEST: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../contracts/coverage.json");
+
+/// The coverage manifest's account of this crate is exactly the account this crate keeps.
+///
+/// `contracts/coverage.json` maps all 110 compiled type declarations, and the eight registrar
+/// crates reconcile their own entries against a `mandate_types::realizes!` registry the
+/// compiler touches. This crate has no such registry and is not given one: the ruling for
+/// `story:coverage-map` is that the authored types are accounted here through the conformance
+/// account, not through a registry. This is the case that makes that account answerable, and
+/// it decides three things.
+///
+/// **The authored half.** Every entry of [`ACCEPTED`] this crate owns is implemented by this
+/// crate in the manifest, paired with `mandate_types::<Name>`. The pairing is a derivation and
+/// not a list: every declaration form in `crates/mandate-types/src/macros.rs` writes
+/// `ESS_NAME` as `concat!("mandate.core.", stringify!($name))`, so the Rust identifier of an
+/// accepted type *is* the local part of its element name, and a type that stopped agreeing
+/// with that would fail `the_realized_set_is_exactly_the_share_this_crate_owns` first.
+///
+/// **The derived half, which this crate claims none of.** `tests/conformance.rs` puts every
+/// one of the 36 `.State` enums of [`DERIVED_STATE_ENUMS`] through the same schema account the
+/// authored types go through, against the generated `mandate_contract::entities::<Entity>State`
+/// shape its name derives to. That is a *check*, and wave D's correction round settled that it
+/// is not an *implementation*: ESS emits one such shape for every declared entity whether any
+/// crate folds the record or not, so a manifest entry naming it says nothing that
+/// distinguishes a realized lifecycle from an unrealized one. Twenty-three entries said
+/// exactly that, six of them while the crate owning the domain registered the element as one
+/// it does not realize. So the manifest's account of each `.State` is the crate that folds the
+/// record — registering its own enum, reconciled by that crate's own case — or no crate at
+/// all, and this case decides that none of them is parked here.
+///
+/// **Nothing else.** An entry naming this crate that is not an accepted type this crate owns
+/// fails, and so does one claiming a `mandate.core` record `mandate-model` or `mandate-token`
+/// declares: those carry their own conformance registries, and claiming them here would be
+/// this crate answering for a type it cannot construct.
+#[test]
+fn the_coverage_manifest_names_exactly_what_this_crate_accounts_for() {
+    let text = std::fs::read_to_string(MANIFEST).unwrap_or_else(|error| {
+        panic!("{MANIFEST}: {error}");
+    });
+    let manifest: serde_json::Value =
+        serde_json::from_str(&text).expect("the coverage manifest is JSON");
+    assert_eq!(
+        manifest["format"], "mandate-coverage/1",
+        "unknown coverage manifest format"
+    );
+
+    let mut entries: BTreeMap<&str, &serde_json::Value> = BTreeMap::new();
+    for entry in manifest["entries"]
+        .as_array()
+        .expect("the coverage manifest states its entries")
+    {
+        let element = entry["element"]
+            .as_str()
+            .expect("an entry states an element");
+        assert!(
+            entries.insert(element, entry).is_none(),
+            "{element}: two entries name this element"
+        );
+    }
+    assert_eq!(entries.len(), 292, "the coverage manifest's element count");
+
+    let mut claimed: BTreeMap<String, String> = BTreeMap::new();
+    for (element, entry) in &entries {
+        if entry["crate"].as_str() != Some("mandate-types") {
+            continue;
+        }
+        assert_eq!(
+            entry["status"], "implemented",
+            "{element}: an entry names this crate and is not implemented"
+        );
+        let symbols = entry["impl"]
+            .as_array()
+            .unwrap_or_else(|| panic!("{element}: the entry states no impl list"));
+        assert_eq!(
+            symbols.len(),
+            1,
+            "{element}: one element has one realizer, and one realizer names one symbol"
+        );
+        claimed.insert(
+            (*element).to_owned(),
+            symbols[0]
+                .as_str()
+                .unwrap_or_else(|| panic!("{element}: the symbol is no path"))
+                .to_owned(),
+        );
+    }
+
+    let mut expected: BTreeMap<String, String> = BTreeMap::new();
+    for accepted in ACCEPTED.iter().filter(|entry| entry.owner == Owner::Types) {
+        let local = accepted
+            .ess_name
+            .strip_prefix("mandate.core.")
+            .unwrap_or_else(|| panic!("{}: an authored type of another domain", accepted.ess_name));
+        expected.insert(
+            accepted.ess_name.to_owned(),
+            format!("mandate_types::{local}"),
+        );
+    }
+    assert_eq!(
+        expected.len(),
+        68,
+        "the share of the authored types this crate owns"
+    );
+    assert_eq!(
+        claimed, expected,
+        "the coverage manifest's entries for this crate are not the account it keeps"
+    );
+    for accepted in ACCEPTED.iter().filter(|entry| entry.owner != Owner::Types) {
+        assert!(
+            !claimed.contains_key(accepted.ess_name),
+            "{}: declared in another crate and claimed by this one",
+            accepted.ess_name
+        );
+    }
+
+    let mut folded = 0_usize;
+    for name in DERIVED_STATE_ENUMS {
+        let entry = entries
+            .get(name)
+            .unwrap_or_else(|| panic!("{name}: the coverage manifest has no entry"));
+        let holding = entry["crate"].as_str().unwrap_or_default();
+        assert_ne!(
+            holding, "mandate-types",
+            "{name}: this crate declares no Rust representation of a derived state enum, and \
+             the generated shape it is paired with in tests/conformance.rs is the contract \
+             re-emitted rather than an implementation of it"
+        );
+        if entry["status"] == "implemented" {
+            let symbol = entry["impl"][0].as_str().unwrap_or_default();
+            assert!(
+                !symbol.starts_with("mandate_contract::"),
+                "{name}: implemented by {holding} as the generated shape {symbol}, which ESS \
+                 emits for every declared entity"
+            );
+            folded += 1;
+        }
+    }
+    assert_eq!(
+        folded, 19,
+        "the derived state enums a crate of this workspace folds and registers: six in \
+         mandate-model, four in the STS, three in mandate-federation, two each in \
+         mandate-identity, mandate-graph and mandate-policy. The other seventeen have no \
+         hand-written enum anywhere in this workspace and carry their record's status; the \
+         count moved from 36 when wave D's correction round refused the generated contract \
+         shape as an implementation"
+    );
+}
