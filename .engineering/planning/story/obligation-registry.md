@@ -8,6 +8,7 @@ relations:
 - decomposes: epic:foundations
 - serves: vision:mandate
 - depends_on: story:coverage-map
+- informed_by: initiative:drift-enforcement
 scope:
 - confidence: inferred
   path: contracts/obligations.json

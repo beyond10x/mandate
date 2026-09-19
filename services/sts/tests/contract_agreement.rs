@@ -421,3 +421,196 @@ fn the_commands_this_crate_realizes_are_the_eleven_its_handlers_decide() {
         ])
     );
 }
+
+/// The coverage manifest's account of this crate is exactly this crate's registry, element
+/// and symbol both.
+///
+/// `contracts/coverage.json` maps every element of the contract to what implements it, and
+/// nothing in the manifest is compiled: a symbol there is a string. This is the case that
+/// makes the string answerable — the registry's right-hand sides are expanded into `use`
+/// declarations by `mandate_types::realizes!`, so they exist or the crate does not build, and
+/// the manifest is asserted equal to them here. An entry claiming this crate realizes an
+/// element it does not, or realizes it with a symbol it does not name, fails in this crate's
+/// own suite rather than in a reader of the manifest.
+///
+/// `cargo xtask coverage` decides the complementary half: that every `implemented` entry of
+/// the manifest names a crate which runs a case like this one. An entry naming a crate that
+/// runs none would be a coverage claim nothing reconciles.
+#[test]
+fn the_coverage_manifest_names_exactly_what_this_crate_realizes() {
+    let registered: BTreeSet<(String, String)> = mandate_sts::ESS_REALIZATIONS
+        .iter()
+        .map(|(element, symbol)| ((*element).to_owned(), (*symbol).to_owned()))
+        .collect();
+    assert_eq!(
+        registered.len(),
+        mandate_sts::ESS_REALIZATIONS.len(),
+        "the registry holds no duplicate pair"
+    );
+    assert_eq!(
+        coverage_manifest_entries(env!("CARGO_PKG_NAME")),
+        registered,
+        "the coverage manifest's implemented entries for this crate are not its registry"
+    );
+    no_unrealized_element_contradicts_the_coverage_manifest(ESS_UNREALIZED);
+}
+
+/// Every `implemented` entry of the coverage manifest that names `crate_name`, as the element
+/// and the single symbol it pairs with.
+fn coverage_manifest_entries(crate_name: &str) -> BTreeSet<(String, String)> {
+    const MANIFEST: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../contracts/coverage.json");
+    let text = std::fs::read_to_string(MANIFEST).unwrap_or_else(|error| {
+        panic!("{MANIFEST}: {error}");
+    });
+    let manifest: Value = serde_json::from_str(&text).expect("the coverage manifest is JSON");
+    assert_eq!(
+        manifest["format"], "mandate-coverage/1",
+        "unknown coverage manifest format"
+    );
+    let mut entries = BTreeSet::new();
+    for entry in manifest["entries"]
+        .as_array()
+        .expect("the coverage manifest states its entries")
+    {
+        if entry["crate"] != crate_name {
+            continue;
+        }
+        let element = entry["element"]
+            .as_str()
+            .expect("an entry states an element");
+        assert_eq!(
+            entry["status"], "implemented",
+            "{element}: an entry names a crate and is not implemented"
+        );
+        let symbols = entry["impl"]
+            .as_array()
+            .unwrap_or_else(|| panic!("{element}: the entry states no impl list"));
+        assert_eq!(
+            symbols.len(),
+            1,
+            "{element}: one element has one realizer, and one realizer names one symbol"
+        );
+        entries.insert((
+            element.to_owned(),
+            symbols[0]
+                .as_str()
+                .unwrap_or_else(|| panic!("{element}: the symbol is no path"))
+                .to_owned(),
+        ));
+    }
+    assert!(
+        !entries.is_empty(),
+        "the coverage manifest names no entry for {crate_name}, so this case decides nothing"
+    );
+    entries
+}
+
+/// Every entry of the coverage manifest, as `(status, crate, the first impl symbol)`.
+fn coverage_manifest_claims() -> std::collections::BTreeMap<String, (String, String, String)> {
+    const MANIFEST: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../contracts/coverage.json");
+    let text = std::fs::read_to_string(MANIFEST).unwrap_or_else(|error| {
+        panic!("{MANIFEST}: {error}");
+    });
+    let manifest: Value = serde_json::from_str(&text).expect("the coverage manifest is JSON");
+    let mut claims = std::collections::BTreeMap::new();
+    for entry in manifest["entries"]
+        .as_array()
+        .expect("the coverage manifest states its entries")
+    {
+        let element = entry["element"]
+            .as_str()
+            .expect("an entry states an element");
+        claims.insert(
+            element.to_owned(),
+            (
+                entry["status"].as_str().unwrap_or_default().to_owned(),
+                entry["crate"].as_str().unwrap_or_default().to_owned(),
+                entry["impl"][0].as_str().unwrap_or_default().to_owned(),
+            ),
+        );
+    }
+    assert_eq!(claims.len(), 292, "the coverage manifest's element count");
+    claims
+}
+
+/// The symbol an `ESS_UNREALIZED` reason names as the realizer, when it names one.
+fn named_realizer(reason: &str) -> Option<String> {
+    let (_, named) = reason.split_once("realized by ")?;
+    let named = named.trim_start_matches('`');
+    let claimed: String = named
+        .chars()
+        .take_while(|character| {
+            character.is_ascii_alphanumeric() || *character == '_' || *character == ':'
+        })
+        .collect();
+    (!claimed.is_empty()).then_some(claimed)
+}
+
+/// A manifest symbol as an absolute path: `crate::` is the crate the entry names.
+fn absolute(holder: &str, symbol: &str) -> String {
+    match symbol.strip_prefix("crate::") {
+        Some(tail) => format!("{}::{tail}", holder.replace('-', "_")),
+        None => symbol.to_owned(),
+    }
+}
+
+/// Nothing this crate registers as **unrealized** is reported implemented by the coverage
+/// manifest — unless this crate's own reason names the realizer, and then the manifest names
+/// that same symbol.
+///
+/// `ESS_UNREALIZED` is this crate's statement, in the crate's own source, that it realizes an
+/// element it declares nothing for. The manifest is a second account of the same question,
+/// and until this check nothing in the tree compared them: `cargo xtask coverage` reads only
+/// the manifest, and the equality above reads only `ESS_REALIZATIONS`. That gap let 23
+/// derived `.State` entries be reported implemented by the generated contract shape, six of
+/// them while the crate that owns the domain said in its own registry that nothing realizes
+/// them.
+///
+/// The exemption is not a hole: a reason of the form "realized by `<symbol>`" is this crate
+/// naming **another crate's** realization, and the assertion on that branch is stronger than
+/// the refusal — the manifest has to report the element implemented by exactly that symbol.
+/// One declared element still has one realizer; this says the two documents agree on which.
+fn no_unrealized_element_contradicts_the_coverage_manifest(unrealized: &[(&str, &str)]) {
+    assert!(
+        !unrealized.is_empty(),
+        "this crate registers no unrealized element, so this check reads nothing"
+    );
+    let claims = coverage_manifest_claims();
+    let mut contradictions = Vec::new();
+    for (element, reason) in unrealized {
+        let (status, holder, symbol) = claims
+            .get(*element)
+            .unwrap_or_else(|| panic!("{element}: the coverage manifest has no entry"));
+        match named_realizer(reason) {
+            None => {
+                if status == "implemented" {
+                    contradictions.push(format!(
+                        "  {element}: this crate registers it as an element it does not \
+                         realize and names no realizer, and the coverage manifest reports it \
+                         implemented by {holder} as {symbol}"
+                    ));
+                }
+            }
+            Some(named) if status != "implemented" => contradictions.push(format!(
+                "  {element}: this crate's reason names {named} as its realizer and the \
+                 coverage manifest reports it {status}"
+            )),
+            Some(named) => {
+                let resolved = absolute(holder, symbol);
+                if resolved != named {
+                    contradictions.push(format!(
+                        "  {element}: this crate's reason names {named} as its realizer and \
+                         the coverage manifest names {resolved}"
+                    ));
+                }
+            }
+        }
+    }
+    assert!(
+        contradictions.is_empty(),
+        "this crate's ESS_UNREALIZED registry and the coverage manifest disagree about {} \
+         element(s):\n{}",
+        contradictions.len(),
+        contradictions.join("\n")
+    );
+}

@@ -19,6 +19,8 @@
 
 Four further libraries provide cross-domain interfaces: `mandate-proto` owns wire contracts on shared types; `mandate-client` owns the Rust client; `mandate-server` owns shared transport/authentication adapters; `mandate-testkit` owns fixtures and future conformance/security support. The server adapter does not acquire PDP or token-issuance authority.
 
+For the first served vertical (wave D, 2026-09-19) the `mandate-control-plane` binary composes the control plane and the STS in one process: it depends on both libraries and holds the port adapters that let each read the other's records. The authority rows above do not move — the STS handlers still decide issuance, redemption and introspection, the control plane's still decide authentication and authorization — and splitting the process later changes wiring, not authority.
+
 `dependency-boundaries.json` enforces crate direction. Canonical-type realization includes this file in scope so required serialization dependencies can be reviewed with their consuming crates. Later work must declare changes to this shared policy before parallel scheduling.
 
 ## Code redemption transaction

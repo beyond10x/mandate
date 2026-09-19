@@ -60,3 +60,46 @@ pub mod double;
 pub mod port;
 pub mod precedence;
 pub mod record;
+
+mandate_types::realizes! {
+    "mandate.policy.SupersedePolicy" => crate::port::PolicyAdministration,
+    "mandate.policy.SupersedeAuthorizationModel" => crate::port::PolicyAdministration,
+    "mandate.policy.Policy" => crate::record::Policy,
+    "mandate.policy.AuthorizationModel" => crate::record::AuthorizationModel,
+    "mandate.policy.Policy.State" => crate::record::PolicyState,
+    "mandate.policy.AuthorizationModel.State" => crate::record::AuthorizationModelState,
+    "mandate.policy.Denied" => crate::port::PolicyError,
+    // A command is realized by the port that declares it, not by a handler: this crate
+    // chooses no policy engine (`story:graph-policy-adapter` does), so what it implements of
+    // each supersede command is the operation's signature, its refusals and the transition
+    // the projection owns. `double` is one implementation of those ports and is not the
+    // realization; an adapter is another.
+}
+
+/// Every declared `mandate.policy` element this crate does **not** realize, with the reason.
+///
+/// A coverage registry that names what it covers and says nothing about the rest is read as
+/// a claim about the whole domain. This is the other half of [`ESS_REALIZATIONS`], and
+/// `crates/mandate-policy/tests/contract_agreement.rs` decides the pair against the compiled
+/// model in both directions: an element this list names and the registry also realizes is a
+/// contradiction, and an element neither one names is an element nobody accounted for.
+///
+/// Both are the events an accepted supersede emits, and neither is an oversight. This crate
+/// declares no payload type for either: [`port::Superseded`] is what the port call returns —
+/// the projection as it now stands and whether the move was already recorded — and it
+/// carries neither the declared `context` the payload leads with nor the identity it names.
+/// Building the payload is the adapter's, with the engine `story:graph-policy-adapter`
+/// chooses.
+pub const ESS_UNREALIZED: &[(&str, &str)] = &[
+    (
+        "mandate.policy.PolicySuperseded",
+        "no event payload type is declared here: port::Superseded is a port outcome, not the \
+         declared payload, and the adapter that appends the event builds it; owner \
+         story:graph-policy-adapter",
+    ),
+    (
+        "mandate.policy.AuthorizationModelSuperseded",
+        "no event payload type is declared here: port::Superseded is a port outcome, not the \
+         declared payload; owner story:graph-policy-adapter",
+    ),
+];

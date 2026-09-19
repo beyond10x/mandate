@@ -118,6 +118,9 @@ pub trait WireContract: Canonical {
     }
 }
 
+/// The OAuth road's wire encodings: forms, the standard error bodies, the JSON documents.
+pub mod oauth;
+
 macro_rules! wire_contracts {
     ($($name:path),+ $(,)?) => {
         $(

@@ -458,6 +458,10 @@ pub mod conformance {
 // variant, whose name ESS does not derive, so only its module and enum are decided by
 // name; which variant realizes which payload is decided by `ess_name` and the pairing
 // case instead.
+// The ten tenancy commands are decided by `Tenancy::decide_*`. Seven are registered as the
+// deciding function itself (`@ Type::method`, proven by taking it as a value); the three
+// that take `display_name: impl Into<String>` cannot be taken as a value without a type,
+// so they are registered as the aggregate that decides them.
 mandate_types::realizes! {
     "mandate.core.TenantResolutionRule" => crate::TenantResolutionRule,
     "mandate.core.DecisionChallenge" => crate::DecisionChallenge,
@@ -481,4 +485,28 @@ mandate_types::realizes! {
     "mandate.tenancy.SpaceRetired" => crate::tenancy::TenancyEvent::SpaceRetired,
     "mandate.graph.ResourceRegistered" => crate::graph::ResourceEvent::Registered,
     "mandate.graph.ResourceDeregistered" => crate::graph::ResourceEvent::Deregistered,
+    // The lifecycle enum of each record this crate folds, beside the record it folds. Every
+    // one of the six has a hand-written enum here and is decided against the contract's
+    // declared variant list by
+    // `every_state_a_projection_holds_is_exactly_what_its_generated_state_enum_declares`;
+    // `mandate-graph` already named `crate::graph::ResourceState` as the realizer of
+    // `mandate.graph.Resource.State` in its own ESS_UNREALIZED reason, and this is the
+    // registration that makes that true in one place rather than two documents.
+    "mandate.tenancy.Organization.State" => crate::tenancy::OrganizationState,
+    "mandate.tenancy.OrganizationMembership.State" => crate::tenancy::OrganizationMembershipState,
+    "mandate.tenancy.Team.State" => crate::tenancy::TeamState,
+    "mandate.tenancy.TeamMembership.State" => crate::tenancy::TeamMembershipState,
+    "mandate.tenancy.Space.State" => crate::tenancy::SpaceState,
+    "mandate.graph.Resource.State" => crate::graph::ResourceState,
+    "mandate.tenancy.CreateOrganization" => crate::tenancy::Tenancy,
+    "mandate.tenancy.CloseOrganization" => @ crate::tenancy::Tenancy::decide_close_organization,
+    "mandate.tenancy.AddOrganizationMembership" => @ crate::tenancy::Tenancy::decide_add_organization_membership,
+    "mandate.tenancy.RemoveOrganizationMembership" => @ crate::tenancy::Tenancy::decide_remove_organization_membership,
+    "mandate.tenancy.CreateTeam" => crate::tenancy::Tenancy,
+    "mandate.tenancy.RetireTeam" => @ crate::tenancy::Tenancy::decide_retire_team,
+    "mandate.tenancy.AddTeamMembership" => @ crate::tenancy::Tenancy::decide_add_team_membership,
+    "mandate.tenancy.RemoveTeamMembership" => @ crate::tenancy::Tenancy::decide_remove_team_membership,
+    "mandate.tenancy.CreateSpace" => crate::tenancy::Tenancy,
+    "mandate.tenancy.RetireSpace" => @ crate::tenancy::Tenancy::decide_retire_space,
+    "mandate.tenancy.Denied" => crate::tenancy::Denied,
 }

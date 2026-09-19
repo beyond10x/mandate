@@ -601,3 +601,84 @@ fn every_lifecycle_enum_agrees_with_the_state_element_it_names() {
         &keys,
     );
 }
+
+/// The coverage manifest's account of this crate is exactly this crate's registry, element
+/// and symbol both.
+///
+/// `contracts/coverage.json` maps every element of the contract to what implements it, and
+/// nothing in the manifest is compiled: a symbol there is a string. This is the case that
+/// makes the string answerable — the registry's right-hand sides are expanded into `use`
+/// declarations by `mandate_types::realizes!`, so they exist or the crate does not build, and
+/// the manifest is asserted equal to them here.
+///
+/// `cargo xtask coverage` decides the complementary half twice over: that every `implemented`
+/// entry names a crate which runs a case like this one, and — since this crate is what taught
+/// it the rule — that every crate holding a `tests/contract_agreement.rs` reconciles its own
+/// entries or is named, with a reason, as one that deliberately does not.
+#[test]
+fn the_coverage_manifest_names_exactly_what_this_crate_realizes() {
+    let registered: BTreeSet<(String, String)> = mandate_token::ESS_REALIZATIONS
+        .iter()
+        .map(|(element, symbol)| ((*element).to_owned(), (*symbol).to_owned()))
+        .collect();
+    assert_eq!(
+        registered.len(),
+        mandate_token::ESS_REALIZATIONS.len(),
+        "the registry holds no duplicate pair"
+    );
+    assert_eq!(
+        coverage_manifest_entries(env!("CARGO_PKG_NAME")),
+        registered,
+        "the coverage manifest's implemented entries for this crate are not its registry"
+    );
+}
+
+/// Every `implemented` entry of the coverage manifest that names `crate_name`, as the element
+/// and the single symbol it pairs with.
+fn coverage_manifest_entries(crate_name: &str) -> BTreeSet<(String, String)> {
+    const MANIFEST: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../contracts/coverage.json");
+    let text = std::fs::read_to_string(MANIFEST).unwrap_or_else(|error| {
+        panic!("{MANIFEST}: {error}");
+    });
+    let manifest: Value = serde_json::from_str(&text).expect("the coverage manifest is JSON");
+    assert_eq!(
+        manifest["format"], "mandate-coverage/1",
+        "unknown coverage manifest format"
+    );
+    let mut entries = BTreeSet::new();
+    for entry in manifest["entries"]
+        .as_array()
+        .expect("the coverage manifest states its entries")
+    {
+        if entry["crate"] != crate_name {
+            continue;
+        }
+        let element = entry["element"]
+            .as_str()
+            .expect("an entry states an element");
+        assert_eq!(
+            entry["status"], "implemented",
+            "{element}: an entry names a crate and is not implemented"
+        );
+        let symbols = entry["impl"]
+            .as_array()
+            .unwrap_or_else(|| panic!("{element}: the entry states no impl list"));
+        assert_eq!(
+            symbols.len(),
+            1,
+            "{element}: one element has one realizer, and one realizer names one symbol"
+        );
+        entries.insert((
+            element.to_owned(),
+            symbols[0]
+                .as_str()
+                .unwrap_or_else(|| panic!("{element}: the symbol is no path"))
+                .to_owned(),
+        ));
+    }
+    assert!(
+        !entries.is_empty(),
+        "the coverage manifest names no entry for {crate_name}, so this case decides nothing"
+    );
+    entries
+}

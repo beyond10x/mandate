@@ -55,7 +55,7 @@ scope:
   path: services/sts/tests/replay.rs
 - confidence: inferred
   path: services/sts/tests/resolve.rs
-revision: 18
+revision: 20
 ---
 # Implement audience registry and both credential families
 
@@ -182,3 +182,7 @@ Coordinator, after `review-result:wave-b-parallel-r1` and `review-result:wave-b-
 - From the wave B implementor and adversary 1 (2026-09-19): `credential.yaml:410,428` source `reference_verifier` as `generated: true` on both issuance events while `AccessCredential.reference_verifier` is `Optional`; the testkit's source check requires a generated field to be present, so the self-contained family records the digest of the returned token as its verifier. A contract touch that makes the field's sourcing match its optionality is `story:declared-writers`' (contract-only), not this story's; until then the digest is always present and the crate doc says why.
 
 - From the wave B adversary 1 and correction 1 (2026-09-19): `mandate.credential.AccessCredential` (`credential.yaml:46-76`) declares no issuing registration while both issuance events carry `target`, so a credential's revocation guarantee is not recoverable from the declared record alone. The projection keeps `target` and `issuing_profile` outside the wire form (`#[serde(skip)]`) and decides the guarantee from them; the contract touch that declares the issuing registration on the record is `story:declared-writers`' (contract-only), routed there.
+
+- Routed from `story:coverage-map` (2026-09-19): `mandate-token` realizes `mandate.core.CredentialDescriptor` and `CredentialProfile` (and its projection records) with no `ESS_REALIZATIONS` registry, so the coverage manifest carries them `declared`; a `realizes!` registry and the manifest-equality case in `crates/mandate-token/src/lib.rs` and `tests/contract_agreement.rs` close it — a small follow-up unit of this story or the E4 close.
+
+- Correction (2026-09-19): the routing above is withdrawn — this story is `implemented`; the `mandate-token` registry lands in `story:coverage-map`'s correction 1 (scope extended).

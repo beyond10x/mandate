@@ -84,6 +84,32 @@ pub mod context;
 pub mod decision;
 pub mod evaluate;
 
+mandate_types::realizes! {
+    "mandate.authorization.Check" => crate::check,
+    "mandate.authorization.Denied" => crate::decision::Denied,
+}
+
+/// Every declared `mandate.authorization` element this crate does **not** realize, with the
+/// reason.
+///
+/// A coverage registry that names what it covers and says nothing about the rest is read as
+/// a claim about the whole domain. This is the other half of [`ESS_REALIZATIONS`], and
+/// `crates/mandate-authz/tests/contract_agreement.rs` decides the pair against the compiled
+/// model in both directions: an element this list names and the registry also realizes is a
+/// contradiction, and an element neither one names is an element nobody accounted for.
+///
+/// There is one, and it is not an oversight. `authorization.yaml:12-20` emits
+/// `DecisionRecorded` from the accepted outcome, and this crate returns the decision to its
+/// caller instead: it holds no event payload type, no allocator of one, and no port that
+/// could append it. `story:check-api` recorded why — `DecisionRecorded` "changes no entity …
+/// so it is not a move-event" — and the adapter that records it is the decision point's
+/// deployment, not this library.
+pub const ESS_UNREALIZED: &[(&str, &str)] = &[(
+    "mandate.authorization.DecisionRecorded",
+    "no event payload type is declared here: [`check`] returns the decision to its caller \
+     and the recording adapter appends it; owner story:check-api",
+)];
+
 use mandate_graph::port::GraphRead;
 use mandate_graph::topology::ResourceLookup;
 use mandate_model::Decision;
