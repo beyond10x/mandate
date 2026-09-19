@@ -1,6 +1,8 @@
+mod coverage;
 mod documents;
 mod emit;
 mod licenses;
+mod receipt;
 use clap::{Parser, Subcommand};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -25,6 +27,13 @@ enum Action {
     Boundaries,
     Licenses,
     Corpus,
+    /// The coverage map: every compiled contract element mapped to its implementation and
+    /// the checks that decide it, with the per-kind table. `root` is the checkout whose
+    /// manifest and compiled model are read; the planning store is always this workspace's.
+    Coverage {
+        #[arg(long, default_value = ".")]
+        root: PathBuf,
+    },
     Documents {
         /// The checkout whose *documents* are read. Defaults to this workspace; pointing it at
         /// a copy is how this step's own failure is reproduced without editing the tree it
@@ -95,7 +104,10 @@ fn generate(root: &Path) -> Result<()> {
     // The sixth kind: Rust shapes for the three kinds ESS 0.26.0's Rust target does not admit.
     // Emitted from the file [`ir`] just wrote, so the shapes and the model [`contracts`]
     // compares them against are the same bytes rather than two compilations of one source.
-    emit::emit(root)
+    emit::emit(root)?;
+    // The seventh kind: the coverage receipt, binding the manifest and every projection input
+    // by digest, written from this tree into the same output root the projections went to.
+    receipt::receipt(Path::new("."), root)
 }
 /// The fifth kind: the compiled model itself, as canonical JSON.
 ///
@@ -405,6 +417,14 @@ fn corpus() -> Result<()> {
 /// planning store still equals what the store answers now. Without this step nothing in the gate
 /// opens `docs/architecture/` beyond `command-obligations.md`, so a document deliverable could be
 /// emptied and every step stayed green.
+/// The coverage step: the manifest against the compiled model, the store, the compiled test
+/// binaries and the committed receipt; the per-kind table is what it prints. The rules are
+/// in [`coverage`].
+fn coverage_map(root: &Path) -> Result<()> {
+    println!("{}", coverage::coverage(root)?);
+    Ok(())
+}
+
 fn documents(root: &Path) -> Result<()> {
     let workspace = std::env::current_dir()?;
     let blocked = documents::store_blocked(&workspace)?;
@@ -426,6 +446,7 @@ fn main() -> ExitCode {
         Action::Boundaries => boundaries(),
         Action::Licenses => licenses(),
         Action::Corpus => corpus(),
+        Action::Coverage { root } => coverage_map(&root),
         Action::Documents { root } => documents(&root),
         Action::Check => {
             if !String::from_utf8_lossy(&output("rustc", &["--version"])?)
@@ -456,6 +477,7 @@ fn main() -> ExitCode {
             licenses()?;
             run("aep", &["plan", "artifact", "validate"])?;
             documents(Path::new("."))?;
+            coverage_map(Path::new("."))?;
             for b in [
                 "mandate",
                 "mandate-authz",
