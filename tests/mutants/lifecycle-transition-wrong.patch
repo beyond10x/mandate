@@ -1,0 +1,12 @@
+diff --git a/crates/mandate-token/src/projection.rs b/crates/mandate-token/src/projection.rs
+--- a/crates/mandate-token/src/projection.rs
++++ b/crates/mandate-token/src/projection.rs
+@@ -975,7 +975,7 @@ impl Projection {
+             .iter_mut()
+             .find(|key| key.id == *id)
+             .ok_or(FoldError::UnknownSigningKey { id: *id })?;
+-        if from.contains(&key.state) {
++        if !from.contains(&key.state) {
+             key.state = state;
+         }
+         Ok(())

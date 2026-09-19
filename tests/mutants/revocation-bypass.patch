@@ -1,0 +1,12 @@
+diff --git a/services/sts/src/binding.rs b/services/sts/src/binding.rs
+--- a/services/sts/src/binding.rs
++++ b/services/sts/src/binding.rs
+@@ -264,7 +264,7 @@ pub fn fresh_session(
+         )
+     };
+     let session = sessions.resolve(&code.session_id).ok_or_else(unusable)?;
+-    if session.revoked {
++        if false {
+         return Err(unusable());
+     }
+     if let Some(snapshot) = session.epochs.as_ref() {
