@@ -19,7 +19,10 @@ use mandate_federation::authorize::{
 use mandate_federation::pkce::{PkceDigest, StandInDigest};
 use mandate_federation::publicclient::{OAuthClientStore, RecordedClients};
 use mandate_federation::record::{OAuthClient, OAuthClientState, Projection};
-use mandate_federation::{DenialClause, RefusedOutcome, RequestContext};
+use mandate_federation::register_client::{
+    ConfiguredAdmission, RegisterOAuthClient, register_o_auth_client,
+};
+use mandate_federation::{DenialClause, RefusedOutcome, RequestContext, SequentialAllocator};
 use mandate_identity::{
     EpochSnapshotRecorded, Generation, IdentityEvent, IdentityLog, SecurityEpochIncremented,
     SecurityEpochRecorded, Session, SessionOpened, SessionRevoked,
@@ -784,6 +787,14 @@ fn a_session_whose_epoch_snapshot_does_not_resolve_is_refused() {
             (self.0.id() == id).then(|| self.0.clone())
         }
 
+        /// This store holds one session and no principal record, which is the
+        /// explicit-link path: `mandate.identity.Principal` is created by a seeding event
+        /// no store here carries, and a session for a principal with no record is a
+        /// session all the same.
+        fn principal(&self, _id: &PrincipalId) -> Option<mandate_identity::Principal> {
+            None
+        }
+
         fn current(&self, _target: &SecurityEpochTarget) -> mandate_identity::EpochState {
             mandate_identity::EpochState::new(
                 Generation::ZERO,
@@ -1118,8 +1129,8 @@ fn a_registry_that_cannot_answer_denies_unavailable() {
 
 /// The seam `story:credential-profiles` attaches to, and the client seam beside it: the
 /// crate's own fold satisfies both ports the command reads, so the real read model can be
-/// passed to it today — answering no client, because no declared event creates one, and
-/// no target, because the record is another domain's.
+/// passed to it — answering no client while no registration is in the log, and no target,
+/// because that record is another domain's.
 #[test]
 fn the_folded_read_model_satisfies_both_ports_the_command_reads() {
     let fold = Projection::default();
@@ -1136,7 +1147,60 @@ fn the_folded_read_model_satisfies_both_ports_the_command_reads() {
         &sessions(),
         &StandInDigest,
     )
-    .expect_err("the fold answers no registered client today");
+    .expect_err("a fold over no registration answers no registered client");
 
     assert_eq!(denied.clause, DenialClause::ClientUnknown);
+}
+
+/// The client `AuthorizePublicClient` reads is the one `RegisterOAuthClient` wrote.
+///
+/// Every other case in this file fixtures the client through the `pub` double, because
+/// until the creating command was declared no event created one. This drives the real
+/// registration handler, folds the event its accepted outcome emits, and validates a code
+/// bound to the identity that outcome returned — so the client half of the candidate is
+/// decided against the crate's own read model end to end.
+#[test]
+fn a_client_registered_through_the_real_command_is_what_the_validation_reads() {
+    let mut allocator = SequentialAllocator::new();
+    let registered = register_o_auth_client(
+        &RegisterOAuthClient {
+            context: identity_context(),
+            public: true,
+            redirect_uris: vec![RedirectUri::new(REGISTERED)],
+            pkce_method: PkceMethod::S256,
+        },
+        &ConfiguredAdmission::new()
+            .with_administrator(principal())
+            .with_organization(organization())
+            .with_redirect_uri(organization(), RedirectUri::new(REGISTERED)),
+        &mut allocator,
+    )
+    .expect("an administrator of an admitted organization registering an admitted redirect");
+    let fold = Projection::fold(&[registered.event]).expect("one creation");
+
+    let input = ValidateAuthorizationCode {
+        code: AuthorizationCode {
+            client_id: registered.id,
+            ..code()
+        },
+        ..input()
+    };
+
+    let candidate = validate_authorization_code(
+        &input,
+        &request(),
+        &fold,
+        &clients(),
+        &sessions(),
+        &StandInDigest,
+    )
+    .expect("every declared condition is met against the registered client");
+
+    assert_eq!(candidate.client_id, registered.id);
+    assert_eq!(candidate.organization_id, organization());
+    assert_eq!(
+        input.code.state,
+        AuthorizationCodeState::Issued,
+        "validation does not consume the code record"
+    );
 }

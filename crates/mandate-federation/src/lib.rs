@@ -35,6 +35,7 @@ pub mod link;
 pub mod pkce;
 pub mod publicclient;
 pub mod record;
+pub mod register_client;
 pub mod verifier;
 pub mod verifier_real;
 
@@ -48,10 +49,11 @@ pub mod verifier_real;
 // invented — or a domain element the contract renamed — is a failing case rather than a
 // coverage report that overstates itself.
 //
-// One element of this domain is absent, deliberately:
-// `mandate.federation.AuthorizationCodeIssued`. `AuthorizePublicClient` is realized here
-// up to the STS call its accepted outcome makes, and that outcome's event is emitted by
-// the STS transaction, not by this crate; see [`record::FederationEvent`].
+// What this crate does *not* realize is [`ESS_UNREALIZED`], named element by element with
+// the reason: a registry that lists what is covered and waves at the rest overstates
+// itself in the one direction that matters, and
+// `crates/mandate-federation/tests/contract_agreement.rs` decides both directions against
+// the contract's own index.
 mandate_types::realizes! {
     "mandate.federation.RegisterFederationConnection" => crate::record::register_federation_connection,
     "mandate.federation.LinkExternalPrincipal" => crate::link::link_external_principal,
@@ -61,12 +63,14 @@ mandate_types::realizes! {
     "mandate.federation.DisableFederationConnection" => crate::disable::disable_federation_connection,
     "mandate.federation.UnlinkExternalPrincipal" => crate::disable::unlink_external_principal,
     "mandate.federation.DisableOAuthClient" => crate::disable::disable_oauth_client,
+    "mandate.federation.RegisterOAuthClient" => crate::register_client::register_o_auth_client,
     "mandate.federation.FederationConnectionCreated" => crate::record::FederationEvent,
     "mandate.federation.FederationConnectionDisabled" => crate::record::FederationEvent,
     "mandate.federation.ExternalPrincipalLinked" => crate::record::FederationEvent,
     "mandate.federation.ExternalPrincipalUnlinked" => crate::record::FederationEvent,
     "mandate.federation.ExternalPrincipalProvisioned" => crate::record::FederationEvent,
     "mandate.federation.FederationAuthenticated" => crate::record::FederationEvent,
+    "mandate.federation.OAuthClientRegistered" => crate::record::FederationEvent,
     "mandate.federation.OAuthClientDisabled" => crate::record::FederationEvent,
     "mandate.federation.FederationConnection" => crate::record::FederationConnection,
     "mandate.federation.ExternalPrincipal" => crate::record::ExternalPrincipal,
@@ -75,23 +79,51 @@ mandate_types::realizes! {
     "mandate.federation.FederationConnection.State" => crate::record::ConnectionState,
     "mandate.federation.ExternalPrincipal.State" => crate::record::LinkState,
     "mandate.federation.OAuthClient.State" => crate::record::OAuthClientState,
-    // Two lifecycle enums of *other* domains' records, which this crate holds because it
-    // reads those records through a port and decides their state itself: a port cannot
-    // make a lifecycle check a property of the command. `mandate.identity.Principal` is
-    // read through `PrincipalStore` and `mandate.credential.AuthorizationCode` is the
-    // read-only input `authorize` validates. Neither record is projected by the crate that
-    // owns its domain — `mandate-identity` folds sessions and generations, and STS owns
-    // the code record — so nothing else realizes either element.
-    "mandate.identity.Principal.State" => crate::PrincipalState,
+    // One lifecycle enum of another domain's record, which this crate holds because it
+    // reads that record through a port and decides its state itself: a port cannot make a
+    // lifecycle check a property of the command. `mandate.credential.AuthorizationCode` is
+    // the read-only input `authorize` validates, STS owns the code record, and nothing
+    // else realizes that element.
+    //
+    // `mandate.identity.Principal.State` is **not** here, though [`PrincipalState`] holds
+    // the same two declared states: one declared element has one realizer, and since the
+    // realization round of `story:declared-writers` that realizer is
+    // `mandate_identity::PrincipalState`, beside the `mandate.identity.Principal` record
+    // that crate's own fold materializes. This crate's enum is the port's view of that
+    // record and not a second realization of the element; see [`PrincipalState`]. Its
+    // agreement with the generated shape is still decided, in
+    // `crates/mandate-federation/tests/contract_agreement.rs`.
     "mandate.credential.AuthorizationCode.State" => crate::authorize::AuthorizationCodeState,
 }
+
+/// Every declared `mandate.federation` element this crate does **not** realize, with the
+/// reason.
+///
+/// A coverage registry that names what it covers and says nothing about the rest is read
+/// as a claim about the whole domain. This is the other half of [`ESS_REALIZATIONS`], and
+/// `crates/mandate-federation/tests/contract_agreement.rs` decides the pair against
+/// `generated/ir/system.json` in both directions: an element this list names and the
+/// registry also realizes is a contradiction, and an element neither one names is an
+/// element nobody accounted for. `mandate-identity` carries the same pair for its domain.
+///
+/// There is one, and it is not an oversight. `mandate.federation.AuthorizePublicClient` is
+/// realized here up to the STS call its accepted outcome makes;
+/// [`authorize::validate_authorization_code`] is non-consuming and returns a validation
+/// candidate carrying no event, and the event that outcome declares is emitted by the STS
+/// transaction that issues the code. A variant for it on [`record::FederationEvent`] would
+/// be a payload nothing in this crate can fill.
+pub const ESS_UNREALIZED: &[(&str, &str)] = &[(
+    "mandate.federation.AuthorizationCodeIssued",
+    "emitted by the STS transaction that issues the code, not by this crate; owner \
+     story:oauth-integration",
+)];
 
 use core::fmt;
 
 use mandate_types::{
     Audience, CorrelationId, CredentialId, CredentialProof, DenialReason, EpochSnapshotRef,
-    ExternalPrincipalId, FederationConnectionId, Issuer, OrganizationId, PrincipalId, SessionId,
-    Timestamp, value::Uuid,
+    ExternalPrincipalId, FederationConnectionId, Issuer, OAuthClientId, OrganizationId,
+    PrincipalId, SessionId, Timestamp, value::Uuid,
 };
 
 use record::{ExternalKey, ExternalPrincipal, FederationConnection, Projection};
@@ -245,6 +277,14 @@ pub enum DenialClause {
     /// unadmitted". Two organizations cannot share an issuer when either resolves it
     /// unconditionally; see [`record::register_federation_connection`].
     TenantResolutionUnadmitted,
+    /// `RegisterOAuthClient`: "Caller lacks client-administration authority". An
+    /// authorization decision, admitted through
+    /// [`register_client::ClientRegistrationAdmission`].
+    ClientAdministrationAuthority,
+    /// `RegisterOAuthClient`: "a redirect URI is unadmitted". A deployment's redirect
+    /// policy, admitted through the same port; compare [`DenialClause::RedirectMismatch`],
+    /// which is the *presented* redirect failing the registered set at authorization.
+    RedirectUriUnadmitted,
     /// `AuthorizePublicClient`: "S256 challenge is absent/invalid": the recorded
     /// challenge is not in the declared S256 form.
     ChallengeMalformed,
@@ -421,6 +461,8 @@ pub trait IdentityAllocator {
     fn next_principal_id(&mut self) -> PrincipalId;
     /// The identity a linking command responds with.
     fn next_external_principal_id(&mut self) -> ExternalPrincipalId;
+    /// The identity `RegisterOAuthClient` responds with.
+    fn next_o_auth_client_id(&mut self) -> OAuthClientId;
 }
 
 /// The connection read model. A fold over the event log; see
@@ -489,11 +531,19 @@ pub trait PrincipalStore {
     }
 }
 
-/// `mandate.identity.Principal.State`, as this crate reads it through
-/// [`PrincipalStore`].
+/// `mandate.identity.Principal.State`, as this crate reads it through [`PrincipalStore`].
 ///
 /// The states are the ones `systems/mandate/domains/identity.yaml` declares. The
 /// transition between them is `mandate.identity`'s event, not this domain's.
+///
+/// **The port's view of another domain's lifecycle, not a realization of that element.**
+/// One declared element has one realizer, and `mandate.identity.Principal.State`'s is
+/// `mandate_identity::PrincipalState`, which sits beside the record that crate's own fold
+/// materializes. This type exists because [`PrincipalStore`] must be answerable by an
+/// adapter that composes both domains' read models, and a port cannot make a lifecycle
+/// check a property of the command that reads it. It is absent from [`ESS_REALIZATIONS`]
+/// for that reason and is still decided against the generated shape in
+/// `crates/mandate-federation/tests/contract_agreement.rs`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize)]
 pub enum PrincipalState {
     /// The declared initial state.
@@ -514,6 +564,7 @@ pub struct SequentialAllocator {
     connections: u8,
     principals: u8,
     external_principals: u8,
+    o_auth_clients: u8,
 }
 
 impl SequentialAllocator {
@@ -545,6 +596,11 @@ impl IdentityAllocator for SequentialAllocator {
     fn next_external_principal_id(&mut self) -> ExternalPrincipalId {
         self.external_principals += 1;
         ExternalPrincipalId::new(minted(0xe0, self.external_principals))
+    }
+
+    fn next_o_auth_client_id(&mut self) -> OAuthClientId {
+        self.o_auth_clients += 1;
+        OAuthClientId::new(minted(0x0c, self.o_auth_clients))
     }
 }
 

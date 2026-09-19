@@ -10,8 +10,8 @@
 //! `tests/authenticate.rs`.
 
 use mandate_federation::record::{
-    ConnectionState, ExternalKey, FederationEvent, FoldError, Projection,
-    RegisterFederationConnection, register_federation_connection,
+    ConnectionState, ExternalKey, FederationEvent, FoldError, OAuthClient, OAuthClientState,
+    Projection, RegisterFederationConnection, register_federation_connection,
 };
 use mandate_federation::{
     ConnectionStore, DenialClause, LinkStore, PrincipalState, PrincipalStore, SequentialAllocator,
@@ -21,8 +21,8 @@ use mandate_types::value::Uuid;
 use mandate_types::{
     Audience, ClientId, CorrelationId, CredentialId, DenialReason, EpochSnapshotRef,
     ExternalLinkMethod, ExternalPrincipalId, ExternalSubject, FederationConnectionId, Issuer,
-    OAuthClientId, OrganizationId, PrincipalId, PrincipalKind, SessionId, Timestamp,
-    VerifiedContext,
+    OAuthClientId, OrganizationId, PkceMethod, PrincipalId, PrincipalKind, RedirectUri, SessionId,
+    Timestamp, VerifiedContext,
 };
 
 fn uuid(tag: u8) -> Uuid {
@@ -193,17 +193,17 @@ fn fold_materializes_the_external_principal_projection() {
 }
 
 #[test]
-fn the_oauth_client_projection_has_no_declared_creation_event() {
-    // `systems/mandate/domains/federation.yaml` declares `AuthorizePublicClient` and
-    // `DisableOAuthClient` and no command that creates an `OAuthClient`, so nothing in
-    // the contract records that one came into existence. A disable for an instance no
-    // event created is a no-op rather than a materialized record.
+fn an_oauth_client_disable_for_an_identity_no_event_created_is_refused() {
+    // `mandate.federation.OAuthClientRegistered` is the creation record of an
+    // `OAuthClient` (`systems/mandate/domains/federation.yaml`, `RegisterOAuthClient`).
+    // A disable naming an identity no creation event put in the log is not a record this
+    // fold can move, and it says so rather than inventing one.
     let log = vec![FederationEvent::OAuthClientDisabled {
         context: context(organization(10)),
         id: OAuthClientId::new(uuid(0x0c)),
     }];
 
-    let refused = Projection::fold(&log).expect_err("no declared event creates an OAuthClient");
+    let refused = Projection::fold(&log).expect_err("no event in this log created that client");
 
     assert_eq!(
         refused,
@@ -934,5 +934,39 @@ fn a_subject_is_stored_exactly_as_it_was_issued() {
     assert_eq!(
         projection.links()[0].subject,
         ExternalSubject::new("Subject One")
+    );
+}
+
+/// The creation arm: the fold materializes the client from the event alone.
+///
+/// `mandate.federation.OAuthClientRegistered` carries the whole record, including its own
+/// `organization_id`, so the binding is read from the payload and **not** from the
+/// registering caller's context — which is where `FederationConnectionCreated` differs,
+/// its payload declaring no organization at all. A case that carried the same organization
+/// in both places could not tell the two apart, so this one carries different ones.
+#[test]
+fn an_oauth_client_registration_materializes_the_record_the_event_carries() {
+    let log = vec![FederationEvent::OAuthClientRegistered {
+        context: context(organization(11)),
+        id: OAuthClientId::new(uuid(0x0c)),
+        organization_id: organization(10),
+        public: true,
+        redirect_uris: vec![RedirectUri::new("https://app.example/callback")],
+        pkce_method: PkceMethod::S256,
+    }];
+
+    let projection = Projection::fold(&log).expect("one creation");
+
+    assert_eq!(
+        projection.clients(),
+        [OAuthClient {
+            id: OAuthClientId::new(uuid(0x0c)),
+            organization_id: organization(10),
+            public: true,
+            redirect_uris: vec![RedirectUri::new("https://app.example/callback")],
+            pkce_method: PkceMethod::S256,
+            state: OAuthClientState::Recorded,
+        }],
+        "the record is the event's, organization included"
     );
 }
