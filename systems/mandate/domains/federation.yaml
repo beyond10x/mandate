@@ -130,6 +130,9 @@ commands:
             id: input.id
         moves: mandate.federation.ExternalPrincipal.unlink
         instance: id
+      - name: wrong-state
+        wrong_state: true
+        error: mandate.federation.Denied
       - name: denied
         external: Caller lacks explicit link-administration authority, link is outside the verified organization, or unlinking and its required invalidation/audit cannot commit.
         error: mandate.federation.Denied
@@ -149,6 +152,9 @@ commands:
             id: input.id
         moves: mandate.federation.FederationConnection.disable
         instance: id
+      - name: wrong-state
+        wrong_state: true
+        error: mandate.federation.Denied
       - name: denied
         external: Caller lacks federation-administration authority, connection is outside the verified organization, or emergency trust shutdown and affected generation invalidation cannot commit.
         error: mandate.federation.Denied
@@ -179,6 +185,8 @@ commands:
             link_method: input.method
             linked_at:
               generated: true
+        creates: mandate.federation.ExternalPrincipal
+        instance: external_principal_id
       - name: denied
         external: Caller/method lacks linking authority, proof/connection trust is invalid, organization or target principal mismatches, composite (organization, configured issuer, subject) key conflicts, or durable audited linking fails. Email equality never authorizes linking.
         error: mandate.federation.Denied
@@ -210,6 +218,8 @@ commands:
             client_id: input.client_id
             tenant_resolution: input.tenant_resolution
             jit_provisioning: input.jit_provisioning
+        creates: mandate.federation.FederationConnection
+        instance: connection_id
         summary: The connection is created with its provisioning setting decided here and never changed afterwards. A connection whose issuer or provisioning admission must change is disabled and registered again; there is no update command.
       - name: denied
         external: Caller lacks federation-administration authority, issuer/client/trust, tenant-resolution or just-in-time provisioning configuration is unadmitted, or organization binding is invalid.
@@ -232,18 +242,35 @@ commands:
             session_id:
               response: session_id
             principal_id:
-              generated: true
+              response: principal_id
             audience:
               generated: true
             correlation:
               generated: true
             connection_id: input.connection_id
+            organization_id:
+              response: organization_id
+            epochs:
+              response: epochs
+            expires_at:
+              response: expires_at
+        creates: mandate.identity.Session
+        instance: session_id
+        summary: A validated federated login mints the session, which is step 9 of the resolution order in docs/architecture/federated-login.md. FederationAuthenticated carries the whole mandate.identity.Session record — the new session identity, the principal, the resolved organization, the connection, the epoch snapshot the session is bound to and its expiry — so the identity fold materializes the session from this event alone and reads no command input or response. The audience and the correlation are carried beside the record. The principal, the organization, the epoch snapshot handle and the expiry are the ones this command resolved and returned, so the fold reads each from the response rather than from a value the implementation invented; the snapshot's own contents are recorded by the adapter through EpochSnapshotRecorded.
       - name: denied
         external: Connection is disabled/untrusted, proof signature/issuer/audience/expiry is invalid, tenant resolution has zero or multiple matches, principal linking is absent/conflicting, or any email-domain/unverified-input fallback would be required.
         error: mandate.federation.Denied
     response:
       - name: session_id
         type: mandate.core.SessionId
+      - name: principal_id
+        type: mandate.core.PrincipalId
+      - name: organization_id
+        type: mandate.core.OrganizationId
+      - name: epochs
+        type: mandate.core.EpochSnapshotRef
+      - name: expires_at
+        type: Timestamp
   - name: mandate.federation.ProvisionExternalPrincipal
     input:
       - name: connection_id
@@ -257,7 +284,7 @@ commands:
         payload:
           mandate.federation.ExternalPrincipalProvisioned:
             organization_id:
-              generated: true
+              response: organization_id
             correlation:
               generated: true
             connection_id: input.connection_id
@@ -273,7 +300,9 @@ commands:
             link_method: ConfiguredFederation
             linked_at:
               generated: true
-        summary: "Just-in-time provisioning on first login. This event is the creation record for both entities it names — one mandate.identity.Principal of kind User, and one mandate.federation.ExternalPrincipal linking it with ExternalLinkMethod::ConfiguredFederation — because mandate.identity declares no command that creates a Principal, so nothing else in this contract records that one came into existence. Both identities and the external subject are bound from the response rather than left to the implementation. The composite key is (organization, connection issuer, external subject), with the issuer read from the validated connection and the subject from the validated proof, never from the caller. No session is minted here; the adapter calls AuthenticateFederation again."
+        creates: mandate.federation.ExternalPrincipal
+        instance: external_principal_id
+        summary: "Just-in-time provisioning on first login. The outcome creates exactly one record, the mandate.federation.ExternalPrincipal linking the principal with ExternalLinkMethod::ConfiguredFederation. The event also names the mandate.identity.Principal of kind User the provisioning produced, and no outcome in this contract declares that Principal's creation. Both identities and the external subject are bound from the response rather than left to the implementation. The composite key is (organization, connection issuer, external subject), with the issuer read from the validated connection and the subject from the validated proof, never from the caller. No session is minted here; the adapter calls AuthenticateFederation again."
       - name: denied
         external: Connection is disabled/untrusted, proof signature/issuer/audience/expiry is invalid, tenant resolution has zero or multiple matches, principal linking is conflicting, connection does not admit provisioning, the composite (organization, configured issuer, subject) key already exists, or any email-domain/unverified-input fallback would be required.
         error: mandate.federation.Denied
@@ -282,6 +311,8 @@ commands:
         type: mandate.core.ExternalPrincipalId
       - name: principal_id
         type: mandate.core.PrincipalId
+      - name: organization_id
+        type: mandate.core.OrganizationId
       - name: subject
         type: mandate.core.ExternalSubject
   - name: mandate.federation.AuthorizePublicClient
@@ -315,7 +346,7 @@ commands:
             correlation:
               generated: true
             code_id:
-              generated: true
+              response: code_id
             client_id: input.client_id
             session_id:
               generated: true
@@ -324,10 +355,13 @@ commands:
             method: input.method
             target: input.target
             requested_scope: input.requested_scope
+        summary: The control plane orchestrates the verified session and client checks and calls the STS IssueAuthorizationCode port; the STS creates the mandate.credential.AuthorizationCode record and returns its identity, which this event names. This outcome creates nothing — code_id is the code STS minted, not one minted here — and the transient code is returned to the public-client adapter and to nothing else.
       - name: denied
         external: Session proof is invalid/stale, client is not a registered public client, the client is disabled, exact redirect URI or state/applicable nonce binding fails, S256 challenge is absent/invalid, target is unregistered/outside tenant, or STS code issuance/narrowing is refused.
         error: mandate.federation.Denied
     response:
+      - name: code_id
+        type: mandate.core.AuthorizationCodeId
       - name: code
         type: mandate.core.CredentialSecret
   - name: mandate.federation.DisableOAuthClient
@@ -347,6 +381,9 @@ commands:
         moves: mandate.federation.OAuthClient.disable
         instance: id
         summary: A registered public client whose redirect surface is no longer trusted stops being admitted. The registration record is kept. No new authorization code is issued to it, and an outstanding code is refused at redemption, where RedeemAuthorizationCode re-reads the client the code is bound to; no declared move invalidates an outstanding code.
+      - name: wrong-state
+        wrong_state: true
+        error: mandate.federation.Denied
       - name: denied
         external: Caller lacks client-administration authority, the client is outside the verified organization, or disablement cannot stop the issuance of new authorization codes to it.
         error: mandate.federation.Denied
@@ -405,6 +442,12 @@ events:
         type: mandate.core.CorrelationId
       - name: connection_id
         type: mandate.core.FederationConnectionId
+      - name: organization_id
+        type: mandate.core.OrganizationId
+      - name: epochs
+        type: mandate.core.EpochSnapshotRef
+      - name: expires_at
+        type: Timestamp
   - name: mandate.federation.ExternalPrincipalProvisioned
     fields:
       - name: organization_id

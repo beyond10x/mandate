@@ -139,6 +139,8 @@ commands:
             id:
               response: id
             record: input.record
+        creates: mandate.audit.AuditEvent
+        instance: id
         summary: The trusted append adapter must persist one validated, redacted record before acknowledging its identifier; durable storage/outbox semantics are required under UNMAPPED-AUDIT-ROUTING.
       - name: denied
         external: Emitter is not an authorized trusted event producer, subject/actor/correlation was changed, action/result is unadmitted, payload contains secret material, or durable append/outbox validation fails.
@@ -163,6 +165,9 @@ commands:
         moves: mandate.audit.AuditEvent.redact
         instance: id
         summary: The only answer to a retention or erasure obligation. The record keeps its identity, its correlation and the fact that it was redacted; the redacted content does not reappear in this event. Deletion of an audit event is admitted by no command.
+      - name: wrong-state
+        wrong_state: true
+        error: mandate.audit.Denied
       - name: denied
         external: Caller lacks audit-redaction authority for the verified organization, the event is unresolved, the applicable retention floor has not passed, the request would remove the record rather than redact it, or redaction cannot rewrite the projection while retaining that the record existed and was redacted.
         error: mandate.audit.Denied

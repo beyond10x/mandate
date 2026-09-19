@@ -226,6 +226,9 @@ commands:
             id: input.id
         moves: mandate.directory.MembershipContribution.remove
         instance: id
+      - name: wrong-state
+        wrong_state: true
+        error: mandate.directory.Denied
       - name: denied
         external: Caller lacks mapping authority, contribution is outside the verified organization, or removal cannot preserve every other valid manual/mapping contribution.
         error: mandate.directory.Denied
@@ -245,6 +248,9 @@ commands:
             id: input.id
         moves: mandate.directory.DirectoryGroupMembership.remove
         instance: id
+      - name: wrong-state
+        wrong_state: true
+        error: mandate.directory.Denied
       - name: denied
         external: Caller lacks trusted provisioning authority, group/member organization mismatches, or derived contribution removal cannot preserve unrelated memberships.
         error: mandate.directory.Denied
@@ -264,6 +270,9 @@ commands:
             id: input.id
         moves: mandate.directory.DirectoryGroupTeamMapping.remove
         instance: id
+      - name: wrong-state
+        wrong_state: true
+        error: mandate.directory.Denied
       - name: denied
         external: Caller lacks mapping authority, mapping is outside the verified organization, or retraction would remove the team, manual membership or another mapping contribution.
         error: mandate.directory.Denied
@@ -287,11 +296,13 @@ commands:
             group_id: input.group_id
             team_id: input.team_id
             created_by:
-              generated: true
+              response: created_by
             created_at:
               generated: true
             contributions:
               generated: true
+        creates: mandate.directory.DirectoryGroupTeamMapping
+        instance: mapping_id
         summary: One mapping row, and the mapping-derived contribution rows the reconciliation wrote named by identity alone. Each contribution's own fields are on its MembershipContributionRecorded; nothing here is read positionally.
       - name: denied
         external: Caller lacks mapping authority, group/team is unknown, the group is retired, the team is retired, either target is outside the verified organization, or provenance-preserving contribution reconciliation fails.
@@ -299,6 +310,8 @@ commands:
     response:
       - name: mapping_id
         type: mandate.core.DirectoryGroupTeamMappingId
+      - name: created_by
+        type: mandate.core.PrincipalId
   - name: mandate.directory.SyncDirectoryMembership
     input:
       - name: context
@@ -340,6 +353,9 @@ commands:
         moves: mandate.directory.DirectoryGroup.retire
         instance: id
         summary: The group the customer directory no longer publishes stops contributing authority and is kept as a record. Its memberships and team mappings are retracted by their own commands, which is what preserves every other manual or mapping contribution.
+      - name: wrong-state
+        wrong_state: true
+        error: mandate.directory.Denied
       - name: denied
         external: Caller is not an admitted provisioning source, the group is outside the verified organization, or retirement cannot preserve the team, manual memberships and the contributions another mapping still supports.
         error: mandate.directory.Denied
@@ -360,6 +376,9 @@ commands:
         moves: mandate.directory.SyncJob.complete
         instance: id
         summary: One synchronization run is recorded as having applied every membership change it resolved. The queue that delivered the job stays behind its port; this records the outcome, not the transport.
+      - name: wrong-state
+        wrong_state: true
+        error: mandate.directory.Denied
       - name: denied
         external: Caller is not the trusted synchronization worker, the job is outside the verified organization, or the membership changes the run applied cannot be recorded durably with its completion.
         error: mandate.directory.Denied
@@ -380,6 +399,9 @@ commands:
         moves: mandate.directory.SyncJob.fail
         instance: id
         summary: A run that did not apply its full result is recorded as failed, so stale directory state is visible rather than silent. Redelivery is a new job record; a failed job is never retried in place.
+      - name: wrong-state
+        wrong_state: true
+        error: mandate.directory.Denied
       - name: denied
         external: Caller is not the trusted synchronization worker, the job is outside the verified organization, or the partial run cannot be recorded without implying a completed synchronization.
         error: mandate.directory.Denied

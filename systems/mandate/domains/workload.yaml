@@ -56,6 +56,9 @@ commands:
         moves: mandate.workload.WorkloadIdentity.revoke
         instance: id
         summary: The binding stops being admitted. A workload credential presented under this trust domain and subject is refused from that point, and the record is kept so past exchanges stay attributable.
+      - name: wrong-state
+        wrong_state: true
+        error: mandate.workload.Denied
       - name: denied
         external: Caller lacks workload-identity administration authority, the identity is outside the verified organization, or revocation cannot durably stop the exchange of workload credentials presented under the binding.
         error: mandate.workload.Denied

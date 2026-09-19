@@ -262,6 +262,9 @@ commands:
             id: input.id
         moves: mandate.delegation.Delegation.revoke
         instance: id
+      - name: wrong-state
+        wrong_state: true
+        error: mandate.delegation.Denied
       - name: denied
         external: Caller lacks delegation-revocation authority, delegation is outside the verified organization, or durable revocation and affected exchange invalidation fail.
         error: mandate.delegation.Denied
@@ -291,7 +294,7 @@ commands:
             id:
               response: delegation_id
             delegator:
-              generated: true
+              response: delegator
             delegate: input.delegate
             scope: input.scope
             audience: input.audience
@@ -300,12 +303,16 @@ commands:
             execution_binding: input.execution_binding
             created_at:
               generated: true
+        creates: mandate.delegation.Delegation
+        instance: id
       - name: denied
         external: Caller lacks delegation authority, subject/delegate/tenant/space/registered audience or execution binding fails, requested scope/expiry exceeds source/delegation/policy limits or agent ceilings, or a transitive/approval-required grant would be created.
         error: mandate.delegation.Denied
     response:
       - name: delegation_id
         type: mandate.core.DelegationId
+      - name: delegator
+        type: mandate.core.PrincipalId
   - name: mandate.delegation.RetireAgent
     input:
       - name: id
@@ -323,6 +330,9 @@ commands:
         moves: mandate.delegation.Agent.retire
         instance: id
         summary: The installation is withdrawn, not deleted. A retired agent starts no execution and is admitted by no exchange; its executions, delegations and audit history are preserved, and disabling the agent's principal remains a separate identity command.
+      - name: wrong-state
+        wrong_state: true
+        error: mandate.delegation.Denied
       - name: denied
         external: Caller lacks agent-administration authority, the agent is outside the verified organization, or retirement cannot stop new executions and exchanges under its ceiling.
         error: mandate.delegation.Denied
@@ -343,6 +353,9 @@ commands:
         moves: mandate.delegation.AgentCapabilityCeiling.supersede
         instance: id
         summary: A ceiling is never edited. The replacement is a new ceiling record and this one stops being current, which is what keeps exactly one current ceiling per (agent, organization-or-platform); every applicable platform and tenant ceiling still intersects.
+      - name: wrong-state
+        wrong_state: true
+        error: mandate.delegation.Denied
       - name: denied
         external: Caller lacks ceiling-administration authority, the ceiling is outside the verified organization or platform scope, no later ceiling covers the same agent and scope, or supersession cannot take effect before the next exchange is evaluated.
         error: mandate.delegation.Denied
@@ -363,6 +376,9 @@ commands:
         moves: mandate.delegation.Execution.complete
         instance: id
         summary: The recorded end of one agent invocation. No further tool call is admitted under the execution; the record, its delegation binding and its policy version are preserved. An execution past expires_at is ineligible without any recorded move.
+      - name: wrong-state
+        wrong_state: true
+        error: mandate.delegation.Denied
       - name: denied
         external: Caller is not the agent runtime that holds this execution, the execution is outside the verified organization, or completion cannot durably stop further tool calls bound to it.
         error: mandate.delegation.Denied
@@ -383,6 +399,9 @@ commands:
         moves: mandate.delegation.Approval.consume
         instance: id
         summary: One approval satisfies exactly one decision. Consumption commits with the decision that used it; a consumed approval never satisfies a second check and is never reinstated.
+      - name: wrong-state
+        wrong_state: true
+        error: mandate.delegation.Denied
       - name: denied
         external: Caller does not hold the decision context the approval answers, the approval is outside the verified organization, its subject/actor/action/resource or expiry does not match the check being satisfied, or one-use consumption cannot commit atomically with that decision.
         error: mandate.delegation.Denied

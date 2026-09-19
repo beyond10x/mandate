@@ -79,6 +79,9 @@ commands:
         moves: mandate.policy.Policy.supersede
         instance: id
         summary: The recorded version stops being the current one. Its source is kept, because every decision already made under it stays attributable to it; a rollback is a new version record carrying the earlier source, never a revival of this one.
+      - name: wrong-state
+        wrong_state: true
+        error: mandate.policy.Denied
       - name: denied
         external: Caller lacks policy-administration authority, the policy is outside the verified organization, no later policy version is recorded for that organization, or decisions in flight cannot remain attributable to the version that made them.
         error: mandate.policy.Denied
@@ -99,6 +102,9 @@ commands:
         moves: mandate.policy.AuthorizationModel.supersede
         instance: id
         summary: The recorded schema version stops being the current one and is kept for attribution. A breaking change is a new model version with its own migration; no superseded model is reactivated and none is deleted.
+      - name: wrong-state
+        wrong_state: true
+        error: mandate.policy.Denied
       - name: denied
         external: Caller lacks authorization-model administration authority, the model is outside the verified organization, no later model version is recorded for that organization, or the relationship revision the later version requires is not yet observable.
         error: mandate.policy.Denied
