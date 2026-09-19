@@ -36,7 +36,7 @@ scope:
   path: crates/mandate-identity/tests/emitted_events.rs
 - confidence: inferred
   path: crates/mandate-identity/tests/replay.rs
-revision: 3
+revision: 4
 ---
 ## Acceptance
 
@@ -75,3 +75,7 @@ One agent, serially; `Cargo.toml` dev-dependencies on `mandate-contract` and `ma
 ### Gate
 
 `cargo fmt -p mandate-federation -p mandate-identity -- --check && cargo clippy -p mandate-federation -p mandate-identity --all-targets --locked -- -D warnings && cargo test -p mandate-federation -p mandate-identity --locked`; `cargo check --workspace --all-targets --locked`.
+
+## Inherited from wave E1, 2026-09-19
+
+- Surfaced by `contract-creates` adversary pass 2 (A2-9): `crates/mandate-federation/src/authorize.rs:293-295` returns `DenialReason::Denied` for a consumed authorization code and quotes the yaml text the contract no longer carries; the contract routes a consumed code to the `wrong-state` outcome (409). Align the handler and its two cases (`tests/authorize.rs:280`, `tests/adversary_pkce.rs:550`) to the wrong-state outcome.

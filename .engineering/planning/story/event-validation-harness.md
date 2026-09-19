@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:event-validation-harness
 kind: story
-status: draft
+status: implemented
 title: A test harness that validates emitted events against the closed contract
 relations:
 - decomposes: epic:foundations
@@ -16,7 +16,7 @@ scope:
   path: crates/mandate-testkit/src/lib.rs
 - confidence: inferred
   path: crates/mandate-testkit/tests/contract.rs
-revision: 4
+revision: 8
 ---
 ## Acceptance
 
@@ -54,3 +54,10 @@ One unit, one agent.
 - `conformance-target` produces the first `generated/conformance/{suite,report,run,injections}.json` as part of its deliverable; `conform-gate` owns `expected-outcomes.json` and the byte-compare step (D5).
 - The `obligations()` outcome-selection change (external cause, not the first error outcome) is pre-landed by the coordinator in the opening commit with a test, before `wrong-state` outcomes arrive (D6).
 - `story:declared-writers` gains `depends_on story:contract-creates`; its later creators change the residue after this story's acceptance was evaluated at close, which is the intended order (D7).
+
+## Coordinator rulings at integration, 2026-09-19
+
+- Shipped signatures, accepted as the story's surface: `check_event_conforms(ess_name, payload)`, `check_single_emission(command, outcome, emitted: &[(&str, &Value)])`, `check_payload_sources(command, input, response: Option<&Value>, event_name, event)` and their `assert_*` wrappers. `event_name` is needed because a command's payload mapping is per event; the outcome is resolved from (command, event) and an ambiguous resolution (one event declared on two outcomes) is refused by name rather than taking the first — unreachable in today's IR (59 commands, one emitting outcome each) and closed for the wrong-state outcomes `contract-creates` adds.
+- Absence is symmetric: an optional source absent from the input agrees with an absent target and disagrees with a carried one; `null` is absence on both sides for every source kind, because the contract declares no nullable type. A supplied `response: None` where the mapping reads the response stays a failure.
+- Every event key must be a declared payload target for its outcome (key-set comparison), and an event name is decided against the IR's event map before any file is read.
+- Adversary pass 1 (`review-result:wave-e-event-validation-harness-adversary-1`) recorded `fixed`: 8 findings, all addressed in correction round 1; the adversary's 13 cases stay in the tree and pass.

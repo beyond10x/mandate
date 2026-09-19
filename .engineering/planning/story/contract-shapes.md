@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:contract-shapes
 kind: story
-status: draft
+status: implemented
 title: Generated Rust contract shapes for every event, command and entity
 relations:
 - decomposes: epic:foundations
@@ -22,7 +22,7 @@ scope:
   path: xtask/src/main.rs
 - confidence: inferred
   path: xtask/tests/emit.rs
-revision: 9
+revision: 14
 ---
 ## Acceptance
 
@@ -70,3 +70,21 @@ At `874a74f` no check binds a Rust event, command input or entity record to its 
 
 - `xtask/src/main.rs` joins this story's scope for E1 only: the unit adds `mod emit;` and the Rust kind to `generate()` and `contracts()`, because no other E1 unit touches that file and the story's gate (`cargo xtask generate && cargo xtask contracts`) is not runnable without the wiring. The general rule (coordinator wires `main.rs`) resumes in E2.
 - In a fresh checkout `cargo xtask generate` refuses with `unowned output destination …; adopt exact generated reference bytes explicitly` (ESS 0.26.0 output ownership; the ledger `generated/.ess-output/` is ignored by git). Recipe, once per tree: `cargo xtask contracts`, then `ess generate output adopt --ownership-root generated --from target/xtask-contract-regeneration --owner projection:<kind>` for `schema`, `openapi`, `docs`, `docs-ir`. Verified on the coordinator tree 2026-09-19: four adopts exit 0, in-place `ess generate --kind schema` then writes 311 artifacts with no diff.
+
+## Coordinator rulings after adversary pass 1, 2026-09-19
+
+- Integers (A1-3, blocker): the schema projects `integer` unbounded and ESS's own Rust realization maps it to `serde_json::Number`; the emitter does the same, so the two projections and the future realizer agree. The plan's "integer → `i64`" decision is superseded by measurement. Domain crates keep their `u64`/`i64` fields; the agreement tests convert through JSON.
+- Absence (A1-2): `Presence` exists in field position only. `Presence::Absent` refuses to serialize with an error naming the rule; `null` refuses to deserialize; `list<optional<T>>` is refused at emission (A1-8). The adversary case `presence_absent_does_not_survive_its_own_serialization` was amended by the coordinator to assert that property (renamed `presence_absent_refuses_to_serialize_and_null_refuses_to_deserialize`).
+- Names Rust cannot take (A1-1): the emitter refuses strict and reserved keywords of edition 2024 and the path keywords (`self`, `Self`, `super`, `crate`) alike, naming the declaration; no `r#` escaping, because a refusal at `cargo xtask generate` reports against the model, where the fix belongs.
+- Missing refusals (A1-5, A1-6, A1-7, A1-9): a declared name the model does not carry, two declarations sharing a Rust name, an entity field named `state`, and an entity with no lifecycle state are each refused by name, in the emitter's existing refusal style, so the emitter never depends on ESS's earlier step to have refused them.
+- Lists (A1-4): one golden carries a `Vec<…>` field and one round trip in `crates/mandate-contract/tests` exercises a list.
+- Module doc (A1-10): the emitter's doc states what ESS 0.26.0's realizer does differently (`serde_json::Number`, `Box<T>`, untagged unions, `EssPresence`) and that retirement means the realizer's output, once it admits these roots, is byte-compared against the emitter's before the emitter goes; no byte-for-byte promise today.
+- The story's Scope line about `#![allow(clippy::all)]` is withdrawn (A1-11): the generated modules pass the workspace lints without it.
+
+## Coordinator rulings after adversary pass 2, 2026-09-19
+
+- Optionals live in record fields only (A2-1): the emitter refuses an `optional` in every position `positions()` reports that is not a record field — union variant, newtype `of`, nested optional, list element — naming the declaration, because the ESS schema projection spells absence there as `null` or a dropped key and `Presence` cannot carry either.
+- Every refusal names its declaration (A2-2), including the unmapped-primitive and unmapped-type-expression refusals.
+- Integer exactness (A2-3): `serde_json::Number` carries every integer in the i64 and u64 ranges exactly; no contract integer leaves that range; `2^64 + 1` and `-0` are documented as the bound, not asserted. The adversary's case was amended to assert the representable range.
+- The module doc states the union content key is the emitter's literal (A2-5) and where validation runs (A2-7); the pass-1 adversary doc comment on absence was corrected by the coordinator (A2-4).
+- The story Scope's `integer → i64`, `#![allow(clippy::all)]` and `source_digest` header lines are superseded by the shipped emitter and these rulings (A2-6).
