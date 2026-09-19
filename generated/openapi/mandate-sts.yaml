@@ -1,6 +1,6 @@
 # generated from mandate v1
-# model digest e6c0315aa5b87175ed6d714a2786c1f14085b00a46145448d5f73eb6cd4b4fd7
-# contract digest slice-sha256/2:0d8d6dc857d3ca6e2173f062e302d467a0d0976c9e68908250c0063c390009fd
+# model digest 2f11d2daffc2d75bb4ca8c0485aedc56fb2a712cdaed6347fc48b8ba2b1f7ca6
+# contract digest slice-sha256/2:16ece1d4629a99c4f705b32b6556efd9819560f0cd5b4b0de160e77dadd5ceb5
 # do not edit: regenerate with `ess generate`
 openapi: 3.1.0
 info:
@@ -14,8 +14,8 @@ info:
   x-ess-provenance:
     system: mandate
     specification_version: v1
-    source_digest: e6c0315aa5b87175ed6d714a2786c1f14085b00a46145448d5f73eb6cd4b4fd7
-    contract_digest: slice-sha256/2:0d8d6dc857d3ca6e2173f062e302d467a0d0976c9e68908250c0063c390009fd
+    source_digest: 2f11d2daffc2d75bb4ca8c0485aedc56fb2a712cdaed6347fc48b8ba2b1f7ca6
+    contract_digest: slice-sha256/2:16ece1d4629a99c4f705b32b6556efd9819560f0cd5b4b0de160e77dadd5ceb5
 tags:
 - name: credential
 paths:
@@ -963,7 +963,7 @@ components:
       additionalProperties: false
     mandate.credential.RedeemAuthorizationCode.accepted.Response:
       additionalProperties: false
-      description: STS atomically consumes the code and persists the narrowed credential and audit outbox. The returned credential remains bound to the code target, scope, session and expiry; a failed or replayed transaction produces no credential. Taken when no other outcome's condition matched. A `mandate.credential.AuthorizationCode` has moved to `Consumed`, along `consume`. The instance is the one `code_id` names. Emits `AuthorizationCodeRedeemed`, published to consumers rather than returned here.
+      description: STS atomically consumes the code and persists the narrowed credential and audit outbox. The returned credential remains bound to the code target, scope, session and expiry; a failed or replayed transaction produces no credential. The command takes no context input and admits no caller-supplied selector — the generated context on the emitted event takes its subject, organization and audience from the code record and the session it names through the STS's session port, its credential as the credential_id this outcome issues, its correlation as the one the outcome mints for this request, and its actor, delegation and execution as absent unless the code record names them. The audience is the one published by the registration the code record's target names. The epoch whose staleness the denial names is the session's own, resolved through that same port, because a redemption presents no source credential of its own. The credential this outcome issues is recorded by mandate.credential.AuthorizationCodeRedeemed, which carries the whole mandate.credential.AccessCredential record, and the epoch snapshot it binds is the one this command answers in its response; the outcome's one subject stays the code it consumes, so the seeding is declared in this domain's header. Taken when no other outcome's condition matched. A `mandate.credential.AuthorizationCode` has moved to `Consumed`, along `consume`. The instance is the one `code_id` names. Emits `AuthorizationCodeRedeemed`, published to consumers rather than returned here.
       properties:
         outcome:
           const: accepted

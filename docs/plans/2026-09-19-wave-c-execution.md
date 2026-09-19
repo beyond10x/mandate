@@ -40,6 +40,12 @@ Through `atlas/scripts/as-bot.sh`, author and committer `b10x-bot[bot]`: this op
 
 - Critic panel round 1 (Opus, read-only, 2): parallel-safety `needs-revision`, 3 findings (gap 3 had no landing file; the endpoint story's stale scope rows and Units table; `product-listener` omitted from the collisions); design `needs-revision`, 6 findings (the same stale scope; no owner for the `AccessCredential` fold arm the redeemed event seeds; gap 1's field set short of the record; the federation registry still naming `AuthorizationCode.State`; no `depends_on declared-writers`; `pkce-sessions` cannot own a corpus row). All ruled at the opening: the transaction story owns the token fold arm and the federation registry line; the redeemed event mirrors `CredentialReferenceIssued`'s record fields; the seven `pkce-*` rows reassigned (four to `oauth-transaction`, two to `protocol-adapters`, `pkce-state-nonce` stays on `oauth-integration`); `oauth-transaction` active.
 
+- Opening commit `975788e`; `task check` on it: exit 0, 1205 tests across 173 targets.
+- `declared-writers` contract round 2 implementor green: `credential.yaml` +26/−1 — `RedeemAuthorizationCode` responds `credential_id` and `target`; `AuthorizationCodeRedeemed` carries `credential_id`, `target`, `reference_verifier`, `epochs` (generated, the implementor's call, flagged for the adversary), `issued_at`; the header declares it seeds an `AccessCredential`; an accepted summary states the context and epoch source. Validate 14 files; corpus 61; synthesize unchanged 146/52 with identical refusals; no element added, no pin or fixture red (two hits on the generated names, both definitions). Adversary 1 dispatched.
+
+- Contract adversary (`review-result:wave-c-writers-contract-adversary-1`): 19 probe cases, 11 red; 2 blockers (`epochs` sourced `generated` unlike the other three creators; the context account missing `credential` and `correlation`), 3 warnings, 3 notes; ruled. Correction 1 green: the response carries `epochs`, the context account names every field, the header names the issuing registration; 51/51 probe cases; adversary probes 16/20 green, 4 red by ruling (the generated-Optional class ×2, the IR's three creators, the design row until aligned).
+- Unit commit `46c9a39`; merge `6fe547b`; coordinator regeneration (`MandateCredentialRedeemAuthorizationCodeResponse` +3 fields, `MandateCredentialAuthorizationCodeRedeemed` +5; no count pin moves) and `docs/architecture/federated-login.md:52` aligned to the five-field response.
+
 ## Declared deviations
 
 None yet.
