@@ -30,7 +30,7 @@ scope:
   path: crates/mandate-model/tests/replay.rs
 - confidence: cited
   path: crates/mandate-model/tests/tenancy.rs
-revision: 14
+revision: 16
 ---
 ## Acceptance
 
@@ -154,3 +154,7 @@ Held under attack: fold equals live at every prefix of a 12-command interleaved 
 - The replay value oracle asserts `resource_id == resource.resource_id` on `ResourceRegistered` instead of deleting the key (A2-4); the pre-existing `adversary_tenancy_topology.rs` case whose doc names the decide-then-apply sequence drives that sequence (A2-5).
 - Event-log deserialization is deferred: the enums stay `Serialize`-only because under `#[serde(untagged)]` the five `{context, id}` payloads are ambiguous to read back; the tagged envelope is the persistence story's, and `story:model-agreement` round-trips through the generated contract shapes (A2-6).
 - `ResourceRegistered` is `{context, resource_id, resource, parent}` — the contract-creates pass-2 ruling removes the `space_id` that briefly joined it, so the ruled four-field payload stands.
+
+- Routed from `story:conformance-target` (2026-09-19): `mandate_model::tenancy::Denied` and `graph::Denied` carry a `reason` and no `RefusedOutcome` discriminator (unlike `mandate_federation::Denied`, `mandate_identity::Denial` and `mandate_token::projection::Denied`), so the conformance target reports `denied` for every tenancy and graph refusal and the 9 synthesized `state/<Terminal>/refuses/<Cmd>` scenarios asserting `wrong-state` fail; the event-sourcing rewrite here adds the discriminator.
+
+- Correction (2026-09-19): the routing above is withdrawn — `story:tenancy-graph-events` is `implemented`; the gap lives in `story:refusal-discriminators`.

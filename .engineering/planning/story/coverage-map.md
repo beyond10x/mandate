@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:coverage-map
 kind: story
-status: active
+status: implemented
 title: Every contract element maps to its implementation and checks, machine-checked
 relations:
 - decomposes: epic:foundations
@@ -31,6 +31,10 @@ scope:
 - confidence: inferred
   path: crates/mandate-policy/tests/contract_agreement.rs
 - confidence: cited
+  path: crates/mandate-token/src/lib.rs
+- confidence: cited
+  path: crates/mandate-token/tests/contract_agreement.rs
+- confidence: cited
   path: crates/mandate-types/src/macros.rs
 - confidence: inferred
   path: crates/mandate-types/tests/inventory.rs
@@ -44,7 +48,7 @@ scope:
   path: xtask/src/receipt.rs
 - confidence: cited
   path: xtask/tests/coverage.rs
-revision: 13
+revision: 20
 ---
 ## Acceptance
 
@@ -89,3 +93,13 @@ Coordinator, wave D enforcement track, 2026-09-19.
 - Corrections at the enforcement opening, after `review-result:wave-d-enforcement-parallel-r1`: the unit's gate is `cargo test -p xtask --locked` — `xtask/tests/coverage.rs` includes the step by `#[path = "../src/coverage.rs"]` (the `emit`/`documents` pattern) and drives `coverage(root)` over the real tree — not the `cargo run -- coverage` invocation, which needs `Action::Coverage { root }` and is verified by the coordinator after wiring at integration. Between this story's merge and the coordinator's regeneration, `cargo xtask contracts` is red in every unit tree on `generated/coverage/receipt.json` (the E1 rule), and the coordinator states the window on the wave page.
 
 - Corrections after `review-result:wave-d-enforcement-design-r1`: the 110 `type` entries carry `crate: mandate-types` and are proven there — the 74 authored types by the symbol each `mandate_types::conformance::cases()` entry constructs (`crates/mandate-types/src/conformance.rs`), the 36 derived `.State` enums by `DERIVED_STATE_ENUMS` paired with the generated `mandate_contract::entities::<Entity>State` shape in `crates/mandate-types/tests/conformance.rs` — and `mandate-types` runs the manifest-equality case in `crates/mandate-types/tests/inventory.rs` (added to scope), so every `implemented` entry is reconciled in a crate that runs the case. An entry naming a symbol that does not exist fails that crate's case; an entry naming a crate that runs no case fails `cargo xtask coverage`'s check that every `implemented` crate is a registrar or `mandate-types`.
+
+- From the implementor (2026-09-19): manifest 292 entries — 205 implemented (sts 31, federation 24, model 22, identity 18, graph 10, policy 7, authz 2, types 91 = 68 authored + 23 derived `.State` no registrar claims), 26 declared, 61 deferred; eight per-crate equality cases; 17 step cases; nine packages 1060 → 1091. Deviations from the corrections, each with its reason: `mandate.core.CredentialDescriptor` and `CredentialProfile` are `declared` (realized in `mandate-token`, which has no registry and runs no case — the class "a crate that realizes and registers nothing is invisible" is named; closing it is a `mandate-token` registry, `story:credential-profiles`' file, routed there); 4 core records owned by `mandate-model` carry `crate: mandate-model` (the registrar rule); a `declared` entry whose story the store reports blocked is refused (it must be `deferred`), so store churn on a blocker reds the gate by design; the three new registries' exhaustiveness cases read the element index from `generated/schema/<kind>/` names (no `serde_json` in those crates' ceilings). Owner stories guessed for the unregistered elements are listed in the report and carried as `reason` text on the entries. `ACCOUNTING_CRATES` is asserted equal to the set of packages whose binaries list the manifest case, both directions. Mechanism measured: an outer `cargo test` releases the build lock before running its binaries (no deadlock); one warm `--no-run` pass 35 s, cached per process.
+
+- Adversary pass 1 (2026-09-19): 2 blockers, 3 warnings, 1 note, rulings in `review-result:wave-d-coverage-map-adversary-1`; scope extended by `crates/mandate-token/src/lib.rs` and `crates/mandate-token/tests/contract_agreement.rs` (no wave D unit touches them) so the `mandate-token` registry closes F3 here rather than in `story:credential-profiles`; correction 1 dispatched.
+
+- Correction 1 result (2026-09-19): 1350 workspace tests green, clippy clean; coverage table 190 implemented / 40 declared / 62 deferred of 292 (`mandate-types` 68, `mandate-model` 28, `mandate-token` 2); `Compiled::crates` from `cargo metadata --no-deps` members; `mandate_contract` symbols refused as implementations; per-crate `ESS_UNREALIZED` reconciliation in the six crates that keep a list, in the refined form "not implemented anywhere unless this crate's reason names the realizer, and then the manifest names exactly that symbol" (the literal ruling contradicts R3 for the four graph elements `mandate-model` realizes); `mandate-token` registry, manifest case and `ACCOUNTING_CRATES` 9; `agreements()` refuses a member holding `tests/contract_agreement.rs` that is neither accounting nor allowed; same-crate test required per `implemented` entry; ignored cases subtracted. Named gaps: a seventh crate growing an `ESS_UNREALIZED` list without the clause is caught by nothing (xtask reads no workspace crate); `mandate.identity.RefreshCredential.State` follows its record to `story:declared-writers` (a `declared` entry on a blocked story is red by rule 5, so the ruling's `story:session-epochs` parenthetical was impossible as well as dead). `cargo xtask coverage` is unwired until the coordinator's alignment commit. Adversary 2 dispatched.
+
+- Adversary pass 2 (2026-09-19): 3 blockers, 1 warning, rulings in `review-result:wave-d-coverage-map-adversary-2`; correction 2 (the last) pending — see the wave page for the sub-agent outage.
+
+- Correction 2 result (2026-09-19): implemented by the coordinator in the unit tree (the Opus sub-agent quota was exhausted mid-wave; recorded as a wave deviation). `decide()` refuses a `declared`/`deferred` entry whose story sits on a terminal rung (frontmatter `status:` in `implemented`, `archived`, `rejected`); `states_follow_records` checks both branches of the `.State` rule; `agreements()` refuses a member declaring `pub const ESS_UNREALIZED` whose agreement suite lacks the reconciliation clause; `receipt::receipt(source, out)`; `realizes!` is a token-muncher admitting `@ Type::method` entries (proven by taking the function as a value); the ten tenancy commands and `mandate.tenancy.Denied` are `implemented` by `mandate-model` (seven by `Tenancy::decide_*`, three whose `display_name: impl Into<String>` cannot be taken as a value by the `Tenancy` aggregate); the four identity epoch `.State` and `DecisionRecorded` are `declared` on `story:declared-writers`; `named_realizer` tolerates a backtick. Table: 201 implemented / 29 declared / 62 deferred of 292. Gate: xtask 113, nine-crate lane 1119, clippy clean, boundaries 22. Unit committed `f370aaf`, merged `6ada847`; coordinator wiring and `generated/coverage/receipt.json` in the alignment commit that follows; `cargo xtask coverage` and `contracts` green on the integration head.

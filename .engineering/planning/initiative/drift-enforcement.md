@@ -6,7 +6,7 @@ status: draft
 title: Drift enforcement — the standing tracker of the ESS agreement programme
 relations:
 - serves: vision:mandate
-revision: 2
+revision: 5
 ---
 # Drift enforcement — the standing tracker
 
@@ -42,3 +42,9 @@ An enforcement row moves only on `test_result` evidence from `task check` and a 
 ## Release stance, restated 2026-09-19
 
 A library-only tag may ship while `conformance_status` is `failed`, provided every failed scenario names a live `blocked_on` story in the run and `CHANGELOG.md` carries the report/2 counts verbatim (`passed`, `failed`, `unsupported`, `error`). Blocked-on-unrealized-command scenarios answer `Unsupported` (ESS's definition: a permanent property of the target), not `Unavailable`. No deployment until the report is `passed` on real paths. The E4 close retires the xtask emitter together with the `deny-unknown-fields-removed` mutant anchored on it.
+
+Further ESS gaps found by wave D's authored-scenarios unit (2026-09-19), for the ESS repository stories above: (a) `$instance` inside a union value (`target: {kind: principal, value: {$instance: generation}}`) compiles and is never resolved — the suite carries the literal mapping and nothing refuses it; (b) `$instance` is admitted at the top level of a field only, so a command whose organization sits inside a struct (`Check.context.organization`) cannot name an allocated instance; (c) `setup.fields` refuses any name the entity does not declare, so a projection the handler reads but the entity does not carry (`AccessCredential.target`) cannot be seeded.
+
+(d) an `Integer` literal in `setup:`/`arrange` compiles to a float (`0` → `0.0`) in the format-5 suite.
+
+Sub-agent outage (2026-09-19, ~15:40 Europe/Berlin): the Opus weekly limit was hit ("resets Sep 24, 4am (Europe/Berlin)", HTTP 429). Three running agents were terminated mid-work: the `product-listener` implementor (left `services/control-plane/src/adapters.rs` 1251 lines, `tests/adapters.rs` 515, `tests/serve.rs` 609 and the `services/sts/src/store.rs` by-verifier read in its tree; no `serve.rs`, `lib.rs` and `main.rs` still stubs; no gate run), the `conformance-target` adversary 2 (nothing written) and the `mutation-controls` adversary 2 (nothing written). `coverage-map` correction 2 is not dispatched. Every sub-agent is on Opus by operator instruction; the choice between waiting for the reset, another model, or coordinator-side work is recorded as an open operator decision on the wave page.

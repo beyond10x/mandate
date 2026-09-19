@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:login-adapters
 kind: story
-status: active
+status: implemented
 title: 'Decode the login road''s requests: routes, verified context, form encoding, the obligations registry'
 relations:
 - decomposes: epic:sts-credentials
@@ -38,7 +38,7 @@ scope:
   path: crates/mandate-server/tests/routes.rs
 - confidence: inferred
   path: docs/architecture/adapter-contract.md
-revision: 12
+revision: 16
 ---
 # Decode the login road's requests: routes, verified context, form encoding, the obligations registry
 
@@ -99,3 +99,9 @@ Coordinator, after `review-result:wave-d-design-r1`.
 - Corrections at the wave D opening, after `review-result:wave-d-parallel-r1`: (a) `story:product-listener`'s files are `services/control-plane/**` (ruling D1); the collision statement above that names `services/sts/src/serve.rs` and `crates/mandate-federation/src/adapters.rs` is withdrawn — the two stories share no file. (b) The coordinator writes `xtask/src/main.rs` (`LIBRARIES` 17 → 18) and `dependency-boundaries.json` (the `mandate-control-plane` key) in the wave's opening commit, before this story's tree is cut; this story writes neither. (c) The RFC 8414 metadata and JWKS document paths (`/.well-known/oauth-authorization-server`, `/oauth/jwks`) are entries of this story's route table (`crates/mandate-server/src/routes.rs`), so the disjointness proof covers them; the listener serves the table and nothing outside it. (d) `story:declared-writers` (active) holds `systems/**` and `generated/**`; no unit of it runs in wave D, so the 61 `generated/openapi/*.yaml` operationIds this story's `obligations` equality and disjointness proof pin are fixed for the wave.
 
 - Coordinator review of the route paths (ruling 3), at the unit's adversary pass 1, 2026-09-19: accepted as proposed — `POST /v1/federation/login` (`AuthenticateFederation`; the act, not the connection, in the path), `GET /oauth/authorize` (`AuthorizePublicClient`, `original-design.md:1857`), `POST /oauth/token` (`:1858`), `POST /oauth/introspect` (`:1860`), `GET /.well-known/oauth-authorization-server` (`:1855`), `GET /oauth/jwks` (`:1862`). The session proof at the authorization endpoint travels in `Authorization: Bearer`, never in the query string; a cookie-borne session adapter for browser redirects is named residue for `story:product-listener`. `ErrorCode` carries `unsupported_response_type` as a sixth code (RFC 6749 §4.1.2.1) — accepted. Reported to the operator with the wave.
+
+- Correction round 1 landed (2026-09-19): the twelve findings closed as ruled, each as its class (one `credential()` helper over five wire credential fields; every decoder through `single_header`; one `entry()` ceiling gate; `free_text()` over `state`, `nonce`, `redirect_uri`, `scope`; `Jwk::ADMITTED_PARAMETERS` enforced twice; `code_for_reason` exhaustive; a class check that no redemption-reachable clause answers `invalid_scope`/`invalid_client`). The coordinator restated the CRLF adversary case to the ruled refusal (`Refusal::ControlCharacter`). One factual correction to ruling 1's parenthetical: `ExpiryUnbounded` is reachable at the token endpoint (`services/sts/src/redemption.rs:342-349`); the `invalid_request` mapping stands with the cost stated in `oauth.rs` (§5.2's closed set names the caller for a condition it cannot correct). Two crates 110 → 140 tests.
+
+- Adversary pass 2 (2026-09-19): 2 blockers, 4 warnings, 2 notes, rulings in `review-result:wave-d-login-adapters-adversary-2`; the coordinator amended adversary cases 2, 4, 5 and 6 to the rulings (call-following reachability; `QueryNotAdmitted`; class `Cc`); correction 2 dispatched, the last round.
+
+- Correction 2 result (2026-09-19): 155 tests across the two crates, clippy clean, `documents` and `boundaries` green; unit committed as `d3f6445`, merged as `6c4c397`. Coordinator deviations: the implementor's clippy patch for the coordinator's amended adversary file (dead helper, collapsible `if`) and its F7 patch (`Jwk.parameters` private with an accessor, the rendering filter removed, the two adversary-1 struct literals rewritten through `Jwk::new`) were applied by the coordinator, since both touch coordinator-owned adversary files. `ClientNotPublic` also answers `invalid_grant` (the call-following check reached it).

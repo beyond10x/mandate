@@ -19,7 +19,7 @@ scope:
   path: xtask/src/conform.rs
 - confidence: inferred
   path: xtask/tests/conform.rs
-revision: 6
+revision: 7
 ---
 ## Acceptance
 
@@ -57,3 +57,5 @@ One agent: `step`, `expected-outcomes`, `adr` serially. The coordinator wires th
 - `story:declared-writers` gains `depends_on story:contract-creates`; its later creators change the residue after this story's acceptance was evaluated at close, which is the intended order (D7).
 
 - Correction at the wave D enforcement opening, after `review-result:wave-d-enforcement-design-r1`: the synthesize invocation this gate byte-compares is `ess verify conform synthesize --path systems/mandate --scenarios systems/mandate --target ir --compact --suite-format 5 --out target/conformance/suite.json` — format 5 frozen by `story:conformance-target` (format 4 emits no `coverage` key, and `qualification` needs it). The committed location of the target's four outputs and their byte-compare are this story's `conform()` step.
+
+- From `review-result:wave-d-authored-denials-adversary-2` F8 (2026-09-19): `ess verify conform author` exits 0 while `synthesize --suite-format 5` exits 1 on the 52 pre-existing refusals; "the counts are the verdict" is a convention until this story's `cargo xtask conform` step compares the suite byte-for-byte and the counts against `expected-outcomes.json`. Also: the 54 `expectation-unmet` synthesized scenarios in the target run carry `blocked_on: story:conform-gate` pending per-scenario attribution here.

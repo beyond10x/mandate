@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:product-listener
 kind: story
-status: active
+status: implemented
 title: Serve the product routes and replace the serve refusal
 relations:
 - decomposes: epic:sts-credentials
@@ -39,9 +39,11 @@ scope:
   path: services/sts/src/lib.rs
 - confidence: cited
   path: services/sts/src/main.rs
+- confidence: inferred
+  path: services/sts/src/store.rs
 - confidence: cited
   path: xtask/src/main.rs
-revision: 16
+revision: 21
 ---
 # Serve the product routes
 
@@ -126,3 +128,9 @@ Coordinator, wave D opening. The scoper named four forks; each taken on the reve
 - Correction at the wave D opening, after `review-result:wave-d-design-r1`: ruling D1's justification cited `ownership.md:15`, which is the credential row ("STS alone issues, resolves, exchanges and revokes credentials and consumes codes"). The composition binary hosts both deployment roles in one process for the first served vertical; the authority rows do not move (the STS handlers still decide issuance and redemption; the control plane's still decide authentication and authorization). `docs/architecture/ownership.md` gains that sentence in the opening commit (coordinator-owned document). The acceptance and the Units table are corrected: a running `mandate-control-plane`, the route table `story:login-adapters` declares.
 
 - Correction at the wave D opening, after `review-result:wave-d-parallel-r1`: the two served documents' paths are entries of `story:login-adapters`' route table; the listener serves that table and hardcodes no path, so the disjointness proof round 1 runs covers everything the listener answers.
+
+- Ruling at the adapters' adversary pass 1 (2026-09-19): the token endpoint's wire form carries `code` (the secret) and no `code_id`, while `RedeemAuthorizationCode` declares `code_id` as input and the contract header assigns its resolution to the trusted adapter. The composition resolves it: `services/sts/src/store.rs` gains a by-verifier read on `AuthorizationCodeReads` (the code's stored domain-separated verifier, `CredentialDomain::AuthorizationCodeVerifier`), and the `composition` unit resolves `code` → `code_id` through it before calling the redemption — constant time, one lookup; a code that resolves to nothing is the declared unknown-code denial. `services/sts/src/store.rs` is added to this story's scope for that one read.
+
+- Ruling from `review-result:wave-d-login-adapters-adversary-2` F4 (2026-09-19): a refusal the authorize endpoint raises before the client and its redirect URI are validated (`ClientUnknown`, `ClientDisabled`, `ClientNotPublic`, a redirect mismatch) is answered by the listener as a rendered response, never by a redirect to the presented `redirect_uri` (RFC 6749 §4.1.2.1); `unauthorized_client` reaches the client by redirect only once the redirect URI is the registered one.
+
+- Implementation result (2026-09-19): the Opus implementor was terminated by the weekly quota after writing `services/control-plane/src/adapters.rs` (the composition: three port adapters, the folds, the session proof, the `code` → `code_id` resolution through the STS's whole-slice by-verifier read in `services/sts/src/store.rs`) and the two test files; the coordinator finished the unit in the main session — `serve.rs` (blocking `std::net` + `httparse` listener, one request per connection, bounded head/headers/body, repeated `Content-Length` and `Transfer-Encoding` refused, dispatch only on `mandate_server::routes`, RFC 6749 error bodies, `no-store` on credential responses, in-place rendering for refusals raised before the redirect URI is validated), `main.rs` (`serve --listen --issuer` over the real verifier, host clock, system secrets and identities; folds start empty, ruling D4), `lib.rs`, and two corrections to the implementor's work (the session issuer states each dimension's first generation before recording the snapshot and refuses the login on a refused append, which the swallowed `record()` had hidden; the adapter test fixture likewise). 22 cases; 220 across `mandate-control-plane` and `mandate-sts`; fmt, clippy, boundaries (22), licenses (225) green. Unit committed `82c6419`, merged `c306da3`; alignment `3cbab1a` narrows the serve refusal to five binaries (ruling D3). **No adversary pass ran on this unit** (the Opus quota); a coordinator self-review covered request framing (duplicate `Content-Length`, chunked, oversize head, header count, incomplete head), `Location` composition (registered redirect, percent-encoded `code` and `state`), the 405 `Allow` row and the introspection caller-vs-token error split. Two adversary passes are owed and recorded as the next wave's first item. Residues unchanged: no denial-audit path on the served route (`decision-blocker:audit-routing`); the JIT branch not served (`decision-blocker:jit-provisioning`); `expires_in` omitted from the token response (not declared by the contract; the descriptor's `expires_at` answers through introspection).
