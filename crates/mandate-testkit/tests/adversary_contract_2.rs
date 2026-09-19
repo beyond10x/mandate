@@ -77,6 +77,7 @@ fn provisioned() -> (Value, Value, Value) {
         "principal_id": PRINCIPAL,
         "external_principal_id": EXTERNAL_PRINCIPAL,
         "subject": "external-subject",
+        "organization_id": ORGANIZATION,
     });
     let event = json!({
         "organization_id": ORGANIZATION,
@@ -326,8 +327,11 @@ fn every_required_target_refuses_a_source_and_a_target_that_are_both_absent() {
     );
 }
 
-/// The count of optional-to-optional mappings the harness documents is the count the
-/// IR declares.
+/// The optional-to-optional mappings the harness's cases exercise are declared by the IR.
+///
+/// Aligned at regeneration: the harness no longer documents a count (correction round 2),
+/// and `story:contract-creates` widened the set beyond the four this pass found, so the
+/// case asserts the four it exercises are among what the IR declares.
 #[test]
 fn the_documented_count_of_optional_to_optional_mappings_matches_the_ir() {
     let ir = system_ir();
@@ -344,13 +348,19 @@ fn the_documented_count_of_optional_to_optional_mappings_matches_the_ir() {
             }
         }
     }
-    assert_eq!(
-        optional.len(),
-        4,
-        "src/contract.rs names the optional-to-optional mappings the IR declares; generated/ir/system.json declares {}: {}",
-        optional.len(),
-        optional.join("; ")
-    );
+    for expected in [
+        "`descriptor` on mandate.credential.CredentialIntrospected",
+        "`not_before` on mandate.delegation.DelegationCreated",
+        "`execution_binding` on mandate.delegation.DelegationCreated",
+        "`parent` on mandate.graph.ResourceRegistered",
+    ] {
+        assert!(
+            optional.iter().any(|row| row.starts_with(expected)),
+            "the IR no longer declares {expected}; it declares {}: {}",
+            optional.len(),
+            optional.join("; ")
+        );
+    }
 }
 
 /// A `null` is absence at the mapped field level only, as `src/contract.rs` says after

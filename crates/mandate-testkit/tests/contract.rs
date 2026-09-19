@@ -366,8 +366,14 @@ fn a_generated_field_is_checked_for_presence_only() {
 /// whole set from the IR and would cover a fifth one the day the contract grows it.
 #[test]
 fn an_absent_optional_source_agrees_with_an_absent_target() {
-    let (input, event) = registered_root_resource();
-    assert_payload_sources(REGISTER_RESOURCE, &input, None, RESOURCE_REGISTERED, &event);
+    let (input, response, event) = registered_root_resource();
+    assert_payload_sources(
+        REGISTER_RESOURCE,
+        &input,
+        Some(&response),
+        RESOURCE_REGISTERED,
+        &event,
+    );
 
     let (input, response, event) = created_delegation();
     assert_payload_sources(
@@ -414,11 +420,16 @@ fn an_absent_optional_response_source_with_a_carried_target_fails_naming_it() {
 /// event that carries one is a field the command was not given.
 #[test]
 fn an_absent_optional_source_with_a_carried_target_fails_naming_it() {
-    let (input, mut event) = registered_root_resource();
+    let (input, response, mut event) = registered_root_resource();
     event["parent"] = encoded(&ResourceId::new(uuid(13)));
-    let message =
-        check_payload_sources(REGISTER_RESOURCE, &input, None, RESOURCE_REGISTERED, &event)
-            .expect_err("the event carries a parent the command was not given");
+    let message = check_payload_sources(
+        REGISTER_RESOURCE,
+        &input,
+        Some(&response),
+        RESOURCE_REGISTERED,
+        &event,
+    )
+    .expect_err("the event carries a parent the command was not given");
     assert!(message.contains("field `parent`:"), "{message}");
 
     let (input, response, mut event) = created_delegation();
@@ -440,10 +451,16 @@ fn an_absent_optional_source_with_a_carried_target_fails_naming_it() {
 /// event `null` is an absent target, so the two agree and neither is read as a value.
 #[test]
 fn a_null_is_read_as_absence_on_both_sides() {
-    let (mut input, mut event) = registered_root_resource();
+    let (mut input, response, mut event) = registered_root_resource();
     input["parent"] = Value::Null;
     event["parent"] = Value::Null;
-    assert_payload_sources(REGISTER_RESOURCE, &input, None, RESOURCE_REGISTERED, &event);
+    assert_payload_sources(
+        REGISTER_RESOURCE,
+        &input,
+        Some(&response),
+        RESOURCE_REGISTERED,
+        &event,
+    );
 }
 
 /// `null` is absence at the mapped field level only. A `null` nested inside a mapped
@@ -809,14 +826,22 @@ fn declared_shape(command: &str, event_name: &str, fields: &[Value]) -> (Value, 
 /// The input and emitted payload of `RegisterResource` — whose `parent` the IR
 /// declares `target_type.kind: optional` — with `parent` absent from both sides, as a
 /// root resource is registered.
-fn registered_root_resource() -> (Value, Value) {
+fn registered_root_resource() -> (Value, Value, Value) {
+    // Aligned at regeneration: the compiled contract sources `resource_id` from the
+    // `RegisterResource` response, so the payload carries it and a response is supplied.
+    let resource_id = encoded(&ResourceId::new(uuid(10)));
     let resource = json!({
         "resource_type": "space",
-        "resource_id": encoded(&ResourceId::new(uuid(10))),
+        "resource_id": resource_id,
     });
     let input = json!({ "context": encoded(&context()), "resource": resource });
-    let event = json!({ "context": encoded(&context()), "resource": resource });
-    (input, event)
+    let response = json!({ "resource_id": resource_id });
+    let event = json!({
+        "context": encoded(&context()),
+        "resource_id": resource_id,
+        "resource": resource,
+    });
+    (input, response, event)
 }
 
 /// The input, response and emitted payload of `CreateDelegation`, whose mapping carries
@@ -830,7 +855,10 @@ fn created_delegation() -> (Value, Value, Value) {
         "audience": encoded(&Audience::new("mandate")),
         "expires_at": encoded(&Timestamp::new("2026-09-20T00:00:00Z")),
     });
-    let response = json!({ "delegation_id": encoded(&DelegationId::new(uuid(12))) });
+    let response = json!({
+        "delegation_id": encoded(&DelegationId::new(uuid(12))),
+        "delegator": encoded(&PrincipalId::new(uuid(2))),
+    });
     let event = json!({
         "context": encoded(&context()),
         "id": encoded(&DelegationId::new(uuid(12))),
@@ -865,6 +893,7 @@ fn provisioned() -> (Value, Value, Value) {
         "principal_id": encoded(&PrincipalId::new(uuid(2))),
         "external_principal_id": encoded(&ExternalPrincipalId::new(uuid(6))),
         "subject": "external-subject",
+        "organization_id": encoded(&OrganizationId::new(uuid(1))),
     });
     let event = json!({
         "organization_id": encoded(&OrganizationId::new(uuid(1))),
