@@ -275,8 +275,8 @@ fn best_carrier(entity: &Value) -> Option<Carrier> {
 /// from the yaml under attack.
 #[test]
 fn the_reader_sees_the_contract_it_claims_to_see() {
-    assert_eq!(section("events").len(), 72, "compiled events");
-    assert_eq!(section("commands").len(), 59, "compiled commands");
+    assert_eq!(section("events").len(), 74, "compiled events");
+    assert_eq!(section("commands").len(), 61, "compiled commands");
     assert_eq!(section("types").len(), 110, "compiled type entries");
     assert_eq!(section("entities").len(), 36, "compiled entities");
 
@@ -396,13 +396,11 @@ fn every_moves_outcome_emits_an_event_carrying_the_moved_record_identity() {
 ///
 /// An entity leaving this set is the story's work landing and the line being deleted.
 /// An entity entering it is a regression, and this case is what reports it.
-const UNFOLDABLE: [(&str, &str); 12] = [
-    ("mandate.credential.SigningKey", "key_reference"),
+const UNFOLDABLE: [(&str, &str); 10] = [
     ("mandate.delegation.Agent", "agent_type"),
     ("mandate.delegation.AgentCapabilityCeiling", "agent_id"),
     ("mandate.delegation.Approval", "subject"),
     ("mandate.delegation.Execution", "agent_id"),
-    ("mandate.federation.OAuthClient", "public"),
     ("mandate.graph.Grant", "subject"),
     ("mandate.graph.Resource", "space_id"),
     ("mandate.identity.RefreshCredential", "principal_id"),

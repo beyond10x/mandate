@@ -175,25 +175,19 @@ pub fn unlink_external_principal(
 /// The registration record is kept and stops being admitted; see the module documentation
 /// for what this does *not* reach.
 ///
-/// # Its accepted outcome is unreachable against this domain's own fold, today
+/// # The record it moves is one this domain's own fold creates
 ///
-/// `federation.yaml` declares `DisableOAuthClient` and
-/// `mandate.federation.OAuthClientDisabled` and **no command that creates an
-/// `OAuthClient`**, so [`crate::record::Projection`] records none and this handler refuses
-/// every client with `ClientUnknown` when it reads that fold. The accepted outcome is
-/// reachable only against a store that holds a client the fold did not put there — the
-/// `pub` double [`crate::publicclient::RecordedClients`], or an adapter over a registry
-/// this domain does not write — and the event it emits then names a record no log of this
+/// `mandate.federation.RegisterOAuthClient` is the creating command and
+/// `mandate.federation.OAuthClientRegistered` its creation record
+/// ([`crate::register_client`]), so a client registered through that handler is in
+/// [`crate::record::Projection`] and this one reads it there:
+/// `crates/mandate-federation/tests/replay.rs` drives register-then-disable through both
+/// handlers and rebuilds the record from the two events alone. A client the fold did not
+/// put there is still reachable through a store that holds one — the `pub` double
+/// [`crate::publicclient::RecordedClients`], or an adapter over a registry this domain
+/// does not write — and the event this handler then emits names a record no log of this
 /// domain created, which `Projection::apply` reports as `UnknownOAuthClient` rather than
 /// inventing the record the move would apply to.
-///
-/// That is a gap in the contract, not in the fold: the creating command is
-/// `story:declared-writers`'. The handler ships now because the decision it makes — the
-/// tenant binding and the terminal state — is the decision that command's own outcome will
-/// need, and `crates/mandate-federation/tests/emitted_events.rs` decides it against the
-/// contract through the double. The fold-totality rule this does not contradict is the one
-/// `crates/mandate-federation/tests/replay.rs` states: a fold never aborts on a sequence
-/// real handlers produced **against a store this domain can fill**.
 ///
 /// # Errors
 ///

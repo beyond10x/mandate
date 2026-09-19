@@ -138,8 +138,8 @@ mod snapshot;
 pub use generation::Generation;
 pub use increment::{IncrementSecurityEpoch, SecurityEpochIncremented};
 pub use port::{
-    EpochSnapshotRecorded, EpochState, IdentityEvent, IdentityLog, IdentityRead,
-    SecurityEpochRecorded, SecurityEpochWrite, StreamVersion,
+    EpochSnapshotRecorded, EpochState, IdentityEvent, IdentityLog, IdentityRead, Principal,
+    PrincipalState, SecurityEpochRecorded, SecurityEpochWrite, StreamVersion,
 };
 pub use session::{
     Session, SessionOpened, SessionRefreshed, SessionRevoked, SessionState, refresh_session,
@@ -170,6 +170,12 @@ mandate_types::realizes! {
     "mandate.identity.SecurityEpochRecorded" => crate::port::SecurityEpochRecorded,
     "mandate.identity.SecurityEpochIncremented" => crate::increment::SecurityEpochIncremented,
     "mandate.identity.Session" => crate::session::Session,
+    // The record no command in this contract creates. `identity.yaml`'s header declares
+    // its writer instead — `mandate.federation.ExternalPrincipalProvisioned`, which
+    // carries the whole record — and the fold materializes it from that event alone
+    // ([`IdentityRead::principal`]).
+    "mandate.identity.Principal" => crate::port::Principal,
+    "mandate.identity.Principal.State" => crate::port::PrincipalState,
     "mandate.identity.SecurityEpochSnapshot" => crate::snapshot::SecurityEpochSnapshot,
     // One projection realizes all three generation records: the fold *is* the record
     // (`docs/adr/0009-event-sourced-persistence.md`), each is declared as one
@@ -194,13 +200,18 @@ mandate_types::realizes! {
 /// registry also realizes is a contradiction, and an element neither one names is an
 /// element nobody accounted for.
 ///
-/// Two groups, and neither is an oversight:
+/// Three groups, and none is an oversight:
 ///
-/// * The `Principal` and `RefreshCredential` records, their lifecycle moves and the
-///   commands that make them. This crate folds sessions and generations; neither record is
-///   projected here. `mandate.identity.Principal.State` alone *is* realized — by
-///   `mandate_federation::PrincipalState`, for the port `mandate.federation` reads that
-///   record through — and is named here because this crate does not realize it.
+/// * The `RefreshCredential` record, its lifecycle move and the commands that make them.
+///   This crate folds sessions, principals and generations; that record is not projected
+///   here.
+/// * The principal's *disablement*. The record itself is realized — the fold materializes
+///   it from the seeding event `identity.yaml` declares — but no handler here decides
+///   `DisablePrincipal`, and `mandate.identity.PrincipalDisabled` is not folded, so
+///   [`IdentityRead::principal`] answers the declared initial state for every principal a
+///   seeding event created. A reader that needs the disablement composes this port over
+///   the store that carries that event, which is the seam
+///   `mandate_federation::PrincipalStore::state_of` documents from the other side.
 /// * The single-state lifecycles. `SecurityEpochSnapshot` and the three generation records
 ///   each declare exactly one state, `Recorded`, which no value in this crate names: there
 ///   is no transition to fold and an enum of one variant would decide nothing. The records
@@ -208,19 +219,13 @@ mandate_types::realizes! {
 pub const ESS_UNREALIZED: &[(&str, &str)] = &[
     (
         "mandate.identity.DisablePrincipal",
-        "the Principal record is not projected here",
-    ),
-    (
-        "mandate.identity.Principal",
-        "not projected here; story:declared-writers owns its creation",
+        "no handler here decides it; the fold materializes the created record and folds no \
+         disablement",
     ),
     (
         "mandate.identity.PrincipalDisabled",
-        "the Principal record is not projected here",
-    ),
-    (
-        "mandate.identity.Principal.State",
-        "realized by mandate_federation::PrincipalState, for the port it is read through",
+        "declared and not folded here: no handler in this crate emits it, so the record's \
+         state is the declared initial one",
     ),
     (
         "mandate.identity.RefreshCredential",

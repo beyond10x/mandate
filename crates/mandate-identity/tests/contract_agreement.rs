@@ -17,10 +17,11 @@
 //! # What this crate does not hold a shape for
 //!
 //! `mandate.identity.PrincipalDisabled` and `mandate.identity.RefreshCredentialRevoked`,
-//! and the `mandate.identity.Principal` and `mandate.identity.RefreshCredential` records
-//! they move. This crate folds sessions and generations; neither of those records is
-//! projected here and no handler here emits either event, so a shape for them would be a
-//! payload nothing in this crate can fill.
+//! and the `mandate.identity.RefreshCredential` record the second one moves. No handler
+//! here emits either event and the refresh-credential record is not projected here, so a
+//! shape for them would be a payload nothing in this crate can fill. The
+//! `mandate.identity.Principal` record *is* projected here — the fold materializes it from
+//! its declared seeding event — and is round-tripped below.
 //!
 //! `mandate.identity.SecurityEpochSnapshot` is held and is **not** round-tripped, which
 //! is a recorded gap rather than an omission:
@@ -29,14 +30,14 @@
 
 use mandate_contract::{commands, entities, events};
 use mandate_identity::{
-    EpochSnapshotRecorded, Generation, IdentityEvent, IncrementSecurityEpoch,
-    SecurityEpochIncremented, SecurityEpochRecorded, SecurityEpochSnapshot, Session, SessionOpened,
-    SessionRevoked, SessionState,
+    EpochSnapshotRecorded, Generation, IdentityEvent, IncrementSecurityEpoch, Principal,
+    PrincipalState, SecurityEpochIncremented, SecurityEpochRecorded, SecurityEpochSnapshot,
+    Session, SessionOpened, SessionRevoked, SessionState,
 };
 use mandate_types::{
     Audience, CorrelationId, CredentialId, DelegationId, EpochSnapshotRef, ExecutionId,
-    FederationConnectionId, OrganizationId, PrincipalId, SecurityEpochTarget, SessionId, Timestamp,
-    Uuid, VerifiedContext,
+    FederationConnectionId, OrganizationId, PrincipalId, PrincipalKind, SecurityEpochTarget,
+    SessionId, Timestamp, Uuid, VerifiedContext,
 };
 use serde::{Serialize, de::DeserializeOwned};
 use serde_json::Value;
@@ -193,12 +194,13 @@ fn each_event_agrees(
             IdentityEvent::SecurityEpochIncremented(_) => {
                 agrees::<_, events::MandateIdentitySecurityEpochIncremented>(event, element)
             }
-            // The federated login's payload is the generated shape itself: this crate
-            // folds `mandate.federation.FederationAuthenticated` rather than declaring a
-            // copy of it, because the direction is `mandate-federation → mandate-identity`
-            // and never the reverse. There is nothing here to round-trip *into* — the
-            // event already is the contract's own type.
-            IdentityEvent::FederationAuthenticated(_) => continue,
+            // The two `mandate.federation` payloads this crate folds are the generated
+            // shapes themselves rather than copies of them, because the direction is
+            // `mandate-federation → mandate-identity` and never the reverse. There is
+            // nothing here to round-trip *into* — each event already is the contract's own
+            // type.
+            IdentityEvent::FederationAuthenticated(_)
+            | IdentityEvent::ExternalPrincipalProvisioned(_) => continue,
         };
         encoded.push(document);
     }
@@ -266,6 +268,26 @@ fn the_session_record_round_trips_into_its_generated_shape_in_every_declared_sta
             }
         }
     }
+}
+
+/// `mandate.identity.Principal`, the record the fold materializes from its declared
+/// seeding event, against the generated entity shape.
+///
+/// The record carries the three declared fields and the lifecycle state, and the round
+/// trip closes the key set: a field this crate renamed, added or dropped fails at
+/// `from_value` naming the key.
+#[test]
+fn the_principal_record_round_trips_into_its_generated_shape() {
+    let record = Principal::new(principal(), PrincipalKind::User, "subject-one".to_owned());
+
+    assert_eq!(record.id(), &principal());
+    assert_eq!(record.kind(), PrincipalKind::User);
+    assert_eq!(record.display_name(), "subject-one");
+    assert_eq!(record.state(), PrincipalState::Active);
+
+    let document =
+        agrees::<_, entities::MandateIdentityPrincipal>(&record, "mandate.identity.Principal");
+    carries_no_null(&document, "mandate.identity.Principal");
 }
 
 /// The one held record that does not round-trip, and why.
@@ -403,13 +425,15 @@ where
 /// Every lifecycle enum this crate holds, listed by an exhaustive match so a variant added
 /// and not listed here does not compile.
 ///
-/// There is exactly one. `mandate.identity.Principal.State` and
-/// `mandate.identity.RefreshCredential.State` are declared by this domain and held by no
-/// type here — neither record is projected by this crate — and the three generation
+/// There are two: the session's and the principal's, both records this crate folds.
+/// `mandate.identity.RefreshCredential.State` is declared by this domain and held by no
+/// type here — that record is not projected by this crate — and the three generation
 /// records declare a single-state lifecycle (`Recorded`) that no enum here names either,
 /// because `EpochState` carries a generation and a stream version rather than a lifecycle.
-/// `mandate-federation` holds `mandate.identity.Principal.State` for the port it reads
-/// that record through, and decides it in its own agreement case.
+/// `mandate-federation` holds its own `mandate.identity.Principal.State` for the port it
+/// reads the principal record through, and decides it in its own agreement case; the two
+/// are one declared lifecycle held by two readers, and both are decided against the same
+/// generated shape.
 #[test]
 fn every_lifecycle_enum_agrees_with_the_state_element_it_names() {
     let sessions = [SessionState::Active, SessionState::Revoked];
@@ -421,6 +445,17 @@ fn every_lifecycle_enum_agrees_with_the_state_element_it_names() {
     state_agrees::<_, entities::MandateIdentitySessionState>(
         "mandate.identity.Session.State",
         &sessions,
+    );
+
+    let principals = [PrincipalState::Active, PrincipalState::Disabled];
+    for state in principals {
+        match state {
+            PrincipalState::Active | PrincipalState::Disabled => {}
+        }
+    }
+    state_agrees::<_, entities::MandateIdentityPrincipalState>(
+        "mandate.identity.Principal.State",
+        &principals,
     );
 }
 

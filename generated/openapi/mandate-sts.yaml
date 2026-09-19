@@ -1,6 +1,6 @@
 # generated from mandate v1
-# model digest 01de9945d788263e9f6df566e556a0cc122f96c94d48538ad2536276eac2bc74
-# contract digest slice-sha256/2:2f84f495c2f85defdaf76c567efe9e121fdce7462f760633aea2271dd2549802
+# model digest e6c0315aa5b87175ed6d714a2786c1f14085b00a46145448d5f73eb6cd4b4fd7
+# contract digest slice-sha256/2:0d8d6dc857d3ca6e2173f062e302d467a0d0976c9e68908250c0063c390009fd
 # do not edit: regenerate with `ess generate`
 openapi: 3.1.0
 info:
@@ -14,8 +14,8 @@ info:
   x-ess-provenance:
     system: mandate
     specification_version: v1
-    source_digest: 01de9945d788263e9f6df566e556a0cc122f96c94d48538ad2536276eac2bc74
-    contract_digest: slice-sha256/2:2f84f495c2f85defdaf76c567efe9e121fdce7462f760633aea2271dd2549802
+    source_digest: e6c0315aa5b87175ed6d714a2786c1f14085b00a46145448d5f73eb6cd4b4fd7
+    contract_digest: slice-sha256/2:0d8d6dc857d3ca6e2173f062e302d467a0d0976c9e68908250c0063c390009fd
 tags:
 - name: credential
 paths:
@@ -239,6 +239,32 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.credential.RegisterResourceServer.denied.Response'
+  /credential/commands/RegisterSigningKey:
+    post:
+      operationId: mandate.credential.RegisterSigningKey
+      summary: RegisterSigningKey
+      tags:
+      - credential
+      requestBody:
+        description: The input `mandate.credential.RegisterSigningKey` declares.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/mandate.credential.RegisterSigningKey.Input'
+      responses:
+        '202':
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers, not returned here.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.credential.RegisterSigningKey.accepted.Response'
+        '502':
+          description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.credential.RegisterSigningKey.denied.Response'
   /credential/commands/RetireSigningKey:
     post:
       operationId: mandate.credential.RetireSigningKey
@@ -456,6 +482,11 @@ components:
       type: string
       format: uuid
       pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.KeyReference:
+      title: KeyReference
+      x-ess-name: mandate.core.KeyReference
+      x-ess-kind: newtype
+      type: string
     mandate.core.OAuthClientId:
       title: OAuthClientId
       x-ess-name: mandate.core.OAuthClientId
@@ -542,6 +573,11 @@ components:
       type: string
       format: uuid
       pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.SigningAlgorithm:
+      title: SigningAlgorithm
+      x-ess-name: mandate.core.SigningAlgorithm
+      x-ess-kind: newtype
+      type: string
     mandate.core.SigningKeyId:
       title: SigningKeyId
       x-ess-name: mandate.core.SigningKeyId
@@ -722,7 +758,7 @@ components:
       additionalProperties: false
     mandate.credential.IntrospectCredential.accepted.Response:
       additionalProperties: false
-      description: Taken when no other outcome's condition matched. Emits `CredentialIntrospected`, published to consumers rather than returned here.
+      description: An active answer carries the descriptor and the credential_id of the record this log holds. An inactive answer carries neither — that is the answer for a credential this deployment revoked, one whose expiry has passed, and a well-formed proof that resolves to no record at all, which are one answer here and not three. The three are distinguished by nothing this event carries, deliberately, because a caller holding a well-formed proof learns only whether it is usable. This outcome creates, moves and updates nothing, and CredentialIntrospected folds into no record — its credential_id names an instance only when one exists in this log, and a fold reading it must not take the name for the existence of a record some other event created. The presented credential may have been issued by a deployment this log never saw, which is why the field is optional rather than the event's subject. Taken when no other outcome's condition matched. Emits `CredentialIntrospected`, published to consumers rather than returned here.
       properties:
         outcome:
           const: accepted
@@ -732,7 +768,7 @@ components:
       type: object
     mandate.credential.IntrospectCredential.denied.Response:
       additionalProperties: false
-      description: 'Decided outside the request: Caller proof lacks introspection authority for the registered server/tenant, presented verifier is invalid/revoked/expired, principal/connection/epoch validation fails, audience mismatches, or authoritative online resolution is unavailable..'
+      description: 'Decided outside the request: Caller proof lacks introspection authority for the registered server/tenant or is itself invalid, revoked or expired, the presented credential proof is malformed, principal/connection/epoch validation fails, audience mismatches, or authoritative online resolution is unavailable..'
       properties:
         error:
           const: mandate.credential.Denied
@@ -1021,6 +1057,59 @@ components:
       - error
       - payload
       type: object
+    mandate.credential.RegisterSigningKey.Input:
+      title: RegisterSigningKey input
+      x-ess-name: mandate.credential.RegisterSigningKey
+      x-ess-kind: command-input
+      type: object
+      properties:
+        context:
+          $ref: '#/components/schemas/mandate.core.VerifiedContext'
+        key_reference:
+          $ref: '#/components/schemas/mandate.core.KeyReference'
+        algorithm:
+          $ref: '#/components/schemas/mandate.core.SigningAlgorithm'
+        not_before:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+      required:
+      - context
+      - key_reference
+      - algorithm
+      - not_before
+      - expires_at
+      additionalProperties: false
+    mandate.credential.RegisterSigningKey.accepted.Response:
+      additionalProperties: false
+      description: The key enters the contract Recorded, which is what rotation requires — RetireSigningKey denies a retirement with no overlapping replacement published for continued verification, and no replacement can exist until a key can be registered. SigningKeyRegistered carries the whole mandate.credential.SigningKey record — the key identity, the reference the deployment resolves to the material, the thumbprint of the public key, the algorithm name and the validity window — so the credential fold materializes the key from this event alone and reads no command input or response. The mandate.core.SigningKeyId is the kid the signer publishes and a credential names; the thumbprint is the RFC 7638 JWK thumbprint of the public key this outcome resolved from key_reference, so a revocation record naming a kid and a thumbprint is rebuilt from this log without resolving the material of a key that was revoked as compromised. Both are decided by this outcome and read from its response. No key material enters the contract — KeyReference is a handle to material the deployment holds, and no event here carries a secret. The algorithm is a name and not an admitted algorithm (UNMAPPED-ALGORITHM-POLICY); the deployment's verifier-side allowlist admits it or the registration is denied. A key reference, or the key material it resolves to, already held by a recorded key is refused in every state that key can be in, including Retired and Revoked, so material the deployment revoked never returns under a second identity. The window ordering is the entity's invariant, checked by the deciding handler; the synthesized accepted scenario builds an equal window and is expected to fail until ESS's synthesizer consults entity invariants (routed to the ESS wave). No command replaces a key in place; rotation registers the successor and retires the predecessor. Taken when no other outcome's condition matched. A `mandate.credential.SigningKey` now exists, in `Recorded`. Its identity is published as `id` on `mandate.credential.SigningKeyRegistered`. Emits `SigningKeyRegistered`, published to consumers rather than returned here.
+      properties:
+        outcome:
+          const: accepted
+          description: Which declared outcome the command took.
+      required:
+      - outcome
+      type: object
+    mandate.credential.RegisterSigningKey.denied.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: Caller lacks platform signing-key administration authority, the algorithm is outside the deployment''s admitted set, the key reference is unresolvable, or the key reference or the key material is already recorded..'
+      properties:
+        error:
+          const: mandate.credential.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.credential.Denied.Error'
+      required:
+      - outcome
+      - error
+      - payload
+      type: object
     mandate.credential.RetireSigningKey.Input:
       title: RetireSigningKey input
       x-ess-name: mandate.credential.RetireSigningKey
@@ -1047,7 +1136,7 @@ components:
       type: object
     mandate.credential.RetireSigningKey.denied.Response:
       additionalProperties: false
-      description: 'Decided outside the request: Caller lacks signing-key administration authority, the key is unresolved, no overlapping replacement key is published for continued verification, or retirement cannot durably stop further issuance under the key..'
+      description: 'Decided outside the request: Caller lacks platform signing-key administration authority, the key is unresolved, no overlapping replacement key is published for continued verification, or retirement cannot durably stop further issuance under the key..'
       properties:
         error:
           const: mandate.credential.Denied
@@ -1167,7 +1256,7 @@ components:
       type: object
     mandate.credential.RevokeSigningKey.denied.Response:
       additionalProperties: false
-      description: 'Decided outside the request: Caller lacks signing-key administration authority, the key is unresolved, or emergency revocation cannot durably stop both issuance and verification under the key and refuse the credentials it signed..'
+      description: 'Decided outside the request: Caller lacks platform signing-key administration authority, the key is unresolved, or emergency revocation cannot durably stop both issuance and verification under the key and refuse the credentials it signed..'
       properties:
         error:
           const: mandate.credential.Denied
@@ -1628,6 +1717,8 @@ x-ess-entities:
         $ref: '#/x-ess-entities/mandate.core.SigningKeyId'
       key_reference:
         $ref: '#/x-ess-entities/mandate.core.KeyReference'
+      thumbprint:
+        type: string
       algorithm:
         $ref: '#/x-ess-entities/mandate.core.SigningAlgorithm'
       not_before:
@@ -1641,6 +1732,7 @@ x-ess-entities:
     required:
     - id
     - key_reference
+    - thumbprint
     - algorithm
     - not_before
     - expires_at

@@ -36,7 +36,9 @@
       "serde_json",
       "rand",
       "jsonwebtoken",
-      "aws-lc-rs"
+      "aws-lc-rs",
+      "mandate-contract",
+      "mandate-testkit"
     ],
     "mandate-identity": [
       "mandate-types",
@@ -45,6 +47,19 @@
       "serde",
       "mandate-testkit",
       "serde_json"
+    ],
+    "mandate-sts": [
+      "clap",
+      "serde",
+      "serde_json",
+      "sha2",
+      "mandate-types",
+      "mandate-model",
+      "mandate-token",
+      "mandate-contract",
+      "mandate-testkit",
+      "aws-lc-rs",
+      "rand"
     ],
     "mandate-federation": [
       "mandate-types",

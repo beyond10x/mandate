@@ -5,13 +5,19 @@
 //! is underwritten here as a predicate: a redirect that is not byte-identical to a
 //! registered one is refused. Nothing here consumes a code or creates a credential.
 
-use mandate_federation::DenialClause;
 use mandate_federation::publicclient::{
     OAuthClientStore, RecordedClients, registered_public_client,
 };
 use mandate_federation::record::{OAuthClient, OAuthClientState, Projection};
+use mandate_federation::register_client::{
+    ConfiguredAdmission, RegisterOAuthClient, register_o_auth_client,
+};
+use mandate_federation::{DenialClause, SequentialAllocator};
 use mandate_types::value::Uuid;
-use mandate_types::{DenialReason, OAuthClientId, OrganizationId, PkceMethod, RedirectUri};
+use mandate_types::{
+    Audience, CorrelationId, CredentialId, DenialReason, OAuthClientId, OrganizationId, PkceMethod,
+    PrincipalId, RedirectUri, VerifiedContext,
+};
 
 const REGISTERED: &str = "https://app.example/callback";
 const SECOND_REGISTERED: &str = "https://app.example/other";
@@ -26,6 +32,11 @@ fn organization(tag: u8) -> OrganizationId {
 
 fn client_id(tag: u8) -> OAuthClientId {
     OAuthClientId::new(uuid(tag))
+}
+
+/// The caller the admission holds client-administration authority for.
+fn administrator() -> PrincipalId {
+    PrincipalId::new(uuid(0x51))
 }
 
 fn redirect(text: &str) -> RedirectUri {
@@ -160,11 +171,9 @@ fn a_redirect_that_is_not_byte_identical_to_a_registered_one_is_refused() {
 }
 
 #[test]
-fn the_folded_projection_answers_the_port_and_records_no_client_today() {
-    // No declared event creates an `OAuthClient`
-    // (`crates/mandate-federation/tests/record.rs:184`), so the real read model answers
-    // nothing until `story:declared-writers` declares the creating command. The port is
-    // implemented over the fold regardless, so that the adapter has one seam.
+fn a_fold_over_no_registration_answers_the_port_and_resolves_no_client() {
+    // A log that carries no `mandate.federation.OAuthClientRegistered` records no client,
+    // and the port answers that rather than defaulting one into existence.
     let projection = Projection::default();
 
     assert_eq!(projection.clients(), &[]);
@@ -179,4 +188,76 @@ fn the_folded_projection_answers_the_port_and_records_no_client_today() {
     .expect_err("an empty read model answers no registered client");
 
     assert_eq!(denied.clause, DenialClause::ClientUnknown);
+}
+
+/// The registered client `AuthorizePublicClient` reads is the one the real command wrote.
+///
+/// Every case above fixtures a client through the `pub` double, because until
+/// `mandate.federation.RegisterOAuthClient` was declared no event created one. This drives
+/// the real handler, folds the event it emits, and reads the result through the same
+/// predicate: the client the port resolves is the record the registration wrote, field for
+/// field, and the redirect binding is decided against the registered set and nothing else.
+#[test]
+fn a_client_registered_through_the_real_command_is_what_the_port_resolves() {
+    let mut allocator = SequentialAllocator::new();
+    let input = RegisterOAuthClient {
+        context: VerifiedContext {
+            subject: administrator(),
+            actor: None,
+            organization: organization(10),
+            audience: Audience::new("mandate"),
+            credential: CredentialId::new(uuid(0xcd)),
+            delegation: None,
+            execution: None,
+            correlation: CorrelationId::new("declared-writers"),
+        },
+        public: true,
+        redirect_uris: vec![redirect(REGISTERED), redirect(SECOND_REGISTERED)],
+        pkce_method: PkceMethod::S256,
+    };
+    let registered = register_o_auth_client(
+        &input,
+        &ConfiguredAdmission::new()
+            .with_administrator(administrator())
+            .with_organization(organization(10))
+            .with_redirect_uri(organization(10), redirect(REGISTERED))
+            .with_redirect_uri(organization(10), redirect(SECOND_REGISTERED)),
+        &mut allocator,
+    )
+    .expect("an administrator of an admitted organization registering admitted redirects");
+
+    let projection = Projection::fold(&[registered.event]).expect("one creation");
+
+    for uri in [REGISTERED, SECOND_REGISTERED] {
+        let resolved = registered_public_client(
+            &projection,
+            &registered.id,
+            &redirect(uri),
+            &organization(10),
+        )
+        .expect("the registered client admits its own redirects");
+
+        assert_eq!(
+            resolved,
+            OAuthClient {
+                id: registered.id,
+                organization_id: organization(10),
+                public: true,
+                redirect_uris: vec![redirect(REGISTERED), redirect(SECOND_REGISTERED)],
+                pkce_method: PkceMethod::S256,
+                state: OAuthClientState::Recorded,
+            },
+            "the record the port resolves is the one the registration wrote"
+        );
+    }
+
+    let denied = registered_public_client(
+        &projection,
+        &registered.id,
+        &redirect("https://app.example/callback/"),
+        &organization(10),
+    )
+    .expect_err("a redirect the registration did not record is not admitted");
+
+    assert_eq!(denied.clause, DenialClause::RedirectMismatch);
 }

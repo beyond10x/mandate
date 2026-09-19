@@ -8,7 +8,6 @@ relations:
 - decomposes: epic:authentication
 - serves: vision:mandate
 - depends_on: story:federation-linking
-- depends_on: story:credential-profiles
 - informed_by: feature-design:federated-login
 scope:
 - confidence: cited

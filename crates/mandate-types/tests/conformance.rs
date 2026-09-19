@@ -31,22 +31,27 @@
 //!   over both says they agree with each other; it does not say any hand-written Rust
 //!   agrees with either, because for these 30 this crate has none. They are named in
 //!   `mandate_types::inventory::DERIVED_STATE_ENUMS` — the 36 minus the six above.
-//! * **Ten of those 30 do have a domain enum, in a crate this one cannot reach**, and each
-//!   is decided by the story that owns its crate, not here. In `mandate-federation`:
+//! * **Thirteen of those 30 do have a domain enum, in a crate this one cannot reach**, and
+//!   each is decided by the story that owns its crate, not here. In `mandate-federation`:
 //!   `ConnectionState` (`mandate.federation.FederationConnection.State`), `LinkState`
 //!   (`mandate.federation.ExternalPrincipal.State`), `OAuthClientState`
-//!   (`mandate.federation.OAuthClient.State`), `PrincipalState`
-//!   (`mandate.identity.Principal.State`) and `AuthorizationCodeState`
-//!   (`mandate.credential.AuthorizationCode.State`); in `mandate-identity`, `SessionState`
+//!   (`mandate.federation.OAuthClient.State`) and `AuthorizationCodeState`
+//!   (`mandate.credential.AuthorizationCode.State`); in `mandate-identity`, `PrincipalState`
+//!   (`mandate.identity.Principal.State`, realized there since wave B while
+//!   `mandate-federation` keeps a port view of the same name) and `SessionState`
 //!   (`mandate.identity.Session.State`) — those six belong to
-//!   `story:federation-identity-alignment`. In `mandate-graph`, `RelationState`
+//!   `story:federation-identity-alignment`. In `mandate-token`: `ResourceServerState`
+//!   (`mandate.credential.ResourceServer.State`), `AccessCredentialState`
+//!   (`mandate.credential.AccessCredential.State`) and `SigningKeyState`
+//!   (`mandate.credential.SigningKey.State`) — those three belong to
+//!   `story:credential-profiles`. In `mandate-graph`, `RelationState`
 //!   (`mandate.graph.Relation.State`) and `GrantState` (`mandate.graph.Grant.State`); in
 //!   `mandate-policy`, `PolicyState` (`mandate.policy.Policy.State`) and
 //!   `AuthorizationModelState` (`mandate.policy.AuthorizationModel.State`) — those four
 //!   belong to `story:graph-policy-adapter`. `mandate-types` is a leaf and depends on none
 //!   of these crates; a case here could not construct their values.
-//! * **The remaining twenty have no domain enum anywhere in this workspace**, so for them
-//!   the generated shape is the only realization there is to decide.
+//! * **The remaining seventeen have no domain enum anywhere in this workspace**, so for
+//!   them the generated shape is the only realization there is to decide.
 //!
 //! The pairing is the only hand-written part of the account, and two things hold it to the
 //! contract. It is asserted equal to `mandate_types::inventory::DERIVED_STATE_ENUMS`,

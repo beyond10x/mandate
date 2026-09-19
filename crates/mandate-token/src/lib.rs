@@ -179,7 +179,9 @@ mandate_types::canonical_record!(
     ]
 );
 
+pub mod projection;
 pub mod signing_real;
+pub mod verifier;
 
 /// The conformance registry for the accepted credential-format types.
 pub mod conformance {

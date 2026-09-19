@@ -78,6 +78,7 @@ fn provisioned() -> (Value, Value, Value) {
         "external_principal_id": EXTERNAL_PRINCIPAL,
         "subject": "external-subject",
         "organization_id": ORGANIZATION,
+        "display_name": "External User",
     });
     let event = json!({
         "organization_id": ORGANIZATION,
@@ -413,8 +414,8 @@ fn a_refusal_names_the_outcome_and_the_event_the_caller_supplied() {
 /// event that carries one.
 #[test]
 fn absence_symmetry_holds_through_the_response_for_an_optional_response_source() {
-    let response = json!({});
-    let event = json!({ "context": context() });
+    let response = json!({ "active": false });
+    let event = json!({ "context": context(), "active": false });
     check_event_conforms(CREDENTIAL_INTROSPECTED, &event)
         .expect("`descriptor` is outside `required`, so an introspection without one conforms");
     check_payload_sources(

@@ -17,13 +17,17 @@
 
 use mandate_federation::authenticate::{ProvisionExternalPrincipal, provision_external_principal};
 use mandate_federation::disable::{
-    DisableFederationConnection, UnlinkExternalPrincipal, disable_federation_connection,
-    unlink_external_principal,
+    DisableFederationConnection, DisableOAuthClient, UnlinkExternalPrincipal,
+    disable_federation_connection, disable_oauth_client, unlink_external_principal,
 };
 use mandate_federation::link::{LinkExternalPrincipal, link_external_principal};
 use mandate_federation::record::{
     ConnectionState, ExternalKey, ExternalPrincipal, FederationConnection, FederationEvent,
-    FoldError, LinkState, Projection, RegisterFederationConnection, register_federation_connection,
+    FoldError, LinkState, OAuthClient, OAuthClientState, Projection, RegisterFederationConnection,
+    register_federation_connection,
+};
+use mandate_federation::register_client::{
+    ConfiguredAdmission, RegisterOAuthClient, register_o_auth_client,
 };
 use mandate_federation::verifier::{ConstructedVerifier, VerifiedProof};
 use mandate_federation::{
@@ -34,12 +38,22 @@ use mandate_model::TenantResolutionRule;
 use mandate_types::value::Uuid;
 use mandate_types::{
     Audience, ClientId, CorrelationId, CredentialId, CredentialProof, ExternalLinkMethod,
-    ExternalSubject, FederationConnectionId, Issuer, OAuthClientId, OrganizationId, PrincipalId,
-    SigningAlgorithm, Timestamp, VerifiedContext,
+    ExternalSubject, FederationConnectionId, Issuer, OAuthClientId, OrganizationId, PkceMethod,
+    PrincipalId, RedirectUri, SigningAlgorithm, Timestamp, VerifiedContext,
 };
 
 const ISSUER: &str = "https://idp.example";
 const SUBJECT: &str = "subject-one";
+const REDIRECT: &str = "https://app.example/callback";
+
+/// The admission the registered client is registered through: one administrator, one
+/// organization and one redirect URI.
+fn admission() -> ConfiguredAdmission {
+    ConfiguredAdmission::new()
+        .with_administrator(principal(0x51))
+        .with_organization(organization(10))
+        .with_redirect_uri(organization(10), RedirectUri::new(REDIRECT))
+}
 
 fn uuid(tag: u8) -> Uuid {
     Uuid::from_bytes([tag; 16])
@@ -435,16 +449,65 @@ fn one_external_key_resolves_the_same_way_in_every_append_order() {
     }
 }
 
-/// `mandate.federation.OAuthClient`: a fold and nothing else.
+/// `mandate.federation.OAuthClient`: registered, then disabled.
 ///
-/// The contract declares `DisableOAuthClient` and `mandate.federation.OAuthClientDisabled`
-/// and **no creating command** (`federation.yaml`), so no log this domain can write ever
-/// materializes one: the disable names a record no event created. The fold says so rather
-/// than inventing the record the event would move, which is what keeps a lost creation
-/// visible. `story:declared-writers` owns the creating command; until it lands, this is
-/// the whole of the entity's replay.
+/// `mandate.federation.OAuthClientRegistered` is the creation record and carries the whole
+/// entity — identity, organization, `public`, the exact redirect set and the PKCE method —
+/// so the fold materializes the client from that event alone and reads no command input or
+/// response (`federation.yaml`, `RegisterOAuthClient`).
 #[test]
-fn an_oauth_client_is_foldable_and_no_declared_event_creates_one() {
+fn an_oauth_client_replays_from_its_events() {
+    let mut live = Projection::default();
+    let mut log = Vec::new();
+    let mut allocator = SequentialAllocator::new();
+
+    let registered = register_o_auth_client(
+        &RegisterOAuthClient {
+            context: context(organization(10)),
+            public: true,
+            redirect_uris: vec![RedirectUri::new(REDIRECT)],
+            pkce_method: PkceMethod::S256,
+        },
+        &admission(),
+        &mut allocator,
+    )
+    .expect("an administrator of an admitted organization registering an admitted redirect");
+    commit(&mut live, &mut log, registered.event);
+
+    let disabled = disable_oauth_client(
+        &DisableOAuthClient {
+            context: context(organization(10)),
+            id: registered.id,
+        },
+        &live,
+    )
+    .expect("a recorded client of this tenant");
+    commit(&mut live, &mut log, disabled);
+
+    assert_eq!(log.len(), 2, "one event per accepted command");
+    let replayed = Projection::fold(&log).expect("the log rebuilds");
+    assert_eq!(
+        replayed.clients(),
+        [OAuthClient {
+            id: registered.id,
+            organization_id: organization(10),
+            public: true,
+            redirect_uris: vec![RedirectUri::new(REDIRECT)],
+            pkce_method: PkceMethod::S256,
+            state: OAuthClientState::Disabled,
+        }],
+        "every required field of the rebuilt record came off the log"
+    );
+    assert_eq!(replayed, live, "the log rebuilds the projection");
+}
+
+/// A move naming a client no event created is still a log this fold cannot read.
+///
+/// The creating command exists now, so this is no longer every log that carries an
+/// `OAuthClientDisabled`: it is the one whose creation is missing, which is what keeps a
+/// lost creation visible rather than inventing the record the move would apply to.
+#[test]
+fn an_oauth_client_disable_naming_a_client_no_event_created_is_unreadable() {
     let mut live = Projection::default();
     let mut log = Vec::new();
     let _ = register(&mut live, &mut log, organization(10), true);
@@ -454,7 +517,7 @@ fn an_oauth_client_is_foldable_and_no_declared_event_creates_one() {
             .expect("the log rebuilds")
             .clients()
             .is_empty(),
-        "no event of this domain creates an OAuth client"
+        "no client was registered in this log"
     );
 
     let orphan = FederationEvent::OAuthClientDisabled {
@@ -471,3 +534,9 @@ fn an_oauth_client_is_foldable_and_no_declared_event_creates_one() {
         "a move naming a record no event created is a log this fold cannot read"
     );
 }
+
+// The redelivery property of this creation arm — `fold([e, e]) == fold([e])`, and a
+// redelivery after a disable leaving the record `Disabled` — is decided by
+// `tests/adversary_writers_1.rs`, which pins exactly the two cases
+// `crates/mandate-model/tests/replay.rs` pins for the six `mandate.tenancy` creating
+// events. The case that stood here asserted the opposite and was wrong.

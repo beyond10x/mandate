@@ -161,6 +161,7 @@
         "mandate.credential.IssueSelfContainedCredential",
         "mandate.credential.RedeemAuthorizationCode",
         "mandate.credential.RegisterResourceServer",
+        "mandate.credential.RegisterSigningKey",
         "mandate.credential.RetireSigningKey",
         "mandate.credential.RevokeAccessCredential",
         "mandate.credential.RevokeSigningKey"
@@ -174,6 +175,7 @@
         "mandate.credential.CredentialSelfContainedIssued",
         "mandate.credential.ResourceServerDisabled",
         "mandate.credential.ResourceServerRegistered",
+        "mandate.credential.SigningKeyRegistered",
         "mandate.credential.SigningKeyRetired",
         "mandate.credential.SigningKeyRevoked",
         "mandate.credential.TokenExchangeAllowed",
@@ -292,6 +294,7 @@
         "mandate.federation.LinkExternalPrincipal",
         "mandate.federation.ProvisionExternalPrincipal",
         "mandate.federation.RegisterFederationConnection",
+        "mandate.federation.RegisterOAuthClient",
         "mandate.federation.UnlinkExternalPrincipal"
       ],
       "events": [
@@ -302,7 +305,8 @@
         "mandate.federation.FederationAuthenticated",
         "mandate.federation.FederationConnectionCreated",
         "mandate.federation.FederationConnectionDisabled",
-        "mandate.federation.OAuthClientDisabled"
+        "mandate.federation.OAuthClientDisabled",
+        "mandate.federation.OAuthClientRegistered"
       ],
       "errors": [
         "mandate.federation.Denied"
@@ -2990,6 +2994,14 @@
           "naming": {}
         },
         {
+          "name": "thumbprint",
+          "type_ref": {
+            "kind": "primitive",
+            "name": "string"
+          },
+          "naming": {}
+        },
+        {
           "name": "algorithm",
           "type_ref": {
             "kind": "declared",
@@ -3044,7 +3056,9 @@
           }
         ]
       },
-      "invariants": [],
+      "invariants": [
+        "not_before < expires_at"
+      ],
       "naming": {}
     },
     "mandate.delegation.Agent": {
@@ -6349,6 +6363,17 @@
             }
           },
           "naming": {}
+        },
+        {
+          "name": "credential_id",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.CredentialId"
+            }
+          },
+          "naming": {}
         }
       ],
       "outcomes": [
@@ -6395,16 +6420,53 @@
                       }
                     }
                   }
+                },
+                {
+                  "target": "active",
+                  "target_type": {
+                    "kind": "primitive",
+                    "name": "boolean"
+                  },
+                  "value": {
+                    "kind": "response_field",
+                    "field": "active",
+                    "type_ref": {
+                      "kind": "primitive",
+                      "name": "boolean"
+                    }
+                  }
+                },
+                {
+                  "target": "credential_id",
+                  "target_type": {
+                    "kind": "optional",
+                    "of": {
+                      "kind": "declared",
+                      "name": "mandate.core.CredentialId"
+                    }
+                  },
+                  "value": {
+                    "kind": "response_field",
+                    "field": "credential_id",
+                    "type_ref": {
+                      "kind": "optional",
+                      "of": {
+                        "kind": "declared",
+                        "name": "mandate.core.CredentialId"
+                      }
+                    }
+                  }
                 }
               ]
             }
-          ]
+          ],
+          "summary": "An active answer carries the descriptor and the credential_id of the record this log holds. An inactive answer carries neither — that is the answer for a credential this deployment revoked, one whose expiry has passed, and a well-formed proof that resolves to no record at all, which are one answer here and not three. The three are distinguished by nothing this event carries, deliberately, because a caller holding a well-formed proof learns only whether it is usable. This outcome creates, moves and updates nothing, and CredentialIntrospected folds into no record — its credential_id names an instance only when one exists in this log, and a fold reading it must not take the name for the existence of a record some other event created. The presented credential may have been issued by a deployment this log never saw, which is why the field is optional rather than the event's subject."
         },
         {
           "name": "denied",
           "condition": {
             "kind": "external",
-            "cause": "Caller proof lacks introspection authority for the registered server/tenant, presented verifier is invalid/revoked/expired, principal/connection/epoch validation fails, audience mismatches, or authoritative online resolution is unavailable."
+            "cause": "Caller proof lacks introspection authority for the registered server/tenant or is itself invalid, revoked or expired, the presented credential proof is malformed, principal/connection/epoch validation fails, audience mismatches, or authoritative online resolution is unavailable."
           },
           "test_strategy": "inject_fault",
           "emits": [],
@@ -7519,6 +7581,222 @@
       ],
       "naming": {}
     },
+    "mandate.credential.RegisterSigningKey": {
+      "name": "mandate.credential.RegisterSigningKey",
+      "domain": "mandate.credential",
+      "input": [
+        {
+          "name": "context",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.VerifiedContext"
+          },
+          "naming": {}
+        },
+        {
+          "name": "key_reference",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.KeyReference"
+          },
+          "naming": {}
+        },
+        {
+          "name": "algorithm",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.SigningAlgorithm"
+          },
+          "naming": {}
+        },
+        {
+          "name": "not_before",
+          "type_ref": {
+            "kind": "primitive",
+            "name": "timestamp"
+          },
+          "naming": {}
+        },
+        {
+          "name": "expires_at",
+          "type_ref": {
+            "kind": "primitive",
+            "name": "timestamp"
+          },
+          "naming": {}
+        }
+      ],
+      "response": [
+        {
+          "name": "id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.SigningKeyId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "thumbprint",
+          "type_ref": {
+            "kind": "primitive",
+            "name": "string"
+          },
+          "naming": {}
+        }
+      ],
+      "outcomes": [
+        {
+          "name": "accepted",
+          "condition": {
+            "kind": "otherwise"
+          },
+          "subject": {
+            "entity": "mandate.credential.SigningKey",
+            "effect": "creates",
+            "instance": {
+              "from": "observed",
+              "event": "mandate.credential.SigningKeyRegistered",
+              "field": {
+                "name": "id",
+                "type_ref": {
+                  "kind": "declared",
+                  "name": "mandate.core.SigningKeyId"
+                },
+                "naming": {}
+              }
+            }
+          },
+          "test_strategy": "default_branch",
+          "emits": [
+            "mandate.credential.SigningKeyRegistered"
+          ],
+          "payload": [
+            {
+              "event": "mandate.credential.SigningKeyRegistered",
+              "fields": [
+                {
+                  "target": "context",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.VerifiedContext"
+                  },
+                  "value": {
+                    "kind": "input_field",
+                    "field": "context",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.VerifiedContext"
+                    }
+                  }
+                },
+                {
+                  "target": "id",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.SigningKeyId"
+                  },
+                  "value": {
+                    "kind": "response_field",
+                    "field": "id",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.SigningKeyId"
+                    }
+                  }
+                },
+                {
+                  "target": "key_reference",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.KeyReference"
+                  },
+                  "value": {
+                    "kind": "input_field",
+                    "field": "key_reference",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.KeyReference"
+                    }
+                  }
+                },
+                {
+                  "target": "thumbprint",
+                  "target_type": {
+                    "kind": "primitive",
+                    "name": "string"
+                  },
+                  "value": {
+                    "kind": "response_field",
+                    "field": "thumbprint",
+                    "type_ref": {
+                      "kind": "primitive",
+                      "name": "string"
+                    }
+                  }
+                },
+                {
+                  "target": "algorithm",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.SigningAlgorithm"
+                  },
+                  "value": {
+                    "kind": "input_field",
+                    "field": "algorithm",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.SigningAlgorithm"
+                    }
+                  }
+                },
+                {
+                  "target": "not_before",
+                  "target_type": {
+                    "kind": "primitive",
+                    "name": "timestamp"
+                  },
+                  "value": {
+                    "kind": "input_field",
+                    "field": "not_before",
+                    "type_ref": {
+                      "kind": "primitive",
+                      "name": "timestamp"
+                    }
+                  }
+                },
+                {
+                  "target": "expires_at",
+                  "target_type": {
+                    "kind": "primitive",
+                    "name": "timestamp"
+                  },
+                  "value": {
+                    "kind": "input_field",
+                    "field": "expires_at",
+                    "type_ref": {
+                      "kind": "primitive",
+                      "name": "timestamp"
+                    }
+                  }
+                }
+              ]
+            }
+          ],
+          "summary": "The key enters the contract Recorded, which is what rotation requires — RetireSigningKey denies a retirement with no overlapping replacement published for continued verification, and no replacement can exist until a key can be registered. SigningKeyRegistered carries the whole mandate.credential.SigningKey record — the key identity, the reference the deployment resolves to the material, the thumbprint of the public key, the algorithm name and the validity window — so the credential fold materializes the key from this event alone and reads no command input or response. The mandate.core.SigningKeyId is the kid the signer publishes and a credential names; the thumbprint is the RFC 7638 JWK thumbprint of the public key this outcome resolved from key_reference, so a revocation record naming a kid and a thumbprint is rebuilt from this log without resolving the material of a key that was revoked as compromised. Both are decided by this outcome and read from its response. No key material enters the contract — KeyReference is a handle to material the deployment holds, and no event here carries a secret. The algorithm is a name and not an admitted algorithm (UNMAPPED-ALGORITHM-POLICY); the deployment's verifier-side allowlist admits it or the registration is denied. A key reference, or the key material it resolves to, already held by a recorded key is refused in every state that key can be in, including Retired and Revoked, so material the deployment revoked never returns under a second identity. The window ordering is the entity's invariant, checked by the deciding handler; the synthesized accepted scenario builds an equal window and is expected to fail until ESS's synthesizer consults entity invariants (routed to the ESS wave). No command replaces a key in place; rotation registers the successor and retires the predecessor."
+        },
+        {
+          "name": "denied",
+          "condition": {
+            "kind": "external",
+            "cause": "Caller lacks platform signing-key administration authority, the algorithm is outside the deployment's admitted set, the key reference is unresolvable, or the key reference or the key material is already recorded."
+          },
+          "test_strategy": "inject_fault",
+          "emits": [],
+          "error": "mandate.credential.Denied"
+        }
+      ],
+      "naming": {}
+    },
     "mandate.credential.RetireSigningKey": {
       "name": "mandate.credential.RetireSigningKey",
       "domain": "mandate.credential",
@@ -7624,7 +7902,7 @@
           "name": "denied",
           "condition": {
             "kind": "external",
-            "cause": "Caller lacks signing-key administration authority, the key is unresolved, no overlapping replacement key is published for continued verification, or retirement cannot durably stop further issuance under the key."
+            "cause": "Caller lacks platform signing-key administration authority, the key is unresolved, no overlapping replacement key is published for continued verification, or retirement cannot durably stop further issuance under the key."
           },
           "test_strategy": "inject_fault",
           "emits": [],
@@ -7852,7 +8130,7 @@
           "name": "denied",
           "condition": {
             "kind": "external",
-            "cause": "Caller lacks signing-key administration authority, the key is unresolved, or emergency revocation cannot durably stop both issuance and verification under the key and refuse the credentials it signed."
+            "cause": "Caller lacks platform signing-key administration authority, the key is unresolved, or emergency revocation cannot durably stop both issuance and verification under the key and refuse the credentials it signed."
           },
           "test_strategy": "inject_fault",
           "emits": [],
@@ -10678,6 +10956,14 @@
             "name": "mandate.core.ExternalSubject"
           },
           "naming": {}
+        },
+        {
+          "name": "display_name",
+          "type_ref": {
+            "kind": "primitive",
+            "name": "string"
+          },
+          "naming": {}
         }
       ],
       "outcomes": [
@@ -10783,7 +11069,12 @@
                     "name": "string"
                   },
                   "value": {
-                    "kind": "generated"
+                    "kind": "response_field",
+                    "field": "display_name",
+                    "type_ref": {
+                      "kind": "primitive",
+                      "name": "string"
+                    }
                   }
                 },
                 {
@@ -10840,7 +11131,7 @@
               ]
             }
           ],
-          "summary": "Just-in-time provisioning on first login. The outcome creates exactly one record, the mandate.federation.ExternalPrincipal linking the principal with ExternalLinkMethod::ConfiguredFederation. The event also names the mandate.identity.Principal of kind User the provisioning produced, and no outcome in this contract declares that Principal's creation. Both identities and the external subject are bound from the response rather than left to the implementation. The composite key is (organization, connection issuer, external subject), with the issuer read from the validated connection and the subject from the validated proof, never from the caller. No session is minted here; the adapter calls AuthenticateFederation again."
+          "summary": "Just-in-time provisioning on first login. The outcome creates exactly one record, the mandate.federation.ExternalPrincipal linking the principal with ExternalLinkMethod::ConfiguredFederation. The event also names the mandate.identity.Principal of kind User the provisioning produced, and no outcome in this contract declares that Principal's creation. Both identities, the external subject and the display name are bound from the response rather than left to the implementation; the display name is the validated subject until a connection admits a display-name claim, which no connection declares yet (story:federation-linking). The composite key is (organization, connection issuer, external subject), with the issuer read from the validated connection and the subject from the validated proof, never from the caller. No session is minted here; the adapter calls AuthenticateFederation again."
         },
         {
           "name": "denied",
@@ -11040,6 +11331,208 @@
           "condition": {
             "kind": "external",
             "cause": "Caller lacks federation-administration authority, issuer/client/trust, tenant-resolution or just-in-time provisioning configuration is unadmitted, or organization binding is invalid."
+          },
+          "test_strategy": "inject_fault",
+          "emits": [],
+          "error": "mandate.federation.Denied"
+        }
+      ],
+      "naming": {}
+    },
+    "mandate.federation.RegisterOAuthClient": {
+      "name": "mandate.federation.RegisterOAuthClient",
+      "domain": "mandate.federation",
+      "input": [
+        {
+          "name": "context",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.VerifiedContext"
+          },
+          "naming": {}
+        },
+        {
+          "name": "public",
+          "type_ref": {
+            "kind": "primitive",
+            "name": "boolean"
+          },
+          "naming": {}
+        },
+        {
+          "name": "redirect_uris",
+          "type_ref": {
+            "kind": "list",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.RedirectUri"
+            }
+          },
+          "naming": {}
+        },
+        {
+          "name": "pkce_method",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.PkceMethod"
+          },
+          "naming": {}
+        }
+      ],
+      "response": [
+        {
+          "name": "id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.OAuthClientId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "organization_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.OrganizationId"
+          },
+          "naming": {}
+        }
+      ],
+      "outcomes": [
+        {
+          "name": "accepted",
+          "condition": {
+            "kind": "otherwise"
+          },
+          "subject": {
+            "entity": "mandate.federation.OAuthClient",
+            "effect": "creates",
+            "instance": {
+              "from": "observed",
+              "event": "mandate.federation.OAuthClientRegistered",
+              "field": {
+                "name": "id",
+                "type_ref": {
+                  "kind": "declared",
+                  "name": "mandate.core.OAuthClientId"
+                },
+                "naming": {}
+              }
+            }
+          },
+          "test_strategy": "default_branch",
+          "emits": [
+            "mandate.federation.OAuthClientRegistered"
+          ],
+          "payload": [
+            {
+              "event": "mandate.federation.OAuthClientRegistered",
+              "fields": [
+                {
+                  "target": "context",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.VerifiedContext"
+                  },
+                  "value": {
+                    "kind": "input_field",
+                    "field": "context",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.VerifiedContext"
+                    }
+                  }
+                },
+                {
+                  "target": "id",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.OAuthClientId"
+                  },
+                  "value": {
+                    "kind": "response_field",
+                    "field": "id",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.OAuthClientId"
+                    }
+                  }
+                },
+                {
+                  "target": "organization_id",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.OrganizationId"
+                  },
+                  "value": {
+                    "kind": "response_field",
+                    "field": "organization_id",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.OrganizationId"
+                    }
+                  }
+                },
+                {
+                  "target": "public",
+                  "target_type": {
+                    "kind": "primitive",
+                    "name": "boolean"
+                  },
+                  "value": {
+                    "kind": "input_field",
+                    "field": "public",
+                    "type_ref": {
+                      "kind": "primitive",
+                      "name": "boolean"
+                    }
+                  }
+                },
+                {
+                  "target": "redirect_uris",
+                  "target_type": {
+                    "kind": "list",
+                    "of": {
+                      "kind": "declared",
+                      "name": "mandate.core.RedirectUri"
+                    }
+                  },
+                  "value": {
+                    "kind": "input_field",
+                    "field": "redirect_uris",
+                    "type_ref": {
+                      "kind": "list",
+                      "of": {
+                        "kind": "declared",
+                        "name": "mandate.core.RedirectUri"
+                      }
+                    }
+                  }
+                },
+                {
+                  "target": "pkce_method",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.PkceMethod"
+                  },
+                  "value": {
+                    "kind": "input_field",
+                    "field": "pkce_method",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.PkceMethod"
+                    }
+                  }
+                }
+              ]
+            }
+          ],
+          "summary": "The client is bound to the organization the verified context carries; the command takes no organization input, so no caller selects the tenant a client is registered into. OAuthClientRegistered carries the whole mandate.federation.OAuthClient record — the client identity, its organization, whether it is a public client, its exact redirect set and its PKCE method — so the federation fold materializes the client from this event alone and reads no command input or response. The identity and the organization are the ones this outcome decided and returned, read from the response rather than from a value the implementation invented. An empty redirect set is admitted and is not a denial — the client it registers is inert, because AuthorizePublicClient matches the presented redirect against the registered set exactly and an empty set matches nothing, so every authorization request to that client is refused. mandate.core.PkceMethod admits S256 and nothing else, so no registration can name another method and none is refused for naming one. A registration whose redirect surface or PKCE method must change is disabled and registered again; there is no update command."
+        },
+        {
+          "name": "denied",
+          "condition": {
+            "kind": "external",
+            "cause": "Caller lacks client-administration authority, a redirect URI is unadmitted, or organization binding is invalid."
           },
           "test_strategy": "inject_fault",
           "emits": [],
@@ -14241,6 +14734,25 @@
             }
           },
           "naming": {}
+        },
+        {
+          "name": "active",
+          "type_ref": {
+            "kind": "primitive",
+            "name": "boolean"
+          },
+          "naming": {}
+        },
+        {
+          "name": "credential_id",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.CredentialId"
+            }
+          },
+          "naming": {}
         }
       ],
       "naming": {}
@@ -14466,6 +14978,69 @@
               "kind": "declared",
               "name": "mandate.core.ResourceServerId"
             }
+          },
+          "naming": {}
+        }
+      ],
+      "naming": {}
+    },
+    "mandate.credential.SigningKeyRegistered": {
+      "name": "mandate.credential.SigningKeyRegistered",
+      "domain": "mandate.credential",
+      "fields": [
+        {
+          "name": "context",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.VerifiedContext"
+          },
+          "naming": {}
+        },
+        {
+          "name": "id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.SigningKeyId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "key_reference",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.KeyReference"
+          },
+          "naming": {}
+        },
+        {
+          "name": "thumbprint",
+          "type_ref": {
+            "kind": "primitive",
+            "name": "string"
+          },
+          "naming": {}
+        },
+        {
+          "name": "algorithm",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.SigningAlgorithm"
+          },
+          "naming": {}
+        },
+        {
+          "name": "not_before",
+          "type_ref": {
+            "kind": "primitive",
+            "name": "timestamp"
+          },
+          "naming": {}
+        },
+        {
+          "name": "expires_at",
+          "type_ref": {
+            "kind": "primitive",
+            "name": "timestamp"
           },
           "naming": {}
         }
@@ -15693,6 +16268,64 @@
       ],
       "naming": {}
     },
+    "mandate.federation.OAuthClientRegistered": {
+      "name": "mandate.federation.OAuthClientRegistered",
+      "domain": "mandate.federation",
+      "fields": [
+        {
+          "name": "context",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.VerifiedContext"
+          },
+          "naming": {}
+        },
+        {
+          "name": "id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.OAuthClientId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "organization_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.OrganizationId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "public",
+          "type_ref": {
+            "kind": "primitive",
+            "name": "boolean"
+          },
+          "naming": {}
+        },
+        {
+          "name": "redirect_uris",
+          "type_ref": {
+            "kind": "list",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.RedirectUri"
+            }
+          },
+          "naming": {}
+        },
+        {
+          "name": "pkce_method",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.PkceMethod"
+          },
+          "naming": {}
+        }
+      ],
+      "naming": {}
+    },
     "mandate.graph.GrantRevoked": {
       "name": "mandate.graph.GrantRevoked",
       "domain": "mandate.graph",
@@ -16680,6 +17313,7 @@
         "mandate.federation.LinkExternalPrincipal",
         "mandate.federation.ProvisionExternalPrincipal",
         "mandate.federation.RegisterFederationConnection",
+        "mandate.federation.RegisterOAuthClient",
         "mandate.federation.UnlinkExternalPrincipal",
         "mandate.identity.DisablePrincipal",
         "mandate.identity.IncrementSecurityEpoch",
@@ -16725,6 +17359,7 @@
         "mandate.federation.FederationConnectionCreated",
         "mandate.federation.FederationConnectionDisabled",
         "mandate.federation.OAuthClientDisabled",
+        "mandate.federation.OAuthClientRegistered",
         "mandate.identity.EpochSnapshotRecorded",
         "mandate.identity.PrincipalDisabled",
         "mandate.identity.RefreshCredentialRevoked",
@@ -16763,6 +17398,7 @@
         "mandate.credential.IssueSelfContainedCredential",
         "mandate.credential.RedeemAuthorizationCode",
         "mandate.credential.RegisterResourceServer",
+        "mandate.credential.RegisterSigningKey",
         "mandate.credential.RetireSigningKey",
         "mandate.credential.RevokeAccessCredential",
         "mandate.credential.RevokeSigningKey"
@@ -16776,6 +17412,7 @@
         "mandate.credential.CredentialSelfContainedIssued",
         "mandate.credential.ResourceServerDisabled",
         "mandate.credential.ResourceServerRegistered",
+        "mandate.credential.SigningKeyRegistered",
         "mandate.credential.SigningKeyRetired",
         "mandate.credential.SigningKeyRevoked",
         "mandate.credential.TokenExchangeAllowed",

@@ -34,7 +34,7 @@ scope:
   path: crates/mandate-federation/tests/record.rs
 - confidence: cited
   path: crates/mandate-federation/tests/verifier.rs
-revision: 33
+revision: 34
 ---
 # Implement verified federation and explicit linking
 
@@ -130,3 +130,7 @@ Rewritten at wave-2 close from unit commit `b452c6aedaf5532990273892ac5e42d317e2
 ## Inherited from wave A, 2026-09-19
 
 - From wave A's `federation-verifier` unit (2026-09-19): `mandate.federation.FederationConnection` declares no signing algorithm, so the real verifier holds a deployment-configured per-connection algorithm (`RealVerifier::configure_connection`) validated against the RS256/ES256 allowlist. If the connection record should carry the algorithm (so the contract, not the deployment, states it), that is a `federation.yaml` change with a new `RegisterFederationConnection` input and a regenerated projection — this story's or `story:domain-runtime`'s.
+
+## Inherited from wave B, 2026-09-19
+
+- From the wave B contract-round adversary 2 (2026-09-19): `ProvisionExternalPrincipal` now responds `display_name`, decided from the validated proof; the value is the subject until a connection admits a display-name claim, which `FederationConnection` does not declare. Adding an admitted display-name claim to the connection is this story's, beside the signing-algorithm field routed from wave A.

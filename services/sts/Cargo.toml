@@ -9,9 +9,24 @@ publish.workspace = true
 [lints]
 workspace = true
 
+[lib]
+path = "src/lib.rs"
+
 [[bin]]
 name = "mandate-sts"
 path = "src/main.rs"
 
 [dependencies]
 clap.workspace = true
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+mandate-types = { version = "0.2.0", path = "../../crates/mandate-types" }
+mandate-model = { version = "0.2.0", path = "../../crates/mandate-model" }
+mandate-token = { version = "0.2.0", path = "../../crates/mandate-token" }
+
+[dev-dependencies]
+mandate-contract = { version = "0.2.0", path = "../../crates/mandate-contract" }
+mandate-testkit = { version = "0.2.0", path = "../../crates/mandate-testkit" }
+aws-lc-rs = { workspace = true }
+rand = { workspace = true }

@@ -1,0 +1,99 @@
+# Wave B — credential profiles and the login road's declared writers
+
+**Skill version 0.9.2** — `aep-drive` at `.claude-plugin/plugin.json` of the loaded plugin. **AEP** `protocol 0.55.0`. **ESS** `ess 0.26.0` (unchanged). Base: `main` at `a76267b` (wave A merged through PR #11). Integration branch `integration/wave-20260919-003`.
+
+## Why this wave
+
+The operator's priority of 2026-09-19 is the customer login road: a user signed in at the customer's own identity provider enters a Mandate-protected flow and ends with a Mandate credential (`docs/architecture/federated-login.md`). After wave A the road has real verification and signing behind ports, a login that opens a Session, and projections that agree with the contract. What it lacks next, in dependency order (`aep plan artifact waves`): the credential families, the audience registry and introspection (`story:credential-profiles`, on which `oauth-integration`, `protocol-adapters` and `product-listener` all depend), and the two records the road creates without a declared writer — the `Principal` a first login provisions and the `OAuthClient` an authorization request reads (`story:declared-writers`). Waves E2–E4 of the drift-protection plan stay deferred behind the road.
+
+## Selection
+
+| Story | Status at opening | Agent | Lands in |
+|---|---|---|---|
+| `story:declared-writers` | active | one Opus implementor, two rounds: the contract round (A1, A2, C0, C1) first, one adversary pass, merge, the coordinator's regeneration; then the realization round (A3, A4) | `systems/mandate/domains/{identity,federation,credential}.yaml`, `components.yaml`, `command-obligations.md`; then `crates/mandate-identity/src/{port,lib}.rs`, `crates/mandate-federation/src/{register_client,record,lib}.rs` and tests |
+| `story:credential-profiles` | active | one Opus implementor, cut from the regenerated head; units `projection`, `verifier`, `registry`, `issue`, `resolve`, `keys` in the order the story's Scope and rulings state | `crates/mandate-token/src/{projection,verifier}.rs`, `services/sts/src/{lib,registry,issue,resolve,keys}.rs`, their tests |
+
+Not selected: `story:oauth-integration`, `story:product-listener`, `story:protocol-adapters` (each `depends_on` a story in this wave or a draft outside it); the E2 set (`coverage-map`, `authored-denial-scenarios`, `conformance-target`, …) by the operator's prioritization; `declared-writers` units B and C2 (creators outside the road) to a later wave.
+
+Disjoint by file, sequential by the IR: `credential-profiles` touches nothing under `systems/`, `generated/`, `crates/mandate-identity`, `crates/mandate-federation`; `declared-writers` touches nothing under `crates/mandate-token`, `services/sts`; but the credential realization registry asserts the `mandate.credential` element set exhaustively against `generated/ir/system.json`, which the contract round changes (`review-result:wave-b-parallel-r1`), so `credential-profiles`' tree is cut only after the regeneration commit (`depends_on` recorded). Workspace one-writer files (`Cargo.toml`, `Cargo.lock`, `dependency-boundaries.json`, `xtask/src/main.rs`, `generated/**`, the count pins, `tests/security/cases.json`) are the coordinator's.
+
+## Coordinator pre-lands (opening commit)
+
+1. `services/sts/Cargo.toml`: a `[lib]` target beside the `[[bin]]`; `serde`, `serde_json`, `mandate-types`, `mandate-model`, `mandate-token`; dev `mandate-contract`, `mandate-testkit`. `services/sts/src/lib.rs` as an empty crate root with the crate doc.
+2. `crates/mandate-token/Cargo.toml`: dev `mandate-contract`, `mandate-testkit`.
+3. `dependency-boundaries.json`: a `mandate-sts` key (`clap`, `serde`, `serde_json`, `sha2`, `mandate-types`, `mandate-model`, `mandate-token`, `mandate-contract`, `mandate-testkit`); `mandate-token` gains `mandate-contract`, `mandate-testkit`. No `mandate-federation` edge: the `TargetRegistry` adapter over the credential fold is the composition's (`story:product-listener`, ruled on `credential-profiles`).
+4. `xtask/src/main.rs`: `LIBRARIES` 16 → 17 and the doc comment naming the packages without an entry.
+5. `tests/security/cases.json`: `profile-offline-bound` names `IssueSelfContainedCredential` (a "signed credential" case; it named the reference family).
+6. Store: the two Scope sections re-derived after wave A; `story:credential-profiles depends_on story:audit-client` downgraded to `informed_by` (no reason recorded, and `services/sts` cannot depend on `mandate-audit` under the boundary policy); `story:signing-and-verification depends_on story:credential-profiles` removed and the true edge recorded the other way; `credential-profiles depends_on declared-writers`; the opening rulings (9 on `credential-profiles`, 7 on `declared-writers`); both stories `active`; `review-result:wave-b-parallel-r1` (3 findings) and `review-result:wave-b-design-r1` (8 findings), outcomes `fixed`.
+
+## Commits this wave makes
+
+Through `atlas/scripts/as-bot.sh`, author and committer `b10x-bot[bot]`: this opening commit; one commit per unit round on its `impl/*` branch (`credential-profiles` one, `declared-writers` two); one `--no-ff` merge per unit round; the coordinator's regeneration commit after the contract round merges (`generated/**`, count pins, `docs/architecture/federated-login.md` lines naming the Principal's writer); alignment commits where a ruling moves a pinned value; the closing store commit; publication through `b10x-gates`; the PR to `main` and its App merge. No tag, no release.
+
+## Preflight
+
+- Tree `mandate-wb-coordinator` cut from `main` `a76267b`; `cargo xtask adopt` run once (4 projection owners); lease held.
+- Disk: 70G free on `/` at opening; unit trees build in-tree `target/`, removed at finish.
+- `aep plan artifact validate`: valid after the store pre-lands (20 legacy prose-only review warnings unchanged).
+
+## Stage log
+
+- Critic panel round 1 (Opus, read-only, 2): parallel-safety `needs-revision`, 3 findings (the credential registry versus the contract round's two new elements; two owners named for the crate roots); design `needs-revision`, 8 findings (a backwards `depends_on` on `signing-and-verification`; no edge recording the contract-round order; `TargetRegistry` would need a federation edge; no caller for `SigningKey`; `organization_id` beside `context` on `OAuthClientRegistered`; `CredentialIntrospected` naming neither credential nor answer; the Session arm's rule for a principal without a record; Exclusions contradicting A4). Every finding ruled at the opening; none deferred.
+- `declared-writers` contract round implementor (Opus): A1 declaration, `RegisterOAuthClient`/`OAuthClientRegistered`, `RegisterSigningKey`/`SigningKeyRegistered`, `IntrospectCredential` widened; 5 files, +116/−2; `ess specify validate` 14 files valid; corpus 61 commands; synthesize 132 → 146 scenarios, refusals 59 → 49 (seven `SigningKey`, three `OAuthClient` cleared; the three `Principal` refusals remain); the workspace suite red on 7 coordinator-owned count pins (patch prepared in scratch).
+- Contract adversary 1 (`review-result:wave-b-writers-contract-adversary-1`): 10 probe cases, 9 red; 2 blockers (synthesized accepted scenarios build inputs the denials refuse: `redirect_uris: []`, `not_before == expires_at`), 7 warnings, 4 notes; all ruled — empty-set and PKCE clauses dropped (not expressible; one `PkceMethod` variant), `not_before < expires_at` as an entity invariant, `thumbprint` on the key record, the caller's own proof validity back in the introspection denial, `display_name` decided by the response.
+- Correction round 1 green: 5 files +131/−4; validate ok; corpus 61; synthesize 146 scenarios, refusals 49 → 52 (+3 `SYNTH-011` on the new invariant, the accepted cost); probe 33/33; adversary cases 7/10 green, 3 red by ruling; after a scratch regeneration 15 reds measured in the workspace suite (9 count pins in the patch, 6 authored fixtures/examples and the `provision_external_principal` response for the coordinator's alignment commit).
+- Contract adversary 2 (`review-result:wave-b-writers-contract-adversary-2`): 6 new cases, all red; 4 blockers (the synthesizer builds an equal window and asserts accepted against the new invariant; the introspection summary admitted a proof its denial refused; no uniqueness over the key material; the ordering published in no obligation), 2 warnings, 2 notes; ruled — the invariant stays and the synthesizer's equal-timestamp input is an ESS gap routed to the ESS wave; "malformed" only; key reference or material already recorded; organization binding on the client; platform authority on all three key commands; the subject as display name until a connection admits a claim.
+- Correction round 2 green: 5 files +135/−8; 40 probe cases; adversary-2 cases 4/6 green (2 red by ruling), adversary-1 unchanged 7/10; synthesize unchanged 146/52; no Rust shape moved.
+- Unit commit `a8d2976`; merge `ed7eef8`. Coordinator regeneration on the merged contract: 338 generated files, 4 count-pin files (events 72 → 74, commands 59 → 61, responses 24 → 26, residue 12 → 10), 7 alignment edits (`Provisioned.display_name` and its emitted-event test; three testkit `provisioned()` fixtures; the introspection fixtures carry `active`).
+- Regeneration commit `a2624e0`; `task check` on it: exit 0, 1025 tests across 154 targets. Two realization trees cut from it: `mandate-wb-credential` (`impl/credential-profiles`) and `mandate-wb-writers` (`impl/writers-realization`); both implementors dispatched (Opus).
+- `declared-writers` realization implementor green: 14 files +1153/−130 and `register_client.rs` (239 lines); `Principal` folded in identity from `ExternalPrincipalProvisioned` (both paths pinned), `RegisterOAuthClient` handler and creation arm, `AuthorizePublicClient` reads the registered client from the fold; two crates 371 → 385 tests; two coordinator doc patches (`publicclient.rs` prose, `federated-login.md:29,49,105`).
+- Realization adversary 1 (`review-result:wave-b-writers-realization-adversary-1`): 7 cases, 4 red; 1 blocker (the creation arm refused a redelivered `OAuthClientRegistered`, making the whole log unfoldable), 3 warnings, 1 note; ruled — insert-if-absent, both pinned literals enforced in `principal_of`, one realizer per element, the `publicclient.rs` doc rewritten by the unit. Correction round 1 dispatched.
+- `credential-profiles` implementor green: 19 files +8796; six units red-first (`projection` 955 lines, `verifier`, `registry`, `issue`, `resolve`, `keys`), one registry over 34 `mandate.credential` elements in `services/sts/src/lib.rs`, the acceptance with a counted caching-resolver double, the five corpus cases as tests; two crates 68 → 174 tests; fmt, clippy, boundaries green. Contract observation: `reference_verifier` is `generated: true` on both issuance events while `Optional` on the record (`credential.yaml:410,428`). Adversary 1 dispatched.
+- Realization correction 1 green (two crates 385 → 391; both adversary lanes green; one unit case retracted as the defect's pin; 65 realized elements across the workspace, 0 duplicated by the unit's scan — no gate check for it yet, named as residue). Adversary 2 dispatched.
+- `credential-profiles` adversary 1 (`review-result:wave-b-credential-profiles-adversary-1`): 6 cases, 4 red; 2 blockers (the revocation guarantee read from the caller's current registration; `move_key` ignoring the declared `from:` sets), 2 warnings (`positive_cache_ttl` read by nothing that decides; no real-signer case), 2 notes; all ruled; correction 1 dispatched.
+- Realization adversary 2 (`review-result:wave-b-writers-realization-adversary-2`): 9 cases, 3 red; no blocker; 2 warnings (`principal_of` decided one of ten declared fields; a corrupt subject seeded a Principal), 2 notes (`public: false` unpinned; federation had no exhaustiveness case); ruled; correction 2 dispatched.
+- Realization correction 2 green (two crates 391 → 402; `principal_of` decides all ten declared fields; `public: false` pinned; federation gains `ESS_UNREALIZED` and its exhaustiveness case). The coordinator formatted the two pass-2 adversary files. Unit commit `abca8d0` (20 files, +2866/−166); merge `ff22c1f`.
+- `credential-profiles` correction 1 green (two crates 174 → 202; the guarantee decided from the issuing profile; every lifecycle arm honours its `from:` set; `cached_at` and the `positive_cache_ttl` bound enforced; one end-to-end case with a run-time `RealSigner`; domain separation in the verifier port). Contract gap named: `AccessCredential` declares no issuing registration (`credential.yaml:46-76`), routed to `story:declared-writers`. Adversary 2 dispatched.
+- `credential-profiles` adversary 2 (`review-result:wave-b-credential-profiles-adversary-2`): 5 cases, 3 red; 1 blocker (a disabled registration's credential kept introspection authority as the caller's proof), 3 warnings (issuance to a target that no longer holds its audience; key uniqueness as a whole-log fold refusal; `requires_online_authorization` read by nothing), 2 notes; ruled; correction 2 dispatched.
+- `credential-profiles` correction 2 green (two crates 202 → 217; the caller's authority decided from its own issuing registration and the audience it holds; issuance and introspection ask the same enabled question; key uniqueness as views; `requires_online_authorization` never asks the cache; bound edge cases; `signing_admitted`/`admitted_for_verification`). Two mechanism deviations accepted as rulings: the holder test left out of both sides instead of added to issuance; `may_introspect` as the authority rule (pass-1 and pass-2 cases disagreed on the caller alone). Unit commit `2e1e415` (26 files, +11984/−2); merge `5600def`.
+- Coordinator alignment: `docs/architecture/federated-login.md:29,49,105` name `ExternalPrincipalProvisioned` and the identity fold as the Principal's writer; the four realization/credential review-results and their outcomes in the store.
+- Closing gate on `3b88754`: red at `crates/mandate-types/tests/adversary_states_2.rs:194` — the account of the 36 derived state enums did not name `ResourceServerState`, `AccessCredentialState`, `SigningKeyState` (wave A's class rule: a public `*State` enum the account does not name); re-pinned in `inventory.rs` and `tests/conformance.rs` (thirteen with a domain enum, seventeen without); `cargo test -p mandate-types` green; gate re-run.
+- Scopers (Opus, read-only, 2): `credential-profiles` — four superseded unit rows dropped, three contract gaps named (`IntrospectCredential` active/denied, `SigningKey` has no creator, `profile-offline-bound` names the wrong family), the `audit-client` edge unexplained; `declared-writers` — Principal needs a declaration only (P1), OAuthClient needs a creator, the fold homes decided by the crate direction.
+
+## Declared deviations
+
+2. Before publication the branch was rebased (`--rebase-merges`, bot committer) from `main`'s tip `a76267b` onto `5b03caf`, the last bot-only commit with the identical tree (`git diff --stat 5b03caf a76267b` empty): `b10x-gates publish` verifies the bot identity on every commit since the adoption baseline, and `main`'s tip is a GitHub-committed merge. Same trees, new ids — the commit ids named above in this page and in the store's evidence (`f86a485` and earlier) are the pre-rebase ones; the published lineage is:
+
+```
+8bd00bb chore(store): wave B closed on the gate's record — credential profiles implemented, the login road's writers declared and realized
+b663c74 Name the credential state enums in the account of derived state enums
+3df3d33 Align the login design to the realized writers and record the wave B reviews
+9d9b94a Merge impl/credential-profiles: the audience registry and both credential families
+cd7656c Merge impl/writers-realization: the Principal folded in identity, the OAuth client created by its command
+f3b422d Implement the audience registry and both credential families behind the STS library
+fc78d86 Regenerate the projections for the declared writers and align the pins and fixtures
+abc4d8a Realize the login road's writers: the Principal folded in identity, the OAuth client created by its command
+446fe2d Merge impl/writers-contract: the login road's declared writers
+b30c5c7 Open wave B: credential profiles and the login road's declared writers
+5a7ccf8 Declare the login road's writers: OAuth client and signing key creators, the Principal's seeding event
+```
+
+   Rule for the next wave: cut the integration branch from the last bot-only commit whose tree equals `main`'s, not from `main`'s tip.
+1. `aws-lc-rs` and `rand` admitted as dev-dependencies of `mandate-sts` (`services/sts/Cargo.toml`, `dependency-boundaries.json`, `Cargo.lock`) by the coordinator inside the `credential-profiles` unit tree, after adversary 1 found no test instantiates `IssuanceSigner` for `RealSigner` and no STS test could build key material; the three coordinator-owned files therefore land in the unit's commit rather than a coordinator commit. `cargo xtask boundaries`: 22 packages.
+
+## Close
+
+| Measure | Value |
+|---|---|
+| Closing gate | `f86a485`, `task check` exit 0, 1205 tests across 173 targets (opening: 1025 / 154) |
+| Units | contract round `a8d2976` (merge `ed7eef8`), realization round `abca8d0` (merge `ff22c1f`), credential-profiles `2e1e415` (merge `5600def`) |
+| Coordinator commits | opening `162f22c`, regeneration `a2624e0`, alignment `3b88754`, account re-pin `f86a485`, the closing store commit |
+| Adversary passes | 6 (2 per round), 44 findings, all ruled; 27 adversary cases retained in the tree |
+| Stories | `credential-profiles` implemented on the gate's record; `declared-writers` stays active — the login road's writers landed (A1–A4), units B and C2 (eighteen creator-less entities outside the road) remain |
+| Blockers | none cleared this wave |
+| Deviations | 1 (the STS test key-generation crates admitted inside the unit tree) |
+| Release | none |
+
+Routed onward: the ESS synthesizer's equal-timestamp input and untyped invariant comparison (ESS wave); `AccessCredential`'s undeclared issuing registration and `reference_verifier` sourcing (`story:declared-writers`, contract); the display-name claim on a connection (`story:federation-linking`); `RealSigner::new_with_revocations` rehydration and the `TargetRegistry` adapter (the composition, `story:product-listener`); a workspace-wide one-realizer-per-element check (`cargo xtask coverage`, `story:coverage-map`); `RegisterPrincipal` for the explicit-link path and the non-User kinds (`story:declared-writers`).
+
+Next on the road: `story:oauth-integration` (code redemption at the STS over the credential handlers now in `services/sts`).

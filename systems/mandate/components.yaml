@@ -34,6 +34,7 @@ components:
         - mandate.federation.AuthenticateFederation
         - mandate.federation.AuthorizePublicClient
         - mandate.federation.ProvisionExternalPrincipal
+        - mandate.federation.RegisterOAuthClient
         - mandate.federation.DisableOAuthClient
         - mandate.directory.RemoveMembershipContribution
         - mandate.directory.RemoveDirectoryGroupMembership
@@ -77,6 +78,7 @@ components:
         - mandate.federation.FederationAuthenticated
         - mandate.federation.AuthorizationCodeIssued
         - mandate.federation.ExternalPrincipalProvisioned
+        - mandate.federation.OAuthClientRegistered
         - mandate.federation.OAuthClientDisabled
         - mandate.directory.DirectoryGroupRecorded
         - mandate.directory.SyncJobRecorded
@@ -140,6 +142,7 @@ components:
         - mandate.credential.ExchangeCredential
         - mandate.credential.IntrospectCredential
         - mandate.credential.IssueAuthorizationCode
+        - mandate.credential.RegisterSigningKey
         - mandate.credential.RetireSigningKey
         - mandate.credential.RevokeSigningKey
     publishes:
@@ -154,6 +157,7 @@ components:
         - mandate.credential.CredentialIntrospected
         - mandate.credential.TokenExchangeDenied
         - mandate.credential.AuthorizationCodeIssued
+        - mandate.credential.SigningKeyRegistered
         - mandate.credential.SigningKeyRetired
         - mandate.credential.SigningKeyRevoked
   - component: mandate-worker

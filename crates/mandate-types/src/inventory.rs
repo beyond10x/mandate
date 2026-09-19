@@ -489,19 +489,24 @@ pub const ACCEPTED: &[Accepted] = &[
 /// the JSON Schema projection are two emissions of one compiled model, so a case over both
 /// says those two agree — not that any hand-written Rust does.
 ///
-/// Ten of those 30 do have a domain enum, in a crate this one cannot reach, and each is
-/// decided by the story that owns its crate. `story:federation-identity-alignment` owns
+/// Thirteen of those 30 do have a domain enum, in a crate this one cannot reach, and each
+/// is decided by the story that owns its crate. `story:federation-identity-alignment` owns
 /// six: `mandate.federation.FederationConnection.State`,
-/// `mandate.federation.ExternalPrincipal.State`, `mandate.federation.OAuthClient.State`,
-/// `mandate.identity.Principal.State` and `mandate.credential.AuthorizationCode.State` in
-/// `mandate-federation`, and `mandate.identity.Session.State` in `mandate-identity`.
+/// `mandate.federation.ExternalPrincipal.State`, `mandate.federation.OAuthClient.State`
+/// and `mandate.credential.AuthorizationCode.State` in `mandate-federation`, and
+/// `mandate.identity.Principal.State` (realized there since wave B; `mandate-federation`
+/// keeps a port view of the same name) and `mandate.identity.Session.State` in
+/// `mandate-identity`. `story:credential-profiles` owns three in `mandate-token`:
+/// `mandate.credential.ResourceServer.State` (`ResourceServerState`),
+/// `mandate.credential.AccessCredential.State` (`AccessCredentialState`) and
+/// `mandate.credential.SigningKey.State` (`SigningKeyState`).
 /// `story:graph-policy-adapter` owns four: `mandate.graph.Relation.State` and
 /// `mandate.graph.Grant.State` in `mandate-graph`, `mandate.policy.Policy.State` and
 /// `mandate.policy.AuthorizationModel.State` in `mandate-policy`. `mandate-types` is a
 /// leaf and depends on none of them, so no case here can construct their values.
 ///
-/// The remaining twenty have no domain enum anywhere in this workspace, and for them the
-/// generated shape is the only realization there is to decide.
+/// The remaining seventeen have no domain enum anywhere in this workspace, and for them
+/// the generated shape is the only realization there is to decide.
 pub const DERIVED_STATE_ENUMS: &[&str] = &[
     "mandate.audit.AuditEvent.State",
     "mandate.credential.AccessCredential.State",
