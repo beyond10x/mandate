@@ -24,8 +24,8 @@
 //! expired is refused.
 
 use mandate_identity::{
-    Generation, IdentityEvent, IdentityLog, IdentityRead, SecurityEpochSnapshot, Session,
-    refresh_session,
+    EpochSnapshotRecorded, Generation, IdentityEvent, IdentityLog, IdentityRead,
+    SecurityEpochRecorded, Session, SessionOpened, refresh_session,
 };
 use mandate_types::{
     DenialReason, EpochSnapshotRef, OrganizationId, PrincipalId, SecurityEpochTarget, SessionId,
@@ -60,30 +60,34 @@ fn generation(value: i64) -> Generation {
 /// active, so the only thing `RefreshSession` still has to decide is the expiry.
 fn world(expires_at: &str, as_of: &str) -> IdentityLog {
     let mut log = IdentityLog::new().with_as_of(Timestamp::new(as_of));
-    log.record(IdentityEvent::SecurityEpochRecorded {
-        target: SecurityEpochTarget::Principal(principal()),
-        generation: generation(3),
-    });
-    log.record(IdentityEvent::SecurityEpochRecorded {
-        target: SecurityEpochTarget::Organization(organization()),
-        generation: generation(7),
-    });
-    log.record(IdentityEvent::EpochSnapshotRecorded(
-        SecurityEpochSnapshot::new(
-            handle(),
-            principal(),
-            generation(3),
-            organization(),
-            generation(7),
-        ),
+    log.record(IdentityEvent::SecurityEpochRecorded(
+        SecurityEpochRecorded {
+            target: SecurityEpochTarget::Principal(principal()),
+            generation: generation(3),
+        },
     ));
-    log.record(IdentityEvent::SessionOpened(Session::new(
-        session_id(),
-        principal(),
-        organization(),
-        handle(),
-        Timestamp::new(expires_at),
-    )));
+    log.record(IdentityEvent::SecurityEpochRecorded(
+        SecurityEpochRecorded {
+            target: SecurityEpochTarget::Organization(organization()),
+            generation: generation(7),
+        },
+    ));
+    log.record(IdentityEvent::EpochSnapshotRecorded(
+        EpochSnapshotRecorded {
+            id: handle(),
+            principal_id: principal(),
+            organization_id: organization(),
+            connection_id: None,
+        },
+    ));
+    log.record(IdentityEvent::SessionOpened(SessionOpened {
+        id: session_id(),
+        principal_id: principal(),
+        organization_id: organization(),
+        connection_id: None,
+        epochs: handle(),
+        expires_at: Timestamp::new(expires_at),
+    }));
     log
 }
 

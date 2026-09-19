@@ -22,8 +22,13 @@
 //! before an open. It is filed as the class the fix left open, not as a state anybody was
 //! shown to reach.
 
-use mandate_identity::{IdentityEvent, IdentityLog, IdentityRead, Session, SessionState};
-use mandate_types::{EpochSnapshotRef, OrganizationId, PrincipalId, SessionId, Timestamp, Uuid};
+use mandate_identity::{
+    IdentityEvent, IdentityLog, IdentityRead, SessionOpened, SessionRevoked, SessionState,
+};
+use mandate_types::{
+    Audience, CorrelationId, CredentialId, EpochSnapshotRef, OrganizationId, PrincipalId,
+    SessionId, Timestamp, Uuid, VerifiedContext,
+};
 
 fn uuid(tag: u8) -> Uuid {
     Uuid::from_bytes([tag; 16])
@@ -33,23 +38,43 @@ fn session_id() -> SessionId {
     SessionId::new(uuid(20))
 }
 
-fn session() -> Session {
-    Session::new(
-        session_id(),
-        PrincipalId::new(uuid(1)),
-        OrganizationId::new(uuid(2)),
-        EpochSnapshotRef::new(uuid(10)),
-        Timestamp::new("2026-12-31T00:00:00Z"),
-    )
+/// The same session as the declared payload that opens it.
+fn opened() -> SessionOpened {
+    SessionOpened {
+        id: session_id(),
+        principal_id: PrincipalId::new(uuid(1)),
+        organization_id: OrganizationId::new(uuid(2)),
+        connection_id: None,
+        epochs: EpochSnapshotRef::new(uuid(10)),
+        expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+    }
+}
+
+/// The verified context `RevokeSession` is evaluated in. `mandate.identity.SessionRevoked`
+/// declares one (`context: input.context`), so every recorded revocation carries it.
+fn context() -> VerifiedContext {
+    VerifiedContext {
+        subject: PrincipalId::new(uuid(1)),
+        actor: None,
+        organization: OrganizationId::new(uuid(2)),
+        audience: Audience::new("mandate"),
+        credential: CredentialId::new(uuid(0xcd)),
+        delegation: None,
+        execution: None,
+        correlation: CorrelationId::new("correlation"),
+    }
 }
 
 #[test]
 fn a_recorded_revocation_is_not_undone_by_an_opening_that_arrives_after_it() {
     let mut log = IdentityLog::new();
-    log.record(IdentityEvent::SessionRevoked(session_id()));
+    log.record(IdentityEvent::SessionRevoked(SessionRevoked {
+        context: context(),
+        id: session_id(),
+    }));
     assert_eq!(log.events().len(), 1, "the revocation is on the log");
 
-    let refused = log.try_record(IdentityEvent::SessionOpened(session()));
+    let refused = log.try_record(IdentityEvent::SessionOpened(opened()));
     let state = log.resolve(&session_id()).map(|session| session.state());
 
     assert!(

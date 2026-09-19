@@ -27,8 +27,11 @@ use mandate_federation::pkce::{
 };
 use mandate_federation::publicclient::{RecordedClients, registered_public_client};
 use mandate_federation::record::{OAuthClient, OAuthClientState};
-use mandate_federation::{DenialClause, RequestContext};
-use mandate_identity::{Generation, IdentityEvent, IdentityLog, SecurityEpochSnapshot, Session};
+use mandate_federation::{DenialClause, RefusedOutcome, RequestContext};
+use mandate_identity::{
+    EpochSnapshotRecorded, Generation, IdentityEvent, IdentityLog, SecurityEpochRecorded,
+    SessionOpened,
+};
 use mandate_types::value::Uuid;
 use mandate_types::{
     Action, Audience, AuthorityScope, AuthorizationCodeId, CorrelationId, CredentialId,
@@ -327,30 +330,34 @@ fn clients() -> RecordedClients {
 fn sessions() -> IdentityLog {
     let handle = mandate_types::EpochSnapshotRef::new(uuid(0x3e));
     let mut log = IdentityLog::new();
-    log.record(IdentityEvent::SecurityEpochRecorded {
-        target: SecurityEpochTarget::Principal(principal()),
-        generation: Generation::new(3).expect("a declared generation"),
-    });
-    log.record(IdentityEvent::SecurityEpochRecorded {
-        target: SecurityEpochTarget::Organization(organization()),
-        generation: Generation::new(2).expect("a declared generation"),
-    });
-    log.record(IdentityEvent::EpochSnapshotRecorded(
-        SecurityEpochSnapshot::new(
-            handle,
-            principal(),
-            Generation::new(3).expect("a declared generation"),
-            organization(),
-            Generation::new(2).expect("a declared generation"),
-        ),
+    log.record(IdentityEvent::SecurityEpochRecorded(
+        SecurityEpochRecorded {
+            target: SecurityEpochTarget::Principal(principal()),
+            generation: Generation::new(3).expect("a declared generation"),
+        },
     ));
-    log.record(IdentityEvent::SessionOpened(Session::new(
-        session_id(),
-        principal(),
-        organization(),
-        handle,
-        Timestamp::new("2026-12-31T00:00:00Z"),
-    )));
+    log.record(IdentityEvent::SecurityEpochRecorded(
+        SecurityEpochRecorded {
+            target: SecurityEpochTarget::Organization(organization()),
+            generation: Generation::new(2).expect("a declared generation"),
+        },
+    ));
+    log.record(IdentityEvent::EpochSnapshotRecorded(
+        EpochSnapshotRecorded {
+            id: handle,
+            principal_id: principal(),
+            organization_id: organization(),
+            connection_id: None,
+        },
+    ));
+    log.record(IdentityEvent::SessionOpened(SessionOpened {
+        id: session_id(),
+        principal_id: principal(),
+        organization_id: organization(),
+        connection_id: None,
+        epochs: handle,
+        expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+    }));
     log
 }
 
@@ -548,4 +555,8 @@ fn a_candidate_survives_a_second_validation_and_names_the_code_it_validated() {
     .expect_err("a consumed record is refused");
 
     assert_eq!(denied.clause, DenialClause::CodePreviouslyRedeemed);
+    // `AuthorizePublicClient` is non-consuming and declares no `wrong-state` outcome, so
+    // the refusal is the external `denied` one; see
+    // `crates/mandate-federation/tests/authorize.rs`.
+    assert_eq!(denied.outcome, RefusedOutcome::Denied);
 }

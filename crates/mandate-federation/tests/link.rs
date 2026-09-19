@@ -503,7 +503,7 @@ fn a_disabled_connection_may_not_be_linked_through() {
         created(connection(1), organization(10), ISSUER_ONE),
         FederationEvent::FederationConnectionDisabled {
             context: context(organization(10)),
-            connection_id: connection(1),
+            id: connection(1),
         },
     ];
     let projection = Projection::fold(&log).expect("one disabled connection");

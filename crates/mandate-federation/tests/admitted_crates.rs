@@ -39,6 +39,29 @@ fn serde_json_is_reachable_from_this_crate() {
 }
 
 #[test]
+fn serde_is_reachable_from_this_crate_and_derives_for_a_local_type() {
+    // `story:federation-identity-alignment` admits `serde` so that the event, command
+    // input and entity shapes in `crate::record` carry the derive their agreement with
+    // the contract is decided through. Naming the trait and deriving it here is what
+    // shows the pin resolves with the `derive` feature selected, which a boundary entry
+    // and a manifest line do not.
+    #[derive(serde::Serialize)]
+    struct Declared {
+        issuer: Issuer,
+    }
+
+    let encoded = serde_json::to_value(Declared {
+        issuer: Issuer::new("https://idp.example"),
+    })
+    .expect("a declared shape encodes as JSON");
+
+    assert_eq!(
+        encoded,
+        serde_json::json!({"issuer": "https://idp.example"})
+    );
+}
+
+#[test]
 fn rand_fills_a_buffer_the_case_owns() {
     let mut first = [0_u8; 32];
     let mut second = [0_u8; 32];

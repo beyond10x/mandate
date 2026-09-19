@@ -18,18 +18,20 @@
 //! not its own trim is refused — by every command and by this fold — rather than
 //! silently replaced by its trimmed form, which would be a different subject.
 
+use serde::Serialize;
+
 use mandate_model::TenantResolutionRule;
 use mandate_types::{
-    Audience, ClientId, CorrelationId, ExternalLinkMethod, ExternalPrincipalId, ExternalSubject,
-    FederationConnectionId, Issuer, OAuthClientId, OrganizationId, PersistedValue, PkceMethod,
-    PrincipalId, PrincipalKind, RedirectUri, SessionId, Timestamp, VerifiedContext,
+    Audience, ClientId, CorrelationId, EpochSnapshotRef, ExternalLinkMethod, ExternalPrincipalId,
+    ExternalSubject, FederationConnectionId, Issuer, OAuthClientId, OrganizationId, PersistedValue,
+    PkceMethod, PrincipalId, PrincipalKind, RedirectUri, SessionId, Timestamp, VerifiedContext,
 };
 
 use mandate_types::DenialReason;
 
 use crate::{
-    ConnectionStore, DenialClause, Denied, IdentityAllocator, LinkStore, PrincipalState,
-    PrincipalStore,
+    ConnectionStore, DenialClause, Denied, ExternalPrincipalStore, IdentityAllocator, LinkStore,
+    PrincipalState, PrincipalStore,
 };
 
 /// The canonical external key: `(organization, connection.issuer, external subject)`.
@@ -44,7 +46,7 @@ pub struct ExternalKey {
 }
 
 /// `mandate.federation.FederationConnection.State`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum ConnectionState {
     /// The declared initial state.
     Enabled,
@@ -53,7 +55,7 @@ pub enum ConnectionState {
 }
 
 /// `mandate.federation.ExternalPrincipal.State`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum LinkState {
     /// The declared initial state.
     Linked,
@@ -62,7 +64,7 @@ pub enum LinkState {
 }
 
 /// `mandate.federation.OAuthClient.State`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum OAuthClientState {
     /// The declared initial state.
     Recorded,
@@ -71,7 +73,7 @@ pub enum OAuthClientState {
 }
 
 /// `mandate.federation.FederationConnection`.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct FederationConnection {
     /// The connection identity.
     pub id: FederationConnectionId,
@@ -90,7 +92,7 @@ pub struct FederationConnection {
 }
 
 /// `mandate.federation.ExternalPrincipal`.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ExternalPrincipal {
     /// The link identity.
     pub id: ExternalPrincipalId,
@@ -111,7 +113,7 @@ pub struct ExternalPrincipal {
 }
 
 /// `mandate.federation.OAuthClient`.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct OAuthClient {
     /// The client identity.
     pub id: OAuthClientId,
@@ -128,7 +130,30 @@ pub struct OAuthClient {
 }
 
 /// An event of `mandate.federation`, in the form this crate folds.
-#[derive(Debug, Clone, PartialEq, Eq)]
+///
+/// Each variant is one compiled payload under `generated/schema/events`, field for field:
+/// the variant's fields are that payload's `properties`, with the same names and the same
+/// types. `#[serde(untagged)]` is what makes that true on the wire — a variant serializes
+/// as the bare payload object, with no discriminant wrapping it — and
+/// `crates/mandate-federation/tests/contract_agreement.rs` decides it against the
+/// generated shape of the element [`FederationEvent::ess_name`] answers. This is the shape
+/// `crates/mandate-model/src/tenancy.rs` established for `mandate.tenancy`.
+///
+/// **`Serialize` only, deliberately: this enum does not round-trip and no code should
+/// assume it does.** Under `#[serde(untagged)]` a reader cannot tell
+/// `FederationConnectionDisabled`, `ExternalPrincipalUnlinked` and `OAuthClientDisabled`
+/// apart — all three serialize exactly `{context, id}`, and the three `id`s are all uuid
+/// strings. Reading an event back needs a tagged envelope carrying the ESS name beside the
+/// payload, which belongs to the persistence story.
+///
+/// `mandate.federation.AuthorizationCodeIssued` is the one declared event of this domain
+/// with no variant here: no handler in this crate emits it. `crate::authorize` is
+/// non-consuming and returns a validation candidate that carries no event, and the STS
+/// transaction that issues the code owns the emission (`federation.yaml`,
+/// `AuthorizePublicClient`). A variant for it would be a payload nothing in this crate can
+/// fill.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(untagged)]
 pub enum FederationEvent {
     /// `mandate.federation.FederationConnectionCreated`.
     FederationConnectionCreated {
@@ -149,8 +174,8 @@ pub enum FederationEvent {
     FederationConnectionDisabled {
         /// The declared `context`.
         context: VerifiedContext,
-        /// The instance the declared `moves` names.
-        connection_id: FederationConnectionId,
+        /// The declared `id`: the instance the declared `moves` names.
+        id: FederationConnectionId,
     },
     /// `mandate.federation.ExternalPrincipalLinked`.
     ExternalPrincipalLinked {
@@ -168,6 +193,13 @@ pub enum FederationEvent {
         link_method: ExternalLinkMethod,
         /// When the link was made.
         linked_at: Timestamp,
+    },
+    /// `mandate.federation.ExternalPrincipalUnlinked`.
+    ExternalPrincipalUnlinked {
+        /// The declared `context`.
+        context: VerifiedContext,
+        /// The declared `id`: the instance the declared `moves` names.
+        id: ExternalPrincipalId,
     },
     /// `mandate.federation.ExternalPrincipalProvisioned`.
     ///
@@ -200,9 +232,14 @@ pub enum FederationEvent {
     /// `mandate.federation.FederationAuthenticated`.
     ///
     /// The authentication is what establishes a context; it cannot declare one it has not
-    /// yet established. `federation.yaml` declares the four fields the record needs
-    /// instead of a `mandate.core.VerifiedContext` whose `credential` this command has no
-    /// source for.
+    /// yet established. `federation.yaml` declares the fields the record needs instead of
+    /// a `mandate.core.VerifiedContext` whose `credential` this command has no source for.
+    ///
+    /// The payload carries the whole `mandate.identity.Session` record — identity,
+    /// principal, organization, connection, epoch snapshot handle and expiry — "so the
+    /// identity fold materializes the session from this event alone and reads no command
+    /// input or response" (`federation.yaml`, `AuthenticateFederation`). The audience and
+    /// the correlation ride beside the record and are not Session fields.
     FederationAuthenticated {
         /// The declared `session_id`: the session this authentication opened.
         session_id: SessionId,
@@ -214,6 +251,12 @@ pub enum FederationEvent {
         correlation: CorrelationId,
         /// The declared `connection_id`.
         connection_id: FederationConnectionId,
+        /// The declared `organization_id`: the organization tenant resolution reached.
+        organization_id: OrganizationId,
+        /// The declared `epochs`: the snapshot handle the session is bound to.
+        epochs: EpochSnapshotRef,
+        /// The declared `expires_at`: when the session stops being refreshable.
+        expires_at: Timestamp,
     },
     /// `mandate.federation.OAuthClientDisabled`.
     OAuthClientDisabled {
@@ -224,12 +267,46 @@ pub enum FederationEvent {
     },
 }
 
-/// A link event the fold did not materialize because its key was already taken.
+impl FederationEvent {
+    /// The qualified ESS name of the payload this event is.
+    ///
+    /// The match is exhaustive and carries no wildcard arm, so a variant added without a
+    /// name here does not compile.
+    #[must_use]
+    pub fn ess_name(&self) -> &'static str {
+        match self {
+            Self::FederationConnectionCreated { .. } => {
+                "mandate.federation.FederationConnectionCreated"
+            }
+            Self::FederationConnectionDisabled { .. } => {
+                "mandate.federation.FederationConnectionDisabled"
+            }
+            Self::ExternalPrincipalLinked { .. } => "mandate.federation.ExternalPrincipalLinked",
+            Self::ExternalPrincipalUnlinked { .. } => {
+                "mandate.federation.ExternalPrincipalUnlinked"
+            }
+            Self::ExternalPrincipalProvisioned { .. } => {
+                "mandate.federation.ExternalPrincipalProvisioned"
+            }
+            Self::FederationAuthenticated { .. } => "mandate.federation.FederationAuthenticated",
+            Self::OAuthClientDisabled { .. } => "mandate.federation.OAuthClientDisabled",
+        }
+    }
+}
+
+/// A recorded link that does not hold its composite key, because another link on the same
+/// key holds it.
 ///
-/// First wins: the key resolves to the link that reached it first, and the later event
-/// is recorded here rather than failing the whole log. The write path still refuses —
-/// `link_external_principal` and `provision_external_principal` deny before emitting —
-/// so a conflict on the read side is the record of a race, not of an accepted command.
+/// **A view over [`Projection::links`], not a place records are kept.** Every link event
+/// materializes its record, and which of several records on one key *holds* the key is
+/// decided by [`Projection::link`] — the smallest `external_principal_id` — so this list is
+/// recomputed from the records and their lifecycle states rather than fixed at the moment
+/// an event was applied. An unlink of the holder therefore promotes the next record and
+/// removes it from this list, and no entry is ever a record the fold dropped.
+///
+/// The write path still refuses — `link_external_principal` and
+/// `provision_external_principal` deny before emitting — so a conflict on the read side is
+/// the record of a race, not of an accepted command.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExternalKeyConflict {
     /// The key that was already taken.
@@ -264,6 +341,11 @@ pub enum FoldError {
         /// The client the event named.
         id: OAuthClientId,
     },
+    /// A lifecycle event names a link no event created. A dropped event is a lost record.
+    UnknownExternalPrincipal {
+        /// The link the event named.
+        id: ExternalPrincipalId,
+    },
     /// `ExternalPrincipalProvisioned` carries a `link_method` other than the literal
     /// `ConfiguredFederation` that `federation.yaml` pins in its payload.
     ProvisionedLinkMethod {
@@ -294,19 +376,42 @@ pub enum FoldError {
 }
 
 /// The read model: a fold over the event log.
+///
+/// # One key, one holder, whatever order a rebuild presents the streams in
+///
+/// Two links on one composite external key are two `ExternalPrincipal` aggregates. Nothing
+/// orders their appends against each other — the event log's compare-and-set is on the
+/// appending aggregate's own stream version (`docs/adr/0009-event-sourced-persistence.md`)
+/// — so the key's holder cannot be a property of the order a log presents them in, and it
+/// cannot be a property of the order they were *applied* either. It is a total order over
+/// the records themselves: **the smallest `external_principal_id` on the key holds it**
+/// ([`Projection::link`]), every other `Linked` record on that key is a
+/// [`ExternalKeyConflict`], and a rebuild that interleaves the two streams differently
+/// resolves the key the same way.
+///
+/// Every link event's record lives in one map, keyed by its own identity: a record is never
+/// displaced anywhere, so [`ExternalPrincipalStore::external_principal`] and
+/// [`PrincipalStore::organization_of`] answer for every link the log created, and the
+/// declared `unlink` move applies to any of them. When the holder is unlinked the next
+/// smallest `Linked` record on the key holds it — promotion, not a vacancy — which is what
+/// makes the key's holder a function of the records alone.
+///
+/// `linked_at` decides nothing about the key. It is the declared timestamp of the link and
+/// is carried as such; two writers racing one key hold no clock in common, and an instant
+/// one of them read is not an order over the other's append.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Projection {
     connections: Vec<FederationConnection>,
     links: Vec<ExternalPrincipal>,
     clients: Vec<OAuthClient>,
-    conflicts: Vec<ExternalKeyConflict>,
 }
 
 impl Projection {
     /// Materialize the read model from a log.
     ///
-    /// A duplicate key does not fail the fold: the first link wins and the later one is
-    /// recorded in [`Projection::conflicts`].
+    /// A duplicate key does not fail the fold: every link's record is materialized, one of
+    /// them holds the key ([`Projection::link`]) and the others are
+    /// [`Projection::conflicts`].
     ///
     /// # Errors
     ///
@@ -324,7 +429,20 @@ impl Projection {
     /// No event is silently discarded. An event naming an instance no event created —
     /// a creation-linked one or a lifecycle move — is a log this fold cannot read, and
     /// saying so is the only way a lost record is ever noticed.
-    fn apply(&mut self, event: &FederationEvent) -> Result<(), FoldError> {
+    ///
+    /// **This is the write half of decide-and-apply, and it re-checks no guard.** Every
+    /// guard belongs to a handler, which reads the projection before the event exists and
+    /// returns [`Denied`] instead of the event; this writes what it is handed. A fold that
+    /// re-decided a guard would not be a rebuild of an accepted history
+    /// (`docs/adr/0009-event-sourced-persistence.md`). What it does refuse is a log it
+    /// cannot read — an event naming a record no event created — which is a statement
+    /// about the log and not about the command that wrote it.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FoldError`] when the event names an instance no event created, or
+    /// carries a value `federation.yaml` pins as a literal and this one does not match.
+    pub fn apply(&mut self, event: &FederationEvent) -> Result<(), FoldError> {
         match event {
             FederationEvent::FederationConnectionCreated {
                 context,
@@ -347,17 +465,12 @@ impl Projection {
                     state: ConnectionState::Enabled,
                 });
             }
-            FederationEvent::FederationConnectionDisabled {
-                context: _,
-                connection_id,
-            } => {
+            FederationEvent::FederationConnectionDisabled { context: _, id } => {
                 let connection = self
                     .connections
                     .iter_mut()
-                    .find(|connection| connection.id == *connection_id)
-                    .ok_or(FoldError::UnknownConnection {
-                        connection_id: *connection_id,
-                    })?;
+                    .find(|connection| connection.id == *id)
+                    .ok_or(FoldError::UnknownConnection { connection_id: *id })?;
                 connection.state = ConnectionState::Disabled;
             }
             FederationEvent::ExternalPrincipalLinked {
@@ -377,6 +490,26 @@ impl Projection {
                     *link_method,
                     linked_at,
                 )?;
+            }
+            // The declared `unlink` move. The record is kept and stops holding the
+            // composite key, which `record_link` reads off the lifecycle state.
+            //
+            // Every link the log created has a record in one map, whichever of them holds
+            // the key, so this applies to any of them: two writers deciding on one key
+            // against one projection is a race the write path cannot refuse — they append
+            // to two `ExternalPrincipal` aggregates, so the kit's compare-and-set on the
+            // appending stream does not see the other — and an unlink decided against
+            // either is a log every handler accepted. Unlinking the holder promotes the
+            // next smallest record on the key; unlinking a record that held nothing
+            // changes no key. An identity no event ever created is still a log this fold
+            // cannot read.
+            FederationEvent::ExternalPrincipalUnlinked { context: _, id } => {
+                let link = self
+                    .links
+                    .iter_mut()
+                    .find(|link| link.id == *id)
+                    .ok_or(FoldError::UnknownExternalPrincipal { id: *id })?;
+                link.state = LinkState::Unlinked;
             }
             FederationEvent::ExternalPrincipalProvisioned {
                 // The key's organization is read from the connection, exactly as it is
@@ -418,15 +551,19 @@ impl Projection {
                     linked_at,
                 )?;
             }
-            // An authentication mutates no record; it is the authentication record
-            // itself. It still names a connection, and a name that resolves to nothing
-            // is a log this fold cannot read.
+            // An authentication mutates no record *of this domain*: the record its
+            // accepted outcome creates is `mandate.identity.Session`, which `mandate
+            // .identity` folds from this same payload. It still names a connection, and a
+            // name that resolves to nothing is a log this fold cannot read.
             FederationEvent::FederationAuthenticated {
                 session_id: _,
                 principal_id: _,
                 audience: _,
                 correlation: _,
                 connection_id,
+                organization_id: _,
+                epochs: _,
+                expires_at: _,
             } => {
                 if !self
                     .connections
@@ -450,10 +587,18 @@ impl Projection {
         Ok(())
     }
 
-    /// Materialize one link, refusing a composite key the log already records.
+    /// Materialize one link's record.
     ///
     /// `decision-blocker:identity-uniqueness`: the unique index on
-    /// `(organization, connection.issuer, external subject)` lives on the projection.
+    /// `(organization, connection.issuer, external subject)` lives on the projection, and
+    /// it is [`Projection::link`] — which of the records on one key holds it — rather than
+    /// a refusal here. A fold records what happened; two writers that each read a free key
+    /// is a race the write path refused to the extent it could see it, and the log is the
+    /// record of both.
+    ///
+    /// Writing is insert-if-absent at the record's own identity, so a redelivered creation
+    /// — which the kit's at-least-once delivery admits — writes nothing rather than
+    /// returning a record from a terminal state to its initial one.
     fn record_link(
         &mut self,
         connection_id: FederationConnectionId,
@@ -485,45 +630,7 @@ impl Projection {
             issuer: connection.issuer.clone(),
             subject: subject.clone(),
         };
-        // First wins, and "first" is a property of the events rather than of the order a
-        // rebuild presents them in: the least `(linked_at, external_principal_id)` holds
-        // the key. Two links for one key are on two aggregates, whose relative order the
-        // log does not define, so a replay that interleaves the streams differently must
-        // still resolve the key to the same record.
-        let incumbent = self.links.iter().position(|link| {
-            link.state == LinkState::Linked && self.key_of(link).as_ref() == Some(&key)
-        });
-        let incoming = ExternalPrincipal {
-            id,
-            organization_id: key.organization_id,
-            subject: key.subject.clone(),
-            principal_id,
-            connection_id,
-            link_method,
-            linked_at: linked_at.clone(),
-            state: LinkState::Linked,
-        };
-        if let Some(position) = incumbent {
-            let held = &self.links[position];
-            if (linked_at, &id) >= (&held.linked_at, &held.id) {
-                self.conflicts.push(ExternalKeyConflict {
-                    key,
-                    external_principal_id: id,
-                    principal_id,
-                    connection_id,
-                });
-                return Ok(());
-            }
-            // The incoming link is the earlier one. It takes the key in place, so the
-            // slot order of `links` stays the order the keys were first reached in, and
-            // the record it displaces becomes the conflict.
-            let displaced = std::mem::replace(&mut self.links[position], incoming);
-            self.conflicts.push(ExternalKeyConflict {
-                key,
-                external_principal_id: displaced.id,
-                principal_id: displaced.principal_id,
-                connection_id: displaced.connection_id,
-            });
+        if self.links.iter().any(|link| link.id == id) {
             return Ok(());
         }
         self.links.push(ExternalPrincipal {
@@ -557,15 +664,36 @@ impl Projection {
         &self.clients
     }
 
-    /// Every link event the fold did not give the key to.
+    /// Every recorded link that does not hold its composite key, derived from the records.
     ///
     /// A read for the adapter, not for a command: no command in this crate consults it.
     /// The adapter that owns the storage is expected to read it after a rebuild — each
-    /// entry is a link that was written and did not win, and for a provisioning event a
-    /// principal that exists and has no link of its own.
+    /// entry is a link that was written and does not hold its key, and its record is still
+    /// in [`Projection::links`], nameable by [`ExternalPrincipalStore::external_principal`]
+    /// and answerable by [`PrincipalStore::organization_of`].
+    ///
+    /// Recomputed on each call, in `links` order: which record holds a key is a function of
+    /// the records and their lifecycle states, so an unlink of the holder promotes the next
+    /// smallest record and takes it off this list.
     #[must_use]
-    pub fn conflicts(&self) -> &[ExternalKeyConflict] {
-        &self.conflicts
+    pub fn conflicts(&self) -> Vec<ExternalKeyConflict> {
+        self.links
+            .iter()
+            .filter(|link| link.state == LinkState::Linked)
+            .filter_map(|link| {
+                let key = self.key_of(link)?;
+                let holder = self.link(&key)?;
+                if holder.id == link.id {
+                    return None;
+                }
+                Some(ExternalKeyConflict {
+                    key,
+                    external_principal_id: link.id,
+                    principal_id: link.principal_id,
+                    connection_id: link.connection_id,
+                })
+            })
+            .collect()
     }
 
     /// The canonical key of a recorded link.
@@ -608,22 +736,16 @@ impl ConnectionStore for Projection {
 impl PrincipalStore for Projection {
     /// The organization a principal this crate's own events recorded belongs to.
     ///
-    /// A link that lost its key is still the record of the principal it names — for
-    /// `ExternalPrincipalProvisioned` it is that principal's creation record
-    /// (`federation.yaml:258`) — so the conflicts are read here too. Without that, the
-    /// losing half of a race creates a principal in `mandate.identity` that nothing in
-    /// this domain can name, and `link_external_principal` refuses it forever.
+    /// Read from the one map every link's record lives in, so a link that does not hold its
+    /// key is answered for exactly as the holder is. That matters because such a link is
+    /// still the record of the principal it names — for `ExternalPrincipalProvisioned` it is
+    /// that principal's creation record (`federation.yaml:258`) — and a principal this
+    /// domain could not name would be refused by `link_external_principal` forever.
     fn organization_of(&self, principal_id: &PrincipalId) -> Option<OrganizationId> {
         self.links
             .iter()
             .find(|link| link.principal_id == *principal_id)
             .map(|link| link.organization_id)
-            .or_else(|| {
-                self.conflicts
-                    .iter()
-                    .find(|conflict| conflict.principal_id == *principal_id)
-                    .map(|conflict| conflict.key.organization_id)
-            })
     }
 
     /// `Active` for every principal this crate's events recorded.
@@ -638,16 +760,36 @@ impl PrincipalStore for Projection {
 }
 
 impl LinkStore for Projection {
+    /// The record that holds the key: the smallest `external_principal_id` among the
+    /// `Linked` records on it.
+    ///
+    /// `ExternalPrincipalId` orders on the sixteen bytes of its UUID, which is the order of
+    /// its canonical lexical form, so "smallest" is a property of the identity the event
+    /// carried and of nothing else — not of `linked_at`, not of the order the log presents
+    /// the two aggregates in, not of the order they were applied. An unlink of the holder
+    /// promotes the next smallest; see [`Projection`].
     fn link(&self, key: &ExternalKey) -> Option<ExternalPrincipal> {
         self.links
             .iter()
-            .find(|link| link.state == LinkState::Linked && self.key_of(link).as_ref() == Some(key))
+            .filter(|link| {
+                link.state == LinkState::Linked && self.key_of(link).as_ref() == Some(key)
+            })
+            .min_by_key(|link| link.id)
             .cloned()
     }
 }
 
+impl ExternalPrincipalStore for Projection {
+    /// The record in whatever state it holds, including the terminal `Unlinked` one: a
+    /// lifecycle command needs to tell "no such record" from "already unlinked", and the
+    /// two are different declared outcomes.
+    fn external_principal(&self, id: &ExternalPrincipalId) -> Option<ExternalPrincipal> {
+        self.links.iter().find(|link| link.id == *id).cloned()
+    }
+}
+
 /// `mandate.federation.RegisterFederationConnection`.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct RegisterFederationConnection {
     /// The declared `context`.
     pub context: VerifiedContext,
@@ -783,12 +925,13 @@ const _: () = {
                 persistable(tenant_resolution);
                 persistable(jit_provisioning);
             }
-            FederationEvent::FederationConnectionDisabled {
-                context,
-                connection_id,
-            } => {
+            FederationEvent::FederationConnectionDisabled { context, id } => {
                 persistable(context);
-                persistable(connection_id);
+                persistable(id);
+            }
+            FederationEvent::ExternalPrincipalUnlinked { context, id } => {
+                persistable(context);
+                persistable(id);
             }
             FederationEvent::ExternalPrincipalLinked {
                 context,
@@ -836,12 +979,18 @@ const _: () = {
                 audience,
                 correlation,
                 connection_id,
+                organization_id,
+                epochs,
+                expires_at,
             } => {
                 persistable(session_id);
                 persistable(principal_id);
                 persistable(audience);
                 persistable(correlation);
                 persistable(connection_id);
+                persistable(organization_id);
+                persistable(epochs);
+                persistable(expires_at);
             }
             FederationEvent::OAuthClientDisabled { context, id } => {
                 persistable(context);

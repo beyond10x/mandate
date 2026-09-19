@@ -106,7 +106,7 @@ impl TargetRegistry for Projection {
 }
 
 /// `mandate.credential.AuthorizationCode.State` (`credential.yaml:132-143`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub enum AuthorizationCodeState {
     /// The declared initial state.
     Issued,
@@ -290,8 +290,17 @@ pub fn validate_authorization_code(
     }
     match code.state {
         AuthorizationCodeState::Issued => {}
-        // "code is consumed/expired" (`credential.yaml:223`). The *concurrent* second
-        // redemption is not decided here; only the recorded terminal state is.
+        // "Session proof is invalid/stale, ... or STS code issuance/narrowing is refused"
+        // (`federation.yaml`, `AuthorizePublicClient.denied`). This command is
+        // non-consuming and declares `accepted` and `denied` and nothing else: it moves no
+        // record, so it has no `wrong-state` outcome to take. The code record's own
+        // terminal state belongs to `mandate.credential.RedeemAuthorizationCode`, whose
+        // declared `wrong-state` outcome is the STS transaction's to return
+        // (`story:oauth-integration`); reading that state here is how this command refuses
+        // to build a candidate on a record the redemption would reject.
+        //
+        // The *concurrent* second redemption is not decided here; only the recorded
+        // terminal state is.
         AuthorizationCodeState::Consumed => {
             return Err(Denied::new(
                 DenialReason::Denied,

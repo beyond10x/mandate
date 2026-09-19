@@ -953,6 +953,7 @@ dependencies = [
  "mandate-token",
  "mandate-types",
  "rand",
+ "serde",
  "serde_json",
  "ureq",
 ]
@@ -973,6 +974,8 @@ dependencies = [
  "mandate-model",
  "mandate-testkit",
  "mandate-types",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

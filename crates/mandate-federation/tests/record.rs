@@ -19,9 +19,10 @@ use mandate_federation::{
 use mandate_model::TenantResolutionRule;
 use mandate_types::value::Uuid;
 use mandate_types::{
-    Audience, ClientId, CorrelationId, CredentialId, DenialReason, ExternalLinkMethod,
-    ExternalPrincipalId, ExternalSubject, FederationConnectionId, Issuer, OAuthClientId,
-    OrganizationId, PrincipalId, PrincipalKind, SessionId, Timestamp, VerifiedContext,
+    Audience, ClientId, CorrelationId, CredentialId, DenialReason, EpochSnapshotRef,
+    ExternalLinkMethod, ExternalPrincipalId, ExternalSubject, FederationConnectionId, Issuer,
+    OAuthClientId, OrganizationId, PrincipalId, PrincipalKind, SessionId, Timestamp,
+    VerifiedContext,
 };
 
 fn uuid(tag: u8) -> Uuid {
@@ -263,7 +264,7 @@ fn a_disabled_connection_is_read_as_disabled_and_is_not_offered_for_its_issuer()
         created(connection(1), organization(10), "https://idp.example/one"),
         FederationEvent::FederationConnectionDisabled {
             context: context(organization(10)),
-            connection_id: connection(1),
+            id: connection(1),
         },
     ];
 
@@ -282,11 +283,13 @@ fn a_disabled_connection_is_read_as_disabled_and_is_not_offered_for_its_issuer()
 }
 
 #[test]
-fn a_second_link_for_one_external_key_is_recorded_as_a_conflict_and_the_first_wins() {
+fn a_second_link_for_one_external_key_is_recorded_as_a_conflict_and_the_smallest_holds_it() {
     // `decision-blocker:identity-uniqueness`: a unique index on the exact composite key,
-    // on the projection. The index is first-wins: one key resolves to one record, and
-    // the later event is recorded as a conflict rather than failing the whole log. A
-    // race must not poison every read that follows it.
+    // on the projection. The index is a total order over the records: one key resolves to
+    // the smallest `external_principal_id` on it, and every other record is recorded and
+    // reported as a conflict rather than failing the whole log or being displaced out of
+    // the map. A race must not poison every read that follows it, and must not resolve the
+    // key by the order a rebuild presents the two aggregates in.
     let log = vec![
         created(connection(1), organization(10), "https://idp.example/one"),
         linked(
@@ -312,11 +315,15 @@ fn a_second_link_for_one_external_key_is_recorded_as_a_conflict_and_the_first_wi
         issuer: Issuer::new("https://idp.example/one"),
         subject: ExternalSubject::new("subject-one"),
     };
-    assert_eq!(projection.links().len(), 1, "one key, one record");
+    assert_eq!(
+        projection.links().len(),
+        2,
+        "both records are materialized; neither is dropped or displaced"
+    );
     assert_eq!(
         projection.link(&key).map(|link| link.id),
         Some(external_principal(0x71)),
-        "the first link for the key is the one that resolves"
+        "the smallest external principal identity on the key is the one that resolves"
     );
     assert_eq!(
         projection.conflicts().len(),
@@ -358,7 +365,7 @@ fn every_event_naming_an_absent_connection_is_refused() {
     for event in [
         FederationEvent::FederationConnectionDisabled {
             context: context(organization(10)),
-            connection_id: connection(1),
+            id: connection(1),
         },
         FederationEvent::FederationAuthenticated {
             session_id: session(0x91),
@@ -366,6 +373,9 @@ fn every_event_naming_an_absent_connection_is_refused() {
             audience: Audience::new("mandate"),
             correlation: correlation(),
             connection_id: connection(1),
+            organization_id: organization(10),
+            epochs: EpochSnapshotRef::new(uuid(0x3e)),
+            expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
         },
         linked(
             connection(1),
@@ -730,10 +740,11 @@ fn a_different_claim_value_on_a_shared_issuer_is_admitted() {
     }
 }
 
-/// Finding 3: the winner of one key is a property of the events, not of the order a
-/// rebuild presents them in. The tie-break is `(linked_at, external_principal_id)`.
+/// Finding 3: the holder of one key is a property of the records, not of the order a
+/// rebuild presents them in. The order is the `external_principal_id`, and `linked_at`
+/// decides nothing: two writers racing one key hold no clock in common.
 #[test]
-fn the_earlier_link_wins_the_key_whatever_order_the_log_is_replayed_in() {
+fn the_same_link_holds_the_key_whatever_order_the_log_is_replayed_in() {
     let head = created(connection(1), organization(10), "https://idp.example/one");
     let earlier = FederationEvent::ExternalPrincipalLinked {
         context: context(organization(10)),
@@ -768,7 +779,8 @@ fn the_earlier_link_wins_the_key_whatever_order_the_log_is_replayed_in() {
         assert_eq!(
             projection.link(&key).map(|link| link.id),
             Some(external_principal(0x71)),
-            "the earlier linked_at wins whichever order the streams arrive in"
+            "the smallest external principal identity holds the key whichever order the \
+             streams arrive in"
         );
         assert_eq!(projection.conflicts().len(), 1);
         assert_eq!(
@@ -778,8 +790,9 @@ fn the_earlier_link_wins_the_key_whatever_order_the_log_is_replayed_in() {
     }
 }
 
-/// Equal timestamps still decide one winner: the tie-break falls to the external
-/// principal identity, which is unique per event.
+/// The identity decides on its own, so equal timestamps are not a tie at all: the record
+/// with the smallest `external_principal_id` holds the key, and that identity is unique
+/// per event.
 #[test]
 fn an_equal_timestamp_is_broken_by_the_external_principal_identity() {
     let log = vec![

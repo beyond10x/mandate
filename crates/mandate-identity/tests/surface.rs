@@ -2,9 +2,10 @@
 //! and the shape of the two ports.
 
 use mandate_identity::{
-    Denial, Eligibility, EpochDimension, EpochState, Generation, IdentityEvent, IdentityLog,
-    IdentityRead, IncrementSecurityEpoch, SecurityEpochIncremented, SecurityEpochSnapshot,
-    SecurityEpochWrite, Session, SessionRefreshed, SessionState, StreamVersion, refresh_session,
+    Denial, Eligibility, EpochDimension, EpochSnapshotRecorded, EpochState, Generation,
+    IdentityEvent, IdentityLog, IdentityRead, IncrementSecurityEpoch, SecurityEpochIncremented,
+    SecurityEpochRecorded, SecurityEpochSnapshot, SecurityEpochWrite, Session, SessionOpened,
+    SessionRefreshed, SessionRevoked, SessionState, StreamVersion, refresh_session,
 };
 use mandate_types::{
     Audience, CorrelationId, CredentialId, DenialReason, EpochSnapshotRef, FederationConnectionId,
@@ -48,7 +49,10 @@ fn the_crate_root_re_exports_every_module_type() {
     let _: StreamVersion = StreamVersion::INITIAL;
     let _: EpochState = EpochState::new(Generation::ZERO, StreamVersion::INITIAL);
     let _: SessionState = SessionState::Active;
-    let _: IdentityEvent = IdentityEvent::SessionRevoked(SessionId::new(uuid(20)));
+    let _: IdentityEvent = IdentityEvent::SessionRevoked(SessionRevoked {
+        context: context(),
+        id: SessionId::new(uuid(20)),
+    });
     let _: IdentityLog = IdentityLog::new();
     let _: IncrementSecurityEpoch = IncrementSecurityEpoch::new(
         context(),
@@ -124,10 +128,12 @@ fn a_stale_verdict_is_the_declared_denial_and_a_current_one_is_no_denial() {
 fn the_accepted_outcomes_are_the_shapes_the_contract_declares() {
     let target = SecurityEpochTarget::Organization(OrganizationId::new(uuid(2)));
     let mut log = IdentityLog::new().with_as_of(Timestamp::new("2026-09-18T00:00:00Z"));
-    log.record(IdentityEvent::SecurityEpochRecorded {
-        target: target.clone(),
-        generation: generation(7),
-    });
+    log.record(IdentityEvent::SecurityEpochRecorded(
+        SecurityEpochRecorded {
+            target: target.clone(),
+            generation: generation(7),
+        },
+    ));
     let expected = log.current(&target).version();
 
     let emitted: SecurityEpochIncremented = IncrementSecurityEpoch::new(context(), target.clone())
@@ -138,22 +144,30 @@ fn the_accepted_outcomes_are_the_shapes_the_contract_declares() {
 
     let session_id = SessionId::new(uuid(20));
     let handle = EpochSnapshotRef::new(uuid(10));
-    log.record(IdentityEvent::EpochSnapshotRecorded(
-        SecurityEpochSnapshot::new(
-            handle,
-            PrincipalId::new(uuid(1)),
-            Generation::ZERO,
-            OrganizationId::new(uuid(2)),
-            generation(8),
-        ),
+    // The principal dimension states its generation before the snapshot names it: a
+    // recording whose dimensions the log has said nothing about is refused.
+    log.record(IdentityEvent::SecurityEpochRecorded(
+        SecurityEpochRecorded {
+            target: SecurityEpochTarget::Principal(PrincipalId::new(uuid(1))),
+            generation: Generation::ZERO,
+        },
     ));
-    log.record(IdentityEvent::SessionOpened(Session::new(
-        session_id,
-        PrincipalId::new(uuid(1)),
-        OrganizationId::new(uuid(2)),
-        handle,
-        Timestamp::new("2026-12-31T00:00:00Z"),
-    )));
+    log.record(IdentityEvent::EpochSnapshotRecorded(
+        EpochSnapshotRecorded {
+            id: handle,
+            principal_id: PrincipalId::new(uuid(1)),
+            organization_id: OrganizationId::new(uuid(2)),
+            connection_id: None,
+        },
+    ));
+    log.record(IdentityEvent::SessionOpened(SessionOpened {
+        id: session_id,
+        principal_id: PrincipalId::new(uuid(1)),
+        organization_id: OrganizationId::new(uuid(2)),
+        connection_id: None,
+        epochs: handle,
+        expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+    }));
 
     let refreshed: SessionRefreshed =
         refresh_session(&log, &session_id).expect("every generation matches");

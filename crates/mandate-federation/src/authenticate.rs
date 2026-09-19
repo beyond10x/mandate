@@ -18,10 +18,13 @@
 
 use std::collections::BTreeSet;
 
+use serde::Serialize;
+
 use mandate_model::TenantResolutionRule;
 use mandate_types::{
-    CredentialProof, DenialReason, ExternalLinkMethod, ExternalPrincipalId, ExternalSubject,
-    FederationConnectionId, OrganizationId, PrincipalId, PrincipalKind, SessionId,
+    CredentialProof, DenialReason, EpochSnapshotRef, ExternalLinkMethod, ExternalPrincipalId,
+    ExternalSubject, FederationConnectionId, OrganizationId, PrincipalId, PrincipalKind, SessionId,
+    Timestamp,
 };
 
 use crate::record::{
@@ -33,7 +36,7 @@ use crate::{LinkStore, RequestContext, SessionIssuer};
 use crate::{PrincipalState, PrincipalStore};
 
 /// `mandate.federation.AuthenticateFederation`.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct AuthenticateFederation {
     /// The declared `connection_id`.
     pub connection_id: FederationConnectionId,
@@ -42,20 +45,31 @@ pub struct AuthenticateFederation {
 }
 
 /// The accepted outcome of [`AuthenticateFederation`].
+///
+/// The five declared response fields (`federation.yaml`, `AuthenticateFederation`), and
+/// the event the outcome emits. `mandate.federation.FederationAuthenticated` sources four
+/// of its payload fields from this response, so every one of them is named here rather
+/// than left inside the event.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Authenticated {
-    /// The declared response.
+    /// The declared `session_id` response.
     pub session_id: SessionId,
-    /// The resolved organization the context is established in.
+    /// The declared `organization_id` response: the organization the context is
+    /// established in.
     pub organization_id: OrganizationId,
-    /// The linked principal the context is established for.
+    /// The declared `principal_id` response: the linked principal the context is
+    /// established for.
     pub principal_id: PrincipalId,
+    /// The declared `epochs` response: the snapshot handle the session is bound to.
+    pub epochs: EpochSnapshotRef,
+    /// The declared `expires_at` response: when the session stops being refreshable.
+    pub expires_at: Timestamp,
     /// The event the accepted outcome emits.
     pub event: FederationEvent,
 }
 
 /// `mandate.federation.ProvisionExternalPrincipal`.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ProvisionExternalPrincipal {
     /// The declared `connection_id`.
     pub connection_id: FederationConnectionId,
@@ -123,12 +137,17 @@ pub fn authenticate_federation(
         session_id: issued.session_id,
         organization_id: resolved.organization_id,
         principal_id: link.principal_id,
+        epochs: issued.epochs,
+        expires_at: issued.expires_at.clone(),
         event: FederationEvent::FederationAuthenticated {
             session_id: issued.session_id,
             principal_id: link.principal_id,
             audience: request.audience.clone(),
             correlation: request.correlation.clone(),
             connection_id: resolved.connection.id,
+            organization_id: resolved.organization_id,
+            epochs: issued.epochs,
+            expires_at: issued.expires_at,
         },
     })
 }

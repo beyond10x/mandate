@@ -30,6 +30,7 @@
 
 pub mod authenticate;
 pub mod authorize;
+pub mod disable;
 pub mod link;
 pub mod pkce;
 pub mod publicclient;
@@ -37,15 +38,98 @@ pub mod record;
 pub mod verifier;
 pub mod verifier_real;
 
+// Every `mandate.federation` element this crate realizes, against the item that realizes
+// it. Each entry is expanded into a `use` of the named symbol, so a registry line whose
+// symbol was renamed, moved or deleted does not compile
+// (`crates/mandate-types/src/macros.rs`).
+//
+// `crates/mandate-federation/tests/contract_agreement.rs` decides the other half: every
+// name on the left is read back out of `generated/ir/system.json`, so a name this crate
+// invented — or a domain element the contract renamed — is a failing case rather than a
+// coverage report that overstates itself.
+//
+// One element of this domain is absent, deliberately:
+// `mandate.federation.AuthorizationCodeIssued`. `AuthorizePublicClient` is realized here
+// up to the STS call its accepted outcome makes, and that outcome's event is emitted by
+// the STS transaction, not by this crate; see [`record::FederationEvent`].
+mandate_types::realizes! {
+    "mandate.federation.RegisterFederationConnection" => crate::record::register_federation_connection,
+    "mandate.federation.LinkExternalPrincipal" => crate::link::link_external_principal,
+    "mandate.federation.AuthenticateFederation" => crate::authenticate::authenticate_federation,
+    "mandate.federation.ProvisionExternalPrincipal" => crate::authenticate::provision_external_principal,
+    "mandate.federation.AuthorizePublicClient" => crate::authorize::validate_authorization_code,
+    "mandate.federation.DisableFederationConnection" => crate::disable::disable_federation_connection,
+    "mandate.federation.UnlinkExternalPrincipal" => crate::disable::unlink_external_principal,
+    "mandate.federation.DisableOAuthClient" => crate::disable::disable_oauth_client,
+    "mandate.federation.FederationConnectionCreated" => crate::record::FederationEvent,
+    "mandate.federation.FederationConnectionDisabled" => crate::record::FederationEvent,
+    "mandate.federation.ExternalPrincipalLinked" => crate::record::FederationEvent,
+    "mandate.federation.ExternalPrincipalUnlinked" => crate::record::FederationEvent,
+    "mandate.federation.ExternalPrincipalProvisioned" => crate::record::FederationEvent,
+    "mandate.federation.FederationAuthenticated" => crate::record::FederationEvent,
+    "mandate.federation.OAuthClientDisabled" => crate::record::FederationEvent,
+    "mandate.federation.FederationConnection" => crate::record::FederationConnection,
+    "mandate.federation.ExternalPrincipal" => crate::record::ExternalPrincipal,
+    "mandate.federation.OAuthClient" => crate::record::OAuthClient,
+    "mandate.federation.Denied" => crate::Denied,
+    "mandate.federation.FederationConnection.State" => crate::record::ConnectionState,
+    "mandate.federation.ExternalPrincipal.State" => crate::record::LinkState,
+    "mandate.federation.OAuthClient.State" => crate::record::OAuthClientState,
+    // Two lifecycle enums of *other* domains' records, which this crate holds because it
+    // reads those records through a port and decides their state itself: a port cannot
+    // make a lifecycle check a property of the command. `mandate.identity.Principal` is
+    // read through `PrincipalStore` and `mandate.credential.AuthorizationCode` is the
+    // read-only input `authorize` validates. Neither record is projected by the crate that
+    // owns its domain — `mandate-identity` folds sessions and generations, and STS owns
+    // the code record — so nothing else realizes either element.
+    "mandate.identity.Principal.State" => crate::PrincipalState,
+    "mandate.credential.AuthorizationCode.State" => crate::authorize::AuthorizationCodeState,
+}
+
 use core::fmt;
 
 use mandate_types::{
-    Audience, CorrelationId, CredentialId, CredentialProof, DenialReason, ExternalPrincipalId,
-    FederationConnectionId, Issuer, OrganizationId, PrincipalId, SessionId, Timestamp, value::Uuid,
+    Audience, CorrelationId, CredentialId, CredentialProof, DenialReason, EpochSnapshotRef,
+    ExternalPrincipalId, FederationConnectionId, Issuer, OrganizationId, PrincipalId, SessionId,
+    Timestamp, value::Uuid,
 };
 
 use record::{ExternalKey, ExternalPrincipal, FederationConnection, Projection};
 use verifier::VerifiedProof;
+
+/// Which declared refusing outcome a [`Denied`] is.
+///
+/// A command that moves an entity along its lifecycle declares **two** error outcomes,
+/// not one: the external `denied` and the `wrong-state` taken "when the subject is in a
+/// state none of that command's declared moves start from", which "reports the same
+/// `Denied` error and renders as HTTP 409 in the OpenAPI projection rather than the 502
+/// an external denial renders as" (`docs/architecture/command-obligations.md`).
+///
+/// The distinction cannot live in [`DenialReason`]: that enum is the contract's, it is
+/// closed, and it declares no wrong-state reason. It cannot live in [`DenialClause`]
+/// either — a clause names *which condition* fired, and several conditions map to each
+/// outcome. So it is its own value, and [`RefusedOutcome::ir_name`] is the name the
+/// outcome carries in `generated/ir/system.json`, which is what
+/// `crates/mandate-federation/tests/emitted_events.rs` looks the refusal up by.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum RefusedOutcome {
+    /// The declared `denied` outcome: an externally caused refusal.
+    Denied,
+    /// The declared `wrong-state` outcome: the named record is in a state none of the
+    /// command's declared moves start from.
+    WrongState,
+}
+
+impl RefusedOutcome {
+    /// The name this outcome carries in the compiled contract.
+    #[must_use]
+    pub const fn ir_name(self) -> &'static str {
+        match self {
+            Self::Denied => "denied",
+            Self::WrongState => "wrong-state",
+        }
+    }
+}
 
 /// `mandate.federation.Denied`: fail closed; no credential, authority or lifecycle
 /// mutation on refusal (`federation.yaml:388-393`).
@@ -56,25 +140,52 @@ use verifier::VerifiedProof;
 /// the adapter sequence must tell apart — an absent link and a conflicting one — both
 /// surface as `DenialReason::Denied`, which `story:federation-linking` records as a
 /// contract change for `story:domain-runtime` to weigh.
+///
+/// [`Denied::outcome`] is the declared outcome the refusal *is*, which the caller needs
+/// to render the refusal the contract's way; see [`RefusedOutcome`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Denied {
     /// The declared `mandate.core.DenialReason`.
     pub reason: DenialReason,
     /// Which declared denial condition fired. Crate-local; see the type documentation.
     pub clause: DenialClause,
+    /// Which declared refusing outcome this is.
+    pub outcome: RefusedOutcome,
 }
 
 impl Denied {
-    /// Refuse, naming the declared reason and the condition that fired.
+    /// Refuse through the declared `denied` outcome, naming the reason and the condition
+    /// that fired.
     #[must_use]
     pub const fn new(reason: DenialReason, clause: DenialClause) -> Self {
-        Self { reason, clause }
+        Self {
+            reason,
+            clause,
+            outcome: RefusedOutcome::Denied,
+        }
+    }
+
+    /// Refuse through the declared `wrong-state` outcome: the named record is in a state
+    /// none of the command's declared moves start from.
+    #[must_use]
+    pub const fn wrong_state(reason: DenialReason, clause: DenialClause) -> Self {
+        Self {
+            reason,
+            clause,
+            outcome: RefusedOutcome::WrongState,
+        }
     }
 }
 
 impl fmt::Display for Denied {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(formatter, "denied: {:?} ({:?})", self.reason, self.clause)
+        write!(
+            formatter,
+            "{}: {:?} ({:?})",
+            self.outcome.ir_name(),
+            self.reason,
+            self.clause
+        )
     }
 }
 
@@ -257,12 +368,26 @@ pub trait FederationVerifier {
 ///
 /// `mandate.identity.Session` is the session; the credential the session was validated
 /// from is named by identifier alone, never by material.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+///
+/// The epoch snapshot handle and the expiry are the issuer's and are carried back because
+/// `AuthenticateFederation` responds with them and `mandate.federation.FederationAuthenticated`
+/// declares them (`federation.yaml`). The identity fold materializes the whole Session from
+/// that payload, so a value the issuer minted and did not return would be a Session field
+/// no replay could recover.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IssuedSession {
     /// The session `AuthenticateFederation` responds with.
     pub session_id: SessionId,
     /// The credential identifier the generated `VerifiedContext` names.
     pub credential_id: CredentialId,
+    /// The epoch snapshot handle the session is bound to.
+    ///
+    /// `decision-blocker:epoch`: an `EpochSnapshotRef` is an immutable record handle and
+    /// never a generation. The snapshot's own contents are recorded by the adapter through
+    /// `mandate.identity.EpochSnapshotRecorded`.
+    pub epochs: EpochSnapshotRef,
+    /// When the session stops being refreshable.
+    pub expires_at: Timestamp,
 }
 
 /// Step 9 of the resolution order, behind a port.
@@ -312,6 +437,24 @@ pub trait ConnectionStore {
     fn enabled_for_issuer(&self, issuer: &Issuer) -> Vec<FederationConnection>;
 }
 
+/// The external-principal read model, keyed by the record's own identity.
+///
+/// Separate from [`LinkStore`] rather than a method on it: the question [`LinkStore`]
+/// answers is "what holds this composite key", which is what every proof-driven command
+/// asks, and the question here is "what is this record", which is what a lifecycle
+/// command asks. An implementation of one is not an implementation of the other — a store
+/// indexed by key cannot answer by identity — and folding them into one trait would ask
+/// every existing implementor to answer a read it has no index for.
+pub trait ExternalPrincipalStore {
+    /// The external principal with this identity, whatever its lifecycle state.
+    ///
+    /// An implementation may return a row in any state. The command reads
+    /// [`record::ExternalPrincipal::state`] itself rather than relying on an
+    /// implementation to filter, because a port cannot make that a property of the
+    /// command.
+    fn external_principal(&self, id: &ExternalPrincipalId) -> Option<ExternalPrincipal>;
+}
+
 /// The external-principal read model, keyed by the canonical composite key.
 pub trait LinkStore {
     /// The link recorded for this exact key, if there is one.
@@ -351,7 +494,7 @@ pub trait PrincipalStore {
 ///
 /// The states are the ones `systems/mandate/domains/identity.yaml` declares. The
 /// transition between them is `mandate.identity`'s event, not this domain's.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize)]
 pub enum PrincipalState {
     /// The declared initial state.
     Active,
@@ -458,6 +601,12 @@ impl LinkStore for RecordedPrincipals {
     }
 }
 
+impl ExternalPrincipalStore for RecordedPrincipals {
+    fn external_principal(&self, id: &ExternalPrincipalId) -> Option<ExternalPrincipal> {
+        self.links.external_principal(id)
+    }
+}
+
 impl PrincipalStore for RecordedPrincipals {
     fn organization_of(&self, principal_id: &PrincipalId) -> Option<OrganizationId> {
         self.organizations
@@ -513,6 +662,8 @@ impl SessionIssuer for RecordingSessionIssuer {
         Ok(IssuedSession {
             session_id: SessionId::new(minted(0x5e, ordinal)),
             credential_id: CredentialId::new(minted(0xcd, ordinal)),
+            epochs: EpochSnapshotRef::new(minted(0x3e, ordinal)),
+            expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
         })
     }
 }
