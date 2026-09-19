@@ -55,7 +55,7 @@ scope:
   path: services/sts/tests/replay.rs
 - confidence: inferred
   path: services/sts/tests/resolve.rs
-revision: 15
+revision: 17
 ---
 # Implement audience registry and both credential families
 
@@ -176,3 +176,9 @@ Coordinator, after `review-result:wave-b-parallel-r1` and `review-result:wave-b-
 7. **Introspection.** A well-formed credential that is revoked or expired answers `accepted` with `active: false`, no descriptor; the event carries `active` and `credential_id` after `declared-writers` C0 (design 6). `reference-audience` stays a denial.
 8. **The cached-resolution clause.** The `resolve` acceptance test owns a caching resolver double and shows it is not consulted after `AccessCredentialRevoked`.
 9. **Stale prose.** "`mandate-model` may depend only on `mandate-types`" under *Projections are forced into `mandate-token`* is stale since wave A (`dependency-boundaries.json:12-19` lists five entries); the projections still land in `mandate-token` because `CredentialProfile` and `CredentialDescriptor` are declared there.
+
+## Inherited from wave B, 2026-09-19
+
+- From the wave B implementor and adversary 1 (2026-09-19): `credential.yaml:410,428` source `reference_verifier` as `generated: true` on both issuance events while `AccessCredential.reference_verifier` is `Optional`; the testkit's source check requires a generated field to be present, so the self-contained family records the digest of the returned token as its verifier. A contract touch that makes the field's sourcing match its optionality is `story:declared-writers`' (contract-only), not this story's; until then the digest is always present and the crate doc says why.
+
+- From the wave B adversary 1 and correction 1 (2026-09-19): `mandate.credential.AccessCredential` (`credential.yaml:46-76`) declares no issuing registration while both issuance events carry `target`, so a credential's revocation guarantee is not recoverable from the declared record alone. The projection keeps `target` and `issuing_profile` outside the wire form (`#[serde(skip)]`) and decides the guarantee from them; the contract touch that declares the issuing registration on the record is `story:declared-writers`' (contract-only), routed there.
