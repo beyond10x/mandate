@@ -2,6 +2,7 @@ mod coverage;
 mod documents;
 mod emit;
 mod licenses;
+mod mutants;
 mod receipt;
 use clap::{Parser, Subcommand};
 use serde_json::Value;
@@ -27,6 +28,9 @@ enum Action {
     Boundaries,
     Licenses,
     Corpus,
+    /// Every named mutant of `tests/mutants/`, applied to a copy of this tree and refused by
+    /// the target it names; the copy, the build directory and the bounds are in [`mutants`].
+    Mutants,
     /// The coverage map: every compiled contract element mapped to its implementation and
     /// the checks that decide it, with the per-kind table. `root` is the checkout whose
     /// manifest and compiled model are read; the planning store is always this workspace's.
@@ -420,6 +424,14 @@ fn corpus() -> Result<()> {
 /// The coverage step: the manifest against the compiled model, the store, the compiled test
 /// binaries and the committed receipt; the per-kind table is what it prints. The rules are
 /// in [`coverage`].
+/// The mutation controls: every named mutant applied to a copy of this tree and refused by
+/// the target it names, printed as the table the review-result carries. Last in `check`,
+/// since it rebuilds targets in the copy.
+fn mutation_controls() -> Result<()> {
+    println!("{}", mutants::mutants(Path::new("."))?);
+    Ok(())
+}
+
 fn coverage_map(root: &Path) -> Result<()> {
     println!("{}", coverage::coverage(root)?);
     Ok(())
@@ -446,6 +458,7 @@ fn main() -> ExitCode {
         Action::Boundaries => boundaries(),
         Action::Licenses => licenses(),
         Action::Corpus => corpus(),
+        Action::Mutants => mutation_controls(),
         Action::Coverage { root } => coverage_map(&root),
         Action::Documents { root } => documents(&root),
         Action::Check => {
@@ -495,6 +508,7 @@ fn main() -> ExitCode {
                     return Err(format!("{b} accepts runtime commands").into());
                 }
             }
+            mutation_controls()?;
             Ok(())
         }
     })();

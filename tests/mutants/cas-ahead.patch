@@ -1,7 +1,8 @@
 diff --git a/services/sts/src/store.rs b/services/sts/src/store.rs
+index 1c77694..6fab3bb 100644
 --- a/services/sts/src/store.rs
 +++ b/services/sts/src/store.rs
-@@ -543,7 +543,7 @@ impl InMemoryCodeLog {
+@@ -599,7 +599,7 @@ impl InMemoryCodeLog {
                  actual: actual.advance(),
              });
          }
