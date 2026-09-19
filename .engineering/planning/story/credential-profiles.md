@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:credential-profiles
 kind: story
-status: active
+status: implemented
 title: Implement audience registry and both credential families
 relations:
 - decomposes: epic:sts-credentials
@@ -55,7 +55,7 @@ scope:
   path: services/sts/tests/replay.rs
 - confidence: inferred
   path: services/sts/tests/resolve.rs
-revision: 17
+revision: 18
 ---
 # Implement audience registry and both credential families
 

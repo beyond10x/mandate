@@ -66,4 +66,17 @@ Through `atlas/scripts/as-bot.sh`, author and committer `b10x-bot[bot]`: this op
 
 ## Close
 
-Pending.
+| Measure | Value |
+|---|---|
+| Closing gate | `f86a485`, `task check` exit 0, 1205 tests across 173 targets (opening: 1025 / 154) |
+| Units | contract round `a8d2976` (merge `ed7eef8`), realization round `abca8d0` (merge `ff22c1f`), credential-profiles `2e1e415` (merge `5600def`) |
+| Coordinator commits | opening `162f22c`, regeneration `a2624e0`, alignment `3b88754`, account re-pin `f86a485`, the closing store commit |
+| Adversary passes | 6 (2 per round), 44 findings, all ruled; 27 adversary cases retained in the tree |
+| Stories | `credential-profiles` implemented on the gate's record; `declared-writers` stays active — the login road's writers landed (A1–A4), units B and C2 (eighteen creator-less entities outside the road) remain |
+| Blockers | none cleared this wave |
+| Deviations | 1 (the STS test key-generation crates admitted inside the unit tree) |
+| Release | none |
+
+Routed onward: the ESS synthesizer's equal-timestamp input and untyped invariant comparison (ESS wave); `AccessCredential`'s undeclared issuing registration and `reference_verifier` sourcing (`story:declared-writers`, contract); the display-name claim on a connection (`story:federation-linking`); `RealSigner::new_with_revocations` rehydration and the `TargetRegistry` adapter (the composition, `story:product-listener`); a workspace-wide one-realizer-per-element check (`cargo xtask coverage`, `story:coverage-map`); `RegisterPrincipal` for the explicit-link path and the non-User kinds (`story:declared-writers`).
+
+Next on the road: `story:oauth-integration` (code redemption at the STS over the credential handlers now in `services/sts`).
