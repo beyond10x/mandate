@@ -12,11 +12,12 @@
 //! append, or a retry after a partial write.
 
 use mandate_identity::{
-    Generation, IdentityEvent, IdentityLog, IdentityRead, SecurityEpochSnapshot, Session,
-    SessionState, refresh_session,
+    EpochSnapshotRecorded, Generation, IdentityEvent, IdentityLog, IdentityRead,
+    SecurityEpochRecorded, SessionOpened, SessionRevoked, SessionState, refresh_session,
 };
 use mandate_types::{
-    EpochSnapshotRef, OrganizationId, PrincipalId, SecurityEpochTarget, SessionId, Timestamp, Uuid,
+    Audience, CorrelationId, CredentialId, EpochSnapshotRef, OrganizationId, PrincipalId,
+    SecurityEpochTarget, SessionId, Timestamp, Uuid, VerifiedContext,
 };
 
 fn uuid(tag: u8) -> Uuid {
@@ -44,44 +45,66 @@ fn generation(value: i64) -> Generation {
 }
 
 fn opened() -> IdentityEvent {
-    IdentityEvent::SessionOpened(Session::new(
-        session_id(),
-        principal(),
-        organization(),
-        handle(),
-        Timestamp::new("2026-09-18T00:00:00Z"),
-    ))
+    IdentityEvent::SessionOpened(SessionOpened {
+        id: session_id(),
+        principal_id: principal(),
+        organization_id: organization(),
+        connection_id: None,
+        epochs: handle(),
+        expires_at: Timestamp::new("2026-09-18T00:00:00Z"),
+    })
 }
 
 /// One principal, one organization, one snapshot that matches the authority exactly, and
 /// one session against it.
 fn world() -> IdentityLog {
     let mut log = IdentityLog::new();
-    log.record(IdentityEvent::SecurityEpochRecorded {
-        target: SecurityEpochTarget::Principal(principal()),
-        generation: generation(3),
-    });
-    log.record(IdentityEvent::SecurityEpochRecorded {
-        target: SecurityEpochTarget::Organization(organization()),
-        generation: generation(7),
-    });
+    log.record(IdentityEvent::SecurityEpochRecorded(
+        SecurityEpochRecorded {
+            target: SecurityEpochTarget::Principal(principal()),
+            generation: generation(3),
+        },
+    ));
+    log.record(IdentityEvent::SecurityEpochRecorded(
+        SecurityEpochRecorded {
+            target: SecurityEpochTarget::Organization(organization()),
+            generation: generation(7),
+        },
+    ));
     log.record(IdentityEvent::EpochSnapshotRecorded(
-        SecurityEpochSnapshot::new(
-            handle(),
-            principal(),
-            generation(3),
-            organization(),
-            generation(7),
-        ),
+        EpochSnapshotRecorded {
+            id: handle(),
+            principal_id: principal(),
+            organization_id: organization(),
+            connection_id: None,
+        },
     ));
     log.record(opened());
     log
 }
 
+/// The verified context `RevokeSession` is evaluated in. `mandate.identity.SessionRevoked`
+/// declares one (`context: input.context`), so every recorded revocation carries it.
+fn context() -> VerifiedContext {
+    VerifiedContext {
+        subject: principal(),
+        actor: None,
+        organization: organization(),
+        audience: Audience::new("mandate"),
+        credential: CredentialId::new(uuid(0xcd)),
+        delegation: None,
+        execution: None,
+        correlation: CorrelationId::new("correlation"),
+    }
+}
+
 #[test]
 fn a_replayed_session_opened_does_not_leave_the_terminal_revoked_state() {
     let mut log = world();
-    log.record(IdentityEvent::SessionRevoked(session_id()));
+    log.record(IdentityEvent::SessionRevoked(SessionRevoked {
+        context: context(),
+        id: session_id(),
+    }));
     assert_eq!(
         log.resolve(&session_id())
             .expect("the fold records the session")
@@ -106,7 +129,10 @@ fn a_replayed_session_opened_does_not_leave_the_terminal_revoked_state() {
 #[test]
 fn a_replayed_session_opened_does_not_make_a_revoked_session_refreshable_again() {
     let mut log = world();
-    log.record(IdentityEvent::SessionRevoked(session_id()));
+    log.record(IdentityEvent::SessionRevoked(SessionRevoked {
+        context: context(),
+        id: session_id(),
+    }));
     assert!(
         refresh_session(&log, &session_id()).is_err(),
         "a revoked session does not refresh"

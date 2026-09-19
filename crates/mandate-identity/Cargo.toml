@@ -13,3 +13,9 @@ workspace = true
 [dependencies]
 mandate-types = { version = "0.2.0", path = "../mandate-types" }
 mandate-model = { version = "0.2.0", path = "../mandate-model" }
+mandate-contract = { version = "0.2.0", path = "../mandate-contract" }
+serde = { workspace = true }
+
+[dev-dependencies]
+mandate-testkit = { version = "0.2.0", path = "../mandate-testkit" }
+serde_json = { workspace = true }

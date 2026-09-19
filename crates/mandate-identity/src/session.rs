@@ -6,15 +6,17 @@
 //! declared `Active`/`Revoked` lifecycle. The record is this crate's projection of the
 //! event fold, not a canonical type; see the crate documentation.
 
+use serde::Serialize;
+
 use mandate_types::{
     DenialReason, EpochSnapshotRef, FederationConnectionId, OrganizationId, PrincipalId, SessionId,
-    Timestamp,
+    Timestamp, VerifiedContext,
 };
 
-use crate::{Denial, Eligibility, IdentityRead};
+use crate::{Denial, Eligibility, IdentityEvent, IdentityLog, IdentityRead};
 
 /// The declared session lifecycle states.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum SessionState {
     /// The initial state.
     Active,
@@ -23,15 +25,78 @@ pub enum SessionState {
 }
 
 /// A session, as this crate folds it.
-#[derive(Debug, Clone, PartialEq, Eq)]
+///
+/// The field names on the wire are the ones `mandate.identity.Session` declares, which is
+/// what `crates/mandate-identity/tests/contract_agreement.rs` decides against the
+/// generated entity shape; the Rust names are the crate's own and each accessor is named
+/// for what it answers.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Session {
     id: SessionId,
+    #[serde(rename = "principal_id")]
     principal: PrincipalId,
+    #[serde(rename = "organization_id")]
     organization: OrganizationId,
+    #[serde(rename = "connection_id", skip_serializing_if = "Option::is_none")]
     connection: Option<FederationConnectionId>,
     epochs: EpochSnapshotRef,
     expires_at: Timestamp,
     state: SessionState,
+}
+
+/// `mandate.identity.SessionOpened`: a session opened without a federation connection.
+///
+/// The declared payload, field for field. It carries the whole record, so the fold
+/// materializes the session from this event alone. No command in this contract declares
+/// such an open and no outcome emits it — the writer is the control-plane component that
+/// publishes it (`identity.yaml`) — and the federated login's own record-creating event
+/// is `mandate.federation.FederationAuthenticated`, which
+/// [`crate::IdentityEvent::FederationAuthenticated`] folds.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SessionOpened {
+    /// The declared `id`.
+    pub id: SessionId,
+    /// The declared `principal_id`.
+    pub principal_id: PrincipalId,
+    /// The declared `organization_id`.
+    pub organization_id: OrganizationId,
+    /// The declared `connection_id`, when the session came from a connection.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub connection_id: Option<FederationConnectionId>,
+    /// The declared `epochs`: the snapshot handle the session is bound to.
+    pub epochs: EpochSnapshotRef,
+    /// The declared `expires_at`.
+    pub expires_at: Timestamp,
+}
+
+impl SessionOpened {
+    /// The record this event puts into existence.
+    #[must_use]
+    pub fn session(&self) -> Session {
+        let session = Session::new(
+            self.id,
+            self.principal_id,
+            self.organization_id,
+            self.epochs,
+            self.expires_at.clone(),
+        );
+        match self.connection_id {
+            Some(connection) => session.with_connection(connection),
+            None => session,
+        }
+    }
+}
+
+/// `mandate.identity.SessionRevoked`, the event `RevokeSession`'s accepted outcome emits.
+///
+/// The declared payload, field for field: the verified context the command was evaluated
+/// in, and the session the declared `revoke` move names.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SessionRevoked {
+    /// The declared `context`.
+    pub context: VerifiedContext,
+    /// The declared `id`.
+    pub id: SessionId,
 }
 
 /// The accepted outcome of `mandate.identity.RefreshSession`.
@@ -40,7 +105,7 @@ pub struct Session {
 /// `story:event-payloads-for-folds` the `SessionRefreshed` event declares `session_id` and
 /// nothing else — no `context` for a host to generate. This type carries exactly that
 /// payload.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct SessionRefreshed {
     session_id: SessionId,
 }
@@ -267,6 +332,63 @@ where
         return Err(Denial::new(DenialReason::Unavailable));
     };
     session.refresh(epochs, &as_of)
+}
+
+/// Realize `mandate.identity.RevokeSession` over the log.
+///
+/// Decide, then append: the guards are evaluated against the fold as it stands, and the
+/// declared event is appended only if every one of them holds. The event is returned so a
+/// caller that owns its own store appends the same payload; this signature takes the log
+/// itself because [`IdentityLog`] is the in-memory double of the event-log adapter a later
+/// story supplies, and the append is the one the kit's transaction performs.
+///
+/// The refusal names which declared outcome it is. `RevokeSession` declares two error
+/// outcomes: the external `denied`, and the `wrong-state` taken when the session is in a
+/// state no declared move starts from — `revoke` starts from `Active` alone — which
+/// "renders as HTTP 409 in the OpenAPI projection rather than the 502 an external denial
+/// renders as" (`docs/architecture/command-obligations.md`).
+///
+/// Whether the caller holds authority over this session is an authorization decision and
+/// is not made here; the verified context is carried through to the event.
+///
+/// # Errors
+///
+/// Returns the declared refusal through the `denied` outcome when the session does not
+/// resolve or is outside the caller's verified organization, and through the
+/// `wrong-state` outcome when it is already in the terminal `Revoked` state. The log is
+/// unchanged in each case.
+pub fn revoke_session(
+    log: &mut IdentityLog,
+    context: &VerifiedContext,
+    id: SessionId,
+) -> Result<SessionRevoked, Denial> {
+    let Some(session) = log.resolve(&id) else {
+        return Err(Denial::new(DenialReason::InvalidCredential));
+    };
+    // "session is outside the verified organization" (`identity.yaml`, `RevokeSession`).
+    if session.organization() != &context.organization {
+        return Err(Denial::new(DenialReason::TenantMismatch));
+    }
+    if !session.is_active() {
+        return Err(Denial::wrong_state(DenialReason::Denied));
+    }
+    let revoked = SessionRevoked {
+        context: context.clone(),
+        id,
+    };
+    log.record(IdentityEvent::SessionRevoked(revoked.clone()));
+    Ok(revoked)
+}
+
+/// Whether a declared timestamp names an instant at all.
+///
+/// The one reading of the `date-time` form this crate performs, shared by the refresh
+/// decision and by [`crate::IdentityLog::try_record`]: a payload carrying a value the
+/// contract's closed schema refuses is never appended, and the form is decided in one
+/// place rather than twice.
+#[must_use]
+pub(crate) fn names_an_instant(value: &Timestamp) -> bool {
+    instant::parse(value).is_some()
 }
 
 /// Reading the declared `date-time` form as an instant.

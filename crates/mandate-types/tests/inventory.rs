@@ -4,7 +4,9 @@
 //! contracts` byte-compares it against a fresh `ess generate`. Reading it here means
 //! the account cannot drift from the contract without this suite failing.
 
-use mandate_types::inventory::{ACCEPTED, EXCLUDED_ENTITIES, EXCLUDED_SEMANTICS, Kind, Owner};
+use mandate_types::inventory::{
+    ACCEPTED, DERIVED_STATE_ENUMS, EXCLUDED_ENTITIES, EXCLUDED_SEMANTICS, Kind, Owner,
+};
 use std::collections::{BTreeMap, BTreeSet};
 
 const SCHEMA: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../generated/schema");
@@ -155,11 +157,49 @@ fn the_three_generation_records_carry_exactly_the_declared_generation() {
     }
 }
 
+/// The derived half of the compiled index is accounted for, name for name.
+///
+/// `DERIVED_STATE_ENUMS` is the list `tests/conformance.rs` pairs with the generated
+/// `mandate_contract` shape that realizes each one, so the two halves of the account
+/// cannot drift: a `.State` enum the contract adds is absent here until it is listed, and
+/// a name listed here without a case in the conformance account fails there.
+#[test]
+fn the_derived_state_enum_account_is_exactly_the_derived_half_of_the_compiled_index() {
+    let derived: BTreeSet<String> = schema_names("types")
+        .into_iter()
+        .filter(|name| name.ends_with(".State"))
+        .collect();
+    let accounted: BTreeSet<String> = DERIVED_STATE_ENUMS
+        .iter()
+        .map(|name| (*name).to_owned())
+        .collect();
+    assert_eq!(
+        accounted.len(),
+        DERIVED_STATE_ENUMS.len(),
+        "the account holds no duplicate"
+    );
+    assert_eq!(accounted, derived);
+    assert_eq!(derived.len(), 36, "derived state enums");
+    for name in DERIVED_STATE_ENUMS {
+        assert_eq!(schema_kind(name), "enum", "{name}");
+    }
+}
+
 #[test]
 fn the_excluded_semantics_are_named_rather_than_implied() {
     assert!(EXCLUDED_SEMANTICS.len() >= 6);
     for reason in EXCLUDED_SEMANTICS {
         assert!(!reason.trim().is_empty());
+    }
+    // The derived state enums are decided, per declared variant, in tests/conformance.rs,
+    // so no exclusion may still claim them. The check is over the list rather than over
+    // the one sentence that used to be there: any future wording that excludes a `.State`
+    // enum fails here.
+    for reason in EXCLUDED_SEMANTICS {
+        assert!(
+            !reason.contains(".State"),
+            "an exclusion still claims the derived state enums, which the account covers: {reason}"
+        );
     }
 }
 

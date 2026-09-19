@@ -16,7 +16,8 @@
 //! missing piece is the instant to compare against, not the comparison.
 
 use mandate_identity::{
-    Generation, IdentityEvent, IdentityLog, SecurityEpochSnapshot, Session, refresh_session,
+    EpochSnapshotRecorded, Generation, IdentityEvent, IdentityLog, SecurityEpochRecorded,
+    SessionOpened, refresh_session,
 };
 use mandate_types::{
     EpochSnapshotRef, OrganizationId, PrincipalId, SecurityEpochTarget, SessionId, Timestamp, Uuid,
@@ -50,30 +51,34 @@ fn generation(value: i64) -> Generation {
 /// it expired six years before the world it is refreshed in.
 fn expired_world() -> IdentityLog {
     let mut log = IdentityLog::new();
-    log.record(IdentityEvent::SecurityEpochRecorded {
-        target: SecurityEpochTarget::Principal(principal()),
-        generation: generation(3),
-    });
-    log.record(IdentityEvent::SecurityEpochRecorded {
-        target: SecurityEpochTarget::Organization(organization()),
-        generation: generation(7),
-    });
-    log.record(IdentityEvent::EpochSnapshotRecorded(
-        SecurityEpochSnapshot::new(
-            handle(),
-            principal(),
-            generation(3),
-            organization(),
-            generation(7),
-        ),
+    log.record(IdentityEvent::SecurityEpochRecorded(
+        SecurityEpochRecorded {
+            target: SecurityEpochTarget::Principal(principal()),
+            generation: generation(3),
+        },
     ));
-    log.record(IdentityEvent::SessionOpened(Session::new(
-        session_id(),
-        principal(),
-        organization(),
-        handle(),
-        Timestamp::new("2020-01-01T00:00:00Z"),
-    )));
+    log.record(IdentityEvent::SecurityEpochRecorded(
+        SecurityEpochRecorded {
+            target: SecurityEpochTarget::Organization(organization()),
+            generation: generation(7),
+        },
+    ));
+    log.record(IdentityEvent::EpochSnapshotRecorded(
+        EpochSnapshotRecorded {
+            id: handle(),
+            principal_id: principal(),
+            organization_id: organization(),
+            connection_id: None,
+        },
+    ));
+    log.record(IdentityEvent::SessionOpened(SessionOpened {
+        id: session_id(),
+        principal_id: principal(),
+        organization_id: organization(),
+        connection_id: None,
+        epochs: handle(),
+        expires_at: Timestamp::new("2020-01-01T00:00:00Z"),
+    }));
     log
 }
 

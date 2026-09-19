@@ -3,7 +3,8 @@
 //! the authoritative generations, and the verdict it produces.
 
 use mandate_identity::{
-    Eligibility, EpochDimension, Generation, IdentityEvent, IdentityLog, SecurityEpochSnapshot,
+    Eligibility, EpochDimension, Generation, IdentityEvent, IdentityLog, SecurityEpochRecorded,
+    SecurityEpochSnapshot,
 };
 use mandate_types::{
     DenialReason, EpochSnapshotRef, FederationConnectionId, OrganizationId, PrincipalId,
@@ -41,10 +42,12 @@ fn generation(value: i64) -> Generation {
 fn authority(entries: &[(SecurityEpochTarget, i64)]) -> IdentityLog {
     let mut log = IdentityLog::new();
     for (target, value) in entries {
-        log.record(IdentityEvent::SecurityEpochRecorded {
-            target: target.clone(),
-            generation: generation(*value),
-        });
+        log.record(IdentityEvent::SecurityEpochRecorded(
+            SecurityEpochRecorded {
+                target: target.clone(),
+                generation: generation(*value),
+            },
+        ));
     }
     log
 }

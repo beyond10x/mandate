@@ -4,7 +4,7 @@ A customer's user is signed in to the customer's own platform. That user enters 
 
 ## What this document does not do
 
-It claims no runtime behaviour: no crate implements any command named below. It names no signing algorithm; that list is withheld by `decision-blocker:algorithm-policy` until an approving authority records it (`runtime-decisions.md:256`). It clears no blocker; every decision it records is evidence against a blocker, not a clearance, because the clearance evidence for each is runtime cases (`runtime-decisions.md`, every row). It does not change ESS meaning; the contract changes it names are owned by `story:domain-runtime`.
+It claims no runtime behaviour: no crate implements any command named below. It names no signing algorithm; the admitted list is recorded on `decision-blocker:algorithm-policy`, cleared 2026-09-19 on runtime cases (`runtime-decisions.md:256`), and in `story:signing-and-verification`, and this document keeps naming none (FL3). It clears no blocker; every decision it records is evidence against a blocker, not a clearance, because the clearance evidence for each is runtime cases (`runtime-decisions.md`, every row). It does not change ESS meaning; the contract changes it names are owned by `story:domain-runtime`.
 
 ## The flow the contract declares
 
@@ -119,18 +119,19 @@ The preserved source names just-in-time provisioning as a mode — "An authentic
 
 ## Decisions taken by the operator on 2026-09-18
 
-Each is recorded as `approval` evidence against its blocker in the planning store. None clears its blocker: the clearance evidence for every row is runtime cases (`runtime-decisions.md`), which do not exist yet.
+Each is recorded as `approval` evidence against its blocker in the planning store. Recording a decision cleared nothing: the clearance evidence for every row is runtime cases (`runtime-decisions.md`). One blocker has since been cleared on such cases; its decision is carried in the sentence after the table, because a row of this table claims an open blocker.
 
 | Blocker | Decision | What it forecloses |
 |---|---|---|
 | `lifecycle` | Immutable-with-status. Nothing is destroyed; every change is a new recorded state, plus a generation advance where security-relevant. Retention is redaction over an append-only log. | Destructive delete of any record; tenant-expiry that removes audit history. |
 | `worker-orchestration` | A database-backed queue in the existing store, polled by the worker, behind traits so the transport can be swapped. | A broker before the first login works; inferring a queue protocol from the deployment's name. |
 | `identity-uniqueness` | A unique index on the exact composite key on the projection, plus explicit conflict detection that returns the declared denial rather than a storage error. The issuer column is populated from the validated connection. | Application-level locking as the sole enforcement; a raw constraint error reaching a caller. |
-| `algorithm-policy` | A deployment-configured allowlist validated at startup: unknown names rejected, an empty set rejected, header-selected algorithms rejected, `none` rejected. The list itself is still withheld pending an approving authority. | A compiled-in list that needs a release to onboard a customer. |
 | `epoch` | The generation is an ESS `Integer`, constrained non-negative and monotonic, in the contract. Recorded as a stand-in for the addendum's `u64` (`architecture-addendum.md:417`): ESS 0.25.0's primitives are String, Boolean, Integer, Decimal, Binary64, Timestamp, Duration, Uuid and Bytes, and Integer is signed 64-bit. Widening to unsigned when ESS gains it is compatible. At the maximum the increment is denied and an out-of-band reset is required (`command-obligations.md:49`). | Approximating with String or UUID; wrapping on overflow; a lifecycle self-loop standing in for arithmetic. |
 | `epoch-atomicity` | One event-log transaction per boundary. The log's aggregate append is a compare-and-set on expected version; the projection callback and the audit outbox commit inside that transaction. | Two-phase commit across stores; a reconciliation job as the consistency mechanism. |
 | `guards` | The trusted adapter writes a denial through `mandate.audit.RecordAuditEvent` on the rejection path, outside the refused domain transaction. The audit stream is separate from the domain aggregate, so the denial is a durable event though the aggregate append was refused. | An error outcome that also emits an event (ESS refuses it); a tracing log as the denial record. |
 | `jit-provisioning` | JIT, as above. | Per-user administrative work as a precondition of first login. |
+
+`algorithm-policy`, decided the same day: a deployment-configured allowlist validated at startup, unknown names rejected, an empty set rejected, header-selected algorithms rejected, `none` rejected; foreclosed a compiled-in list that needs a release to onboard a customer. The blocker was cleared on 2026-09-19 on the verifier and signer cases of `story:signing-and-verification` (`runtime-decisions.md:256`); the list itself is recorded on the blocker, not here.
 
 ## Standing constraint: every persistence is event-sourced
 

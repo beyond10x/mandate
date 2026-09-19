@@ -2,8 +2,9 @@
 //!
 //! The entries below are decided against `generated/schema/types`, the compiled model's
 //! own type index, by `tests/inventory.rs`. The compiled index holds 110 entries: the 74
-//! authored `mandate.core` types named here, and one derived `<Entity>.State` enum per
-//! entity, which this milestone does not realize.
+//! authored `mandate.core` types in [`ACCEPTED`], and one derived `<Entity>.State` enum
+//! per entity, the 36 of [`DERIVED_STATE_ENUMS`]. Both halves are accounted for; they are
+//! accounted for differently, and [`DERIVED_STATE_ENUMS`] says how.
 
 /// How the contract declares a type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -457,6 +458,89 @@ pub const ACCEPTED: &[Accepted] = &[
     },
 ];
 
+/// Every derived `<Entity>.State` enum the compiled model adds to the authored types.
+///
+/// These are not accepted types and no entry of [`ACCEPTED`] names one: this crate
+/// declares no Rust representation for any of them and invents none. Its declaration
+/// forms in `crates/mandate-types/src/macros.rs` hardcode the `mandate.core.` prefix and
+/// every name here is `mandate.<domain>.<Entity>.State`; the six that a fold actually
+/// writes are declared in `mandate-model`, which this crate does not depend on.
+///
+/// What realizes each of them for every reader that depends on this crate alone is the
+/// generated `mandate_contract::entities::<Entity>State` shape, and that is what the
+/// account decides them through. `tests/inventory.rs` asserts this list is exactly the
+/// `.State` half of the compiled index, and `tests/conformance.rs` pairs every name on it
+/// with the generated enum — by ESS's own `declaration_name` derivation, because 23 of the
+/// 36 share a variant list and a literal pairing among those is not evidence — and puts
+/// each declared variant through the same schema account the 74 authored types go through.
+/// A `.State` enum the contract adds therefore fails the inventory case until it is listed
+/// here, and fails the conformance case until it is paired there.
+///
+/// # What that coverage is, and what it is not
+///
+/// Six of the 36 also have a **domain** enum, in `mandate-model`, and those six are
+/// measured against the contract as hand-written Rust:
+/// `mandate.tenancy.Organization.State`, `mandate.tenancy.OrganizationMembership.State`,
+/// `mandate.tenancy.Team.State`, `mandate.tenancy.TeamMembership.State`,
+/// `mandate.tenancy.Space.State` and `mandate.graph.Resource.State`, by
+/// `crates/mandate-model/tests/contract_agreement.rs`.
+///
+/// The other 30 are accounted **through the generated enum only**. The generated crate and
+/// the JSON Schema projection are two emissions of one compiled model, so a case over both
+/// says those two agree — not that any hand-written Rust does.
+///
+/// Ten of those 30 do have a domain enum, in a crate this one cannot reach, and each is
+/// decided by the story that owns its crate. `story:federation-identity-alignment` owns
+/// six: `mandate.federation.FederationConnection.State`,
+/// `mandate.federation.ExternalPrincipal.State`, `mandate.federation.OAuthClient.State`,
+/// `mandate.identity.Principal.State` and `mandate.credential.AuthorizationCode.State` in
+/// `mandate-federation`, and `mandate.identity.Session.State` in `mandate-identity`.
+/// `story:graph-policy-adapter` owns four: `mandate.graph.Relation.State` and
+/// `mandate.graph.Grant.State` in `mandate-graph`, `mandate.policy.Policy.State` and
+/// `mandate.policy.AuthorizationModel.State` in `mandate-policy`. `mandate-types` is a
+/// leaf and depends on none of them, so no case here can construct their values.
+///
+/// The remaining twenty have no domain enum anywhere in this workspace, and for them the
+/// generated shape is the only realization there is to decide.
+pub const DERIVED_STATE_ENUMS: &[&str] = &[
+    "mandate.audit.AuditEvent.State",
+    "mandate.credential.AccessCredential.State",
+    "mandate.credential.AuthorizationCode.State",
+    "mandate.credential.ResourceServer.State",
+    "mandate.credential.SigningKey.State",
+    "mandate.delegation.Agent.State",
+    "mandate.delegation.AgentCapabilityCeiling.State",
+    "mandate.delegation.Approval.State",
+    "mandate.delegation.Delegation.State",
+    "mandate.delegation.Execution.State",
+    "mandate.directory.DirectoryGroup.State",
+    "mandate.directory.DirectoryGroupMembership.State",
+    "mandate.directory.DirectoryGroupTeamMapping.State",
+    "mandate.directory.MembershipContribution.State",
+    "mandate.directory.SyncJob.State",
+    "mandate.federation.ExternalPrincipal.State",
+    "mandate.federation.FederationConnection.State",
+    "mandate.federation.OAuthClient.State",
+    "mandate.graph.Grant.State",
+    "mandate.graph.Relation.State",
+    "mandate.graph.Resource.State",
+    "mandate.identity.FederationSecurityEpoch.State",
+    "mandate.identity.OrganizationSecurityEpoch.State",
+    "mandate.identity.Principal.State",
+    "mandate.identity.PrincipalSecurityEpoch.State",
+    "mandate.identity.RefreshCredential.State",
+    "mandate.identity.SecurityEpochSnapshot.State",
+    "mandate.identity.Session.State",
+    "mandate.policy.AuthorizationModel.State",
+    "mandate.policy.Policy.State",
+    "mandate.tenancy.Organization.State",
+    "mandate.tenancy.OrganizationMembership.State",
+    "mandate.tenancy.Space.State",
+    "mandate.tenancy.Team.State",
+    "mandate.tenancy.TeamMembership.State",
+    "mandate.workload.WorkloadIdentity.State",
+];
+
 /// The excluded model entities.
 ///
 /// These are entities, not types: none of them appears in the compiled type index, and
@@ -493,7 +577,6 @@ pub const EXCLUDED_ENTITIES: &[Excluded] = &[
 pub const EXCLUDED_SEMANTICS: &[&str] = &[
     "numeric epoch generations and any arithmetic over them, pending UNMAPPED-EPOCH",
     "conditional subject storage foreign keys, pending UNMAPPED-SUBJECT-RELATIONS",
-    "the 36 derived <Entity>.State enums the compiled model adds to the authored types",
     "lifecycle behavior of any kind; a realized value type implements no transition",
     "cryptography: no signing, verification, hashing or key handling",
     "policy decision point evaluation",

@@ -438,3 +438,47 @@ pub mod conformance {
         entries().iter().map(Entry::run).collect()
     }
 }
+
+// Every ESS element this crate realizes: the four accepted `mandate.core` records, the
+// six projections, and the twelve payloads that write them. 22 in total, and the count
+// matters — `cargo xtask coverage` reads this list and reports what nothing realizes, so
+// an element this crate implements and does not register is reported as realized by
+// nothing, which is the same report an unimplemented element gets.
+//
+// Each entry becomes an anonymous import of the symbol on its right, so an element paired
+// with a record, a projection, an event enum or a variant that was renamed, moved or
+// deleted does not compile. The four records are also accounted for by
+// [`conformance::entries`]; that registry decides their wire form and this one records
+// which element each realizes, and the two are not substitutes.
+//
+// `crates/mandate-model/tests/contract_agreement.rs` decides this list against
+// `generated/schema`: every element named here is a compiled declaration, the set is
+// exactly the four records, six entities and twelve payloads that file covers, and each
+// record's symbol is the one its element name says it should be. An event's symbol is a
+// variant, whose name ESS does not derive, so only its module and enum are decided by
+// name; which variant realizes which payload is decided by `ess_name` and the pairing
+// case instead.
+mandate_types::realizes! {
+    "mandate.core.TenantResolutionRule" => crate::TenantResolutionRule,
+    "mandate.core.DecisionChallenge" => crate::DecisionChallenge,
+    "mandate.core.Decision" => crate::Decision,
+    "mandate.core.AuditRecord" => crate::AuditRecord,
+    "mandate.tenancy.Organization" => crate::tenancy::Organization,
+    "mandate.tenancy.OrganizationMembership" => crate::tenancy::OrganizationMembership,
+    "mandate.tenancy.Team" => crate::tenancy::Team,
+    "mandate.tenancy.TeamMembership" => crate::tenancy::TeamMembership,
+    "mandate.tenancy.Space" => crate::tenancy::Space,
+    "mandate.graph.Resource" => crate::graph::Resource,
+    "mandate.tenancy.OrganizationCreated" => crate::tenancy::TenancyEvent::OrganizationCreated,
+    "mandate.tenancy.OrganizationClosed" => crate::tenancy::TenancyEvent::OrganizationClosed,
+    "mandate.tenancy.OrganizationMembershipAdded" => crate::tenancy::TenancyEvent::OrganizationMembershipAdded,
+    "mandate.tenancy.OrganizationMembershipRemoved" => crate::tenancy::TenancyEvent::OrganizationMembershipRemoved,
+    "mandate.tenancy.TeamCreated" => crate::tenancy::TenancyEvent::TeamCreated,
+    "mandate.tenancy.TeamRetired" => crate::tenancy::TenancyEvent::TeamRetired,
+    "mandate.tenancy.TeamMembershipAdded" => crate::tenancy::TenancyEvent::TeamMembershipAdded,
+    "mandate.tenancy.TeamMembershipRemoved" => crate::tenancy::TenancyEvent::TeamMembershipRemoved,
+    "mandate.tenancy.SpaceCreated" => crate::tenancy::TenancyEvent::SpaceCreated,
+    "mandate.tenancy.SpaceRetired" => crate::tenancy::TenancyEvent::SpaceRetired,
+    "mandate.graph.ResourceRegistered" => crate::graph::ResourceEvent::Registered,
+    "mandate.graph.ResourceDeregistered" => crate::graph::ResourceEvent::Deregistered,
+}

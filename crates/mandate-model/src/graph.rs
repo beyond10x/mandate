@@ -128,14 +128,18 @@ pub struct Resource {
 /// [`crate::tenancy::TenancyEvent`], which carries the same shape for the ten tenancy
 /// payloads.
 ///
-/// `Registered` carries `resource_id` beside `resource`. The compiled
-/// `mandate.graph.ResourceRegistered` on this branch declares `context`, `resource` and
-/// an optional `parent` and no `resource_id`; the coordinator's ruling of 2026-09-19 for
-/// `story:tenancy-graph-events` fixes the emitted payload at
-/// `{context, resource_id, resource, parent}`, the shape it takes once
-/// `story:contract-creates` adds `resource_id` as the `instance:` of `creates: Resource`.
-/// `crates/mandate-model/tests/replay.rs` asserts that one event against the ruled set
-/// and says so; the other eleven are asserted against their compiled `required` lists.
+/// `Registered` carries `resource_id` beside `resource`, which is what the compiled
+/// payload declares: `generated/schema/events/mandate.graph.ResourceRegistered.schema.json`
+/// requires `context`, `resource_id` and `resource`, and declares `parent` optional —
+/// `resource_id` is there because `story:contract-creates` added it as the `instance:` of
+/// `creates: Resource`.
+///
+/// An earlier revision of this paragraph said the compiled payload declared no
+/// `resource_id` and that the emitted shape rested on a ruling rather than on the file.
+/// It did not hold: the file requires it, and `crates/mandate-model/tests/replay.rs`
+/// weakened that one event's key check to a ruled literal on that now-false ground. Both
+/// are corrected; all twelve payloads are asserted against their compiled `required`
+/// lists, this one included.
 ///
 /// `parent` is optional and is therefore omitted when absent rather than written as
 /// `null` — the rule for every optional either enum declares.

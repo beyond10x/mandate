@@ -53,7 +53,7 @@ scope:
   path: services/sts/tests/registry.rs
 - confidence: inferred
   path: services/sts/tests/resolve.rs
-revision: 8
+revision: 9
 ---
 # Implement audience registry and both credential families
 
@@ -120,3 +120,7 @@ Two coordinator interface commits — one per crate root — then the units. `cr
 ## Validation and contract
 
 `task check` and the runtime tests named above. `tests/security/cases.json` is a contract corpus, not runtime evidence. ESS: `systems/mandate/ess-inputs.yaml`. Source: `docs/requirements.md` and combined architecture.
+
+## Inherited from wave A, 2026-09-19
+
+- Superseded by wave A (design D2): the `signing` unit row no longer lands the signing port, `kid` or the rotation window in `crates/mandate-token/src/signing.rs`; `story:signing-and-verification`'s `token-signer` declares and implements `CredentialSigner` in `signing_real.rs` first, and this story's issuance consumes that port.

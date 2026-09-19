@@ -43,7 +43,7 @@ scope:
   path: services/sts/tests/store.rs
 - confidence: inferred
   path: services/sts/tests/surface.rs
-revision: 10
+revision: 11
 ---
 # Integrate public-client endpoints with STS
 
@@ -120,3 +120,7 @@ Today `clap`, `serde_json`, `sha2`. After the coordinator's admission: additiona
 ## Atomic redemption ownership
 
 Consume the non-consuming validation candidate from pkce-sessions, then re-read/revalidate current code, session/epoch, client, redirect and target inside the authoritative STS transaction. Code consumption, credential creation and audit outbox must commit together or all roll back. Race two valid candidates: exactly one transaction may issue, and crash/retry at every commit boundary must not leave consumed-without-issued or issued-without-audit state. Source: docs/architecture/ownership.md:28; docs/architecture/unmapped.md:25.
+
+## Inherited from wave A, 2026-09-19
+
+- From wave A (2026-09-19): `mandate.credential.RedeemAuthorizationCode`'s `wrong-state` outcome (a consumed code) is this story's to realize with the redemption handler at STS; `AuthorizePublicClient` in `mandate-federation` refuses a consumed code with `denied`, as its contract declares.

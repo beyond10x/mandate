@@ -4,6 +4,25 @@ All notable changes to Mandate are recorded here. The format follows [Keep a Cha
 
 ## [Unreleased]
 
+### Added
+
+- `crates/mandate-federation::verifier_real`: `RealVerifier` implementing `FederationVerifier` over `jsonwebtoken` (aws-lc): RS256 and ES256 under a deployment-configured allowlist, per-connection algorithm and allowed JWKS hosts, `JwksSource` with an in-memory and a `ureq` implementation (native TLS, platform roots, no redirects, no environment proxy), per-issuer key cache with rate-bounded refetch, max age and `forget(issuer)`; issuer, audience (`azp` for multi-audience), `exp`/`nbf`/lifetime, `typ`, `crit`, `cnf`, `sub` bound; OIDC `_verified` companions decide verified claims. The eight federation cases run through it with real tokens and no double.
+- `crates/mandate-token::signing_real`: `CredentialSigner` and `RealSigner` — RS256/ES256 signing under the same allowlist, the standard claims the signer's alone (colliding caller claims refused, bounded map), `kid` selection, a rotation window that keeps a key published through the instant of the last credential's `exp`, permanent revocation by `kid` and RFC 7638 thumbprint, PEM/DER strictness, no key material in `Debug`.
+- `crates/mandate-federation`: `DisableFederationConnection`, `UnlinkExternalPrincipal`, `DisableOAuthClient` handlers; events as the declared payload structs with `ess_name()`; agreement, emitted-event and replay tests; refusals name the contract's outcome (`denied` or `wrong-state`).
+- `crates/mandate-identity`: the five event-shape drifts corrected; `revoke_session`; `IdentityLog` opens a Session from the generated `FederationAuthenticated` payload (login → refresh → revoke replays from events alone), with the snapshot ordering enforced at append; `ESS_UNREALIZED` names what the crate does not realize.
+- `crates/mandate-model`, `crates/mandate-types`: projections, payloads and all 36 `.State` enums agree with the generated shapes with pairings asserted by ESS's name derivation.
+- `cargo xtask licenses`: a lock-wide license fold reading `deny.toml`'s allowlist (dev-only crates were unchecked by `cargo deny` here).
+
+### Changed
+
+- Two links racing on one external key resolve by a total order on the records (smallest id holds the key), so every append order folds to one projection.
+- A consumed authorization code at `AuthorizePublicClient` is the declared `denied` outcome; the wrong-state outcome is `RedeemAuthorizationCode`'s.
+- Dependencies: `jsonwebtoken` 10.4.0 (`aws_lc_rs`), `ureq` 3.4.2 (`native-tls`), `rand` and `aws-lc-rs` for test-time keys; license allowlist gains `BSD-3-Clause`, `ISC`, `CDLA-Permissive-2.0`.
+
+### Conformance at this point
+
+Gate: 1025 tests across 152 targets, `task check` exit 0. `decision-blocker:algorithm-policy` cleared on runtime cases. Conformance still executes 0 of 132 scenarios (no target yet). Not yet built: credential profiles and issuance at STS, the served login route, OAuth redemption, DNS-rebinding hardening of the JWKS source.
+
 ## [0.2.0] - 2026-09-19
 
 Wave E1 of the ESS-to-implementation drift-protection programme: the contract now declares its creators and wrong-state outcomes, the implementation carries generated contract shapes it must agree with, tenancy and resource commands emit their declared events and fold from them, and a harness validates emitted events against the closed contract. The specification changed (widened responses, one outcome per moving command), so this is a minor version under 0.x.

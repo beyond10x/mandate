@@ -1074,34 +1074,27 @@ fn every_tenancy_event_serializes_to_its_declared_payload_keys() {
     }
 }
 
-/// `mandate.graph.ResourceDeregistered` against the compiled schema, and
-/// `mandate.graph.ResourceRegistered` against the ruled shape — with `parent` omitted when
-/// absent rather than written as `null`.
+/// Both resource payloads against the compiled schema, with `parent` omitted when absent
+/// rather than written as `null`.
 ///
-/// The coordinator's ruling of 2026-09-19 (`story:tenancy-graph-events`, PS3/D2): this
-/// crate emits `{context, resource_id, resource, parent}` for `ResourceRegistered` — the
-/// shape the compiled contract declares since `story:contract-creates` added `resource_id` as the
-/// `instance:` of `creates: Resource`. The compiled schema on this branch predates that
-/// and declares `required: [context, resource]`, so this one event is asserted against the
-/// ruled literal set rather than against the file. `parent` is optional in both the ruled
-/// set and the compiled one, so an absent parent is an absent key, never a null.
+/// `mandate.graph.ResourceRegistered` used to be asserted against a ruled literal set
+/// here, on the ground that the compiled schema declared `required: [context, resource]`
+/// and predated `resource_id`. That ground was false — the compiled payload requires
+/// `context`, `resource_id` and `resource`, and has since `story:contract-creates` added
+/// `resource_id` as the `instance:` of `creates: Resource` — so the literal is gone and
+/// this event reads `required_keys(name)` like the other eleven. A literal is the one
+/// thing that cannot notice the contract moving underneath it, which is the whole reason
+/// the rest of this file reads the file.
+///
+/// `parent` is optional, so an absent parent is an absent key and never a null.
 #[test]
 fn every_resource_event_serializes_to_its_declared_payload_keys() {
-    let ruled_required: BTreeSet<String> = ["context", "resource", "resource_id"]
-        .into_iter()
-        .map(str::to_owned)
-        .collect();
     for (event, name) in resource_samples() {
         let value = serde_json::to_value(&event).expect("the payload serializes");
         let keys = serialized_keys(&value);
         match &event {
             ResourceEvent::Registered { parent, .. } => {
-                // The schema is still read, so the event vanishing from the contract fails.
-                assert!(
-                    required_keys(name).is_subset(&ruled_required),
-                    "the compiled required list outgrew the ruled one"
-                );
-                let mut expected = ruled_required.clone();
+                let mut expected = required_keys(name);
                 if parent.is_some() {
                     expected.insert("parent".to_owned());
                 }

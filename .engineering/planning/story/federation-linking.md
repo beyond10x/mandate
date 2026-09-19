@@ -34,7 +34,7 @@ scope:
   path: crates/mandate-federation/tests/record.rs
 - confidence: cited
   path: crates/mandate-federation/tests/verifier.rs
-revision: 32
+revision: 33
 ---
 # Implement verified federation and explicit linking
 
@@ -126,3 +126,7 @@ Rewritten at wave-2 close from unit commit `b452c6aedaf5532990273892ac5e42d317e2
 - The four `pub` doubles (`ConstructedVerifier::admitting`, `SequentialAllocator`, `RecordingSessionIssuer`, `RecordedPrincipals`) — `story:testkit-doubles`.
 - `UnlinkExternalPrincipal` is excluded; no in-tree path produces an `Unlinked` row, though every command now honours the state.
 - `PrincipalStore::state_of` is defaulted to `Active` because the pass-2 adversary file pins `organization_of`'s signature; the identity domain's `PrincipalDisabled` is composed by the adapter, not folded here.
+
+## Inherited from wave A, 2026-09-19
+
+- From wave A's `federation-verifier` unit (2026-09-19): `mandate.federation.FederationConnection` declares no signing algorithm, so the real verifier holds a deployment-configured per-connection algorithm (`RealVerifier::configure_connection`) validated against the RS256/ES256 allowlist. If the connection record should carry the algorithm (so the contract, not the deployment, states it), that is a `federation.yaml` change with a new `RegisterFederationConnection` input and a regenerated projection — this story's or `story:domain-runtime`'s.
