@@ -922,6 +922,7 @@ dependencies = [
  "mandate-policy",
  "mandate-sts",
  "mandate-testkit",
+ "mandate-token",
  "mandate-types",
  "serde",
  "serde_json",
