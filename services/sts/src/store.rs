@@ -50,6 +50,7 @@
 
 use mandate_token::CredentialDescriptor;
 use mandate_token::projection::CredentialEvent;
+use mandate_token::verifier::matches;
 use mandate_types::{
     AuthorityScope, AuthorizationCodeId, CredentialId, CredentialVerifier, EpochSnapshotRef,
     OAuthClientId, PersistedValue, PkceChallenge, PkceMethod, RedirectUri, ResourceServerId,
@@ -347,6 +348,31 @@ impl CodeProjection {
     pub fn authorization_code(&self, id: &AuthorizationCodeId) -> Option<AuthorizationCode> {
         self.codes.iter().find(|code| code.id == *id).cloned()
     }
+
+    /// The code whose recorded verifier is this one, whatever its lifecycle state.
+    ///
+    /// The whole slice is read: this does **not** stop at the record it matches. A scan
+    /// that returned early would take a time that depends on *where* the matching record
+    /// sits in the log, which is a position a caller can move by having codes issued, and
+    /// `mandate_token::projection::Projection::resolve` only promises that the time does
+    /// not depend on how much of a presented verifier is correct. Here it depends on how
+    /// many records there are and on nothing else.
+    ///
+    /// The comparison is [`mandate_token::verifier::matches`], which reads both values to
+    /// the end of the longer one.
+    #[must_use]
+    pub fn authorization_code_by_verifier(
+        &self,
+        verifier: &CredentialVerifier,
+    ) -> Option<AuthorizationCode> {
+        let mut found: Option<&AuthorizationCode> = None;
+        for code in &self.codes {
+            if matches(&code.verifier, verifier) && found.is_none() {
+                found = Some(code);
+            }
+        }
+        found.cloned()
+    }
 }
 
 /// The `mandate.credential.AuthorizationCode` read model, as a deciding handler names it.
@@ -357,11 +383,41 @@ impl CodeProjection {
 pub trait AuthorizationCodeReads {
     /// The code with this identity, whatever its lifecycle state.
     fn authorization_code(&self, id: &AuthorizationCodeId) -> Option<AuthorizationCode>;
+
+    /// The code whose recorded verifier is this one, whatever its lifecycle state.
+    ///
+    /// **The read the token endpoint's `code_id` is resolved through.**
+    /// `RedeemAuthorizationCode.code_id` "is resolved by the trusted adapter from proof; it
+    /// is not a public OAuth parameter or authority selector" (`credential.yaml`'s header),
+    /// and the wire form carries only the `code` — `crates/mandate-server/src/decode.rs`
+    /// refuses a caller-presented `code_id` and leaves the field absent. The composition
+    /// derives the verifier from the presented proof in
+    /// [`mandate_token::verifier::CredentialDomain::AuthorizationCodeVerifier`], the same
+    /// domain [`crate::code`] stores it in, and asks this. A proof that resolves to nothing
+    /// is the unknown-code denial [`crate::redemption::redeem_authorization_code`] already
+    /// declares for a `code_id` that names no record — the two are one refusal, reason and
+    /// all, because a caller that could tell them apart would hold an oracle over which
+    /// codes exist.
+    ///
+    /// It is a read by *verifier* and never by the code: the record keeps only the
+    /// non-reversible verifier, so an implementation answers by deriving and comparing, and
+    /// the comparison must not stop at the first differing byte.
+    fn authorization_code_by_verifier(
+        &self,
+        verifier: &CredentialVerifier,
+    ) -> Option<AuthorizationCode>;
 }
 
 impl AuthorizationCodeReads for CodeProjection {
     fn authorization_code(&self, id: &AuthorizationCodeId) -> Option<AuthorizationCode> {
         Self::authorization_code(self, id)
+    }
+
+    fn authorization_code_by_verifier(
+        &self,
+        verifier: &CredentialVerifier,
+    ) -> Option<AuthorizationCode> {
+        Self::authorization_code_by_verifier(self, verifier)
     }
 }
 
