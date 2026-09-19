@@ -1,5 +1,5 @@
 //! The registered OAuth client read model, and what makes one a *registered public
-//! client* for `mandate.federation.AuthorizePublicClient` (`federation.yaml:269-302`).
+//! client* for `mandate.federation.AuthorizePublicClient` (`federation.yaml:320-368`).
 //!
 //! # The port, and why it has a double
 //!
@@ -8,12 +8,13 @@
 //! that an adapter with a different store answers the same question. The fold's own
 //! answer is implemented here.
 //!
-//! No declared event creates a `mandate.federation.OAuthClient` — `federation.yaml`
-//! declares `DisableOAuthClient` and `OAuthClientDisabled` and no creation — so the fold
-//! records none today and this port answers `None` for every client until
-//! `story:declared-writers` declares the creating command. [`RecordedClients`] is the
-//! `pub` double the predicate is exercised through in the meantime, `pub` for the reason
-//! every double in this crate is: each file under `tests/` compiles as its own crate.
+//! `mandate.federation.OAuthClientRegistered` is the creation record — emitted by
+//! `RegisterOAuthClient`'s accepted outcome (`crate::register_client`) — so the fold
+//! materializes every client a log of this domain registered and this port answers for it.
+//! A client no registration in the log created is answered `None`, which is what makes an
+//! unregistered client a refusal rather than an admission. [`RecordedClients`] stays as the
+//! `pub` double for cases that need a client without a log, `pub` for the reason every
+//! double in this crate is: each file under `tests/` compiles as its own crate.
 //!
 //! # Exactly registered
 //!
@@ -114,8 +115,10 @@ pub fn registered_public_client(
 /// [`TargetRegistry`] over the targets it recorded.
 ///
 /// One double answering two read models, exactly as [`crate::RecordedPrincipals`] answers
-/// three: a command reads both, and neither read model has a contract event that creates
-/// its record yet.
+/// three: `AuthorizePublicClient` reads both. The client half now has a creating command
+/// and a fold that answers it (`crate::register_client`), so a case may drive either; the
+/// target half is `mandate.tenancy`'s record, which no event of this domain creates and
+/// this double is the only answer for.
 ///
 /// A fixture, never a shipped implementation: the clients and targets it answers for are
 /// the ones a test put in it. It is `pub` because every file under `tests/` compiles as

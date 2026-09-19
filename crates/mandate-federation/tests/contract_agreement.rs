@@ -29,6 +29,7 @@ use mandate_federation::record::{
     ConnectionState, ExternalPrincipal, FederationConnection, FederationEvent, LinkState,
     OAuthClient, OAuthClientState, RegisterFederationConnection,
 };
+use mandate_federation::register_client::RegisterOAuthClient;
 use mandate_model::TenantResolutionRule;
 use mandate_testkit::contract::assert_event_conforms;
 use mandate_types::{
@@ -144,10 +145,10 @@ fn carries_no_null(document: &Value, path: &str) {
     }
 }
 
-/// The seven `mandate.federation` event payloads this crate holds, over one context and
+/// The eight `mandate.federation` event payloads this crate holds, over one context and
 /// one tenant rule.
 ///
-/// `mandate.federation.AuthorizationCodeIssued` is the contract's eighth. No handler in
+/// `mandate.federation.AuthorizationCodeIssued` is the contract's ninth. No handler in
 /// this crate emits it — `crate::authorize` is non-consuming and returns a validation
 /// candidate carrying no event — so the crate holds no shape for it and this list does
 /// not invent one.
@@ -204,6 +205,14 @@ fn events(context: &VerifiedContext, rule: &TenantResolutionRule) -> Vec<Federat
             context: context.clone(),
             id: client(),
         },
+        FederationEvent::OAuthClientRegistered {
+            context: context.clone(),
+            id: client(),
+            organization_id: OrganizationId::new(uuid(3)),
+            public: true,
+            redirect_uris: vec![RedirectUri::new("https://app.example/callback")],
+            pkce_method: PkceMethod::S256,
+        },
     ]
 }
 
@@ -236,6 +245,9 @@ fn each_event_agrees(context: &VerifiedContext, rule: &TenantResolutionRule) -> 
             FederationEvent::OAuthClientDisabled { .. } => {
                 agrees::<_, events::MandateFederationOAuthClientDisabled>(event, element)
             }
+            FederationEvent::OAuthClientRegistered { .. } => {
+                agrees::<_, events::MandateFederationOAuthClientRegistered>(event, element)
+            }
         };
         // The name the event answers is decided against the contract's own event index,
         // and the payload against the generated schema of that element: a name this
@@ -245,7 +257,7 @@ fn each_event_agrees(context: &VerifiedContext, rule: &TenantResolutionRule) -> 
     }
     assert_eq!(
         held.len(),
-        7,
+        8,
         "every event shape this crate holds is round-tripped"
     );
     encoded
@@ -390,8 +402,11 @@ fn every_lifecycle_enum_agrees_with_the_state_element_it_names() {
         &clients,
     );
 
-    // The two lifecycle enums this crate holds for another domain's record; see the
-    // registry in `src/lib.rs` for why they are realized here.
+    // The two lifecycle enums this crate holds for another domain's record. Only the
+    // authorization code's is realized here (`src/lib.rs`); `PrincipalState` is the view
+    // `PrincipalStore` is answered through, and it is decided against the generated shape
+    // all the same — an unrealized type that disagrees with the contract is still a type
+    // that disagrees with the contract.
     let principals = [PrincipalState::Active, PrincipalState::Disabled];
     for state in principals {
         match state {
@@ -430,12 +445,12 @@ fn every_lifecycle_enum_agrees_with_the_state_element_it_names() {
 fn every_realized_element_is_one_the_contract_declares() {
     let ir = system_ir();
     let kinds = ["commands", "events", "entities", "errors", "types"];
-    // The two elements of another domain this crate realizes, because it holds the
-    // lifecycle enum of a record it reads through a port; see the registry in `src/lib.rs`.
-    let cross_domain = [
-        "mandate.identity.Principal.State",
-        "mandate.credential.AuthorizationCode.State",
-    ];
+    // The one element of another domain this crate realizes, because it holds the
+    // lifecycle enum of a record it reads through a port and nothing else realizes it; see
+    // the registry in `src/lib.rs`. `mandate.identity.Principal.State` was here and is not:
+    // one declared element has one realizer, and that record is folded — with its lifecycle
+    // enum — by `mandate-identity`. This crate's `PrincipalState` is the port's view of it.
+    let cross_domain = ["mandate.credential.AuthorizationCode.State"];
 
     assert!(
         !mandate_federation::ESS_REALIZATIONS.is_empty(),
@@ -453,6 +468,74 @@ fn every_realized_element_is_one_the_contract_declares() {
             element.starts_with("mandate.federation.") || cross_domain.contains(element),
             "{element} (realized by {symbol}) is neither an element of this crate's domain \
              nor one of the lifecycle enums it holds for another domain's record"
+        );
+    }
+}
+
+/// The registry and the list of what it does not cover account for every declared element
+/// of this domain, once each.
+///
+/// The reverse direction of the case above: that one asks whether every registered element
+/// is declared, this one asks whether every *declared* element is accounted for — by
+/// `ESS_REALIZATIONS` or by `ESS_UNREALIZED`, never by both and never by neither. A
+/// registry read as coverage is read as a statement about the whole domain, and an element
+/// nobody named is the one shape of drift a list of what *is* covered cannot show. This is
+/// the pair `crates/mandate-identity/tests/contract_agreement.rs` established for its
+/// domain; a cross-crate realization this crate drops and nobody picks up is invisible
+/// without it.
+///
+/// The comparison is over this crate's own domain prefix. The lifecycle enum it holds for
+/// another domain's record is not a realization of that element (`src/lib.rs`) and is
+/// decided by the case above.
+#[test]
+fn every_declared_element_of_this_domain_is_realized_or_named_as_unrealized() {
+    let ir = system_ir();
+    let realized: BTreeSet<&str> = mandate_federation::ESS_REALIZATIONS
+        .iter()
+        .map(|(element, _)| *element)
+        .filter(|element| element.starts_with("mandate.federation."))
+        .collect();
+    let unrealized: BTreeSet<&str> = mandate_federation::ESS_UNREALIZED
+        .iter()
+        .map(|(element, _)| *element)
+        .collect();
+
+    let mut declared: BTreeSet<String> = BTreeSet::new();
+    for kind in ["commands", "events", "entities", "errors", "types"] {
+        let Some(index) = ir[kind].as_object() else {
+            continue;
+        };
+        declared.extend(
+            index
+                .keys()
+                .filter(|element| element.starts_with("mandate.federation."))
+                .cloned(),
+        );
+    }
+
+    let accounted: BTreeSet<String> = realized
+        .iter()
+        .chain(unrealized.iter())
+        .map(|element| (*element).to_owned())
+        .collect();
+    assert_eq!(
+        declared, accounted,
+        "every declared element of this domain is named by ESS_REALIZATIONS or by \
+         ESS_UNREALIZED"
+    );
+    assert!(
+        realized.is_disjoint(&unrealized),
+        "an element is realized or it is not: {:?}",
+        realized.intersection(&unrealized).collect::<Vec<_>>()
+    );
+    for (element, reason) in mandate_federation::ESS_UNREALIZED {
+        assert!(
+            !reason.trim().is_empty(),
+            "{element} is named as unrealized with no reason"
+        );
+        assert!(
+            element.starts_with("mandate.federation."),
+            "{element} is not an element of this crate's domain"
         );
     }
 }
@@ -509,12 +592,30 @@ fn every_command_input_round_trips_into_its_generated_shape() {
 
         let disable_client = DisableOAuthClient {
             id: client(),
-            context,
+            context: context.clone(),
         };
         agrees::<_, commands::MandateFederationDisableOAuthClientInput>(
             &disable_client,
             "mandate.federation.DisableOAuthClient",
         );
+
+        // Both redirect sets the command admits: the registered one and the empty one,
+        // which `federation.yaml` declares is not a denial.
+        for redirect_uris in [
+            vec![RedirectUri::new("https://app.example/callback")],
+            Vec::new(),
+        ] {
+            let register_client = RegisterOAuthClient {
+                context: context.clone(),
+                public: true,
+                redirect_uris,
+                pkce_method: PkceMethod::S256,
+            };
+            agrees::<_, commands::MandateFederationRegisterOAuthClientInput>(
+                &register_client,
+                "mandate.federation.RegisterOAuthClient",
+            );
+        }
     }
 
     // Both proof-driven inputs carry a `mandate.core.CredentialProof`, which renders the

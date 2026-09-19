@@ -258,6 +258,35 @@ pub enum FederationEvent {
         /// The declared `expires_at`: when the session stops being refreshable.
         expires_at: Timestamp,
     },
+    /// `mandate.federation.OAuthClientRegistered`.
+    ///
+    /// The creation record of a `mandate.federation.OAuthClient`, whose accepted outcome
+    /// **creates** it with `id` as its instance (`federation.yaml`,
+    /// `RegisterOAuthClient`). The payload "carries the whole
+    /// mandate.federation.OAuthClient record — the client identity, its organization,
+    /// whether it is a public client, its exact redirect set and its PKCE method — so the
+    /// federation fold materializes the client from this event alone and reads no command
+    /// input or response".
+    ///
+    /// That is why this payload declares its own `organization_id` where
+    /// [`FederationEvent::FederationConnectionCreated`] declares none: the connection's
+    /// binding is read from the registering caller's context by the fold, and this one is
+    /// on the event.
+    OAuthClientRegistered {
+        /// The declared `context`.
+        context: VerifiedContext,
+        /// The declared `id`: the identity the accepted outcome returned.
+        id: OAuthClientId,
+        /// The declared `organization_id`: the organization the outcome bound the client
+        /// to, which is the one its verified context carried.
+        organization_id: OrganizationId,
+        /// The declared `public`.
+        public: bool,
+        /// The declared `redirect_uris`: the exact set admitted at authorization.
+        redirect_uris: Vec<RedirectUri>,
+        /// The declared `pkce_method`.
+        pkce_method: PkceMethod,
+    },
     /// `mandate.federation.OAuthClientDisabled`.
     OAuthClientDisabled {
         /// The declared `context`.
@@ -289,6 +318,7 @@ impl FederationEvent {
                 "mandate.federation.ExternalPrincipalProvisioned"
             }
             Self::FederationAuthenticated { .. } => "mandate.federation.FederationAuthenticated",
+            Self::OAuthClientRegistered { .. } => "mandate.federation.OAuthClientRegistered",
             Self::OAuthClientDisabled { .. } => "mandate.federation.OAuthClientDisabled",
         }
     }
@@ -335,8 +365,12 @@ pub enum FoldError {
         /// The connection the event named.
         connection_id: FederationConnectionId,
     },
-    /// `OAuthClientDisabled` names a client no event created — which no log can avoid,
-    /// because the contract declares no command that creates an `OAuthClient`.
+    /// A lifecycle event names a client no event created. A dropped event is a lost
+    /// record.
+    ///
+    /// `mandate.federation.OAuthClientRegistered` is the creation record, so a log whose
+    /// registration is missing is the only log this answers for; it is no longer every log
+    /// that carries an `OAuthClientDisabled`.
     UnknownOAuthClient {
         /// The client the event named.
         id: OAuthClientId,
@@ -540,8 +574,9 @@ impl Projection {
                         kind: *kind,
                     });
                 }
-                // The same event is the creation record of a `mandate.identity.Principal`.
-                // That entity is projected by `mandate.identity`, not here.
+                // The same event is the creation record of a `mandate.identity.Principal`,
+                // which `mandate_identity::IdentityRead::principal` folds from this same
+                // payload. That entity is projected by `mandate.identity`, not here.
                 self.record_link(
                     *connection_id,
                     *external_principal_id,
@@ -574,6 +609,43 @@ impl Projection {
                         connection_id: *connection_id,
                     });
                 }
+            }
+            // The creation record. Every field is the payload's own, `organization_id`
+            // included: the accepted outcome bound the client to the organization its
+            // verified context carried and returned it, and the contract sources the
+            // event's field from that response — so the fold reads it here rather than
+            // from `context.organization`, which is where the connection arm above reads
+            // a binding its payload does not carry.
+            //
+            // Insert-if-absent at the record's own identity, the same rule `record_link`
+            // keeps and the one `crates/mandate-model/src/tenancy.rs` states for every
+            // creating event in this workspace: a redelivered creation — which the kit's
+            // at-least-once delivery admits — writes nothing rather than returning a record
+            // from the terminal `Disabled` state to its initial one. A redelivery is the
+            // only way one client identity repeats, because the identity is minted per
+            // record by `IdentityAllocator::next_o_auth_client_id`, so two accepted
+            // `RegisterOAuthClient` commands never name one. Refusing it here would make
+            // the whole log unreadable — `fold` answers for the log, not for the client —
+            // which is a lost record for every connection and link beside it.
+            FederationEvent::OAuthClientRegistered {
+                context: _,
+                id,
+                organization_id,
+                public,
+                redirect_uris,
+                pkce_method,
+            } => {
+                if self.clients.iter().any(|client| client.id == *id) {
+                    return Ok(());
+                }
+                self.clients.push(OAuthClient {
+                    id: *id,
+                    organization_id: *organization_id,
+                    public: *public,
+                    redirect_uris: redirect_uris.clone(),
+                    pkce_method: *pkce_method,
+                    state: OAuthClientState::Recorded,
+                });
             }
             FederationEvent::OAuthClientDisabled { context: _, id } => {
                 let client = self
@@ -753,6 +825,14 @@ impl PrincipalStore for Projection {
     /// Disablement is `mandate.identity`'s own event, which this domain's log does not
     /// carry; an adapter composes this port over that domain's read model and answers
     /// `Disabled` where it applies.
+    ///
+    /// `mandate-identity` now folds the `mandate.identity.Principal` record from the same
+    /// `ExternalPrincipalProvisioned` this fold reads, and reading *that* record here would
+    /// still not be the answer: it materializes the creation and not
+    /// `mandate.identity.PrincipalDisabled`, so it answers the declared initial state for
+    /// exactly the principals this arm already answers `Active` for. The adapter that holds
+    /// both logs is the one that can say `Disabled`, and it is the seam both crates
+    /// document.
     fn state_of(&self, principal_id: &PrincipalId) -> Option<PrincipalState> {
         self.organization_of(principal_id)
             .map(|_| PrincipalState::Active)
@@ -991,6 +1071,21 @@ const _: () = {
                 persistable(organization_id);
                 persistable(epochs);
                 persistable(expires_at);
+            }
+            FederationEvent::OAuthClientRegistered {
+                context,
+                id,
+                organization_id,
+                public,
+                redirect_uris,
+                pkce_method,
+            } => {
+                persistable(context);
+                persistable(id);
+                persistable(organization_id);
+                persistable(public);
+                persistable(redirect_uris);
+                persistable(pkce_method);
             }
             FederationEvent::OAuthClientDisabled { context, id } => {
                 persistable(context);

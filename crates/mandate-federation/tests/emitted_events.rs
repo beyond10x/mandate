@@ -31,15 +31,18 @@ use mandate_federation::disable::{
     disable_federation_connection, disable_oauth_client, unlink_external_principal,
 };
 use mandate_federation::link::{LinkExternalPrincipal, link_external_principal};
-use mandate_federation::publicclient::RecordedClients;
+use mandate_federation::publicclient::{RecordedClients, registered_public_client};
 use mandate_federation::record::{
     FederationEvent, OAuthClient, OAuthClientState, Projection, RegisterFederationConnection,
     register_federation_connection,
 };
+use mandate_federation::register_client::{
+    ConfiguredAdmission, RegisterOAuthClient, register_o_auth_client,
+};
 use mandate_federation::verifier::{ConstructedVerifier, VerifiedProof};
 use mandate_federation::{
-    Denied, PrincipalState, RecordedPrincipals, RecordingSessionIssuer, RequestContext,
-    SequentialAllocator,
+    DenialClause, Denied, PrincipalState, RecordedPrincipals, RecordingSessionIssuer,
+    RequestContext, SequentialAllocator,
 };
 use mandate_model::TenantResolutionRule;
 use mandate_testkit::contract::{
@@ -47,10 +50,10 @@ use mandate_testkit::contract::{
 };
 use mandate_types::value::Uuid;
 use mandate_types::{
-    Audience, ClientId, CorrelationId, CredentialId, CredentialProof, ExternalLinkMethod,
-    ExternalPrincipalId, ExternalSubject, FederationConnectionId, Issuer, OAuthClientId,
-    OrganizationId, PkceMethod, PrincipalId, RedirectUri, SigningAlgorithm, Timestamp,
-    VerifiedContext,
+    Audience, ClientId, CorrelationId, CredentialId, CredentialProof, DenialReason,
+    ExternalLinkMethod, ExternalPrincipalId, ExternalSubject, FederationConnectionId, Issuer,
+    OAuthClientId, OrganizationId, PkceMethod, PrincipalId, RedirectUri, SigningAlgorithm,
+    Timestamp, VerifiedContext,
 };
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -62,6 +65,7 @@ const PROVISION: &str = "mandate.federation.ProvisionExternalPrincipal";
 const DISABLE_CONNECTION: &str = "mandate.federation.DisableFederationConnection";
 const UNLINK: &str = "mandate.federation.UnlinkExternalPrincipal";
 const DISABLE_CLIENT: &str = "mandate.federation.DisableOAuthClient";
+const REGISTER_CLIENT: &str = "mandate.federation.RegisterOAuthClient";
 
 const ISSUER: &str = "https://idp.example";
 const SUBJECT: &str = "subject-one";
@@ -597,4 +601,191 @@ fn a_refused_client_disable_emits_nothing() {
     )
     .expect_err("the client belongs to another organization");
     refused(DISABLE_CLIENT, &outside);
+}
+
+/// The redirect URI every admitted case here registers.
+const REDIRECT: &str = "https://app.example/callback";
+
+/// An admission that admits this organization, its one administrator and one redirect URI.
+fn admitting_registrar() -> ConfiguredAdmission {
+    ConfiguredAdmission::new()
+        .with_administrator(principal(0x51))
+        .with_organization(organization(10))
+        .with_redirect_uri(organization(10), RedirectUri::new(REDIRECT))
+}
+
+#[test]
+fn register_o_auth_client_emits_exactly_the_declared_event() {
+    let mut allocator = SequentialAllocator::new();
+    let input = RegisterOAuthClient {
+        context: context(organization(10)),
+        public: true,
+        redirect_uris: vec![RedirectUri::new(REDIRECT)],
+        pkce_method: PkceMethod::S256,
+    };
+
+    let outcome = register_o_auth_client(&input, &admitting_registrar(), &mut allocator)
+        .expect("an administrator of an admitted organization registering an admitted redirect");
+
+    assert_eq!(
+        outcome.organization_id,
+        organization(10),
+        "the client is bound to the organization the verified context carries"
+    );
+    accepted(
+        REGISTER_CLIENT,
+        &encoded(&input),
+        Some(&json!({
+            "id": encoded(&outcome.id),
+            "organization_id": encoded(&outcome.organization_id),
+        })),
+        &outcome.event,
+    );
+}
+
+/// An empty redirect set is admitted and is not a denial: the client it registers is
+/// inert, because `AuthorizePublicClient` matches the presented redirect against the
+/// registered set exactly and an empty set matches nothing (`federation.yaml`,
+/// `RegisterOAuthClient`).
+#[test]
+fn a_registration_with_an_empty_redirect_set_is_admitted_and_inert() {
+    let mut allocator = SequentialAllocator::new();
+    let input = RegisterOAuthClient {
+        context: context(organization(10)),
+        public: true,
+        redirect_uris: Vec::new(),
+        pkce_method: PkceMethod::S256,
+    };
+
+    let outcome = register_o_auth_client(&input, &admitting_registrar(), &mut allocator)
+        .expect("an empty redirect set is admitted");
+
+    accepted(
+        REGISTER_CLIENT,
+        &encoded(&input),
+        Some(&json!({
+            "id": encoded(&outcome.id),
+            "organization_id": encoded(&outcome.organization_id),
+        })),
+        &outcome.event,
+    );
+
+    let log = vec![outcome.event];
+    let folded = Projection::fold(&log).expect("one creation");
+    assert!(
+        folded
+            .clients()
+            .iter()
+            .all(|client| client.redirect_uris.is_empty()),
+        "the registered client admits no redirect"
+    );
+}
+
+/// The other value of `public`, through the handler, the contract's source check and the
+/// declared refusal at authorization.
+///
+/// `OAuthClientRegistered.public` is sourced from `input.public`
+/// (`federation.yaml`, `RegisterOAuthClient`), and `assert_payload_sources` decides that
+/// against the input the case supplies — so a suite that only ever registers `public: true`
+/// clients cannot tell a handler that reads the input from one that writes the literal
+/// `true`. Both values are carried through the same three checks; the confidential client
+/// then fails the `public` predicate `AuthorizePublicClient` applies, which is the only
+/// place the value is read again.
+#[test]
+fn register_o_auth_client_carries_the_public_flag_the_input_named() {
+    let mut allocator = SequentialAllocator::new();
+    for public in [true, false] {
+        let input = RegisterOAuthClient {
+            context: context(organization(10)),
+            public,
+            redirect_uris: vec![RedirectUri::new(REDIRECT)],
+            pkce_method: PkceMethod::S256,
+        };
+
+        let outcome = register_o_auth_client(&input, &admitting_registrar(), &mut allocator)
+            .expect("`public` is not one of the conditions the declared denial names");
+
+        accepted(
+            REGISTER_CLIENT,
+            &encoded(&input),
+            Some(&json!({
+                "id": encoded(&outcome.id),
+                "organization_id": encoded(&outcome.organization_id),
+            })),
+            &outcome.event,
+        );
+        assert_eq!(
+            encoded(&outcome.event).get("public"),
+            Some(&Value::Bool(public)),
+            "the event carries the `public` the input named, not a literal"
+        );
+
+        let folded = Projection::fold(&[outcome.event]).expect("one creation");
+        assert_eq!(
+            folded.clients()[0].public,
+            public,
+            "the fold materializes the `public` the event carried"
+        );
+
+        let resolved = registered_public_client(
+            &folded,
+            &outcome.id,
+            &RedirectUri::new(REDIRECT),
+            &organization(10),
+        );
+        match public {
+            true => {
+                resolved.expect("a public client of this organization admits its own redirect");
+            }
+            false => {
+                let denied =
+                    resolved.expect_err("a confidential client is not a registered public client");
+                assert_eq!(denied.reason, DenialReason::Denied);
+                assert_eq!(denied.clause, DenialClause::ClientNotPublic);
+            }
+        }
+    }
+}
+
+#[test]
+fn a_refused_client_registration_emits_nothing_and_leaves_the_fold_unchanged() {
+    let (held, log, _) = registered(organization(10));
+    let mut allocator = SequentialAllocator::new();
+    let input = RegisterOAuthClient {
+        context: context(organization(10)),
+        public: true,
+        redirect_uris: vec![RedirectUri::new(REDIRECT)],
+        pkce_method: PkceMethod::S256,
+    };
+
+    // Each of the three conditions the declared denial names, one admission short of the
+    // one that is accepted above.
+    for (admission, why) in [
+        (
+            ConfiguredAdmission::new()
+                .with_organization(organization(10))
+                .with_redirect_uri(organization(10), RedirectUri::new(REDIRECT)),
+            "the caller lacks client-administration authority",
+        ),
+        (
+            ConfiguredAdmission::new()
+                .with_administrator(principal(0x51))
+                .with_redirect_uri(organization(10), RedirectUri::new(REDIRECT)),
+            "the organization binding is invalid",
+        ),
+        (
+            ConfiguredAdmission::new()
+                .with_administrator(principal(0x51))
+                .with_organization(organization(10)),
+            "a redirect URI is unadmitted",
+        ),
+    ] {
+        let denied = register_o_auth_client(&input, &admission, &mut allocator).expect_err(why);
+        refused(REGISTER_CLIENT, &denied);
+        assert_eq!(
+            Projection::fold(&log).expect("the same log"),
+            held,
+            "a refusal writes no event, so the fold is the one it was"
+        );
+    }
 }

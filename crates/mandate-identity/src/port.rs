@@ -12,10 +12,13 @@
 //! generation through the type it holds, which is what keeps a non-consuming reader of
 //! this crate non-consuming.
 
-use mandate_contract::events::MandateFederationFederationAuthenticated;
+use mandate_contract::events::{
+    MandateFederationExternalPrincipalProvisioned, MandateFederationFederationAuthenticated,
+};
+use mandate_contract::types::{MandateCoreExternalLinkMethod, MandateCorePrincipalKind};
 use mandate_types::{
-    DenialReason, EpochSnapshotRef, FederationConnectionId, OrganizationId, PrincipalId,
-    SecurityEpochTarget, SessionId, Timestamp, VerifiedContext,
+    DenialReason, EpochSnapshotRef, ExternalPrincipalId, FederationConnectionId, OrganizationId,
+    PrincipalId, PrincipalKind, SecurityEpochTarget, SessionId, Timestamp, VerifiedContext,
 };
 use serde::{Serialize, Serializer};
 
@@ -90,10 +93,98 @@ impl EpochState {
     }
 }
 
+/// `mandate.identity.Principal.State`.
+///
+/// The two states `systems/mandate/domains/identity.yaml` declares. The fold reaches
+/// `Active` alone today: this crate realizes no command that moves a principal, and
+/// `mandate.identity.PrincipalDisabled` — the event `DisablePrincipal`'s accepted outcome
+/// emits — is not folded here. A reader that needs the disablement composes this port over
+/// the store that carries that event; see [`crate::ESS_UNREALIZED`].
+///
+/// `mandate-federation` holds its own enum over the same declared lifecycle, for the port
+/// it reads this record through. Two readers of one declared lifecycle, both decided
+/// against the same generated shape.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub enum PrincipalState {
+    /// The declared initial state.
+    Active,
+    /// The declared terminal state.
+    Disabled,
+}
+
+/// `mandate.identity.Principal`, as this crate folds it.
+///
+/// The declared record is an identity, a `kind` and a `display_name`
+/// (`systems/mandate/domains/identity.yaml`). No command in this contract declares its
+/// creation: the writer is declared in that file's header, and it is
+/// `mandate.federation.ExternalPrincipalProvisioned`, which "carries principal_id, kind
+/// and display_name — the whole Principal record — and the identity fold materializes the
+/// principal from that event alone".
+///
+/// The field names on the wire are the declared ones, which
+/// `crates/mandate-identity/tests/contract_agreement.rs` decides against the generated
+/// entity shape; the Rust names are the crate's own and each accessor is named for what it
+/// answers. Like [`Session`], this is a projection of the fold and not a canonical
+/// `mandate.core.*` type; see the crate documentation.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Principal {
+    id: PrincipalId,
+    kind: PrincipalKind,
+    display_name: String,
+    state: PrincipalState,
+}
+
+impl Principal {
+    /// The record a seeding event puts into existence, in the declared initial state.
+    #[must_use]
+    pub const fn new(id: PrincipalId, kind: PrincipalKind, display_name: String) -> Self {
+        Self {
+            id,
+            kind,
+            display_name,
+            state: PrincipalState::Active,
+        }
+    }
+
+    /// The declared `id`.
+    #[must_use]
+    pub const fn id(&self) -> &PrincipalId {
+        &self.id
+    }
+
+    /// The declared `kind`.
+    #[must_use]
+    pub const fn kind(&self) -> PrincipalKind {
+        self.kind
+    }
+
+    /// The declared `display_name`.
+    #[must_use]
+    pub fn display_name(&self) -> &str {
+        &self.display_name
+    }
+
+    /// The lifecycle state.
+    #[must_use]
+    pub const fn state(&self) -> PrincipalState {
+        self.state
+    }
+}
+
 /// The read port. Every method takes `&self`; none of them mutates anything.
 pub trait IdentityRead {
     /// The session with this identity, when the fold records one.
     fn resolve(&self, id: &SessionId) -> Option<Session>;
+
+    /// The principal with this identity, when the fold records one.
+    ///
+    /// A principal the log has no creation record for answers `None` rather than a
+    /// defaulted record: `identity.yaml` states that "a principal named by
+    /// LinkExternalPrincipal rather than provisioned is seeded by no event today and has
+    /// no record until a command creates one". An opening that names such a principal is
+    /// still folded — [`IdentityLog`] refuses no opening for it — so `None` here is the
+    /// answer for a principal that exists outside this log, not a refusal of the session.
+    fn principal(&self, id: &PrincipalId) -> Option<Principal>;
 
     /// The authoritative generation for a target, and the version it was read at.
     ///
@@ -237,6 +328,24 @@ pub enum IdentityEvent {
     /// both: whichever of the two arrives first opens the session, and the second is
     /// refused.
     FederationAuthenticated(MandateFederationFederationAuthenticated),
+    /// A principal came into existence through a just-in-time first login.
+    ///
+    /// `mandate.federation.ExternalPrincipalProvisioned`. No command in this contract
+    /// declares the Principal's creation — `ProvisionExternalPrincipal`'s accepted outcome
+    /// spends its one subject on `mandate.federation.ExternalPrincipal`, and an ESS
+    /// outcome declares one `creates`/`moves`/`updates` — so the writer is declared in
+    /// `identity.yaml`'s header instead: this event "carries principal_id, kind and
+    /// display_name — the whole Principal record — and the identity fold materializes the
+    /// principal from that event alone".
+    ///
+    /// It is the *generated* shape and not a hand-written copy, for the same reason
+    /// [`IdentityEvent::FederationAuthenticated`] is.
+    ///
+    /// One identity is created once: a second provisioning of a principal a recorded
+    /// provisioning already names is refused by [`IdentityLog::try_record`] and ignored by
+    /// the fold, because a second creation would return a record the log already holds to
+    /// its initial state.
+    ExternalPrincipalProvisioned(MandateFederationExternalPrincipalProvisioned),
     /// `mandate.identity.SessionRevoked`.
     SessionRevoked(SessionRevoked),
     /// An epoch snapshot was recorded for a session to refer to.
@@ -261,6 +370,9 @@ impl IdentityEvent {
         match self {
             Self::SessionOpened(_) => "mandate.identity.SessionOpened",
             Self::FederationAuthenticated(_) => "mandate.federation.FederationAuthenticated",
+            Self::ExternalPrincipalProvisioned(_) => {
+                "mandate.federation.ExternalPrincipalProvisioned"
+            }
             Self::SessionRevoked(_) => "mandate.identity.SessionRevoked",
             Self::EpochSnapshotRecorded(_) => "mandate.identity.EpochSnapshotRecorded",
             Self::SecurityEpochRecorded(_) => "mandate.identity.SecurityEpochRecorded",
@@ -278,7 +390,31 @@ impl IdentityEvent {
             Self::SessionOpened(opened) => Some(opened.id),
             Self::SessionRevoked(revoked) => Some(revoked.id),
             Self::FederationAuthenticated(login) => declared_session_id(login),
-            Self::EpochSnapshotRecorded(_)
+            Self::ExternalPrincipalProvisioned(_)
+            | Self::EpochSnapshotRecorded(_)
+            | Self::SecurityEpochRecorded(_)
+            | Self::SecurityEpochIncremented(_) => None,
+        }
+    }
+
+    /// The principal identity this event *creates*, when it creates one.
+    ///
+    /// Only the seeding event does. The two opening events and the revocation name a
+    /// principal without creating it — an opening is not a creation record for the
+    /// principal it names — so a session for a principal no provisioning created is
+    /// neither refused here nor answered for by [`IdentityRead::principal`]; that is the
+    /// explicit-link path, and `identity.yaml` states it has no record until a command
+    /// creates one. The match is exhaustive and carries no wildcard arm, so a variant
+    /// added that creates a principal does not compile until this answers for it.
+    fn creates_principal(&self) -> Option<PrincipalId> {
+        match self {
+            Self::ExternalPrincipalProvisioned(provisioned) => {
+                principal_of(provisioned).map(|record| *record.id())
+            }
+            Self::SessionOpened(_)
+            | Self::FederationAuthenticated(_)
+            | Self::SessionRevoked(_)
+            | Self::EpochSnapshotRecorded(_)
             | Self::SecurityEpochRecorded(_)
             | Self::SecurityEpochIncremented(_) => None,
         }
@@ -319,6 +455,78 @@ fn session_of(login: &MandateFederationFederationAuthenticated) -> Option<Sessio
         )
         .with_connection(FederationConnectionId::parse(&login.connection_id.0).ok()?),
     )
+}
+
+/// The `mandate.identity.Principal` a provisioning materializes, when every value it
+/// carries is one the contract admits.
+///
+/// The same seam as [`session_of`], for the other record a `mandate.federation` payload
+/// creates in this domain, and — like that one — it decides **every declared field of the
+/// payload and not only the ones the record keeps**. Three of the four identifiers and the
+/// timestamp are parsed and dropped: the record carries none of them, and the reason to
+/// read them is the rule [`IdentityLog`] states for the opening arm beside this one, *a
+/// payload the closed schema refuses is never appended*. A fold that materialized a record
+/// out of an event no conforming producer could have written would be inventing the
+/// record, not rebuilding it.
+///
+/// Four things, and the oracle for the first three is
+/// `generated/schema/events/mandate.federation.ExternalPrincipalProvisioned.schema.json`:
+///
+/// * **The declared lexical form of every identifier.** `organization_id`,
+///   `connection_id`, `external_principal_id` and `principal_id` each carry the uuid
+///   pattern; `mandate-contract` states structure and not lexical form, so the form is
+///   decided here.
+/// * **The declared `date-time`.** `linked_at` is read exactly as the opening event's
+///   `expires_at` is, with [`crate::session::names_an_instant`].
+/// * **Both literals the contract pins.** `federation.yaml` pins `kind: User` and
+///   `link_method: ConfiguredFederation`, and
+///   `mandate_federation::record::Projection::apply` refuses each separately
+///   (`FoldError::ProvisionedKind`, `FoldError::ProvisionedLinkMethod`). `identity.yaml`
+///   says what the first means — "the seeding event binds kind to the literal User, so
+///   this contract declares a writer for User principals alone".
+/// * **The subject the sibling fold reads as a corrupt log.** This one is *not* a schema
+///   rule — `mandate.core.ExternalSubject` is an unconstrained string — it is
+///   `mandate_federation::record::Projection`'s: "an empty key component is not a key
+///   component ... a log written before the commands refused one is read as corrupt rather
+///   than collapsed" (`FoldError::EmptySubject`, `FoldError::SubjectNotTrimmed`). Both
+///   folds read one log, and a payload one of them calls unreadable is not a payload the
+///   other may materialize a record out of.
+///
+/// `correlation` and `display_name` are the two declared fields with nothing to decide:
+/// each is an unconstrained `type: string` in the generated schema and neither fold
+/// constrains it further.
+///
+/// Both matches are exhaustive and carry no wildcard, so a variant added to
+/// `mandate.core.PrincipalKind` or `mandate.core.ExternalLinkMethod` does not compile
+/// until this answers for it.
+fn principal_of(provisioned: &MandateFederationExternalPrincipalProvisioned) -> Option<Principal> {
+    let kind = match provisioned.kind {
+        MandateCorePrincipalKind::User => PrincipalKind::User,
+        MandateCorePrincipalKind::Service
+        | MandateCorePrincipalKind::Agent
+        | MandateCorePrincipalKind::ServiceAccount => return None,
+    };
+    match provisioned.link_method {
+        MandateCoreExternalLinkMethod::ConfiguredFederation => {}
+        MandateCoreExternalLinkMethod::Administrator
+        | MandateCoreExternalLinkMethod::AuthenticatedConfirmation
+        | MandateCoreExternalLinkMethod::VerifiedMigration
+        | MandateCoreExternalLinkMethod::SecuritySupport => return None,
+    }
+    let id = PrincipalId::parse(&provisioned.principal_id.0).ok()?;
+    // Parsed for their form and then dropped: the declared record has no field for any of
+    // them, and a payload the closed schema refuses is never appended.
+    let _organization = OrganizationId::parse(&provisioned.organization_id.0).ok()?;
+    let _connection = FederationConnectionId::parse(&provisioned.connection_id.0).ok()?;
+    let _link = ExternalPrincipalId::parse(&provisioned.external_principal_id.0).ok()?;
+    if !crate::session::names_an_instant(&Timestamp::new(provisioned.linked_at.clone())) {
+        return None;
+    }
+    let subject = provisioned.subject.0.as_str();
+    if subject.trim().is_empty() || subject != subject.trim() {
+        return None;
+    }
+    Some(Principal::new(id, kind, provisioned.display_name.clone()))
 }
 
 /// An event log held in memory, and the fold over it.
@@ -482,6 +690,22 @@ impl IdentityLog {
                     }
                 }
             }
+            // The seeding event of `mandate.identity.Principal`, decided the same way the
+            // login arm is decided: a payload whose declared forms and pinned literals are
+            // not the ones the contract admits materializes no principal, and appending it
+            // would record a creation the fold could never resolve. Fail closed.
+            //
+            // The identity rule is the opening events' rule, for this record: a principal
+            // a recorded provisioning already created has been created once, and a second
+            // creation would return the record the log holds to its initial state. It is
+            // decided over the recorded history and not over a projection of it, because a
+            // guard keyed on a projection is a guard on the order events arrived in.
+            IdentityEvent::ExternalPrincipalProvisioned(provisioned) => {
+                match principal_of(provisioned) {
+                    None => true,
+                    Some(record) => self.records_principal(record.id()),
+                }
+            }
             IdentityEvent::EpochSnapshotRecorded(snapshot) => {
                 self.records_snapshot(&snapshot.id) || !self.records_every_dimension(snapshot)
             }
@@ -495,6 +719,17 @@ impl IdentityLog {
         self.events
             .iter()
             .any(|event| event.names_session().as_ref() == Some(id))
+    }
+
+    /// Whether any recorded event created this principal identity.
+    ///
+    /// "Created", not "named": an opening names a principal and creates no record for it,
+    /// so a session on the explicit-link path never makes a later provisioning of that
+    /// principal unrecordable — and never makes one recordable twice either.
+    fn records_principal(&self, id: &PrincipalId) -> bool {
+        self.events
+            .iter()
+            .any(|event| event.creates_principal().as_ref() == Some(id))
     }
 
     /// Whether the log states a generation for every dimension a snapshot names.
@@ -566,6 +801,27 @@ impl IdentityRead for IdentityLog {
             }
         }
         resolved
+    }
+
+    /// The principal its seeding event created.
+    ///
+    /// One event creates it — `mandate.federation.ExternalPrincipalProvisioned`, declared
+    /// as this record's writer in `identity.yaml` — and it carries the whole declared
+    /// record, so the fold materializes it from that event alone and consults no command
+    /// input, no response and no request context. The first creation of an identity is the
+    /// record: a second is refused by [`IdentityLog::try_record`], and one that reached the
+    /// log another way does not rewrite the first.
+    ///
+    /// A principal this log holds no creation for answers `None`. That is the
+    /// explicit-link path, where `LinkExternalPrincipal` names a principal no event of this
+    /// contract creates.
+    fn principal(&self, id: &PrincipalId) -> Option<Principal> {
+        self.events.iter().find_map(|event| match event {
+            IdentityEvent::ExternalPrincipalProvisioned(provisioned) => {
+                principal_of(provisioned).filter(|record| record.id() == id)
+            }
+            _ => None,
+        })
     }
 
     fn current(&self, target: &SecurityEpochTarget) -> EpochState {

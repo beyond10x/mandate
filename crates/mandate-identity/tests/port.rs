@@ -2,6 +2,12 @@
 //! and the write port as a compare-and-set on the expected stream version
 //! (`docs/adr/0009-event-sourced-persistence.md`, `decision-blocker:epoch-atomicity`).
 
+use mandate_contract::events::MandateFederationExternalPrincipalProvisioned;
+use mandate_contract::types::{
+    MandateCoreCorrelationId, MandateCoreExternalLinkMethod, MandateCoreExternalPrincipalId,
+    MandateCoreExternalSubject, MandateCoreFederationConnectionId, MandateCoreOrganizationId,
+    MandateCorePrincipalId, MandateCorePrincipalKind,
+};
 use mandate_identity::{
     EpochSnapshotRecorded, EpochState, Generation, IdentityEvent, IdentityLog, IdentityRead,
     SecurityEpochRecorded, SecurityEpochSnapshot, SecurityEpochWrite, Session, SessionOpened,
@@ -12,6 +18,8 @@ use mandate_types::{
     Audience, CorrelationId, CredentialId, DenialReason, EpochSnapshotRef, FederationConnectionId,
     OrganizationId, PrincipalId, SecurityEpochTarget, SessionId, Timestamp, Uuid, VerifiedContext,
 };
+
+const DISPLAY_NAME: &str = "subject-one";
 
 fn uuid(tag: u8) -> Uuid {
     Uuid::from_bytes([tag; 16])
@@ -48,6 +56,29 @@ fn opened() -> SessionOpened {
         connection_id: None,
         epochs: EpochSnapshotRef::new(uuid(10)),
         expires_at: Timestamp::new("2026-09-18T00:00:00Z"),
+    }
+}
+
+/// The declared uuid form, as the generated shapes carry it: a string, because
+/// `mandate-contract` states structure and not lexical form.
+fn declared(tag: u8) -> String {
+    uuid(tag).to_string()
+}
+
+/// The seeding event of `mandate.identity.Principal`, in the generated shape the fold
+/// reads it as: `mandate.federation.ExternalPrincipalProvisioned` (`identity.yaml`).
+fn provisioned() -> MandateFederationExternalPrincipalProvisioned {
+    MandateFederationExternalPrincipalProvisioned {
+        organization_id: MandateCoreOrganizationId(declared(2)),
+        correlation: MandateCoreCorrelationId("correlation".to_owned()),
+        connection_id: MandateCoreFederationConnectionId(declared(4)),
+        principal_id: MandateCorePrincipalId(declared(1)),
+        kind: MandateCorePrincipalKind::User,
+        display_name: DISPLAY_NAME.to_owned(),
+        external_principal_id: MandateCoreExternalPrincipalId(declared(0x71)),
+        subject: MandateCoreExternalSubject("subject-one".to_owned()),
+        link_method: MandateCoreExternalLinkMethod::ConfiguredFederation,
+        linked_at: "2026-09-19T00:00:00Z".to_owned(),
     }
 }
 
@@ -560,6 +591,140 @@ fn every_seeding_path_refuses_exactly_what_the_fallible_one_refuses() {
         assert_eq!(
             infallible, expected,
             "the infallible seeding path refuses what the fallible one refuses"
+        );
+    }
+}
+
+/// The seeding event of `mandate.identity.Principal` creates one record once.
+///
+/// The same rule the two opening events carry, for the record this event creates: an
+/// identity a recorded event already created has been created, and a second creation
+/// would return a record the log already holds to its initial state.
+#[test]
+fn a_second_provisioning_of_a_principal_the_log_already_records_is_refused() {
+    let mut log = IdentityLog::new();
+    log.record(IdentityEvent::ExternalPrincipalProvisioned(provisioned()));
+    let held = log.clone();
+
+    let refused = log
+        .try_record(IdentityEvent::ExternalPrincipalProvisioned(provisioned()))
+        .expect_err("this principal was created by a recorded event");
+
+    assert_eq!(refused.reason(), DenialReason::Denied);
+    assert_eq!(log, held, "a refused event is not appended");
+    assert_eq!(
+        log.principal(&principal())
+            .expect("the first provisioning's record")
+            .display_name(),
+        DISPLAY_NAME,
+        "the record is the first provisioning's"
+    );
+}
+
+/// Every declared field of the seeding event that has something to decide, enumerated.
+///
+/// Three kinds of decision, and none of them is this file's invention:
+///
+/// * The **two literals** `federation.yaml` pins — `kind: User` and
+///   `link_method: ConfiguredFederation`. `identity.yaml` states what the first means:
+///   "the seeding event binds kind to the literal User, so this contract declares a writer
+///   for User principals alone". `mandate_federation`'s fold refuses each separately over
+///   the same log, so every non-declared value of both is listed.
+/// * The **declared lexical forms** the generated schema pins: the uuid pattern on all
+///   four identifiers, and `format: date-time` on `linked_at`.
+/// * The **subject** `mandate_federation::record::Projection` reads as a corrupt log,
+///   empty or untrimmed — not a schema rule, the sibling fold's.
+///
+/// `correlation` and `display_name` are absent because there is nothing to decide about
+/// them: each is an unconstrained `type: string` in the generated schema. A payload
+/// failing any of the above is not the declared seeding event, so it materializes no
+/// principal and is refused rather than folded into a record the contract does not admit.
+#[test]
+fn a_provisioning_whose_declared_forms_are_not_the_admitted_ones_is_refused() {
+    for undeclared in [
+        MandateFederationExternalPrincipalProvisioned {
+            kind: MandateCorePrincipalKind::Service,
+            ..provisioned()
+        },
+        MandateFederationExternalPrincipalProvisioned {
+            kind: MandateCorePrincipalKind::Agent,
+            ..provisioned()
+        },
+        MandateFederationExternalPrincipalProvisioned {
+            kind: MandateCorePrincipalKind::ServiceAccount,
+            ..provisioned()
+        },
+        // The second pinned literal: the four methods `mandate.core.ExternalLinkMethod`
+        // declares that this payload does not name.
+        MandateFederationExternalPrincipalProvisioned {
+            link_method: MandateCoreExternalLinkMethod::Administrator,
+            ..provisioned()
+        },
+        MandateFederationExternalPrincipalProvisioned {
+            link_method: MandateCoreExternalLinkMethod::AuthenticatedConfirmation,
+            ..provisioned()
+        },
+        MandateFederationExternalPrincipalProvisioned {
+            link_method: MandateCoreExternalLinkMethod::VerifiedMigration,
+            ..provisioned()
+        },
+        MandateFederationExternalPrincipalProvisioned {
+            link_method: MandateCoreExternalLinkMethod::SecuritySupport,
+            ..provisioned()
+        },
+        // Every declared identifier out of its declared lexical form, exactly as a
+        // malformed login materializes no session. The record keeps only `principal_id`;
+        // the other three are decided because a payload the closed schema refuses is
+        // never appended.
+        MandateFederationExternalPrincipalProvisioned {
+            principal_id: MandateCorePrincipalId("not-a-uuid".to_owned()),
+            ..provisioned()
+        },
+        MandateFederationExternalPrincipalProvisioned {
+            organization_id: MandateCoreOrganizationId("not-a-uuid".to_owned()),
+            ..provisioned()
+        },
+        MandateFederationExternalPrincipalProvisioned {
+            connection_id: MandateCoreFederationConnectionId("not-a-uuid".to_owned()),
+            ..provisioned()
+        },
+        MandateFederationExternalPrincipalProvisioned {
+            external_principal_id: MandateCoreExternalPrincipalId("not-a-uuid".to_owned()),
+            ..provisioned()
+        },
+        // The declared `date-time`, read exactly as the opening event's `expires_at` is.
+        MandateFederationExternalPrincipalProvisioned {
+            linked_at: "not-an-instant".to_owned(),
+            ..provisioned()
+        },
+        // The subject `mandate_federation::record::Projection` reads as a corrupt log:
+        // empty, whitespace-only, and not its own trim.
+        MandateFederationExternalPrincipalProvisioned {
+            subject: MandateCoreExternalSubject(String::new()),
+            ..provisioned()
+        },
+        MandateFederationExternalPrincipalProvisioned {
+            subject: MandateCoreExternalSubject("   ".to_owned()),
+            ..provisioned()
+        },
+        MandateFederationExternalPrincipalProvisioned {
+            subject: MandateCoreExternalSubject("  subject-one  ".to_owned()),
+            ..provisioned()
+        },
+    ] {
+        let mut log = IdentityLog::new();
+        let refused = log
+            .try_record(IdentityEvent::ExternalPrincipalProvisioned(
+                undeclared.clone(),
+            ))
+            .expect_err("the payload is not the declared seeding event");
+
+        assert_eq!(refused.reason(), DenialReason::Denied);
+        assert_eq!(log, IdentityLog::new(), "a refused event is not appended");
+        assert_eq!(
+            log.principal(&principal()),
+            None,
+            "{undeclared:?} materializes no principal"
         );
     }
 }

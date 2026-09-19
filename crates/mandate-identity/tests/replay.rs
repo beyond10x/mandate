@@ -15,23 +15,29 @@
 //! equality says the rebuild is complete; the field comparison says the log is what it was
 //! rebuilt from. This is the shape `crates/mandate-model/tests/replay.rs` established.
 
-use mandate_contract::events::MandateFederationFederationAuthenticated;
+use mandate_contract::events::{
+    MandateFederationExternalPrincipalProvisioned, MandateFederationFederationAuthenticated,
+};
 use mandate_contract::types::{
     MandateCoreAudience, MandateCoreCorrelationId, MandateCoreEpochSnapshotRef,
+    MandateCoreExternalLinkMethod, MandateCoreExternalPrincipalId, MandateCoreExternalSubject,
     MandateCoreFederationConnectionId, MandateCoreOrganizationId, MandateCorePrincipalId,
-    MandateCoreSessionId,
+    MandateCorePrincipalKind, MandateCoreSessionId,
 };
 use mandate_identity::{
     EpochSnapshotRecorded, Generation, IdentityEvent, IdentityLog, IdentityRead,
-    IncrementSecurityEpoch, SecurityEpochRecorded, SessionState, refresh_session, revoke_session,
+    IncrementSecurityEpoch, PrincipalState, SecurityEpochRecorded, SessionState, refresh_session,
+    revoke_session,
 };
 use mandate_types::{
     Audience, CorrelationId, CredentialId, DenialReason, EpochSnapshotRef, FederationConnectionId,
-    OrganizationId, PrincipalId, SecurityEpochTarget, SessionId, Timestamp, Uuid, VerifiedContext,
+    OrganizationId, PrincipalId, PrincipalKind, SecurityEpochTarget, SessionId, Timestamp, Uuid,
+    VerifiedContext,
 };
 
 const EXPIRES_AT: &str = "2026-12-31T00:00:00Z";
 const AS_OF: &str = "2026-09-19T00:00:00Z";
+const DISPLAY_NAME: &str = "subject-one";
 
 fn uuid(tag: u8) -> Uuid {
     Uuid::from_bytes([tag; 16])
@@ -93,6 +99,51 @@ fn login() -> MandateFederationFederationAuthenticated {
         epochs: MandateCoreEpochSnapshotRef(declared(10)),
         expires_at: EXPIRES_AT.to_owned(),
     }
+}
+
+/// The payload `mandate.federation.ProvisionExternalPrincipal`'s accepted outcome emits,
+/// which is `mandate.identity.Principal`'s declared seeding event (`identity.yaml`).
+///
+/// It is the generated shape and not a copy, for the same reason [`login`] is: the
+/// direction is `mandate-federation → mandate-identity` and never the reverse.
+fn provisioned() -> MandateFederationExternalPrincipalProvisioned {
+    MandateFederationExternalPrincipalProvisioned {
+        organization_id: MandateCoreOrganizationId(declared(2)),
+        correlation: MandateCoreCorrelationId("identity-alignment".to_owned()),
+        connection_id: MandateCoreFederationConnectionId(declared(4)),
+        principal_id: MandateCorePrincipalId(declared(1)),
+        kind: MandateCorePrincipalKind::User,
+        display_name: DISPLAY_NAME.to_owned(),
+        external_principal_id: MandateCoreExternalPrincipalId(declared(0x71)),
+        subject: MandateCoreExternalSubject("subject-one".to_owned()),
+        link_method: MandateCoreExternalLinkMethod::ConfiguredFederation,
+        linked_at: AS_OF.to_owned(),
+    }
+}
+
+/// The three events a session's `epochs` handle needs before any opening names it.
+fn seeded_epochs() -> Vec<IdentityEvent> {
+    [
+        (SecurityEpochTarget::Principal(principal()), 3),
+        (SecurityEpochTarget::Organization(organization()), 7),
+        (SecurityEpochTarget::Federation(connection()), 1),
+    ]
+    .into_iter()
+    .map(|(target, value)| {
+        IdentityEvent::SecurityEpochRecorded(SecurityEpochRecorded {
+            target,
+            generation: Generation::new(value).expect("a non-negative generation"),
+        })
+    })
+    .chain(std::iter::once(IdentityEvent::EpochSnapshotRecorded(
+        EpochSnapshotRecorded {
+            id: handle(),
+            principal_id: principal(),
+            organization_id: organization(),
+            connection_id: Some(connection()),
+        },
+    )))
+    .collect()
 }
 
 /// The same log, rebuilt from its events and nothing else.
@@ -192,27 +243,7 @@ fn a_second_open_of_a_session_the_log_already_records_is_refused() {
     // snapshot the two openings name: an opening whose `epochs` handle the log does not
     // record, or a recording whose dimensions it has said nothing about, is refused for
     // *that* reason, which is not the one this case is about.
-    let seeding: Vec<IdentityEvent> = [
-        (SecurityEpochTarget::Principal(principal()), 3),
-        (SecurityEpochTarget::Organization(organization()), 7),
-        (SecurityEpochTarget::Federation(connection()), 1),
-    ]
-    .into_iter()
-    .map(|(target, value)| {
-        IdentityEvent::SecurityEpochRecorded(SecurityEpochRecorded {
-            target,
-            generation: Generation::new(value).expect("a non-negative generation"),
-        })
-    })
-    .chain(std::iter::once(IdentityEvent::EpochSnapshotRecorded(
-        EpochSnapshotRecorded {
-            id: handle(),
-            principal_id: principal(),
-            organization_id: organization(),
-            connection_id: Some(connection()),
-        },
-    )))
-    .collect();
+    let seeding: Vec<IdentityEvent> = seeded_epochs();
 
     let mut federated_first = IdentityLog::new();
     for event in &seeding {
@@ -250,6 +281,105 @@ fn a_second_open_of_a_session_the_log_already_records_is_refused() {
             .connection(),
         None,
         "the record is the first open's"
+    );
+}
+
+/// `mandate.identity.Principal`: rebuilt from the provisioning that seeded it.
+///
+/// `identity.yaml` declares the writer rather than a command: "mandate.identity.Principal
+/// is seeded by mandate.federation.ExternalPrincipalProvisioned, which carries
+/// principal_id, kind and display_name — the whole Principal record — and the identity
+/// fold materializes the principal from that event alone."
+#[test]
+fn a_principal_replays_from_the_provisioning_that_seeded_it() {
+    let mut live = IdentityLog::new().with_as_of(Timestamp::new(AS_OF));
+    live.record(IdentityEvent::ExternalPrincipalProvisioned(provisioned()));
+
+    let replayed = rebuilt(&live);
+    let record = replayed
+        .principal(&principal())
+        .expect("the provisioning seeded the principal");
+
+    // Every declared field of `mandate.identity.Principal`, read off the rebuilt record.
+    assert_eq!(record.id(), &principal());
+    assert_eq!(record.kind(), PrincipalKind::User);
+    assert_eq!(record.display_name(), DISPLAY_NAME);
+    assert_eq!(record.state(), PrincipalState::Active);
+
+    assert_eq!(
+        Some(record),
+        live.principal(&principal()),
+        "the rebuilt record is the live one"
+    );
+    assert_eq!(
+        replayed.principal(&PrincipalId::new(uuid(9))),
+        None,
+        "a principal no event provisioned has no record"
+    );
+}
+
+/// The just-in-time first login, in the order the adapter performs it: the provisioning
+/// records the principal, and the authentication that follows opens the session.
+///
+/// `docs/architecture/federated-login.md`: `ProvisionExternalPrincipal` mints no session
+/// and the adapter calls `AuthenticateFederation` again.
+#[test]
+fn a_just_in_time_first_login_records_the_principal_and_then_opens_the_session() {
+    let mut live = IdentityLog::new().with_as_of(Timestamp::new(AS_OF));
+    live.record(IdentityEvent::ExternalPrincipalProvisioned(provisioned()));
+    for event in seeded_epochs() {
+        live.record(event);
+    }
+    live.record(IdentityEvent::FederationAuthenticated(login()));
+
+    let replayed = rebuilt(&live);
+    assert_eq!(
+        replayed
+            .principal(&principal())
+            .expect("the provisioning seeded the principal")
+            .display_name(),
+        DISPLAY_NAME
+    );
+    assert_eq!(
+        replayed
+            .resolve(&session_id())
+            .expect("the login opened the session")
+            .principal(),
+        &principal(),
+        "the session names the principal the provisioning created"
+    );
+    assert_eq!(replayed, live, "the rebuilt log is the live one");
+}
+
+/// The explicit-link path: a session opens for a principal no event provisioned, and the
+/// fold answers `None` for that principal rather than refusing the opening.
+///
+/// `identity.yaml`: "A principal named by LinkExternalPrincipal rather than provisioned is
+/// seeded by no event today and has no record until a command creates one." An opening is
+/// not a creation record for the principal it names, so the Session arm reads no principal
+/// record and the login is folded exactly as it is on the just-in-time path.
+#[test]
+fn an_explicit_link_opens_a_session_for_a_principal_the_fold_answers_none_for() {
+    let mut live = IdentityLog::new().with_as_of(Timestamp::new(AS_OF));
+    for event in seeded_epochs() {
+        live.record(event);
+    }
+    live.record(IdentityEvent::FederationAuthenticated(login()));
+
+    let replayed = rebuilt(&live);
+    assert_eq!(
+        replayed.principal(&principal()),
+        None,
+        "no provisioning created this principal, so the fold has no record of it"
+    );
+    let session = replayed
+        .resolve(&session_id())
+        .expect("the opening is not refused for a principal with no record");
+    assert_eq!(session.principal(), &principal());
+    assert_eq!(session.state(), SessionState::Active);
+    assert!(
+        refresh_session(&replayed, &session_id()).is_ok(),
+        "the session is refreshable exactly as it is on the provisioned path"
     );
 }
 
