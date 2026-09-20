@@ -3,6 +3,7 @@ mod documents;
 mod emit;
 mod licenses;
 mod mutants;
+mod obligations_registry;
 mod receipt;
 use clap::{Parser, Subcommand};
 use serde_json::Value;
@@ -31,6 +32,15 @@ enum Action {
     /// Every named mutant of `tests/mutants/`, applied to a copy of this tree and refused by
     /// the target it names; the copy, the build directory and the bounds are in [`mutants`].
     Mutants,
+    /// The obligations registry: every external denial clause of an implemented command bound
+    /// to the real-path test that decides it, or deferred to a live story; `--write` rewrites
+    /// `contracts/conformance/obligations-report.json` from the registry.
+    ObligationsRegistry {
+        #[arg(long, default_value = ".")]
+        root: PathBuf,
+        #[arg(long)]
+        write: bool,
+    },
     /// The coverage map: every compiled contract element mapped to its implementation and
     /// the checks that decide it, with the per-kind table. `root` is the checkout whose
     /// manifest and compiled model are read; the planning store is always this workspace's.
@@ -432,6 +442,19 @@ fn mutation_controls() -> Result<()> {
     Ok(())
 }
 
+/// The obligations registry step: the seven `contracts/obligations/<crate>.json` files
+/// against the compiled model, the store, the compiled test binaries and the committed
+/// report; the per-crate table is what it prints. The rules are in [`obligations_registry`].
+fn obligations_registry_step(root: &Path, write: bool) -> Result<()> {
+    let table = if write {
+        obligations_registry::obligations_registry_write(root)?
+    } else {
+        obligations_registry::obligations_registry(root)?
+    };
+    println!("{table}");
+    Ok(())
+}
+
 fn coverage_map(root: &Path) -> Result<()> {
     println!("{}", coverage::coverage(root)?);
     Ok(())
@@ -459,6 +482,7 @@ fn main() -> ExitCode {
         Action::Licenses => licenses(),
         Action::Corpus => corpus(),
         Action::Mutants => mutation_controls(),
+        Action::ObligationsRegistry { root, write } => obligations_registry_step(&root, write),
         Action::Coverage { root } => coverage_map(&root),
         Action::Documents { root } => documents(&root),
         Action::Check => {
@@ -491,6 +515,7 @@ fn main() -> ExitCode {
             run("aep", &["plan", "artifact", "validate"])?;
             documents(Path::new("."))?;
             coverage_map(Path::new("."))?;
+            obligations_registry_step(Path::new("."), false)?;
             // Five binaries refuse `serve`; `mandate-control-plane` serves the login road
             // (`story:product-listener`, ruling D3) and is proven by its own listener cases.
             for b in [
