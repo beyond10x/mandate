@@ -1,0 +1,189 @@
+{
+  "format": "mandate-obligations/1",
+  "crate": "mandate-authz",
+  "domains": [
+    "mandate.authorization",
+    "mandate.delegation"
+  ],
+  "commands": [
+    {
+      "command": "mandate.authorization.Check",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Credential-derived context is invalid/revoked/expired/stale",
+          "tests": [
+            {
+              "id": "mandate-authz::context::a_context_that_is_not_direct_is_refused",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-authz::context::a_delegated_request_is_refused_closed_and_reads_nothing",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-authz::context::a_context_naming_a_delegation_or_an_execution_is_refused_closed",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "tenant/audience/resource/space binding mismatches",
+          "tests": [
+            {
+              "id": "mandate-authz::context::a_credential_issued_for_another_audience_is_an_audience_mismatch",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-authz::context::a_resource_registered_by_another_organization_is_a_tenant_mismatch",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-authz::context::a_scope_naming_a_space_the_organization_does_not_hold_is_a_tenant_mismatch",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-authz::context::a_subject_that_is_not_a_member_of_the_verified_organization_is_a_tenant_mismatch",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "relationships/policy/ceilings deny",
+          "tests": [
+            {
+              "id": "mandate-authz::evaluate::a_subject_with_no_grant_holds_no_authority_however_policy_answers",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-authz::evaluate::a_ceiling_that_does_not_admit_the_action_refuses_an_otherwise_allowed_request",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-authz::evaluate::a_role_that_does_not_carry_the_requested_action_denies",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "approval is required",
+          "tests": [
+            {
+              "id": "mandate-authz::check_contract::a_request_missing_a_required_approval_is_allowed_false_with_a_scoped_challenge",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "the required PDP/graph/credential authority is unavailable",
+          "tests": [
+            {
+              "id": "mandate-authz::check_contract::a_decision_point_that_cannot_answer_denies_and_invents_no_permission",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-authz::evaluate::a_policy_decision_point_that_cannot_answer_denies_a_request_the_graph_allows",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        }
+      ],
+      "no_state_change": [],
+      "blocked_on": "story:obligations-authz",
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    },
+    {
+      "command": "mandate.delegation.CompleteExecution",
+      "status": "deferred",
+      "story": "story:agent-authority-kernel",
+      "blocker": "decision-blocker:identity-uniqueness",
+      "clauses": [],
+      "no_state_change": []
+    },
+    {
+      "command": "mandate.delegation.ConsumeApproval",
+      "status": "deferred",
+      "story": "story:agent-authority-kernel",
+      "blocker": "decision-blocker:identity-uniqueness",
+      "clauses": [],
+      "no_state_change": []
+    },
+    {
+      "command": "mandate.delegation.CreateDelegation",
+      "status": "deferred",
+      "story": "story:agent-authority-kernel",
+      "blocker": "decision-blocker:identity-uniqueness",
+      "clauses": [],
+      "no_state_change": []
+    },
+    {
+      "command": "mandate.delegation.RetireAgent",
+      "status": "deferred",
+      "story": "story:agent-authority-kernel",
+      "blocker": "decision-blocker:identity-uniqueness",
+      "clauses": [],
+      "no_state_change": []
+    },
+    {
+      "command": "mandate.delegation.RevokeDelegation",
+      "status": "deferred",
+      "story": "story:agent-authority-kernel",
+      "blocker": "decision-blocker:identity-uniqueness",
+      "clauses": [],
+      "no_state_change": []
+    },
+    {
+      "command": "mandate.delegation.SupersedeAgentCapabilityCeiling",
+      "status": "deferred",
+      "story": "story:agent-authority-kernel",
+      "blocker": "decision-blocker:identity-uniqueness",
+      "clauses": [],
+      "no_state_change": []
+    }
+  ],
+  "addendum": [],
+  "cases": [
+    {
+      "case": "approval-required",
+      "tests": [
+        {
+          "id": "mandate-authz::adversary_check::a_policy_denial_naming_approval_required_is_told_under_its_own_name",
+          "kind": "denial",
+          "path": "real"
+        },
+        {
+          "id": "mandate-authz::adversary_check_2::a_decision_reporting_approval_required_carries_the_challenge_to_answer",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
+    },
+    {
+      "case": "autonomous-ceiling",
+      "tests": [],
+      "blocked_on": "story:obligations-authz"
+    },
+    {
+      "case": "pdp-outage",
+      "tests": [],
+      "blocked_on": "story:obligations-authz"
+    }
+  ]
+}

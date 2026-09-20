@@ -1,0 +1,538 @@
+{
+  "format": "mandate-obligations/1",
+  "crate": "mandate-model",
+  "domains": [
+    "mandate.audit",
+    "mandate.directory",
+    "mandate.tenancy",
+    "mandate.workload"
+  ],
+  "commands": [
+    {
+      "command": "mandate.audit.RecordAuditEvent",
+      "status": "deferred",
+      "story": "story:audit-worker-delivery",
+      "blocker": "decision-blocker:audit-routing",
+      "clauses": [],
+      "no_state_change": []
+    },
+    {
+      "command": "mandate.audit.RedactAuditEvent",
+      "status": "deferred",
+      "story": "story:audit-client",
+      "blocker": "decision-blocker:audit-routing",
+      "clauses": [],
+      "no_state_change": []
+    },
+    {
+      "command": "mandate.directory.CompleteSyncJob",
+      "status": "deferred",
+      "story": "story:directory-provenance",
+      "blocker": "decision-blocker:epoch-atomicity",
+      "clauses": [],
+      "no_state_change": []
+    },
+    {
+      "command": "mandate.directory.CreateDirectoryGroupTeamMapping",
+      "status": "deferred",
+      "story": "story:directory-provenance",
+      "blocker": "decision-blocker:epoch-atomicity",
+      "clauses": [],
+      "no_state_change": []
+    },
+    {
+      "command": "mandate.directory.FailSyncJob",
+      "status": "deferred",
+      "story": "story:directory-provenance",
+      "blocker": "decision-blocker:epoch-atomicity",
+      "clauses": [],
+      "no_state_change": []
+    },
+    {
+      "command": "mandate.directory.RemoveDirectoryGroupMembership",
+      "status": "deferred",
+      "story": "story:directory-provenance",
+      "blocker": "decision-blocker:epoch-atomicity",
+      "clauses": [],
+      "no_state_change": []
+    },
+    {
+      "command": "mandate.directory.RemoveDirectoryGroupTeamMapping",
+      "status": "deferred",
+      "story": "story:directory-provenance",
+      "blocker": "decision-blocker:epoch-atomicity",
+      "clauses": [],
+      "no_state_change": []
+    },
+    {
+      "command": "mandate.directory.RemoveMembershipContribution",
+      "status": "deferred",
+      "story": "story:directory-provenance",
+      "blocker": "decision-blocker:epoch-atomicity",
+      "clauses": [],
+      "no_state_change": []
+    },
+    {
+      "command": "mandate.directory.RetireDirectoryGroup",
+      "status": "deferred",
+      "story": "story:directory-provenance",
+      "blocker": "decision-blocker:epoch-atomicity",
+      "clauses": [],
+      "no_state_change": []
+    },
+    {
+      "command": "mandate.directory.SyncDirectoryMembership",
+      "status": "deferred",
+      "story": "story:directory-provenance",
+      "blocker": "decision-blocker:epoch-atomicity",
+      "clauses": [],
+      "no_state_change": []
+    },
+    {
+      "command": "mandate.tenancy.AddOrganizationMembership",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Caller lacks membership-administration authority",
+          "tests": [],
+          "blocked_on": "story:obligations-model"
+        },
+        {
+          "clause": "organization_id differs from the verified organization and the caller lacks platform organization-administration authority",
+          "tests": [],
+          "blocked_on": "story:obligations-model"
+        },
+        {
+          "clause": "the named organization is closed",
+          "tests": [
+            {
+              "id": "mandate-model::tenancy::a_closed_organization_admits_no_new_membership_team_or_space",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "the principal is unresolved or disabled",
+          "tests": [],
+          "blocked_on": "story:obligations-model"
+        },
+        {
+          "clause": "the principal is already a member of that organization",
+          "tests": [],
+          "blocked_on": "story:obligations-model"
+        },
+        {
+          "clause": "membership and its dependent authorization cannot commit consistently",
+          "tests": [],
+          "blocked_on": "story:obligations-model"
+        }
+      ],
+      "no_state_change": [
+        {
+          "id": "mandate-model::tenancy::add_organization_membership_denials_leave_the_projection_unchanged",
+          "kind": "no-state-change",
+          "path": "real"
+        }
+      ],
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    },
+    {
+      "command": "mandate.tenancy.AddTeamMembership",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Caller lacks team-administration authority",
+          "tests": [],
+          "blocked_on": "story:obligations-model"
+        },
+        {
+          "clause": "team or principal is unresolved or outside the verified organization",
+          "tests": [],
+          "blocked_on": "story:obligations-model"
+        },
+        {
+          "clause": "the team is retired",
+          "tests": [],
+          "blocked_on": "story:obligations-model"
+        },
+        {
+          "clause": "the principal is disabled",
+          "tests": [],
+          "blocked_on": "story:obligations-model"
+        },
+        {
+          "clause": "the principal is not a member of that organization",
+          "tests": [
+            {
+              "id": "mandate-model::tenancy::team_membership_requires_organization_membership_first_and_is_recorded_once",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "the principal is already a member of that team",
+          "tests": [],
+          "blocked_on": "story:obligations-model"
+        },
+        {
+          "clause": "the membership and the manual contribution recording its provenance cannot be recorded together",
+          "tests": [],
+          "blocked_on": "story:obligations-model"
+        }
+      ],
+      "no_state_change": [
+        {
+          "id": "mandate-model::tenancy::add_team_membership_denials_leave_the_projection_unchanged",
+          "kind": "no-state-change",
+          "path": "real"
+        }
+      ],
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    },
+    {
+      "command": "mandate.tenancy.CloseOrganization",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Caller lacks platform organization-administration authority",
+          "tests": [],
+          "blocked_on": "story:obligations-model"
+        },
+        {
+          "clause": "the organization is unresolved",
+          "tests": [],
+          "blocked_on": "story:obligations-model"
+        },
+        {
+          "clause": "the sessions, credentials and delegations inside it cannot be invalidated with the closure",
+          "tests": [],
+          "blocked_on": "story:obligations-model"
+        },
+        {
+          "clause": "closure would require destroying membership or audit history",
+          "tests": [],
+          "blocked_on": "story:obligations-model"
+        }
+      ],
+      "no_state_change": [
+        {
+          "id": "mandate-model::tenancy::close_organization_denials_leave_the_projection_unchanged",
+          "kind": "no-state-change",
+          "path": "real"
+        }
+      ],
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    },
+    {
+      "command": "mandate.tenancy.CreateOrganization",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Caller lacks platform organization-administration authority",
+          "tests": [],
+          "blocked_on": "story:obligations-model"
+        },
+        {
+          "clause": "the requested display name is not admitted",
+          "tests": [],
+          "blocked_on": "story:obligations-model"
+        },
+        {
+          "clause": "the isolation root cannot be created without implying membership, grants or authority inside it",
+          "tests": [],
+          "blocked_on": "story:obligations-model"
+        }
+      ],
+      "no_state_change": [
+        {
+          "id": "mandate-model::tenancy::create_organization_denials_leave_the_projection_unchanged",
+          "kind": "no-state-change",
+          "path": "real"
+        }
+      ],
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    },
+    {
+      "command": "mandate.tenancy.CreateSpace",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Caller lacks space-administration authority",
+          "tests": [],
+          "blocked_on": "story:obligations-model"
+        },
+        {
+          "clause": "the display name is not admitted in the verified organization",
+          "tests": [],
+          "blocked_on": "story:obligations-model"
+        },
+        {
+          "clause": "the space cannot be created without implying a grant or a resource inside it",
+          "tests": [],
+          "blocked_on": "story:obligations-model"
+        }
+      ],
+      "no_state_change": [
+        {
+          "id": "mandate-model::tenancy::create_space_denials_leave_the_projection_unchanged",
+          "kind": "no-state-change",
+          "path": "real"
+        }
+      ],
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    },
+    {
+      "command": "mandate.tenancy.CreateTeam",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Caller lacks team-administration authority",
+          "tests": [],
+          "blocked_on": "story:obligations-model"
+        },
+        {
+          "clause": "the display name is not admitted in the verified organization",
+          "tests": [],
+          "blocked_on": "story:obligations-model"
+        },
+        {
+          "clause": "the team cannot be created without implying a grant or a directory mapping",
+          "tests": [],
+          "blocked_on": "story:obligations-model"
+        }
+      ],
+      "no_state_change": [
+        {
+          "id": "mandate-model::tenancy::create_team_denials_leave_the_projection_unchanged",
+          "kind": "no-state-change",
+          "path": "real"
+        }
+      ],
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    },
+    {
+      "command": "mandate.tenancy.RemoveOrganizationMembership",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Caller lacks membership-administration authority",
+          "tests": [],
+          "blocked_on": "story:obligations-model"
+        },
+        {
+          "clause": "membership is outside the verified organization",
+          "tests": [],
+          "blocked_on": "story:obligations-model"
+        },
+        {
+          "clause": "membership and dependent authorization invalidation cannot commit consistently",
+          "tests": [],
+          "blocked_on": "story:obligations-model"
+        }
+      ],
+      "no_state_change": [
+        {
+          "id": "mandate-model::tenancy::remove_organization_membership_denials_leave_the_projection_unchanged",
+          "kind": "no-state-change",
+          "path": "real"
+        }
+      ],
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    },
+    {
+      "command": "mandate.tenancy.RemoveTeamMembership",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Caller lacks team-administration authority",
+          "tests": [],
+          "blocked_on": "story:obligations-model"
+        },
+        {
+          "clause": "the membership is outside the verified organization",
+          "tests": [],
+          "blocked_on": "story:obligations-model"
+        },
+        {
+          "clause": "a mandate.directory mapping contribution still supports it",
+          "tests": [],
+          "blocked_on": "story:obligations-model"
+        },
+        {
+          "clause": "dependent authorization invalidation cannot commit consistently",
+          "tests": [],
+          "blocked_on": "story:obligations-model"
+        }
+      ],
+      "no_state_change": [
+        {
+          "id": "mandate-model::tenancy::remove_team_membership_denials_leave_the_projection_unchanged",
+          "kind": "no-state-change",
+          "path": "real"
+        }
+      ],
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    },
+    {
+      "command": "mandate.tenancy.RetireSpace",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Caller lacks space-administration authority",
+          "tests": [],
+          "blocked_on": "story:obligations-model"
+        },
+        {
+          "clause": "the space is outside the verified organization",
+          "tests": [],
+          "blocked_on": "story:obligations-model"
+        },
+        {
+          "clause": "retirement cannot refuse new authority inside it while preserving the resources and grants already bound to it",
+          "tests": [],
+          "blocked_on": "story:obligations-model"
+        }
+      ],
+      "no_state_change": [
+        {
+          "id": "mandate-model::tenancy::retire_space_denials_leave_the_projection_unchanged",
+          "kind": "no-state-change",
+          "path": "real"
+        }
+      ],
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    },
+    {
+      "command": "mandate.tenancy.RetireTeam",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Caller lacks team-administration authority",
+          "tests": [],
+          "blocked_on": "story:obligations-model"
+        },
+        {
+          "clause": "the team is outside the verified organization",
+          "tests": [],
+          "blocked_on": "story:obligations-model"
+        },
+        {
+          "clause": "a directory mapping still contributes to it",
+          "tests": [],
+          "blocked_on": "story:obligations-model"
+        },
+        {
+          "clause": "retirement cannot revoke the grants that target it while preserving membership provenance",
+          "tests": [],
+          "blocked_on": "story:obligations-model"
+        }
+      ],
+      "no_state_change": [
+        {
+          "id": "mandate-model::tenancy::retire_team_denials_leave_the_projection_unchanged",
+          "kind": "no-state-change",
+          "path": "real"
+        }
+      ],
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    },
+    {
+      "command": "mandate.workload.RevokeWorkloadIdentity",
+      "status": "deferred",
+      "story": "story:agent-security",
+      "blocker": "decision-blocker:identity-uniqueness",
+      "clauses": [],
+      "no_state_change": []
+    }
+  ],
+  "addendum": [],
+  "cases": [
+    {
+      "case": "audit-redaction",
+      "tests": [],
+      "blocked_on": "story:obligations-model"
+    },
+    {
+      "case": "cross-tenant-resource",
+      "tests": [
+        {
+          "id": "mandate-model::graph::cross_tenant_resource",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
+    },
+    {
+      "case": "directory-no-authority",
+      "tests": [],
+      "blocked_on": "story:obligations-model"
+    },
+    {
+      "case": "mapping-contributes",
+      "tests": [],
+      "blocked_on": "story:obligations-model"
+    },
+    {
+      "case": "mapping-cross-org",
+      "tests": [],
+      "blocked_on": "story:obligations-model"
+    },
+    {
+      "case": "mapping-manual",
+      "tests": [],
+      "blocked_on": "story:obligations-model"
+    },
+    {
+      "case": "mapping-overlap",
+      "tests": [],
+      "blocked_on": "story:obligations-model"
+    },
+    {
+      "case": "mapping-remove",
+      "tests": [],
+      "blocked_on": "story:obligations-model"
+    }
+  ]
+}

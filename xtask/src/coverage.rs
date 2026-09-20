@@ -533,7 +533,10 @@ fn accounting(compiled: &Compiled, problems: &mut Vec<String>) {
 ///
 /// Read from the frontmatter only — the block between the first two `---` lines — so a
 /// `status:` in the body is prose, not a claim.
-fn terminal_rung(story: &Path) -> Option<String> {
+///
+/// `pub` because [`crate::obligations_registry`] decides the same question about the story an
+/// unbound clause defers to. Two readers of one frontmatter can disagree; one cannot.
+pub fn terminal_rung(story: &Path) -> Option<String> {
     const TERMINAL: [&str; 3] = ["implemented", "archived", "rejected"];
     let text = fs::read_to_string(story).ok()?;
     let mut fences = 0_u8;

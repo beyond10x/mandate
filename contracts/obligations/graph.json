@@ -1,0 +1,231 @@
+{
+  "format": "mandate-obligations/1",
+  "crate": "mandate-graph",
+  "domains": [
+    "mandate.graph"
+  ],
+  "commands": [
+    {
+      "command": "mandate.graph.DeregisterResource",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Caller lacks resource registration/ownership authority",
+          "tests": [],
+          "blocked_on": "story:obligations-graph"
+        },
+        {
+          "clause": "the resource is outside the verified organization",
+          "tests": [],
+          "blocked_on": "story:obligations-graph"
+        },
+        {
+          "clause": "a child resource still resolves through it",
+          "tests": [
+            {
+              "id": "mandate-graph::double::a_resource_a_child_still_resolves_through_cannot_be_deregistered",
+              "kind": "denial",
+              "path": "double",
+              "double": "mandate_graph::double::GraphDouble"
+            }
+          ],
+          "blocked_on": "story:graph-policy-adapter"
+        },
+        {
+          "clause": "the durable relationship cleanup this deregistration requires cannot be enqueued",
+          "tests": [],
+          "blocked_on": "story:obligations-graph"
+        }
+      ],
+      "no_state_change": [],
+      "blocked_on": "story:obligations-graph",
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    },
+    {
+      "command": "mandate.graph.RegisterResource",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Caller lacks resource registration/ownership authority",
+          "tests": [],
+          "blocked_on": "story:obligations-graph"
+        },
+        {
+          "clause": "parent is unresolved",
+          "tests": [
+            {
+              "id": "mandate-graph::double::a_parent_that_does_not_resolve_is_denied",
+              "kind": "denial",
+              "path": "double",
+              "double": "mandate_graph::double::GraphDouble"
+            }
+          ],
+          "blocked_on": "story:graph-policy-adapter"
+        },
+        {
+          "clause": "belongs to another organization",
+          "tests": [
+            {
+              "id": "mandate-graph::topology::a_resource_owned_by_another_organization_is_denied_as_a_tenant_mismatch",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "hierarchy admission fails",
+          "tests": [
+            {
+              "id": "mandate-graph::topology::a_chain_deeper_than_the_bound_fails_closed",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-graph::topology::a_hierarchy_that_loops_fails_closed_instead_of_looping",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        }
+      ],
+      "no_state_change": [],
+      "blocked_on": "story:obligations-graph",
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    },
+    {
+      "command": "mandate.graph.RemoveRelation",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Caller lacks relationship-write authority",
+          "tests": [],
+          "blocked_on": "story:obligations-graph"
+        },
+        {
+          "clause": "relation/resource is outside the verified organization",
+          "tests": [],
+          "blocked_on": "story:obligations-graph"
+        },
+        {
+          "clause": "required graph revocation visibility cannot be satisfied",
+          "tests": [],
+          "blocked_on": "story:obligations-graph"
+        }
+      ],
+      "no_state_change": [],
+      "blocked_on": "story:obligations-graph",
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    },
+    {
+      "command": "mandate.graph.RevokeGrant",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Caller lacks grant-revocation authority",
+          "tests": [],
+          "blocked_on": "story:obligations-graph"
+        },
+        {
+          "clause": "grant is outside the verified organization",
+          "tests": [
+            {
+              "id": "mandate-graph::revocation::a_revocation_in_another_organization_is_a_tenant_mismatch",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "required graph revocation visibility cannot be satisfied",
+          "tests": [],
+          "blocked_on": "story:obligations-graph"
+        }
+      ],
+      "no_state_change": [],
+      "blocked_on": "story:obligations-graph",
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    },
+    {
+      "command": "mandate.graph.WriteRelationship",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Caller lacks relationship-write authority",
+          "tests": [],
+          "blocked_on": "story:obligations-graph"
+        },
+        {
+          "clause": "the chosen principal/team subject is unresolved",
+          "tests": [],
+          "blocked_on": "story:graph-policy-adapter"
+        },
+        {
+          "clause": "outside tenant membership",
+          "tests": [
+            {
+              "id": "mandate-graph::relationship::a_subject_outside_the_organization_is_denied",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "resource tenancy mismatches",
+          "tests": [
+            {
+              "id": "mandate-graph::relationship::a_resource_in_another_organization_is_denied_as_a_tenant_mismatch",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "the relationship is not admitted by the authorization model",
+          "tests": [
+            {
+              "id": "mandate-graph::relationship::a_relation_name_that_is_blank_is_denied",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-graph::relationship::a_relation_name_that_differs_from_its_trim_is_denied",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        }
+      ],
+      "no_state_change": [],
+      "blocked_on": "story:obligations-graph",
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    }
+  ],
+  "addendum": [],
+  "cases": [
+    {
+      "case": "graph-revocation",
+      "tests": [],
+      "blocked_on": "story:obligations-graph"
+    }
+  ]
+}
