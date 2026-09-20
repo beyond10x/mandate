@@ -271,6 +271,23 @@ that crate's `DenialClause` type is outside this crate's dependency ceiling, and
 rather than answered by the fallback. Whether a listener renders such a refusal as a redirect
 or as a body is not decided here; that is recorded on `story:product-listener`.
 
+A second exception, from adversary pass 1 on `story:product-listener` (F8), is read the same
+way and for the same reason: `oauth::SERVER_ERROR_CLAUSES` names the refusals the **deployment**
+caused, and `code_for_denial` answers RFC 6749 section 4.1.2.1's `server_error` for them.
+`ExpiryUnbounded` — "the profile's TTL or the request instant does not name a span this
+deployment can add" — also carries `DenialReason::Denied`, and `access_denied` told a client
+developer the end user had refused something the end user never saw. The token endpoint's
+mapping is untouched: section 5.2 declares no `server_error`, so `CLAUSE_CODES` still answers
+that clause with `invalid_request` there. The class is closed by a check rather than by the one
+correction: `crates/mandate-proto/tests/oauth.rs` follows the calls from
+`services/sts/src/code.rs::issue_authorization_code`, the authorization road's own handler, and
+requires **every** clause it can raise to be stated as the deployment's own failure, the
+client's own standing, or neither — so a clause added upstream is named by that case instead of
+falling into the reason mapping. That traversal now follows a call to a free function in the
+same module as well as one that crosses modules; the redemption's path crosses a module at
+every hop and the authorization road's does not, and four clause names lived behind that
+unfollowed hop.
+
 `code_for_reason`'s match is exhaustive and carries no wildcard: `DenialReason` is not
 `#[non_exhaustive]`, so a reason added to the contract fails it to compile.
 `code_for_clause` cannot have that guarantee — `DenialClause` *is* `#[non_exhaustive]` — and buys
@@ -303,6 +320,24 @@ that look like taste and are not:
 At the authorization endpoint RFC 6749 section 4.1.2.1 returns an error by redirecting to a
 validated redirect URI rather than as a body. This library produces the error value; the
 rendering is the listener's, and it cannot redirect to a redirect URI it has not validated.
+
+There is a third answer beside *redirect* and *render the denial*, and it is a class rather
+than a case: **a registered redirection URI that can carry no response at all**. RFC 6749
+section 4.1.2 adds `code`, `state` and `error` to the *query component* of that URI, and
+section 3.1.2 requires a query it already carries to be retained and forbids a fragment
+outright — so a URI carrying a fragment (every appended parameter lands inside it, where the
+redirection endpoint never sees it), a query that is not an
+`application/x-www-form-urlencoded` form, or a query already naming one of those three
+parameters is a URI no response can be composed into. The composer in
+`services/control-plane/src/serve.rs` parses the registered query before it extends it and
+answers all three in place — section 4.1.2.1's "MUST NOT automatically redirect the user-agent
+to the invalid redirection URI" — on the success branch and the error branch alike. This is
+the **client-registration** class: nothing about the request decides it, `RegisterOAuthClient`
+delegates every URI question to a deployment policy hook, and `RedirectUri` is an unvalidated
+newtype, so a deployment that would rather refuse the registration than the authorization
+enforces the same three rules in that hook. Adversary pass 2 found the class through two of
+its members (`…/callback?` composed `?&code=…`, and `…/callback#done` put the code in the
+fragment).
 
 ## The two documents
 

@@ -643,7 +643,9 @@ fn clauses_reachable_from(module: &str, function: &str) -> BTreeSet<String> {
             clauses.insert(name);
         }
         let imports = imported_names(&source, &modules);
-        pending.extend(called_functions(&body, &imports, &modules));
+        pending.extend(called_functions(
+            &body, &imports, &modules, &module, &source,
+        ));
     }
     clauses
 }
@@ -744,12 +746,25 @@ fn imported_names(source: &str, modules: &BTreeSet<String>) -> BTreeMap<String, 
     imported
 }
 
-/// Every call in a body that lands in a sibling module: `<module>::name(` by path, and `name(`
-/// through an import.
+/// Every call in a body that lands in a function this reader can read: `<module>::name(` by
+/// path, `name(` through an import of a sibling module, and `name(` declared **in the module
+/// the body is in**.
+///
+/// The third was missing while the rule was only applied to the redemption, whose path happens
+/// to cross a module at every hop (`redemption` → `binding` → `code`). The authorization
+/// road does not: `code::issue_authorization_code` calls `admitted_client` and
+/// `admitted_redirect`, two free functions beside it, and four clause names lived behind that
+/// one unfollowed hop. A call is a call whether or not it crosses a file.
+///
+/// A same-module name is followed only when the module declares a function by that name, and
+/// never when it is written as a method call (`value.name(`), so a method that shares a free
+/// function's name does not pull that function's clauses in.
 fn called_functions(
     body: &str,
     imports: &BTreeMap<String, String>,
     modules: &BTreeSet<String>,
+    module: &str,
+    source: &str,
 ) -> Vec<(String, String)> {
     let mut called = Vec::new();
     for (start, end) in identifier_spans(body) {
@@ -763,10 +778,12 @@ fn called_functions(
             if length > 0 && path[length..].starts_with('(') {
                 called.push((name.to_owned(), path[..length].to_owned()));
             }
-        } else if rest.starts_with('(')
-            && let Some(module) = imports.get(name)
-        {
-            called.push((module.clone(), name.to_owned()));
+        } else if rest.starts_with('(') {
+            if let Some(imported) = imports.get(name) {
+                called.push((imported.clone(), name.to_owned()));
+            } else if !body[..start].ends_with('.') && function_body(source, name).is_some() {
+                called.push((module.to_owned(), name.to_owned()));
+            }
         }
     }
     called
@@ -792,4 +809,137 @@ fn identifier_spans(text: &str) -> Vec<(usize, usize)> {
 /// Whether a character can appear in a Rust identifier this reader follows.
 fn is_identifier(character: char) -> bool {
     character.is_ascii_alphanumeric() || character == '_'
+}
+
+// --------------------------- adversary pass 1, F8: the deployment's own failures
+
+/// **A refusal the deployment caused is `server_error`, not `access_denied`.**
+///
+/// RFC 6749 section 4.1.2.1 declares both: `access_denied` is "the resource owner or
+/// authorization server denied the request", which a client developer reads as the end user
+/// refusing, and `server_error` is "the authorization server encountered an unexpected
+/// condition that prevented it from fulfilling the request". `ExpiryUnbounded` is the second:
+/// "the profile's TTL or the request instant does not name a span this deployment can add"
+/// (`crates/mandate-token/src/projection.rs`) — the deployment's own configuration, carrying
+/// `DenialReason::Denied`, which by reason alone is `access_denied`.
+///
+/// So the clause is read first, as it is for [`oauth::UNAUTHORIZED_CLIENT_CLAUSES`], and for
+/// the same reason: the reason is the contract's only wire field and two refusals that share
+/// one reason are two different answers.
+#[test]
+fn a_refusal_the_deployment_caused_answers_server_error() {
+    for clause in oauth::SERVER_ERROR_CLAUSES {
+        for reason in DenialReason::VARIANTS {
+            assert_eq!(
+                oauth::code_for_denial(clause, *reason),
+                ErrorCode::ServerError,
+                "{clause} with {reason:?}"
+            );
+        }
+        assert!(
+            !oauth::UNAUTHORIZED_CLIENT_CLAUSES.contains(clause),
+            "{clause} is in both clause lists, and the two answer different codes"
+        );
+    }
+    assert_eq!(oauth::SERVER_ERROR_CLAUSES, ["ExpiryUnbounded"]);
+    assert!(
+        ErrorCode::AUTHORIZATION_ENDPOINT.contains(&ErrorCode::ServerError),
+        "RFC 6749 section 4.1.2.1 declares `server_error` at the authorization endpoint"
+    );
+    assert!(
+        !ErrorCode::TOKEN_ENDPOINT.contains(&ErrorCode::ServerError),
+        "RFC 6749 section 5.2 declares no `server_error`, so the token endpoint's mapping by \
+         clause is unchanged"
+    );
+    assert_eq!(
+        oauth::code_for_clause(DenialClause::ExpiryUnbounded),
+        ErrorCode::InvalidRequest,
+        "the token endpoint's answer for the same clause is section 5.2's and did not move"
+    );
+}
+
+/// **Every clause the authorization road can raise is classified, and the check is the
+/// classification.**
+///
+/// The finding behind [`SERVER_ERROR_CLAUSES`] was one clause answering the wrong code; the
+/// class is every clause that road raises whose answer is decided by the reason it happens to
+/// carry. So the set is followed **by call** from `code::issue_authorization_code` — the STS
+/// half of `mandate.federation.AuthorizePublicClient`, which is what
+/// `services/control-plane/src/adapters.rs::authorize` calls through `CodeIssuance::issue` —
+/// with the same traversal the redemption's set is read by, and each name in it is stated here
+/// as one of two things:
+///
+/// * **the deployment's own failure**, [`oauth::SERVER_ERROR_CLAUSES`], which answers
+///   `server_error`;
+/// * **the client's own standing**, [`oauth::UNAUTHORIZED_CLIENT_CLAUSES`], which answers
+///   `unauthorized_client`; or
+/// * **everything else**, which carries no clause override and answers by reason.
+///
+/// A clause that appears on that road and is in none of the three fails this case by name,
+/// rather than falling into the reason mapping and answering `access_denied` for a condition
+/// the end user had nothing to do with.
+///
+/// **Recorded, not changed:** the third list carries `ClientUnregistered`, which is the STS's
+/// name for the condition `mandate-federation` raises as `ClientUnknown` — "client is not a
+/// registered public client". The federation-raised name answers `unauthorized_client` and
+/// this one answers by reason, so the same condition has two answers depending on which of
+/// the two read models refused it. It is reachable only when they disagree, the
+/// correction round 1 rulings did not name it, and it is written down here rather than
+/// resolved by an implementor.
+#[test]
+fn every_clause_the_authorization_road_raises_is_classified() {
+    let reachable = clauses_reachable_from("code", "issue_authorization_code");
+    for named in ["ExpiryUnbounded", "ClientNotPublic", "TargetUnregistered"] {
+        assert!(
+            reachable.contains(named),
+            "{named} is raised on the authorization road; the traversal no longer reaches it \
+             and this rule would pass by reaching nothing"
+        );
+    }
+    assert!(reachable.len() >= 10, "read {} clauses", reachable.len());
+
+    // Everything else: each one names what the *request* got wrong — the client, the
+    // redirect, the target or the challenge it carried — and none of them overrides the
+    // reason the handler refused with.
+    let by_reason = [
+        "ChallengeMalformed",
+        "ClientOutsideOrganization",
+        "ClientUnregistered",
+        "OrganizationMismatch",
+        "ProfileUnadmitted",
+        "RedirectUnregistered",
+        "TargetDisabled",
+        "TargetUnregistered",
+    ];
+    for clause in &reachable {
+        let classified = usize::from(oauth::SERVER_ERROR_CLAUSES.contains(&clause.as_str()))
+            + usize::from(oauth::UNAUTHORIZED_CLIENT_CLAUSES.contains(&clause.as_str()))
+            + usize::from(by_reason.contains(&clause.as_str()));
+        assert_eq!(
+            classified, 1,
+            "{clause} is raised on the authorization road and is classified {classified} \
+             times: it is the deployment's own failure, the client's own standing, or \
+             neither, and exactly one of those"
+        );
+    }
+    for clause in oauth::SERVER_ERROR_CLAUSES {
+        assert!(
+            reachable.contains(*clause),
+            "{clause} is no longer raised on the authorization road"
+        );
+    }
+    for clause in by_reason {
+        for reason in DenialReason::VARIANTS {
+            let answered = oauth::code_for_denial(clause, *reason);
+            assert_eq!(
+                answered,
+                oauth::code_for_reason(*reason),
+                "{clause} with {reason:?} carries no clause override and answers by reason"
+            );
+            assert!(
+                ErrorCode::AUTHORIZATION_ENDPOINT.contains(&answered),
+                "{clause} with {reason:?} answers {answered}"
+            );
+        }
+    }
 }

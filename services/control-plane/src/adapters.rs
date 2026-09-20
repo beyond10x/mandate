@@ -463,9 +463,17 @@ pub struct Introspection {
 // ---------------------------------------------------------------------------------------
 
 /// What a deployment states that neither the contract nor a request carries.
+///
+/// Every value here is decided before a deployment is built ([`Configuration::checked`]):
+/// a lifetime that names no span and an issuer that is not an issuer identifier are refusals
+/// at startup, not silent zeroes and not a document published under a name no client can
+/// validate against.
 #[derive(Debug, Clone)]
 pub struct Configuration {
     /// The issuer identifier RFC 8414's metadata document is published under.
+    ///
+    /// Held **normalised**: `Configuration::checked` trims one trailing `/`, and both readers
+    /// — the metadata document and the federation audience — take it from here.
     pub issuer: String,
     /// The longest lifetime this deployment issues an authorization code for.
     pub code_lifetime: CodeLifetime,
@@ -475,18 +483,173 @@ pub struct Configuration {
     pub keys: Vec<Jwk>,
 }
 
+impl Configuration {
+    /// This configuration with its issuer normalised, or why no deployment serves it.
+    ///
+    /// The two lifetimes are bounded **at both ends**, and the same sentence decides both:
+    /// a lifetime this deployment cannot honour is refused here rather than answered as a
+    /// denial to every client.
+    ///
+    /// * *Below* — the span [`instant::span_of`] reads must be positive. A code lifetime of
+    ///   zero puts a code's `expires_at` at the instant it is issued, which
+    ///   `services/sts/src/code.rs` refuses as `ExpiryUnbounded` on every authorization
+    ///   request.
+    /// * *Above* — the expiry the span produces must be one this deployment can render and a
+    ///   reader on this road can read back ([`instant::renders_readably`]). `instant::at`
+    ///   renders the year with `{year:04}`, a minimum width and not a maximum, and the STS's
+    ///   reader (`services/sts/src/lib.rs:312-320`) requires a `-` at offset 4 — so a span
+    ///   past the year 9999 renders a timestamp this deployment itself cannot read, and the
+    ///   handler answers the same `ExpiryUnbounded` the lower bound exists for. The bound is
+    ///   decided from [`instant::LATEST_CHECKED_REQUEST_INSTANT`], because this function has
+    ///   no clock.
+    ///
+    /// **A session lifetime shorter than the code lifetime is admitted**, and is not a
+    /// mistake: a code is redeemable only while the session it was issued under is fresh
+    /// (`services/sts/src/binding.rs` refuses a redemption whose bound session is not
+    /// strictly before its `expires_at` with `SessionUnusable`), so the short session simply
+    /// shortens the code's usable life to its own. The two are configured independently
+    /// because they bound different things — how long a login lasts, and how long the client
+    /// has to exchange a code within it — and neither is derived from the other.
+    ///
+    /// The issuer must be the identifier RFC 8414 section 2 declares — "a URL that uses the
+    /// `https` scheme and has no query or fragment components" — with `http` on the loopback
+    /// admitted for a deployment running on a developer's own machine. Exactly one trailing
+    /// `/` is trimmed, because RFC 8414 section 3.1 inserts the well-known path *into* the
+    /// identifier and `https://host/` and `https://host` publish the same document; a second
+    /// trailing `/` is refused rather than guessed at.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigurationRefused`] naming the value that is not servable.
+    pub fn checked(self) -> Result<Self, ConfigurationRefused> {
+        if servable_lifetime(self.code_lifetime.as_duration()).is_none() {
+            return Err(ConfigurationRefused::CodeLifetimeUnbounded);
+        }
+        if servable_lifetime(&self.session_lifetime).is_none() {
+            return Err(ConfigurationRefused::SessionLifetimeUnbounded);
+        }
+        let issuer = normalised_issuer(&self.issuer).map_err(ConfigurationRefused::Issuer)?;
+        Ok(Self { issuer, ..self })
+    }
+}
+
+/// The positive span a configured lifetime names, or `None` when it names none.
+fn span_of_lifetime(lifetime: &Duration) -> Option<i64> {
+    instant::span_of(lifetime).filter(|span| *span > 0)
+}
+
+/// The span a configured lifetime names when this deployment can serve it, both ends.
+///
+/// One function for both bounds, so a lifetime admitted at startup and a lifetime the
+/// handlers can honour are the same set by construction.
+fn servable_lifetime(lifetime: &Duration) -> Option<i64> {
+    span_of_lifetime(lifetime).filter(|span| {
+        instant::renders_readably(instant::LATEST_CHECKED_REQUEST_INSTANT.saturating_add(*span))
+    })
+}
+
+/// The issuer identifier this deployment publishes, or why the configured text is none.
+fn normalised_issuer(configured: &str) -> Result<String, IssuerRefused> {
+    // RFC 3986 section 3.1: the scheme is case-insensitive; the rest is not lowercased.
+    let lowered = configured.to_ascii_lowercase();
+    let authority = if lowered.starts_with("https://") {
+        &configured["https://".len()..]
+    } else if lowered.starts_with("http://") {
+        let authority = &configured["http://".len()..];
+        if !is_loopback(authority.split(['/', '?', '#']).next().unwrap_or("")) {
+            return Err(IssuerRefused::SchemeUnadmitted);
+        }
+        authority
+    } else {
+        return Err(IssuerRefused::SchemeUnadmitted);
+    };
+    if configured.contains('?') {
+        return Err(IssuerRefused::QueryComponent);
+    }
+    if configured.contains('#') {
+        return Err(IssuerRefused::FragmentComponent);
+    }
+    if authority.split('/').next().unwrap_or("").is_empty() {
+        return Err(IssuerRefused::HostMissing);
+    }
+    let trimmed = configured.strip_suffix('/').unwrap_or(configured);
+    if trimmed.ends_with('/') {
+        return Err(IssuerRefused::RepeatedTrailingSlash);
+    }
+    Ok(trimmed.to_owned())
+}
+
+/// Whether an authority names this host: RFC 6761's `localhost`, the IPv4 loopback block, or
+/// the IPv6 loopback address.
+fn is_loopback(authority: &str) -> bool {
+    let host = match authority.rsplit_once(':') {
+        // An IPv6 literal carries colons of its own and is bracketed.
+        Some((host, _)) if !authority.ends_with(']') => host,
+        _ => authority,
+    };
+    host.eq_ignore_ascii_case("localhost")
+        || host == "[::1]"
+        || host
+            .parse::<std::net::Ipv4Addr>()
+            .is_ok_and(|address| address.is_loopback())
+}
+
 /// Why a deployment could not be built.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum ConfigurationRefused {
     /// The published key set names one `kid` twice, or carries an unadmitted member.
     Keys(JwkRefusal),
+    /// The configured code lifetime names no positive span, so every code it bounded would
+    /// expire at the instant it was issued.
+    CodeLifetimeUnbounded,
+    /// The configured session lifetime names no positive span.
+    SessionLifetimeUnbounded,
+    /// The configured issuer is not an issuer identifier this deployment can publish.
+    Issuer(IssuerRefused),
+}
+
+/// Why a configured issuer is not an issuer identifier.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum IssuerRefused {
+    /// Not `https://`, and not `http://` on the loopback.
+    SchemeUnadmitted,
+    /// RFC 8414 section 2: an issuer identifier has no query component.
+    QueryComponent,
+    /// RFC 8414 section 2: an issuer identifier has no fragment component.
+    FragmentComponent,
+    /// The URL names no authority.
+    HostMissing,
+    /// More than one trailing `/`: which identifier the deployment publishes is not decidable.
+    RepeatedTrailingSlash,
+}
+
+impl core::fmt::Display for IssuerRefused {
+    fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        formatter.write_str(match self {
+            Self::SchemeUnadmitted => {
+                "the issuer identifier is not an https URL, or an http URL on the loopback"
+            }
+            Self::QueryComponent => "the issuer identifier carries a query component",
+            Self::FragmentComponent => "the issuer identifier carries a fragment component",
+            Self::HostMissing => "the issuer identifier names no host",
+            Self::RepeatedTrailingSlash => "the issuer identifier ends in more than one slash",
+        })
+    }
 }
 
 impl core::fmt::Display for ConfigurationRefused {
     fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::Keys(refusal) => write!(formatter, "{refusal}"),
+            Self::CodeLifetimeUnbounded => {
+                formatter.write_str("the code lifetime names no positive span")
+            }
+            Self::SessionLifetimeUnbounded => {
+                formatter.write_str("the session lifetime names no positive span")
+            }
+            Self::Issuer(refusal) => write!(formatter, "{refusal}"),
         }
     }
 }
@@ -499,6 +662,10 @@ impl std::error::Error for ConfigurationRefused {}
 /// `eventlog-sqlite` is the next milestone, together with the runtime its async API forces.
 pub struct Deployment<V, C, X, A> {
     configuration: Configuration,
+    /// The span the configured code lifetime names, in seconds, read once at construction.
+    code_lifetime: i64,
+    /// The span the configured session lifetime names, in seconds, read once at construction.
+    session_lifetime: i64,
     verifier: V,
     clock: C,
     secrets: X,
@@ -520,16 +687,35 @@ where
     A: IdentityAllocator,
 {
     /// A deployment over these ports, holding nothing.
+    ///
+    /// The configuration is decided first ([`Configuration::checked`]): a deployment is built
+    /// from values it can honour, or it is not built. Every read of a configured value below
+    /// is therefore a read of a validated one, and neither lifetime needs a default for a
+    /// span that was never named.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigurationRefused`] when a lifetime names no positive span or the issuer
+    /// is not an issuer identifier this deployment can publish.
     pub fn new(
         configuration: Configuration,
         verifier: V,
         clock: C,
         secrets: X,
         allocator: A,
-    ) -> Self {
+    ) -> Result<Self, ConfigurationRefused> {
+        let configuration = configuration.checked()?;
+        // Read once, from the checked configuration, and held as the spans the handlers add.
+        // Neither read below can fall back to a zero the operator never asked for.
+        let code_lifetime = span_of_lifetime(configuration.code_lifetime.as_duration())
+            .ok_or(ConfigurationRefused::CodeLifetimeUnbounded)?;
+        let session_lifetime = span_of_lifetime(&configuration.session_lifetime)
+            .ok_or(ConfigurationRefused::SessionLifetimeUnbounded)?;
         let issuance = CodeIssuance::new(configuration.code_lifetime.clone());
-        Self {
+        Ok(Self {
             configuration,
+            code_lifetime,
+            session_lifetime,
             verifier,
             clock,
             secrets,
@@ -541,7 +727,25 @@ where
             credentials: CredentialProjection::default(),
             codes: InMemoryCodeLog::new(),
             proofs: SessionProofs::new(),
-        }
+        })
+    }
+
+    /// The issuer identifier this deployment publishes, normalised.
+    ///
+    /// **One value, two readers.** The metadata document ([`Deployment::metadata`]) and the
+    /// federation audience ([`Deployment::audience`]) both read it here, so the identifier a
+    /// client validates against and the audience a proof is bound to cannot drift apart over
+    /// a trailing slash — which is what they did while one reader trimmed and the other did
+    /// not.
+    #[must_use]
+    pub fn issuer(&self) -> &str {
+        &self.configuration.issuer
+    }
+
+    /// The audience this deployment names itself by, which is [`Deployment::issuer`].
+    #[must_use]
+    pub fn audience(&self) -> Audience {
+        Audience::new(self.issuer())
     }
 
     /// Seed one `mandate.federation` event into the fold behind the client and connection
@@ -580,7 +784,7 @@ where
     /// The RFC 8414 metadata document, with every endpoint read from the route table.
     #[must_use]
     pub fn metadata(&self) -> AuthorizationServerMetadata {
-        authorization_server_metadata(&self.configuration.issuer)
+        authorization_server_metadata(self.issuer())
     }
 
     /// The JWK Set document this deployment publishes.
@@ -642,12 +846,9 @@ where
         let at = self.now();
         let session_id = SessionId::new(self.next_identity());
         let epochs = EpochSnapshotRef::new(self.next_identity());
-        let expires_at =
-            instant::at(self.seconds().saturating_add(
-                instant::span_of(&self.configuration.session_lifetime).unwrap_or(0),
-            ));
+        let expires_at = instant::at(self.seconds().saturating_add(self.session_lifetime));
         let request = mandate_federation::RequestContext {
-            audience: Audience::new(&self.configuration.issuer),
+            audience: self.audience(),
             correlation: CorrelationId::new(session_id.to_string()),
             // This route authenticates no caller credential — `AuthenticateFederation`
             // declares none and `crates/mandate-server/src/decode.rs` refuses a presented
@@ -814,9 +1015,7 @@ where
             Some(_) => {}
         }
 
-        let expires_at = instant::at(self.seconds().saturating_add(
-            instant::span_of(self.configuration.code_lifetime.as_duration()).unwrap_or(0),
-        ));
+        let expires_at = instant::at(self.seconds().saturating_add(self.code_lifetime));
         // The value `AuthorizePublicClient`'s accepted outcome stops at, assembled from
         // validated facts and handed to the STS by value.
         let assembled = IssueAuthorizationCodeInput {
@@ -826,10 +1025,10 @@ where
                 organization: client.organization_id,
                 // The audience is the registered target's own, read off the registration
                 // and never from a caller-supplied selector.
-                audience: self.credentials.resource_server(&input.target).map_or_else(
-                    || Audience::new(&self.configuration.issuer),
-                    |server| server.audience,
-                ),
+                audience: self
+                    .credentials
+                    .resource_server(&input.target)
+                    .map_or_else(|| self.audience(), |server| server.audience),
                 credential: CredentialId::new(Uuid::from_bytes([0; 16])),
                 delegation: None,
                 execution: None,
@@ -1253,6 +1452,37 @@ pub mod instant {
             return None;
         }
         Some(seconds)
+    }
+
+    /// The last request instant an admitted lifetime is checked from: `3000-01-01T00:00:00Z`.
+    ///
+    /// [`crate::adapters::Configuration::checked`] has no clock — `src/main.rs` calls it
+    /// before the host clock is read, and a caller may hold none — so the upper bound on a
+    /// lifetime is decided from a stated instant rather than from "now". A span admitted
+    /// against this one renders a readable expiry for every request instant from the epoch
+    /// until the year 3000, which is 974 years past this deployment's release; a deployment
+    /// still running then has a reader problem this constant is the smallest part of.
+    pub const LATEST_CHECKED_REQUEST_INSTANT: i64 = 32_503_680_000;
+    /// Whether the instant this deployment renders for `seconds` is one the readers on this
+    /// road read back.
+    ///
+    /// [`at`] renders the year with `{year:04}`, which is a minimum width and not a maximum,
+    /// so an instant past `9999-12-31T23:59:59Z` renders a five-digit year and every RFC 3339
+    /// reader on this road refuses it — `services/sts/src/lib.rs:312-320` reads offset 4 for
+    /// the `-` and answers `None`, which `services/sts/src/code.rs` turns into
+    /// `ExpiryUnbounded`. The layout this checks is exactly the one that reader checks, and
+    /// it is checked against what [`at`] actually rendered rather than against arithmetic on
+    /// the seconds.
+    #[must_use]
+    pub fn renders_readably(seconds: i64) -> bool {
+        let rendered = at(seconds);
+        let text = rendered.as_str().as_bytes();
+        text.len() >= 20
+            && text[4] == b'-'
+            && text[7] == b'-'
+            && text[10] == b'T'
+            && text[13] == b':'
+            && text[16] == b':'
     }
 
     /// The declared `date-time` form of an instant, in UTC.

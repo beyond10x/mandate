@@ -17,11 +17,13 @@
 //! Nothing here opens a socket. `tests/serve.rs` is the road over HTTP.
 
 use mandate_control_plane::adapters::{
-    OAuthClientReadsOver, SessionProofs, SessionReadsOver, TargetRegistryOver, resolve_code_id,
-    session_proof_verifier,
+    Configuration, ConfigurationRefused, Deployment, IssuerRefused, OAuthClientReadsOver,
+    SessionProofs, SessionReadsOver, TargetRegistryOver, resolve_code_id, session_proof_verifier,
 };
 use mandate_federation::authorize::TargetRegistry;
 use mandate_federation::record::{FederationEvent, OAuthClientState, Projection};
+use mandate_federation::verifier::{ConstructedVerifier, VerifiedProof};
+use mandate_federation::verifier_real::FixedClock;
 use mandate_identity::{
     EpochSnapshotRecorded, Generation, IdentityEvent, IdentityLog, SecurityEpochRecorded,
     SessionOpened, SessionRevoked,
@@ -528,4 +530,210 @@ fn a_session_proof_lives_in_its_own_digest_space() {
              nothing"
         );
     }
+}
+
+// ---------------------------------------------------------------------------------------
+// The configuration a deployment is built from (correction round 1, F6 and F9)
+// ---------------------------------------------------------------------------------------
+
+/// The verifier double, as `tests/serve.rs` wires it.
+fn configured_verifier() -> ConstructedVerifier {
+    ConstructedVerifier::admitting(
+        &[mandate_types::SigningAlgorithm::new("ES256")],
+        VerifiedProof::new(
+            mandate_types::Issuer::new("https://idp.example"),
+            mandate_types::ExternalSubject::new("subject-1"),
+            mandate_types::ClientId::new("mandate-at-idp"),
+        ),
+    )
+    .expect("a non-empty algorithm allowlist")
+}
+
+/// A configuration with each value a case varies named.
+fn configuration(issuer: &str, code_lifetime: &str, session_lifetime: &str) -> Configuration {
+    Configuration {
+        issuer: issuer.to_owned(),
+        code_lifetime: CodeLifetime::new(Duration::new(code_lifetime)),
+        session_lifetime: Duration::new(session_lifetime),
+        keys: Vec::new(),
+    }
+}
+
+type Wired = Deployment<ConstructedVerifier, FixedClock, CountingSecrets, SequentialAllocator>;
+
+/// The deployment that configuration builds, or why it builds none.
+fn built(configuration: Configuration) -> Result<Wired, ConfigurationRefused> {
+    Deployment::new(
+        configuration,
+        configured_verifier(),
+        FixedClock::at(1_789_084_800),
+        CountingSecrets::new(),
+        SequentialAllocator::new(),
+    )
+}
+
+/// A lifetime that names no span is refused where it is read.
+///
+/// `adapters::instant::span_of` answers `None` for a duration that names no span, and the two
+/// sites that read the configured lifetimes used to answer `0` for one — which puts a code's
+/// `expires_at` at the request instant, which `services/sts/src/code.rs` refuses as
+/// `ExpiryUnbounded`. A deployment built that way starts, serves logins, and refuses every
+/// authorization; nothing in the exit status, the startup or the refusal a client reads says
+/// the configuration is the reason. It is refused at construction instead.
+#[test]
+fn a_lifetime_that_names_no_span_is_refused_at_construction() {
+    assert_eq!(
+        built(configuration("https://mandate.example", "PT", "PT8H")).err(),
+        Some(ConfigurationRefused::CodeLifetimeUnbounded),
+        "`PT` names no span"
+    );
+    assert_eq!(
+        built(configuration("https://mandate.example", "PT5M", "P1M")).err(),
+        Some(ConfigurationRefused::SessionLifetimeUnbounded),
+        "a month is not a number of seconds"
+    );
+    assert_eq!(
+        built(configuration("https://mandate.example", "PT0S", "PT8H")).err(),
+        Some(ConfigurationRefused::CodeLifetimeUnbounded),
+        "a code lifetime of zero seconds expires every code at the instant it is issued"
+    );
+    assert!(
+        built(configuration("https://mandate.example", "PT5M", "PT8H")).is_ok(),
+        "the lifetimes the binary defaults to are served"
+    );
+}
+
+/// RFC 8414 section 2: "The authorization server's issuer identifier ... MUST be a URL that
+/// uses the `https` scheme and has no query or fragment components." A deployment that
+/// publishes a metadata document naming something else names an issuer no client can validate
+/// against, so the identifier is decided at construction. `http` on the loopback is admitted
+/// for a deployment a developer runs on their own machine, and nowhere else.
+#[test]
+fn an_issuer_that_is_not_an_issuer_identifier_is_refused_at_construction() {
+    for (issuer, refused) in [
+        ("mandate.example", IssuerRefused::SchemeUnadmitted),
+        ("http://mandate.example", IssuerRefused::SchemeUnadmitted),
+        ("https://", IssuerRefused::HostMissing),
+        (
+            "https://mandate.example?tenant=acme",
+            IssuerRefused::QueryComponent,
+        ),
+        (
+            "https://mandate.example#tenant",
+            IssuerRefused::FragmentComponent,
+        ),
+        (
+            "https://mandate.example//",
+            IssuerRefused::RepeatedTrailingSlash,
+        ),
+    ] {
+        assert_eq!(
+            built(configuration(issuer, "PT5M", "PT8H")).err(),
+            Some(ConfigurationRefused::Issuer(refused)),
+            "{issuer}"
+        );
+    }
+    for admitted in [
+        "https://mandate.example",
+        "https://mandate.example/mandate",
+        "http://127.0.0.1:8080",
+        "http://localhost:8080",
+        "http://[::1]:8080",
+    ] {
+        assert!(
+            built(configuration(admitted, "PT5M", "PT8H")).is_ok(),
+            "{admitted} is an issuer identifier this deployment publishes"
+        );
+    }
+}
+
+/// The issuer is normalised once, at construction, and both consumers read the normalised
+/// value: the metadata document's `issuer` member and every endpoint built from it, and the
+/// audience the federation request context names. One trailing `/` is trimmed — RFC 8414
+/// section 3.1 joins the well-known path onto the identifier, so `.../` and `...` publish the
+/// same document — and a second one is refused rather than guessed at.
+#[test]
+fn the_metadata_document_and_the_federation_audience_read_one_normalised_issuer() {
+    let deployment = built(configuration("https://mandate.example/", "PT5M", "PT8H"))
+        .expect("an issuer identifier with one trailing slash");
+    assert_eq!(deployment.issuer(), "https://mandate.example");
+    assert_eq!(
+        deployment.metadata().issuer,
+        deployment.issuer(),
+        "the published document names the normalised identifier"
+    );
+    assert_eq!(
+        deployment.audience(),
+        Audience::new(deployment.issuer()),
+        "the federation audience is the same value and not the configured text"
+    );
+    assert_eq!(
+        deployment.metadata().jwks_uri,
+        "https://mandate.example/oauth/jwks",
+        "an endpoint is the normalised identifier joined with the route table's path"
+    );
+}
+
+/// **Both lifetimes are bounded above as well as below** (correction round 2, F4).
+///
+/// The lower bound alone left the failure round 1 was written against open at the other end:
+/// `--code-lifetime PT99999999H` is a well-formed duration `span_of` reads, and the expiry it
+/// puts on a code is past the year 9999. `adapters::instant::at` renders the year with
+/// `{year:04}` — a minimum width, not a maximum — and the STS's own reader
+/// (`services/sts/src/lib.rs:312-320`, `pub(crate)`) requires a `-` at offset 4, so it refuses
+/// the timestamp this deployment rendered and the handler answers `ExpiryUnbounded` — which
+/// reaches the client as `server_error`, per authorization request, with exit status 0 and
+/// nothing said at startup.
+///
+/// The boundary is stated here against RFC 3339's own last four-digit-year instant rather
+/// than against the check's arithmetic: a span that puts
+/// `instant::LATEST_CHECKED_REQUEST_INSTANT` at `9999-12-31T23:59:59Z` is admitted, and one
+/// second more is refused.
+#[test]
+fn a_lifetime_whose_expiry_this_deployment_cannot_render_is_refused_at_startup() {
+    for lifetime in ["PT99999999H", "P106751991167D"] {
+        assert_eq!(
+            built(configuration("https://mandate.example", lifetime, "PT8H")).err(),
+            Some(ConfigurationRefused::CodeLifetimeUnbounded),
+            "a code lifetime of {lifetime} renders an expiry no reader on this road reads"
+        );
+        assert_eq!(
+            built(configuration("https://mandate.example", "PT5M", lifetime)).err(),
+            Some(ConfigurationRefused::SessionLifetimeUnbounded),
+            "a session lifetime of {lifetime}"
+        );
+    }
+    assert!(
+        built(configuration(
+            "https://mandate.example",
+            "PT8760H",
+            "PT8760H"
+        ))
+        .is_ok(),
+        "a year is a lifetime this deployment renders"
+    );
+
+    // 9999-12-31T23:59:59Z, the last instant RFC 3339's four-digit year names.
+    let last_renderable: i64 = 253_402_300_799;
+    let largest =
+        last_renderable - mandate_control_plane::adapters::instant::LATEST_CHECKED_REQUEST_INSTANT;
+    assert!(
+        built(configuration(
+            "https://mandate.example",
+            &format!("PT{largest}S"),
+            "PT8H"
+        ))
+        .is_ok(),
+        "the largest span whose expiry is still renderable is admitted"
+    );
+    assert_eq!(
+        built(configuration(
+            "https://mandate.example",
+            &format!("PT{}S", largest + 1),
+            "PT8H"
+        ))
+        .err(),
+        Some(ConfigurationRefused::CodeLifetimeUnbounded),
+        "one second past it is not"
+    );
 }
