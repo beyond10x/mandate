@@ -491,12 +491,32 @@ fn write_store(root: &Path, model_digest: &str, records: &[(&str, String)]) {
 #[test]
 fn an_approval_recorded_later_does_not_answer_for_the_conformance_evidence() {
     let root = fixture("masked-conformance-evidence");
+    // Coordinator amendment: the parent of the last source-touching commit, so "the sources
+    // have moved since" holds on any head, not only on one whose parent moved them.
+    let last_source_commit = String::from_utf8_lossy(
+        &Command::new("git")
+            .current_dir(repo())
+            .args([
+                "rev-list",
+                "-1",
+                "HEAD",
+                "--",
+                "crates/*/src/*",
+                "services/*/src/*",
+                "systems",
+            ])
+            .output()
+            .expect("git rev-list -1 over the sources")
+            .stdout,
+    )
+    .trim()
+    .to_owned();
     let stale = String::from_utf8_lossy(
         &Command::new("git")
             .current_dir(repo())
-            .args(["rev-parse", "HEAD~1"])
+            .args(["rev-parse", &format!("{last_source_commit}~1")])
             .output()
-            .expect("git rev-parse HEAD~1")
+            .expect("git rev-parse <last source commit>~1")
             .stdout,
     )
     .trim()

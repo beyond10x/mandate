@@ -703,9 +703,24 @@ fn release_refuses_evidence_taken_before_the_sources_moved() {
     let root = fixture("moved-since-evidence");
     let before = Command::new("git")
         .current_dir(repo())
-        .args(["rev-parse", "HEAD~1"])
+        .args([
+            "rev-list",
+            "-1",
+            "HEAD",
+            "--",
+            "crates/*/src/*",
+            "services/*/src/*",
+            "systems",
+        ])
         .output()
-        .expect("git rev-parse HEAD~1");
+        .expect("git rev-list -1 over the sources");
+    let before = String::from_utf8_lossy(&before.stdout).trim().to_owned();
+    // The evidence is taken at the parent of that commit, so the sources have moved since.
+    let before = Command::new("git")
+        .current_dir(repo())
+        .args(["rev-parse", &format!("{before}~1")])
+        .output()
+        .expect("git rev-parse <last source commit>~1");
     let before = String::from_utf8_lossy(&before.stdout).trim().to_owned();
     write_evidence(&root, &spec_digest(&root), &format!("git:{before}"));
     let error = failure(&root, true);

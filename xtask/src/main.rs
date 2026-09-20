@@ -1,3 +1,4 @@
+mod conform;
 mod coverage;
 mod documents;
 mod emit;
@@ -32,6 +33,16 @@ enum Action {
     /// Every named mutant of `tests/mutants/`, applied to a copy of this tree and refused by
     /// the target it names; the copy, the build directory and the bounds are in [`mutants`].
     Mutants,
+    /// The conformance gate: the suite re-synthesized and byte-compared, the target run over
+    /// the implementation digest, the outcomes and injections compared with the authored
+    /// ledgers, every non-passed scenario attributed to a live story; `--release` binds the
+    /// recorded evidence to this tree. The rules are in [`conform`].
+    Conform {
+        #[arg(long, default_value = ".")]
+        root: PathBuf,
+        #[arg(long)]
+        release: bool,
+    },
     /// The obligations registry: every external denial clause of an implemented command bound
     /// to the real-path test that decides it, or deferred to a live story; `--write` rewrites
     /// `contracts/conformance/obligations-report.json` from the registry.
@@ -119,6 +130,9 @@ fn generate(root: &Path) -> Result<()> {
     // Emitted from the file [`ir`] just wrote, so the shapes and the model [`contracts`]
     // compares them against are the same bytes rather than two compilations of one source.
     emit::emit(root)?;
+    // The eighth kind: the conformance suite, synthesized from the specification and its
+    // authored scenarios the way `conform` re-synthesizes it.
+    conformance_suite(root)?;
     // The seventh kind: the coverage receipt, binding the manifest and every projection input
     // by digest, written from this tree into the same output root the projections went to.
     receipt::receipt(Path::new("."), root)
@@ -455,6 +469,70 @@ fn obligations_registry_step(root: &Path, write: bool) -> Result<()> {
     Ok(())
 }
 
+/// The conformance gate step; the per-story attribution table is what it prints.
+fn conform_step(root: &Path, release: bool) -> Result<()> {
+    println!("{}", conform::conform(root, release)?);
+    Ok(())
+}
+
+/// Synthesize the conformance suite into `<root>/conformance/suite.json`: with
+/// `--scenarios systems/mandate` first, and without it only when ESS refuses the explicit
+/// list as selecting no authored file (the list is empty today). ESS exits non-zero while
+/// writing a complete suite when the specification carries refusals, so the artifact, not the
+/// status, decides.
+fn conformance_suite(root: &Path) -> Result<()> {
+    let out = root.join("conformance").join("suite.json");
+    if let Some(parent) = out.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let _ = fs::remove_file(&out);
+    let target = out.to_str().ok_or("invalid path")?;
+    let with_scenarios = Command::new("ess")
+        .args([
+            "verify",
+            "conform",
+            "synthesize",
+            "--path",
+            "systems/mandate",
+            "--scenarios",
+            "systems/mandate",
+            "--suite-format",
+            "5",
+            "--out",
+            target,
+        ])
+        .output()?;
+    if out.is_file() {
+        return Ok(());
+    }
+    let refusal = String::from_utf8_lossy(&with_scenarios.stderr);
+    if !refusal.contains("the explicit scenarios list selected no authored files") {
+        return Err(format!("ess verify conform synthesize: {}", refusal.trim()).into());
+    }
+    let bare = Command::new("ess")
+        .args([
+            "verify",
+            "conform",
+            "synthesize",
+            "--path",
+            "systems/mandate",
+            "--suite-format",
+            "5",
+            "--out",
+            target,
+        ])
+        .output()?;
+    if !out.is_file() {
+        let refusal = String::from_utf8_lossy(&bare.stderr);
+        return Err(format!(
+            "ess verify conform synthesize wrote no suite: {}",
+            refusal.trim()
+        )
+        .into());
+    }
+    Ok(())
+}
+
 fn coverage_map(root: &Path) -> Result<()> {
     println!("{}", coverage::coverage(root)?);
     Ok(())
@@ -483,6 +561,7 @@ fn main() -> ExitCode {
         Action::Corpus => corpus(),
         Action::Mutants => mutation_controls(),
         Action::ObligationsRegistry { root, write } => obligations_registry_step(&root, write),
+        Action::Conform { root, release } => conform_step(&root, release),
         Action::Coverage { root } => coverage_map(&root),
         Action::Documents { root } => documents(&root),
         Action::Check => {
@@ -516,6 +595,7 @@ fn main() -> ExitCode {
             documents(Path::new("."))?;
             coverage_map(Path::new("."))?;
             obligations_registry_step(Path::new("."), false)?;
+            conform_step(Path::new("."), false)?;
             // Five binaries refuse `serve`; `mandate-control-plane` serves the login road
             // (`story:product-listener`, ruling D3) and is proven by its own listener cases.
             for b in [
