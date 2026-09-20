@@ -163,20 +163,21 @@ fn regenerated(root: &Path) -> (BTreeMap<PathBuf, Vec<u8>>, BTreeMap<PathBuf, Ve
     (committed, projection(&fresh.join("coverage")))
 }
 
-/// `coverage_mutants.rs:17-21` partitions the four escaping mutants by killer: "two relabels
-/// the per-crate registry case kills, and two receipt mutations the regeneration byte-compare
-/// kills", and "each escape asserts the run that does kill it". `:140-142` states it again for
-/// the first relabel — "the registry is the fact that contradicts the claim … so **the kill
-/// belongs to the crate's own case**".
+/// The relabel is killed by the regeneration byte-compare as well as by the registry case.
 ///
-/// This case asserts that partition where it is cheapest to decide: the relabel is applied to
-/// a root holding the committed receipt, the receipt is regenerated from that root, and the
-/// two are compared the way `main.rs`'s `contracts()` compares them. If the byte-compare is
-/// the killer of the two receipt mutants and not of the relabels, a relabelled manifest leaves
-/// the coverage projection unchanged.
+/// This case found the partition `coverage_mutants.rs` first stated — "two relabels the
+/// per-crate registry case kills, and two receipt mutations the regeneration byte-compare
+/// kills" — to be wrong, and now holds the corrected fact: the relabel is applied to a root
+/// holding the committed receipt, the receipt is regenerated from that root, and the two are
+/// compared the way `main.rs`'s `contracts()` compares them. They differ, because
+/// `generated/coverage/receipt.json` binds `contracts/coverage.json` by `manifest_digest` and
+/// by the per-kind counts, so every edit to the manifest is projection drift.
+///
+/// The two killers are not interchangeable, which is why the catalogue's record still names
+/// the registry one: the byte-compare refuses the **edit** and is quieted by regenerating the
+/// receipt, while the registry case refuses the **claim** and is not.
 #[test]
-fn the_regeneration_byte_compare_the_file_assigns_to_the_receipt_mutants_says_nothing_of_a_relabel()
-{
+fn the_regeneration_byte_compare_the_file_assigns_to_the_receipt_mutants_kills_a_relabel_too() {
     let root = receipt_fixture("relabel-against-the-receipt");
     let path = root.join("contracts/coverage.json");
     let body = fs::read_to_string(&path).expect("the fixture manifest");
@@ -203,15 +204,12 @@ fn the_regeneration_byte_compare_the_file_assigns_to_the_receipt_mutants_says_no
         .trim()
         .to_owned()
     };
-    assert_eq!(
+    assert_ne!(
         committed,
         fresh,
-        "the relabel `tests/mutants/manifest-relabel.patch` carries changes the bytes of \
-         contracts/coverage.json, and `generated/coverage/receipt.json` binds those bytes by \
-         digest, so `cargo xtask contracts` refuses this mutant by regeneration exactly as it \
-         refuses the two receipt mutants — committed {}, fresh {}. The file's account of which \
-         check kills which fault (coverage_mutants.rs:17-21, :140-142) gives the relabels one \
-         killer and the byte-compare only the two receipt mutations",
+        "a relabelled manifest regenerates a byte-identical receipt — committed {}, fresh {} — \
+         so `cargo xtask contracts` would not refuse this mutant and the receipt binds bytes \
+         it does not bind",
         read(&committed),
         read(&fresh)
     );
