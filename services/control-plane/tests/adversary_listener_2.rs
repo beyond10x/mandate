@@ -447,8 +447,6 @@ fn query_component(uri: &str) -> Option<&str> {
     before_fragment.split_once('?').map(|(_, query)| query)
 }
 
-/// The fragment component, as RFC 3986 section 3.5 delimits it.
-f
 fn code_of(location: &str) -> String {
     let query = query_component(location)
         .unwrap_or_else(|| panic!("a redirect carrying a query component, got {location}"));
