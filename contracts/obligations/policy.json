@@ -1,0 +1,119 @@
+{
+  "format": "mandate-obligations/1",
+  "crate": "mandate-policy",
+  "domains": [
+    "mandate.policy"
+  ],
+  "commands": [
+    {
+      "command": "mandate.policy.SupersedeAuthorizationModel",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Caller lacks authorization-model administration authority",
+          "tests": [],
+          "blocked_on": "story:obligations-policy"
+        },
+        {
+          "clause": "the model is outside the verified organization",
+          "tests": [
+            {
+              "id": "mandate-policy::double::another_organizations_policy_is_a_tenant_mismatch",
+              "kind": "denial",
+              "path": "double",
+              "double": "mandate_policy::double::PolicyDouble"
+            }
+          ],
+          "blocked_on": "story:graph-policy-adapter"
+        },
+        {
+          "clause": "no later model version is recorded for that organization",
+          "tests": [
+            {
+              "id": "mandate-policy::double::a_version_with_no_later_version_recorded_cannot_be_superseded",
+              "kind": "denial",
+              "path": "double",
+              "double": "mandate_policy::double::PolicyDouble"
+            }
+          ],
+          "blocked_on": "story:graph-policy-adapter"
+        },
+        {
+          "clause": "the relationship revision the later version requires is not yet observable",
+          "tests": [
+            {
+              "id": "mandate-policy::double::an_answer_whose_model_version_is_not_observable_is_refused",
+              "kind": "denial",
+              "path": "double",
+              "double": "mandate_policy::double::PolicyDouble"
+            }
+          ],
+          "blocked_on": "story:graph-policy-adapter"
+        }
+      ],
+      "no_state_change": [],
+      "blocked_on": "story:obligations-policy",
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    },
+    {
+      "command": "mandate.policy.SupersedePolicy",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Caller lacks policy-administration authority",
+          "tests": [],
+          "blocked_on": "story:obligations-policy"
+        },
+        {
+          "clause": "the policy is outside the verified organization",
+          "tests": [
+            {
+              "id": "mandate-policy::double::another_organizations_policy_is_a_tenant_mismatch",
+              "kind": "denial",
+              "path": "double",
+              "double": "mandate_policy::double::PolicyDouble"
+            }
+          ],
+          "blocked_on": "story:graph-policy-adapter"
+        },
+        {
+          "clause": "no later policy version is recorded for that organization",
+          "tests": [
+            {
+              "id": "mandate-policy::double::a_version_with_no_later_version_recorded_cannot_be_superseded",
+              "kind": "denial",
+              "path": "double",
+              "double": "mandate_policy::double::PolicyDouble"
+            }
+          ],
+          "blocked_on": "story:graph-policy-adapter"
+        },
+        {
+          "clause": "decisions in flight cannot remain attributable to the version that made them",
+          "tests": [
+            {
+              "id": "mandate-policy::double::an_answer_that_cannot_be_attributed_to_a_version_is_refused",
+              "kind": "denial",
+              "path": "double",
+              "double": "mandate_policy::double::PolicyDouble"
+            }
+          ],
+          "blocked_on": "story:graph-policy-adapter"
+        }
+      ],
+      "no_state_change": [],
+      "blocked_on": "story:obligations-policy",
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    }
+  ],
+  "addendum": [],
+  "cases": []
+}
