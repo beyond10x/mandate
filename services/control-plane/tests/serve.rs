@@ -24,7 +24,7 @@
 
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpStream};
-use std::time::Duration as HostDuration;
+use std::time::{Duration as HostDuration, Instant};
 
 use mandate_control_plane::adapters::{Configuration, Deployment};
 use mandate_control_plane::serve::{Limits, Listener};
@@ -48,6 +48,13 @@ const VERIFIER: &str = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
 const CHALLENGE: &str = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM";
 
 const REDIRECT: &str = "https://client.example/callback";
+
+/// A registered redirection endpoint URI carrying a query component, which RFC 6749
+/// section 3.1.2 admits in as many words: "The endpoint URI MAY include an
+/// `application/x-www-form-urlencoded` formatted query component ... which MUST be retained
+/// when adding additional query parameters."
+const REDIRECT_WITH_QUERY: &str = "https://client.example/callback?tenant=acme";
+
 const ISSUER: &str = "https://mandate.example";
 
 /// 2026-09-19T00:00:00Z, the instant every case is decided at.
@@ -113,8 +120,14 @@ fn verifier() -> ConstructedVerifier {
 type Wired = Deployment<ConstructedVerifier, FixedClock, CountingSecrets, SequentialAllocator>;
 
 /// A deployment holding one connection, one link, one public client and one registered
-/// target — the smallest world the login road needs.
-fn deployment() -> (Wired, ResourceServerId) {
+/// target — the smallest world the login road needs, with the redirect URI the client
+/// registers, the two configured lifetimes and the clock as its parameters.
+fn deployment_configured(
+    redirect: &str,
+    code_lifetime: &str,
+    session_lifetime: &str,
+    clock: FixedClock,
+) -> (Wired, ResourceServerId) {
     let mut allocator = SequentialAllocator::new();
     let registered = register_resource_server(
         &RegisterResourceServer {
@@ -132,15 +145,16 @@ fn deployment() -> (Wired, ResourceServerId) {
     let mut deployment = Deployment::new(
         Configuration {
             issuer: ISSUER.to_owned(),
-            code_lifetime: CodeLifetime::new(Duration::new("PT5M")),
-            session_lifetime: Duration::new("PT8H"),
+            code_lifetime: CodeLifetime::new(Duration::new(code_lifetime)),
+            session_lifetime: Duration::new(session_lifetime),
             keys: Vec::new(),
         },
         verifier(),
-        FixedClock::at(NOW),
+        clock,
         CountingSecrets::new(),
         SequentialAllocator::new(),
-    );
+    )
+    .expect("a configuration this deployment serves");
 
     deployment
         .record_credential(&registered.event)
@@ -176,29 +190,49 @@ fn deployment() -> (Wired, ResourceServerId) {
             id: client(),
             organization_id: organization(),
             public: true,
-            redirect_uris: vec![RedirectUri::new(REDIRECT)],
+            redirect_uris: vec![RedirectUri::new(redirect)],
             pkce_method: PkceMethod::S256,
         })
         .expect("a readable federation history");
     (deployment, target)
 }
 
+/// The limits every case here serves under: the shipped defaults, with a read timeout short
+/// enough that a case which stops writing is answered rather than waited on.
+fn test_limits() -> Limits {
+    Limits {
+        read_timeout: HostDuration::from_millis(400),
+        ..Limits::default()
+    }
+}
+
 /// Bind on an ephemeral port and serve the road on a thread of its own.
-fn serving() -> (SocketAddr, ResourceServerId) {
-    let listener = Listener::bind(
-        "127.0.0.1:0",
-        Limits {
-            read_timeout: HostDuration::from_millis(400),
-            ..Limits::default()
-        },
-    )
-    .expect("an ephemeral port on the loopback");
+fn serving_with(redirect: &str, limits: Limits) -> (SocketAddr, ResourceServerId) {
+    let (address, target, _) = serving_full(redirect, "PT5M", "PT8H", limits);
+    (address, target)
+}
+
+/// The same, with both lifetimes stated and the clock handed back so a case can move it.
+fn serving_full(
+    redirect: &str,
+    code_lifetime: &str,
+    session_lifetime: &str,
+    limits: Limits,
+) -> (SocketAddr, ResourceServerId, FixedClock) {
+    let listener =
+        Listener::bind("127.0.0.1:0", limits).expect("an ephemeral port on the loopback");
     let address = listener.local_addr().expect("the bound address");
-    let (mut deployment, target) = deployment();
+    let clock = FixedClock::at(NOW);
+    let (mut deployment, target) =
+        deployment_configured(redirect, code_lifetime, session_lifetime, clock.clone());
     std::thread::spawn(move || {
         let _ = listener.serve(&mut deployment);
     });
-    (address, target)
+    (address, target, clock)
+}
+
+fn serving() -> (SocketAddr, ResourceServerId) {
+    serving_with(REDIRECT, test_limits())
 }
 
 /// One response, as the bytes off the socket.
@@ -297,6 +331,85 @@ fn member(body: &str, name: &str) -> String {
         .and_then(serde_json::Value::as_str)
         .unwrap_or_else(|| panic!("a `{name}` member in {body}"))
         .to_owned()
+}
+
+/// A `POST` whose declared `Content-Length` is stated by the case rather than measured, and
+/// whose body is whatever bytes the case puts on the wire. The whole request is written in
+/// one call, so the head and every byte behind it arrive in one segment.
+fn raw_post(path: &str, media_type: &str, declared_length: &str, on_the_wire: &str) -> Vec<u8> {
+    format!(
+        "POST {path} HTTP/1.1\r\nHost: mandate.example\r\nContent-Type: {media_type}\r\n\
+         Content-Length: {declared_length}\r\n\r\n{on_the_wire}"
+    )
+    .into_bytes()
+}
+
+/// The login body the road opens a session with.
+fn login_body() -> String {
+    format!(
+        r#"{{"connection_id":"{}","proof":"{}"}}"#,
+        connection(),
+        mandate_types::value::encode_base64(b"an idp proof")
+    )
+}
+
+/// Open a session and answer with the `session_proof` the login handed back.
+fn session_proof(address: SocketAddr) -> String {
+    let login = exchange(
+        address,
+        &post(
+            "/v1/federation/login",
+            "application/json",
+            &login_body(),
+            &[],
+        ),
+    );
+    assert_eq!(login.status, 200, "the login answered {}", login.body);
+    member(&login.body, "session_proof")
+}
+
+/// The authorization request the road makes, with the redirect and the target as parameters.
+fn authorize(
+    address: SocketAddr,
+    target: ResourceServerId,
+    proof: &str,
+    redirect: &str,
+) -> Response {
+    exchange(
+        address,
+        &get(
+            &format!(
+                "/oauth/authorize?response_type=code&client_id={}&redirect_uri={}\
+                 &code_challenge={CHALLENGE}&code_challenge_method=S256&state=xyzzy\
+                 &nonce=n-0S6&target={target}&scope={}",
+                client(),
+                encoded(redirect),
+                encoded("read")
+            ),
+            &[("Authorization", &format!("Bearer {proof}"))],
+        ),
+    )
+}
+
+/// The token request body for a presented code.
+fn token_body(code: &str, redirect: &str) -> String {
+    format!(
+        "grant_type=authorization_code&client_id={}&code={}&code_verifier={VERIFIER}\
+         &redirect_uri={}",
+        client(),
+        encoded(code),
+        encoded(redirect)
+    )
+}
+
+/// The query component of a `Location`, decoded as the `application/x-www-form-urlencoded`
+/// form RFC 6749 section 4.1.2 makes it.
+fn redirect_form(location: &str) -> mandate_proto::oauth::Form {
+    let (_, query) = location
+        .split_once('?')
+        .expect("a redirect carrying a query component");
+    mandate_proto::oauth::decode_form(query)
+        .unwrap_or_else(|_| panic!("an x-www-form-urlencoded query, got {location}"))
 }
 
 /// The `code` the authorization endpoint redirected with.
@@ -613,4 +726,649 @@ fn the_token_endpoint_refuses_an_unknown_code_as_a_declared_denial() {
         "RFC 6749 section 5.2: the grant presented is invalid"
     );
     assert_eq!(refused.header("Cache-Control"), Some("no-store"));
+}
+
+// ---------------------------------------------------------------------------------------
+// The `Location` the authorization endpoint composes (correction round 1, F1 and F2)
+// ---------------------------------------------------------------------------------------
+
+/// RFC 6749 section 3.1.2 admits a query component on the registered redirection endpoint
+/// URI and requires it to "be retained when adding additional query parameters"; section
+/// 4.1.2 adds `code` and `state` **to the query component** of that URI. So the separator is
+/// `&` where the registered URI already carries a `?`, and `?` where it does not — one
+/// composer decides it for both branches.
+#[test]
+fn a_registered_redirect_carrying_a_query_keeps_it_and_adds_the_code_to_it() {
+    let (address, target) = serving_with(REDIRECT_WITH_QUERY, test_limits());
+    let proof = session_proof(address);
+    let answered = authorize(address, target, &proof, REDIRECT_WITH_QUERY);
+    assert_eq!(
+        answered.status, 302,
+        "RFC 6749 section 4.1.2 answers with a redirect; got {}",
+        answered.body
+    );
+    let location = answered
+        .header("Location")
+        .expect("a Location header")
+        .to_owned();
+    let form = redirect_form(&location);
+    assert_eq!(
+        form.get("tenant"),
+        Some("acme"),
+        "RFC 6749 section 3.1.2: the registered query component is retained, got {location}"
+    );
+    assert_eq!(
+        form.get("state"),
+        Some("xyzzy"),
+        "RFC 6749 section 4.1.2: the exact state received, got {location}"
+    );
+    assert!(
+        form.get("code").is_some_and(|code| !code.is_empty()),
+        "RFC 6749 section 4.1.2: the code is a parameter of the query, got {location}"
+    );
+}
+
+/// The same composer on the error branch of RFC 6749 section 4.1.2.1: `error` and `state`
+/// are parameters of the query, not text behind a second `?`. The refusal driven here — a
+/// target outside the client's tenant — is raised after the client and its registered
+/// redirect are validated, which is what makes it a redirect rather than a rendered body.
+#[test]
+fn an_error_redirect_adds_its_parameters_to_a_registered_query() {
+    let (address, _) = serving_with(REDIRECT_WITH_QUERY, test_limits());
+    let proof = session_proof(address);
+    let outside = ResourceServerId::new(uuid(0x77));
+    let answered = authorize(address, outside, &proof, REDIRECT_WITH_QUERY);
+    assert_eq!(
+        answered.status, 302,
+        "RFC 6749 section 4.1.2.1 redirects the error to the validated redirect URI; got {}",
+        answered.body
+    );
+    let location = answered
+        .header("Location")
+        .expect("a Location header")
+        .to_owned();
+    let form = redirect_form(&location);
+    assert_eq!(
+        form.get("tenant"),
+        Some("acme"),
+        "the registered query component is retained on the error branch too, got {location}"
+    );
+    assert!(
+        form.get("error").is_some(),
+        "RFC 6749 section 4.1.2.1: `error` is a parameter of the query, got {location}"
+    );
+    assert_eq!(
+        form.get("state"),
+        Some("xyzzy"),
+        "RFC 6749 section 4.1.2.1: the exact state received, got {location}"
+    );
+}
+
+// ---------------------------------------------------------------------------------------
+// The declared `Content-Length` is the frame (correction round 1, F3)
+// ---------------------------------------------------------------------------------------
+
+/// RFC 9112 section 6: the `Content-Length` field value is the message body's length in
+/// octets, and it frames the message. Bytes on the connection past that length are not part
+/// of this request — to a proxy in front of this listener they are the start of the next one,
+/// which is the same disagreement a repeated `Content-Length` is refused for.
+///
+/// The request declares a truthful length for a token form and puts seven more bytes behind
+/// it. Framed honestly, the decoder sees the declared prefix — a well-formed token request
+/// naming a code nothing issued, which is `invalid_grant`. If the trailing bytes are read
+/// they are an undeclared `evil` parameter and the answer is `invalid_request`.
+#[test]
+fn bytes_behind_the_declared_content_length_are_not_part_of_the_request() {
+    let (address, _) = serving();
+    let declared = token_body(
+        &mandate_types::value::encode_base64(b"a code nothing issued"),
+        REDIRECT,
+    );
+    let refused = exchange(
+        address,
+        &raw_post(
+            "/oauth/token",
+            "application/x-www-form-urlencoded",
+            &declared.len().to_string(),
+            &format!("{declared}&evil=1"),
+        ),
+    );
+    assert_eq!(
+        member(&refused.body, "error"),
+        "invalid_grant",
+        "the framed request is the declared {} bytes and the seven behind them are not part \
+         of it; got {}",
+        declared.len(),
+        refused.body
+    );
+}
+
+/// The same rule at its boundary: a request that declares no body carries none, even when
+/// the road's own credential is on the wire behind its head. A credential issued here would
+/// be issued for a body this listener was told it did not have.
+#[test]
+fn a_content_length_of_zero_frames_an_empty_body_and_issues_nothing() {
+    let (address, target) = serving();
+    let proof = session_proof(address);
+    let answered = authorize(address, target, &proof, REDIRECT);
+    assert_eq!(
+        answered.status, 302,
+        "the authorization answered {}",
+        answered.body
+    );
+    let code = code_of(answered.header("Location").expect("a Location header"));
+
+    let refused = exchange(
+        address,
+        &raw_post(
+            "/oauth/token",
+            "application/x-www-form-urlencoded",
+            "0",
+            &token_body(&code, REDIRECT),
+        ),
+    );
+    assert_ne!(
+        refused.status, 200,
+        "RFC 9112 section 6: no grant was presented, so no credential is issued; got {}",
+        refused.body
+    );
+    assert!(
+        !refused.body.contains("access_token"),
+        "no credential reaches a request that declared an empty body; got {}",
+        refused.body
+    );
+}
+
+/// A declared length above what this listener reads is refused on the declaration, before a
+/// body byte is read: the answer is the ceiling refusal and not the "body is incomplete" a
+/// listener that waited for bytes nobody sent would reach.
+#[test]
+fn a_declared_length_above_the_read_bound_is_refused_before_the_body_is_read() {
+    let (address, _) = serving();
+    let refused = exchange(
+        address,
+        &raw_post(
+            "/oauth/token",
+            "application/x-www-form-urlencoded",
+            "1000000",
+            "",
+        ),
+    );
+    assert_eq!(refused.status, 400);
+    assert_eq!(
+        member(&refused.body, "error_description"),
+        "the request is larger than this endpoint reads",
+        "the declared length decided it, not the bytes that never arrived; got {}",
+        refused.body
+    );
+}
+
+// ---------------------------------------------------------------------------------------
+// `Content-Length = 1*DIGIT` (correction round 1, F4)
+// ---------------------------------------------------------------------------------------
+
+/// RFC 9112 section 6.3: `Content-Length = 1*DIGIT`, and a message received without
+/// `Transfer-Encoding` and with an invalid `Content-Length` "has invalid framing" the
+/// recipient treats as an unrecoverable error. `str::parse::<usize>` admits a leading `+`,
+/// so a value no conformant reader accepts was read here as a length — and a proxy that
+/// refused it and this listener that accepted it frame the same connection two ways.
+#[test]
+fn a_content_length_that_is_not_one_star_digit_is_refused() {
+    let (address, _) = serving();
+    let body = login_body();
+    for declared in [
+        format!("+{}", body.len()),
+        "0x53".to_owned(),
+        "8 3".to_owned(),
+        "83abc".to_owned(),
+        String::new(),
+    ] {
+        let refused = exchange(
+            address,
+            &raw_post("/v1/federation/login", "application/json", &declared, &body),
+        );
+        assert_eq!(
+            refused.status, 400,
+            "`{declared}` is not 1*DIGIT and the framing is invalid; got {}",
+            refused.body
+        );
+        assert_eq!(member(&refused.body, "error"), "invalid_request");
+    }
+}
+
+/// The other half of the rule, so that refusing a sign does not become refusing a header
+/// RFC 9112 admits: the optional whitespace around a field value is **not** part of the
+/// value (RFC 9112 section 5), `httparse` strips it, and what is left is `1*DIGIT` and is
+/// served.
+#[test]
+fn optional_whitespace_around_a_content_length_is_not_part_of_it() {
+    let (address, _) = serving();
+    let body = login_body();
+    for declared in [format!(" {}", body.len()), format!("{} ", body.len())] {
+        let served = exchange(
+            address,
+            &raw_post("/v1/federation/login", "application/json", &declared, &body),
+        );
+        assert_eq!(
+            served.status, 200,
+            "`{declared}` trims to 1*DIGIT and frames a login; got {}",
+            served.body
+        );
+    }
+}
+
+// ---------------------------------------------------------------------------------------
+// The request target's four forms (correction round 1, F7)
+// ---------------------------------------------------------------------------------------
+
+/// RFC 9112 section 3.2.2: "a server MUST accept the absolute-form in requests, even though
+/// HTTP/1.1 clients will only send them in requests to proxies". The target is reduced to
+/// its origin-form before the route lookup, so the route it names is the route it reaches.
+#[test]
+fn an_absolute_form_request_target_reaches_the_route_it_names() {
+    let (address, _) = serving();
+    let served = exchange(address, &get(&format!("{ISSUER}/oauth/jwks"), &[]));
+    assert_eq!(
+        served.status, 200,
+        "the absolute-form target names the JWKS route; got {}",
+        served.body
+    );
+
+    // The reduction keeps the query component and the method the route declares: this one
+    // is the token endpoint's path under a method it does not serve.
+    let refused = exchange(address, &get("http://mandate.example/oauth/token?a=b", &[]));
+    assert_eq!(refused.status, 405, "got {}", refused.body);
+    assert_eq!(refused.header("Allow"), Some("POST"));
+}
+
+/// RFC 9112 section 3.2 declares four forms and this listener serves two of them. The
+/// authority-form is `CONNECT`'s and the asterisk-form is `OPTIONS`'s server-wide target;
+/// neither names a path, so neither is dispatched — and neither is silently read as one.
+#[test]
+fn an_authority_form_or_asterisk_form_target_is_refused() {
+    let (address, _) = serving();
+    for target in ["mandate.example:443", "*"] {
+        let refused = exchange(address, &get(target, &[]));
+        assert_eq!(
+            refused.status, 400,
+            "{target} names no path this listener serves; got {}",
+            refused.body
+        );
+        assert_eq!(member(&refused.body, "error"), "invalid_request");
+    }
+
+    let served = exchange(address, &get("/oauth/jwks", &[]));
+    assert_eq!(served.status, 200, "the listener is still serving");
+}
+
+// ---------------------------------------------------------------------------------------
+// One connection at a time, and the deadline that bounds it (correction round 1, F5)
+// ---------------------------------------------------------------------------------------
+
+/// This listener answers one connection at a time (`src/serve.rs`'s accept loop), so the time
+/// one client takes is the time every other client waits. What bounds that wait is
+/// [`Limits::request_deadline`]: the whole exchange — every read of the head and the body and
+/// the write of the response — finishes within it or is refused.
+///
+/// The probe: one connection dribbles a byte every 200 ms, under the read timeout, so no
+/// single read ever times out and only the deadline ends it. A second client sends one
+/// complete request for a document that reads no state at all, and is answered within the
+/// deadline and a margin rather than within the three seconds the dribble would otherwise
+/// take.
+#[test]
+fn a_second_client_is_answered_within_the_deadline_while_one_connection_dribbles() {
+    let deadline = HostDuration::from_millis(600);
+    let (address, _) = serving_with(
+        REDIRECT,
+        Limits {
+            request_deadline: deadline,
+            ..test_limits()
+        },
+    );
+    let slow = std::thread::spawn(move || {
+        let mut stream = TcpStream::connect(address).expect("the listener accepts");
+        // Fifteen bytes of a request line that never ends, one every 200 ms: three seconds
+        // of connection, every read of it inside the 400 ms read timeout.
+        for byte in b"GET /oauth/jwks" {
+            if stream.write_all(&[*byte]).is_err() {
+                return;
+            }
+            let _ = stream.flush();
+            std::thread::sleep(HostDuration::from_millis(200));
+        }
+    });
+    // Long enough that the slow connection is the one being read when the second arrives.
+    std::thread::sleep(HostDuration::from_millis(250));
+
+    let started = Instant::now();
+    let served = exchange(address, &get("/oauth/jwks", &[]));
+    let waited = started.elapsed();
+    let _ = slow.join();
+
+    assert_eq!(served.status, 200, "the JWKS document is served");
+    assert!(
+        waited < deadline + HostDuration::from_millis(500),
+        "a second client waited {waited:?} behind one dribbling connection, which the \
+         {deadline:?} deadline bounds"
+    );
+}
+
+/// The connection that lapsed is refused, and the refusal is a response rather than a closed
+/// socket: the client learns its request was not framed in time.
+#[test]
+fn a_request_that_does_not_finish_within_the_deadline_is_refused() {
+    let (address, _) = serving_with(
+        REDIRECT,
+        Limits {
+            request_deadline: HostDuration::from_millis(400),
+            ..test_limits()
+        },
+    );
+    let mut stream = TcpStream::connect(address).expect("the listener accepts");
+    stream
+        .set_read_timeout(Some(HostDuration::from_secs(5)))
+        .expect("a read bound on the case's own socket");
+    // Three bytes of a request line, one every 150 ms, and then nothing: every read of them
+    // is inside the 400 ms read timeout and only the deadline ends the exchange. The case
+    // stops writing before the deadline lapses, so the refusal is read off a connection
+    // nothing is still sending into.
+    for byte in b"GET" {
+        if stream.write_all(&[*byte]).is_err() {
+            break;
+        }
+        let _ = stream.flush();
+        std::thread::sleep(HostDuration::from_millis(150));
+    }
+    let refused = read_response(&mut stream);
+    assert_eq!(
+        refused.status, 400,
+        "the exchange did not finish within the deadline; got {}",
+        refused.body
+    );
+    assert_eq!(member(&refused.body, "error"), "invalid_request");
+
+    let served = exchange(address, &get("/oauth/jwks", &[]));
+    assert_eq!(served.status, 200, "the listener is still serving");
+}
+
+// ---------------------------------------------------------------------------------------
+// The binary's own refusals (correction round 1, F6)
+// ---------------------------------------------------------------------------------------
+
+/// A configuration `clap` accepted is not a configuration this deployment can serve. A
+/// `--code-lifetime` naming no span made every authorization request fail while the process
+/// ran and answered success to its operator; an issuer that is not an issuer identifier
+/// publishes a metadata document naming one that is not.
+///
+/// Both are refused where they are read, with the refusal on stderr and exit status 2 — which
+/// is neither the 0 of a served process nor the 1 of a listener that could not bind.
+#[test]
+fn a_configuration_the_binary_cannot_serve_is_refused_with_exit_status_two() {
+    for (argument, value) in [
+        ("--code-lifetime", "PT"),
+        ("--session-lifetime", "P1M"),
+        ("--issuer", "ftp://mandate.example"),
+        ("--issuer", "https://mandate.example?tenant=acme"),
+    ] {
+        let refused = std::process::Command::new(env!("CARGO_BIN_EXE_mandate-control-plane"))
+            .args([
+                "serve",
+                "--listen",
+                "127.0.0.1:0",
+                "--issuer",
+                "https://mandate.example",
+                argument,
+                value,
+            ])
+            .output()
+            .expect("the composition binary runs");
+        assert_eq!(
+            refused.status.code(),
+            Some(2),
+            "{argument} {value} names a configuration this deployment cannot serve; got {}",
+            String::from_utf8_lossy(&refused.stderr)
+        );
+        assert!(
+            !refused.stderr.is_empty(),
+            "{argument} {value} was refused without saying why"
+        );
+    }
+}
+
+// ---------------------------------------------------------------------------------------
+// The registered redirection URI has to be able to carry a response (round 2, F1 and F2)
+// ---------------------------------------------------------------------------------------
+
+/// RFC 6749 sections 4.1.2 and 4.1.2.1 add `code`, `state` and `error` **to the query
+/// component** of the registered redirection URI, and section 3.1.2 requires a query the URI
+/// already carries to be retained. Both hold only if the result is still an
+/// `application/x-www-form-urlencoded` form — so the registered query is parsed before it is
+/// extended, and a URI whose query is not a form, or which already names one of the three
+/// response parameters, carries no response at all.
+///
+/// That is a **client-registration** fault and not the end user's decision, so it is answered
+/// in place: RFC 6749 section 4.1.2.1 says a server whose redirection URI is invalid "MUST
+/// NOT automatically redirect".
+#[test]
+fn a_registered_redirect_whose_query_cannot_carry_the_response_is_refused_in_place() {
+    for (registered, why) in [
+        (
+            "https://client.example/callback?x",
+            "a segment with no `=` is not a form",
+        ),
+        (
+            "https://client.example/callback?%zz=1",
+            "a truncated escape is not a form",
+        ),
+        (
+            "https://client.example/callback?state=registered",
+            "a registered `state` would be returned beside the client's own",
+        ),
+        (
+            "https://client.example/callback?code=already",
+            "a registered `code` would be returned beside the issued one",
+        ),
+        (
+            "https://client.example/callback?error=none",
+            "a registered `error` would be read as a refusal",
+        ),
+    ] {
+        let (address, target) = serving_with(registered, test_limits());
+        let proof = session_proof(address);
+        let refused = authorize(address, target, &proof, registered);
+        assert_eq!(
+            refused.status, 400,
+            "{registered}: {why}; got {} {}",
+            refused.status, refused.body
+        );
+        assert_eq!(
+            refused.header("Location"),
+            None,
+            "RFC 6749 section 4.1.2.1 does not redirect to a redirection URI it cannot \
+             compose a response into; {registered}"
+        );
+        assert_eq!(member(&refused.body, "error"), "invalid_request");
+    }
+}
+
+/// The other end of the same rule: a query component that is present and **empty** is an
+/// empty form, names no response parameter, and is extended without the stray `&` that made
+/// `?&code=…` unreadable.
+#[test]
+fn an_empty_registered_query_component_is_extended_into_a_readable_form() {
+    let registered = "https://client.example/callback?";
+    let (address, target) = serving_with(registered, test_limits());
+    let proof = session_proof(address);
+    let redirected = authorize(address, target, &proof, registered);
+    assert_eq!(
+        redirected.status, 302,
+        "an empty query component carries a response; got {}",
+        redirected.body
+    );
+    let location = redirected
+        .header("Location")
+        .expect("a Location header")
+        .to_owned();
+    let form = redirect_form(&location);
+    assert!(form.get("code").is_some(), "a code parameter in {location}");
+    assert_eq!(form.get("state"), Some("xyzzy"), "the exact state received");
+}
+
+/// RFC 6749 section 3.1.2: "The redirection endpoint URI MUST NOT include a fragment
+/// component." Nothing between `RegisterOAuthClient` and the `Location` header reads that
+/// sentence, and by RFC 3986 section 3.5 every parameter appended after a `#` is inside the
+/// fragment — a component the redirection endpoint never receives. The URI carries no
+/// response, so it is refused in place rather than redirected to.
+#[test]
+fn a_registered_redirect_carrying_a_fragment_is_refused_in_place() {
+    let registered = "https://client.example/callback#done";
+    let (address, target) = serving_with(registered, test_limits());
+    let proof = session_proof(address);
+    let refused = authorize(address, target, &proof, registered);
+    assert_eq!(
+        refused.status, 400,
+        "a fragment carries no response parameter; got {}",
+        refused.body
+    );
+    assert_eq!(refused.header("Location"), None);
+    assert_eq!(member(&refused.body, "error"), "invalid_request");
+}
+
+/// The error branch is the same composer and answers the same way: a refusal that would be
+/// redirected under RFC 6749 section 4.1.2.1 is rendered instead when the registered URI
+/// cannot carry it. The refusal driven here — a target outside the client's tenant — is one
+/// that *is* redirected when the registered URI is composable.
+#[test]
+fn the_error_branch_is_rendered_when_the_registered_redirect_cannot_carry_it() {
+    let registered = "https://client.example/callback#done";
+    let (address, _) = serving_with(registered, test_limits());
+    let proof = session_proof(address);
+    let outside = ResourceServerId::new(uuid(0x77));
+    let refused = authorize(address, outside, &proof, registered);
+    assert_eq!(
+        refused.status, 400,
+        "the error is rendered, not redirected; got {}",
+        refused.body
+    );
+    assert_eq!(refused.header("Location"), None);
+}
+
+// ---------------------------------------------------------------------------------------
+// RFC 9112 section 3.2's other requirement: the Host (round 2, F3)
+// ---------------------------------------------------------------------------------------
+
+/// "A server MUST respond with a 400 (Bad Request) status code to any HTTP/1.1 request
+/// message that lacks a Host header field and to any request message that contains more than
+/// one Host header field line or a Host header field with an invalid field value."
+///
+/// Two Host lines is the request-smuggling shape the MUST exists for: a front end routing on
+/// the first and a listener reading neither do not agree on who the request was addressed to.
+#[test]
+fn an_http_1_1_request_naming_no_host_or_two_hosts_is_refused() {
+    let (address, _) = serving();
+    for (raw, why) in [
+        ("GET /oauth/jwks HTTP/1.1\r\n\r\n", "lacks a Host"),
+        (
+            "GET /oauth/jwks HTTP/1.1\r\nHost: mandate.example\r\nHost: evil.example\r\n\r\n",
+            "names two Hosts",
+        ),
+        (
+            "GET /oauth/jwks HTTP/1.1\r\nHost: \r\n\r\n",
+            "names an empty Host",
+        ),
+    ] {
+        let refused = exchange(address, raw.as_bytes());
+        assert_eq!(
+            refused.status, 400,
+            "RFC 9112 section 3.2: a request that {why} is refused; got {} {}",
+            refused.status, refused.body
+        );
+        assert_eq!(member(&refused.body, "error"), "invalid_request");
+    }
+
+    let served = exchange(address, &get("/oauth/jwks", &[]));
+    assert_eq!(served.status, 200, "the listener is still serving");
+}
+
+/// The boundary of that rule, so that requiring a Host does not become requiring one of a
+/// version that never had to send it: RFC 9112 section 3.2 obliges the field in HTTP/1.1
+/// messages, and an HTTP/1.0 request that omits it is not malformed. Two Host lines are
+/// refused at either version — that framing is ambiguous whoever sent it.
+#[test]
+fn an_http_1_0_request_may_omit_the_host_but_not_repeat_it() {
+    let (address, _) = serving();
+    let served = exchange(address, b"GET /oauth/jwks HTTP/1.0\r\n\r\n");
+    assert_eq!(
+        served.status, 200,
+        "HTTP/1.0 sends no Host and is not refused for it; got {}",
+        served.body
+    );
+    let refused = exchange(
+        address,
+        b"GET /oauth/jwks HTTP/1.0\r\nHost: a.example\r\nHost: b.example\r\n\r\n",
+    );
+    assert_eq!(refused.status, 400, "got {}", refused.body);
+}
+
+// ---------------------------------------------------------------------------------------
+// The lifetimes, at both ends (round 2, F4 and F6)
+// ---------------------------------------------------------------------------------------
+
+/// The admitted end of the upper bound, driven through the STS rather than read off the
+/// check: a code lifetime of a year renders an expiry `services/sts/src/lib.rs`'s reader
+/// reads back, so the authorization endpoint answers with a code.
+#[test]
+fn a_code_lifetime_of_a_year_still_issues_a_code() {
+    let (address, target, _) = serving_full(REDIRECT, "PT8760H", "PT8760H", test_limits());
+    let proof = session_proof(address);
+    let redirected = authorize(address, target, &proof, REDIRECT);
+    assert_eq!(redirected.status, 302, "got {}", redirected.body);
+    let location = redirected
+        .header("Location")
+        .expect("a Location header")
+        .to_owned();
+    let form = redirect_form(&location);
+    assert_eq!(form.get("error"), None, "no refusal in {location}");
+    assert!(form.get("code").is_some(), "a code in {location}");
+}
+
+/// **A code is redeemable only while the session it was issued under is fresh**
+/// (`services/sts/src/binding.rs`: the bound session must be strictly before its `expires_at`
+/// at the request instant, or the redemption is `SessionUnusable`). So a session lifetime
+/// below the code lifetime shortens the code's usable life, which is why
+/// `Configuration::checked` admits one and says so rather than refusing it.
+///
+/// Measured rather than asserted: the code is issued under a session with an hour to live,
+/// the clock moves past that hour while the code's own five minutes are far from over, and
+/// the redemption is refused with no credential.
+#[test]
+fn a_code_is_redeemable_only_while_its_session_is_fresh() {
+    let (address, target, clock) = serving_full(REDIRECT, "PT5M", "PT1H", test_limits());
+    let proof = session_proof(address);
+    let redirected = authorize(address, target, &proof, REDIRECT);
+    assert_eq!(redirected.status, 302, "got {}", redirected.body);
+    let code = code_of(redirected.header("Location").expect("a Location header"));
+
+    // Past the session's hour, inside the code's five minutes — which is only possible
+    // because the two lifetimes are configured independently.
+    clock.advance(3_600 + 1);
+    let refused = exchange(
+        address,
+        &post(
+            "/oauth/token",
+            "application/x-www-form-urlencoded",
+            &token_body(&code, REDIRECT),
+            &[],
+        ),
+    );
+    assert_ne!(
+        refused.status, 200,
+        "the session the code was issued under has expired; got {}",
+        refused.body
+    );
+    assert!(
+        !refused.body.contains("access_token"),
+        "no credential is issued against an expired session; got {}",
+        refused.body
+    );
 }
