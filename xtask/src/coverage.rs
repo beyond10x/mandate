@@ -532,10 +532,19 @@ fn accounting(compiled: &Compiled, problems: &mut Vec<String>) {
 /// The story's frontmatter `status:` when it is a terminal rung of the story lifecycle.
 ///
 /// Read from the frontmatter only — the block between the first two `---` lines — so a
-/// `status:` in the body is prose, not a claim.
+/// `status:` in the body is prose, not a claim; and read as a *value*, so a quoted
+/// `status: "implemented"` and a `status: implemented  # closed at wave D` are the rung they
+/// state rather than strings no rung matches
+/// (`review-result:wave-d-conform-gate-adversary-1` F9).
 ///
-/// `pub` because [`crate::obligations_registry`] decides the same question about the story an
-/// unbound clause defers to. Two readers of one frontmatter can disagree; one cannot.
+/// `pub` because `crate::conform` decides the same question about the stories a conformance
+/// gap names, and one lifecycle has one reader.
+///
+/// # Errors
+///
+/// None: an unreadable story, a story with no frontmatter and a story on a live rung are all
+/// `None`.
+#[must_use]
 pub fn terminal_rung(story: &Path) -> Option<String> {
     const TERMINAL: [&str; 3] = ["implemented", "archived", "rejected"];
     let text = fs::read_to_string(story).ok()?;
@@ -551,7 +560,21 @@ pub fn terminal_rung(story: &Path) -> Option<String> {
         if fences == 1
             && let Some(value) = line.strip_prefix("status:")
         {
-            let value = value.trim();
+            let value = match value.split_once(" #") {
+                Some((before, _)) => before,
+                None => value,
+            }
+            .trim();
+            let value = value
+                .strip_prefix('"')
+                .and_then(|rest| rest.strip_suffix('"'))
+                .or_else(|| {
+                    value
+                        .strip_prefix('\'')
+                        .and_then(|rest| rest.strip_suffix('\''))
+                })
+                .unwrap_or(value)
+                .trim();
             return TERMINAL.contains(&value).then(|| value.to_owned());
         }
     }

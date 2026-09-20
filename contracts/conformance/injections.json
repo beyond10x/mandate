@@ -1,0 +1,1257 @@
+{
+  "standing_doubles": [
+    {
+      "port": "mandate_federation::FederationVerifier",
+      "double": "mandate_conformance::external::ScenarioVerifier",
+      "why": "no signature verification is performed: the claims are read out of the proof's own payload segment, unverified, so a scenario that authored a proof is answered with what it authored rather than with a forged validation"
+    },
+    {
+      "port": "mandate_federation::IdentityAllocator",
+      "double": "mandate_federation::SequentialAllocator",
+      "why": "no crate in the federation dependency ceiling generates a uuid"
+    },
+    {
+      "port": "mandate_federation::SessionIssuer",
+      "double": "mandate_federation::RecordingSessionIssuer",
+      "why": "session issuance is `mandate.identity`'s and reaches this crate as a port"
+    },
+    {
+      "port": "mandate_federation::register_client::ClientRegistrationAdmission",
+      "double": "mandate_federation::register_client::ConfiguredAdmission",
+      "why": "client-administration authority is an authorization decision no crate in the federation ceiling makes"
+    },
+    {
+      "port": "mandate_graph::port::GraphRead",
+      "double": "mandate_graph::double::GraphDouble",
+      "why": "the relationship store is `story:graph-policy-adapter`'s"
+    },
+    {
+      "port": "mandate_policy::port::PolicyEvaluator",
+      "double": "mandate_policy::double::PolicyDouble",
+      "why": "the policy engine is `story:graph-policy-adapter`'s"
+    },
+    {
+      "port": "mandate_authz::CheckRequest::expected_audience",
+      "double": "the verified context's own audience",
+      "why": "no audience registry is reachable from the authorization ceiling, so the caller states what it requires; this target requires what the context carries, which makes the audience bound satisfied rather than evaluated"
+    },
+    {
+      "port": "mandate_authz::CheckRequest::relation",
+      "double": "the requested action's own name",
+      "why": "no domain declares a mapping from an action to the roles that carry it, so the caller names the relation the graph is asked about"
+    },
+    {
+      "port": "mandate_authz::CheckRequest::minimum",
+      "double": "AuthzRevision(\"0\")",
+      "why": "the revision floor a read must not answer below; the initial one, so a read is refused for the authority and never for the floor"
+    },
+    {
+      "port": "mandate_authz::CheckRequest::attributes",
+      "double": "an empty mandate_policy::port::AttributeSet",
+      "why": "the attribute input policy evaluates against; no declared command input carries one and no port answers it"
+    },
+    {
+      "port": "mandate_authz::CheckRequest::scope",
+      "double": "None",
+      "why": "the authority a request is made under; the declared input carries none, so no scope bound is intersected and none is claimed to have been"
+    },
+    {
+      "port": "mandate_authz::decision::DecisionIdAllocator",
+      "double": "mandate_authz::decision::SequentialDecisionIds",
+      "why": "no crate in the authorization ceiling generates a uuid"
+    },
+    {
+      "port": "mandate_authz::decision::ChallengeIssuer",
+      "double": "mandate_authz::decision::FixedChallenge",
+      "why": "an approval policy and a challenge expiry are values no port answers"
+    },
+    {
+      "port": "mandate_identity::IdentityLog",
+      "double": "mandate_identity::IdentityLog",
+      "why": "the in-memory double of the event-log adapter a later story supplies"
+    },
+    {
+      "port": "mandate_sts::CredentialDigest",
+      "double": "mandate_sts::issue::Sha256Digest",
+      "why": "the digest domain a deployment configures; this is the crate's own SHA-256"
+    },
+    {
+      "port": "mandate_sts::SecretSource",
+      "double": "mandate_sts::CountingSecrets",
+      "why": "no crate in the STS dependency ceiling holds a random source"
+    },
+    {
+      "port": "mandate_sts::IdentityAllocator",
+      "double": "mandate_sts::SequentialAllocator",
+      "why": "no crate in the STS dependency ceiling generates a uuid"
+    },
+    {
+      "port": "mandate_token::signing_real::AllowedAlgorithms",
+      "double": "AllowedAlgorithms([\"ES256\"])",
+      "why": "UNMAPPED-ALGORITHM-POLICY: a SigningAlgorithm is a name and the admitted set is a deployment's, validated at startup; this target states one of the two names mandate-token admits so RegisterSigningKey is decided against a policy rather than against nothing"
+    },
+    {
+      "port": "mandate_sts::code::CodeLifetime",
+      "double": "CodeLifetime(\"PT10M\")",
+      "why": "the longest lifetime a deployment issues an authorization code for; the contract carries no default and `code.rs` has no constant, so the ceiling IssueAuthorizationCode is bounded by is stated here"
+    },
+    {
+      "port": "mandate_sts::issue::IssuanceSigner",
+      "double": "mandate_sts::issue::StaticSigner",
+      "why": "the signing key material is the deployment's and no scenario supplies one"
+    },
+    {
+      "port": "mandate_sts::keys::KeyMaterialResolver",
+      "double": "mandate_conformance::external::ScenarioKeys",
+      "why": "the public half of a key reference is material the deployment loads; this answers a thumbprint derived from the reference itself and computes no key"
+    },
+    {
+      "port": "mandate_sts::code::OAuthClientReads",
+      "double": "mandate_sts::code::RecordedClients",
+      "why": "mandate.federation owns the OAuth client record and no command of this contract writes it into the STS's own read model"
+    },
+    {
+      "port": "mandate_sts::binding::SessionReads",
+      "double": "mandate_sts::binding::RecordedSessions",
+      "why": "mandate.identity owns the session record and the STS reads it over an adapter no crate on this line supplies"
+    },
+    {
+      "port": "mandate_sts::store::AuthorizationCodeLog",
+      "double": "mandate_sts::store::InMemoryCodeLog",
+      "why": "the in-memory double of the code log the STS deployment supplies"
+    }
+  ],
+  "injections": [
+    {
+      "scenario": "mandate.audit.RecordAuditEvent/outcome/denied",
+      "command": "mandate.audit.RecordAuditEvent",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.audit.RedactAuditEvent/outcome/denied",
+      "command": "mandate.audit.RedactAuditEvent",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.authorization.Check/outcome/denied",
+      "command": "mandate.authorization.Check",
+      "port": "mandate_graph::port::GraphRead",
+      "kind": "armed-unreached",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.credential.DisableResourceServer/outcome/denied",
+      "command": "mandate.credential.DisableResourceServer",
+      "port": "mandate_sts::registry::ResourceServerReads",
+      "kind": "armed-unrefused",
+      "consulted": 1
+    },
+    {
+      "scenario": "mandate.credential.ExchangeCredential/outcome/denied",
+      "command": "mandate.credential.ExchangeCredential",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.credential.IntrospectCredential/outcome/denied",
+      "command": "mandate.credential.IntrospectCredential",
+      "port": "mandate_sts::resolve::CredentialResolution",
+      "kind": "armed-unrefused",
+      "consulted": 2
+    },
+    {
+      "scenario": "mandate.credential.IssueAuthorizationCode/outcome/denied",
+      "command": "mandate.credential.IssueAuthorizationCode",
+      "port": "mandate_sts::registry::ResourceServerReads",
+      "kind": "armed-unrefused",
+      "consulted": 1
+    },
+    {
+      "scenario": "mandate.credential.IssueReferenceCredential/outcome/denied",
+      "command": "mandate.credential.IssueReferenceCredential",
+      "port": "mandate_sts::registry::ResourceServerReads",
+      "kind": "armed-unrefused",
+      "consulted": 1
+    },
+    {
+      "scenario": "mandate.credential.IssueSelfContainedCredential/outcome/denied",
+      "command": "mandate.credential.IssueSelfContainedCredential",
+      "port": "mandate_sts::registry::ResourceServerReads",
+      "kind": "armed-unrefused",
+      "consulted": 1
+    },
+    {
+      "scenario": "mandate.credential.RedeemAuthorizationCode/outcome/denied",
+      "command": "mandate.credential.RedeemAuthorizationCode",
+      "port": "mandate_sts::registry::ResourceServerReads",
+      "kind": "armed-unreached",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.credential.RegisterResourceServer/outcome/denied",
+      "command": "mandate.credential.RegisterResourceServer",
+      "port": "mandate_sts::registry::ResourceServerReads",
+      "kind": "armed",
+      "consulted": 1
+    },
+    {
+      "scenario": "mandate.credential.RegisterSigningKey/outcome/denied",
+      "command": "mandate.credential.RegisterSigningKey",
+      "port": "mandate_sts::keys::KeyMaterialResolver",
+      "kind": "armed-unreached",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.credential.RetireSigningKey/outcome/denied",
+      "command": "mandate.credential.RetireSigningKey",
+      "port": "mandate_sts::keys::SigningKeyReads",
+      "kind": "armed-unrefused",
+      "consulted": 1
+    },
+    {
+      "scenario": "mandate.credential.RevokeAccessCredential/outcome/denied",
+      "command": "mandate.credential.RevokeAccessCredential",
+      "port": "mandate_sts::resolve::CredentialReads",
+      "kind": "armed-unrefused",
+      "consulted": 1
+    },
+    {
+      "scenario": "mandate.credential.RevokeSigningKey/outcome/denied",
+      "command": "mandate.credential.RevokeSigningKey",
+      "port": "mandate_sts::keys::SigningKeyReads",
+      "kind": "armed-unrefused",
+      "consulted": 1
+    },
+    {
+      "scenario": "mandate.delegation.CompleteExecution/outcome/denied",
+      "command": "mandate.delegation.CompleteExecution",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.delegation.ConsumeApproval/outcome/denied",
+      "command": "mandate.delegation.ConsumeApproval",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.delegation.CreateDelegation/outcome/denied",
+      "command": "mandate.delegation.CreateDelegation",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.delegation.RetireAgent/outcome/denied",
+      "command": "mandate.delegation.RetireAgent",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.delegation.RevokeDelegation/outcome/denied",
+      "command": "mandate.delegation.RevokeDelegation",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.delegation.SupersedeAgentCapabilityCeiling/outcome/denied",
+      "command": "mandate.delegation.SupersedeAgentCapabilityCeiling",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.directory.CompleteSyncJob/outcome/denied",
+      "command": "mandate.directory.CompleteSyncJob",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.directory.CreateDirectoryGroupTeamMapping/outcome/denied",
+      "command": "mandate.directory.CreateDirectoryGroupTeamMapping",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.directory.FailSyncJob/outcome/denied",
+      "command": "mandate.directory.FailSyncJob",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.directory.RemoveDirectoryGroupMembership/outcome/denied",
+      "command": "mandate.directory.RemoveDirectoryGroupMembership",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.directory.RemoveDirectoryGroupTeamMapping/outcome/denied",
+      "command": "mandate.directory.RemoveDirectoryGroupTeamMapping",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.directory.RemoveMembershipContribution/outcome/denied",
+      "command": "mandate.directory.RemoveMembershipContribution",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.directory.RetireDirectoryGroup/outcome/denied",
+      "command": "mandate.directory.RetireDirectoryGroup",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.directory.SyncDirectoryMembership/outcome/denied",
+      "command": "mandate.directory.SyncDirectoryMembership",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.federation.AuthenticateFederation/outcome/denied",
+      "command": "mandate.federation.AuthenticateFederation",
+      "port": "mandate_federation::FederationVerifier",
+      "kind": "armed-unreached",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.federation.AuthorizePublicClient/outcome/denied",
+      "command": "mandate.federation.AuthorizePublicClient",
+      "port": "mandate_federation::publicclient::OAuthClientStore",
+      "kind": "armed-unreached",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.federation.DisableFederationConnection/outcome/denied",
+      "command": "mandate.federation.DisableFederationConnection",
+      "port": "mandate_federation::ConnectionStore",
+      "kind": "armed-unrefused",
+      "consulted": 1
+    },
+    {
+      "scenario": "mandate.federation.DisableOAuthClient/outcome/denied",
+      "command": "mandate.federation.DisableOAuthClient",
+      "port": "mandate_federation::publicclient::OAuthClientStore",
+      "kind": "armed-unrefused",
+      "consulted": 1
+    },
+    {
+      "scenario": "mandate.federation.LinkExternalPrincipal/outcome/denied",
+      "command": "mandate.federation.LinkExternalPrincipal",
+      "port": "mandate_federation::LinkStore",
+      "kind": "armed-unreached",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.federation.ProvisionExternalPrincipal/outcome/denied",
+      "command": "mandate.federation.ProvisionExternalPrincipal",
+      "port": "mandate_federation::FederationVerifier",
+      "kind": "armed-unreached",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.federation.RegisterFederationConnection/outcome/denied",
+      "command": "mandate.federation.RegisterFederationConnection",
+      "port": "mandate_federation::ConnectionStore",
+      "kind": "armed-unreached",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.federation.RegisterOAuthClient/outcome/denied",
+      "command": "mandate.federation.RegisterOAuthClient",
+      "port": "mandate_federation::register_client::ClientRegistrationAdmission",
+      "kind": "armed-unrefused",
+      "consulted": 1
+    },
+    {
+      "scenario": "mandate.federation.UnlinkExternalPrincipal/outcome/denied",
+      "command": "mandate.federation.UnlinkExternalPrincipal",
+      "port": "mandate_federation::ExternalPrincipalStore",
+      "kind": "armed-unrefused",
+      "consulted": 1
+    },
+    {
+      "scenario": "mandate.graph.DeregisterResource/outcome/denied",
+      "command": "mandate.graph.DeregisterResource",
+      "port": "none",
+      "kind": "refused-before-dispatch",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.graph.RegisterResource/outcome/denied",
+      "command": "mandate.graph.RegisterResource",
+      "port": "none",
+      "kind": "refused-before-dispatch",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.graph.RemoveRelation/outcome/denied",
+      "command": "mandate.graph.RemoveRelation",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.graph.RevokeGrant/outcome/denied",
+      "command": "mandate.graph.RevokeGrant",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.graph.WriteRelationship/outcome/denied",
+      "command": "mandate.graph.WriteRelationship",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.identity.DisablePrincipal/outcome/denied",
+      "command": "mandate.identity.DisablePrincipal",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.identity.IncrementSecurityEpoch/outcome/denied",
+      "command": "mandate.identity.IncrementSecurityEpoch",
+      "port": "mandate_identity::SecurityEpochWrite",
+      "kind": "armed",
+      "consulted": 1
+    },
+    {
+      "scenario": "mandate.identity.RefreshSession/outcome/denied",
+      "command": "mandate.identity.RefreshSession",
+      "port": "mandate_identity::IdentityRead",
+      "kind": "armed-unreached",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.identity.RevokeRefreshCredential/outcome/denied",
+      "command": "mandate.identity.RevokeRefreshCredential",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.identity.RevokeSession/outcome/denied",
+      "command": "mandate.identity.RevokeSession",
+      "port": "mandate_identity::IdentityRead (concrete log)",
+      "kind": "refused-before-dispatch",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.policy.SupersedeAuthorizationModel/outcome/denied",
+      "command": "mandate.policy.SupersedeAuthorizationModel",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.policy.SupersedePolicy/outcome/denied",
+      "command": "mandate.policy.SupersedePolicy",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.tenancy.AddOrganizationMembership/outcome/denied",
+      "command": "mandate.tenancy.AddOrganizationMembership",
+      "port": "none",
+      "kind": "refused-before-dispatch",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.tenancy.AddTeamMembership/outcome/denied",
+      "command": "mandate.tenancy.AddTeamMembership",
+      "port": "none",
+      "kind": "refused-before-dispatch",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.tenancy.CloseOrganization/outcome/denied",
+      "command": "mandate.tenancy.CloseOrganization",
+      "port": "none",
+      "kind": "refused-before-dispatch",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.tenancy.CreateOrganization/outcome/denied",
+      "command": "mandate.tenancy.CreateOrganization",
+      "port": "none",
+      "kind": "refused-before-dispatch",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.tenancy.CreateSpace/outcome/denied",
+      "command": "mandate.tenancy.CreateSpace",
+      "port": "none",
+      "kind": "refused-before-dispatch",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.tenancy.CreateTeam/outcome/denied",
+      "command": "mandate.tenancy.CreateTeam",
+      "port": "none",
+      "kind": "refused-before-dispatch",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.tenancy.RemoveOrganizationMembership/outcome/denied",
+      "command": "mandate.tenancy.RemoveOrganizationMembership",
+      "port": "none",
+      "kind": "refused-before-dispatch",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.tenancy.RemoveTeamMembership/outcome/denied",
+      "command": "mandate.tenancy.RemoveTeamMembership",
+      "port": "none",
+      "kind": "refused-before-dispatch",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.tenancy.RetireSpace/outcome/denied",
+      "command": "mandate.tenancy.RetireSpace",
+      "port": "none",
+      "kind": "refused-before-dispatch",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.tenancy.RetireTeam/outcome/denied",
+      "command": "mandate.tenancy.RetireTeam",
+      "port": "none",
+      "kind": "refused-before-dispatch",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.workload.RevokeWorkloadIdentity/outcome/denied",
+      "command": "mandate.workload.RevokeWorkloadIdentity",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    }
+  ],
+  "blocked": [
+    {
+      "scenario": "mandate.audit.AuditEvent/state/Redacted/refuses/mandate.audit.RedactAuditEvent",
+      "command": "mandate.audit.RecordAuditEvent",
+      "reason": "unrealized-command",
+      "blocked_on": "story:audit-worker-delivery"
+    },
+    {
+      "scenario": "mandate.audit.AuditEvent/transition/redact/by/mandate.audit.RedactAuditEvent/accepted",
+      "command": "mandate.audit.RecordAuditEvent",
+      "reason": "unrealized-command",
+      "blocked_on": "story:audit-worker-delivery"
+    },
+    {
+      "scenario": "mandate.audit.RecordAuditEvent/outcome/denied",
+      "command": "mandate.audit.RecordAuditEvent",
+      "reason": "unrealized-command",
+      "blocked_on": "story:audit-worker-delivery"
+    },
+    {
+      "scenario": "mandate.audit.RecordAuditEvent/outcome/recorded",
+      "command": "mandate.audit.RecordAuditEvent",
+      "reason": "unrealized-command",
+      "blocked_on": "story:audit-worker-delivery"
+    },
+    {
+      "scenario": "mandate.audit.RedactAuditEvent/outcome/accepted",
+      "command": "mandate.audit.RecordAuditEvent",
+      "reason": "unrealized-command",
+      "blocked_on": "story:audit-worker-delivery"
+    },
+    {
+      "scenario": "mandate.audit.RedactAuditEvent/outcome/denied",
+      "command": "mandate.audit.RedactAuditEvent",
+      "reason": "unrealized-command",
+      "blocked_on": "story:audit-worker-delivery"
+    },
+    {
+      "scenario": "mandate.authorization.Check/outcome/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.credential.AccessCredential/state/Revoked/refuses/mandate.credential.RevokeAccessCredential",
+      "command": "mandate.credential.ExchangeCredential",
+      "reason": "unrealized-command",
+      "blocked_on": "story:constrained-exchange"
+    },
+    {
+      "scenario": "mandate.credential.AccessCredential/transition/revoke/by/mandate.credential.RevokeAccessCredential/accepted",
+      "command": "mandate.credential.ExchangeCredential",
+      "reason": "unrealized-command",
+      "blocked_on": "story:constrained-exchange"
+    },
+    {
+      "scenario": "mandate.credential.AuthorizationCode/state/Consumed/refuses/mandate.credential.RedeemAuthorizationCode",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.credential.AuthorizationCode/transition/consume/by/mandate.credential.RedeemAuthorizationCode/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.credential.ExchangeCredential/outcome/accepted",
+      "command": "mandate.credential.ExchangeCredential",
+      "reason": "unrealized-command",
+      "blocked_on": "story:constrained-exchange"
+    },
+    {
+      "scenario": "mandate.credential.ExchangeCredential/outcome/denied",
+      "command": "mandate.credential.ExchangeCredential",
+      "reason": "unrealized-command",
+      "blocked_on": "story:constrained-exchange"
+    },
+    {
+      "scenario": "mandate.credential.IntrospectCredential/outcome/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.credential.IssueAuthorizationCode/outcome/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.credential.IssueReferenceCredential/outcome/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.credential.IssueSelfContainedCredential/outcome/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.credential.RedeemAuthorizationCode/outcome/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.credential.RegisterSigningKey/outcome/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.credential.RetireSigningKey/outcome/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.credential.RevokeAccessCredential/outcome/accepted",
+      "command": "mandate.credential.ExchangeCredential",
+      "reason": "unrealized-command",
+      "blocked_on": "story:constrained-exchange"
+    },
+    {
+      "scenario": "mandate.credential.RevokeSigningKey/outcome/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.credential.SigningKey/state/Retired/refuses/mandate.credential.RetireSigningKey",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.credential.SigningKey/state/Revoked/refuses/mandate.credential.RetireSigningKey",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.credential.SigningKey/state/Revoked/refuses/mandate.credential.RevokeSigningKey",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.credential.SigningKey/transition/retire/by/mandate.credential.RetireSigningKey/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.credential.SigningKey/transition/revoke/by/mandate.credential.RevokeSigningKey/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.delegation.CompleteExecution/outcome/denied",
+      "command": "mandate.delegation.CompleteExecution",
+      "reason": "unrealized-command",
+      "blocked_on": "story:agent-authority-kernel"
+    },
+    {
+      "scenario": "mandate.delegation.ConsumeApproval/outcome/denied",
+      "command": "mandate.delegation.ConsumeApproval",
+      "reason": "unrealized-command",
+      "blocked_on": "story:agent-authority-kernel"
+    },
+    {
+      "scenario": "mandate.delegation.CreateDelegation/outcome/accepted",
+      "command": "mandate.delegation.CreateDelegation",
+      "reason": "unrealized-command",
+      "blocked_on": "story:agent-authority-kernel"
+    },
+    {
+      "scenario": "mandate.delegation.CreateDelegation/outcome/denied",
+      "command": "mandate.delegation.CreateDelegation",
+      "reason": "unrealized-command",
+      "blocked_on": "story:agent-authority-kernel"
+    },
+    {
+      "scenario": "mandate.delegation.Delegation/state/Revoked/refuses/mandate.delegation.RevokeDelegation",
+      "command": "mandate.delegation.CreateDelegation",
+      "reason": "unrealized-command",
+      "blocked_on": "story:agent-authority-kernel"
+    },
+    {
+      "scenario": "mandate.delegation.Delegation/transition/revoke/by/mandate.delegation.RevokeDelegation/accepted",
+      "command": "mandate.delegation.CreateDelegation",
+      "reason": "unrealized-command",
+      "blocked_on": "story:agent-authority-kernel"
+    },
+    {
+      "scenario": "mandate.delegation.RetireAgent/outcome/denied",
+      "command": "mandate.delegation.RetireAgent",
+      "reason": "unrealized-command",
+      "blocked_on": "story:agent-authority-kernel"
+    },
+    {
+      "scenario": "mandate.delegation.RevokeDelegation/outcome/accepted",
+      "command": "mandate.delegation.CreateDelegation",
+      "reason": "unrealized-command",
+      "blocked_on": "story:agent-authority-kernel"
+    },
+    {
+      "scenario": "mandate.delegation.RevokeDelegation/outcome/denied",
+      "command": "mandate.delegation.RevokeDelegation",
+      "reason": "unrealized-command",
+      "blocked_on": "story:agent-authority-kernel"
+    },
+    {
+      "scenario": "mandate.delegation.SupersedeAgentCapabilityCeiling/outcome/denied",
+      "command": "mandate.delegation.SupersedeAgentCapabilityCeiling",
+      "reason": "unrealized-command",
+      "blocked_on": "story:agent-authority-kernel"
+    },
+    {
+      "scenario": "mandate.directory.CompleteSyncJob/outcome/denied",
+      "command": "mandate.directory.CompleteSyncJob",
+      "reason": "unrealized-command",
+      "blocked_on": "story:directory-provenance"
+    },
+    {
+      "scenario": "mandate.directory.CreateDirectoryGroupTeamMapping/outcome/accepted",
+      "command": "mandate.directory.CreateDirectoryGroupTeamMapping",
+      "reason": "unrealized-command",
+      "blocked_on": "story:directory-provenance"
+    },
+    {
+      "scenario": "mandate.directory.CreateDirectoryGroupTeamMapping/outcome/denied",
+      "command": "mandate.directory.CreateDirectoryGroupTeamMapping",
+      "reason": "unrealized-command",
+      "blocked_on": "story:directory-provenance"
+    },
+    {
+      "scenario": "mandate.directory.DirectoryGroupTeamMapping/state/Removed/refuses/mandate.directory.RemoveDirectoryGroupTeamMapping",
+      "command": "mandate.directory.CreateDirectoryGroupTeamMapping",
+      "reason": "unrealized-command",
+      "blocked_on": "story:directory-provenance"
+    },
+    {
+      "scenario": "mandate.directory.DirectoryGroupTeamMapping/transition/remove/by/mandate.directory.RemoveDirectoryGroupTeamMapping/accepted",
+      "command": "mandate.directory.CreateDirectoryGroupTeamMapping",
+      "reason": "unrealized-command",
+      "blocked_on": "story:directory-provenance"
+    },
+    {
+      "scenario": "mandate.directory.FailSyncJob/outcome/denied",
+      "command": "mandate.directory.FailSyncJob",
+      "reason": "unrealized-command",
+      "blocked_on": "story:directory-provenance"
+    },
+    {
+      "scenario": "mandate.directory.RemoveDirectoryGroupMembership/outcome/denied",
+      "command": "mandate.directory.RemoveDirectoryGroupMembership",
+      "reason": "unrealized-command",
+      "blocked_on": "story:directory-provenance"
+    },
+    {
+      "scenario": "mandate.directory.RemoveDirectoryGroupTeamMapping/outcome/accepted",
+      "command": "mandate.directory.CreateDirectoryGroupTeamMapping",
+      "reason": "unrealized-command",
+      "blocked_on": "story:directory-provenance"
+    },
+    {
+      "scenario": "mandate.directory.RemoveDirectoryGroupTeamMapping/outcome/denied",
+      "command": "mandate.directory.RemoveDirectoryGroupTeamMapping",
+      "reason": "unrealized-command",
+      "blocked_on": "story:directory-provenance"
+    },
+    {
+      "scenario": "mandate.directory.RemoveMembershipContribution/outcome/denied",
+      "command": "mandate.directory.RemoveMembershipContribution",
+      "reason": "unrealized-command",
+      "blocked_on": "story:directory-provenance"
+    },
+    {
+      "scenario": "mandate.directory.RetireDirectoryGroup/outcome/denied",
+      "command": "mandate.directory.RetireDirectoryGroup",
+      "reason": "unrealized-command",
+      "blocked_on": "story:directory-provenance"
+    },
+    {
+      "scenario": "mandate.directory.SyncDirectoryMembership/outcome/accepted",
+      "command": "mandate.directory.SyncDirectoryMembership",
+      "reason": "unrealized-command",
+      "blocked_on": "story:directory-provenance"
+    },
+    {
+      "scenario": "mandate.directory.SyncDirectoryMembership/outcome/denied",
+      "command": "mandate.directory.SyncDirectoryMembership",
+      "reason": "unrealized-command",
+      "blocked_on": "story:directory-provenance"
+    },
+    {
+      "scenario": "mandate.federation.AuthenticateFederation/outcome/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.federation.AuthorizePublicClient/outcome/accepted",
+      "command": "mandate.federation.AuthorizePublicClient",
+      "reason": "input-shape-unrealized",
+      "blocked_on": "story:oauth-integration"
+    },
+    {
+      "scenario": "mandate.federation.AuthorizePublicClient/outcome/denied",
+      "command": "mandate.federation.AuthorizePublicClient",
+      "reason": "input-shape-unrealized",
+      "blocked_on": "story:oauth-integration"
+    },
+    {
+      "scenario": "mandate.federation.DisableFederationConnection/outcome/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.federation.DisableOAuthClient/outcome/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.federation.ExternalPrincipal/state/Unlinked/refuses/mandate.federation.UnlinkExternalPrincipal",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.federation.ExternalPrincipal/transition/unlink/by/mandate.federation.UnlinkExternalPrincipal/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.federation.FederationConnection/state/Disabled/refuses/mandate.federation.DisableFederationConnection",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.federation.FederationConnection/transition/disable/by/mandate.federation.DisableFederationConnection/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.federation.LinkExternalPrincipal/outcome/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.federation.OAuthClient/state/Disabled/refuses/mandate.federation.DisableOAuthClient",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.federation.OAuthClient/transition/disable/by/mandate.federation.DisableOAuthClient/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.federation.ProvisionExternalPrincipal/outcome/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.federation.RegisterFederationConnection/outcome/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.federation.RegisterOAuthClient/outcome/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.federation.UnlinkExternalPrincipal/outcome/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.graph.DeregisterResource/outcome/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.graph.DeregisterResource/outcome/denied",
+      "command": "mandate.graph.DeregisterResource",
+      "reason": "no-injection-port",
+      "blocked_on": "story:testkit-doubles"
+    },
+    {
+      "scenario": "mandate.graph.RegisterResource/outcome/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.graph.RegisterResource/outcome/denied",
+      "command": "mandate.graph.RegisterResource",
+      "reason": "no-injection-port",
+      "blocked_on": "story:testkit-doubles"
+    },
+    {
+      "scenario": "mandate.graph.Relation/state/Removed/refuses/mandate.graph.RemoveRelation",
+      "command": "mandate.graph.WriteRelationship",
+      "reason": "unrealized-command",
+      "blocked_on": "story:graph-policy-adapter"
+    },
+    {
+      "scenario": "mandate.graph.Relation/transition/remove/by/mandate.graph.RemoveRelation/accepted",
+      "command": "mandate.graph.WriteRelationship",
+      "reason": "unrealized-command",
+      "blocked_on": "story:graph-policy-adapter"
+    },
+    {
+      "scenario": "mandate.graph.RemoveRelation/outcome/accepted",
+      "command": "mandate.graph.WriteRelationship",
+      "reason": "unrealized-command",
+      "blocked_on": "story:graph-policy-adapter"
+    },
+    {
+      "scenario": "mandate.graph.RemoveRelation/outcome/denied",
+      "command": "mandate.graph.RemoveRelation",
+      "reason": "unrealized-command",
+      "blocked_on": "story:graph-policy-adapter"
+    },
+    {
+      "scenario": "mandate.graph.Resource/state/Deregistered/refuses/mandate.graph.DeregisterResource",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.graph.Resource/transition/deregister/by/mandate.graph.DeregisterResource/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.graph.RevokeGrant/outcome/denied",
+      "command": "mandate.graph.RevokeGrant",
+      "reason": "unrealized-command",
+      "blocked_on": "story:graph-policy-adapter"
+    },
+    {
+      "scenario": "mandate.graph.WriteRelationship/outcome/accepted",
+      "command": "mandate.graph.WriteRelationship",
+      "reason": "unrealized-command",
+      "blocked_on": "story:graph-policy-adapter"
+    },
+    {
+      "scenario": "mandate.graph.WriteRelationship/outcome/denied",
+      "command": "mandate.graph.WriteRelationship",
+      "reason": "unrealized-command",
+      "blocked_on": "story:graph-policy-adapter"
+    },
+    {
+      "scenario": "mandate.identity.DisablePrincipal/outcome/denied",
+      "command": "mandate.identity.DisablePrincipal",
+      "reason": "unrealized-command",
+      "blocked_on": "story:declared-writers"
+    },
+    {
+      "scenario": "mandate.identity.RefreshSession/outcome/accepted",
+      "command": "mandate.identity.RefreshSession",
+      "reason": "refresh-credential-unprojected",
+      "blocked_on": "story:declared-writers"
+    },
+    {
+      "scenario": "mandate.identity.RefreshSession/outcome/denied",
+      "command": "mandate.identity.RefreshSession",
+      "reason": "refresh-credential-unprojected",
+      "blocked_on": "story:declared-writers"
+    },
+    {
+      "scenario": "mandate.identity.RevokeRefreshCredential/outcome/denied",
+      "command": "mandate.identity.RevokeRefreshCredential",
+      "reason": "unrealized-command",
+      "blocked_on": "story:declared-writers"
+    },
+    {
+      "scenario": "mandate.identity.RevokeSession/outcome/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.identity.RevokeSession/outcome/denied",
+      "command": "mandate.identity.RevokeSession",
+      "reason": "port-not-substitutable",
+      "blocked_on": "story:testkit-doubles"
+    },
+    {
+      "scenario": "mandate.identity.Session/state/Revoked/refuses/mandate.identity.RevokeSession",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.identity.Session/transition/revoke/by/mandate.identity.RevokeSession/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.policy.SupersedeAuthorizationModel/outcome/denied",
+      "command": "mandate.policy.SupersedeAuthorizationModel",
+      "reason": "unrealized-command",
+      "blocked_on": "story:graph-policy-adapter"
+    },
+    {
+      "scenario": "mandate.policy.SupersedePolicy/outcome/denied",
+      "command": "mandate.policy.SupersedePolicy",
+      "reason": "unrealized-command",
+      "blocked_on": "story:graph-policy-adapter"
+    },
+    {
+      "scenario": "mandate.tenancy.AddOrganizationMembership/outcome/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.tenancy.AddOrganizationMembership/outcome/denied",
+      "command": "mandate.tenancy.AddOrganizationMembership",
+      "reason": "no-injection-port",
+      "blocked_on": "story:testkit-doubles"
+    },
+    {
+      "scenario": "mandate.tenancy.AddTeamMembership/outcome/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.tenancy.AddTeamMembership/outcome/denied",
+      "command": "mandate.tenancy.AddTeamMembership",
+      "reason": "no-injection-port",
+      "blocked_on": "story:testkit-doubles"
+    },
+    {
+      "scenario": "mandate.tenancy.CloseOrganization/outcome/denied",
+      "command": "mandate.tenancy.CloseOrganization",
+      "reason": "no-injection-port",
+      "blocked_on": "story:testkit-doubles"
+    },
+    {
+      "scenario": "mandate.tenancy.CreateOrganization/outcome/denied",
+      "command": "mandate.tenancy.CreateOrganization",
+      "reason": "no-injection-port",
+      "blocked_on": "story:testkit-doubles"
+    },
+    {
+      "scenario": "mandate.tenancy.CreateSpace/outcome/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.tenancy.CreateSpace/outcome/denied",
+      "command": "mandate.tenancy.CreateSpace",
+      "reason": "no-injection-port",
+      "blocked_on": "story:testkit-doubles"
+    },
+    {
+      "scenario": "mandate.tenancy.CreateTeam/outcome/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.tenancy.CreateTeam/outcome/denied",
+      "command": "mandate.tenancy.CreateTeam",
+      "reason": "no-injection-port",
+      "blocked_on": "story:testkit-doubles"
+    },
+    {
+      "scenario": "mandate.tenancy.Organization/state/Closed/refuses/mandate.tenancy.CloseOrganization",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.tenancy.OrganizationMembership/state/Removed/refuses/mandate.tenancy.RemoveOrganizationMembership",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.tenancy.OrganizationMembership/transition/remove/by/mandate.tenancy.RemoveOrganizationMembership/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.tenancy.RemoveOrganizationMembership/outcome/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.tenancy.RemoveOrganizationMembership/outcome/denied",
+      "command": "mandate.tenancy.RemoveOrganizationMembership",
+      "reason": "no-injection-port",
+      "blocked_on": "story:testkit-doubles"
+    },
+    {
+      "scenario": "mandate.tenancy.RemoveTeamMembership/outcome/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.tenancy.RemoveTeamMembership/outcome/denied",
+      "command": "mandate.tenancy.RemoveTeamMembership",
+      "reason": "no-injection-port",
+      "blocked_on": "story:testkit-doubles"
+    },
+    {
+      "scenario": "mandate.tenancy.RetireSpace/outcome/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.tenancy.RetireSpace/outcome/denied",
+      "command": "mandate.tenancy.RetireSpace",
+      "reason": "no-injection-port",
+      "blocked_on": "story:testkit-doubles"
+    },
+    {
+      "scenario": "mandate.tenancy.RetireTeam/outcome/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.tenancy.RetireTeam/outcome/denied",
+      "command": "mandate.tenancy.RetireTeam",
+      "reason": "no-injection-port",
+      "blocked_on": "story:testkit-doubles"
+    },
+    {
+      "scenario": "mandate.tenancy.Space/state/Retired/refuses/mandate.tenancy.RetireSpace",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.tenancy.Space/transition/retire/by/mandate.tenancy.RetireSpace/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.tenancy.Team/state/Retired/refuses/mandate.tenancy.RetireTeam",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.tenancy.Team/transition/retire/by/mandate.tenancy.RetireTeam/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.tenancy.TeamMembership/state/Removed/refuses/mandate.tenancy.RemoveTeamMembership",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.tenancy.TeamMembership/transition/remove/by/mandate.tenancy.RemoveTeamMembership/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.workload.RevokeWorkloadIdentity/outcome/denied",
+      "command": "mandate.workload.RevokeWorkloadIdentity",
+      "reason": "unrealized-command",
+      "blocked_on": "story:agent-security"
+    }
+  ]
+}
