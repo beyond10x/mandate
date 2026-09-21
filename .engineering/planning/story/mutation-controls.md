@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:mutation-controls
 kind: story
-status: active
+status: implemented
 title: Named red/green mutation controls prove the protections detect faults
 relations:
 - decomposes: epic:foundations
@@ -18,7 +18,7 @@ scope:
   path: xtask/tests/coverage_mutants.rs
 - confidence: inferred
   path: xtask/tests/mutants.rs
-revision: 13
+revision: 19
 ---
 ## Acceptance
 
@@ -52,3 +52,15 @@ Coordinator, wave D enforcement track, 2026-09-19.
 - Adversary pass 1 (2026-09-19): 0 blockers, 4 warnings, 3 notes, rulings in `review-result:wave-d-mutation-controls-adversary-1`; the catalogue runs warm in 23.47 s (one run, under the five-minute ceiling), and the whole-catalogue test case is removed so the gate pays once; correction 1 dispatched. Scope prose correction: `redelivery-refused` anchors `services/sts/src/store.rs:328`, not `:321`.
 
 - Correction 1 result (2026-09-19): 94 xtask cases green (`mutants` lane 6 → 11, the whole-catalogue case removed; the five adversary cases green); the catalogue of ten runs green in 26 s warm through a scratch driver (`Action::Mutants` unwired until the alignment commit); `check-fails` records carry `refusal` and `killed` asserts it; the anchor is compared with the lines the patch rewrote (LCS after prefix/suffix trim) in a pre-pass before any build; the reused copy is pruned except its top-level `target/`; `anchored` decides against removed lines and the line a pure insertion follows (all ten records already satisfy it); `sync` carries the mode; `revert` runs before `apply`'s result is inspected. Named remainder: unknown record keys are accepted silently. Adversary 2 dispatched.
+
+## Acceptance — amended 2026-09-19 (replaces the Acceptance above where they differ)
+
+`cargo xtask mutants` exits 0 printing `| Mutant | Target test | Observed failure |` with one row per record in `tests/mutants/`: a `test-fails` record's named test fails on the mutated copy and passes on the unmutated one; a `compile-fails` record's target fails to build; a `check-fails` record's named xtask step exits non-zero and its stderr carries the record's `refusal` substring. A record whose patch no longer applies, whose anchor is outside the rewritten lines, whose kill is not observed, or whose killing run does not terminate within the bound fails the step by name.
+
+- Correction 2 result (2026-09-19): 104 xtask cases green (all ten adversary cases); the anchor is `stated ∪ rewritten` with slides named and drift still refused (a new `placed()` decides whether the hunk landed where its header says); an insertion before line 1 anchors on line 1; the `check-fails` refusal is read only from what follows cargo's last `Running` line; records refuse every key no run reads (collected as the lookups happen — the derive route needs `serde` in `xtask/Cargo.toml`, coordinator's; the collected set is the stronger form); every killing run bounded by wall clock (600 s default, `try_wait` polling, child killed). Catalogue: ten of ten killed in 24 s warm. Unit committed `a311951`, merged `d05fffc`; coordinator wiring (`mod mutants`, `Action::Mutants`, `mutation_controls()` last in `check`) in the alignment commit that follows, verified by a run on the integration head. Residue: a patch whose header lies but whose anchor names the true landing line still passes (`placed()` computes the fact; a two-line refusal if wanted). Round 2 (`xtask/tests/coverage_mutants.rs`, `manifest-relabel`) is a follow-on unit cut from the wired head.
+
+- Round 2 result (2026-09-21, `impl/mutation-controls-2` on `fdbf214`): `xtask/tests/coverage_mutants.rs` (11 cases, red first) and `tests/mutants/manifest-relabel.{patch,json}`; 150 xtask cases, 1593 workspace tests; eleven mutants killed in 28.6 s warm. Measured, against the brief: a well-formed relabel (`deferred` → `implemented` with a real symbol and same-crate test, or `implemented` → `declared` onto a live story) passes `cargo xtask coverage` — the step reads the manifest and the compiled test list, not the registries — so `manifest-relabel` is a `test-fails` record killed by `mandate-authz::contract_agreement::the_coverage_manifest_names_exactly_what_this_crate_realizes` (the registry equality, the real detector); the receipt mutants (digest altered, receipt deleted) are killed by regeneration + byte-compare (`cargo xtask contracts`), not by the coverage step. A record carries no `reason` key (the step refuses unread keys); the rationale is in the test file's doc comments. Observation for the coordinator: `mutants::copy` fails with a bare "No such file or directory" when `git ls-files` lists an intent-to-add path absent from disk. Adversary dispatched.
+
+- Correction to the round-2 line above (2026-09-21, `review-result:wave-d-mutation-controls-2-adversary-1`): `mutants::copy` names the path it cannot read (the "bare message" claim was wrong); a relabel is refused both by the registry equality and by the regeneration byte-compare through the receipt's `manifest_digest`. Residue for `contracts()`: one failure message for every generated input, so the two ESS mutants observe byte-identical refusals.
+
+- Round 2 correction (2026-09-21): the killer partition corrected in the file and backed by a case (a relabel moves the receipt, so the byte-compare kills it too); the demotion case asserts its precondition by story and rung; the coordinator applied the adversary's own finding to the adversary file (its red case asserted the receipt unchanged; the truth is that it moves — `assert_ne!`, deviation 10). 155 xtask cases. Committed and merged as the bot.

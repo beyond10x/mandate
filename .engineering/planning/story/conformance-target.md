@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:conformance-target
 kind: story
-status: active
+status: implemented
 title: An in-process ESS conformance target over the real Mandate handlers
 relations:
 - decomposes: epic:foundations
@@ -13,10 +13,6 @@ relations:
 - depends_on: story:authored-denial-scenarios
 - informed_by: initiative:drift-enforcement
 scope:
-- confidence: inferred
-  path: Cargo.lock
-- confidence: cited
-  path: crates/mandate-conformance/Cargo.toml
 - confidence: inferred
   path: crates/mandate-conformance/src/commands
 - confidence: inferred
@@ -31,9 +27,7 @@ scope:
   path: crates/mandate-conformance/src/node.rs
 - confidence: inferred
   path: crates/mandate-conformance/tests/target.rs
-- confidence: cited
-  path: dependency-boundaries.json
-revision: 20
+revision: 27
 ---
 ## Acceptance
 
@@ -88,3 +82,11 @@ Coordinator, wave D enforcement track, 2026-09-19.
 - Coordinator note (2026-09-19): the suite compiles `generation: 0` on an `Integer` field to `"generation": 0.0` (only float-shaped number in the 167-scenario suite; `review-result:wave-d-authored-denials-adversary-2` F5); the `Node ↔ serde_json::Value` decoder must accept an integral float for an integer field. The authored files name `mandate_conformance::external::ScenarioVerifier` as the standing decode-only verifier double.
 
 - Correction 1 result (2026-09-19): 35 cases green, four adversary cases 0 → 4 passed; report/2 unchanged (29 / 54 / 0 / 63 / 0 of 146); `injections.json` rows carry `consulted` from counting doubles — `armed` 2, `armed-standing` 12, `armed-unreached` 9 (consulted 0), `refused-before-dispatch` 13, `unsupported-command` 25; 22 standing doubles (the five `CheckRequest` bounds added); the substituted reader answers absence wherever the signature can express one (`CredentialResolution::resolve` → `Ok(None)`, a manufactured refusal removed); `Check` armed substitutes a `GraphRead + ResourceLookup` double; `RevokeSession` refused as not substitutable (concrete `IdentityLog`), routing `story:testkit-doubles`; `identity_unchanged` compares a cloned log; `node::to_json` renders an integral number as a JSON integer. The two `RefreshSession` rows point at `story:declared-writers` (active, owns the unprojected `RefreshCredential` class) since `story:epoch-snapshot-generations` is absent from the unit tree's store; the liveness case reads the store frontmatter for every `blocked_on`. Adversary 2 dispatched.
+
+- Correction (2026-09-19, after `review-result:wave-d-second-half-parallel-r1`): ruling 6's "authored merges first" is withdrawn; the order is conformance-target → mutation-controls → conform-gate → obligation-registry, with `authored-denial-scenarios` merged whenever its commit is admitted. The three coordinator files left this story's scope.
+
+- Correction 2 result (2026-09-19): 43 cases green after the coordinator amended adversary-2 case 3 (its `thumbprint` comparison contradicted case 2 and ruling F2: the standing `ScenarioKeys` is not an empty store, so the substituted absence is the declared arming, asserted unequal from both sides); every `Substituted` method counts (five, not four — `as_of` too; a source-scanning case cross-checks the list); `armed-standing` → `armed-unrefused`; F4 closed by equality (`Substituted::check` answers what an empty `GraphDouble` decides, `Denied`) — a deviation from the ruling's "state the difference", accepted as the more honest answer; 24 standing doubles. report/2 unchanged. Coordinator admission commit and unit commit as the bot; merged.
+
+## Acceptance — amended 2026-09-19 (replaces the Acceptance above where they differ)
+
+`mandate-conform --suite <the 146-scenario format-5 suite> --impl-digest <12hex> --out <dir>` writes `report.json` (report/2) with counts `total 146, passed 29, failed 54, error 0, unsupported 63, skipped 0`, `run.json` and `injections.json`, byte-identical across two runs; every non-passed scenario carries a `blocked_on` story that is not on a terminal rung; every `Unsupported` answer names a permanent property of the target (an unrealized command, a non-substitutable port, an unrealized input shape); every executed scenario ran the real handler, with the doubles and armings it met recorded as rows. The 29 / 54 / 63 partition moves only when a handler, a scenario or a realization changes, and the change is recorded on this story.

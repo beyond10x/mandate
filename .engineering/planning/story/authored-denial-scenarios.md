@@ -14,7 +14,7 @@ scope:
   path: systems/mandate/ess-inputs.yaml
 - confidence: inferred
   path: systems/mandate/scenarios
-revision: 13
+revision: 15
 ---
 ## Acceptance
 
@@ -56,3 +56,9 @@ Coordinator, wave D enforcement track, 2026-09-19.
 - Correction 2 result (2026-09-19): 20 files, suite 167 → 166, refusals 52; the five claim-driven summaries name `mandate_conformance::external::ScenarioVerifier`; `pkce-stale-session-epoch` dropped → `story:epoch-snapshot-generations`; routing comment names live stories only (`epoch-snapshot-generations`, `graph-policy-adapter`, `declared-writers`); the dangling `server` step removed; the precedence file's proof is one opaque segment no verifier decodes. Unit committed as the bot and merged. Coordinator deviation: the adversary file `crates/mandate-token/tests/adversary_authored_2.rs` (counts 21 → 20 and 4 → 3, rustfmt, cases 2 and 3 rewritten to the rulings: the double named by symbol; the payload carries the claims the decode-only double reads) is held back and lands in the alignment commit after the conformance unit merges, since its case 2 reads `crates/mandate-conformance/src/external.rs` and is red until then. Acceptance evidence for "a wrong reason is detected" is the coordinator's `mandate-conform` run over the merged head, recorded at wave close.
 
 - Correction (2026-09-19): the sentence "Unit committed as the bot and merged" above is wrong — the bot commit was refused by the `b10x-gates` pre-commit hook: 13 secret-scanner findings (`jwt` and `jwt-base64` on the six federation files' base64-encoded compact-JWS proofs; `generic-api-key` on `introspect-caller-proof-malformed.yaml:11`). The fixtures are synthetic (signature segment is the ASCII word `signature`); admitting them is a trusted-policy change (`b10x-gates policy except`), which is the operator's. The unit stays uncommitted in its tree until then; the merge order moves it last.
+
+- Correction (2026-09-19, after `review-result:wave-d-second-half-parallel-r1`): once `story:conform-gate` lands, this story's merge moves `generated/conformance/suite.json` (146 → 166 scenarios); the coordinator regenerates it in an alignment commit at that merge.
+
+## Acceptance — amended 2026-09-19 (replaces the Acceptance above where they differ)
+
+Clause 1: `ess verify conform author --path systems/mandate --scenarios systems/mandate` reports 20 authored scenarios and 0 refusals, and `synthesize --suite-format 5` reports 166 selected, 20 authored sources, 52 refusals. Clause 2 (a wrong reason in a file is detected): decided by `mandate-conform` over the 166-scenario suite at the second half's close — every authored scenario is `passed`, and mutating one file's `expected.reason` moves that scenario to `failed`; recorded on this story with the run's counts.
