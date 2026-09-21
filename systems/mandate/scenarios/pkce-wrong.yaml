@@ -22,7 +22,6 @@ arrange:
         resources:
         - resource_type: document
           resource_id: 00000000-0000-4000-8000-000000000071
-        space: null
     state: Issued
 timeline:
 - at: '2026-01-05T09:00:00Z'
