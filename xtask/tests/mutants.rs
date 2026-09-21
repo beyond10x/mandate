@@ -720,6 +720,52 @@ fn a_check_fails_kill_is_read_only_from_what_the_step_itself_wrote() {
     );
 }
 
+/// A refusal is read out of cargo's output whether or not cargo coloured it.
+///
+/// Cargo colours its progress lines when it believes the reader wants colour. Piped into this
+/// step on a developer's machine it does not, and the echo before the step runs arrives as
+/// `     Running \`…\``; on GitHub Actions it does, and the same line arrives wrapped in ANSI
+/// escapes. The reader matched on the text of the line, so the coloured form matched nothing and
+/// the step reported that a run which had printed exactly the declared refusal had "printed
+/// nothing" — measured on pull request #15, where both `check` runs failed here and every local
+/// run passed, including in a fresh clone of the same commit.
+///
+/// The environment is the only thing that differed, so this case supplies it rather than
+/// reproducing it: `CARGO_TERM_COLOR=always` makes cargo colour a piped stream, which is what CI
+/// was doing. Without the escape stripping this case fails exactly as CI did.
+#[test]
+fn a_refusal_is_read_out_of_cargo_output_that_carries_colour() {
+    let _serial = serial();
+    let escape = '\u{1b}';
+    let coloured = format!(
+        "{escape}[1m{escape}[92m   Compiling{escape}[0m toy-step v0.0.0 (/w/check-work/tree)\n\
+         {escape}[1m{escape}[92m    Finished{escape}[0m `dev` profile [unoptimized] in 0.06s\n\
+         {escape}[1m{escape}[92m     Running{escape}[0m `/w/check-work/target/debug/toy-step check`\n\
+         the toy step read renamed\n\
+         projection drift: run cargo xtask generate and review\n"
+    );
+    let uncoloured = "   Compiling toy-step v0.0.0 (/w/check-work/tree)\n    \
+                      Finished `dev` profile [unoptimized] in 0.06s\n     \
+                      Running `/w/check-work/target/debug/toy-step check`\n\
+                      the toy step read renamed\n\
+                      projection drift: run cargo xtask generate and review\n";
+
+    for (form, said) in [("coloured", coloured.as_str()), ("plain", uncoloured)] {
+        let spoken = mutants::spoke(said.as_bytes());
+        assert!(
+            spoken.contains("projection drift: run cargo xtask generate and review"),
+            "the {form} stream carries the refusal after cargo's `Running` echo and the reader \
+             found nothing in it — which is what made CI report that a run printing the declared \
+             refusal had \"printed nothing\". Read: {spoken:?}"
+        );
+        assert!(
+            !spoken.contains("Compiling") && !spoken.contains("Finished"),
+            "only what follows the last `Running` line is the step's own, and the {form} reading \
+             carried cargo's progress with it: {spoken:?}"
+        );
+    }
+}
+
 /// The step refuses a `refusal` that no run would read, because a field no run reads is a claim
 /// nothing decides. That is a rule about every key of a record, not about one of them: a record
 /// is read field by field, and a key the step does not know — `refusals`, one letter from the

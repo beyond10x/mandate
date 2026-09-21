@@ -1147,8 +1147,8 @@ fn panicked(out: &Output) -> Option<String> {
 /// satisfied by cargo's echo of the name of the step that was asked to find it, for a step that
 /// printed nothing at all. Only what follows the last of those lines is the step's own; and if
 /// there is no such line the step never ran, so it wrote nothing.
-fn spoke(stderr: &[u8]) -> String {
-    let said = String::from_utf8_lossy(stderr);
+pub(crate) fn spoke(stderr: &[u8]) -> String {
+    let said = plain(&String::from_utf8_lossy(stderr));
     let lines: Vec<&str> = said.lines().collect();
     match lines
         .iter()
@@ -1182,10 +1182,45 @@ fn tail(said: &str, count: usize) -> String {
 
 /// The compiler's first complaint, which names the mutation that did not build.
 fn first_error(stderr: &[u8]) -> String {
-    String::from_utf8_lossy(stderr)
+    plain(&String::from_utf8_lossy(stderr))
         .lines()
         .find(|line| line.starts_with("error"))
         .unwrap_or("no compiler error")
         .trim()
         .replace('|', "/")
+        .to_owned()
+}
+
+/// The same text with its ANSI escape sequences removed.
+///
+/// Cargo colours its progress lines when it believes the reader wants colour. Piped into this
+/// step on a developer's machine it does not, and the echo arrives as `     Running \`…\``; on
+/// GitHub Actions it does, and the same echo arrives as
+/// `ESC[1mESC[92m     RunningESC[0m \`…\``. Every reader below matches on the text of a line —
+/// [`spoke`] on `Running \``, [`first_error`] on `error` — and a match against the coloured form
+/// silently fails.
+///
+/// Measured, 2026-09-21: both forms of that line in one CI run of `xtask/tests/mutants.rs`, where
+/// the step reported that a run which had printed exactly the refusal it was looking for had
+/// "printed nothing". The step read the stream it was handed and the stream was not the one its
+/// reader was written against.
+fn plain(said: &str) -> String {
+    let mut out = String::with_capacity(said.len());
+    let mut characters = said.chars();
+    while let Some(character) = characters.next() {
+        if character != '\u{1b}' {
+            out.push(character);
+            continue;
+        }
+        // `ESC [ … <final>`, the control sequence cargo uses; any other escape drops its
+        // introducer and the byte that selects it, which is all this step needs to read text.
+        if characters.next() == Some('[') {
+            for final_byte in characters.by_ref() {
+                if ('@'..='~').contains(&final_byte) {
+                    break;
+                }
+            }
+        }
+    }
+    out
 }
