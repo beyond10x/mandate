@@ -11,43 +11,28 @@
       "status": "implemented",
       "clauses": [
         {
-          "clause": "Credential-derived context is invalid/revoked/expired/stale",
-          "tests": [
-            {
-              "id": "mandate-authz::context::a_context_that_is_not_direct_is_refused",
-              "kind": "denial",
-              "path": "real"
-            },
-            {
-              "id": "mandate-authz::context::a_delegated_request_is_refused_closed_and_reads_nothing",
-              "kind": "denial",
-              "path": "real"
-            },
-            {
-              "id": "mandate-authz::context::a_context_naming_a_delegation_or_an_execution_is_refused_closed",
-              "kind": "denial",
-              "path": "real"
-            }
-          ]
+          "clause": "Credential-derived context is invalid",
+          "tests": [],
+          "blocked_on": "decision-blocker:guards"
         },
         {
-          "clause": "tenant/audience/resource/space binding mismatches",
+          "clause": "revoked",
+          "tests": [],
+          "blocked_on": "decision-blocker:guards"
+        },
+        {
+          "clause": "expired",
+          "tests": [],
+          "blocked_on": "decision-blocker:guards"
+        },
+        {
+          "clause": "stale",
+          "tests": [],
+          "blocked_on": "decision-blocker:guards"
+        },
+        {
+          "clause": "tenant",
           "tests": [
-            {
-              "id": "mandate-authz::context::a_credential_issued_for_another_audience_is_an_audience_mismatch",
-              "kind": "denial",
-              "path": "real"
-            },
-            {
-              "id": "mandate-authz::context::a_resource_registered_by_another_organization_is_a_tenant_mismatch",
-              "kind": "denial",
-              "path": "real"
-            },
-            {
-              "id": "mandate-authz::context::a_scope_naming_a_space_the_organization_does_not_hold_is_a_tenant_mismatch",
-              "kind": "denial",
-              "path": "real"
-            },
             {
               "id": "mandate-authz::context::a_subject_that_is_not_a_member_of_the_verified_organization_is_a_tenant_mismatch",
               "kind": "denial",
@@ -56,20 +41,69 @@
           ]
         },
         {
-          "clause": "relationships/policy/ceilings deny",
+          "clause": "audience",
+          "tests": [
+            {
+              "id": "mandate-authz::context::a_credential_issued_for_another_audience_is_an_audience_mismatch",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "resource",
+          "tests": [
+            {
+              "id": "mandate-authz::context::a_resource_registered_by_another_organization_is_a_tenant_mismatch",
+              "kind": "denial",
+              "path": "double",
+              "double": "mandate_graph::double::GraphDouble"
+            }
+          ],
+          "blocked_on": "story:graph-policy-adapter"
+        },
+        {
+          "clause": "space binding mismatches",
+          "tests": [],
+          "blocked_on": "story:declared-writers"
+        },
+        {
+          "clause": "relationships",
           "tests": [
             {
               "id": "mandate-authz::evaluate::a_subject_with_no_grant_holds_no_authority_however_policy_answers",
               "kind": "denial",
+              "path": "double",
+              "double": "mandate_graph::double::GraphDouble"
+            }
+          ],
+          "blocked_on": "story:graph-policy-adapter"
+        },
+        {
+          "clause": "policy",
+          "tests": [
+            {
+              "id": "mandate-authz::evaluate::a_role_that_does_not_carry_the_requested_action_denies",
+              "kind": "denial",
               "path": "real"
             },
+            {
+              "id": "mandate-authz::adversary_check_2::a_policy_deny_carrying_a_challenge_stays_a_deny",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "ceilings deny",
+          "tests": [
             {
               "id": "mandate-authz::evaluate::a_ceiling_that_does_not_admit_the_action_refuses_an_otherwise_allowed_request",
               "kind": "denial",
               "path": "real"
             },
             {
-              "id": "mandate-authz::evaluate::a_role_that_does_not_carry_the_requested_action_denies",
+              "id": "mandate-authz::obligations::a_ceiling_recorded_for_the_organization_refuses_an_action_the_grant_carries",
               "kind": "denial",
               "path": "real"
             }
@@ -86,7 +120,7 @@
           ]
         },
         {
-          "clause": "the required PDP/graph/credential authority is unavailable",
+          "clause": "the required PDP",
           "tests": [
             {
               "id": "mandate-authz::check_contract::a_decision_point_that_cannot_answer_denies_and_invents_no_permission",
@@ -99,10 +133,30 @@
               "path": "real"
             }
           ]
+        },
+        {
+          "clause": "graph",
+          "tests": [
+            {
+              "id": "mandate-authz::obligations::a_graph_that_has_not_reached_the_required_revision_is_unavailable_and_not_a_denial",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-authz::evaluate::a_revision_the_reader_has_not_applied_is_unavailable_and_not_a_denial_about_the_caller",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "credential authority is unavailable",
+          "tests": [],
+          "blocked_on": "decision-blocker:guards"
         }
       ],
       "no_state_change": [],
-      "blocked_on": "story:obligations-authz",
+      "blocked_on": "story:declared-writers",
       "denial_audit": {
         "status": "deferred",
         "blocker": "decision-blocker:audit-routing",
@@ -178,12 +232,17 @@
     {
       "case": "autonomous-ceiling",
       "tests": [],
-      "blocked_on": "story:obligations-authz"
+      "blocked_on": "story:agent-authority-kernel"
     },
     {
       "case": "pdp-outage",
-      "tests": [],
-      "blocked_on": "story:obligations-authz"
+      "tests": [
+        {
+          "id": "mandate-authz::check_contract::a_decision_point_that_cannot_answer_denies_and_invents_no_permission",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
     }
   ]
 }
