@@ -116,11 +116,14 @@ never `story:obligations-<crate>`: if the only evidence is a double then the dec
 not shipped, and no test the binding story writes can bind the clause. Which of the two it is
 follows the port: `story:graph-policy-adapter` owns `mandate_policy::port::PolicyAdministration`
 and `mandate_graph::topology::ResourceRegistry`; `decision-blocker:epoch-atomicity` holds the
-compare-and-set no shipped store performs, and `mandate_identity::IdentityLog` is the only
-implementor of `SecurityEpochWrite` until it is answered. This file states no count of the
-double-backed clauses and no closed list of what they defer to: both move on every merge that
-adds a document, and `contracts/conformance/obligations-report.json` is the thing that counts
-them. The step refuses a double-backed clause that defers to its crate's binding story.
+compare-and-set no shipped store performs, for which `mandate_identity::IdentityLog` stands in
+until it is answered. This file states no count of the double-backed clauses, no closed list of
+what they defer to, and no claim that a port has only one implementor: all three move on a merge
+that adds a document or a substitute, and `contracts/conformance/obligations-report.json` is what
+counts them. **Which implementors a port has is a question for a command, not a sentence here** —
+`grep 'impl .*<Port> for'` over the library targets answers it at the moment it is asked, and an
+answer written down here is one nobody rechecks. The step refuses a double-backed clause that
+defers to its crate's binding story.
 
 A double row sitting *beside* a real row on one clause is refused, because it would be counted
 in no column at all — not `real_covered`, which the real row already holds, and not
