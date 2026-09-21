@@ -220,7 +220,7 @@
         {
           "clause": "STS code issuance/narrowing is refused",
           "tests": [],
-          "blocked_on": "story:obligations-federation"
+          "blocked_on": "story:cross-crate-clauses"
         }
       ],
       "no_state_change": [
@@ -243,17 +243,22 @@
         {
           "clause": "Caller lacks federation-administration authority",
           "tests": [],
-          "blocked_on": "story:obligations-federation"
+          "blocked_on": "story:federation-admission-port"
         },
         {
           "clause": "connection is outside the verified organization",
-          "tests": [],
-          "blocked_on": "story:obligations-federation"
+          "tests": [
+            {
+              "id": "mandate-federation::obligations::a_connection_outside_the_verified_organization_is_refused_at_disable",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
         },
         {
           "clause": "emergency trust shutdown and affected generation invalidation cannot commit",
           "tests": [],
-          "blocked_on": "story:obligations-federation"
+          "blocked_on": "decision-blocker:epoch-atomicity"
         }
       ],
       "no_state_change": [
@@ -276,17 +281,22 @@
         {
           "clause": "Caller lacks client-administration authority",
           "tests": [],
-          "blocked_on": "story:obligations-federation"
+          "blocked_on": "story:federation-admission-port"
         },
         {
           "clause": "the client is outside the verified organization",
-          "tests": [],
-          "blocked_on": "story:obligations-federation"
+          "tests": [
+            {
+              "id": "mandate-federation::obligations::a_client_outside_the_verified_organization_is_refused_at_disable",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
         },
         {
           "clause": "disablement cannot stop the issuance of new authorization codes to it",
           "tests": [],
-          "blocked_on": "story:obligations-federation"
+          "blocked_on": "story:cross-crate-clauses"
         }
       ],
       "no_state_change": [
@@ -369,7 +379,7 @@
         {
           "clause": "durable audited linking fails",
           "tests": [],
-          "blocked_on": "story:obligations-federation"
+          "blocked_on": "decision-blocker:audit-routing"
         },
         {
           "clause": "Email equality never authorizes linking",
@@ -401,18 +411,58 @@
       "clauses": [
         {
           "clause": "Connection is disabled/untrusted",
-          "tests": [],
-          "blocked_on": "story:obligations-federation"
+          "tests": [
+            {
+              "id": "mandate-federation::obligations::a_disabled_connection_is_refused_at_provisioning",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::obligations::an_unresolved_connection_is_refused_at_provisioning",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
         },
         {
           "clause": "proof signature/issuer/audience/expiry is invalid",
-          "tests": [],
-          "blocked_on": "story:obligations-federation"
+          "tests": [
+            {
+              "id": "mandate-federation::obligations::a_proof_signed_by_a_key_the_issuer_never_published_is_refused_at_provisioning",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::obligations::a_proof_whose_expiry_has_passed_is_refused_at_provisioning",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::obligations::a_proof_whose_issuer_is_not_the_connections_is_refused_at_provisioning",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::obligations::a_proof_whose_audience_is_not_the_configured_client_is_refused_at_provisioning",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
         },
         {
           "clause": "tenant resolution has zero or multiple matches",
-          "tests": [],
-          "blocked_on": "story:obligations-federation"
+          "tests": [
+            {
+              "id": "mandate-federation::obligations::a_proof_matching_no_configured_tenant_is_refused_at_provisioning",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::obligations::a_proof_matching_two_configured_tenants_is_refused_at_provisioning",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
         },
         {
           "clause": "principal linking is conflicting",
@@ -436,13 +486,23 @@
         },
         {
           "clause": "the composite (organization, configured issuer, subject) key already exists",
-          "tests": [],
-          "blocked_on": "story:obligations-federation"
+          "tests": [
+            {
+              "id": "mandate-federation::obligations::a_subject_already_holding_the_composite_key_is_refused_at_provisioning",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
         },
         {
           "clause": "any email-domain/unverified-input fallback would be required",
-          "tests": [],
-          "blocked_on": "story:obligations-federation"
+          "tests": [
+            {
+              "id": "mandate-federation::obligations::an_unverified_claim_a_tenant_rule_would_have_matched_is_refused_at_provisioning",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
         }
       ],
       "no_state_change": [
@@ -465,7 +525,7 @@
         {
           "clause": "Caller lacks federation-administration authority",
           "tests": [],
-          "blocked_on": "story:obligations-federation"
+          "blocked_on": "story:federation-admission-port"
         },
         {
           "clause": "issuer/client/trust, tenant-resolution or just-in-time provisioning configuration is unadmitted",
@@ -517,18 +577,39 @@
       "clauses": [
         {
           "clause": "Caller lacks client-administration authority",
-          "tests": [],
-          "blocked_on": "story:obligations-federation"
+          "tests": [
+            {
+              "id": "mandate-federation::obligations::a_caller_the_admission_does_not_hold_as_a_client_administrator_is_refused",
+              "kind": "denial",
+              "path": "double",
+              "double": "mandate_federation::register_client::ConfiguredAdmission"
+            }
+          ],
+          "blocked_on": "decision-blocker:guards"
         },
         {
           "clause": "a redirect URI is unadmitted",
-          "tests": [],
-          "blocked_on": "story:obligations-federation"
+          "tests": [
+            {
+              "id": "mandate-federation::obligations::a_redirect_uri_the_deployment_does_not_admit_is_refused",
+              "kind": "denial",
+              "path": "double",
+              "double": "mandate_federation::register_client::ConfiguredAdmission"
+            }
+          ],
+          "blocked_on": "decision-blocker:guards"
         },
         {
           "clause": "organization binding is invalid",
-          "tests": [],
-          "blocked_on": "story:obligations-federation"
+          "tests": [
+            {
+              "id": "mandate-federation::obligations::an_organization_no_client_may_be_registered_into_is_refused",
+              "kind": "denial",
+              "path": "double",
+              "double": "mandate_federation::register_client::ConfiguredAdmission"
+            }
+          ],
+          "blocked_on": "decision-blocker:guards"
         }
       ],
       "no_state_change": [
@@ -551,17 +632,22 @@
         {
           "clause": "Caller lacks explicit link-administration authority",
           "tests": [],
-          "blocked_on": "story:obligations-federation"
+          "blocked_on": "story:federation-admission-port"
         },
         {
           "clause": "link is outside the verified organization",
-          "tests": [],
-          "blocked_on": "story:obligations-federation"
+          "tests": [
+            {
+              "id": "mandate-federation::obligations::a_link_outside_the_verified_organization_is_refused_at_unlink",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
         },
         {
           "clause": "unlinking and its required invalidation/audit cannot commit",
           "tests": [],
-          "blocked_on": "story:obligations-federation"
+          "blocked_on": "decision-blocker:epoch-atomicity"
         }
       ],
       "no_state_change": [
@@ -806,8 +892,18 @@
     },
     {
       "case": "pkce-state-nonce",
-      "tests": [],
-      "blocked_on": "story:obligations-federation"
+      "tests": [
+        {
+          "id": "mandate-federation::authorize::a_state_that_is_not_the_one_the_authorization_request_recorded_is_refused",
+          "kind": "denial",
+          "path": "real"
+        },
+        {
+          "id": "mandate-federation::authorize::an_applicable_nonce_that_does_not_match_is_refused",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
     },
     {
       "case": "tenant-ambiguous",
