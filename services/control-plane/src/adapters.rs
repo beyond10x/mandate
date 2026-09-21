@@ -87,7 +87,7 @@ use mandate_federation::record::{
     OAuthClientState, Projection as FederationProjection, RegisterFederationConnection,
     register_federation_connection,
 };
-use mandate_federation::verifier_real::{AlgorithmPolicyError, Clock};
+use mandate_federation::verifier_real::{AlgorithmPolicyError, Clock, JwksSource, RealVerifier};
 use mandate_federation::{
     ConnectionStore, DenialClause as FederationClause, Denied as FederationDenied,
     FederationVerifier, IdentityAllocator as FederationIdentityAllocator, IssuedSession,
@@ -750,6 +750,30 @@ pub struct ConnectionSeed {
     /// cases seed a verifier double for which the value decides nothing.
     #[serde(default, deserialize_with = "mandate_types::value::present")]
     pub algorithm: Option<SigningAlgorithm>,
+    /// The hosts this connection's key set may be fetched from, beside the issuer's own
+    /// origin.
+    ///
+    /// **Not a field of the connection record either**, and the same kind of value
+    /// `algorithm` is: what the *deployment* holds about a connection, installed through
+    /// `RealVerifier::allowing_jwks_hosts` and read by `UreqJwks::admits`.
+    ///
+    /// Absent — or empty, which is the same list — admits the issuer's own origin and
+    /// nothing else, which is what every document written before this member existed
+    /// configured and still configures. An operator lists a host here because the IdP
+    /// publishes its keys on one: Google's discovery document is served by
+    /// `accounts.google.com` and names a key set on `www.googleapis.com`, and Okta and
+    /// Entra do the same. Without one, that connection's every login is refused — the
+    /// discovery document is served by the issuer and is not allowed to introduce a
+    /// destination the deployment never named.
+    ///
+    /// An entry is `host` or `host:port`; `admits` decides what each one admits and this
+    /// reader decides nothing about them. In particular an entry naming a host that
+    /// verifier would never fetch from — an address literal, a spelling of the loopback
+    /// interface — is **not** refused here: the rules are one implementation's, in one
+    /// place, and a copy of them in this reader would be a second answer to the same
+    /// question that could disagree with the first.
+    #[serde(default)]
+    pub jwks_hosts: Vec<String>,
     /// How the organization is resolved from validated claims.
     pub tenant_resolution: TenantResolutionRule,
     /// Whether this connection admits just-in-time provisioning.
@@ -1005,6 +1029,55 @@ impl<F: FnMut() -> Uuid> FederationIdentityAllocator for StatedIdentities<'_, F>
     fn next_o_auth_client_id(&mut self) -> OAuthClientId {
         OAuthClientId::new((self.allocate)())
     }
+}
+
+/// Install one document's **deployment** configuration on the verifier: the algorithm this
+/// connection's proofs are verified under, and the hosts its key set may be fetched from.
+///
+/// Neither is a field of `mandate.federation.FederationConnection` and neither is an input
+/// of `mandate.federation.RegisterFederationConnection` — so neither goes through
+/// [`ConnectionSeeding::admit`], which is where every input of that command goes and the
+/// only place a `--connection` document is admitted. These two are what the *deployment*
+/// holds about a connection, under an identity that is known only once that command has
+/// allocated it, which is why this runs after it and before the listener binds.
+///
+/// A document naming no algorithm is left unconfigured deliberately: `RealVerifier` has no
+/// default at all and refuses every proof through that connection
+/// (`RefusalReason::ConnectionAlgorithmUnconfigured`), which is the closed answer. A
+/// document listing no host is left listing none, which admits the issuer's own origin and
+/// nothing else.
+///
+/// **It is here and not in `src/main.rs` because nothing reaches a binary's `main`.**
+/// `--connection` is the only configuration surface this deployment has, and the step that
+/// carries a document's value onto the verifier is the whole of what that surface does; in
+/// `main` it is checkable only through a login, and a login says nothing at all about
+/// [`RealVerifier::allowing_jwks_hosts`] unless the key set is on a host `UreqJwks::admits`
+/// would fetch from — `https`, and never the loopback a case's own listener is.
+///
+/// # Errors
+///
+/// Returns [`SeedRefused::Algorithm`] naming the file whose algorithm the verifier refused.
+pub fn configure_verifier<S: JwksSource, C: Clock>(
+    verifier: RealVerifier<S, C>,
+    path: &Path,
+    seed: &ConnectionSeed,
+    connection_id: FederationConnectionId,
+) -> Result<RealVerifier<S, C>, SeedRefused> {
+    let listed: Vec<&str> = seed.jwks_hosts.iter().map(String::as_str).collect();
+    let verifier = if listed.is_empty() {
+        verifier
+    } else {
+        verifier.allowing_jwks_hosts(connection_id, &listed)
+    };
+    let Some(algorithm) = &seed.algorithm else {
+        return Ok(verifier);
+    };
+    verifier
+        .configure_connection(connection_id, algorithm)
+        .map_err(|error| SeedRefused::Algorithm {
+            path: path.to_path_buf(),
+            error,
+        })
 }
 
 /// The key set these `--key` documents publish, or why they publish none.
