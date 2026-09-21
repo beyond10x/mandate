@@ -22,11 +22,12 @@
 //! Everything else is the shipped path: the decoders, the route table, the two documents,
 //! the three port adapters, the folds and the four handlers.
 
-use std::io::{Read, Write};
+use std::io::{BufRead, Read, Write};
 use std::net::{SocketAddr, TcpStream};
+use std::path::{Path, PathBuf};
 use std::time::{Duration as HostDuration, Instant};
 
-use mandate_control_plane::adapters::{Configuration, Deployment};
+use mandate_control_plane::adapters::{Configuration, Deployment, read_connection_seed, read_key};
 use mandate_control_plane::serve::{Limits, Listener};
 use mandate_federation::record::FederationEvent;
 use mandate_federation::verifier::{ConstructedVerifier, VerifiedProof};
@@ -1370,5 +1371,472 @@ fn a_code_is_redeemable_only_while_its_session_is_fresh() {
         !refused.body.contains("access_token"),
         "no credential is issued against an expired session; got {}",
         refused.body
+    );
+}
+
+// ---------------------------------------------------------------------------------------
+// The two seeds `serve` is configured with: `--connection` and `--key`
+// ---------------------------------------------------------------------------------------
+
+/// RFC 7515 appendix A.3's public P-256 key, as the JWK document `--key` reads.
+const KEY_DOCUMENT: &str = r#"{"kty":"EC","kid":"login-key-1","use":"sig","alg":"ES256",
+  "crv":"P-256","x":"f83OJ3D2xF1Bg8vub9tLe1gHMzV76e8Tus9uPHvRVEU",
+  "y":"x_FEzRu9m36HLN_tue659LNpXW6pCyStikYjKIWI5a0"}"#;
+
+/// The same key, carrying RFC 7517 section 9.2's private member. A published document is
+/// assembled from names a constructor admitted, and `d` is not one of them.
+const PRIVATE_KEY_DOCUMENT: &str = r#"{"kty":"EC","kid":"login-key-1","use":"sig",
+  "alg":"ES256","crv":"P-256","x":"f83OJ3D2xF1Bg8vub9tLe1gHMzV76e8Tus9uPHvRVEU",
+  "y":"x_FEzRu9m36HLN_tue659LNpXW6pCyStikYjKIWI5a0",
+  "d":"jpsQnnGQmL-YBIffH1136cspYG6-0iY7X1fCE9-E9LI"}"#;
+
+/// A second key under the same `kid`, so that a set naming one `kid` twice is a *set* the
+/// flags can name rather than one no caller could construct.
+const REPEATED_KID_DOCUMENT: &str = r#"{"kty":"EC","kid":"login-key-1","use":"sig",
+  "alg":"ES256","crv":"P-256","x":"MKBCTNIcKUSDii11ySs3526iDZ8AiTo7Tu6KPAqv7D4",
+  "y":"4Etl6SRW2YiLUrN5vfvVHuhp7x8PxltmWWlbbM4IFyM"}"#;
+
+/// Where a case's flag documents are written: cargo's own per-target scratch directory, so
+/// nothing here writes outside the build tree.
+fn seed_file(name: &str, body: &str) -> PathBuf {
+    let directory = Path::new(env!("CARGO_TARGET_TMPDIR")).join("seeds");
+    std::fs::create_dir_all(&directory).expect("a writable scratch directory");
+    let path = directory.join(name);
+    std::fs::write(&path, body).expect("the flag document is written");
+    path
+}
+
+fn seed_path(path: &Path) -> &str {
+    path.to_str().expect("a UTF-8 path")
+}
+
+/// The `--connection` document: the issuer, the client and the organization the verifier
+/// double and the registered OAuth client agree on.
+///
+/// `link` decides whether the document also carries the external-principal link. The login
+/// resolves its principal through one (`crates/mandate-federation/src/authenticate.rs:118`),
+/// so a document without it is a connection the road can select and cannot authenticate.
+fn connection_document(connection_id: Option<&str>, link: bool) -> String {
+    let identity = match connection_id {
+        Some(id) => format!(r#""connection_id":"{id}","#),
+        None => String::new(),
+    };
+    let linked = if link {
+        format!(
+            r#","link":{{"principal_id":"{principal}","external_principal_id":"{external}",
+              "subject":"subject-1","linked_at":"2026-09-01T00:00:00Z"}}"#,
+            principal = principal(),
+            external = ExternalPrincipalId::new(uuid(0xe2)),
+        )
+    } else {
+        String::new()
+    };
+    format!(
+        r#"{{{identity}"organization":"{organization}","issuer":"https://idp.example",
+          "client_id":"mandate-at-idp",
+          "tenant_resolution":{{"configured_organization":"{organization}"}},
+          "jit_provisioning":false{linked}}}"#,
+        organization = organization(),
+    )
+}
+
+/// A deployment whose connection and key are read from the two flag documents, through the
+/// same library path `src/main.rs` reads them with.
+///
+/// The registered OAuth client and the registered target are still seeded here as a library
+/// caller: **no flag in this story carries either**, so an operator holding only
+/// `--connection` and `--key` reaches step 1 of the road and no further.
+fn deployment_from_documents(
+    connection_path: &Path,
+    key_path: &Path,
+) -> (Wired, ResourceServerId, FederationConnectionId) {
+    let seed = read_connection_seed(connection_path).expect("a connection document serve reads");
+    let key = read_key(key_path).expect("a JWK document serve publishes");
+
+    let mut allocator = SequentialAllocator::new();
+    let registered = register_resource_server(
+        &RegisterResourceServer {
+            context: context(),
+            audience: Audience::new("https://api.example"),
+            profile: reference_profile(),
+            allowed_exchange_sources: Vec::new(),
+        },
+        &CredentialProjection::default(),
+        &mut allocator,
+    )
+    .expect("a free audience in the caller's own organization");
+    let target = registered.resource_server_id;
+
+    let mut deployment = Deployment::new(
+        Configuration {
+            issuer: ISSUER.to_owned(),
+            code_lifetime: CodeLifetime::new(Duration::new("PT5M")),
+            session_lifetime: Duration::new("PT8H"),
+            keys: vec![key],
+        },
+        verifier(),
+        FixedClock::at(NOW),
+        CountingSecrets::new(),
+        SequentialAllocator::new(),
+    )
+    .expect("a configuration this deployment serves");
+
+    deployment
+        .record_credential(&registered.event)
+        .expect("a readable credential history");
+
+    let mut minted = 0xe7_u8;
+    let mut allocate = || {
+        minted = minted.wrapping_add(1);
+        uuid(minted)
+    };
+    let seeded = seed.events(&mut allocate);
+    for event in &seeded.events {
+        deployment
+            .record_federation(event)
+            .expect("a readable federation history");
+    }
+
+    deployment
+        .record_federation(&FederationEvent::OAuthClientRegistered {
+            context: context(),
+            id: client(),
+            organization_id: organization(),
+            public: true,
+            redirect_uris: vec![RedirectUri::new(REDIRECT)],
+            pkce_method: PkceMethod::S256,
+        })
+        .expect("a readable federation history");
+
+    (deployment, target, seeded.connection_id)
+}
+
+/// Bind an ephemeral port and serve a deployment configured from the two flag documents.
+fn serving_from_documents(
+    connection_path: &Path,
+    key_path: &Path,
+) -> (SocketAddr, ResourceServerId, FederationConnectionId) {
+    let listener =
+        Listener::bind("127.0.0.1:0", test_limits()).expect("an ephemeral port on the loopback");
+    let address = listener.local_addr().expect("the bound address");
+    let (mut deployment, target, connection_id) =
+        deployment_from_documents(connection_path, key_path);
+    std::thread::spawn(move || {
+        let _ = listener.serve(&mut deployment);
+    });
+    (address, target, connection_id)
+}
+
+/// Run `serve` with these extra arguments and read back what it did, bounded.
+///
+/// Bounded because a document this deployment *accepts* serves until it is killed: a case
+/// that expects a refusal and gets a running server must fail rather than hang forever.
+fn serve_with(extra: &[&str]) -> std::process::Output {
+    let mut arguments = vec![
+        "serve",
+        "--listen",
+        "127.0.0.1:0",
+        "--issuer",
+        "https://mandate.example",
+    ];
+    arguments.extend_from_slice(extra);
+    let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_mandate-control-plane"))
+        .args(&arguments)
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .expect("the composition binary runs");
+    let deadline = Instant::now() + HostDuration::from_secs(20);
+    loop {
+        match child.try_wait().expect("the child process is waitable") {
+            Some(_) => break,
+            None if Instant::now() >= deadline => {
+                let _ = child.kill();
+                break;
+            }
+            None => std::thread::sleep(HostDuration::from_millis(20)),
+        }
+    }
+    child
+        .wait_with_output()
+        .expect("the process's own output is read back")
+}
+
+/// The acceptance: two flag documents configure a deployment, and one login completes over a
+/// real socket — login, authorization, token, introspection, in that order.
+#[test]
+fn the_flag_documents_configure_a_deployment_that_completes_one_login_end_to_end() {
+    let stated = FederationConnectionId::new(uuid(0xc1));
+    let connection_path = seed_file(
+        "road-connection.json",
+        &connection_document(Some(&stated.to_string()), true),
+    );
+    let key_path = seed_file("road-key.json", KEY_DOCUMENT);
+    let (address, target, connection_id) = serving_from_documents(&connection_path, &key_path);
+    assert_eq!(
+        connection_id, stated,
+        "the document's own `connection_id` is the one that was seeded"
+    );
+
+    // The key the flag carried is the document a client reads, and `{"keys":[]}` is not it.
+    let published = exchange(address, &get("/oauth/jwks", &[]));
+    assert_eq!(
+        published.status, 200,
+        "the key set answered {}",
+        published.body
+    );
+    assert!(
+        published.body.contains("login-key-1"),
+        "`--key` publishes the key it read, got {}",
+        published.body
+    );
+    assert!(
+        !published.body.contains("\"d\""),
+        "RFC 7517 section 9.2's private members are not published, got {}",
+        published.body
+    );
+
+    // 1. The login opens a session against the seeded connection.
+    let login = exchange(
+        address,
+        &post(
+            "/v1/federation/login",
+            "application/json",
+            &format!(
+                r#"{{"connection_id":"{connection_id}","proof":"{}"}}"#,
+                mandate_types::value::encode_base64(b"an idp proof")
+            ),
+            &[],
+        ),
+    );
+    assert_eq!(login.status, 200, "the login answered {}", login.body);
+    assert!(
+        !member(&login.body, "session_id").is_empty(),
+        "the declared `session_id` response"
+    );
+    let proof = member(&login.body, "session_proof");
+
+    // 2. The authorization request redirects with a code, under an S256 challenge.
+    let redirected = authorize(address, target, &proof, REDIRECT);
+    assert_eq!(
+        redirected.status, 302,
+        "RFC 6749 section 4.1.2 answers with a redirect; got {}",
+        redirected.body
+    );
+    let location = redirected
+        .header("Location")
+        .expect("a Location header")
+        .to_owned();
+    assert!(
+        location.contains("state=xyzzy"),
+        "RFC 6749 section 4.1.2 returns the exact state received, got {location}"
+    );
+    let code = code_of(&location);
+
+    // 3. The token endpoint redeems the code with the verifier.
+    let token = exchange(
+        address,
+        &post(
+            "/oauth/token",
+            "application/x-www-form-urlencoded",
+            &token_body(&code, REDIRECT),
+            &[],
+        ),
+    );
+    assert_eq!(
+        token.status, 200,
+        "the token endpoint answered {}",
+        token.body
+    );
+    let credential = member(&token.body, "access_token");
+
+    // 4. Introspection answers active for the credential the road just issued.
+    let introspect = exchange(
+        address,
+        &post(
+            "/oauth/introspect",
+            "application/x-www-form-urlencoded",
+            &format!("token={}", encoded(&credential)),
+            &[("Authorization", &format!("Bearer {credential}"))],
+        ),
+    );
+    assert_eq!(
+        introspect.status, 200,
+        "introspection answered {}",
+        introspect.body
+    );
+    let document: serde_json::Value =
+        serde_json::from_str(&introspect.body).expect("RFC 7662 section 2.2's JSON");
+    assert_eq!(
+        document.get("active").and_then(serde_json::Value::as_bool),
+        Some(true),
+        "the credential the road just issued is usable; got {}",
+        introspect.body
+    );
+}
+
+/// A connection document naming no link is a connection the road selects and cannot
+/// authenticate: `authenticate_federation` resolves the principal through an explicit link
+/// and `ProvisionExternalPrincipal` is behind `decision-blocker:jit-provisioning` with no
+/// route reaching it. Measured, so the `link` member is not an invention.
+#[test]
+fn a_connection_document_naming_no_link_selects_a_connection_and_authenticates_nobody() {
+    let stated = FederationConnectionId::new(uuid(0xc2));
+    let connection_path = seed_file(
+        "unlinked-connection.json",
+        &connection_document(Some(&stated.to_string()), false),
+    );
+    let key_path = seed_file("unlinked-key.json", KEY_DOCUMENT);
+    let (address, _, connection_id) = serving_from_documents(&connection_path, &key_path);
+
+    let login = exchange(
+        address,
+        &post(
+            "/v1/federation/login",
+            "application/json",
+            &format!(
+                r#"{{"connection_id":"{connection_id}","proof":"{}"}}"#,
+                mandate_types::value::encode_base64(b"an idp proof")
+            ),
+            &[],
+        ),
+    );
+    assert_eq!(
+        login.status, 400,
+        "no principal is linked through this connection; got {}",
+        login.body
+    );
+    assert!(
+        login.body.contains("access_denied"),
+        "`LinkAbsent` carries `DenialReason::Denied`, which is `access_denied` and not the \
+         `invalid_request` a connection nobody seeded answers; got {}",
+        login.body
+    );
+}
+
+/// An operator who cannot learn the `connection_id` cannot call the login route, so a
+/// document naming none is allocated one and the binary prints it before it binds.
+#[test]
+fn a_connection_document_naming_no_id_is_allocated_one_and_prints_it() {
+    let path = seed_file(
+        "allocated-connection.json",
+        &connection_document(None, true),
+    );
+    let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_mandate-control-plane"))
+        .args([
+            "serve",
+            "--listen",
+            "127.0.0.1:0",
+            "--issuer",
+            "https://mandate.example",
+            "--connection",
+            seed_path(&path),
+        ])
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .expect("the composition binary runs");
+    let mut printed = String::new();
+    let mut reader = std::io::BufReader::new(child.stdout.take().expect("a piped stdout"));
+    reader
+        .read_line(&mut printed)
+        .expect("the seeded connection is printed");
+    let _ = child.kill();
+    let refused = child
+        .wait_with_output()
+        .expect("the process's own output is read back");
+    assert!(
+        !printed.trim().is_empty(),
+        "the binary printed no seeded connection; it said {} on stderr",
+        String::from_utf8_lossy(&refused.stderr)
+    );
+    let identity = printed
+        .split_whitespace()
+        .next_back()
+        .expect("a last word on the printed line");
+    assert!(
+        identity.len() == 36 && identity.split('-').count() == 5,
+        "the printed line ends in the seeded `connection_id`, got {printed:?}"
+    );
+}
+
+/// Every refusal of either flag document is a **configuration** refusal: exit status 2, not
+/// the 1 of a listener that could not bind, and the file it read is named.
+///
+/// The class, enumerated: a path that does not open, a body that is not JSON, a body missing
+/// a declared member, a JWK parameter outside `Jwk::ADMITTED_PARAMETERS`, and a JWK parameter
+/// that is not text. A duplicated JSON member and a parameter colliding with a declared
+/// member are the two `JwkRefusal` cases a JSON object cannot carry to `Jwk::new` — a
+/// `serde_json` object holds one value per name, and the four declared members are read by
+/// name before the rest are passed on.
+#[test]
+fn every_refusal_of_a_flag_document_exits_two_and_names_the_file() {
+    let absent = Path::new(env!("CARGO_TARGET_TMPDIR"))
+        .join("seeds")
+        .join("no-such-document.json");
+    let cases = [
+        ("--connection", absent.clone(), "a path that does not open"),
+        (
+            "--connection",
+            seed_file("malformed-connection.json", "{"),
+            "a body that is not JSON",
+        ),
+        (
+            "--connection",
+            seed_file(
+                "incomplete-connection.json",
+                r#"{"issuer":"https://idp.example"}"#,
+            ),
+            "a body missing the declared members",
+        ),
+        (
+            "--key",
+            seed_file("private-key.json", PRIVATE_KEY_DOCUMENT),
+            "a JWK carrying private material",
+        ),
+        (
+            "--key",
+            seed_file(
+                "untyped-key.json",
+                r#"{"kty":"EC","kid":"k","use":"sig","alg":"ES256","crv":1}"#,
+            ),
+            "a JWK parameter that is not text",
+        ),
+    ];
+    for (flag, path, why) in cases {
+        let refused = serve_with(&[flag, seed_path(&path)]);
+        assert_eq!(
+            refused.status.code(),
+            Some(2),
+            "{flag} naming {why} is a configuration refusal; it said {}",
+            String::from_utf8_lossy(&refused.stderr)
+        );
+        let said = String::from_utf8_lossy(&refused.stderr);
+        assert!(
+            said.contains(seed_path(&path)),
+            "the refusal of {why} names the file it read, got {said}"
+        );
+    }
+}
+
+/// Two `--key` documents under one `kid` name a set no reader can resolve a signature
+/// against, and that is decided at startup rather than answered as a 500 to every client
+/// that reads the key set. `ConfigurationRefused::Keys` is the variant already declared for
+/// it.
+#[test]
+fn two_key_documents_naming_one_kid_are_refused_before_the_socket_is_bound() {
+    let first = seed_file("first-key.json", KEY_DOCUMENT);
+    let second = seed_file("second-key.json", REPEATED_KID_DOCUMENT);
+    let refused = serve_with(&["--key", seed_path(&first), "--key", seed_path(&second)]);
+    assert_eq!(
+        refused.status.code(),
+        Some(2),
+        "one `kid` names at most one key; it said {}",
+        String::from_utf8_lossy(&refused.stderr)
+    );
+    let said = String::from_utf8_lossy(&refused.stderr);
+    assert!(
+        said.contains("kid"),
+        "the refusal says which member collided, got {said}"
     );
 }

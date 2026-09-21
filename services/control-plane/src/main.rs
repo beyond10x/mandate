@@ -1,13 +1,22 @@
 //! `mandate-control-plane`: the composition binary. `serve --listen <addr>` binds the login
-//! road's listener over a deployment whose folds start empty; seeding them from an event
-//! log is the next milestone (ruling D4, `story:product-listener`).
+//! road's listener over a deployment seeded, per process, from the documents `--connection`
+//! and `--key` name; seeding the folds from an event log is the next milestone (ruling D4,
+//! `story:product-listener`).
+//!
+//! **What the two flags do not carry.** A registered OAuth public client and a registered
+//! resource-server target — the two records the authorization endpoint reads after the
+//! session — have no flag here. A process configured from these two documents alone serves
+//! `POST /v1/federation/login` and refuses `GET /oauth/authorize`, and closing that is the
+//! registration road's own story rather than this one's.
 
 use std::net::SocketAddr;
+use std::path::PathBuf;
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
 use mandate_control_plane::adapters::{
-    Configuration, ConfigurationRefused, Deployment, SystemAllocator, SystemSecrets,
+    Configuration, ConfigurationRefused, ConnectionSeed, Deployment, SeedRefused, SystemAllocator,
+    SystemSecrets, read_connection_seed, read_key,
 };
 use mandate_control_plane::serve::{Limits, Listener};
 use mandate_federation::verifier_real::{AllowedAlgorithms, RealVerifier, SystemClock, UreqJwks};
@@ -37,6 +46,14 @@ enum Action {
         /// The longest lifetime of a federated session, as an ISO 8601 duration.
         #[arg(long, default_value = "PT8H")]
         session_lifetime: String,
+        /// A federation connection to seed, as a JSON document. Repeatable.
+        ///
+        /// The seeded `connection_id` is printed, because the login route selects on it.
+        #[arg(long = "connection", value_name = "PATH")]
+        connections: Vec<PathBuf>,
+        /// A public JWK the JWK Set document publishes, as a JSON document. Repeatable.
+        #[arg(long = "key", value_name = "PATH")]
+        keys: Vec<PathBuf>,
     },
 }
 
@@ -49,6 +66,9 @@ enum Action {
 /// authorization with nothing anywhere saying why.
 enum Refused {
     Configuration(ConfigurationRefused),
+    /// A `--connection` or `--key` document that configures no deployment. The same **2** as
+    /// [`Refused::Configuration`], and separate only because it names the file it read.
+    Seed(SeedRefused),
     Start(Box<dyn std::error::Error>),
 }
 
@@ -60,9 +80,22 @@ fn main() -> ExitCode {
             issuer,
             code_lifetime,
             session_lifetime,
-        } => match serve(listen, issuer, &code_lifetime, &session_lifetime) {
+            connections,
+            keys,
+        } => match serve(
+            listen,
+            issuer,
+            &code_lifetime,
+            &session_lifetime,
+            &connections,
+            &keys,
+        ) {
             Ok(()) => ExitCode::SUCCESS,
             Err(Refused::Configuration(refusal)) => {
+                eprintln!("mandate-control-plane: {refusal}");
+                ExitCode::from(2)
+            }
+            Err(Refused::Seed(refusal)) => {
                 eprintln!("mandate-control-plane: {refusal}");
                 ExitCode::from(2)
             }
@@ -79,14 +112,28 @@ fn serve(
     issuer: String,
     code_lifetime: &str,
     session_lifetime: &str,
+    connections: &[PathBuf],
+    keys: &[PathBuf],
 ) -> Result<(), Refused> {
-    // The configuration is decided before a socket, a key or the host CSPRNG is touched: an
-    // operator who mistyped a duration learns it from the exit status, not from a client.
+    // Every document is read before a socket, a key or the host CSPRNG is touched: an
+    // operator who mistyped a duration — or wrote a key nobody can publish — learns it from
+    // the exit status, not from a client.
+    let seeds = connections
+        .iter()
+        .map(|path| Ok((path.clone(), read_connection_seed(path)?)))
+        .collect::<Result<Vec<(PathBuf, ConnectionSeed)>, SeedRefused>>()
+        .map_err(Refused::Seed)?;
+    let published = keys
+        .iter()
+        .map(|path| read_key(path))
+        .collect::<Result<Vec<_>, SeedRefused>>()
+        .map_err(Refused::Seed)?;
+
     let configuration = Configuration {
         issuer,
         code_lifetime: CodeLifetime::new(Duration::new(code_lifetime)),
         session_lifetime: Duration::new(session_lifetime),
-        keys: Vec::new(),
+        keys: published,
     }
     .checked()
     .map_err(Refused::Configuration)?;
@@ -98,9 +145,37 @@ fn serve(
     .map_err(|error| Refused::Start(Box::new(error)))?;
     let verifier = RealVerifier::new(allowed, UreqJwks::new(), SystemClock);
     let secrets = SystemSecrets::open().map_err(|error| Refused::Start(Box::new(error)))?;
-    let allocator = SystemAllocator::open().map_err(|error| Refused::Start(Box::new(error)))?;
+    let mut allocator = SystemAllocator::open().map_err(|error| Refused::Start(Box::new(error)))?;
+
+    // The identities the documents state none for are minted from the same CSPRNG every
+    // other identity this deployment mints comes from, before the allocator is handed over.
+    let mut seeded = Vec::with_capacity(seeds.len());
+    for (path, seed) in &seeds {
+        let mut allocate = || allocator.next_uuid();
+        seeded.push((path, seed.events(&mut allocate)));
+    }
+
     let mut deployment = Deployment::new(configuration, verifier, SystemClock, secrets, allocator)
         .map_err(Refused::Configuration)?;
+    for (path, connection) in seeded {
+        for event in &connection.events {
+            deployment
+                .record_federation(event)
+                .map_err(|error| SeedRefused::Unseedable {
+                    path: path.clone(),
+                    error,
+                })
+                .map_err(Refused::Seed)?;
+        }
+        // An operator who cannot learn the id cannot call the login route, which selects on
+        // it. Printed before the listener binds, so it is readable whether or not the bind
+        // succeeds.
+        println!(
+            "mandate-control-plane: seeded federation connection {}",
+            connection.connection_id
+        );
+    }
+
     let listener = Listener::bind(listen, Limits::default())
         .map_err(|error| Refused::Start(Box::new(error)))?;
     listener

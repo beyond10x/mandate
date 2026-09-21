@@ -52,8 +52,10 @@
 //! * **The just-in-time branch is not served.** `mandate.federation.ProvisionExternalPrincipal`
 //!   is behind `decision-blocker:jit-provisioning`, and no route reaches it.
 
+use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::Read;
+use std::path::{Path, PathBuf};
 
 use mandate_federation::authorize::{IssueAuthorizationCodeInput, TargetRegistry};
 use mandate_federation::publicclient::{OAuthClientStore, registered_public_client};
@@ -70,6 +72,7 @@ use mandate_identity::{
     EpochSnapshotRecorded, Generation, IdentityEvent, IdentityLog, IdentityRead,
     SecurityEpochRecorded, SessionOpened, StreamVersion,
 };
+use mandate_model::TenantResolutionRule;
 use mandate_server::decode;
 use mandate_server::metadata::{
     AuthorizationServerMetadata, Jwk, JwkRefusal, Jwks, authorization_server_metadata,
@@ -93,11 +96,13 @@ use mandate_token::projection::{
 };
 use mandate_token::verifier::{CredentialDigest, CredentialDomain, matches, verifier_in};
 use mandate_types::{
-    Audience, AuthorizationCodeId, CorrelationId, CredentialId, CredentialProof, CredentialSecret,
-    CredentialVerifier, DenialReason, Duration, EpochSnapshotRef, OAuthClientId, OrganizationId,
-    PrincipalId, RedirectUri, ResourceServerId, SecurityEpochTarget, SessionId, Timestamp,
-    Transient, Uuid,
+    Audience, AuthorizationCodeId, ClientId, CorrelationId, CredentialId, CredentialProof,
+    CredentialSecret, CredentialVerifier, DenialReason, Duration, EpochSnapshotRef,
+    ExternalLinkMethod, ExternalPrincipalId, ExternalSubject, FederationConnectionId, Issuer,
+    OAuthClientId, OrganizationId, PrincipalId, RedirectUri, ResourceServerId, SecurityEpochTarget,
+    SessionId, Timestamp, Transient, Uuid, VerifiedContext,
 };
+use serde::Deserialize;
 
 /// The domain tag a session proof is digested under.
 ///
@@ -522,6 +527,11 @@ impl Configuration {
     ///
     /// Returns [`ConfigurationRefused`] naming the value that is not servable.
     pub fn checked(self) -> Result<Self, ConfigurationRefused> {
+        // A `kid` naming two keys is a set no reader resolves a signature against, and
+        // `Jwks::new` is the one place that says so. Decided here rather than at the JWK Set
+        // request: a deployment that serves and answers 500 to every reader of its own key
+        // set has published nothing, and the operator learns it from a client.
+        Jwks::new(self.keys.clone()).map_err(ConfigurationRefused::Keys)?;
         if servable_lifetime(self.code_lifetime.as_duration()).is_none() {
             return Err(ConfigurationRefused::CodeLifetimeUnbounded);
         }
@@ -655,6 +665,280 @@ impl core::fmt::Display for ConfigurationRefused {
 }
 
 impl std::error::Error for ConfigurationRefused {}
+
+// ---------------------------------------------------------------------------------------
+// The two documents a served deployment is configured from
+// ---------------------------------------------------------------------------------------
+
+/// The inputs one `--connection` document carries.
+///
+/// **The document carries a command's inputs; the binary constructs the event.**
+/// [`FederationEvent`] is `Serialize`-only and `#[serde(untagged)]`
+/// (`crates/mandate-federation/src/record.rs:145-154`), so reading one back needs a tagged
+/// envelope that belongs to the persistence story. This is the shape an operator writes, and
+/// [`ConnectionSeed::events`] is the construction.
+///
+/// # Why a link is part of it
+///
+/// A connection alone selects: `mandate.federation.AuthenticateFederation` resolves its
+/// principal through an explicit link and refuses `DenialClause::LinkAbsent` when there is
+/// none (`crates/mandate-federation/src/authenticate.rs:118-121`). The just-in-time branch
+/// that would create one is behind `decision-blocker:jit-provisioning` and no route reaches
+/// it, so a seeded connection carrying no link is a connection every login is denied
+/// against — the flag would configure a road that still cannot be walked. `link` is
+/// optional because a deployment may legitimately seed the connection and link later
+/// through the persistence story's log.
+///
+/// `jit_provisioning` is stated rather than defaulted: it decides whether a first login may
+/// create a principal, and a security-relevant value nobody wrote is not a value an operator
+/// chose.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ConnectionSeed {
+    /// The connection identity, when the operator states one. Absent, one is allocated and
+    /// printed.
+    #[serde(default, deserialize_with = "mandate_types::value::present")]
+    pub connection_id: Option<FederationConnectionId>,
+    /// The organization the connection is bound to.
+    ///
+    /// The fold reads it from the registering caller's verified context
+    /// (`crates/mandate-federation/src/record.rs:491-493`), so it is carried there.
+    pub organization: OrganizationId,
+    /// The configured issuer a proof's `iss` must be.
+    pub issuer: Issuer,
+    /// The configured client a proof's `aud` must name.
+    pub client_id: ClientId,
+    /// How the organization is resolved from validated claims.
+    pub tenant_resolution: TenantResolutionRule,
+    /// Whether this connection admits just-in-time provisioning.
+    pub jit_provisioning: bool,
+    /// The external principal this connection's logins resolve to, when one is seeded.
+    #[serde(default, deserialize_with = "mandate_types::value::present")]
+    pub link: Option<PrincipalLinkSeed>,
+}
+
+/// The inputs the optional `link` member of a `--connection` document carries.
+///
+/// `link_method` is not among them and is not configurable: the other four
+/// [`ExternalLinkMethod`] values each name an act — an administrator's, an authenticated
+/// user's confirmation, a migration, a support decision — that a configuration file did not
+/// perform. A seeded link is `ConfiguredFederation`, which is what it is.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PrincipalLinkSeed {
+    /// The Mandate principal the external subject resolves to.
+    pub principal_id: PrincipalId,
+    /// The link identity, when the operator states one. Absent, one is allocated.
+    #[serde(default, deserialize_with = "mandate_types::value::present")]
+    pub external_principal_id: Option<ExternalPrincipalId>,
+    /// The external subject, as the IdP's `sub` presents it.
+    pub subject: ExternalSubject,
+    /// The instant the link was made.
+    pub linked_at: Timestamp,
+}
+
+/// The connection one document seeds, and the events that seed it.
+#[derive(Debug, Clone)]
+pub struct SeededConnection {
+    /// The connection identity, stated by the document or allocated for it.
+    ///
+    /// Handed back because an operator who cannot learn it cannot call the login route:
+    /// `mandate.federation.AuthenticateFederation` selects on it.
+    pub connection_id: FederationConnectionId,
+    /// The events, in the order the fold reads them: the connection before its link.
+    pub events: Vec<FederationEvent>,
+}
+
+impl ConnectionSeed {
+    /// The events this document seeds, allocating the identities it states none for.
+    ///
+    /// `allocate` is the identity source, so the binary mints from the host CSPRNG and a
+    /// case mints what it can assert against. Order matters: the fold refuses a link naming
+    /// a connection no event created ([`FederationFoldError::UnknownConnection`]).
+    pub fn events(&self, allocate: &mut impl FnMut() -> Uuid) -> SeededConnection {
+        let connection_id = self
+            .connection_id
+            .unwrap_or_else(|| FederationConnectionId::new(allocate()));
+        let mut events = vec![FederationEvent::FederationConnectionCreated {
+            context: self.context(),
+            connection_id,
+            issuer: self.issuer.clone(),
+            client_id: self.client_id.clone(),
+            tenant_resolution: self.tenant_resolution.clone(),
+            jit_provisioning: self.jit_provisioning,
+        }];
+        if let Some(link) = &self.link {
+            events.push(FederationEvent::ExternalPrincipalLinked {
+                context: self.context(),
+                connection_id,
+                principal_id: link.principal_id,
+                external_principal_id: link
+                    .external_principal_id
+                    .unwrap_or_else(|| ExternalPrincipalId::new(allocate())),
+                subject: link.subject.clone(),
+                link_method: ExternalLinkMethod::ConfiguredFederation,
+                linked_at: link.linked_at.clone(),
+            });
+        }
+        SeededConnection {
+            connection_id,
+            events,
+        }
+    }
+
+    /// The context a seeded event is recorded under.
+    ///
+    /// The organization is the document's, because the fold binds the connection to it. The
+    /// subject and the credential name none, spelled the way [`Deployment::authenticate`]
+    /// spells it for the same reason: the declared types are not `Optional`, and this
+    /// seeding authenticated no caller — it is the operator's own configuration, not a
+    /// command a credential was validated for.
+    fn context(&self) -> VerifiedContext {
+        VerifiedContext {
+            subject: PrincipalId::new(Uuid::from_bytes([0; 16])),
+            actor: None,
+            organization: self.organization,
+            audience: Audience::new(SEEDED_CONFIGURATION_AUDIENCE),
+            credential: CredentialId::new(Uuid::from_bytes([0; 16])),
+            delegation: None,
+            execution: None,
+            correlation: CorrelationId::new(SEEDED_CONFIGURATION_AUDIENCE),
+        }
+    }
+}
+
+/// The audience and correlation a seeded event is recorded under.
+///
+/// Its own name, and not the deployment's issuer: a record that says it came from the
+/// process's own configuration is not one that says a client presented a credential for it.
+const SEEDED_CONFIGURATION_AUDIENCE: &str = "mandate.control-plane.configuration";
+
+/// The declared members of a JWK document, and everything else it carries.
+///
+/// `#[serde(flatten)]` into a map of text, so a parameter whose value is not text is a
+/// refusal of the document rather than a member silently dropped from a published key. The
+/// map is ordered, so the published document does not depend on the order the file was
+/// written in.
+#[derive(Debug, Clone, Deserialize)]
+struct KeySeed {
+    kty: String,
+    kid: String,
+    #[serde(rename = "use")]
+    key_use: String,
+    alg: String,
+    #[serde(flatten)]
+    parameters: BTreeMap<String, String>,
+}
+
+/// Why a document named by `--connection` or `--key` configures no deployment.
+///
+/// Every variant carries the path, because an operator running a process with several of
+/// each learns nothing from a refusal that does not say which file it read.
+#[derive(Debug)]
+#[non_exhaustive]
+pub enum SeedRefused {
+    /// The path did not open.
+    Unreadable {
+        /// The file that was read.
+        path: PathBuf,
+        /// The host's own error.
+        error: std::io::Error,
+    },
+    /// The body is not the JSON object this flag declares.
+    Malformed {
+        /// The file that was read.
+        path: PathBuf,
+        /// The reader's own error.
+        error: serde_json::Error,
+    },
+    /// The body is a JSON object, and not a key this deployment publishes.
+    Key {
+        /// The file that was read.
+        path: PathBuf,
+        /// Which member `Jwk::new` refused.
+        refusal: JwkRefusal,
+    },
+    /// The events the document seeds are not a history the fold reads.
+    Unseedable {
+        /// The file that was read.
+        path: PathBuf,
+        /// The fold's own refusal.
+        error: FederationFoldError,
+    },
+}
+
+impl SeedRefused {
+    /// The file this refusal was read from.
+    #[must_use]
+    pub fn path(&self) -> &Path {
+        match self {
+            Self::Unreadable { path, .. }
+            | Self::Malformed { path, .. }
+            | Self::Key { path, .. }
+            | Self::Unseedable { path, .. } => path,
+        }
+    }
+}
+
+impl core::fmt::Display for SeedRefused {
+    fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let path = self.path().display();
+        match self {
+            Self::Unreadable { error, .. } => write!(formatter, "{path}: {error}"),
+            Self::Malformed { error, .. } => write!(formatter, "{path}: {error}"),
+            Self::Key { refusal, .. } => write!(formatter, "{path}: {refusal}"),
+            Self::Unseedable { error, .. } => write!(formatter, "{path}: {error:?}"),
+        }
+    }
+}
+
+impl std::error::Error for SeedRefused {}
+
+/// The connection document at this path.
+///
+/// # Errors
+///
+/// Returns [`SeedRefused`] naming the file when it does not open, or is not the object
+/// [`ConnectionSeed`] declares.
+pub fn read_connection_seed(path: &Path) -> Result<ConnectionSeed, SeedRefused> {
+    serde_json::from_str(&read_document(path)?).map_err(|error| SeedRefused::Malformed {
+        path: path.to_path_buf(),
+        error,
+    })
+}
+
+/// The public JWK at this path.
+///
+/// # Errors
+///
+/// Returns [`SeedRefused`] naming the file when it does not open, is not a JSON object of
+/// text, or carries a member [`Jwk::new`] refuses — RFC 7517 section 9.2's private members
+/// among them.
+pub fn read_key(path: &Path) -> Result<Jwk, SeedRefused> {
+    let seed: KeySeed =
+        serde_json::from_str(&read_document(path)?).map_err(|error| SeedRefused::Malformed {
+            path: path.to_path_buf(),
+            error,
+        })?;
+    let parameters: Vec<(&str, &str)> = seed
+        .parameters
+        .iter()
+        .map(|(name, value)| (name.as_str(), value.as_str()))
+        .collect();
+    Jwk::new(&seed.kty, &seed.kid, &seed.key_use, &seed.alg, &parameters).map_err(|refusal| {
+        SeedRefused::Key {
+            path: path.to_path_buf(),
+            refusal,
+        }
+    })
+}
+
+fn read_document(path: &Path) -> Result<String, SeedRefused> {
+    std::fs::read_to_string(path).map_err(|error| SeedRefused::Unreadable {
+        path: path.to_path_buf(),
+        error,
+    })
+}
 
 /// The composed deployment: the folds, the ports, and the four calls the road makes.
 ///
@@ -1368,10 +1652,17 @@ impl SystemAllocator {
         })
     }
 
+    /// An identity from the host CSPRNG.
+    ///
+    /// Public because a seeded [`ConnectionSeed`] needs a `FederationConnectionId` and an
+    /// `ExternalPrincipalId`, and [`IdentityAllocator`] declares neither: it mints the
+    /// credential domain's four and nothing else. The source is the same one every other
+    /// identity this deployment mints comes from.
+    ///
     /// # Panics
     ///
     /// Panics when the opened CSPRNG cannot be read; see [`SystemSecrets::next_secret`].
-    fn next_uuid(&mut self) -> Uuid {
+    pub fn next_uuid(&mut self) -> Uuid {
         let mut bytes = [0_u8; 16];
         self.source
             .read_exact(&mut bytes)
