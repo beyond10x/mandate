@@ -95,12 +95,22 @@
         {
           "clause": "Caller lacks membership-administration authority",
           "tests": [],
-          "blocked_on": "story:obligations-model"
+          "blocked_on": "decision-blocker:guards"
         },
         {
-          "clause": "organization_id differs from the verified organization and the caller lacks platform organization-administration authority",
+          "clause": "organization_id differs from the verified organization",
+          "tests": [
+            {
+              "id": "mandate-model::obligations::a_membership_named_outside_the_verified_organization_without_platform_authority_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "the caller lacks platform organization-administration authority",
           "tests": [],
-          "blocked_on": "story:obligations-model"
+          "blocked_on": "decision-blocker:guards"
         },
         {
           "clause": "the named organization is closed",
@@ -115,17 +125,22 @@
         {
           "clause": "the principal is unresolved or disabled",
           "tests": [],
-          "blocked_on": "story:obligations-model"
+          "blocked_on": "story:declared-writers"
         },
         {
           "clause": "the principal is already a member of that organization",
-          "tests": [],
-          "blocked_on": "story:obligations-model"
+          "tests": [
+            {
+              "id": "mandate-model::obligations::a_second_active_membership_of_one_organization_for_one_principal_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
         },
         {
           "clause": "membership and its dependent authorization cannot commit consistently",
           "tests": [],
-          "blocked_on": "story:obligations-model"
+          "blocked_on": "decision-blocker:epoch-atomicity"
         }
       ],
       "no_state_change": [
@@ -148,22 +163,37 @@
         {
           "clause": "Caller lacks team-administration authority",
           "tests": [],
-          "blocked_on": "story:obligations-model"
+          "blocked_on": "decision-blocker:guards"
         },
         {
-          "clause": "team or principal is unresolved or outside the verified organization",
+          "clause": "team or",
+          "tests": [
+            {
+              "id": "mandate-model::obligations::a_team_membership_of_an_unresolved_team_or_of_a_team_in_another_organization_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "principal is unresolved or outside the verified organization",
           "tests": [],
-          "blocked_on": "story:obligations-model"
+          "blocked_on": "story:declared-writers"
         },
         {
           "clause": "the team is retired",
-          "tests": [],
-          "blocked_on": "story:obligations-model"
+          "tests": [
+            {
+              "id": "mandate-model::obligations::a_team_membership_added_to_a_retired_team_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
         },
         {
           "clause": "the principal is disabled",
           "tests": [],
-          "blocked_on": "story:obligations-model"
+          "blocked_on": "story:declared-writers"
         },
         {
           "clause": "the principal is not a member of that organization",
@@ -177,13 +207,18 @@
         },
         {
           "clause": "the principal is already a member of that team",
-          "tests": [],
-          "blocked_on": "story:obligations-model"
+          "tests": [
+            {
+              "id": "mandate-model::obligations::a_second_membership_of_one_team_for_one_principal_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
         },
         {
           "clause": "the membership and the manual contribution recording its provenance cannot be recorded together",
           "tests": [],
-          "blocked_on": "story:obligations-model"
+          "blocked_on": "story:directory-provenance"
         }
       ],
       "no_state_change": [
@@ -206,22 +241,27 @@
         {
           "clause": "Caller lacks platform organization-administration authority",
           "tests": [],
-          "blocked_on": "story:obligations-model"
+          "blocked_on": "decision-blocker:guards"
         },
         {
           "clause": "the organization is unresolved",
-          "tests": [],
-          "blocked_on": "story:obligations-model"
+          "tests": [
+            {
+              "id": "mandate-model::obligations::closing_an_organization_the_fold_does_not_hold_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
         },
         {
           "clause": "the sessions, credentials and delegations inside it cannot be invalidated with the closure",
           "tests": [],
-          "blocked_on": "story:obligations-model"
+          "blocked_on": "decision-blocker:epoch-atomicity"
         },
         {
           "clause": "closure would require destroying membership or audit history",
           "tests": [],
-          "blocked_on": "story:obligations-model"
+          "blocked_on": "decision-blocker:lifecycle"
         }
       ],
       "no_state_change": [
@@ -244,17 +284,17 @@
         {
           "clause": "Caller lacks platform organization-administration authority",
           "tests": [],
-          "blocked_on": "story:obligations-model"
+          "blocked_on": "decision-blocker:guards"
         },
         {
           "clause": "the requested display name is not admitted",
           "tests": [],
-          "blocked_on": "story:obligations-model"
+          "blocked_on": "decision-blocker:guards"
         },
         {
           "clause": "the isolation root cannot be created without implying membership, grants or authority inside it",
           "tests": [],
-          "blocked_on": "story:obligations-model"
+          "blocked_on": "decision-blocker:epoch-atomicity"
         }
       ],
       "no_state_change": [
@@ -277,17 +317,17 @@
         {
           "clause": "Caller lacks space-administration authority",
           "tests": [],
-          "blocked_on": "story:obligations-model"
+          "blocked_on": "decision-blocker:guards"
         },
         {
           "clause": "the display name is not admitted in the verified organization",
           "tests": [],
-          "blocked_on": "story:obligations-model"
+          "blocked_on": "decision-blocker:guards"
         },
         {
           "clause": "the space cannot be created without implying a grant or a resource inside it",
           "tests": [],
-          "blocked_on": "story:obligations-model"
+          "blocked_on": "decision-blocker:epoch-atomicity"
         }
       ],
       "no_state_change": [
@@ -310,17 +350,17 @@
         {
           "clause": "Caller lacks team-administration authority",
           "tests": [],
-          "blocked_on": "story:obligations-model"
+          "blocked_on": "decision-blocker:guards"
         },
         {
           "clause": "the display name is not admitted in the verified organization",
           "tests": [],
-          "blocked_on": "story:obligations-model"
+          "blocked_on": "decision-blocker:guards"
         },
         {
           "clause": "the team cannot be created without implying a grant or a directory mapping",
           "tests": [],
-          "blocked_on": "story:obligations-model"
+          "blocked_on": "decision-blocker:epoch-atomicity"
         }
       ],
       "no_state_change": [
@@ -343,17 +383,22 @@
         {
           "clause": "Caller lacks membership-administration authority",
           "tests": [],
-          "blocked_on": "story:obligations-model"
+          "blocked_on": "decision-blocker:guards"
         },
         {
           "clause": "membership is outside the verified organization",
-          "tests": [],
-          "blocked_on": "story:obligations-model"
+          "tests": [
+            {
+              "id": "mandate-model::obligations::removing_an_organization_membership_of_another_organization_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
         },
         {
           "clause": "membership and dependent authorization invalidation cannot commit consistently",
           "tests": [],
-          "blocked_on": "story:obligations-model"
+          "blocked_on": "decision-blocker:epoch-atomicity"
         }
       ],
       "no_state_change": [
@@ -376,22 +421,27 @@
         {
           "clause": "Caller lacks team-administration authority",
           "tests": [],
-          "blocked_on": "story:obligations-model"
+          "blocked_on": "decision-blocker:guards"
         },
         {
           "clause": "the membership is outside the verified organization",
-          "tests": [],
-          "blocked_on": "story:obligations-model"
+          "tests": [
+            {
+              "id": "mandate-model::obligations::removing_a_team_membership_of_another_organization_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
         },
         {
           "clause": "a mandate.directory mapping contribution still supports it",
           "tests": [],
-          "blocked_on": "story:obligations-model"
+          "blocked_on": "story:directory-provenance"
         },
         {
           "clause": "dependent authorization invalidation cannot commit consistently",
           "tests": [],
-          "blocked_on": "story:obligations-model"
+          "blocked_on": "decision-blocker:epoch-atomicity"
         }
       ],
       "no_state_change": [
@@ -414,17 +464,22 @@
         {
           "clause": "Caller lacks space-administration authority",
           "tests": [],
-          "blocked_on": "story:obligations-model"
+          "blocked_on": "decision-blocker:guards"
         },
         {
           "clause": "the space is outside the verified organization",
-          "tests": [],
-          "blocked_on": "story:obligations-model"
+          "tests": [
+            {
+              "id": "mandate-model::obligations::retiring_a_space_of_another_organization_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
         },
         {
           "clause": "retirement cannot refuse new authority inside it while preserving the resources and grants already bound to it",
           "tests": [],
-          "blocked_on": "story:obligations-model"
+          "blocked_on": "decision-blocker:epoch-atomicity"
         }
       ],
       "no_state_change": [
@@ -447,22 +502,27 @@
         {
           "clause": "Caller lacks team-administration authority",
           "tests": [],
-          "blocked_on": "story:obligations-model"
+          "blocked_on": "decision-blocker:guards"
         },
         {
           "clause": "the team is outside the verified organization",
-          "tests": [],
-          "blocked_on": "story:obligations-model"
+          "tests": [
+            {
+              "id": "mandate-model::obligations::retiring_a_team_of_another_organization_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
         },
         {
           "clause": "a directory mapping still contributes to it",
           "tests": [],
-          "blocked_on": "story:obligations-model"
+          "blocked_on": "story:directory-provenance"
         },
         {
           "clause": "retirement cannot revoke the grants that target it while preserving membership provenance",
           "tests": [],
-          "blocked_on": "story:obligations-model"
+          "blocked_on": "decision-blocker:epoch-atomicity"
         }
       ],
       "no_state_change": [
@@ -492,7 +552,7 @@
     {
       "case": "audit-redaction",
       "tests": [],
-      "blocked_on": "story:obligations-model"
+      "blocked_on": "story:audit-client"
     },
     {
       "case": "cross-tenant-resource",
@@ -507,32 +567,32 @@
     {
       "case": "directory-no-authority",
       "tests": [],
-      "blocked_on": "story:obligations-model"
+      "blocked_on": "story:directory-provenance"
     },
     {
       "case": "mapping-contributes",
       "tests": [],
-      "blocked_on": "story:obligations-model"
+      "blocked_on": "story:directory-provenance"
     },
     {
       "case": "mapping-cross-org",
       "tests": [],
-      "blocked_on": "story:obligations-model"
+      "blocked_on": "story:directory-provenance"
     },
     {
       "case": "mapping-manual",
       "tests": [],
-      "blocked_on": "story:obligations-model"
+      "blocked_on": "story:directory-provenance"
     },
     {
       "case": "mapping-overlap",
       "tests": [],
-      "blocked_on": "story:obligations-model"
+      "blocked_on": "story:directory-provenance"
     },
     {
       "case": "mapping-remove",
       "tests": [],
-      "blocked_on": "story:obligations-model"
+      "blocked_on": "story:directory-provenance"
     }
   ]
 }

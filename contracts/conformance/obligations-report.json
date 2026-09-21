@@ -5,9 +5,9 @@
     "mandate-federation": {"clauses": 40, "real_covered": 20, "double_only": 0, "deferred": 20},
     "mandate-graph": {"clauses": 19, "real_covered": 6, "double_only": 2, "deferred": 11},
     "mandate-identity": {"clauses": 12, "real_covered": 4, "double_only": 0, "deferred": 8},
-    "mandate-model": {"clauses": 40, "real_covered": 2, "double_only": 0, "deferred": 38},
+    "mandate-model": {"clauses": 42, "real_covered": 12, "double_only": 0, "deferred": 30},
     "mandate-policy": {"clauses": 8, "real_covered": 0, "double_only": 6, "deferred": 2},
     "mandate-sts": {"clauses": 52, "real_covered": 31, "double_only": 0, "deferred": 21}
   },
-  "totals": {"clauses": 176, "real_covered": 68, "double_only": 8, "deferred": 100}
+  "totals": {"clauses": 178, "real_covered": 78, "double_only": 8, "deferred": 92}
 }
