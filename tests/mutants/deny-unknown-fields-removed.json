@@ -1,0 +1,7 @@
+{
+  "crate": "xtask",
+  "test_target": "emit",
+  "test": "the_emitted_text_of_each_kind_is_exactly_this",
+  "kill": "test-fails",
+  "anchor": "xtask/src/emit.rs:732"
+}

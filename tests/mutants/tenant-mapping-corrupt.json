@@ -1,0 +1,7 @@
+{
+  "crate": "mandate-model",
+  "test_target": "adversary_tenancy_topology",
+  "test": "a_removal_is_confined_to_the_verified_organization",
+  "kill": "test-fails",
+  "anchor": "crates/mandate-model/src/tenancy.rs:1040"
+}

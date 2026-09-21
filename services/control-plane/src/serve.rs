@@ -12,12 +12,38 @@
 //! `/<domain>/commands/<Command>` projection is refused like any other unknown path), keep a
 //! connection open, log a request, or read a body beyond the decoders' ceiling.
 //!
+//! # One connection at a time, and what bounds every other client's wait
+//!
+//! **This listener answers one connection at a time.** [`Listener::serve`] accepts, answers,
+//! closes, and only then accepts again; there is no thread per connection and no runtime
+//! behind it (ruling D2 — `hyper` and `tokio` arrive with the event-log adapter's runtime).
+//! So the time one client takes is the time every other client waits, and the client chooses
+//! it: a connection that dribbles a byte at a time under the read timeout makes progress on
+//! every read and never trips one.
+//!
+//! What bounds that is [`Limits::request_deadline`]: the **whole** exchange — every read of
+//! the head and the body, and the write of the response — finishes within it or the request
+//! is refused. Each blocking call is given the smaller of what is left of the deadline and
+//! its own timeout, so the deadline holds however the bytes are spread. The one exception is
+//! the refusal a lapsed deadline itself produces: that response is written under
+//! [`Limits::write_timeout`] alone, because a deadline that bounded its own refusal out of
+//! existence would answer a slow client with a closed socket and nothing else.
+//!
+//! **A response is written in two bounded calls** — the head, then the body — and each is
+//! given its own [`Limits::write_timeout`] once the deadline has lapsed, so the bound on one
+//! connection is `request_deadline + 2 × write_timeout`, and so is every other client's wait
+//! behind it. (Both calls blocking for their full timeout needs a response larger than the
+//! peer's receive window; no response this road renders is, so the second term is arithmetic
+//! rather than something a client can spend. It is stated because a bound that is quoted has
+//! to be the bound that holds.) A property of the first served vertical, written here because
+//! it is the kind of thing a reader assumes away.
+//!
 //! Transport (ruling D2, `story:product-listener`): `std::net` and `httparse`; `hyper` and
 //! `tokio` arrive with the event-log adapter's runtime.
 
 use std::io::{self, Read, Write};
 use std::net::{Shutdown, SocketAddr, TcpListener, TcpStream, ToSocketAddrs};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use mandate_federation::FederationVerifier;
 use mandate_federation::verifier_real::Clock;
@@ -44,6 +70,15 @@ pub struct Limits {
     pub read_timeout: Duration,
     /// How long one write on the connection may block.
     pub write_timeout: Duration,
+    /// How long the whole exchange on one connection may take.
+    ///
+    /// Every read of the head and the body and the write of the response happen within it,
+    /// so a connection that keeps making progress under [`Limits::read_timeout`] — a byte at
+    /// a time — is still ended here. **This listener answers one connection at a time**, so
+    /// this is also the bound on what one client can make every other client wait: this
+    /// deadline plus `2 ×` [`Limits::write_timeout`], the two bounded writes the refusal it
+    /// produces is sent in.
+    pub request_deadline: Duration,
 }
 
 impl Default for Limits {
@@ -54,8 +89,58 @@ impl Default for Limits {
             max_body_bytes: decode::MAX_BODY_BYTES + 1,
             read_timeout: Duration::from_secs(5),
             write_timeout: Duration::from_secs(5),
+            request_deadline: Duration::from_secs(10),
         }
     }
+}
+
+/// What is left of one exchange's [`Limits::request_deadline`].
+#[derive(Debug, Clone, Copy)]
+struct Deadline {
+    started: Instant,
+    span: Duration,
+}
+
+impl Deadline {
+    /// The deadline, starting now.
+    fn starting(span: Duration) -> Self {
+        Self {
+            started: Instant::now(),
+            span,
+        }
+    }
+
+    /// What is left of it, or `None` once it has lapsed.
+    fn remaining(self) -> Option<Duration> {
+        self.span.checked_sub(self.started.elapsed()).filter(
+            // A zero timeout on a socket is not a timeout at all — it blocks forever — and
+            // `std` refuses to set one. A deadline with nothing left has lapsed.
+            |left| !left.is_zero(),
+        )
+    }
+
+    /// How long one blocking call may take: what is left of the deadline, or its own bound,
+    /// whichever is shorter.
+    fn budget(self, timeout: Duration) -> Option<Duration> {
+        self.remaining().map(|left| left.min(timeout))
+    }
+}
+
+/// The refusal a lapsed deadline answers with.
+///
+/// RFC 9110 section 15.5.9's 408 is the status for "the server did not receive a complete
+/// request message within the time that it was prepared to wait". The body is this road's own
+/// RFC 6749 error, and the status stays 400 with it: every refusal this listener renders
+/// carries one of those bodies, and `invalid_request` is what a request that was never framed
+/// is.
+fn deadline_lapsed() -> Response {
+    Response::error(
+        400,
+        ErrorBody::new(
+            ErrorCode::InvalidRequest,
+            "the request did not arrive within the deadline",
+        ),
+    )
 }
 
 /// A bound socket, serving one request per accepted connection.
@@ -122,13 +207,12 @@ impl Listener {
         X: SecretSource,
         A: IdentityAllocator,
     {
-        stream.set_read_timeout(Some(self.limits.read_timeout))?;
-        stream.set_write_timeout(Some(self.limits.write_timeout))?;
-        let response = match read_request(&mut stream, &self.limits) {
+        let deadline = Deadline::starting(self.limits.request_deadline);
+        let response = match read_request(&mut stream, &self.limits, deadline) {
             Ok(request) => dispatch(&request, deployment),
             Err(refused) => refused,
         };
-        let written = response.write_to(&mut stream);
+        let written = response.write_to(&mut stream, &self.limits, deadline);
         let _ = stream.shutdown(Shutdown::Both);
         written
     }
@@ -138,8 +222,41 @@ impl Listener {
 // Reading one request
 // ---------------------------------------------------------------------------------------
 
+/// One read on the connection, bounded by what is left of the deadline.
+///
+/// The socket's timeout is set before **every** read rather than once per connection: the
+/// deadline is what is left of the exchange and it shrinks with each read, so a connection
+/// that dribbles is ended by the deadline even though no single read of it ever times out.
+fn read_within(
+    stream: &mut TcpStream,
+    limits: &Limits,
+    deadline: Deadline,
+    into: &mut [u8],
+) -> Result<usize, Response> {
+    let budget = deadline
+        .budget(limits.read_timeout)
+        .ok_or_else(deadline_lapsed)?;
+    stream
+        .set_read_timeout(Some(budget))
+        .map_err(|_| deadline_lapsed())?;
+    stream.read(into).map_err(|_| {
+        if deadline.remaining().is_none() {
+            deadline_lapsed()
+        } else {
+            Response::error(
+                400,
+                ErrorBody::new(ErrorCode::InvalidRequest, "the request did not arrive"),
+            )
+        }
+    })
+}
+
 /// Read and parse one request within the limits, or the response that refuses it.
-fn read_request(stream: &mut TcpStream, limits: &Limits) -> Result<Request, Response> {
+fn read_request(
+    stream: &mut TcpStream,
+    limits: &Limits,
+    deadline: Deadline,
+) -> Result<Request, Response> {
     let mut buffer = Vec::with_capacity(1024);
     let head_end = loop {
         if let Some(end) = find_head_end(&buffer) {
@@ -152,12 +269,7 @@ fn read_request(stream: &mut TcpStream, limits: &Limits) -> Result<Request, Resp
             ));
         }
         let mut chunk = [0_u8; 1024];
-        let read = stream.read(&mut chunk).map_err(|_| {
-            Response::error(
-                400,
-                ErrorBody::new(ErrorCode::InvalidRequest, "the request head did not arrive"),
-            )
-        })?;
+        let read = read_within(stream, limits, deadline, &mut chunk)?;
         if read == 0 {
             return Err(Response::error(
                 400,
@@ -194,9 +306,20 @@ fn read_request(stream: &mut TcpStream, limits: &Limits) -> Result<Request, Resp
             ErrorBody::new(ErrorCode::InvalidRequest, "the request head is malformed"),
         ));
     };
-    let mut request = Request::new(method, target);
+    let Some(target) = origin_form(target) else {
+        return Err(Response::error(
+            400,
+            ErrorBody::new(
+                ErrorCode::InvalidRequest,
+                "the request target names no path this listener serves",
+            ),
+        ));
+    };
+    let mut request = Request::new(method, &target);
     let mut content_length: Option<usize> = None;
     let mut chunked = false;
+    let mut hosts = 0_usize;
+    let mut host_is_empty = false;
     for header in parsed.headers.iter() {
         let Ok(value) = core::str::from_utf8(header.value) else {
             return Err(Response::error(
@@ -213,7 +336,7 @@ fn read_request(stream: &mut TcpStream, limits: &Limits) -> Result<Request, Resp
                     ErrorBody::new(ErrorCode::InvalidRequest, "the content length is repeated"),
                 ));
             }
-            content_length = Some(value.trim().parse().map_err(|_| {
+            content_length = Some(content_length_of(value).ok_or_else(|| {
                 Response::error(
                     400,
                     ErrorBody::new(ErrorCode::InvalidRequest, "the content length is malformed"),
@@ -222,6 +345,10 @@ fn read_request(stream: &mut TcpStream, limits: &Limits) -> Result<Request, Resp
         }
         if header.name.eq_ignore_ascii_case("transfer-encoding") {
             chunked = true;
+        }
+        if header.name.eq_ignore_ascii_case("host") {
+            hosts += 1;
+            host_is_empty = value.is_empty();
         }
         request = request.with_header(header.name, value);
     }
@@ -234,39 +361,118 @@ fn read_request(stream: &mut TcpStream, limits: &Limits) -> Result<Request, Resp
             ),
         ));
     }
+    // RFC 9112 section 3.2: "A server MUST respond with a 400 (Bad Request) status code to
+    // any HTTP/1.1 request message that lacks a Host header field and to any request message
+    // that contains more than one Host header field line or a Host header field with an
+    // invalid field value."
+    //
+    // The third framing-critical field this listener reads, beside `Content-Length` and
+    // `Transfer-Encoding`, and it is the addressing half rather than the framing half: two
+    // `Host` lines is the shape a front end that routes on the first and a listener that
+    // reads neither disagree over. Repeated or empty is refused at every version; *absent* is
+    // refused for HTTP/1.1 alone, because RFC 9112 obliges the field there and an HTTP/1.0
+    // request that omits it is not malformed.
+    let speaks_1_1 = parsed.version != Some(0);
+    if hosts > 1 || host_is_empty || (hosts == 0 && speaks_1_1) {
+        return Err(Response::error(
+            400,
+            ErrorBody::new(
+                ErrorCode::InvalidRequest,
+                "the request names no host, or more than one",
+            ),
+        ));
+    }
 
     // The body: whatever the head already carried past its terminator, then the rest, up to
-    // the read bound. The decoders refuse a body past their own ceiling; this bound only
-    // stops the read at that ceiling plus one so the refusal has something to decide on.
-    let content_length = content_length.unwrap_or(0);
+    // the declared length.
+    //
+    // **RFC 9112 section 6: the declared length is the frame.** A byte on the connection past
+    // it is not part of this request — to a proxy in front of this listener it is the start of
+    // the next one, which is the disagreement a repeated `Content-Length` is already refused
+    // for. So the body is truncated *to the declared length* and never to what happened to
+    // arrive with the head.
+    let wanted = content_length.unwrap_or(0);
+    if wanted > limits.max_body_bytes {
+        // Declared longer than this listener reads: the decoders' ceiling refusal, decided on
+        // the declared length and taken before a body byte is read. The bound is the decoders'
+        // ceiling plus one so that a body at the ceiling is still read and refused by them.
+        return Err(Response::error(400, DecodeRefusal::BodyTooLarge.body()));
+    }
     let mut body: Vec<u8> = buffer[head_end..].to_vec();
-    let wanted = content_length.min(limits.max_body_bytes);
+    body.truncate(wanted);
     while body.len() < wanted {
         let mut chunk = [0_u8; 1024];
-        let read = stream.read(&mut chunk).map_err(|_| {
-            Response::error(
-                400,
-                ErrorBody::new(ErrorCode::InvalidRequest, "the request body did not arrive"),
-            )
-        })?;
+        let read = read_within(stream, limits, deadline, &mut chunk)?;
         if read == 0 {
             break;
         }
         body.extend_from_slice(&chunk[..read]);
+        body.truncate(wanted);
     }
-    body.truncate(wanted.max(body.len().min(limits.max_body_bytes)));
     if body.len() < wanted {
         return Err(Response::error(
             400,
             ErrorBody::new(ErrorCode::InvalidRequest, "the request body is incomplete"),
         ));
     }
-    if content_length > limits.max_body_bytes {
-        // Declared longer than this listener reads: the decoders' ceiling refusal, decided
-        // on the declared length rather than on bytes never read.
-        return Err(Response::error(400, DecodeRefusal::BodyTooLarge.body()));
-    }
     Ok(request.with_body(body))
+}
+
+/// The length a `Content-Length` field value declares, or `None` when it declares none.
+///
+/// RFC 9112 section 6.3: `Content-Length = 1*DIGIT`, and a message received without a
+/// `Transfer-Encoding` and with an invalid `Content-Length` "has invalid framing" — which the
+/// recipient treats as an unrecoverable error rather than repairing. `str::parse::<usize>`
+/// admits a leading `+`, which no conformant reader does, so the digits are decided here and
+/// `parse` is only asked for the value.
+///
+/// The optional whitespace RFC 9112 section 5 admits around a field value is not part of the
+/// value, and `httparse` has already removed it, so nothing is trimmed here: what is left of
+/// the value must be `1*DIGIT` in full. A value that overflows a `usize` names no length this
+/// listener can frame and is refused with the rest.
+fn content_length_of(value: &str) -> Option<usize> {
+    if value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    value.parse().ok()
+}
+
+/// The origin-form of a request target, or `None` for a form this listener does not serve.
+///
+/// RFC 9112 section 3.2 declares exactly four forms, and all four are decided here rather than
+/// left to the route lookup:
+///
+/// * **origin-form** (`/path?query`) — what a client sends to a server, taken as it stands.
+/// * **absolute-form** (`http://host/path?query`) — "a server MUST accept the absolute-form in
+///   requests, even though HTTP/1.1 clients will only send them in requests to proxies"
+///   (section 3.2.2). It is reduced to the origin-form the same request names, so the route it
+///   names is the route it reaches: the authority is dropped and the path and query kept, and
+///   an absolute-form that carries no path names `/`.
+/// * **authority-form** (`host:port`) — `CONNECT`'s, and this listener serves no `CONNECT`.
+/// * **asterisk-form** (`*`) — `OPTIONS`'s server-wide target, and this listener serves no
+///   `OPTIONS`.
+///
+/// The last two name no path at all. They are refused rather than passed on, because a route
+/// lookup reading `mandate.example:443` as a path answers "no product route serves this path",
+/// which says something false about a target that named no path to serve.
+fn origin_form(target: &str) -> Option<String> {
+    if target.starts_with('/') {
+        return Some(target.to_owned());
+    }
+    // RFC 3986 section 3.1: the scheme is case-insensitive.
+    let lowered = target.to_ascii_lowercase();
+    let authority = ["http://", "https://"]
+        .into_iter()
+        .find_map(|scheme| lowered.starts_with(scheme).then(|| &target[scheme.len()..]))?;
+    let rest = authority
+        .find(['/', '?', '#'])
+        .map_or("", |offset| &authority[offset..]);
+    Some(match rest.as_bytes().first() {
+        None => "/".to_owned(),
+        Some(b'/') => rest.to_owned(),
+        // `http://host?q` names the empty path, which is the origin-form `/?q`.
+        Some(_) => format!("/{rest}"),
+    })
 }
 
 /// The offset just past the `\r\n\r\n` that ends a request head.
@@ -361,13 +567,18 @@ where
                 Err(refused) => Response::refused(&refused),
                 Ok(input) => match deployment.authorize(&input) {
                     Ok(authorization) => {
-                        let location = format!(
-                            "{}?code={}&state={}",
-                            authorization.redirect_uri,
-                            percent_encode(&encode_base64(authorization.code.expose_bytes())),
-                            percent_encode(&authorization.state)
-                        );
-                        Response::redirect(&location)
+                        match redirect_to(
+                            &authorization.redirect_uri.to_string(),
+                            &[
+                                ("code", &encode_base64(authorization.code.expose_bytes())),
+                                ("state", &authorization.state),
+                            ],
+                        ) {
+                            Ok(location) => Response::redirect(&location),
+                            // The code was issued and is now unreachable: the registration
+                            // this deployment holds cannot carry it. Nothing is redirected.
+                            Err(refused) => redirect_unusable(refused),
+                        }
                     }
                     Err(AuthorizationRefusal::InPlace(refusal)) => Response::denied(&refusal),
                     Err(AuthorizationRefusal::AtRedirect {
@@ -376,12 +587,17 @@ where
                         state,
                     }) => {
                         let code = oauth::code_for_denial(&refusal.clause, refusal.reason);
-                        let location = format!(
-                            "{redirect_uri}?error={}&state={}",
-                            code.as_str(),
-                            percent_encode(&state)
-                        );
-                        Response::redirect(&location)
+                        match redirect_to(
+                            &redirect_uri.to_string(),
+                            &[("error", code.as_str()), ("state", &state)],
+                        ) {
+                            Ok(location) => Response::redirect(&location),
+                            // RFC 6749 section 4.1.2.1's redirect is impossible, so the
+                            // refusal is rendered — and it names the registration rather
+                            // than the denial, because the registration is what a reader of
+                            // this response can fix.
+                            Err(refused) => redirect_unusable(refused),
+                        }
                     }
                 },
             }
@@ -480,6 +696,118 @@ fn status_for(code: ErrorCode) -> u16 {
     }
 }
 
+/// The response parameters RFC 6749 sections 4.1.2 and 4.1.2.1 add to a redirect.
+///
+/// Named here so that the composer's refusal is decided against the same three names the
+/// composer would write, and so a fourth response parameter cannot be added in one place.
+const RESPONSE_PARAMETERS: &[&str] = &["code", "state", "error"];
+
+/// Why a registered redirection endpoint URI carries no response at all.
+///
+/// **This is the client-registration class**: every variant is a fact about the URI the
+/// client registered, not about the request. RFC 6749 section 4.1.2.1 answers it in place —
+/// "If the request fails due to a missing, invalid, or mismatching redirection URI ... the
+/// authorization server SHOULD inform the resource owner of the error and MUST NOT
+/// automatically redirect the user-agent to the invalid redirection URI" — so none of these
+/// is ever redirected to, on either branch.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RedirectRefused {
+    /// RFC 6749 section 3.1.2: "The redirection endpoint URI MUST NOT include a fragment
+    /// component." By RFC 3986 section 3.5 every parameter appended after the `#` is inside
+    /// the fragment, which the redirection endpoint never receives.
+    Fragment,
+    /// The registered query is not an `application/x-www-form-urlencoded` form, so a
+    /// parameter added to it is not a parameter: `mandate_proto::oauth::decode_form` — the
+    /// reader a client of this road uses — refuses the result.
+    QueryNotAForm,
+    /// The registered query already names one of [`RESPONSE_PARAMETERS`]. Appending a second
+    /// one leaves a query that names it twice: `decode_form` refuses it, and every reader
+    /// that resolves the repeat by picking one may pick the registrant's value where RFC 6749
+    /// section 4.1.2 requires "the exact value received from the client".
+    QueryNamesResponseParameter,
+}
+
+impl RedirectRefused {
+    /// What is said to the resource owner. Fixed text, carrying no byte a caller sent.
+    const fn description(self) -> &'static str {
+        match self {
+            Self::Fragment => "the registered redirection URI carries a fragment",
+            Self::QueryNotAForm => "the registered redirection URI's query is not a form",
+            Self::QueryNamesResponseParameter => {
+                "the registered redirection URI's query names a response parameter"
+            }
+        }
+    }
+}
+
+/// The `Location` a redirect to a registered redirection endpoint URI carries, or why that
+/// URI can carry no response.
+///
+/// **One composer for both branches of RFC 6749 section 4.1.2**, the code and the error,
+/// because the rule is the same rule and a second copy is the one that gets it wrong.
+///
+/// Section 3.1.2 admits a query component on the registered URI — "The endpoint URI MAY
+/// include an `application/x-www-form-urlencoded` formatted query component ... which MUST be
+/// retained when adding additional query parameters" — and sections 4.1.2 and 4.1.2.1 add the
+/// response parameters *to the query component*. A parameter is a parameter only if the
+/// result is still a form, so **the registered query is parsed before it is extended** and
+/// the three ways it cannot be are [`RedirectRefused`]. The separator follows from the parse
+/// rather than from `contains('?')`: `&` after a query that carries a pair, nothing after a
+/// query component that is present and empty, `?` where there is no query component at all.
+///
+/// The registered URI is written out as it was registered — it is not this listener's to
+/// re-encode — and every value is percent-encoded outside RFC 3986's unreserved set, so a
+/// `state` carrying `&`, `=`, `#` or a newline is one parameter's value and never a second
+/// parameter or a second header.
+///
+/// # Errors
+///
+/// Returns [`RedirectRefused`] when the registered URI carries a fragment, or a query that is
+/// not a form or that already names a response parameter.
+fn redirect_to(redirect_uri: &str, parameters: &[(&str, &str)]) -> Result<String, RedirectRefused> {
+    if redirect_uri.contains('#') {
+        return Err(RedirectRefused::Fragment);
+    }
+    let registered_query = redirect_uri.split_once('?').map(|(_, query)| query);
+    if let Some(query) = registered_query {
+        let form = oauth::decode_form(query).map_err(|_| RedirectRefused::QueryNotAForm)?;
+        if form.keys().any(|name| RESPONSE_PARAMETERS.contains(&name)) {
+            return Err(RedirectRefused::QueryNamesResponseParameter);
+        }
+    }
+    let mut location = redirect_uri.to_owned();
+    let mut separator = match registered_query {
+        // A query component that is present and empty is an empty form: the first parameter
+        // follows the `?` directly, and a `&` there would leave an empty first segment.
+        Some("") => None,
+        Some(_) => Some('&'),
+        None => Some('?'),
+    };
+    for (name, value) in parameters {
+        if let Some(separator) = separator {
+            location.push(separator);
+        }
+        location.push_str(name);
+        location.push('=');
+        location.push_str(&percent_encode(value));
+        separator = Some('&');
+    }
+    Ok(location)
+}
+
+/// The response a registered redirection URI that carries no response is answered with.
+///
+/// Rendered, never redirected (RFC 6749 section 4.1.2.1), and `invalid_request` because what
+/// is invalid is the value of the `redirect_uri` parameter the request presented — which at
+/// this point is byte-for-byte the one the client registered, so the fault is the
+/// registration's and the answer says which part of it.
+fn redirect_unusable(refused: RedirectRefused) -> Response {
+    Response::error(
+        400,
+        ErrorBody::new(ErrorCode::InvalidRequest, refused.description()),
+    )
+}
+
 /// Percent-encode everything outside RFC 3986's unreserved set.
 fn percent_encode(value: &str) -> String {
     let mut out = String::with_capacity(value.len());
@@ -496,6 +824,27 @@ fn percent_encode(value: &str) -> String {
 // ---------------------------------------------------------------------------------------
 // Responses
 // ---------------------------------------------------------------------------------------
+
+/// One write on the connection, bounded by what is left of the deadline — or, once it has
+/// lapsed, by the write timeout alone.
+///
+/// **The refusal a lapsed deadline produces is still written.** A deadline that bounded its
+/// own refusal out of existence would answer a slow client with a closed socket and nothing
+/// else, which is the one thing [`deadline_lapsed`] exists to avoid. So one connection is
+/// bounded by `request_deadline + write_timeout` and not by the deadline alone, and that is
+/// the number a reader should hold.
+fn write_within(
+    stream: &mut TcpStream,
+    limits: &Limits,
+    deadline: Deadline,
+    bytes: &[u8],
+) -> io::Result<()> {
+    let budget = deadline
+        .budget(limits.write_timeout)
+        .unwrap_or(limits.write_timeout);
+    stream.set_write_timeout(Some(budget))?;
+    stream.write_all(bytes)
+}
 
 /// One response: status, headers, body. Always `Connection: close`.
 #[derive(Debug, Clone)]
@@ -556,7 +905,18 @@ impl Response {
             .with_header("Pragma", "no-cache")
     }
 
-    fn write_to(&self, stream: &mut TcpStream) -> io::Result<()> {
+    /// Write the response, each call bounded by what is left of the exchange's deadline.
+    ///
+    /// A client that stops reading is a client that could otherwise hold this listener — and
+    /// every other client behind it — for as long as it liked, so the write is inside the
+    /// deadline exactly as the reads are. A lapsed deadline here answers nothing: there is
+    /// nowhere left to write a refusal to.
+    fn write_to(
+        &self,
+        stream: &mut TcpStream,
+        limits: &Limits,
+        deadline: Deadline,
+    ) -> io::Result<()> {
         let reason = match self.status {
             200 => "OK",
             302 => "Found",
@@ -574,8 +934,8 @@ impl Response {
         }
         head.push_str(&format!("Content-Length: {}\r\n", self.body.len()));
         head.push_str("Connection: close\r\n\r\n");
-        stream.write_all(head.as_bytes())?;
-        stream.write_all(&self.body)?;
+        write_within(stream, limits, deadline, head.as_bytes())?;
+        write_within(stream, limits, deadline, &self.body)?;
         stream.flush()
     }
 }

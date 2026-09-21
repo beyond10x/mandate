@@ -1,0 +1,12 @@
+diff --git a/crates/mandate-model/src/tenancy.rs b/crates/mandate-model/src/tenancy.rs
+--- a/crates/mandate-model/src/tenancy.rs
++++ b/crates/mandate-model/src/tenancy.rs
+@@ -1037,7 +1037,7 @@ impl Tenancy {
+         id: TeamMembershipId,
+     ) -> Result<TenancyEvent, Denied> {
+         let membership = self.team_memberships.get(&id).ok_or_else(Denied::refusal)?;
+-        if membership.organization_id != context.organization
++        if membership.organization_id == context.organization
+             || membership.state != TeamMembershipState::Recorded
+         {
+             return Err(Denied::refusal());

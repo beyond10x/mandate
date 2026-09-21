@@ -7,6 +7,7 @@ title: Security epoch snapshots declare their generations and refresh proofs res
 relations:
 - decomposes: epic:foundations
 - informed_by: initiative:drift-enforcement
+- serves: vision:mandate
 revision: 1
 ---
 ## Why

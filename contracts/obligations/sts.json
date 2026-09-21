@@ -1,0 +1,846 @@
+{
+  "format": "mandate-obligations/1",
+  "crate": "mandate-sts",
+  "domains": [
+    "mandate.credential"
+  ],
+  "commands": [
+    {
+      "command": "mandate.credential.DisableResourceServer",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Caller lacks resource-server administration authority",
+          "tests": [],
+          "blocked_on": "decision-blocker:guards"
+        },
+        {
+          "clause": "server is outside the verified organization",
+          "tests": [
+            {
+              "id": "mandate-sts::declared_denials::every_refusal_disable_resource_server_produces_has_a_row",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "durable disablement cannot prevent subsequent issuance",
+          "tests": [],
+          "blocked_on": "decision-blocker:epoch-atomicity"
+        }
+      ],
+      "no_state_change": [
+        {
+          "id": "mandate-sts::emitted_events::a_refused_disablement_emits_nothing_through_the_outcome_it_names",
+          "kind": "no-state-change",
+          "path": "real"
+        }
+      ],
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    },
+    {
+      "command": "mandate.credential.ExchangeCredential",
+      "status": "deferred",
+      "story": "story:constrained-exchange",
+      "blocker": "decision-blocker:audit-routing",
+      "clauses": [],
+      "no_state_change": []
+    },
+    {
+      "command": "mandate.credential.IntrospectCredential",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Caller proof lacks introspection authority for the registered server/tenant or is itself invalid, revoked or expired",
+          "tests": [
+            {
+              "id": "mandate-sts::declared_denials::every_refusal_introspect_credential_produces_has_a_row",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "the presented credential proof is malformed",
+          "tests": [
+            {
+              "id": "mandate-sts::declared_denials::every_refusal_introspect_credential_produces_has_a_row",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "principal/connection/epoch validation fails",
+          "tests": [],
+          "blocked_on": "decision-blocker:guards"
+        },
+        {
+          "clause": "audience mismatches",
+          "tests": [
+            {
+              "id": "mandate-sts::declared_denials::every_refusal_introspect_credential_produces_has_a_row",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "authoritative online resolution is unavailable",
+          "tests": [
+            {
+              "id": "mandate-sts::declared_denials::every_refusal_introspect_credential_produces_has_a_row",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        }
+      ],
+      "no_state_change": [
+        {
+          "id": "mandate-sts::emitted_events::a_refused_introspection_emits_nothing_and_leaves_the_fold_unchanged",
+          "kind": "no-state-change",
+          "path": "real"
+        }
+      ],
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    },
+    {
+      "command": "mandate.credential.IssueAuthorizationCode",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Trusted control-plane caller/session context",
+          "tests": [],
+          "blocked_on": "decision-blocker:guards"
+        },
+        {
+          "clause": "registered public client",
+          "tests": [
+            {
+              "id": "mandate-sts::declared_denials::every_refusal_issue_authorization_code_produces_has_a_row",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "exact redirect URI",
+          "tests": [
+            {
+              "id": "mandate-sts::declared_denials::every_refusal_issue_authorization_code_produces_has_a_row",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "S256 policy",
+          "tests": [
+            {
+              "id": "mandate-sts::declared_denials::every_refusal_issue_authorization_code_produces_has_a_row",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "tenant/target agreement",
+          "tests": [
+            {
+              "id": "mandate-sts::declared_denials::every_refusal_issue_authorization_code_produces_has_a_row",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "authority narrowing",
+          "tests": [],
+          "blocked_on": "decision-blocker:guards"
+        },
+        {
+          "clause": "bounded expiry validation fails",
+          "tests": [
+            {
+              "id": "mandate-sts::declared_denials::every_refusal_issue_authorization_code_produces_has_a_row",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "the client the code would be bound to is disabled",
+          "tests": [
+            {
+              "id": "mandate-sts::declared_denials::every_refusal_issue_authorization_code_produces_has_a_row",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        }
+      ],
+      "no_state_change": [
+        {
+          "id": "mandate-sts::emitted_events::a_refused_code_issuance_emits_nothing_and_leaves_both_folds_unchanged",
+          "kind": "no-state-change",
+          "path": "real"
+        }
+      ],
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    },
+    {
+      "command": "mandate.credential.IssueReferenceCredential",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Validated context is expired/revoked/stale",
+          "tests": [],
+          "blocked_on": "decision-blocker:guards"
+        },
+        {
+          "clause": "subject/actor authority or ceilings do not cover requested scope",
+          "tests": [],
+          "blocked_on": "decision-blocker:guards"
+        },
+        {
+          "clause": "target/profile is unregistered/disabled/outside tenant",
+          "tests": [
+            {
+              "id": "mandate-sts::declared_denials::every_refusal_the_two_issuance_families_produce_has_a_row",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "expiry cannot be bounded",
+          "tests": [
+            {
+              "id": "mandate-sts::declared_denials::every_refusal_the_two_issuance_families_produce_has_a_row",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "verifier-only persistence and required audit cannot commit",
+          "tests": [],
+          "blocked_on": "decision-blocker:epoch-atomicity"
+        }
+      ],
+      "no_state_change": [
+        {
+          "id": "mandate-sts::emitted_events::a_refused_reference_issuance_emits_nothing_and_leaves_the_fold_unchanged",
+          "kind": "no-state-change",
+          "path": "real"
+        }
+      ],
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    },
+    {
+      "command": "mandate.credential.IssueSelfContainedCredential",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Validated context is expired/revoked/stale",
+          "tests": [],
+          "blocked_on": "decision-blocker:guards"
+        },
+        {
+          "clause": "subject/actor authority or ceilings do not cover requested scope",
+          "tests": [],
+          "blocked_on": "decision-blocker:guards"
+        },
+        {
+          "clause": "target/profile/signing algorithm or key is unadmitted",
+          "tests": [
+            {
+              "id": "mandate-sts::declared_denials::every_refusal_the_two_issuance_families_produce_has_a_row",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "expiry cannot be bounded",
+          "tests": [
+            {
+              "id": "mandate-sts::declared_denials::every_refusal_the_two_issuance_families_produce_has_a_row",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "the promised revocation/audit guarantee cannot be met",
+          "tests": [],
+          "blocked_on": "decision-blocker:epoch-atomicity"
+        }
+      ],
+      "no_state_change": [
+        {
+          "id": "mandate-sts::emitted_events::a_refused_self_contained_issuance_emits_nothing_and_leaves_the_fold_unchanged",
+          "kind": "no-state-change",
+          "path": "real"
+        }
+      ],
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    },
+    {
+      "command": "mandate.credential.RedeemAuthorizationCode",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Code proof does not match the server-resolved code_id",
+          "tests": [
+            {
+              "id": "mandate-sts::declared_denials::every_refusal_redeem_authorization_code_produces_has_a_row",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "code is expired",
+          "tests": [
+            {
+              "id": "mandate-sts::declared_denials::every_refusal_redeem_authorization_code_produces_has_a_row",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "client, redirect URI or S256 verifier mismatches",
+          "tests": [
+            {
+              "id": "mandate-sts::declared_denials::every_refusal_redeem_authorization_code_produces_has_a_row",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "the bound client is disabled",
+          "tests": [
+            {
+              "id": "mandate-sts::declared_denials::every_refusal_redeem_authorization_code_produces_has_a_row",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "source/session epoch is stale",
+          "tests": [
+            {
+              "id": "mandate-sts::declared_denials::every_refusal_redeem_authorization_code_produces_has_a_row",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "registered target is disabled or outside the verified tenant",
+          "tests": [
+            {
+              "id": "mandate-sts::declared_denials::every_refusal_redeem_authorization_code_produces_has_a_row",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "narrowing",
+          "tests": [
+            {
+              "id": "mandate-sts::obligations::narrowing_refuses_a_credential_whose_expiry_cannot_be_bounded",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-sts::obligations::narrowing_refuses_a_zero_span_profile_bound_and_moves_nothing",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "atomic issuance validation fails",
+          "tests": [],
+          "blocked_on": "decision-blocker:epoch-atomicity"
+        }
+      ],
+      "no_state_change": [
+        {
+          "id": "mandate-sts::emitted_events::every_refused_redemption_emits_nothing_through_the_outcome_it_names",
+          "kind": "no-state-change",
+          "path": "real"
+        },
+        {
+          "id": "mandate-sts::obligations::a_redemption_refused_on_the_narrowing_clause_moves_neither_log_nor_fold",
+          "kind": "no-state-change",
+          "path": "real"
+        }
+      ],
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    },
+    {
+      "command": "mandate.credential.RegisterResourceServer",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Caller lacks resource-server administration authority",
+          "tests": [],
+          "blocked_on": "decision-blocker:guards"
+        },
+        {
+          "clause": "audience registration is ambiguous",
+          "tests": [
+            {
+              "id": "mandate-sts::declared_denials::every_refusal_register_resource_server_produces_has_a_row",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "profile semantics are unadmitted",
+          "tests": [
+            {
+              "id": "mandate-sts::declared_denials::every_refusal_register_resource_server_produces_has_a_row",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "an allowed source server is unresolved/disabled/outside the verified organization",
+          "tests": [
+            {
+              "id": "mandate-sts::declared_denials::every_refusal_register_resource_server_produces_has_a_row",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        }
+      ],
+      "no_state_change": [
+        {
+          "id": "mandate-sts::emitted_events::a_refused_registration_emits_nothing_and_leaves_the_fold_unchanged",
+          "kind": "no-state-change",
+          "path": "real"
+        }
+      ],
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    },
+    {
+      "command": "mandate.credential.RegisterSigningKey",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Caller lacks platform signing-key administration authority",
+          "tests": [],
+          "blocked_on": "decision-blocker:guards"
+        },
+        {
+          "clause": "the algorithm is outside the deployment's admitted set",
+          "tests": [
+            {
+              "id": "mandate-sts::declared_denials::every_refusal_the_three_key_commands_produce_has_a_row",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "the key reference is unresolvable",
+          "tests": [
+            {
+              "id": "mandate-sts::declared_denials::every_refusal_the_three_key_commands_produce_has_a_row",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "the key reference or the key material is already recorded",
+          "tests": [
+            {
+              "id": "mandate-sts::declared_denials::every_refusal_the_three_key_commands_produce_has_a_row",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        }
+      ],
+      "no_state_change": [
+        {
+          "id": "mandate-sts::emitted_events::a_refused_key_registration_emits_nothing_and_leaves_the_fold_unchanged",
+          "kind": "no-state-change",
+          "path": "real"
+        }
+      ],
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    },
+    {
+      "command": "mandate.credential.RetireSigningKey",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Caller lacks platform signing-key administration authority",
+          "tests": [],
+          "blocked_on": "decision-blocker:guards"
+        },
+        {
+          "clause": "the key is unresolved",
+          "tests": [
+            {
+              "id": "mandate-sts::declared_denials::every_refusal_the_three_key_commands_produce_has_a_row",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "no overlapping replacement key is published for continued verification",
+          "tests": [
+            {
+              "id": "mandate-sts::declared_denials::every_refusal_the_three_key_commands_produce_has_a_row",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "retirement cannot durably stop further issuance under the key",
+          "tests": [],
+          "blocked_on": "decision-blocker:epoch-atomicity"
+        }
+      ],
+      "no_state_change": [
+        {
+          "id": "mandate-sts::emitted_events::a_refused_retirement_emits_nothing_through_the_outcome_it_names",
+          "kind": "no-state-change",
+          "path": "real"
+        }
+      ],
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    },
+    {
+      "command": "mandate.credential.RevokeAccessCredential",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Caller lacks credential-revocation authority",
+          "tests": [],
+          "blocked_on": "decision-blocker:guards"
+        },
+        {
+          "clause": "resolved credential is outside the verified organization",
+          "tests": [
+            {
+              "id": "mandate-sts::declared_denials::every_refusal_revoke_access_credential_produces_has_a_row",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "the named profile revocation guarantee cannot be met",
+          "tests": [],
+          "blocked_on": "decision-blocker:epoch-atomicity"
+        }
+      ],
+      "no_state_change": [
+        {
+          "id": "mandate-sts::emitted_events::a_refused_revocation_emits_nothing_through_the_outcome_it_names",
+          "kind": "no-state-change",
+          "path": "real"
+        }
+      ],
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    },
+    {
+      "command": "mandate.credential.RevokeSigningKey",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Caller lacks platform signing-key administration authority",
+          "tests": [],
+          "blocked_on": "decision-blocker:guards"
+        },
+        {
+          "clause": "the key is unresolved",
+          "tests": [
+            {
+              "id": "mandate-sts::declared_denials::every_refusal_the_three_key_commands_produce_has_a_row",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "emergency revocation cannot durably stop both issuance and verification under the key and refuse the credentials it signed",
+          "tests": [],
+          "blocked_on": "decision-blocker:epoch-atomicity"
+        }
+      ],
+      "no_state_change": [
+        {
+          "id": "mandate-sts::emitted_events::a_refused_key_revocation_emits_nothing_through_the_outcome_it_names",
+          "kind": "no-state-change",
+          "path": "real"
+        }
+      ],
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    }
+  ],
+  "addendum": [
+    {
+      "step": 5,
+      "requirement": "validate nonce/state/PKCE as applicable",
+      "tests": [
+        {
+          "id": "mandate-sts::declared_denials::every_refusal_redeem_authorization_code_produces_has_a_row",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
+    },
+    {
+      "step": 9,
+      "requirement": "issue session/credential",
+      "tests": [
+        {
+          "id": "mandate-sts::declared_denials::every_refusal_the_two_issuance_families_produce_has_a_row",
+          "kind": "denial",
+          "path": "real"
+        },
+        {
+          "id": "mandate-sts::declared_denials::every_refusal_issue_authorization_code_produces_has_a_row",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "case": "credential-containment",
+      "tests": [],
+      "blocked_on": "story:protocol-adapters"
+    },
+    {
+      "case": "exchange-actor",
+      "tests": [],
+      "blocked_on": "story:constrained-exchange"
+    },
+    {
+      "case": "exchange-ceiling",
+      "tests": [],
+      "blocked_on": "story:constrained-exchange"
+    },
+    {
+      "case": "exchange-chain",
+      "tests": [],
+      "blocked_on": "story:constrained-exchange"
+    },
+    {
+      "case": "exchange-expiry",
+      "tests": [],
+      "blocked_on": "story:constrained-exchange"
+    },
+    {
+      "case": "exchange-organization",
+      "tests": [],
+      "blocked_on": "story:constrained-exchange"
+    },
+    {
+      "case": "exchange-revoked",
+      "tests": [],
+      "blocked_on": "story:constrained-exchange"
+    },
+    {
+      "case": "exchange-space",
+      "tests": [],
+      "blocked_on": "story:constrained-exchange"
+    },
+    {
+      "case": "exchange-subject",
+      "tests": [],
+      "blocked_on": "story:constrained-exchange"
+    },
+    {
+      "case": "exchange-target",
+      "tests": [],
+      "blocked_on": "story:constrained-exchange"
+    },
+    {
+      "case": "pkce-missing",
+      "tests": [
+        {
+          "id": "mandate-proto::oauth::pkce_missing_is_a_wire_refusal_with_invalid_request",
+          "kind": "denial",
+          "path": "real"
+        },
+        {
+          "id": "mandate-server::decode::pkce_missing_is_refused_at_the_token_endpoint",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
+    },
+    {
+      "case": "pkce-plain",
+      "tests": [
+        {
+          "id": "mandate-proto::oauth::pkce_plain_is_a_wire_refusal_with_invalid_request",
+          "kind": "denial",
+          "path": "real"
+        },
+        {
+          "id": "mandate-server::decode::pkce_plain_is_refused_at_the_authorization_endpoint",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
+    },
+    {
+      "case": "pkce-redirect",
+      "tests": [
+        {
+          "id": "mandate-sts::corpus::pkce_redirect",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
+    },
+    {
+      "case": "pkce-reuse",
+      "tests": [
+        {
+          "id": "mandate-sts::corpus::pkce_reuse",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
+    },
+    {
+      "case": "pkce-valid",
+      "tests": [
+        {
+          "id": "mandate-sts::corpus::pkce_valid",
+          "kind": "accepted",
+          "path": "real"
+        }
+      ]
+    },
+    {
+      "case": "pkce-wrong",
+      "tests": [
+        {
+          "id": "mandate-sts::corpus::pkce_wrong",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
+    },
+    {
+      "case": "profile-offline-bound",
+      "tests": [
+        {
+          "id": "mandate-sts::corpus::profile_offline_bound",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
+    },
+    {
+      "case": "reference-audience",
+      "tests": [
+        {
+          "id": "mandate-sts::corpus::reference_audience",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
+    },
+    {
+      "case": "reference-expired",
+      "tests": [
+        {
+          "id": "mandate-sts::corpus::reference_expired",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
+    },
+    {
+      "case": "reference-persistence",
+      "tests": [
+        {
+          "id": "mandate-sts::corpus::reference_persistence",
+          "kind": "accepted",
+          "path": "real"
+        }
+      ]
+    },
+    {
+      "case": "reference-revoked",
+      "tests": [
+        {
+          "id": "mandate-sts::corpus::reference_revoked",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
+    }
+  ]
+}

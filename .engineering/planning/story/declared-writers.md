@@ -11,6 +11,8 @@ relations:
 - depends_on: story:contract-creates
 scope:
 - confidence: inferred
+  path: crates/mandate-authz/src/lib.rs
+- confidence: inferred
   path: crates/mandate-federation/src/lib.rs
 - confidence: inferred
   path: crates/mandate-federation/src/record.rs
@@ -28,6 +30,8 @@ scope:
   path: crates/mandate-identity/src/port.rs
 - confidence: inferred
   path: crates/mandate-identity/tests/replay.rs
+- confidence: inferred
+  path: crates/mandate-model/src/graph.rs
 - confidence: cited
   path: crates/mandate-types/tests/contract_adversary.rs
 - confidence: cited
@@ -52,7 +56,7 @@ scope:
   path: systems/mandate/domains/policy.yaml
 - confidence: cited
   path: systems/mandate/domains/workload.yaml
-revision: 17
+revision: 22
 ---
 # Every record has a declared writer
 
@@ -158,3 +162,13 @@ Coordinator, after `review-result:wave-b-parallel-r1` and `review-result:wave-b-
 - Correction at the wave C opening, after `review-result:wave-c-design-r1`: gap 1's field set is the whole `AccessCredential` record — `AuthorizationCodeRedeemed` mirrors `CredentialReferenceIssued`'s record fields (`credential_id` and `target` from a widened `RedeemAuthorizationCode` response, `descriptor`, `reference_verifier` and `issued_at` generated), with the header declaration that it seeds an `AccessCredential`.
 
 - From the wave C transaction adversaries (2026-09-19), two `credential.yaml` observations for a later contract round: `RedeemAuthorizationCode`'s denial declares no phrase for a session that is unresolved, revoked or expired (the STS rows those refusals under "source/session epoch is stale"); `IntrospectCredential`'s denial declares no phrase for a presented credential of another organization (rowed under "for the registered server/tenant"). And a residue of `story:oauth-transaction`: `AuthorizationCodeIssued.scope` is declared `generated` and the summary says "narrowed"; the STS emits the requested scope verbatim because narrowing is `mandate-authz`'s, outside its dependency ceiling (`story:check-api`/`story:graph-policy-adapter` composition).
+
+## Findings routed here (2026-09-21, `review-result:wave-d-obligations-identity-adversary-1`)
+
+- `mandate.identity.RefreshSession`'s accepted outcome declares `emits: [mandate.identity.SessionRefreshed]`; `IdentityEvent` (`crates/mandate-identity/src/port.rs:305-361`) has no arm for it and `refresh_session(epochs: &R, …)` cannot append, so accepted and refused refreshes leave byte-identical logs. `crates/mandate-conformance/src/commands/identity.rs:96-99` reports the event as emitted with nothing appended. The event is named in `ESS_REALIZATIONS` and absent from `ESS_UNREALIZED` (F2, case `an_accepted_refresh_moves_something_a_refused_one_does_not`, pinned). The `no_state_change` obligation of the command is deferred here until the event is folded.
+
+- 2026-09-21, from `review-result:wave-d-obligations-identity-adversary-2` F3: `contracts/coverage.json` rows `mandate.identity.SessionRefreshed` `implemented` under `story:session-epochs`, whose status is `implemented`, while nothing appends the event — `refresh_session` takes `&R` and `IdentityEvent` (`crates/mandate-identity/src/port.rs:305-361`) has no arm for it. So the manifest reports an element as implemented under a story that is finished, and the gap it names has no live owner but this one. Two things follow and both belong here: the event's fold, and the coverage row, which should follow the record rather than claiming an implementation that does not exist (the rule `review-result:wave-d-coverage-map-adversary-1` established for a generated symbol, read one rung up).
+- 2026-09-21: `mandate.authorization.DecisionRecorded` is the same shape from a third crate. `crates/mandate-authz/src/lib.rs:101-106` states that `authorization.yaml:12-20` emits it from `Check`'s accepted outcome and that the crate "holds no event payload type, no allocator of one, and no port that could append it"; `contracts/coverage.json` rows it `declared` under this story. `story:check-api`, which that comment names as the owner, is `implemented` and cannot hold a deferral. The `no_state_change` obligation of `mandate.authorization.Check` waits here for the same reason `mandate.identity.RefreshSession`'s does: until something appends the declared event, accepted and refused leave byte-identical logs and no case can falsify the claim that a refusal moves nothing.
+
+- 2026-09-21, from `review-result:wave-d-obligations-authz-adversary-2` F1 — a declared field that no code ever writes, and a clause counted as decided because of it. `crates/mandate-model/src/graph.rs:250` writes `space_id: None` as a **literal**, and `Topology::apply` is the only constructor of a `Resource`, so no resource in the system ever carries a space. `crates/mandate-authz/src/context.rs:138` compares the recorded space against the one a caller's scope names, and with the recorded side always `None` that comparison refuses every scoped request — no input binds. Two independent mutants survive the whole `mandate-authz` suite on the strength of it: deleting the `resolve_space` guard at `context.rs:126-128`, and replacing `context.rs:135-140` with an unconditional refusal. `mandate.authorization.Check`'s clause "space binding mismatches" was counted `real_covered` on two rows that assert a refusal no caller can avoid; it now defers here.
+- The second half of that finding belongs here too, and it is the third instance of its class this half: `crates/mandate-authz/tests/context.rs:266-269` names **`story:event-payloads-for-folds`** as the owner of this gap, and that story's frontmatter is `status: implemented`. A live gap is routed by a shipped source comment to a story that is finished, so the registry step would have refused the deferral the code itself recommends. The others were `mandate.identity.SessionRefreshed` rowed under `story:session-epochs` (implemented) and `mandate.authorization.DecisionRecorded` pointed at `story:check-api` (implemented). **A comment naming a story is a claim about ownership that nothing rechecks when the story closes**, and three crates now carry one.

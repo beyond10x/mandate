@@ -18,6 +18,10 @@ scope:
 - confidence: cited
   path: Cargo.toml
 - confidence: cited
+  path: crates/mandate-proto/src/oauth.rs
+- confidence: cited
+  path: crates/mandate-proto/tests/oauth.rs
+- confidence: cited
   path: deny.toml
 - confidence: cited
   path: dependency-boundaries.json
@@ -43,7 +47,7 @@ scope:
   path: services/sts/src/store.rs
 - confidence: cited
   path: xtask/src/main.rs
-revision: 21
+revision: 24
 ---
 # Serve the product routes
 
@@ -134,3 +138,7 @@ Coordinator, wave D opening. The scoper named four forks; each taken on the reve
 - Ruling from `review-result:wave-d-login-adapters-adversary-2` F4 (2026-09-19): a refusal the authorize endpoint raises before the client and its redirect URI are validated (`ClientUnknown`, `ClientDisabled`, `ClientNotPublic`, a redirect mismatch) is answered by the listener as a rendered response, never by a redirect to the presented `redirect_uri` (RFC 6749 §4.1.2.1); `unauthorized_client` reaches the client by redirect only once the redirect URI is the registered one.
 
 - Implementation result (2026-09-19): the Opus implementor was terminated by the weekly quota after writing `services/control-plane/src/adapters.rs` (the composition: three port adapters, the folds, the session proof, the `code` → `code_id` resolution through the STS's whole-slice by-verifier read in `services/sts/src/store.rs`) and the two test files; the coordinator finished the unit in the main session — `serve.rs` (blocking `std::net` + `httparse` listener, one request per connection, bounded head/headers/body, repeated `Content-Length` and `Transfer-Encoding` refused, dispatch only on `mandate_server::routes`, RFC 6749 error bodies, `no-store` on credential responses, in-place rendering for refusals raised before the redirect URI is validated), `main.rs` (`serve --listen --issuer` over the real verifier, host clock, system secrets and identities; folds start empty, ruling D4), `lib.rs`, and two corrections to the implementor's work (the session issuer states each dimension's first generation before recording the snapshot and refuses the login on a refused append, which the swallowed `record()` had hidden; the adapter test fixture likewise). 22 cases; 220 across `mandate-control-plane` and `mandate-sts`; fmt, clippy, boundaries (22), licenses (225) green. Unit committed `82c6419`, merged `c306da3`; alignment `3cbab1a` narrows the serve refusal to five binaries (ruling D3). **No adversary pass ran on this unit** (the Opus quota); a coordinator self-review covered request framing (duplicate `Content-Length`, chunked, oversize head, header count, incomplete head), `Location` composition (registered redirect, percent-encoded `code` and `state`), the 405 `Allow` row and the introspection caller-vs-token error split. Two adversary passes are owed and recorded as the next wave's first item. Residues unchanged: no denial-audit path on the served route (`decision-blocker:audit-routing`); the JIT branch not served (`decision-blocker:jit-provisioning`); `expires_in` omitted from the token response (not declared by the contract; the descriptor's `expires_at` answers through introspection).
+
+- Correction 1 result (2026-09-19): 203 tests across `mandate-control-plane`, `mandate-proto`, `mandate-server` green (control-plane 15 + 22 + 9 adversary), clippy clean, boundaries 22, documents 10. One redirect composer; the declared `Content-Length` is the frame and an over-bound declaration is refused before any body read; digits-only `Content-Length` (httparse strips OWS); `Limits::request_deadline` 10 s over every read and write, the lapsed-deadline refusal itself written under `write_timeout` (one connection bounded by deadline + write timeout, documented); `Deployment::new` returns `Result<_, ConfigurationRefused>` (`CodeLifetimeUnbounded`, `SessionLifetimeUnbounded`, `Issuer(…)`), `main.rs` exits 2 before any socket; `origin_form` decides the four target forms; `SERVER_ERROR_CLAUSES = ["ExpiryUnbounded"]`; the issuer normalised once. Coordinator deviation: the pass-1 adversary file was amended to the rulings from the implementor's measured patch (a fallible `Deployment::new`; the code-lifetime case asserts the configuration refusal; the slow-client case states a 600 ms deadline). Named, not changed: `ClientUnregistered` (STS) answers `access_denied` where the federation's `ClientUnknown` answers `unauthorized_client`; `SigningRefused`/`AlgorithmPolicy` are deployment-side but never request refusals. Adversary 2 dispatched on the correction tree.
+
+- Correction 2 result (2026-09-21): 225 tests across the three crates green after the coordinator amended three adversary-2 cases that asserted the behaviour the rulings reversed (in-place refusal instead of a redirect for an unusable registered URI or a fragment; the lifetime refused at startup) — deviation 8, same class as 6. Both lifetimes bounded above through the STS reader's own layout rule reproduced in the control plane (`seconds_of` is `pub(crate)` in the STS; a fourth copy, stated); `Host` absent is refused for HTTP/1.1 only; a code is redeemable only while its session is fresh (measured, `SessionUnusable` at 3601 s). Correction unit committed and merged as the bot.

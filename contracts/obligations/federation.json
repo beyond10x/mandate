@@ -1,0 +1,969 @@
+{
+  "format": "mandate-obligations/1",
+  "crate": "mandate-federation",
+  "domains": [
+    "mandate.federation"
+  ],
+  "commands": [
+    {
+      "command": "mandate.federation.AuthenticateFederation",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Connection is disabled/untrusted",
+          "tests": [
+            {
+              "id": "mandate-federation::authenticate::a_disabled_connection_denies",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::authenticate::an_unresolved_connection_denies",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "proof signature/issuer/audience/expiry is invalid",
+          "tests": [
+            {
+              "id": "mandate-federation::authenticate::a_refused_proof_denies",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::authenticate::an_issuer_that_is_not_the_connections_denies",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::authenticate::an_audience_that_is_not_the_configured_client_denies",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "tenant resolution has zero or multiple matches",
+          "tests": [
+            {
+              "id": "mandate-federation::authenticate::tenant_zero",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::authenticate::tenant_ambiguous",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "principal linking is absent/conflicting",
+          "tests": [
+            {
+              "id": "mandate-federation::authenticate::a_link_under_another_subject_is_not_this_subjects_link",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::authenticate::a_disabled_linked_principal_is_denied_a_session",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "any email-domain/unverified-input fallback would be required",
+          "tests": [
+            {
+              "id": "mandate-federation::authenticate::tenant_unverified",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::adversary_verifier_1::an_email_claim_without_email_verified_is_not_a_validated_claim",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        }
+      ],
+      "no_state_change": [
+        {
+          "id": "mandate-federation::emitted_events::a_refused_authentication_emits_nothing_issues_no_session_and_leaves_the_fold_unchanged",
+          "kind": "no-state-change",
+          "path": "real"
+        }
+      ],
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    },
+    {
+      "command": "mandate.federation.AuthorizePublicClient",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Session proof is invalid/stale",
+          "tests": [
+            {
+              "id": "mandate-federation::authorize::a_revoked_session_is_refused",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::authorize::a_session_whose_epoch_snapshot_is_stale_is_refused",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::authorize::a_session_whose_own_expiry_has_passed_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "client is not a registered public client",
+          "tests": [
+            {
+              "id": "mandate-federation::publicclient::a_confidential_client_is_refused",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::publicclient::a_client_the_read_model_does_not_answer_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "the client is disabled",
+          "tests": [
+            {
+              "id": "mandate-federation::publicclient::a_disabled_client_is_refused",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::adversary_writers_1::probe_a_disabled_registered_client_is_refused_at_authorization",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "exact redirect URI or state/applicable nonce binding fails",
+          "tests": [
+            {
+              "id": "mandate-federation::authorize::a_state_that_is_not_the_one_the_authorization_request_recorded_is_refused",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::authorize::an_applicable_nonce_that_does_not_match_is_refused",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::authorize::a_presentation_that_omits_the_nonce_is_refused",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::publicclient::a_redirect_that_is_not_byte_identical_to_a_registered_one_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "S256 challenge is absent/invalid",
+          "tests": [
+            {
+              "id": "mandate-federation::pkce::a_challenge_outside_the_declared_form_is_refused",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::pkce::a_forty_three_character_challenge_carrying_pad_bits_is_refused_as_malformed",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::pkce::a_missing_verifier_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "target is unregistered/outside tenant",
+          "tests": [
+            {
+              "id": "mandate-federation::authorize::a_target_the_registry_does_not_answer_is_refused",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::authorize::a_target_registered_to_another_organization_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "STS code issuance/narrowing is refused",
+          "tests": [],
+          "blocked_on": "story:cross-crate-clauses"
+        }
+      ],
+      "no_state_change": [
+        {
+          "id": "mandate-federation::authorize::a_verifier_that_does_not_redeem_the_recorded_challenge_is_refused_and_consumes_nothing",
+          "kind": "no-state-change",
+          "path": "real"
+        }
+      ],
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    },
+    {
+      "command": "mandate.federation.DisableFederationConnection",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Caller lacks federation-administration authority",
+          "tests": [],
+          "blocked_on": "story:federation-admission-port"
+        },
+        {
+          "clause": "connection is outside the verified organization",
+          "tests": [
+            {
+              "id": "mandate-federation::obligations::a_connection_outside_the_verified_organization_is_refused_at_disable",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "emergency trust shutdown and affected generation invalidation cannot commit",
+          "tests": [],
+          "blocked_on": "decision-blocker:epoch-atomicity"
+        }
+      ],
+      "no_state_change": [
+        {
+          "id": "mandate-federation::emitted_events::a_refused_disable_emits_nothing_and_leaves_the_fold_unchanged",
+          "kind": "no-state-change",
+          "path": "real"
+        }
+      ],
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    },
+    {
+      "command": "mandate.federation.DisableOAuthClient",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Caller lacks client-administration authority",
+          "tests": [],
+          "blocked_on": "story:federation-admission-port"
+        },
+        {
+          "clause": "the client is outside the verified organization",
+          "tests": [
+            {
+              "id": "mandate-federation::obligations::a_client_outside_the_verified_organization_is_refused_at_disable",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "disablement cannot stop the issuance of new authorization codes to it",
+          "tests": [],
+          "blocked_on": "story:cross-crate-clauses"
+        }
+      ],
+      "no_state_change": [
+        {
+          "id": "mandate-federation::emitted_events::a_refused_client_disable_emits_nothing",
+          "kind": "no-state-change",
+          "path": "real"
+        }
+      ],
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    },
+    {
+      "command": "mandate.federation.LinkExternalPrincipal",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Caller/method lacks linking authority",
+          "tests": [
+            {
+              "id": "mandate-federation::link::the_configured_federation_method_is_reserved_to_provisioning",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "proof/connection trust is invalid",
+          "tests": [
+            {
+              "id": "mandate-federation::link::a_disabled_connection_may_not_be_linked_through",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::verifier_real::a_signature_under_a_key_the_issuer_never_published_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "organization or target principal mismatches",
+          "tests": [
+            {
+              "id": "mandate-federation::link::a_target_principal_recorded_in_another_organization_is_refused",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::link::a_foreign_organization_may_not_link_through_this_connection",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::link::a_target_principal_that_is_not_recorded_is_refused",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::link::a_disabled_target_principal_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "composite (organization, configured issuer, subject) key conflicts",
+          "tests": [
+            {
+              "id": "mandate-federation::link::link_conflict",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "durable audited linking fails",
+          "tests": [],
+          "blocked_on": "decision-blocker:audit-routing"
+        },
+        {
+          "clause": "Email equality never authorizes linking",
+          "tests": [
+            {
+              "id": "mandate-federation::link::email_isolation",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        }
+      ],
+      "no_state_change": [
+        {
+          "id": "mandate-federation::emitted_events::a_refused_link_emits_nothing_and_leaves_the_fold_unchanged",
+          "kind": "no-state-change",
+          "path": "real"
+        }
+      ],
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    },
+    {
+      "command": "mandate.federation.ProvisionExternalPrincipal",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Connection is disabled/untrusted",
+          "tests": [
+            {
+              "id": "mandate-federation::obligations::a_disabled_connection_is_refused_at_provisioning",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::obligations::an_unresolved_connection_is_refused_at_provisioning",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "proof signature/issuer/audience/expiry is invalid",
+          "tests": [
+            {
+              "id": "mandate-federation::obligations::a_proof_signed_by_a_key_the_issuer_never_published_is_refused_at_provisioning",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::obligations::a_proof_whose_expiry_has_passed_is_refused_at_provisioning",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::obligations::a_proof_whose_issuer_is_not_the_connections_is_refused_at_provisioning",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::obligations::a_proof_whose_audience_is_not_the_configured_client_is_refused_at_provisioning",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "tenant resolution has zero or multiple matches",
+          "tests": [
+            {
+              "id": "mandate-federation::obligations::a_proof_matching_no_configured_tenant_is_refused_at_provisioning",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::obligations::a_proof_matching_two_configured_tenants_is_refused_at_provisioning",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "principal linking is conflicting",
+          "tests": [
+            {
+              "id": "mandate-federation::authenticate::jit_conflict",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "connection does not admit provisioning",
+          "tests": [
+            {
+              "id": "mandate-federation::authenticate::jit_disabled",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "the composite (organization, configured issuer, subject) key already exists",
+          "tests": [
+            {
+              "id": "mandate-federation::obligations::a_subject_already_holding_the_composite_key_is_refused_at_provisioning",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "any email-domain/unverified-input fallback would be required",
+          "tests": [
+            {
+              "id": "mandate-federation::obligations::an_unverified_claim_a_tenant_rule_would_have_matched_is_refused_at_provisioning",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        }
+      ],
+      "no_state_change": [
+        {
+          "id": "mandate-federation::emitted_events::a_refused_provisioning_emits_nothing_and_leaves_the_fold_unchanged",
+          "kind": "no-state-change",
+          "path": "real"
+        }
+      ],
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    },
+    {
+      "command": "mandate.federation.RegisterFederationConnection",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Caller lacks federation-administration authority",
+          "tests": [],
+          "blocked_on": "story:federation-admission-port"
+        },
+        {
+          "clause": "issuer/client/trust, tenant-resolution or just-in-time provisioning configuration is unadmitted",
+          "tests": [
+            {
+              "id": "mandate-federation::record::a_conditional_rule_another_organization_already_holds_is_unadmitted",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::record::an_unconditional_rule_is_unadmitted_where_another_organization_holds_the_issuer",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::record::a_connection_is_unadmitted_where_another_organization_resolves_the_issuer_unconditionally",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "organization binding is invalid",
+          "tests": [
+            {
+              "id": "mandate-federation::record::register_federation_connection_denies_a_foreign_organization_binding",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        }
+      ],
+      "no_state_change": [
+        {
+          "id": "mandate-federation::emitted_events::a_refused_registration_emits_nothing_and_leaves_the_fold_unchanged",
+          "kind": "no-state-change",
+          "path": "real"
+        }
+      ],
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    },
+    {
+      "command": "mandate.federation.RegisterOAuthClient",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Caller lacks client-administration authority",
+          "tests": [
+            {
+              "id": "mandate-federation::obligations::a_caller_the_admission_does_not_hold_as_a_client_administrator_is_refused",
+              "kind": "denial",
+              "path": "double",
+              "double": "mandate_federation::register_client::ConfiguredAdmission"
+            }
+          ],
+          "blocked_on": "decision-blocker:guards"
+        },
+        {
+          "clause": "a redirect URI is unadmitted",
+          "tests": [
+            {
+              "id": "mandate-federation::obligations::a_redirect_uri_the_deployment_does_not_admit_is_refused",
+              "kind": "denial",
+              "path": "double",
+              "double": "mandate_federation::register_client::ConfiguredAdmission"
+            }
+          ],
+          "blocked_on": "decision-blocker:guards"
+        },
+        {
+          "clause": "organization binding is invalid",
+          "tests": [
+            {
+              "id": "mandate-federation::obligations::an_organization_no_client_may_be_registered_into_is_refused",
+              "kind": "denial",
+              "path": "double",
+              "double": "mandate_federation::register_client::ConfiguredAdmission"
+            }
+          ],
+          "blocked_on": "decision-blocker:guards"
+        }
+      ],
+      "no_state_change": [
+        {
+          "id": "mandate-federation::emitted_events::a_refused_client_registration_emits_nothing_and_leaves_the_fold_unchanged",
+          "kind": "no-state-change",
+          "path": "real"
+        }
+      ],
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    },
+    {
+      "command": "mandate.federation.UnlinkExternalPrincipal",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Caller lacks explicit link-administration authority",
+          "tests": [],
+          "blocked_on": "story:federation-admission-port"
+        },
+        {
+          "clause": "link is outside the verified organization",
+          "tests": [
+            {
+              "id": "mandate-federation::obligations::a_link_outside_the_verified_organization_is_refused_at_unlink",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "unlinking and its required invalidation/audit cannot commit",
+          "tests": [],
+          "blocked_on": "decision-blocker:epoch-atomicity"
+        }
+      ],
+      "no_state_change": [
+        {
+          "id": "mandate-federation::emitted_events::a_refused_unlink_emits_nothing_and_leaves_the_fold_unchanged",
+          "kind": "no-state-change",
+          "path": "real"
+        }
+      ],
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    }
+  ],
+  "addendum": [
+    {
+      "step": 1,
+      "requirement": "select configured federation trust relationship",
+      "tests": [
+        {
+          "id": "mandate-federation::authenticate::the_selected_connections_rule_must_match_even_when_a_sibling_matches",
+          "kind": "denial",
+          "path": "real"
+        },
+        {
+          "id": "mandate-federation::record::a_disabled_connection_is_read_as_disabled_and_is_not_offered_for_its_issuer",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
+    },
+    {
+      "step": 2,
+      "requirement": "validate issuer",
+      "tests": [
+        {
+          "id": "mandate-federation::verifier_real::an_issuer_that_is_not_the_connections_is_refused_at_the_verifier",
+          "kind": "denial",
+          "path": "real"
+        },
+        {
+          "id": "mandate-federation::verifier_real::an_issuer_with_no_published_key_set_is_refused",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
+    },
+    {
+      "step": 3,
+      "requirement": "validate signature",
+      "tests": [
+        {
+          "id": "mandate-federation::verifier_real::a_signature_under_a_key_the_issuer_never_published_is_refused",
+          "kind": "denial",
+          "path": "real"
+        },
+        {
+          "id": "mandate-federation::verifier_real::an_unsigned_token_is_refused_and_named_as_unsigned",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
+    },
+    {
+      "step": 4,
+      "requirement": "validate audience/client binding",
+      "tests": [
+        {
+          "id": "mandate-federation::verifier_real::an_audience_that_is_not_the_configured_client_is_refused_at_the_verifier",
+          "kind": "denial",
+          "path": "real"
+        },
+        {
+          "id": "mandate-federation::verifier_real::an_audience_naming_another_party_needs_an_azp_naming_this_client",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
+    },
+    {
+      "step": 5,
+      "requirement": "validate nonce/state/PKCE as applicable",
+      "tests": [
+        {
+          "id": "mandate-federation::authorize::an_applicable_nonce_that_does_not_match_is_refused",
+          "kind": "denial",
+          "path": "real"
+        },
+        {
+          "id": "mandate-federation::authorize::a_state_that_is_not_the_one_the_authorization_request_recorded_is_refused",
+          "kind": "denial",
+          "path": "real"
+        },
+        {
+          "id": "mandate-federation::pkce::a_wrong_verifier_is_refused",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
+    },
+    {
+      "step": 6,
+      "requirement": "validate configured organization/tenant claim or binding",
+      "tests": [
+        {
+          "id": "mandate-federation::authenticate::tenant_ambiguous",
+          "kind": "denial",
+          "path": "real"
+        },
+        {
+          "id": "mandate-federation::authenticate::tenant_unverified",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
+    },
+    {
+      "step": 7,
+      "requirement": "resolve external principal",
+      "tests": [
+        {
+          "id": "mandate-federation::link::issuer_isolation",
+          "kind": "denial",
+          "path": "real"
+        },
+        {
+          "id": "mandate-federation::authenticate::a_link_under_another_subject_is_not_this_subjects_link",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
+    },
+    {
+      "step": 8,
+      "requirement": "establish Mandate organization context",
+      "tests": [
+        {
+          "id": "mandate-federation::authenticate::tenant_zero",
+          "kind": "denial",
+          "path": "real"
+        },
+        {
+          "id": "mandate-federation::authenticate::jit_first_login",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "case": "email-isolation",
+      "tests": [
+        {
+          "id": "mandate-federation::link::email_isolation",
+          "kind": "denial",
+          "path": "real"
+        },
+        {
+          "id": "mandate-federation::verifier_real::email_isolation",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
+    },
+    {
+      "case": "explicit-link",
+      "tests": [
+        {
+          "id": "mandate-federation::link::explicit_link",
+          "kind": "accepted",
+          "path": "real"
+        },
+        {
+          "id": "mandate-federation::verifier_real::explicit_link",
+          "kind": "accepted",
+          "path": "real"
+        }
+      ]
+    },
+    {
+      "case": "issuer-isolation",
+      "tests": [
+        {
+          "id": "mandate-federation::link::issuer_isolation",
+          "kind": "denial",
+          "path": "real"
+        },
+        {
+          "id": "mandate-federation::verifier_real::issuer_isolation",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
+    },
+    {
+      "case": "jit-conflict",
+      "tests": [
+        {
+          "id": "mandate-federation::authenticate::jit_conflict",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
+    },
+    {
+      "case": "jit-disabled",
+      "tests": [
+        {
+          "id": "mandate-federation::authenticate::jit_disabled",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
+    },
+    {
+      "case": "jit-first-login",
+      "tests": [
+        {
+          "id": "mandate-federation::authenticate::jit_first_login",
+          "kind": "accepted",
+          "path": "real"
+        }
+      ]
+    },
+    {
+      "case": "link-conflict",
+      "tests": [
+        {
+          "id": "mandate-federation::link::link_conflict",
+          "kind": "denial",
+          "path": "real"
+        },
+        {
+          "id": "mandate-federation::verifier_real::link_conflict",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
+    },
+    {
+      "case": "pkce-state-nonce",
+      "tests": [
+        {
+          "id": "mandate-federation::authorize::a_state_that_is_not_the_one_the_authorization_request_recorded_is_refused",
+          "kind": "denial",
+          "path": "real"
+        },
+        {
+          "id": "mandate-federation::authorize::an_applicable_nonce_that_does_not_match_is_refused",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
+    },
+    {
+      "case": "tenant-ambiguous",
+      "tests": [
+        {
+          "id": "mandate-federation::authenticate::tenant_ambiguous",
+          "kind": "denial",
+          "path": "real"
+        },
+        {
+          "id": "mandate-federation::verifier_real::tenant_ambiguous",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
+    },
+    {
+      "case": "tenant-unverified",
+      "tests": [
+        {
+          "id": "mandate-federation::authenticate::tenant_unverified",
+          "kind": "denial",
+          "path": "real"
+        },
+        {
+          "id": "mandate-federation::verifier_real::tenant_unverified",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
+    },
+    {
+      "case": "tenant-valid",
+      "tests": [
+        {
+          "id": "mandate-federation::authenticate::tenant_valid",
+          "kind": "accepted",
+          "path": "real"
+        },
+        {
+          "id": "mandate-federation::verifier_real::tenant_valid",
+          "kind": "accepted",
+          "path": "real"
+        }
+      ]
+    },
+    {
+      "case": "tenant-zero",
+      "tests": [
+        {
+          "id": "mandate-federation::authenticate::tenant_zero",
+          "kind": "denial",
+          "path": "real"
+        },
+        {
+          "id": "mandate-federation::verifier_real::tenant_zero",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
+    }
+  ]
+}

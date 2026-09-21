@@ -1,0 +1,294 @@
+{
+  "format": "mandate-obligations/1",
+  "crate": "mandate-identity",
+  "domains": [
+    "mandate.identity"
+  ],
+  "commands": [
+    {
+      "command": "mandate.identity.DisablePrincipal",
+      "status": "deferred",
+      "story": "story:declared-writers",
+      "clauses": [],
+      "no_state_change": []
+    },
+    {
+      "command": "mandate.identity.IncrementSecurityEpoch",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Caller lacks authority for the explicitly selected principal/organization/federation target",
+          "tests": [],
+          "blocked_on": "decision-blocker:guards"
+        },
+        {
+          "clause": "tenant containment fails",
+          "tests": [],
+          "blocked_on": "story:identity-tenant-containment"
+        },
+        {
+          "clause": "the exact unsigned generation is at its maximum",
+          "tests": [
+            {
+              "id": "mandate-identity::increment::epoch_overflow_an_increment_at_the_maximum_is_denied_and_the_generation_does_not_move",
+              "kind": "denial",
+              "path": "double",
+              "double": "mandate_identity::IdentityLog"
+            }
+          ],
+          "blocked_on": "decision-blocker:epoch-atomicity"
+        },
+        {
+          "clause": "atomic increment cannot commit",
+          "tests": [
+            {
+              "id": "mandate-identity::obligations::an_increment_at_a_version_another_writer_moved_past_cannot_commit",
+              "kind": "denial",
+              "path": "double",
+              "double": "mandate_identity::IdentityLog"
+            },
+            {
+              "id": "mandate-identity::emitted_events::the_write_port_refuses_a_stream_version_it_was_not_read_at",
+              "kind": "denial",
+              "path": "double",
+              "double": "mandate_identity::IdentityLog"
+            }
+          ],
+          "blocked_on": "decision-blocker:epoch-atomicity"
+        }
+      ],
+      "no_state_change": [
+        {
+          "id": "mandate-identity::emitted_events::a_refused_increment_emits_nothing_and_leaves_the_log_unchanged",
+          "kind": "no-state-change",
+          "path": "double",
+          "double": "mandate_identity::IdentityLog"
+        }
+      ],
+      "blocked_on": "decision-blocker:epoch-atomicity",
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    },
+    {
+      "command": "mandate.identity.RefreshSession",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Refresh verifier is absent/incorrect",
+          "tests": [],
+          "blocked_on": "decision-blocker:guards"
+        },
+        {
+          "clause": "record is expired/revoked",
+          "tests": [
+            {
+              "id": "mandate-identity::refresh::a_revoked_session_is_refused_even_though_every_generation_still_matches",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-identity::adversary_expiry::a_session_past_its_declared_expiry_does_not_refresh",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "principal/session is disabled",
+          "tests": [],
+          "blocked_on": "story:declared-writers"
+        },
+        {
+          "clause": "any applicable principal/organization/federation epoch mismatches",
+          "tests": [
+            {
+              "id": "mandate-identity::refresh::epoch_principal_a_refresh_after_the_principal_generation_advanced_denies_stale_epoch",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-identity::refresh::epoch_org_a_refresh_after_the_organization_generation_advanced_denies_stale_epoch",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-identity::refresh::epoch_federation_a_refresh_after_the_connection_generation_advanced_denies_stale_epoch",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "session binding fails",
+          "tests": [
+            {
+              "id": "mandate-identity::refresh::a_session_the_fold_does_not_record_is_refused",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-identity::refresh::a_session_whose_snapshot_handle_resolves_to_nothing_is_refused",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-identity::refresh::a_session_whose_snapshot_is_bound_to_another_organization_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        }
+      ],
+      "no_state_change": [],
+      "blocked_on": "story:declared-writers",
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    },
+    {
+      "command": "mandate.identity.RevokeRefreshCredential",
+      "status": "deferred",
+      "story": "story:declared-writers",
+      "clauses": [],
+      "no_state_change": []
+    },
+    {
+      "command": "mandate.identity.RevokeSession",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Caller lacks authority over this session",
+          "tests": [],
+          "blocked_on": "decision-blocker:guards"
+        },
+        {
+          "clause": "session is outside the verified organization",
+          "tests": [
+            {
+              "id": "mandate-identity::obligations::a_session_outside_the_verified_organization_is_refused_at_revoke",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "revocation cannot be durably observed under the applicable profile",
+          "tests": [],
+          "blocked_on": "decision-blocker:epoch-atomicity"
+        }
+      ],
+      "no_state_change": [
+        {
+          "id": "mandate-identity::emitted_events::a_refused_revocation_emits_nothing_and_leaves_the_log_unchanged",
+          "kind": "no-state-change",
+          "path": "real"
+        }
+      ],
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    }
+  ],
+  "addendum": [
+    {
+      "step": 9,
+      "requirement": "issue session/credential",
+      "tests": [
+        {
+          "id": "mandate-identity::emitted_events::revoke_session_emits_exactly_the_declared_event",
+          "kind": "accepted",
+          "path": "real"
+        },
+        {
+          "id": "mandate-identity::refresh::a_session_is_refreshable_strictly_before_the_instant_it_expires_at",
+          "kind": "accepted",
+          "path": "real"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "case": "epoch-federation",
+      "tests": [
+        {
+          "id": "mandate-identity::staleness::epoch_federation_an_advanced_connection_generation_is_stale_on_the_federation_dimension",
+          "kind": "denial",
+          "path": "real"
+        },
+        {
+          "id": "mandate-identity::refresh::epoch_federation_a_refresh_after_the_connection_generation_advanced_denies_stale_epoch",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
+    },
+    {
+      "case": "epoch-isolation",
+      "tests": [
+        {
+          "id": "mandate-identity::increment::epoch_isolation_incrementing_a_principal_moves_no_other_dimension",
+          "kind": "accepted",
+          "path": "real"
+        },
+        {
+          "id": "mandate-identity::refresh::epoch_isolation_only_organization_a_is_reset_so_the_b_session_stays_eligible",
+          "kind": "accepted",
+          "path": "real"
+        }
+      ]
+    },
+    {
+      "case": "epoch-org",
+      "tests": [
+        {
+          "id": "mandate-identity::staleness::epoch_org_an_advanced_organization_generation_is_stale_on_the_organization_dimension",
+          "kind": "denial",
+          "path": "real"
+        },
+        {
+          "id": "mandate-identity::refresh::epoch_org_a_refresh_after_the_organization_generation_advanced_denies_stale_epoch",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
+    },
+    {
+      "case": "epoch-overflow",
+      "tests": [
+        {
+          "id": "mandate-identity::increment::epoch_overflow_an_increment_at_the_maximum_is_denied_and_the_generation_does_not_move",
+          "kind": "denial",
+          "path": "real"
+        },
+        {
+          "id": "mandate-identity::generation::epoch_overflow_the_maximum_generation_does_not_advance",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
+    },
+    {
+      "case": "epoch-principal",
+      "tests": [
+        {
+          "id": "mandate-identity::staleness::epoch_principal_a_snapshot_at_41_against_an_authoritative_42_is_stale",
+          "kind": "denial",
+          "path": "real"
+        },
+        {
+          "id": "mandate-identity::refresh::epoch_principal_a_refresh_after_the_principal_generation_advanced_denies_stale_epoch",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
+    }
+  ]
+}

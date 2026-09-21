@@ -7,7 +7,8 @@ title: Tenancy and graph refusals carry their declared outcome
 relations:
 - decomposes: epic:foundations
 - informed_by: initiative:drift-enforcement
-revision: 1
+- serves: vision:mandate
+revision: 2
 ---
 ## Why
 
@@ -20,3 +21,7 @@ Both `Denied` types carry the declared refusal outcome; the target reports it; t
 ## Acceptance
 
 `cargo xtask conform` reports the nine tenancy and graph `wrong-state` scenarios `passed`.
+
+## Acceptance — amended 2026-09-21
+
+`cargo xtask conform` reports the tenancy and graph `wrong-state` scenarios that the synthesizer can arrange (seven in the 146-scenario corpus today, one attributed to this story, five to `story:ess-synthesizer-prerequisites` until the ESS fix lands) as `passed`; the nine named in the original Acceptance include two the corpus does not hold.

@@ -576,6 +576,32 @@ pub const fn code_for_reason(reason: DenialReason) -> ErrorCode {
 pub const UNAUTHORIZED_CLIENT_CLAUSES: &[&str] =
     &["ClientUnknown", "ClientDisabled", "ClientNotPublic"];
 
+/// The denial clauses the authorization endpoint answers `server_error` for, by name.
+///
+/// RFC 6749 section 4.1.2.1: "The authorization server encountered an unexpected condition
+/// that prevented it from fulfilling the request." These are the refusals the **deployment**
+/// caused, and they are separated from the rest for the same reason
+/// [`UNAUTHORIZED_CLIENT_CLAUSES`] is: they carry `DenialReason::Denied`, which the by-reason
+/// mapping alone answers `access_denied` — "the resource owner or authorization server denied
+/// the request" — which tells a client developer the end user refused something the end user
+/// never saw.
+///
+/// `ExpiryUnbounded` is "expiry cannot be bounded: the profile's TTL or the request instant
+/// does not name a span this deployment can add" (`crates/mandate-token/src/projection.rs`).
+/// Nothing a caller sends reaches it: the ceiling is the deployment's configured code
+/// lifetime and the TTL is the registration's.
+///
+/// The **token endpoint's** mapping is unchanged and cannot carry these: RFC 6749 section 5.2
+/// declares no `server_error`, so [`CLAUSE_CODES`] answers `ExpiryUnbounded` with
+/// `invalid_request` there and this list is the authorization endpoint's alone.
+///
+/// `crates/mandate-proto/tests/oauth.rs` follows the calls from
+/// `services/sts/src/code.rs::issue_authorization_code` and requires **every** clause that
+/// road can raise to be stated as either the deployment's own failure or the caller's
+/// refusal, so a clause added upstream is reported by name rather than answered by the
+/// fallback.
+pub const SERVER_ERROR_CLAUSES: &[&str] = &["ExpiryUnbounded"];
+
 /// The authorization endpoint's error code for a refusal, by clause first and reason second.
 ///
 /// This is what a listener calls with a `mandate_federation::Denied`: the `clause` is that
@@ -584,12 +610,21 @@ pub const UNAUTHORIZED_CLIENT_CLAUSES: &[&str] =
 /// clause itself would be reassembling this mapping at each of its call sites, and the one
 /// that forgot would answer `access_denied` for a client the end user never saw.
 ///
+/// Two clause lists are read before the reason, and they answer two different questions the
+/// reason cannot: [`UNAUTHORIZED_CLIENT_CLAUSES`] is "the client is not authorized to request
+/// an authorization code using this method" and [`SERVER_ERROR_CLAUSES`] is "the authorization
+/// server encountered an unexpected condition". Both would otherwise be `access_denied`,
+/// which names the end user as the refuser. The lists are disjoint, which
+/// `crates/mandate-proto/tests/oauth.rs` decides.
+///
 /// [`code_for_reason`] remains the mapping for a refusal that carries no clause a caller can
 /// name, and is the fallback here.
 #[must_use]
 pub fn code_for_denial(clause: &str, reason: DenialReason) -> ErrorCode {
     if UNAUTHORIZED_CLIENT_CLAUSES.contains(&clause) {
         ErrorCode::UnauthorizedClient
+    } else if SERVER_ERROR_CLAUSES.contains(&clause) {
+        ErrorCode::ServerError
     } else {
         code_for_reason(reason)
     }

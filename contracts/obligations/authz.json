@@ -1,0 +1,248 @@
+{
+  "format": "mandate-obligations/1",
+  "crate": "mandate-authz",
+  "domains": [
+    "mandate.authorization",
+    "mandate.delegation"
+  ],
+  "commands": [
+    {
+      "command": "mandate.authorization.Check",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Credential-derived context is invalid",
+          "tests": [],
+          "blocked_on": "decision-blocker:guards"
+        },
+        {
+          "clause": "revoked",
+          "tests": [],
+          "blocked_on": "decision-blocker:guards"
+        },
+        {
+          "clause": "expired",
+          "tests": [],
+          "blocked_on": "decision-blocker:guards"
+        },
+        {
+          "clause": "stale",
+          "tests": [],
+          "blocked_on": "decision-blocker:guards"
+        },
+        {
+          "clause": "tenant",
+          "tests": [
+            {
+              "id": "mandate-authz::context::a_subject_that_is_not_a_member_of_the_verified_organization_is_a_tenant_mismatch",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "audience",
+          "tests": [
+            {
+              "id": "mandate-authz::context::a_credential_issued_for_another_audience_is_an_audience_mismatch",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "resource",
+          "tests": [
+            {
+              "id": "mandate-authz::context::a_resource_registered_by_another_organization_is_a_tenant_mismatch",
+              "kind": "denial",
+              "path": "double",
+              "double": "mandate_graph::double::GraphDouble"
+            }
+          ],
+          "blocked_on": "story:graph-policy-adapter"
+        },
+        {
+          "clause": "space binding mismatches",
+          "tests": [],
+          "blocked_on": "story:declared-writers"
+        },
+        {
+          "clause": "relationships",
+          "tests": [
+            {
+              "id": "mandate-authz::evaluate::a_subject_with_no_grant_holds_no_authority_however_policy_answers",
+              "kind": "denial",
+              "path": "double",
+              "double": "mandate_graph::double::GraphDouble"
+            }
+          ],
+          "blocked_on": "story:graph-policy-adapter"
+        },
+        {
+          "clause": "policy",
+          "tests": [
+            {
+              "id": "mandate-authz::evaluate::a_role_that_does_not_carry_the_requested_action_denies",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-authz::adversary_check_2::a_policy_deny_carrying_a_challenge_stays_a_deny",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "ceilings deny",
+          "tests": [
+            {
+              "id": "mandate-authz::evaluate::a_ceiling_that_does_not_admit_the_action_refuses_an_otherwise_allowed_request",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-authz::obligations::a_ceiling_recorded_for_the_organization_refuses_an_action_the_grant_carries",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "approval is required",
+          "tests": [
+            {
+              "id": "mandate-authz::check_contract::a_request_missing_a_required_approval_is_allowed_false_with_a_scoped_challenge",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "the required PDP",
+          "tests": [
+            {
+              "id": "mandate-authz::check_contract::a_decision_point_that_cannot_answer_denies_and_invents_no_permission",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-authz::evaluate::a_policy_decision_point_that_cannot_answer_denies_a_request_the_graph_allows",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "graph",
+          "tests": [
+            {
+              "id": "mandate-authz::obligations::a_graph_that_has_not_reached_the_required_revision_is_unavailable_and_not_a_denial",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-authz::evaluate::a_revision_the_reader_has_not_applied_is_unavailable_and_not_a_denial_about_the_caller",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "credential authority is unavailable",
+          "tests": [],
+          "blocked_on": "decision-blocker:guards"
+        }
+      ],
+      "no_state_change": [],
+      "blocked_on": "story:declared-writers",
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    },
+    {
+      "command": "mandate.delegation.CompleteExecution",
+      "status": "deferred",
+      "story": "story:agent-authority-kernel",
+      "blocker": "decision-blocker:identity-uniqueness",
+      "clauses": [],
+      "no_state_change": []
+    },
+    {
+      "command": "mandate.delegation.ConsumeApproval",
+      "status": "deferred",
+      "story": "story:agent-authority-kernel",
+      "blocker": "decision-blocker:identity-uniqueness",
+      "clauses": [],
+      "no_state_change": []
+    },
+    {
+      "command": "mandate.delegation.CreateDelegation",
+      "status": "deferred",
+      "story": "story:agent-authority-kernel",
+      "blocker": "decision-blocker:identity-uniqueness",
+      "clauses": [],
+      "no_state_change": []
+    },
+    {
+      "command": "mandate.delegation.RetireAgent",
+      "status": "deferred",
+      "story": "story:agent-authority-kernel",
+      "blocker": "decision-blocker:identity-uniqueness",
+      "clauses": [],
+      "no_state_change": []
+    },
+    {
+      "command": "mandate.delegation.RevokeDelegation",
+      "status": "deferred",
+      "story": "story:agent-authority-kernel",
+      "blocker": "decision-blocker:identity-uniqueness",
+      "clauses": [],
+      "no_state_change": []
+    },
+    {
+      "command": "mandate.delegation.SupersedeAgentCapabilityCeiling",
+      "status": "deferred",
+      "story": "story:agent-authority-kernel",
+      "blocker": "decision-blocker:identity-uniqueness",
+      "clauses": [],
+      "no_state_change": []
+    }
+  ],
+  "addendum": [],
+  "cases": [
+    {
+      "case": "approval-required",
+      "tests": [
+        {
+          "id": "mandate-authz::adversary_check::a_policy_denial_naming_approval_required_is_told_under_its_own_name",
+          "kind": "denial",
+          "path": "real"
+        },
+        {
+          "id": "mandate-authz::adversary_check_2::a_decision_reporting_approval_required_carries_the_challenge_to_answer",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
+    },
+    {
+      "case": "autonomous-ceiling",
+      "tests": [],
+      "blocked_on": "story:agent-authority-kernel"
+    },
+    {
+      "case": "pdp-outage",
+      "tests": [
+        {
+          "id": "mandate-authz::check_contract::a_decision_point_that_cannot_answer_denies_and_invents_no_permission",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
+    }
+  ]
+}

@@ -122,6 +122,7 @@
       "ess-domain",
       "clap",
       "mandate-sts",
+      "mandate-token",
       "mandate-testkit"
     ],
     "mandate-control-plane": [

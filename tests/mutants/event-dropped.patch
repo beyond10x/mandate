@@ -1,0 +1,12 @@
+diff --git a/crates/mandate-identity/src/port.rs b/crates/mandate-identity/src/port.rs
+--- a/crates/mandate-identity/src/port.rs
++++ b/crates/mandate-identity/src/port.rs
+@@ -629,7 +629,7 @@ impl IdentityLog {
+ 
+     /// The one place an event is added to the log.
+     fn append(&mut self, event: IdentityEvent) {
+-        self.events.push(event);
++        let _ = event;
+     }
+ 
+     /// Why an event cannot be appended, if it cannot.

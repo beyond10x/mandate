@@ -1,0 +1,8 @@
+{
+  "crate": "xtask",
+  "test_target": "contracts",
+  "test": "contracts",
+  "kill": "check-fails",
+  "refusal": "projection drift",
+  "anchor": "systems/mandate/domains/credential.yaml:610"
+}

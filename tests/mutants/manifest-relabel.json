@@ -1,0 +1,7 @@
+{
+  "crate": "mandate-authz",
+  "test_target": "contract_agreement",
+  "test": "the_coverage_manifest_names_exactly_what_this_crate_realizes",
+  "kill": "test-fails",
+  "anchor": "contracts/coverage.json:141"
+}

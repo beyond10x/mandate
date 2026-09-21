@@ -6,7 +6,9 @@ use std::net::SocketAddr;
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
-use mandate_control_plane::adapters::{Configuration, Deployment, SystemAllocator, SystemSecrets};
+use mandate_control_plane::adapters::{
+    Configuration, ConfigurationRefused, Deployment, SystemAllocator, SystemSecrets,
+};
 use mandate_control_plane::serve::{Limits, Listener};
 use mandate_federation::verifier_real::{AllowedAlgorithms, RealVerifier, SystemClock, UreqJwks};
 use mandate_sts::code::CodeLifetime;
@@ -38,6 +40,18 @@ enum Action {
     },
 }
 
+/// Why the process did not serve, and which exit status says so.
+///
+/// The two are not the same failure and do not answer the same status: a configuration the
+/// deployment cannot honour is the operator's to correct and exits **2**, and a listener that
+/// could not bind or a host resource that could not be opened exits 1. A `--code-lifetime`
+/// naming no span used to become a zero, and the process served logins while refusing every
+/// authorization with nothing anywhere saying why.
+enum Refused {
+    Configuration(ConfigurationRefused),
+    Start(Box<dyn std::error::Error>),
+}
+
 fn main() -> ExitCode {
     let Args { action } = Args::parse();
     match action {
@@ -48,7 +62,11 @@ fn main() -> ExitCode {
             session_lifetime,
         } => match serve(listen, issuer, &code_lifetime, &session_lifetime) {
             Ok(()) => ExitCode::SUCCESS,
-            Err(error) => {
+            Err(Refused::Configuration(refusal)) => {
+                eprintln!("mandate-control-plane: {refusal}");
+                ExitCode::from(2)
+            }
+            Err(Refused::Start(error)) => {
                 eprintln!("mandate-control-plane: {error}");
                 ExitCode::FAILURE
             }
@@ -61,25 +79,32 @@ fn serve(
     issuer: String,
     code_lifetime: &str,
     session_lifetime: &str,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<(), Refused> {
+    // The configuration is decided before a socket, a key or the host CSPRNG is touched: an
+    // operator who mistyped a duration learns it from the exit status, not from a client.
+    let configuration = Configuration {
+        issuer,
+        code_lifetime: CodeLifetime::new(Duration::new(code_lifetime)),
+        session_lifetime: Duration::new(session_lifetime),
+        keys: Vec::new(),
+    }
+    .checked()
+    .map_err(Refused::Configuration)?;
+
     let allowed = AllowedAlgorithms::configured(&[
         SigningAlgorithm::new("ES256"),
         SigningAlgorithm::new("RS256"),
-    ])?;
+    ])
+    .map_err(|error| Refused::Start(Box::new(error)))?;
     let verifier = RealVerifier::new(allowed, UreqJwks::new(), SystemClock);
-    let mut deployment = Deployment::new(
-        Configuration {
-            issuer,
-            code_lifetime: CodeLifetime::new(Duration::new(code_lifetime)),
-            session_lifetime: Duration::new(session_lifetime),
-            keys: Vec::new(),
-        },
-        verifier,
-        SystemClock,
-        SystemSecrets::open()?,
-        SystemAllocator::open()?,
-    );
-    let listener = Listener::bind(listen, Limits::default())?;
-    listener.serve(&mut deployment)?;
+    let secrets = SystemSecrets::open().map_err(|error| Refused::Start(Box::new(error)))?;
+    let allocator = SystemAllocator::open().map_err(|error| Refused::Start(Box::new(error)))?;
+    let mut deployment = Deployment::new(configuration, verifier, SystemClock, secrets, allocator)
+        .map_err(Refused::Configuration)?;
+    let listener = Listener::bind(listen, Limits::default())
+        .map_err(|error| Refused::Start(Box::new(error)))?;
+    listener
+        .serve(&mut deployment)
+        .map_err(|error| Refused::Start(Box::new(error)))?;
     Ok(())
 }
