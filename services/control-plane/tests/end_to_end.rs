@@ -32,17 +32,28 @@ use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStderr, ChildStdout, Command, Stdio};
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration as HostDuration, Instant};
 
 use aws_lc_rs::rand::SystemRandom;
 use aws_lc_rs::signature::{ECDSA_P256_SHA256_FIXED_SIGNING, EcdsaKeyPair};
+use mandate_control_plane::adapters::{
+    ConnectionSeeding, configure_verifier, read_connection_seed,
+};
+use mandate_federation::FederationVerifier;
+use mandate_federation::record::{ConnectionState, FederationConnection};
+use mandate_federation::verifier_real::{
+    AllowedAlgorithms as VerifierAlgorithms, JwksSource, RealVerifier, SystemClock as VerifierClock,
+};
 use mandate_token::signing_real::{
     AllowedAlgorithms, CredentialSigner, RealSigner, SigningKeyMaterial, StandardClaims,
     SystemClock,
 };
 use mandate_types::value::{Uuid, encode_base64};
-use mandate_types::{Audience, Issuer, PrincipalId, SigningAlgorithm};
+use mandate_types::{
+    Audience, ClientId, CredentialProof, Issuer, OrganizationId, PrincipalId, SigningAlgorithm,
+};
 
 /// The client identifier the IdP issued Mandate, which a proof's `aud` must name.
 const IDP_CLIENT: &str = "mandate-at-idp";
@@ -197,19 +208,88 @@ fn issuer_publishing(jwks: String) -> String {
     let address = listener.local_addr().expect("the bound address");
     let issuer = format!("http://{address}");
     let discovery = format!(r#"{{"issuer":"{issuer}","jwks_uri":"{issuer}/jwks"}}"#);
+    serving(
+        listener,
+        vec![
+            ("/.well-known/openid-configuration", discovery),
+            ("/jwks", jwks),
+        ],
+    );
+    issuer
+}
+
+/// Bind **two** loopback listeners — the discovery document on one port and the key set on
+/// another — and answer with the issuer identifier and the `host:port` the key set is on.
+///
+/// The shape every real identity provider has: Google publishes discovery at
+/// `accounts.google.com` and its key set at `www.googleapis.com/oauth2/v3/certs`, and Okta
+/// and Entra do the same. The issuer's own listener serves **no** `/jwks` at all, so a child
+/// that ignored the `jwks_uri` the discovery document publishes and read the issuer's own
+/// origin would be answered `404` rather than a key set, and no case here could pass by
+/// accident.
+/// The key set's own listener is handed back as a [`Reached`]: what containment means is
+/// that **no request is made**, and a case that read only the login's answer could not tell
+/// a destination the deployment refused from one whose server happened to be down.
+fn split_issuer_publishing(jwks: String) -> (String, String, Reached) {
+    // Both binds take `PORT`, for the reason `issuer_publishing` does: a port released by a
+    // concurrent case's probe and not yet taken by its child must not be handed to a
+    // listener here.
+    let (keys, listener) = {
+        let _holding = PORT
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        (
+            TcpListener::bind("127.0.0.1:0").expect("an ephemeral port on the loopback"),
+            TcpListener::bind("127.0.0.1:0").expect("an ephemeral port on the loopback"),
+        )
+    };
+    let keys_address = keys.local_addr().expect("the bound address");
+    let reached = serving(keys, vec![("/jwks", jwks)]);
+
+    let address = listener.local_addr().expect("the bound address");
+    let issuer = format!("http://{address}");
+    let discovery = format!(r#"{{"issuer":"{issuer}","jwks_uri":"http://{keys_address}/jwks"}}"#);
+    serving(
+        listener,
+        vec![("/.well-known/openid-configuration", discovery)],
+    );
+    (issuer, keys_address.to_string(), reached)
+}
+
+/// How many connections one of this file's listeners accepted.
+///
+/// A destination that was **never contacted** is the whole of what `UreqJwks::admits`
+/// enforces, and it is not what a refused login says: `KeySetUnavailable` is equally the
+/// answer for a host the deployment listed whose server was unreachable. Counted at accept,
+/// before a byte is read, so a connection that carried no request still counts as reaching.
+#[derive(Clone, Default)]
+struct Reached(Arc<AtomicUsize>);
+
+impl Reached {
+    fn count(&self) -> usize {
+        self.0.load(Ordering::SeqCst)
+    }
+}
+
+/// Serve `routes` — a request-target prefix and the JSON body it answers — off a bound
+/// listener, and `404` everything else. Answers the count of connections it accepts.
+///
+/// The thread is detached: it lives as long as the test process, which is how the in-process
+/// listener cases serve theirs, and it holds no resource the child owns.
+fn serving(listener: TcpListener, routes: Vec<(&'static str, String)>) -> Reached {
+    let reached = Reached::default();
+    let counting = reached.clone();
     std::thread::spawn(move || {
         for accepted in listener.incoming() {
             let Ok(mut stream) = accepted else { continue };
+            counting.0.fetch_add(1, Ordering::SeqCst);
             let Some(path) = request_target(&stream) else {
                 continue;
             };
-            let served = if path.starts_with("/.well-known/openid-configuration") {
-                Some(discovery.clone())
-            } else if path.starts_with("/jwks") {
-                Some(jwks.clone())
-            } else {
-                None
-            };
+            let served = routes
+                .iter()
+                .find(|(target, _)| path.starts_with(target))
+                .map(|(_, body)| body.clone());
             let response = match served {
                 Some(body) => format!(
                     "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\
@@ -224,7 +304,7 @@ fn issuer_publishing(jwks: String) -> String {
             let _ = stream.shutdown(std::net::Shutdown::Both);
         }
     });
-    issuer
+    reached
 }
 
 /// The request target of one HTTP/1.1 request, with its header block drained off the socket.
@@ -286,6 +366,10 @@ struct ConnectionDocument {
     /// so an explicit `null` is refused by the reader rather than treated as absence, and
     /// the case would never reach the road it drives.
     algorithm: Option<&'static str>,
+    /// The hosts the deployment lists for this connection's key set. Empty writes **no
+    /// member at all**, which is the deployment listing none: `UreqJwks::admits` then
+    /// admits the issuer's own origin and nothing else.
+    jwks_hosts: Vec<String>,
     /// Whether the document seeds the link a login resolves its principal through.
     linked: bool,
     /// Whether this connection admits just-in-time provisioning — that is, whether a first
@@ -302,6 +386,7 @@ impl ConnectionDocument {
             issuer: issuer.to_owned(),
             client_id: IDP_CLIENT,
             algorithm: Some(ALGORITHM),
+            jwks_hosts: Vec::new(),
             linked: true,
             jit_provisioning: false,
         }
@@ -311,6 +396,17 @@ impl ConnectionDocument {
         let algorithm = match self.algorithm {
             Some(named) => format!(r#""algorithm":"{named}","#),
             None => String::new(),
+        };
+        let jwks_hosts = if self.jwks_hosts.is_empty() {
+            String::new()
+        } else {
+            let listed = self
+                .jwks_hosts
+                .iter()
+                .map(|host| format!(r#""{host}""#))
+                .collect::<Vec<String>>()
+                .join(",");
+            format!(r#""jwks_hosts":[{listed}],"#)
         };
         let link = if self.linked {
             format!(
@@ -326,7 +422,7 @@ impl ConnectionDocument {
         };
         format!(
             r#"{{"connection_id":"{connection}","organization":"{organization}",
-              "issuer":"{issuer}","client_id":"{client}",{algorithm}
+              "issuer":"{issuer}","client_id":"{client}",{algorithm}{jwks_hosts}
               "tenant_resolution":{{"configured_organization":"{organization}"}},
               "jit_provisioning":{jit}{link}}}"#,
             connection = self.connection_id,
@@ -1511,4 +1607,304 @@ fn a_first_login_a_connection_admits_provisioning_for_opens_a_session_at_step_se
     // its first attempt and retries; that refusal is never rendered, so the child records
     // none — which is what distinguishes this from the case above.
     no_refusal_taken(&mut served, &[connection()]);
+}
+
+// ------------------------------------------------------- the key set on a second host
+//
+// `story:connection-jwks-hosts`. The story asks for a case where the split issuer's login
+// **completes**: the discovery document on one port, the key set on another, the second
+// host named by the document. It is not here, and it cannot be written over loopback
+// `http` at all — the measurement is below, in
+// `a_split_issuers_key_set_on_the_loopback_is_refused_even_when_the_document_lists_it`,
+// and the residue is recorded there rather than left to be inferred from its absence.
+
+/// The `--connection` member exists and the child serves a document that names it.
+///
+/// **Red before the member and green after**, which is the acceptance's first half: the
+/// same document exited the child `2` with `unknown field `jwks_hosts`, expected one of
+/// connection_id, organization, issuer, client_id, algorithm, tenant_resolution,
+/// jit_provisioning, link` before `ConnectionSeed` declared it, so the deployment could not
+/// be configured for Google, Okta or Entra at all.
+///
+/// The hosts listed here are the ones a Google connection lists. This issuer publishes its
+/// key set on its own origin, which `UreqJwks::admits` admits without consulting the list —
+/// so what this case reads is that the document is admitted, the connection is seeded, and
+/// a list the login does not need does not disturb the login.
+#[test]
+fn a_connection_document_naming_jwks_hosts_is_admitted_and_its_login_completes() {
+    let signer = idp_signer();
+    let jwks = serde_json::to_string(&signer.published_keys()).expect("the published key set");
+    let issuer = issuer_publishing(jwks);
+
+    let listing = ConnectionDocument {
+        jwks_hosts: vec!["www.googleapis.com".to_owned()],
+        ..ConnectionDocument::accepted(&issuer)
+    };
+    let (address, mut served) = stand_up("jwks-hosts-named", &[listing.rendered()]);
+
+    let proof = proof_from(&signer, &issuer, IDP_CLIENT, "proof-jwks-hosts");
+    let login = login_with(address, connection(), &proof);
+    answered("jwks_hosts named: POST /v1/federation/login", &login);
+    assert_eq!(
+        login.status, 200,
+        "a document naming `jwks_hosts` configures a deployment that serves; the login \
+         answered {} {}",
+        login.status, login.body
+    );
+    assert!(
+        !member(&login.body, "session_id").is_empty(),
+        "the declared `session_id` response, got {}",
+        login.body
+    );
+
+    // Nothing was refused on the way. A document listing a host this login never needed
+    // must not send the road through a refusal it then recovers from.
+    no_refusal_taken(&mut served, &[connection()]);
+}
+
+/// The split issuer over loopback `http`, with its key set's `host:port` listed by the
+/// document: **still refused**, and this is the residue `story:connection-jwks-hosts` asked
+/// for a completed login on.
+///
+/// Measured here rather than asserted anywhere. `UreqJwks::admits`
+/// (`crates/mandate-federation/src/verifier_real.rs:326`) sends every `jwks_uri` that is not
+/// the issuer's own origin down one branch, and that branch refuses this destination three
+/// times over:
+///
+/// ```text
+/// target.scheme == "https"
+///     && !literal_address(&target.host)
+///     && !loopback(&target.host)
+///     && allowed_hosts.iter().any(|entry| listed(entry, &target))
+/// ```
+///
+/// A second host must arrive over `https`, as a name, and as a name that is not the
+/// loopback interface. `127.0.0.1` is plaintext, a literal **and** the loopback, so the
+/// fourth clause — the one this story configures — is never reached. The story's own *Out of
+/// scope* ("the cases stay on loopback `http`, which `admits` allows for loopback hosts
+/// only") holds for the issuer's **own** origin and for nothing else.
+///
+/// So the host list's admitting half is not reachable from this file, and driving it needs
+/// either TLS on a case's own listener under a root the platform verifier holds, or a case
+/// at the `mandate-federation` level over a source that is not `UreqJwks` — where
+/// `crates/mandate-federation/tests/verifier_real.rs:1832` already drives
+/// `allowing_jwks_hosts`. What this package can decide is that the document's hosts reach
+/// the verifier, which is
+/// [`the_hosts_a_document_lists_are_the_hosts_the_verifier_is_configured_with`].
+#[test]
+fn a_split_issuers_key_set_on_the_loopback_is_refused_even_when_the_document_lists_it() {
+    let signer = idp_signer();
+    let jwks = serde_json::to_string(&signer.published_keys()).expect("the published key set");
+    let (issuer, keys_host, keys_reached) = split_issuer_publishing(jwks);
+
+    let listing = ConnectionDocument {
+        jwks_hosts: vec![keys_host.clone()],
+        ..ConnectionDocument::accepted(&issuer)
+    };
+    let (address, mut served) = stand_up("split-issuer-listed", &[listing.rendered()]);
+
+    let proof = proof_from(&signer, &issuer, IDP_CLIENT, "proof-split-listed");
+    let login = login_with(address, connection(), &proof);
+    refused(
+        &format!("split issuer ({keys_host} listed): POST /v1/federation/login"),
+        &login,
+        400,
+        &denied_body("access_denied"),
+    );
+
+    // The destination was never contacted. `KeySetUnavailable` alone would equally be the
+    // answer for a listed host whose server was down; this says the child made no request
+    // at all, which is what `admits` enforces and what this case is about.
+    assert_eq!(
+        keys_reached.count(),
+        0,
+        "the plaintext destination is refused before it is fetched, not after"
+    );
+
+    // The child bound and seeded the connection: the document was read and admitted — the
+    // member exists — and the refusal is the verifier's, at the destination.
+    // `ProofInvalid` is one clause over twenty reasons; `KeySetUnavailable` is the one
+    // this case drives, and it separates the refusal from an expired proof or a bad
+    // signature on the same road.
+    refusal_taken(
+        &mut served,
+        LOGIN,
+        "ProofInvalid",
+        Some("KeySetUnavailable"),
+        &[connection()],
+    );
+}
+
+/// The same split issuer with **no** `jwks_hosts` member: the containment is pinned rather
+/// than inherited.
+///
+/// `UreqJwks::admits` refuses a `jwks_uri` on a host the deployment did not list, and a
+/// document that lists none lists none — the discovery document is served by the issuer and
+/// is not allowed to introduce a destination the deployment never named. Without this case
+/// the refusal would rest on nothing but the absence of a case driving it.
+#[test]
+fn a_split_issuer_no_document_lists_a_host_for_is_refused() {
+    let signer = idp_signer();
+    let jwks = serde_json::to_string(&signer.published_keys()).expect("the published key set");
+    let (issuer, keys_host, keys_reached) = split_issuer_publishing(jwks);
+
+    // The accepted document, unchanged: the only difference from the case above is the
+    // member it does not carry.
+    let unlisted = ConnectionDocument::accepted(&issuer);
+    assert!(
+        unlisted.jwks_hosts.is_empty(),
+        "this case is the one whose document lists no host"
+    );
+    let (address, mut served) = stand_up("split-issuer-unlisted", &[unlisted.rendered()]);
+
+    let proof = proof_from(&signer, &issuer, IDP_CLIENT, "proof-split-unlisted");
+    let login = login_with(address, connection(), &proof);
+    refused(
+        &format!(
+            "split issuer (no host listed, key set on {keys_host}): POST /v1/federation/login"
+        ),
+        &login,
+        400,
+        &denied_body("access_denied"),
+    );
+
+    // **This is the containment.** The key set is there, published and correct, on a host
+    // the deployment did not name — and the child never opened a connection to it. A case
+    // that read only the login's answer would have been equally green against a deployment
+    // that fetched the destination and then failed to use it.
+    assert_eq!(
+        keys_reached.count(),
+        0,
+        "a destination the deployment never named is not contacted at all"
+    );
+
+    // The same clause and the same reason as the listed case: over loopback `http` the two
+    // are indistinguishable by what the child records, because `admits` refuses a second
+    // host for its scheme before it ever consults the list. What separates them is the
+    // document, and the assertion above.
+    refusal_taken(
+        &mut served,
+        LOGIN,
+        "ProofInvalid",
+        Some("KeySetUnavailable"),
+        &[connection()],
+    );
+}
+
+// ------------------------------------- the document's hosts, arriving at the verifier
+
+/// A [`JwksSource`] that fetches nothing and records the hosts it was handed.
+///
+/// `jwks_from` is the method [`RealVerifier`] calls, and its `allowed_hosts` argument is
+/// the whole of what `allowing_jwks_hosts` configures — `UreqJwks` passes it to `admits`
+/// and nothing else reads it. Answering `None` refuses the proof one step later, which is
+/// after the hosts have been handed over and is all this case needs.
+#[derive(Clone, Default)]
+struct RecordingJwks {
+    handed: Arc<Mutex<Vec<Vec<String>>>>,
+}
+
+impl RecordingJwks {
+    fn handed(&self) -> Vec<Vec<String>> {
+        self.handed
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone()
+    }
+}
+
+impl JwksSource for RecordingJwks {
+    fn jwks(&self, _issuer: &Issuer) -> Option<serde_json::Value> {
+        None
+    }
+
+    fn jwks_from(&self, _issuer: &Issuer, allowed_hosts: &[String]) -> Option<serde_json::Value> {
+        self.handed
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .push(allowed_hosts.to_vec());
+        None
+    }
+}
+
+/// The hosts a `--connection` document lists are the hosts the verifier fetches that
+/// connection's key set from.
+///
+/// **This is the case that decides the wiring**, and it is in this process rather than
+/// against the child because no child can decide it: the list is consulted only for a
+/// `jwks_uri` outside the issuer's own origin, and `UreqJwks::admits` fetches such a
+/// destination over `https` alone — which a case's own loopback listener is not, and cannot
+/// be made into without a root the platform verifier holds. A case driving the child would
+/// be green with `adapters::configure_verifier` passing an empty list, or passing the
+/// document's hosts to the wrong connection.
+///
+/// The path is the flag's own as far as it goes: the document text the `--connection` flag
+/// would read, through `read_connection_seed` and `ConnectionSeeding::admit` — which
+/// allocates the identity the hosts are held under — into `configure_verifier`, which is
+/// what `src/main.rs` calls and all that it calls.
+#[test]
+fn the_hosts_a_document_lists_are_the_hosts_the_verifier_is_configured_with() {
+    // An issuer whose key set is published on another host, spelled as Google's is. Nothing
+    // is fetched here: the source answers no key set at all.
+    let issuer = "https://idp.example";
+    let listing = ConnectionDocument {
+        // Mixed case and a stated port, because `allowing_jwks_hosts` lowercases what it is
+        // given and `admits` compares the port — an entry that arrived unchanged would be
+        // an entry that arrived by some other route.
+        jwks_hosts: vec!["Keys.IdP.example:8443".to_owned()],
+        ..ConnectionDocument::accepted(issuer)
+    };
+    let path = document(
+        "jwks-hosts-configured",
+        "connection-0.json",
+        &listing.rendered(),
+    );
+
+    let seed = read_connection_seed(&path).expect("the document the `--connection` flag reads");
+    let mut minted = 0_u8;
+    let mut allocate = || {
+        minted += 1;
+        uuid(0xd0 + minted)
+    };
+    let mut seeding = ConnectionSeeding::new();
+    let admitted = seeding
+        .admit(&path, &seed, &mut allocate)
+        .expect("the document the registration command admits");
+
+    let source = RecordingJwks::default();
+    let verifier = RealVerifier::new(
+        VerifierAlgorithms::configured(&[SigningAlgorithm::new(ALGORITHM)])
+            .expect("a non-empty allowlist"),
+        source.clone(),
+        VerifierClock,
+    );
+    let verifier = configure_verifier(verifier, &path, &seed, admitted.connection_id)
+        .expect("the document's algorithm is one the allowlist admits");
+
+    let connection = FederationConnection {
+        id: admitted.connection_id,
+        organization_id: OrganizationId::new(organization()),
+        issuer: Issuer::new(issuer),
+        client_id: ClientId::new(IDP_CLIENT),
+        tenant_resolution: seed.tenant_resolution.clone(),
+        jit_provisioning: seed.jit_provisioning,
+        state: ConnectionState::Enabled,
+    };
+    let proof = proof_from(&idp_signer(), issuer, IDP_CLIENT, "proof-configured-hosts");
+    let refused = verifier.verify(
+        &connection,
+        &CredentialProof::from_bytes(proof.into_bytes()),
+    );
+    assert!(
+        refused.is_err(),
+        "the source publishes no key set, so the proof is refused after the hosts are handed over"
+    );
+
+    assert_eq!(
+        source.handed(),
+        vec![vec!["keys.idp.example:8443".to_owned()]],
+        "the document's `jwks_hosts` are what the verifier bounds this connection's key-set \
+         fetch by; it was handed {:?}",
+        source.handed()
+    );
 }

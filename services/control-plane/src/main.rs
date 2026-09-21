@@ -38,8 +38,8 @@ use std::process::ExitCode;
 use clap::{Parser, Subcommand};
 use mandate_control_plane::adapters::{
     ClientSeed, Configuration, ConfigurationRefused, ConnectionSeed, ConnectionSeeding, Deployment,
-    ResourceServerSeed, SeedRefused, SystemAllocator, SystemSecrets, key_set, read_client_seed,
-    read_connection_seed, read_key, read_resource_server_seed,
+    ResourceServerSeed, SeedRefused, SystemAllocator, SystemSecrets, configure_verifier, key_set,
+    read_client_seed, read_connection_seed, read_key, read_resource_server_seed,
 };
 use mandate_control_plane::serve::{Limits, Listener};
 use mandate_federation::record::FederationConnection;
@@ -242,22 +242,14 @@ fn serve(serving: &Serving) -> Result<(), Refused> {
         seeded_targets.push((path, seed.events(&mut allocate)));
     }
 
-    // The algorithm is per connection and the connection's identity is only known once it
-    // has been allocated, so the verifier is configured here rather than at construction.
-    // A connection whose document names no algorithm is left unconfigured deliberately:
-    // `RealVerifier` has no default and refuses every proof through it
-    // (`RefusalReason::ConnectionAlgorithmUnconfigured`), which is the closed answer.
+    // The algorithm and the hosts this connection's key set may be fetched from are per
+    // connection, and the connection's identity is only known once it has been allocated,
+    // so the verifier is configured here rather than at construction.
+    // `adapters::configure_verifier` is that step, and it is over there because a binary's
+    // `main` is reachable from no case.
     let mut verifier = RealVerifier::new(allowed, UreqJwks::new(), SystemClock);
     for (path, seed, connection) in &seeded {
-        let Some(algorithm) = &seed.algorithm else {
-            continue;
-        };
-        verifier = verifier
-            .configure_connection(connection.connection_id, algorithm)
-            .map_err(|error| SeedRefused::Algorithm {
-                path: (*path).clone(),
-                error,
-            })
+        verifier = configure_verifier(verifier, path, seed, connection.connection_id)
             .map_err(Refused::Seed)?;
     }
 
