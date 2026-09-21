@@ -505,6 +505,14 @@ fn the_realized_credential_commands_are_driven_rather_than_refused() {
 /// one of them owns nothing further, because the lifecycle admits no move back to `active`.
 const TERMINAL_RUNGS: &[&str] = &["implemented", "rejected", "archived"];
 
+/// What the target writes on a scenario it executed and whose expectation was unmet.
+///
+/// Not an attribution. `crates/mandate-conformance/src/lib.rs:758-776` writes it because which
+/// story closes a disagreement between the contract and an implementation is a judgement the
+/// target cannot make, and `xtask/src/conform.rs:105` refuses an authored ledger that repeats it.
+/// The attribution for these rows lives in `contracts/expected-outcomes.json`.
+const TARGET_MARKER: &str = "story:conform-gate";
+
 #[test]
 fn every_blocked_on_names_a_story_the_store_holds_and_has_not_finished() {
     // The class the adversary's first finding is an instance of, checked here rather than
@@ -516,11 +524,24 @@ fn every_blocked_on_names_a_story_the_store_holds_and_has_not_finished() {
     // The check is machine-derived from the planning store on disk, so a story that reaches
     // `implemented` while a row still names it turns this red on the next run without
     // anyone remembering to look — which a hand-kept list of owners never would.
+    //
+    // Amended by the coordinator, 2026-09-21, for the same reason as the sibling case in
+    // `adversary_conformance_1.rs`: `story:conform-gate` in `injections.json` is a marker and not
+    // an attribution. `xtask/src/conform.rs:30-38` states the two-ledger rule — the target answers
+    // for what it refused before dispatch or does not support, and a scenario that *executed* with
+    // its expectation unmet is marked and attributed in the authored
+    // `contracts/expected-outcomes.json`. Following the marker through makes this check stricter
+    // than it was: the row must be attributed there, and that story must be live.
     let suite = suite_json("live7");
     let executed = Executed::of(&suite, DIGEST).expect("the suite executes");
     let injections: serde_json::Value =
         serde_json::from_str(&executed.injections).expect("the injection record is JSON");
     let store = repository().join(".engineering/planning/story");
+    let authored: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(repository().join("contracts/expected-outcomes.json"))
+            .expect("the authored ledger is readable"),
+    )
+    .expect("the authored ledger is JSON");
 
     let mut checked = BTreeSet::new();
     let mut wrong: Vec<String> = Vec::new();
@@ -528,8 +549,27 @@ fn every_blocked_on_names_a_story_the_store_holds_and_has_not_finished() {
         .as_array()
         .expect("the injection record lists what it could not satisfy")
     {
-        let story = entry["blocked_on"].as_str().expect("a story").to_owned();
+        let mut story = entry["blocked_on"].as_str().expect("a story").to_owned();
         let scenario = entry["scenario"].as_str().expect("a scenario").to_owned();
+        if story == TARGET_MARKER {
+            let owner = authored["scenarios"]
+                .as_array()
+                .expect("the authored ledger lists its scenarios")
+                .iter()
+                .find(|row| row["id"].as_str() == Some(scenario.as_str()))
+                .and_then(|row| row["blocked_on"].as_str())
+                .map(str::to_owned);
+            match owner {
+                Some(owner) => story = owner,
+                None => {
+                    wrong.push(format!(
+                        "`{scenario}` is marked `{TARGET_MARKER}` — executed, expectation unmet — \
+                         and `contracts/expected-outcomes.json` attributes it to nobody"
+                    ));
+                    continue;
+                }
+            }
+        }
         if !checked.insert(story.clone()) {
             continue;
         }
