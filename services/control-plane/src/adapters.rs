@@ -49,8 +49,15 @@
 //! * **No denial-audit path.** `decision-blocker:audit-routing` holds the vocabulary, and
 //!   `mandate-audit` is outside this package's ceiling. A refusal is answered and recorded
 //!   nowhere.
-//! * **The just-in-time branch is not served.** `mandate.federation.ProvisionExternalPrincipal`
-//!   is behind `decision-blocker:jit-provisioning`, and no route reaches it.
+//! * **The just-in-time branch seeds no `mandate.identity.Principal`.**
+//!   `mandate.federation.ExternalPrincipalProvisioned` is that record's declared writer
+//!   (`identity.yaml`'s header) and `mandate_identity::IdentityRead::principal` folds it, but
+//!   `IdentityEvent::ExternalPrincipalProvisioned` carries
+//!   `mandate_contract::events::MandateFederationExternalPrincipalProvisioned` — a type this
+//!   package cannot name, for the same reason the login's own event is named above:
+//!   `mandate-contract` is a dev-dependency here. No route this composition serves reads that
+//!   record, so nothing served is short of it; a composition that did would need the
+//!   dependency, which is `story:domain-runtime`'s to weigh.
 
 use std::collections::BTreeMap;
 use std::fs::File;
@@ -65,8 +72,8 @@ use mandate_federation::record::{
 };
 use mandate_federation::verifier_real::Clock;
 use mandate_federation::{
-    DenialClause as FederationClause, Denied as FederationDenied, FederationVerifier,
-    IssuedSession, SessionIssuer,
+    ConnectionStore, DenialClause as FederationClause, Denied as FederationDenied,
+    FederationVerifier, IssuedSession, SessionIssuer,
 };
 use mandate_identity::{
     EpochSnapshotRecorded, Generation, IdentityEvent, IdentityLog, IdentityRead,
@@ -1048,6 +1055,18 @@ where
         self.federation.apply(event)
     }
 
+    /// The `mandate.federation` read model this deployment folds.
+    ///
+    /// The read half of [`Deployment::record_federation`], and public for the same reason:
+    /// the fold is the record. A login that creates a principal and a link creates them
+    /// *here* and nowhere a status code can be read off, so a caller deciding whether
+    /// anything was created — a case, or the operator tooling `story:directory-provenance`
+    /// will want — reads it here rather than inferring it from a response.
+    #[must_use]
+    pub fn federation(&self) -> &FederationProjection {
+        &self.federation
+    }
+
     /// Seed one `mandate.identity` event into the session and epoch fold.
     pub fn record_identity(&mut self, event: IdentityEvent) {
         self.identity.record(event);
@@ -1093,30 +1112,41 @@ where
         i64::try_from(self.clock.unix_seconds()).unwrap_or(i64::MAX)
     }
 
-    /// An identity minted from the deployment's secret source, through the digest.
-    ///
-    /// No allocator port in this package's ceiling mints a `SessionId` or an
-    /// `EpochSnapshotRef`: `mandate_sts::IdentityAllocator` mints the credential domain's
-    /// four and `mandate_federation::IdentityAllocator` that domain's four, and neither
-    /// declares these. What the deployment does hold is a CSPRNG behind
-    /// [`SecretSource`], so a fresh secret is minted and the identity is the first sixteen
-    /// bytes of its digest — one-way, so the identity says nothing about the secret, and
-    /// unguessable exactly when the source is.
+    /// An identity minted from the deployment's secret source; see [`identity_from`], which
+    /// says why the deployment mints these at all and why the minting is a free function.
     fn next_identity(&mut self) -> Uuid {
-        let material = self.secrets.next_secret();
-        let digested = self.digest.digest(material.expose_material());
-        let mut bytes = [0_u8; 16];
-        let hex = digested.as_str().as_bytes();
-        for (index, byte) in bytes.iter_mut().enumerate() {
-            let high = hex.get(index * 2).copied().unwrap_or(b'0');
-            let low = hex.get(index * 2 + 1).copied().unwrap_or(b'0');
-            *byte = (nibble(high) << 4) | nibble(low);
-        }
-        Uuid::from_bytes(bytes)
+        identity_from(&mut self.secrets, &self.digest)
     }
 
-    /// Realize `mandate.federation.AuthenticateFederation` and open the session it responds
-    /// with.
+    /// Realize `mandate.federation.AuthenticateFederation`, open the session it responds
+    /// with, and create the principal a first login has none of.
+    ///
+    /// # The three-step sequence, and why it is here
+    ///
+    /// `authenticate_federation` resolves its principal through an explicit link and refuses
+    /// `LinkAbsent` when there is none, and that is the whole of what it decides: one command
+    /// decides one command, emits one event, and reads `jit_provisioning` nowhere
+    /// (`crates/mandate-federation/src/authenticate.rs`'s header says so in as many words).
+    /// A first-time user of a customer's platform therefore has no path through that command
+    /// alone. `decision-blocker:jit-provisioning`'s alternative 2, which the operator chose,
+    /// is a **composition**: `AuthenticateFederation`; on an absent-link refusal from a
+    /// connection that admits provisioning, `ProvisionExternalPrincipal`; then
+    /// `AuthenticateFederation` once more. This is the adapter that owns composition, so this
+    /// is where the sequence lives.
+    ///
+    /// **Once, and not in a loop.** Whatever the second attempt answers is the login's
+    /// answer, a second `LinkAbsent` included. The retry is taken on the *first* attempt's
+    /// refusal and on nothing else, so there is no state in which this drives a third command.
+    ///
+    /// **`jit_provisioning` false leaves the refusal exactly as it stands.** `federation.yaml`
+    /// gives the flag one meaning — a connection that does not admit provisioning "denies the
+    /// first login and creates nothing" — so a connection with it off answers what it answered
+    /// before this sequence existed, byte for byte.
+    ///
+    /// **A refused provisioning is not the login's refusal either.** The caller called one
+    /// command; a clause from a command it never made — `ProvisioningNotAdmitted`,
+    /// `ExternalKeyExists` — is not an answer to the one it did. The declared `LinkAbsent` of
+    /// the login stands instead, and the attempt creates nothing.
     ///
     /// # Errors
     ///
@@ -1127,6 +1157,79 @@ where
         &mut self,
         input: &decode::AuthenticateFederation,
     ) -> Result<Login, Refusal> {
+        let denied = match self.authenticate_once(input) {
+            Ok(login) => return Ok(login),
+            Err(denied) => denied,
+        };
+        // The absent link is the only refusal provisioning answers, and the flag on the
+        // connection the request selected is the only thing that admits it. Every other
+        // refusal — a disabled connection, a refused proof, an unresolved tenant, a disabled
+        // principal — is a condition creating a principal would not change.
+        if denied.clause != FederationClause::LinkAbsent
+            || !self
+                .federation
+                .connection(&input.connection_id)
+                .is_some_and(|connection| connection.jit_provisioning)
+        {
+            return Err(Refusal::from(&denied));
+        }
+        if !self.provisioned(input) {
+            return Err(Refusal::from(&denied));
+        }
+        self.authenticate_once(input)
+            .map_err(|refused| Refusal::from(&refused))
+    }
+
+    /// Drive `mandate.federation.ProvisionExternalPrincipal` for this login and fold the
+    /// event its accepted outcome emits.
+    ///
+    /// Answers whether the record the retry resolves through was created: a refused command
+    /// and a fold that cannot read the event it emitted are the same thing to the caller,
+    /// which is a login that still has no linked principal.
+    fn provisioned(&mut self, input: &decode::AuthenticateFederation) -> bool {
+        let request = mandate_federation::RequestContext {
+            audience: self.audience(),
+            // Minted here, from the deployment's own identity source, for the reason the
+            // login's own correlation is minted rather than read: nothing a caller sent may
+            // become the correlation of a persisted record.
+            correlation: CorrelationId::new(self.next_identity().to_string()),
+            // As at `Deployment::authenticate_once`: this route authenticates no caller
+            // credential, and the nil UUID is what "names none" spells.
+            credential: CredentialId::new(Uuid::from_bytes([0; 16])),
+            at: self.now(),
+        };
+        let mut allocator = MintedIdentities {
+            secrets: &mut self.secrets,
+            digest: &self.digest,
+        };
+        let Ok(provisioned) = mandate_federation::authenticate::provision_external_principal(
+            &mandate_federation::authenticate::ProvisionExternalPrincipal {
+                connection_id: input.connection_id,
+                proof: input.proof.clone(),
+            },
+            &request,
+            &self.verifier,
+            &self.federation,
+            &self.federation,
+            &mut allocator,
+        ) else {
+            return false;
+        };
+        // The event is the record. It is also the creation record of the
+        // `mandate.identity.Principal` (`identity.yaml`'s header), which this composition
+        // does not seed: see the module header.
+        self.federation.apply(&provisioned.event).is_ok()
+    }
+
+    /// One `mandate.federation.AuthenticateFederation`, with its own session identity.
+    ///
+    /// Separated from [`Deployment::authenticate`] so that the sequence above reads the
+    /// refusing clause rather than the rendered [`Refusal`], which carries the clause as text
+    /// for a listener and is not a value to decide on.
+    fn authenticate_once(
+        &mut self,
+        input: &decode::AuthenticateFederation,
+    ) -> Result<Login, FederationDenied> {
         let at = self.now();
         let session_id = SessionId::new(self.next_identity());
         let epochs = EpochSnapshotRef::new(self.next_identity());
@@ -1157,8 +1260,7 @@ where
             &self.federation,
             &self.federation,
             &mut issuer,
-        )
-        .map_err(|denied| Refusal::from(&denied))?;
+        )?;
         // The event is the record: the federation fold reads the authentication too.
         let _ = self.federation.apply(&authenticated.event);
 
@@ -1507,6 +1609,68 @@ const fn nibble(byte: u8) -> u8 {
         b'a'..=b'f' => byte - b'a' + 10,
         b'A'..=b'F' => byte - b'A' + 10,
         _ => 0,
+    }
+}
+
+/// An identity minted from a secret source, through the digest.
+///
+/// No allocator port in this package's ceiling mints a `SessionId` or an `EpochSnapshotRef`:
+/// `mandate_sts::IdentityAllocator` mints the credential domain's four and
+/// `mandate_federation::IdentityAllocator` that domain's four, and neither declares these.
+/// What the deployment does hold is a CSPRNG behind [`SecretSource`], so a fresh secret is
+/// minted and the identity is the first sixteen bytes of its digest — one-way, so the
+/// identity says nothing about the secret, and unguessable exactly when the source is.
+///
+/// A free function over the two fields rather than a method, because
+/// [`MintedIdentities`] mints from the same source while the deployment's read models are
+/// borrowed by the handler it is minting for.
+fn identity_from(secrets: &mut impl SecretSource, digest: &Sha256Digest) -> Uuid {
+    let material = secrets.next_secret();
+    let digested = digest.digest(material.expose_material());
+    let mut bytes = [0_u8; 16];
+    let hex = digested.as_str().as_bytes();
+    for (index, byte) in bytes.iter_mut().enumerate() {
+        let high = hex.get(index * 2).copied().unwrap_or(b'0');
+        let low = hex.get(index * 2 + 1).copied().unwrap_or(b'0');
+        *byte = (nibble(high) << 4) | nibble(low);
+    }
+    Uuid::from_bytes(bytes)
+}
+
+/// The `mandate_federation::IdentityAllocator` the composition mints this domain's
+/// identities from.
+///
+/// The deployment's own `A` is `mandate_sts::IdentityAllocator` — the credential domain's
+/// four, and neither a `PrincipalId` nor an `ExternalPrincipalId` among them — so
+/// `ProvisionExternalPrincipal` needs the other port, over the same CSPRNG every other
+/// identity this deployment mints comes from. Both traits are spelled `IdentityAllocator`,
+/// which is why this one is named by its full path below.
+struct MintedIdentities<'a, X> {
+    secrets: &'a mut X,
+    digest: &'a Sha256Digest,
+}
+
+impl<X: SecretSource> MintedIdentities<'_, X> {
+    fn next(&mut self) -> Uuid {
+        identity_from(self.secrets, self.digest)
+    }
+}
+
+impl<X: SecretSource> mandate_federation::IdentityAllocator for MintedIdentities<'_, X> {
+    fn next_connection_id(&mut self) -> FederationConnectionId {
+        FederationConnectionId::new(self.next())
+    }
+
+    fn next_principal_id(&mut self) -> PrincipalId {
+        PrincipalId::new(self.next())
+    }
+
+    fn next_external_principal_id(&mut self) -> ExternalPrincipalId {
+        ExternalPrincipalId::new(self.next())
+    }
+
+    fn next_o_auth_client_id(&mut self) -> OAuthClientId {
+        OAuthClientId::new(self.next())
     }
 }
 
