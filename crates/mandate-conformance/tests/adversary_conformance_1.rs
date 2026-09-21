@@ -97,6 +97,14 @@ fn terminal(report: &str) -> BTreeMap<String, String> {
 /// it is finished work, and the only move left to it is out of the board.
 const CLOSED_RUNGS: &[&str] = &["implemented", "rejected", "archived"];
 
+/// What the target writes on a scenario it executed and whose expectation was unmet.
+///
+/// Not an attribution. `crates/mandate-conformance/src/lib.rs:758-776` writes it because which
+/// story closes a disagreement between the contract and an implementation is a judgement the
+/// target cannot make, and `xtask/src/conform.rs:105` refuses an authored ledger that repeats it.
+/// The attribution for these rows lives in `contracts/expected-outcomes.json`.
+const TARGET_MARKER: &str = "story:conform-gate";
+
 /// The `status:` a planning artifact's front matter declares.
 fn status_of(document: &str) -> Option<&str> {
     document
@@ -117,6 +125,24 @@ fn status_of(document: &str) -> Option<&str> {
 /// `tests/target.rs::every_scenario_that_did_not_pass_names_a_live_story` is named for this
 /// property and asserts `story.starts_with("story:")`, which is the spelling and not the
 /// liveness.
+///
+/// **Amended by the coordinator, 2026-09-21.** As first written this case read every `blocked_on`
+/// in `injections.json` as an attribution, and `story:conform-gate` is not one. `xtask/src/conform.rs`
+/// says so in terms: `injections.json` is the target's own output and is authoritative for a
+/// scenario it refused before dispatch or does not support, while a scenario that *executed* and
+/// whose expectation was unmet is marked `story:conform-gate` — "not an attribution but a statement
+/// that the attribution is not made there" — and is attributed in `contracts/expected-outcomes.json`,
+/// which is authored. `crates/mandate-conformance/src/lib.rs:758-776` writes the marker for exactly
+/// that reason: which story closes a disagreement between the contract and an implementation is a
+/// judgement, and the target is not the thing that can make it.
+///
+/// So the case failed the moment `story:conform-gate` reached `implemented` — on 54 rows whose real
+/// owners (`story:ess-synthesizer-prerequisites` 53, `story:refusal-discriminators` 1) were and are
+/// `draft`. It was reading the wrong ledger, not finding a stale attribution.
+///
+/// It now follows the two-ledger rule, which makes it a stronger check than before: a marker row
+/// must be attributed in the authored ledger, and *that* story must be live. A marker with no entry
+/// there is a gap owned by nobody, and so is an entry naming a closed story.
 #[test]
 fn every_blocked_on_story_is_live() {
     let suite = suite_json("live");
@@ -124,17 +150,44 @@ fn every_blocked_on_story_is_live() {
     let injections: serde_json::Value =
         serde_json::from_str(&executed.injections).expect("the injection record is JSON");
 
+    // The authored ledger, which answers for every scenario the target marked as executed-and-unmet.
+    let authored: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(repository().join("contracts/expected-outcomes.json"))
+            .expect("the authored ledger is readable"),
+    )
+    .expect("the authored ledger is JSON");
+    let attributed = |scenario: &str| -> Option<String> {
+        authored["scenarios"]
+            .as_array()?
+            .iter()
+            .find(|entry| entry["id"].as_str() == Some(scenario))?["blocked_on"]
+            .as_str()
+            .map(str::to_owned)
+    };
+
     let store = repository().join(".engineering/planning/story");
     let mut closed: Vec<String> = Vec::new();
     let mut absent: Vec<String> = Vec::new();
+    let mut unattributed: Vec<String> = Vec::new();
     let mut seen: BTreeSet<String> = BTreeSet::new();
 
     for entry in injections["blocked"]
         .as_array()
         .expect("the injection record lists what it could not satisfy")
     {
-        let story = entry["blocked_on"].as_str().expect("a story").to_owned();
+        let mut story = entry["blocked_on"].as_str().expect("a story").to_owned();
         let scenario = entry["scenario"].as_str().expect("a scenario");
+        if story == TARGET_MARKER {
+            // Not an attribution: the run executed this scenario and its expectation was unmet,
+            // so the authored ledger is what owns it.
+            match attributed(scenario) {
+                Some(owner) => story = owner,
+                None => {
+                    unattributed.push(scenario.to_owned());
+                    continue;
+                }
+            }
+        }
         let slug = story
             .strip_prefix("story:")
             .unwrap_or_else(|| panic!("`{scenario}` names `{story}`, which is not a story"));
@@ -156,6 +209,12 @@ fn every_blocked_on_story_is_live() {
         }
     }
 
+    assert!(
+        unattributed.is_empty(),
+        "the target marked these scenarios `{TARGET_MARKER}` — executed, expectation unmet, \
+         attribution made elsewhere — and `contracts/expected-outcomes.json` carries no \
+         `blocked_on` for them, so each names a gap owned by nobody: {unattributed:?}"
+    );
     assert!(
         absent.is_empty(),
         "the run attributes scenarios to stories the planning store does not hold: {absent:?}"
