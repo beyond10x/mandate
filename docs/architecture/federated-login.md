@@ -4,7 +4,7 @@ A customer's user is signed in to the customer's own platform. That user enters 
 
 ## What this document does not do
 
-It claims no runtime behaviour: no crate implements any command named below. It names no signing algorithm; the admitted list is recorded on `decision-blocker:algorithm-policy`, cleared 2026-09-19 on runtime cases (`runtime-decisions.md:256`), and in `story:signing-and-verification`, and this document keeps naming none (FL3). It clears no blocker; every decision it records is evidence against a blocker, not a clearance, because the clearance evidence for each is runtime cases (`runtime-decisions.md`, every row). It does not change ESS meaning; the contract changes it names are owned by `story:domain-runtime`.
+It was written before any of this ran. Every command it names is now `implemented` in `../../contracts/coverage.json`, the six product routes are served, and `services/control-plane/tests/end_to_end.rs` drives the whole road against the spawned binary. The design below is what was decided; `../public/federated-login.md` is what runs. It names no signing algorithm; the admitted list is recorded on `decision-blocker:algorithm-policy`, cleared 2026-09-19 on runtime cases (`runtime-decisions.md:256`), and in `story:signing-and-verification`, and this document keeps naming none (FL3). It clears no blocker; every decision it records is evidence against a blocker, not a clearance, because the clearance evidence for each is runtime cases (`runtime-decisions.md`, every row). It does not change ESS meaning; the contract changes it names are owned by `story:domain-runtime`.
 
 ## The flow the contract declares
 
@@ -142,7 +142,7 @@ Recorded the same day, by the operator, for this repository: all durable state i
 
 Two facts, both measured, both outside any story's authority to change.
 
-**The gate forbids a running service.** `cargo xtask check` asserts that each of the five binaries fails on `serve` (`../../xtask/src/main.rs:259-273`). The HTTP surface in the diagram — the routes that receive `AuthenticateFederation`, `AuthorizePublicClient` and the token endpoint — cannot exist until `task:runtime-wave-integration` replaces that assertion with per-binary milestone checks. `xtask/` is coordinator-owned (`../../AGENTS.md`).
+**The gate forbade a running service, and no longer does for this binary.** `cargo xtask check` still asserts that a binary refuses `serve`, and `mandate-control-plane` is exempt from that assertion. The HTTP surface in the diagram exists: six routes in `../../crates/mandate-server/src/routes.rs`, driven end to end against the spawned binary. This paragraph is kept because the constraint was real and its removal was a decision, not an oversight. `xtask/` is coordinator-owned (`../../AGENTS.md`).
 
 **The federation crate may take no external dependency.** `../../dependency-boundaries.json` allows `mandate-federation` exactly `mandate-types`, `mandate-model`, `mandate-identity` and `mandate-token`. `Cargo.lock` contains no JOSE library, no signature verification beyond `sha2`, no HTTP client, no async runtime and no database driver. `crates/mandate-types/src/inventory.rs` declares "cryptography: no signing, verification, hashing or key handling" excluded from the accepted milestone. Steps 3 and 4 of the resolution order — signature and JWKS — therefore go behind a typed port with a test double, and `story:federation-linking` cannot reach `implemented` until a dependency decision admits a verifier.
 
@@ -159,6 +159,6 @@ What is buildable now, and is what wave 3 delivers: steps 1, 2 and 5–9 as pure
 | id | the claim, verbatim | enforced by |
 |---|---|---|
 | FL1 | Every command in this system has exactly one accepted outcome and emits exactly one event; this holds across all twelve domain files. | a read over `systems/mandate/domains/*.yaml` counting outcomes and `emits` per command |
-| FL2 | `generated/schema/types/` = 110, `entities/` = 36, `commands/` = 59, `events/` = 65 | `ls generated/schema/<dir> \| wc -l` at the commit this document was written against |
+| FL2 | `generated/schema/types/` = 110, `entities/` = 36, `commands/` = 61, `events/` = 74 | `ls generated/schema/<dir> \| wc -l`, re-read 2026-09-22. The earlier form of this row read 59 and 65 and said it held *at the commit this document was written against*, which is a check that cannot fail twice; `docs/adr/0011-use-cases.md` cites it as the reason a use case is a registry rather than a page |
 | FL3 | It names no signing algorithm. | the denylist `runtime-decisions.md` SC4 already applies, run over this file |
 | FL4 | None of the decisions above is a clearance. | every named blocker's status read from the store equals `open` |
