@@ -1,0 +1,76 @@
+type: ess-scenario/2
+domain: mandate.credential
+scenario: sts-disabled-registration-caller
+summary: '`disable` starts from Enabled alone, so a registration already in the terminal Disabled state is the declared wrong-state refusal; registry.rs:257-258; corpus: none.'
+arrange:
+- instance: server
+  entity: mandate.credential.ResourceServer
+timeline:
+- at: '2026-01-05T09:00:00Z'
+  command: mandate.credential.RegisterResourceServer
+  input:
+    context:
+      subject: 00000000-0000-4000-8000-000000000001
+      actor: null
+      organization: 00000000-0000-4000-8000-0000000000a1
+      audience: mandate
+      credential: 00000000-0000-4000-8000-0000000000c1
+      delegation: null
+      execution: null
+      correlation: sts-disabled-registration-server
+    audience: api-a
+    profile:
+      name: reference-api
+      kind: Reference
+      revocation: BoundedOffline
+      max_ttl: PT10M
+      positive_cache_ttl: PT1M
+      requires_online_authorization: false
+    allowed_exchange_sources: []
+  outcome: accepted
+  events:
+  - event: mandate.credential.ResourceServerRegistered
+    payload:
+      audience: api-a
+  capture:
+    instance: server
+    event: mandate.credential.ResourceServerRegistered
+    field: id
+- at: '2026-01-05T09:00:01Z'
+  command: mandate.credential.DisableResourceServer
+  input:
+    id:
+      $instance: server
+    context:
+      subject: 00000000-0000-4000-8000-000000000001
+      actor: null
+      organization: 00000000-0000-4000-8000-0000000000a1
+      audience: mandate
+      credential: 00000000-0000-4000-8000-0000000000c1
+      delegation: null
+      execution: null
+      correlation: sts-disabled-registration-disable
+  outcome: accepted
+  events:
+  - event: mandate.credential.ResourceServerDisabled
+- at: '2026-01-05T09:00:02Z'
+  command: mandate.credential.DisableResourceServer
+  input:
+    id:
+      $instance: server
+    context:
+      subject: 00000000-0000-4000-8000-000000000001
+      actor: null
+      organization: 00000000-0000-4000-8000-0000000000a1
+      audience: mandate
+      credential: 00000000-0000-4000-8000-0000000000c1
+      delegation: null
+      execution: null
+      correlation: sts-disabled-registration-again
+  outcome: wrong-state
+  error:
+    name: mandate.credential.Denied
+    fields:
+      reason: Denied
+  no_events:
+  - mandate.credential.ResourceServerDisabled

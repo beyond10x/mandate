@@ -1,0 +1,18 @@
+type: ess-scenario/2
+domain: mandate.credential
+scenario: introspect-caller-proof-malformed
+summary: '`is itself invalid, revoked or expired`: an empty caller proof is refused before any registration or credential is read; resolve.rs:420-421; corpus: none.'
+arrange: []
+timeline:
+- at: '2026-01-05T09:00:01Z'
+  command: mandate.credential.IntrospectCredential
+  input:
+    caller_proof: ''
+    credential_proof: Y3JlZGVudGlhbC1pc3N1ZWQtZm9yLWFwaS1i
+  outcome: denied
+  error:
+    name: mandate.credential.Denied
+    fields:
+      reason: InvalidCredential
+  no_events:
+  - mandate.credential.CredentialIntrospected
