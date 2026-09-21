@@ -464,10 +464,17 @@ const ROWS: &[(&str, DenialClause, Source)] = &[
         DenialClause::SessionUnusable,
         Source::DenialPhrase("source/session epoch is stale"),
     ),
+    // `services/sts/src/redemption.rs:343-350` narrows the expiry to
+    // `min(issued_at + max_ttl, code.expires_at)`, and `ExpiryUnbounded` is the failure of
+    // that narrowing and not of the append that follows it. The cause's last condition names
+    // two: this row quotes the half the handler decides, so the phrase falls inside the
+    // registry clause that carries it (`contracts/obligations/sts.json`) instead of across
+    // its boundary into `atomic issuance validation fails`, which
+    // `decision-blocker:epoch-atomicity` owns.
     (
         "mandate.credential.RedeemAuthorizationCode",
         DenialClause::ExpiryUnbounded,
-        Source::DenialPhrase("narrowing/atomic issuance validation fails"),
+        Source::DenialPhrase("narrowing"),
     ),
 ];
 
