@@ -12,9 +12,9 @@ relations:
 scope:
 - confidence: cited
   path: systems/mandate/ess-inputs.yaml
-- confidence: inferred
+- confidence: cited
   path: systems/mandate/scenarios
-revision: 15
+revision: 16
 ---
 ## Acceptance
 
