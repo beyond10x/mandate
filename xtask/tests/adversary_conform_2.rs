@@ -15,6 +15,7 @@ mod emit;
 mod conform;
 
 use std::{
+    collections::BTreeSet,
     fs,
     path::{Path, PathBuf},
     process::{Command, Output},
@@ -176,7 +177,210 @@ fn inputs(root: &Path) -> PathBuf {
     root.join("systems/mandate/ess-inputs.yaml")
 }
 
-/// `ess-inputs.yaml` carries `scenarios: []` today, and a comment is not data.
+/// `ess-inputs.yaml` with `block` written into the specification's `scenarios:` list.
+///
+/// The list read `scenarios: []` when these cases were written and
+/// `story:authored-denial-scenarios` has since filled it with the twenty files it authored, so
+/// a fixture that replaced the empty list replaced nothing: it wrote the specification back
+/// unchanged and drove the gate over a corpus it had not doctored. The key line itself is
+/// rewritten instead — `block` is listed whatever the list already holds, and the entries the
+/// specification carries follow it.
+fn listing(specification: &str, block: &str) -> String {
+    let mut listed = String::new();
+    let mut keys = 0_usize;
+    for line in specification.lines() {
+        if line.starts_with("scenarios:") {
+            keys += 1;
+            listed.push_str("scenarios:\n");
+            listed.push_str(block);
+            listed.push('\n');
+            continue;
+        }
+        listed.push_str(line);
+        listed.push('\n');
+    }
+    assert_eq!(keys, 1, "the specification names its scenario list once");
+    listed
+}
+
+/// The scenarios the corpus at `root` carries, by id, read from the suite the gate compares.
+fn scenarios(root: &Path) -> BTreeSet<String> {
+    let document: serde_json::Value = serde_json::from_slice(
+        &fs::read(root.join("generated/conformance/suite.json")).expect("the fixture suite"),
+    )
+    .expect("the suite parses");
+    document["scenarios"]
+        .as_object()
+        .expect("the suite states its scenarios")
+        .keys()
+        .cloned()
+        .collect()
+}
+
+/// `ledger` with every row naming a scenario `carried` does not hold removed.
+///
+/// Row by row over the text, never a parse and a render: `conform::injections` byte-compares
+/// this ledger against the one the run writes, and it is the target's own serializer that
+/// wrote it — a `serde_json::Value` rendered from here would sort the keys of every row and
+/// move bytes no scenario moved.
+fn rows_carried(ledger: &str, carried: &BTreeSet<String>) -> String {
+    let mut kept: Vec<String> = Vec::new();
+    let mut row: Vec<&str> = Vec::new();
+    let mut inside = false;
+    for line in ledger.lines() {
+        if !inside {
+            if line == "    {" {
+                inside = true;
+                row.clear();
+                row.push(line);
+            } else {
+                kept.push(line.to_owned());
+            }
+            continue;
+        }
+        row.push(line);
+        if line != "    }" && line != "    }," {
+            continue;
+        }
+        inside = false;
+        let named = row.iter().find_map(|line| {
+            line.trim_start()
+                .strip_prefix("\"scenario\": \"")
+                .map(|rest| rest.trim_end_matches(',').trim_end_matches('"'))
+        });
+        if named.is_some_and(|scenario| !carried.contains(scenario)) {
+            continue;
+        }
+        kept.extend(row.iter().map(|line| (*line).to_owned()));
+    }
+    assert!(!inside, "every row of the ledger closes");
+    // The comma a dropped row left behind: the last row of an array carries none and every
+    // other one does, whichever rows went.
+    for index in 0..kept.len() {
+        let followed = kept.get(index + 1).is_some_and(|next| next == "    {");
+        if kept[index] == "    }," && !followed {
+            kept[index] = "    }".to_owned();
+        } else if kept[index] == "    }" && followed {
+            kept[index] = "    },".to_owned();
+        }
+    }
+    let mut pruned = kept.join("\n");
+    pruned.push('\n');
+    pruned
+}
+
+/// A fixture whose specification lists no scenario file, carrying the corpus that
+/// specification yields; answers the inputs it wrote. `tail` follows the emptied key, which is
+/// where a comment about the list sits.
+///
+/// The corpus is rebuilt because emptying the list moves it. `generated/conformance/suite.json`
+/// holds the 166 scenarios the filled list synthesizes and both authored ledgers account for
+/// exactly those, while the suite the gate re-synthesizes from an emptied list is the
+/// synthesized-only 146: a fixture that emptied the list alone would be refused at the first
+/// byte-comparison — measured, `generated/conformance/suite.json: not what ess verify conform
+/// synthesize writes … 3432823 committed bytes against 3233927 synthesized` — and would decide
+/// nothing about what the comment beside the list means.
+fn without_scenarios(root: &Path, tail: &str) -> String {
+    let path = inputs(root);
+    let specification = fs::read_to_string(&path).expect("the fixture inputs");
+    let mut emptied = String::new();
+    let mut keys = 0_usize;
+    let mut lines = specification.lines().peekable();
+    while let Some(line) = lines.next() {
+        if line.starts_with("scenarios:") {
+            keys += 1;
+            emptied.push_str("scenarios: []");
+            emptied.push_str(tail);
+            emptied.push('\n');
+            while lines.next_if(|next| next.starts_with("- ")).is_some() {}
+            continue;
+        }
+        emptied.push_str(line);
+        emptied.push('\n');
+    }
+    assert_eq!(keys, 1, "the specification names its scenario list once");
+    assert_ne!(
+        emptied, specification,
+        "the fixture emptied the specification's scenario list"
+    );
+    assert!(
+        !emptied.contains("\n- scenarios/"),
+        "the emptied list carries no scenario file:\n{emptied}"
+    );
+    fs::write(&path, &emptied).expect("write the fixture inputs");
+
+    let filled = scenarios(root).len();
+    // Tolerantly, and without `--scenarios`: `synthesize` exits 1 on the refusals the contract
+    // carries while writing a complete suite for the rest, so the artifact is the answer and
+    // the status is not. This is the invocation the gate itself falls back to against a list
+    // ESS answers is empty.
+    let synthesis = Command::new("ess")
+        .args([
+            "verify",
+            "conform",
+            "synthesize",
+            "--path",
+            root.join("systems/mandate")
+                .to_str()
+                .expect("the fixture specification path"),
+            "--suite-format",
+            "5",
+            "--out",
+            root.join("generated/conformance/suite.json")
+                .to_str()
+                .expect("the fixture suite path"),
+        ])
+        .output()
+        .expect("ess verify conform synthesize");
+    let ids = scenarios(root);
+    assert!(
+        ids.len() < filled,
+        "the emptied specification synthesizes the corpus without the authored scenarios: \
+         {} against {filled}; {}",
+        ids.len(),
+        String::from_utf8_lossy(&synthesis.stderr)
+    );
+
+    let path = root.join("contracts/expected-outcomes.json");
+    let mut expected: serde_json::Value =
+        serde_json::from_slice(&fs::read(&path).expect("the fixture ledger"))
+            .expect("the ledger parses");
+    let rows: Vec<serde_json::Value> = expected["scenarios"]
+        .as_array()
+        .expect("the ledger states its scenarios")
+        .iter()
+        .filter(|row| ids.contains(row["id"].as_str().unwrap_or_default()))
+        .cloned()
+        .collect();
+    assert_eq!(
+        rows.len(),
+        ids.len(),
+        "the ledger carries one row per scenario the suite carries"
+    );
+    expected["scenarios"] = serde_json::Value::from(rows);
+    fs::write(
+        &path,
+        serde_json::to_vec_pretty(&expected).expect("render the ledger"),
+    )
+    .expect("write the fixture ledger");
+
+    let path = root.join("contracts/conformance/injections.json");
+    let injections = fs::read_to_string(&path).expect("the fixture injections");
+    let pruned = rows_carried(&injections, &ids);
+    assert!(
+        pruned.len() < injections.len(),
+        "the injections ledger drops the rows of the scenarios the suite no longer carries"
+    );
+    fs::write(&path, pruned).expect("write the fixture injections");
+
+    emptied
+}
+
+/// An emptied `scenarios:` list is an empty list, and a comment is not data.
+///
+/// `ess-inputs.yaml` carried `scenarios: []` when this case was written and
+/// `story:authored-denial-scenarios` has filled it, so the fixture empties the list itself and
+/// carries the corpus that emptied specification yields.
 ///
 /// The step decides whether to pass `--scenarios` by scanning that file with `str` rather than
 /// parsing it: the empty list is recognised only as the exact three characters `[]`. A comment
@@ -188,18 +392,11 @@ fn inputs(root: &Path) -> PathBuf {
 #[test]
 fn a_comment_beside_the_empty_scenarios_list_is_not_a_scenario() {
     let root = fixture("commented-empty-list");
-    let path = inputs(&root);
-    let commented = fs::read_to_string(&path)
-        .expect("the fixture inputs")
-        .replace(
-            "scenarios: []",
-            "scenarios: []  # story:authored-denial-scenarios fills this",
-        );
+    let commented = without_scenarios(&root, "  # story:authored-denial-scenarios fills this");
     assert!(
-        commented.contains("# story:authored-denial-scenarios"),
-        "the comment was written beside the empty list"
+        commented.contains("scenarios: []  # story:authored-denial-scenarios fills this"),
+        "the comment was written beside the empty list:\n{commented}"
     );
-    fs::write(&path, commented).expect("write the fixture inputs");
     reseal_receipt(&root);
     let refusal = refusal(&root, false);
     assert!(
@@ -231,12 +428,15 @@ fn a_comment_inside_the_scenarios_block_does_not_empty_the_list() {
     )
     .expect("write the fixture scenario");
     let path = inputs(&root);
-    let listed = fs::read_to_string(&path)
-        .expect("the fixture inputs")
-        .replace(
-            "scenarios: []",
-            "scenarios:\n# story:authored-denial-scenarios fills this\n- scenarios/adversary.yaml",
-        );
+    let before = fs::read_to_string(&path).expect("the fixture inputs");
+    let listed = listing(
+        &before,
+        "# story:authored-denial-scenarios fills this\n- scenarios/adversary.yaml",
+    );
+    assert_ne!(
+        listed, before,
+        "the fixture wrote the comment line above the item it listed"
+    );
     assert!(
         listed.contains("- scenarios/adversary.yaml"),
         "the scenario file was listed in the specification's inputs"

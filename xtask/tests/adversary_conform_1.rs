@@ -45,6 +45,32 @@ fn fixture(name: &str) -> PathBuf {
     root
 }
 
+/// `ess-inputs.yaml` with `block` written into the specification's `scenarios:` list.
+///
+/// The list read `scenarios: []` when this case was written and
+/// `story:authored-denial-scenarios` has since filled it with the twenty files it authored, so
+/// a fixture that replaced the empty list replaced nothing: it wrote the specification back
+/// unchanged and drove the gate over a corpus it had not doctored. The key line itself is
+/// rewritten instead — `block` is listed whatever the list already holds, and the entries the
+/// specification carries follow it.
+fn listing(inputs: &str, block: &str) -> String {
+    let mut listed = String::new();
+    let mut keys = 0_usize;
+    for line in inputs.lines() {
+        if line.starts_with("scenarios:") {
+            keys += 1;
+            listed.push_str("scenarios:\n");
+            listed.push_str(block);
+            listed.push('\n');
+            continue;
+        }
+        listed.push_str(line);
+        listed.push('\n');
+    }
+    assert_eq!(keys, 1, "the specification names its scenario list once");
+    listed
+}
+
 fn copy(from: &Path, to: &Path) {
     fs::create_dir_all(to).expect("fixture directory");
     for entry in fs::read_dir(from).expect("read the source directory") {
@@ -207,9 +233,12 @@ fn the_resynthesized_suite_reads_the_specifications_scenario_list() {
     )
     .expect("write the fixture scenario");
     let inputs = root.join("systems/mandate/ess-inputs.yaml");
-    let listed = fs::read_to_string(&inputs)
-        .expect("the fixture inputs")
-        .replace("scenarios: []", "scenarios:\n- scenarios/adversary.yaml");
+    let before = fs::read_to_string(&inputs).expect("the fixture inputs");
+    let listed = listing(&before, "- scenarios/adversary.yaml");
+    assert_ne!(
+        listed, before,
+        "the fixture listed the scenario in the specification's inputs"
+    );
     assert!(
         listed.contains("scenarios/adversary.yaml"),
         "the scenario was listed in the specification's inputs"
