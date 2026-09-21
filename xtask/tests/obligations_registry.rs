@@ -336,6 +336,13 @@ fn a_double_row_does_not_cover_the_clause_it_names() {
     let mut document = document(&root, "authz");
     let at = command_at(&document, "mandate.authorization.Check");
     let clause = bound_clause(&document, at);
+    // Read out of the document rather than restated here. A clause text is a binding
+    // story's to split as the declared cause enumerates conditions, and a literal of it
+    // in this file turns every such split into a failure of the step's own suite.
+    let text = document["commands"][at]["clauses"][clause]["clause"]
+        .as_str()
+        .expect("the clause states its text")
+        .to_owned();
     let tests = document["commands"][at]["clauses"][clause]["tests"]
         .as_array_mut()
         .expect("tests");
@@ -346,8 +353,8 @@ fn a_double_row_does_not_cover_the_clause_it_names() {
     write_document(&root, "authz", &document);
     let error = failure(&root);
     assert!(
-        error.contains("Credential-derived context is invalid/revoked/expired/stale"),
-        "the refusal names the clause a double cannot cover:\n{error}"
+        error.contains(&text),
+        "the refusal names the clause {text:?} a double cannot cover:\n{error}"
     );
 }
 
