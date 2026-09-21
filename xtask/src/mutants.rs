@@ -1087,9 +1087,12 @@ fn killed(
                 return Err(format!(
                     "{}: declares check-fails on `{refusal}` and {} exited non-zero having \
                      printed nothing; a step that said nothing has not said the declared fault \
-                     was the one it found",
+                     was the one it found. What the run actually produced — stderr: {} — stdout: \
+                     {}",
                     mutant.name,
-                    mutant.target()
+                    mutant.target(),
+                    tail(&String::from_utf8_lossy(&out.stderr), 12),
+                    tail(&String::from_utf8_lossy(&out.stdout), 6),
                 )
                 .into());
             }
