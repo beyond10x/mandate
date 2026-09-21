@@ -182,7 +182,18 @@ fn pem_of(der: &[u8]) -> String {
 /// The thread is detached: it lives as long as the test process, which is how the in-process
 /// listener cases serve theirs, and it holds no resource the child owns.
 fn issuer_publishing(jwks: String) -> String {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("an ephemeral port on the loopback");
+    // Under [`PORT`], because this is the file's **other** ephemeral bind and taking the
+    // lock only in `stand_up` left the window it claims to close wide open: every case
+    // stands its issuer up first, so an issuer binding here could be handed exactly the
+    // port a concurrent case's probe had just released and its child had not yet taken.
+    // The listener is kept for the life of the process, so the lock is needed only for the
+    // bind itself — once bound, the port can never be handed out again.
+    let listener = {
+        let _holding = PORT
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        TcpListener::bind("127.0.0.1:0").expect("an ephemeral port on the loopback")
+    };
     let address = listener.local_addr().expect("the bound address");
     let issuer = format!("http://{address}");
     let discovery = format!(r#"{{"issuer":"{issuer}","jwks_uri":"{issuer}/jwks"}}"#);
@@ -277,6 +288,9 @@ struct ConnectionDocument {
     algorithm: Option<&'static str>,
     /// Whether the document seeds the link a login resolves its principal through.
     linked: bool,
+    /// Whether this connection admits just-in-time provisioning — that is, whether a first
+    /// login with no link may create the principal rather than be refused.
+    jit_provisioning: bool,
 }
 
 impl ConnectionDocument {
@@ -289,6 +303,7 @@ impl ConnectionDocument {
             client_id: IDP_CLIENT,
             algorithm: Some(ALGORITHM),
             linked: true,
+            jit_provisioning: false,
         }
     }
 
@@ -313,11 +328,12 @@ impl ConnectionDocument {
             r#"{{"connection_id":"{connection}","organization":"{organization}",
               "issuer":"{issuer}","client_id":"{client}",{algorithm}
               "tenant_resolution":{{"configured_organization":"{organization}"}},
-              "jit_provisioning":false{link}}}"#,
+              "jit_provisioning":{jit}{link}}}"#,
             connection = self.connection_id,
             organization = self.organization,
             issuer = self.issuer,
             client = self.client_id,
+            jit = self.jit_provisioning,
         )
     }
 }
@@ -442,14 +458,22 @@ impl Served {
     fn listening(&mut self, address: SocketAddr) {
         let deadline = Instant::now() + LISTEN_DEADLINE;
         loop {
-            if TcpStream::connect_timeout(&address, HostDuration::from_millis(200)).is_ok() {
-                return;
-            }
+            // **The death check comes first, and the order is the whole point.** A connect
+            // that succeeds says only that *something* is accepting on this address; it
+            // does not say it is this child. Reading it before `exited` reported a dead
+            // child as serving whenever anyone else held the port — the case then drove a
+            // deployment it had not configured, and the promise this function's own
+            // documentation makes, that a child which never binds fails with its own
+            // stderr, was not kept. Asking whether the child is alive first cannot report
+            // a dead one as serving.
             if self.exited() {
                 let (out, err) = self.output();
                 panic!(
                     "the child exited before it bound {address}; stdout {out:?}, stderr {err:?}"
                 );
+            }
+            if TcpStream::connect_timeout(&address, HostDuration::from_millis(200)).is_ok() {
+                return;
             }
             if Instant::now() >= deadline {
                 let (out, err) = self.output();
@@ -624,6 +648,14 @@ fn stand_up(case: &str, connections: &[String]) -> (SocketAddr, Served) {
 /// had returned, and the same eight run with `--test-threads=1` produced none. The
 /// accepted case did not expose it because it was the only case in the lane.
 ///
+/// **Every ephemeral bind in this file takes it**, and that is what makes it work rather
+/// than merely look like it does. There are exactly two: the probe in [`stand_up`], and
+/// [`issuer_publishing`]'s listener. Covering only the probe left the window open — every
+/// case stands its issuer up first, so an issuer's bind could take a probe's just-released
+/// port — and a lock held around one of two binds closes nothing. A third bind added to
+/// this file without taking it would reopen the window, which is why there is one lock and
+/// not a lock per call site.
+///
 /// Held across the window, the window is empty: every earlier case's child already holds
 /// its own port when the next probe binds, so the kernel cannot hand that port out twice.
 /// A poisoned lock is taken anyway — the data it guards is `()`, and a case that panicked
@@ -707,27 +739,116 @@ fn grant_refused_body(code: &str) -> String {
     format!(r#"{{"error":"{code}","error_description":"the grant was refused"}}"#)
 }
 
-/// Kill the child, reap it, and answer what it printed — asserting it seeded every
-/// connection named.
+/// Kill the child, reap it, and assert **which refusal it took** — the lines it printed on
+/// its own stderr — beside the connections it seeded.
 ///
-/// **This is the discriminator the body does not carry.** `access_denied` is the answer to
-/// an unseeded connection *and* to a connection configured for no algorithm *and* to an
-/// ambiguous tenant; the refusals are three, the rendered body is one. What separates them
-/// on the wire-plus-stdout composition an operator actually has is whether the connection
-/// the request named was seeded at all, and the child prints that.
-fn seeded_connections(served: &mut Served, expected: &[Uuid]) -> String {
+/// # Why the status and the body are not enough, and neither is the seeding line
+///
+/// Five of the refusals below render the byte-identical body
+/// `{"error":"access_denied","error_description":"the request was refused"}`, which is
+/// RFC-correct: one `error_description` per denial, and the caller is not owed the cause.
+/// The seeding line does not separate them either. An **expired proof on a fully
+/// configured connection** reproduces status, body *and* the seeding line of the issuer
+/// case, both signature cases and the algorithm case verbatim — a construction none of
+/// them names. So did an absent link. A mutation collapsing those steps into one refusal
+/// left every one of them green.
+///
+/// What separates them is the clause the child took, which it now records on its own
+/// stderr, one line per refused request. That is a diagnosis an operator could not get
+/// before and the wire still does not carry.
+///
+/// # Why `verification` is a separate argument
+///
+/// `DenialClause::ProofInvalid` is **one clause over twenty `RefusalReason`s** — a
+/// malformed token, an unknown `kid`, a bad signature and an expired proof are all of them
+/// (`crates/mandate-federation/src/verifier_real.rs`, `refused`). So the clause alone still
+/// does not separate the two signature cases from each other or from an expired proof.
+/// The reason the verifier itself refused for is recorded too, and a case that refuses at
+/// the verifier names both.
+///
+/// `None` asserts the child recorded **no** verification refusal at all, which is what
+/// makes it a discriminator rather than a label: a refusal that moved to the verifier
+/// fails the case that says it does not happen there.
+fn refusal_taken(
+    served: &mut Served,
+    command: &str,
+    clause: &str,
+    verification: Option<&str>,
+    connections: &[Uuid],
+) -> String {
     let (out, err) = served.output();
     println!("child stdout {out:?}");
     println!("child stderr {err:?}");
-    for connection_id in expected {
+    for connection_id in connections {
         let line = format!("seeded federation connection {connection_id}");
         assert!(
             out.contains(&line),
             "the child seeds and prints every connection it was given; {line:?} is not in {out:?}"
         );
     }
+
+    // Exactly one refusal, and it is this one. A count rather than a `contains` because a
+    // road that refused twice for two reasons would satisfy `contains` for either.
+    let refusals: Vec<&str> = err
+        .lines()
+        .filter(|line| line.contains(": refused "))
+        .collect();
+    assert_eq!(
+        refusals,
+        vec![format!("{CHILD}: refused {command} {clause}").as_str()],
+        "the child records the one clause it refused under; stderr {err:?}"
+    );
+
+    let verifications: Vec<&str> = err
+        .lines()
+        .filter(|line| line.contains(": verification refused "))
+        .collect();
+    let expected: Vec<String> = verification
+        .into_iter()
+        .map(|reason| format!("{CHILD}: verification refused {reason}"))
+        .collect();
+    assert_eq!(
+        verifications,
+        expected.iter().map(String::as_str).collect::<Vec<&str>>(),
+        "the child records the reason the verifier refused for, and only when it did; \
+         stderr {err:?}"
+    );
     out
 }
+
+/// Kill the child, reap it, and assert it recorded **no refusal at all**.
+///
+/// The other half of [`refusal_taken`]: an accepted login that quietly refused something on
+/// the way would otherwise be indistinguishable from one that did not.
+fn no_refusal_taken(served: &mut Served, connections: &[Uuid]) {
+    let (out, err) = served.output();
+    println!("child stdout {out:?}");
+    println!("child stderr {err:?}");
+    for connection_id in connections {
+        let line = format!("seeded federation connection {connection_id}");
+        assert!(
+            out.contains(&line),
+            "the child seeds and prints every connection it was given; {line:?} is not in {out:?}"
+        );
+    }
+    let refusals: Vec<&str> = err
+        .lines()
+        .filter(|line| line.contains(": refused ") || line.contains(": verification refused "))
+        .collect();
+    assert!(
+        refusals.is_empty(),
+        "an accepted login records no refusal; stderr {err:?}"
+    );
+}
+
+/// The prefix every line the binary prints carries.
+const CHILD: &str = "mandate-control-plane";
+
+/// The command the login route binds, as the child names it when it refuses.
+const LOGIN: &str = "mandate.federation.AuthenticateFederation";
+
+/// The command the token endpoint binds, as the child names it when it refuses.
+const REDEEM: &str = "mandate.credential.RedeemAuthorizationCode";
 
 // ----------------------------------------------------------------------- the acceptance
 
@@ -877,8 +998,16 @@ fn the_spawned_binary_completes_one_login_against_an_issuer_that_signed_the_proo
 
 // ------------------------------------------------------------------- the refusals
 //
-// One case per step of the resolution order `docs/architecture/federated-login.md`
-// mandates, each driving the **child process** over TCP.
+// `docs/architecture/federated-login.md` numbers **nine** steps. These cases drive the
+// six that a request can be refused at — 1 select the trust relationship, 2 issuer, 3
+// signature, 4 audience and client binding, 5 nonce/state/PKCE, 6 tenant claim, 7 resolve
+// the external principal — plus the configuration gate that precedes all of them, and step
+// 7's accepted side. Steps 8 and 9, establishing the organization context and issuing the
+// session, have no refusal of their own: they are what the accepted case above asserts.
+//
+// An earlier revision of this comment claimed "one case per step of the resolution order"
+// while step 7 had no case at all in either half. The claim is corrected rather than
+// deleted, because what it should have said is what the file now does.
 //
 // Every one of these decisions was, before this file, reached only through
 // `mandate_federation::verifier::ConstructedVerifier` in `tests/serve.rs` — a double that
@@ -909,9 +1038,15 @@ fn a_connection_nothing_seeded_is_refused_at_step_one() {
         &denied_body("access_denied"),
     );
 
-    // The discriminator the body does not carry: the connection this request named is
-    // seeded by nothing, and the one that is seeded is a different identity.
-    let out = seeded_connections(&mut served, &[connection()]);
+    // Refused at step one and nowhere else: the clause is the connection's, and the child
+    // records no verification refusal at all, because it never reached the verifier.
+    let out = refusal_taken(
+        &mut served,
+        LOGIN,
+        "ConnectionUnknown",
+        None,
+        &[connection()],
+    );
     assert!(
         !out.contains(&format!(
             "seeded federation connection {}",
@@ -945,7 +1080,15 @@ fn a_proof_whose_issuer_is_not_the_connections_is_refused_at_step_two() {
         &denied_body("access_denied"),
     );
 
-    seeded_connections(&mut served, &[connection()]);
+    // The issuer is refused at the verifier, which compares the validated `iss` to the
+    // connection's own — so both records name it, and neither names a signature failure.
+    refusal_taken(
+        &mut served,
+        LOGIN,
+        "IssuerMismatch",
+        Some("IssuerMismatch"),
+        &[connection()],
+    );
 }
 
 /// Step 3, validate the signature: the issuer publishes a key set holding nothing.
@@ -970,7 +1113,16 @@ fn a_proof_whose_key_the_published_set_does_not_hold_is_refused_at_step_three() 
         &denied_body("access_denied"),
     );
 
-    seeded_connections(&mut served, &[connection()]);
+    // `ProofInvalid` is the clause for twenty different reasons, an expired proof among
+    // them, so the clause alone would not say this case happened. `KeyIdUnknown` does: the
+    // published set held no key under the `kid`, and no signature was checked.
+    refusal_taken(
+        &mut served,
+        LOGIN,
+        "ProofInvalid",
+        Some("KeyIdUnknown"),
+        &[connection()],
+    );
 }
 
 /// Step 3, validate the signature: a proof signed by a key outside the published set.
@@ -1003,7 +1155,16 @@ fn a_proof_signed_outside_the_published_key_set_is_refused_at_step_three() {
         &denied_body("access_denied"),
     );
 
-    seeded_connections(&mut served, &[connection()]);
+    // The same clause as the case above and a different reason, which is the whole point:
+    // here the `kid` **did** resolve to a published key and the signature failed under it.
+    // Nothing but the recorded reason separates these two cases from each other.
+    refusal_taken(
+        &mut served,
+        LOGIN,
+        "ProofInvalid",
+        Some("SignatureInvalid"),
+        &[connection()],
+    );
 }
 
 /// Step 4, validate the audience and client binding: the proof's `aud` is not the
@@ -1032,7 +1193,13 @@ fn a_proof_whose_audience_is_not_the_connections_client_is_refused_at_step_four(
         &denied_body("invalid_scope"),
     );
 
-    seeded_connections(&mut served, &[connection()]);
+    refusal_taken(
+        &mut served,
+        LOGIN,
+        "AudienceBinding",
+        Some("AudienceMismatch"),
+        &[connection()],
+    );
 }
 
 /// Step 5, validate nonce, state and PKCE: a code verifier that does not digest to the
@@ -1119,7 +1286,18 @@ fn a_code_verifier_that_does_not_match_the_challenge_is_refused_at_step_five() {
         &grant_refused_body("invalid_grant"),
     );
 
-    seeded_connections(&mut served, &[connection()]);
+    // `invalid_grant` is the token endpoint's answer for an expired code, a consumed code,
+    // a redirect that does not match and a client that is not the code's, so the body is no
+    // more discriminating here than at the login route. The clause is: the presented
+    // verifier did not digest to the recorded challenge. The login that got this far
+    // refused nothing, so the record names one refusal and it is the redemption's.
+    refusal_taken(
+        &mut served,
+        REDEEM,
+        "VerifierMismatch",
+        None,
+        &[connection()],
+    );
 }
 
 /// Step 6, validate the configured organization: resolution would be **ambiguous**, and the
@@ -1235,5 +1413,102 @@ fn a_connection_configured_for_no_algorithm_refuses_rather_than_defaulting() {
     // The child bound its listener and seeded the connection, so the document was read and
     // accepted: this is a login refused at the verifier, not a configuration the binary
     // rejected at startup — which would have been an exit status and no response at all.
-    seeded_connections(&mut served, &[connection()]);
+    // `AlgorithmPolicy` is the clause and the absent configuration is the reason, which is
+    // what an expired proof on this same connection would not produce.
+    refusal_taken(
+        &mut served,
+        LOGIN,
+        "AlgorithmPolicy",
+        Some("ConnectionAlgorithmUnconfigured"),
+        &[connection()],
+    );
+}
+
+/// Step 7, resolve the external principal: a proof this connection has no link for, on a
+/// connection that does not admit provisioning.
+///
+/// `federation.yaml:4` gives `jit_provisioning` one meaning — a connection that does not
+/// admit provisioning "denies the first login and creates nothing" — and
+/// `Deployment::authenticate` reads the flag only after the login has already refused
+/// `LinkAbsent`. Every earlier step passes here: the proof is the accepted one.
+#[test]
+fn a_first_login_a_connection_does_not_admit_provisioning_for_is_refused_at_step_seven() {
+    let signer = idp_signer();
+    let jwks = serde_json::to_string(&signer.published_keys()).expect("the published key set");
+    let issuer = issuer_publishing(jwks);
+
+    let unlinked = ConnectionDocument {
+        linked: false,
+        jit_provisioning: false,
+        ..ConnectionDocument::accepted(&issuer)
+    };
+    let (address, mut served) = stand_up("link-absent", &[unlinked.rendered()]);
+
+    let proof = proof_from(&signer, &issuer, IDP_CLIENT, "proof-link-absent");
+    let login = login_with(address, connection(), &proof);
+    refused(
+        "step 7 link: POST /v1/federation/login",
+        &login,
+        400,
+        &denied_body("access_denied"),
+    );
+
+    // The verifier refused nothing — the proof is valid and every step before this one
+    // passed — so the record names the link and only the link.
+    refusal_taken(&mut served, LOGIN, "LinkAbsent", None, &[connection()]);
+}
+
+/// Step 7 again, on the accepted side: the same first login, on a connection that **does**
+/// admit provisioning, creates the principal and opens a session.
+///
+/// The two cases differ in one Boolean of one document. That is what makes the refusal
+/// above a property of `jit_provisioning` rather than of anything else in the
+/// configuration, and it is the only assertion in this file that the composition
+/// `Deployment::authenticate` performs — authenticate, provision, authenticate again —
+/// runs in the served binary at all.
+#[test]
+fn a_first_login_a_connection_admits_provisioning_for_opens_a_session_at_step_seven() {
+    let signer = idp_signer();
+    let jwks = serde_json::to_string(&signer.published_keys()).expect("the published key set");
+    let issuer = issuer_publishing(jwks);
+
+    let provisioning = ConnectionDocument {
+        linked: false,
+        jit_provisioning: true,
+        ..ConnectionDocument::accepted(&issuer)
+    };
+    let (address, mut served) = stand_up("jit-login", &[provisioning.rendered()]);
+
+    let proof = proof_from(&signer, &issuer, IDP_CLIENT, "proof-jit");
+    let login = login_with(address, connection(), &proof);
+    answered("step 7 jit: POST /v1/federation/login", &login);
+    assert_eq!(
+        login.status, 200,
+        "a connection that admits provisioning opens the first login's session; got {} {}",
+        login.status, login.body
+    );
+    assert!(
+        !member(&login.body, "session_id").is_empty(),
+        "the declared `session_id` response, got {}",
+        login.body
+    );
+    // The principal is the one provisioning created, not the one the accepted case's
+    // document names: no link was seeded, so this identity was minted by the child.
+    assert_ne!(
+        member(&login.body, "principal_id"),
+        principal().to_string(),
+        "a provisioned principal is not the seeded one; got {}",
+        login.body
+    );
+    assert_eq!(
+        member(&login.body, "organization_id"),
+        organization().to_string(),
+        "the session is opened in the connection's organization; got {}",
+        login.body
+    );
+
+    // Nothing was refused on the way. The composition refuses `LinkAbsent` internally on
+    // its first attempt and retries; that refusal is never rendered, so the child records
+    // none — which is what distinguishes this from the case above.
+    no_refusal_taken(&mut served, &[connection()]);
 }
