@@ -70,7 +70,7 @@ use mandate_federation::record::{
     FederationEvent, FoldError as FederationFoldError, OAuthClientState,
     Projection as FederationProjection,
 };
-use mandate_federation::verifier_real::Clock;
+use mandate_federation::verifier_real::{AlgorithmPolicyError, Clock};
 use mandate_federation::{
     ConnectionStore, DenialClause as FederationClause, Denied as FederationDenied,
     FederationVerifier, IssuedSession, SessionIssuer,
@@ -96,18 +96,18 @@ use mandate_sts::registry::ResourceServerReads;
 use mandate_sts::resolve::{IntrospectCredential, IntrospectionParts, introspect_credential};
 use mandate_sts::store::{AuthorizationCodeLog, AuthorizationCodeReads, InMemoryCodeLog};
 use mandate_sts::{IdentityAllocator, RequestContext as StsRequest, SecretSource};
-use mandate_token::CredentialDescriptor;
 use mandate_token::projection::{
     CredentialEvent, Denied as CredentialDenied, FoldError as CredentialFoldError,
     Projection as CredentialProjection,
 };
 use mandate_token::verifier::{CredentialDigest, CredentialDomain, matches, verifier_in};
+use mandate_token::{CredentialDescriptor, CredentialProfile};
 use mandate_types::{
     Audience, AuthorizationCodeId, ClientId, CorrelationId, CredentialId, CredentialProof,
     CredentialSecret, CredentialVerifier, DenialReason, Duration, EpochSnapshotRef,
     ExternalLinkMethod, ExternalPrincipalId, ExternalSubject, FederationConnectionId, Issuer,
-    OAuthClientId, OrganizationId, PrincipalId, RedirectUri, ResourceServerId, SecurityEpochTarget,
-    SessionId, Timestamp, Transient, Uuid, VerifiedContext,
+    OAuthClientId, OrganizationId, PkceMethod, PrincipalId, RedirectUri, ResourceServerId,
+    SecurityEpochTarget, SessionId, SigningAlgorithm, Timestamp, Transient, Uuid, VerifiedContext,
 };
 use serde::Deserialize;
 
@@ -715,6 +715,23 @@ pub struct ConnectionSeed {
     pub issuer: Issuer,
     /// The configured client a proof's `aud` must name.
     pub client_id: ClientId,
+    /// The algorithm this connection's proofs are verified under, when one is configured.
+    ///
+    /// **Not a field of the connection record, and not defaulted.**
+    /// `mandate.federation.FederationConnection` declares no algorithm; the algorithm is the
+    /// *deployment's* configuration for a connection, held by
+    /// `mandate_federation::verifier_real::RealVerifier` and installed through
+    /// `RealVerifier::configure_connection`. That module refuses to have a default at all,
+    /// in as many words — `jsonwebtoken`'s own is `HS256` — and a connection no algorithm
+    /// was configured for verifies nothing and fails closed
+    /// (`RefusalReason::ConnectionAlgorithmUnconfigured`).
+    ///
+    /// So absence here is not a gap this reader fills: it is the operator declining to
+    /// configure verification for this connection, and the served process refuses every
+    /// login through it. It is optional rather than required only because the in-process
+    /// cases seed a verifier double for which the value decides nothing.
+    #[serde(default, deserialize_with = "mandate_types::value::present")]
+    pub algorithm: Option<SigningAlgorithm>,
     /// How the organization is resolved from validated claims.
     pub tenant_resolution: TenantResolutionRule,
     /// Whether this connection admits just-in-time provisioning.
@@ -801,16 +818,166 @@ impl ConnectionSeed {
     /// seeding authenticated no caller — it is the operator's own configuration, not a
     /// command a credential was validated for.
     fn context(&self) -> VerifiedContext {
-        VerifiedContext {
-            subject: PrincipalId::new(Uuid::from_bytes([0; 16])),
-            actor: None,
-            organization: self.organization,
-            audience: Audience::new(SEEDED_CONFIGURATION_AUDIENCE),
-            credential: CredentialId::new(Uuid::from_bytes([0; 16])),
-            delegation: None,
-            execution: None,
-            correlation: CorrelationId::new(SEEDED_CONFIGURATION_AUDIENCE),
+        seeded_context(self.organization)
+    }
+}
+
+/// The `--client` document: a registered `mandate.federation.OAuthClient`.
+///
+/// The authorization endpoint reads this record after the session — the client must be
+/// registered, enabled, **public**, in the session's own organization, and have registered
+/// the exact redirection URI the request presents
+/// (`crates/mandate-federation/src/publicclient.rs`). A process configured from
+/// `--connection` and `--key` alone holds no such record and refuses every
+/// `GET /oauth/authorize`, which is what this flag closes.
+///
+/// `public` is stated rather than defaulted, for the reason `jit_provisioning` is: a
+/// confidential client authenticates at the token endpoint and a public one does not, and a
+/// security-relevant value nobody wrote is not a value an operator chose.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ClientSeed {
+    /// The client identity, when the operator states one. Absent, one is allocated and
+    /// printed.
+    #[serde(default, deserialize_with = "mandate_types::value::present")]
+    pub client_id: Option<OAuthClientId>,
+    /// The organization the client is bound to.
+    ///
+    /// The fold reads it from the event (`crates/mandate-federation/src/record.rs`), and the
+    /// authorization endpoint refuses a client whose organization is not the authenticated
+    /// session's — so this is the same organization the `--connection` document resolves to.
+    pub organization: OrganizationId,
+    /// Whether this client is a public client.
+    pub public: bool,
+    /// The redirection endpoint URIs this client registers.
+    ///
+    /// Compared byte for byte and normalized in no way at all
+    /// ([`OAuthClientReadsOver::redirect_registered`]), so a URI written here with a trailing
+    /// slash the client does not send is a URI the client has not registered.
+    pub redirect_uris: Vec<RedirectUri>,
+    /// The PKCE method this client's authorization requests must use.
+    pub pkce_method: PkceMethod,
+}
+
+/// The client one document seeds, and the events that seed it.
+#[derive(Debug, Clone)]
+pub struct SeededClient {
+    /// The client identity, stated by the document or allocated for it.
+    ///
+    /// Handed back for the reason [`SeededConnection::connection_id`] is: the authorization
+    /// endpoint selects on it, so an operator who cannot learn it cannot call that route.
+    pub client_id: OAuthClientId,
+    /// The events, in the order the fold reads them.
+    pub events: Vec<FederationEvent>,
+}
+
+impl ClientSeed {
+    /// The events this document seeds, allocating the identity it states none for.
+    pub fn events(&self, allocate: &mut impl FnMut() -> Uuid) -> SeededClient {
+        let client_id = self
+            .client_id
+            .unwrap_or_else(|| OAuthClientId::new(allocate()));
+        SeededClient {
+            client_id,
+            events: vec![FederationEvent::OAuthClientRegistered {
+                context: seeded_context(self.organization),
+                id: client_id,
+                organization_id: self.organization,
+                public: self.public,
+                redirect_uris: self.redirect_uris.clone(),
+                pkce_method: self.pkce_method,
+            }],
         }
+    }
+}
+
+/// The `--resource-server` document: a registered `mandate.credential.ResourceServer`.
+///
+/// The authorization endpoint reads this record as the request's `target` — it must resolve,
+/// be enabled, and belong to the client's organization — and the issued code carries the
+/// registration's own `audience` and credential profile. A process holding no registration
+/// refuses every authorization with `TargetUnknown`, which is what this flag closes.
+///
+/// **The organization is carried in the context, not in the payload.** The event declares no
+/// organization of its own: `mandate_token::projection::Projection` binds the registration to
+/// the *registering caller's verified* organization, read off the context, and
+/// `mandate_sts::registry::register_resource_server` refuses any other. This document
+/// therefore states the organization once and it lands where the fold reads it.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ResourceServerSeed {
+    /// The registration identity, when the operator states one. Absent, one is allocated and
+    /// printed.
+    #[serde(default, deserialize_with = "mandate_types::value::present")]
+    pub resource_server_id: Option<ResourceServerId>,
+    /// The organization the registration is bound to.
+    pub organization: OrganizationId,
+    /// The audience the registration holds, which a credential issued for this target is
+    /// bound to.
+    pub audience: Audience,
+    /// The credential profile the registration issues under.
+    pub profile: CredentialProfile,
+    /// The registrations admitted as exchange sources into this one.
+    ///
+    /// Stated rather than defaulted, and empty is the ordinary value: this is a declared
+    /// input of `mandate.credential.RegisterResourceServer`, every member of it widens what
+    /// may be exchanged into this target, and a list nobody wrote is not a list an operator
+    /// chose.
+    pub allowed_exchange_sources: Vec<ResourceServerId>,
+}
+
+/// The registration one document seeds, and the events that seed it.
+#[derive(Debug, Clone)]
+pub struct SeededResourceServer {
+    /// The registration identity, stated by the document or allocated for it.
+    ///
+    /// Handed back because the authorization request names the target by it: an operator who
+    /// cannot learn it cannot ask for a credential for this server.
+    pub resource_server_id: ResourceServerId,
+    /// The events, in the order the fold reads them.
+    pub events: Vec<CredentialEvent>,
+}
+
+impl ResourceServerSeed {
+    /// The events this document seeds, allocating the identity it states none for.
+    pub fn events(&self, allocate: &mut impl FnMut() -> Uuid) -> SeededResourceServer {
+        let resource_server_id = self
+            .resource_server_id
+            .unwrap_or_else(|| ResourceServerId::new(allocate()));
+        SeededResourceServer {
+            resource_server_id,
+            events: vec![CredentialEvent::ResourceServerRegistered {
+                context: seeded_context(self.organization),
+                id: resource_server_id,
+                audience: self.audience.clone(),
+                credential_profile: self.profile.clone(),
+                allowed_exchange_sources: self.allowed_exchange_sources.clone(),
+            }],
+        }
+    }
+}
+
+/// The context every seeded event is recorded under, whichever document seeded it.
+///
+/// One function rather than one per seed type: a record that says it came from the process's
+/// own configuration says so the same way for all three, and the reasoning below holds for
+/// each of them.
+///
+/// The organization is the document's, because the folds bind the seeded record to it. The
+/// subject and the credential name none, spelled the way [`Deployment::authenticate`] spells
+/// it for the same reason: the declared types are not `Optional`, and this seeding
+/// authenticated no caller — it is the operator's own configuration, not a command a
+/// credential was validated for.
+fn seeded_context(organization: OrganizationId) -> VerifiedContext {
+    VerifiedContext {
+        subject: PrincipalId::new(Uuid::from_bytes([0; 16])),
+        actor: None,
+        organization,
+        audience: Audience::new(SEEDED_CONFIGURATION_AUDIENCE),
+        credential: CredentialId::new(Uuid::from_bytes([0; 16])),
+        delegation: None,
+        execution: None,
+        correlation: CorrelationId::new(SEEDED_CONFIGURATION_AUDIENCE),
     }
 }
 
@@ -872,6 +1039,28 @@ pub enum SeedRefused {
         /// The fold's own refusal.
         error: FederationFoldError,
     },
+    /// The events the document seeds are not a history the credential fold reads.
+    ///
+    /// Separate from [`SeedRefused::Unseedable`] because the two folds raise different
+    /// errors and neither can be rendered as the other; a refusal that named the wrong fold
+    /// would tell the operator to look at the wrong document.
+    UnseedableCredential {
+        /// The file that was read.
+        path: PathBuf,
+        /// The fold's own refusal.
+        error: CredentialFoldError,
+    },
+    /// The document names an algorithm this deployment's allowlist does not admit.
+    ///
+    /// A `--connection` refusal, and a configuration one: the algorithm is installed on the
+    /// verifier before the listener binds, so an unadmitted name is the operator's to
+    /// correct rather than a denial every login learns about.
+    Algorithm {
+        /// The file that was read.
+        path: PathBuf,
+        /// The policy's own refusal.
+        error: AlgorithmPolicyError,
+    },
 }
 
 impl SeedRefused {
@@ -882,7 +1071,9 @@ impl SeedRefused {
             Self::Unreadable { path, .. }
             | Self::Malformed { path, .. }
             | Self::Key { path, .. }
-            | Self::Unseedable { path, .. } => path,
+            | Self::Unseedable { path, .. }
+            | Self::UnseedableCredential { path, .. }
+            | Self::Algorithm { path, .. } => path,
         }
     }
 }
@@ -895,6 +1086,8 @@ impl core::fmt::Display for SeedRefused {
             Self::Malformed { error, .. } => write!(formatter, "{path}: {error}"),
             Self::Key { refusal, .. } => write!(formatter, "{path}: {refusal}"),
             Self::Unseedable { error, .. } => write!(formatter, "{path}: {error:?}"),
+            Self::UnseedableCredential { error, .. } => write!(formatter, "{path}: {error:?}"),
+            Self::Algorithm { error, .. } => write!(formatter, "{path}: {error}"),
         }
     }
 }
@@ -908,6 +1101,32 @@ impl std::error::Error for SeedRefused {}
 /// Returns [`SeedRefused`] naming the file when it does not open, or is not the object
 /// [`ConnectionSeed`] declares.
 pub fn read_connection_seed(path: &Path) -> Result<ConnectionSeed, SeedRefused> {
+    serde_json::from_str(&read_document(path)?).map_err(|error| SeedRefused::Malformed {
+        path: path.to_path_buf(),
+        error,
+    })
+}
+
+/// The client document at this path.
+///
+/// # Errors
+///
+/// Returns [`SeedRefused`] naming the file when it does not open, or is not the object
+/// [`ClientSeed`] declares.
+pub fn read_client_seed(path: &Path) -> Result<ClientSeed, SeedRefused> {
+    serde_json::from_str(&read_document(path)?).map_err(|error| SeedRefused::Malformed {
+        path: path.to_path_buf(),
+        error,
+    })
+}
+
+/// The resource-server document at this path.
+///
+/// # Errors
+///
+/// Returns [`SeedRefused`] naming the file when it does not open, or is not the object
+/// [`ResourceServerSeed`] declares.
+pub fn read_resource_server_seed(path: &Path) -> Result<ResourceServerSeed, SeedRefused> {
     serde_json::from_str(&read_document(path)?).map_err(|error| SeedRefused::Malformed {
         path: path.to_path_buf(),
         error,
