@@ -12,7 +12,7 @@
         {
           "clause": "Caller lacks resource-server administration authority",
           "tests": [],
-          "blocked_on": "story:obligations-sts"
+          "blocked_on": "decision-blocker:guards"
         },
         {
           "clause": "server is outside the verified organization",
@@ -27,7 +27,7 @@
         {
           "clause": "durable disablement cannot prevent subsequent issuance",
           "tests": [],
-          "blocked_on": "story:obligations-sts"
+          "blocked_on": "decision-blocker:epoch-atomicity"
         }
       ],
       "no_state_change": [
@@ -78,7 +78,7 @@
         {
           "clause": "principal/connection/epoch validation fails",
           "tests": [],
-          "blocked_on": "story:obligations-sts"
+          "blocked_on": "decision-blocker:guards"
         },
         {
           "clause": "audience mismatches",
@@ -121,7 +121,7 @@
         {
           "clause": "Trusted control-plane caller/session context",
           "tests": [],
-          "blocked_on": "story:obligations-sts"
+          "blocked_on": "decision-blocker:guards"
         },
         {
           "clause": "registered public client",
@@ -166,7 +166,7 @@
         {
           "clause": "authority narrowing",
           "tests": [],
-          "blocked_on": "story:obligations-sts"
+          "blocked_on": "decision-blocker:guards"
         },
         {
           "clause": "bounded expiry validation fails",
@@ -209,12 +209,12 @@
         {
           "clause": "Validated context is expired/revoked/stale",
           "tests": [],
-          "blocked_on": "story:obligations-sts"
+          "blocked_on": "decision-blocker:guards"
         },
         {
           "clause": "subject/actor authority or ceilings do not cover requested scope",
           "tests": [],
-          "blocked_on": "story:obligations-sts"
+          "blocked_on": "decision-blocker:guards"
         },
         {
           "clause": "target/profile is unregistered/disabled/outside tenant",
@@ -239,7 +239,7 @@
         {
           "clause": "verifier-only persistence and required audit cannot commit",
           "tests": [],
-          "blocked_on": "story:obligations-sts"
+          "blocked_on": "decision-blocker:epoch-atomicity"
         }
       ],
       "no_state_change": [
@@ -262,12 +262,12 @@
         {
           "clause": "Validated context is expired/revoked/stale",
           "tests": [],
-          "blocked_on": "story:obligations-sts"
+          "blocked_on": "decision-blocker:guards"
         },
         {
           "clause": "subject/actor authority or ceilings do not cover requested scope",
           "tests": [],
-          "blocked_on": "story:obligations-sts"
+          "blocked_on": "decision-blocker:guards"
         },
         {
           "clause": "target/profile/signing algorithm or key is unadmitted",
@@ -292,7 +292,7 @@
         {
           "clause": "the promised revocation/audit guarantee cannot be met",
           "tests": [],
-          "blocked_on": "story:obligations-sts"
+          "blocked_on": "decision-blocker:epoch-atomicity"
         }
       ],
       "no_state_change": [
@@ -374,18 +374,33 @@
         },
         {
           "clause": "narrowing",
-          "tests": [],
-          "blocked_on": "story:obligations-sts"
+          "tests": [
+            {
+              "id": "mandate-sts::obligations::narrowing_refuses_a_credential_whose_expiry_cannot_be_bounded",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-sts::obligations::narrowing_refuses_a_zero_span_profile_bound_and_moves_nothing",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
         },
         {
           "clause": "atomic issuance validation fails",
           "tests": [],
-          "blocked_on": "story:obligations-sts"
+          "blocked_on": "decision-blocker:epoch-atomicity"
         }
       ],
       "no_state_change": [
         {
           "id": "mandate-sts::emitted_events::every_refused_redemption_emits_nothing_through_the_outcome_it_names",
+          "kind": "no-state-change",
+          "path": "real"
+        },
+        {
+          "id": "mandate-sts::obligations::a_redemption_refused_on_the_narrowing_clause_moves_neither_log_nor_fold",
           "kind": "no-state-change",
           "path": "real"
         }
@@ -403,7 +418,7 @@
         {
           "clause": "Caller lacks resource-server administration authority",
           "tests": [],
-          "blocked_on": "story:obligations-sts"
+          "blocked_on": "decision-blocker:guards"
         },
         {
           "clause": "audience registration is ambiguous",
@@ -456,7 +471,7 @@
         {
           "clause": "Caller lacks platform signing-key administration authority",
           "tests": [],
-          "blocked_on": "story:obligations-sts"
+          "blocked_on": "decision-blocker:guards"
         },
         {
           "clause": "the algorithm is outside the deployment's admitted set",
@@ -509,7 +524,7 @@
         {
           "clause": "Caller lacks platform signing-key administration authority",
           "tests": [],
-          "blocked_on": "story:obligations-sts"
+          "blocked_on": "decision-blocker:guards"
         },
         {
           "clause": "the key is unresolved",
@@ -534,7 +549,7 @@
         {
           "clause": "retirement cannot durably stop further issuance under the key",
           "tests": [],
-          "blocked_on": "story:obligations-sts"
+          "blocked_on": "decision-blocker:epoch-atomicity"
         }
       ],
       "no_state_change": [
@@ -557,7 +572,7 @@
         {
           "clause": "Caller lacks credential-revocation authority",
           "tests": [],
-          "blocked_on": "story:obligations-sts"
+          "blocked_on": "decision-blocker:guards"
         },
         {
           "clause": "resolved credential is outside the verified organization",
@@ -572,7 +587,7 @@
         {
           "clause": "the named profile revocation guarantee cannot be met",
           "tests": [],
-          "blocked_on": "story:obligations-sts"
+          "blocked_on": "decision-blocker:epoch-atomicity"
         }
       ],
       "no_state_change": [
@@ -595,7 +610,7 @@
         {
           "clause": "Caller lacks platform signing-key administration authority",
           "tests": [],
-          "blocked_on": "story:obligations-sts"
+          "blocked_on": "decision-blocker:guards"
         },
         {
           "clause": "the key is unresolved",
@@ -610,7 +625,7 @@
         {
           "clause": "emergency revocation cannot durably stop both issuance and verification under the key and refuse the credentials it signed",
           "tests": [],
-          "blocked_on": "story:obligations-sts"
+          "blocked_on": "decision-blocker:epoch-atomicity"
         }
       ],
       "no_state_change": [
@@ -660,52 +675,52 @@
     {
       "case": "credential-containment",
       "tests": [],
-      "blocked_on": "story:obligations-sts"
+      "blocked_on": "story:protocol-adapters"
     },
     {
       "case": "exchange-actor",
       "tests": [],
-      "blocked_on": "story:obligations-sts"
+      "blocked_on": "story:constrained-exchange"
     },
     {
       "case": "exchange-ceiling",
       "tests": [],
-      "blocked_on": "story:obligations-sts"
+      "blocked_on": "story:constrained-exchange"
     },
     {
       "case": "exchange-chain",
       "tests": [],
-      "blocked_on": "story:obligations-sts"
+      "blocked_on": "story:constrained-exchange"
     },
     {
       "case": "exchange-expiry",
       "tests": [],
-      "blocked_on": "story:obligations-sts"
+      "blocked_on": "story:constrained-exchange"
     },
     {
       "case": "exchange-organization",
       "tests": [],
-      "blocked_on": "story:obligations-sts"
+      "blocked_on": "story:constrained-exchange"
     },
     {
       "case": "exchange-revoked",
       "tests": [],
-      "blocked_on": "story:obligations-sts"
+      "blocked_on": "story:constrained-exchange"
     },
     {
       "case": "exchange-space",
       "tests": [],
-      "blocked_on": "story:obligations-sts"
+      "blocked_on": "story:constrained-exchange"
     },
     {
       "case": "exchange-subject",
       "tests": [],
-      "blocked_on": "story:obligations-sts"
+      "blocked_on": "story:constrained-exchange"
     },
     {
       "case": "exchange-target",
       "tests": [],
-      "blocked_on": "story:obligations-sts"
+      "blocked_on": "story:constrained-exchange"
     },
     {
       "case": "pkce-missing",
