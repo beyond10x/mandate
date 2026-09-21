@@ -14,7 +14,6 @@ arrange:
     fields:
       principal_id: 00000000-0000-4000-8000-000000000001
       organization_id: 00000000-0000-4000-8000-0000000000a1
-      connection_id: null
       epochs: 00000000-0000-4000-8000-0000000000b1
       expires_at: '2026-01-05T23:00:00Z'
     state: Active
@@ -24,12 +23,9 @@ timeline:
   input:
     context:
       subject: 00000000-0000-4000-8000-000000000001
-      actor: null
       organization: 00000000-0000-4000-8000-0000000000a1
       audience: mandate
       credential: 00000000-0000-4000-8000-0000000000c1
-      delegation: null
-      execution: null
       correlation: sts-disabled-client-server
     audience: api-a
     profile:
@@ -54,12 +50,9 @@ timeline:
   input:
     context:
       subject: 00000000-0000-4000-8000-000000000001
-      actor: null
       organization: 00000000-0000-4000-8000-0000000000a1
       audience: mandate
       credential: 00000000-0000-4000-8000-0000000000c1
-      delegation: null
-      execution: null
       correlation: sts-disabled-client-register
     public: true
     redirect_uris:
@@ -81,12 +74,9 @@ timeline:
       $instance: client
     context:
       subject: 00000000-0000-4000-8000-000000000001
-      actor: null
       organization: 00000000-0000-4000-8000-0000000000a1
       audience: mandate
       credential: 00000000-0000-4000-8000-0000000000c1
-      delegation: null
-      execution: null
       correlation: sts-disabled-client-disable
   outcome: accepted
   events:
@@ -96,12 +86,9 @@ timeline:
   input:
     context:
       subject: 00000000-0000-4000-8000-000000000001
-      actor: null
       organization: 00000000-0000-4000-8000-0000000000a1
       audience: mandate
       credential: 00000000-0000-4000-8000-0000000000c1
-      delegation: null
-      execution: null
       correlation: sts-disabled-client-issue
     client_id:
       $instance: client
@@ -115,7 +102,6 @@ timeline:
       resources:
       - resource_type: document
         resource_id: 00000000-0000-4000-8000-000000000071
-      space: null
     challenge: E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM
     method: S256
     redirect_uri: https://app.example.test/callback

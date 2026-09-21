@@ -11,12 +11,9 @@ timeline:
   input:
     context:
       subject: 00000000-0000-4000-8000-000000000001
-      actor: null
       organization: 00000000-0000-4000-8000-0000000000a1
       audience: mandate
       credential: 00000000-0000-4000-8000-0000000000c1
-      delegation: null
-      execution: null
       correlation: authz-unadmitted-create
     display_name: Acme
   outcome: accepted
@@ -33,12 +30,9 @@ timeline:
   input:
     context:
       subject: 00000000-0000-4000-8000-000000000001
-      actor: null
       organization: 00000000-0000-4000-8000-0000000000a1
       audience: mandate
       credential: 00000000-0000-4000-8000-0000000000c1
-      delegation: null
-      execution: null
       correlation: authz-unadmitted-member
     organization_id:
       $instance: organization
@@ -53,12 +47,9 @@ timeline:
   input:
     context:
       subject: 00000000-0000-4000-8000-000000000001
-      actor: null
       organization: 00000000-0000-4000-8000-0000000000a2
       audience: mandate
       credential: 00000000-0000-4000-8000-0000000000c1
-      delegation: null
-      execution: null
       correlation: authz-unadmitted-check
     action: document.read
     resource:

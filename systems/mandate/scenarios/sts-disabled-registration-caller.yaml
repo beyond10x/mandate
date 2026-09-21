@@ -11,12 +11,9 @@ timeline:
   input:
     context:
       subject: 00000000-0000-4000-8000-000000000001
-      actor: null
       organization: 00000000-0000-4000-8000-0000000000a1
       audience: mandate
       credential: 00000000-0000-4000-8000-0000000000c1
-      delegation: null
-      execution: null
       correlation: sts-disabled-registration-server
     audience: api-a
     profile:
@@ -43,12 +40,9 @@ timeline:
       $instance: server
     context:
       subject: 00000000-0000-4000-8000-000000000001
-      actor: null
       organization: 00000000-0000-4000-8000-0000000000a1
       audience: mandate
       credential: 00000000-0000-4000-8000-0000000000c1
-      delegation: null
-      execution: null
       correlation: sts-disabled-registration-disable
   outcome: accepted
   events:
@@ -60,12 +54,9 @@ timeline:
       $instance: server
     context:
       subject: 00000000-0000-4000-8000-000000000001
-      actor: null
       organization: 00000000-0000-4000-8000-0000000000a1
       audience: mandate
       credential: 00000000-0000-4000-8000-0000000000c1
-      delegation: null
-      execution: null
       correlation: sts-disabled-registration-again
   outcome: wrong-state
   error:

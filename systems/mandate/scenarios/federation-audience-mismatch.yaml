@@ -11,19 +11,14 @@ timeline:
   input:
     context:
       subject: 00000000-0000-4000-8000-000000000001
-      actor: null
       organization: 00000000-0000-4000-8000-0000000000a1
       audience: mandate
       credential: 00000000-0000-4000-8000-0000000000c1
-      delegation: null
-      execution: null
       correlation: federation-audience-mismatch
     issuer: https://idp.example.test
     client_id: mandate-client
     tenant_resolution:
       configured_organization: 00000000-0000-4000-8000-0000000000a1
-      verified_claim_name: null
-      verified_claim_value: null
     jit_provisioning: false
   outcome: accepted
   events:
