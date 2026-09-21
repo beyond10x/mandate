@@ -708,9 +708,9 @@ impl std::error::Error for ConfigurationRefused {}
 /// A connection alone selects: `mandate.federation.AuthenticateFederation` resolves its
 /// principal through an explicit link and refuses `DenialClause::LinkAbsent` when there is
 /// none (`crates/mandate-federation/src/authenticate.rs:118-121`). The just-in-time branch
-/// that would create one is behind `decision-blocker:jit-provisioning` and no route reaches
-/// it, so a seeded connection carrying no link is a connection every login is denied
-/// against — the flag would configure a road that still cannot be walked. `link` is
+/// that creates one is driven by `Deployment::authenticate` since `story:federated-jit-login`
+/// (`decision-blocker:jit-provisioning`, cleared 2026-09-21), so a connection carrying no link
+/// is walkable when it admits provisioning and denied when it does not. `link` is
 /// optional because a deployment may legitimately seed the connection and link later
 /// through the persistence story's log.
 ///
