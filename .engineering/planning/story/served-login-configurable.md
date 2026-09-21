@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:served-login-configurable
 kind: story
-status: active
+status: implemented
 title: serve takes a federation connection and a signing key, and one login completes
 relations:
 - decomposes: epic:authentication
@@ -14,7 +14,7 @@ scope:
   path: services/control-plane/src/main.rs
 - confidence: cited
   path: services/control-plane/tests/serve.rs
-revision: 6
+revision: 7
 ---
 # The served deployment can be given a connection and a key
 

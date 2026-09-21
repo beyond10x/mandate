@@ -126,3 +126,64 @@ no tag, no release, no work outside these units.
 - `b10x/aep` 45G, `b10x/ess` 12G of build output.
 - `/tmp/s8-pend-binding-policy.py`, deleted during wave D on a sub-agent's say-so; five days old,
   another session's, not recoverable.
+
+## Close — 2026-09-22
+
+Re-pointed mid-wave. Wave F opened on `decision-blocker:guards` and the operator set the
+federated-login use case as the session goal, so the guards stories were created, scoped and left
+undispatched. The clause count did not move: **190 clauses, 83 real, 21 double-only, 86 deferred**,
+unchanged from wave D. The 31 *caller lacks authority* clauses are still decided by nothing,
+including on the commands this road drives.
+
+What the wave did instead: the road runs.
+
+| merge | |
+|---|---|
+| `f1d2d28` | `--connection`, `--key` — the road runs in-process |
+| `066c341` | `decision-blocker:jit-provisioning` cleared |
+| `b8cb155` | a user nobody provisioned completes a first login |
+| `4be1090` | the spawned binary, a real issuer, a signed proof |
+| `2f6f370` | eight refusals against the binary |
+| `1b1c12e` | a revoked link stays revoked |
+| `90ec4a5` | flag documents run the command's own guards |
+| `efcb0e5` | every refusal names itself |
+| `69d40c2` | an issuer may publish its keys elsewhere |
+| `abadfb8` | the authored corpus executes |
+| `209b173` | the conformance fixtures earn their assertions |
+| `79a7053` | the public page |
+| `621f564` | ADR 0011 and the use-case registry |
+
+Gate on the head: `task check` exit 0. 1,860 workspace tests, 0 failed. 292 elements. 190 clauses.
+166 scenarios, `error` 0. 11 named mutants, each killed by the target it names. 231 store artifacts.
+
+### Adversary passes
+
+Three, one per merged login unit, by operator decision of 2026-09-21 rather than the protocol's two.
+**The second pass is owed on `story:served-login-configurable`, `story:federated-jit-login` and
+`story:served-login-end-to-end`** and is carried to the next wave. Four corrections were run; every
+blocker was closed.
+
+### What a unit found and could not fix, filed rather than carried
+
+`story:link-absent-discriminates` · `story:jit-principal-record` · `story:host-spelling-folded` ·
+`story:ess-evidence-suite-version`.
+
+### Refused by the store, and not routed around
+
+`aep plan artifact evidence --from … --suite …` is refused:
+`UnsupportedSuiteVersion at $.suite.version: ess-conformance/9`. AEP 0.55.0 admits 1 through 6. The
+ESS artifact keeps its `model_digest` and its `validated` rung; this run has no evidence row.
+`story:ess-evidence-suite-version` carries it. ADR 0010 describes a path that does not currently
+exist, and that is the thing to fix.
+
+### Coordinator errors, recorded
+
+1. 69 tracked story files deleted by a glob over a directory holding read-only copies; restored from
+   `4be1090` in full.
+2. `story:served-login-end-to-end.md` deleted as though it were a copy; it was a real artifact, never
+   committed, and survived only because a unit tree happened to hold one. There was no safety net.
+3. Three claims handed to the public-docs unit were wrong — eight refusals against eleven, three RFCs
+   claimed as present that appear nowhere outside preserved sources, and OIDC discovery described as
+   served when it is consumed. The unit checked each against code and refused all three.
+4. The recipe given to the fixtures unit was insufficient and it measured that rather than following
+   it: emptying the scenario list moves a corpus that is byte-compared at three places.

@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:connection-jwks-hosts
 kind: story
-status: active
+status: implemented
 title: A connection names the hosts its issuer publishes keys on
 relations:
 - decomposes: epic:authentication
@@ -14,7 +14,7 @@ scope:
   path: services/control-plane/src/main.rs
 - confidence: cited
   path: services/control-plane/tests/end_to_end.rs
-revision: 6
+revision: 7
 ---
 # A connection names the hosts its issuer publishes keys on
 

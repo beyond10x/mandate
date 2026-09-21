@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:served-login-refusals
 kind: story
-status: active
+status: implemented
 title: The spawned binary refuses at every step of the resolution order
 relations:
 - decomposes: epic:authentication
@@ -11,7 +11,7 @@ relations:
 scope:
 - confidence: cited
   path: services/control-plane/tests/end_to_end.rs
-revision: 4
+revision: 5
 ---
 # The spawned binary refuses at every step of the resolution order
 

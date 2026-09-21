@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:federated-jit-login
 kind: story
-status: active
+status: implemented
 title: A first-time user logs in and the link is made during that login
 relations:
 - decomposes: epic:authentication
@@ -12,7 +12,7 @@ scope:
   path: services/control-plane/src/adapters.rs
 - confidence: cited
   path: services/control-plane/tests/serve.rs
-revision: 5
+revision: 6
 ---
 # A user with no link logs in, and the link is made during that login
 

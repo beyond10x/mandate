@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:served-login-end-to-end
 kind: story
-status: active
+status: implemented
 title: The spawned binary completes one login against a real issuer
 relations:
 - decomposes: epic:authentication
@@ -17,7 +17,7 @@ scope:
   path: services/control-plane/src/main.rs
 - confidence: cited
   path: services/control-plane/tests/end_to_end.rs
-revision: 7
+revision: 8
 ---
 # The spawned binary completes one login against a real issuer
 

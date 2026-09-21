@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:authored-denial-scenarios
 kind: story
-status: active
+status: implemented
 title: Authored scenarios drive the real denial paths the synthesizer cannot express
 relations:
 - decomposes: epic:foundations
@@ -14,7 +14,7 @@ scope:
   path: systems/mandate/ess-inputs.yaml
 - confidence: cited
   path: systems/mandate/scenarios
-revision: 16
+revision: 17
 ---
 ## Acceptance
 
