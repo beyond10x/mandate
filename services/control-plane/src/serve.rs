@@ -558,7 +558,9 @@ where
                         .to_string(),
                     )
                     .no_store(),
-                    Err(refusal) => Response::denied(&refusal),
+                    Err(refusal) => {
+                        Response::denied("mandate.federation.AuthenticateFederation", &refusal)
+                    }
                 },
             }
         }
@@ -580,12 +582,18 @@ where
                             Err(refused) => redirect_unusable(refused),
                         }
                     }
-                    Err(AuthorizationRefusal::InPlace(refusal)) => Response::denied(&refusal),
+                    Err(AuthorizationRefusal::InPlace(refusal)) => {
+                        Response::denied("mandate.federation.AuthorizePublicClient", &refusal)
+                    }
                     Err(AuthorizationRefusal::AtRedirect {
                         refusal,
                         redirect_uri,
                         state,
                     }) => {
+                        // Recorded here too: a refusal that leaves as a redirect is still a
+                        // refusal, and it is the one an operator is least able to see —
+                        // nothing of it reaches this process's own output otherwise.
+                        record_refusal("mandate.federation.AuthorizePublicClient", &refusal.clause);
                         let code = oauth::code_for_denial(&refusal.clause, refusal.reason);
                         match redirect_to(
                             &redirect_uri.to_string(),
@@ -619,6 +627,10 @@ where
                         Response::json(200, body.to_string()).no_store()
                     }
                     Err(RedemptionRefused::Denied(denied)) => {
+                        record_refusal(
+                            "mandate.credential.RedeemAuthorizationCode",
+                            &format!("{:?}", denied.clause),
+                        );
                         let code = oauth::code_for_clause(denied.clause);
                         Response::error(
                             status_for(code),
@@ -665,6 +677,13 @@ where
                     Err(denied) => {
                         // RFC 7662 section 2.3: the caller's own standing is answered as an
                         // error; anything about the presented token is `active: false`.
+                        // Both are refusals and both are recorded: `active: false` is the
+                        // shape in this whole listener that tells a caller least and an
+                        // operator reading only the wire nothing at all.
+                        record_refusal(
+                            "mandate.credential.IntrospectCredential",
+                            &format!("{:?}", denied.clause),
+                        );
                         let code = oauth::code_for_clause(denied.clause);
                         if code == ErrorCode::InvalidClient {
                             Response::error(401, ErrorBody::new(code, "the caller was refused"))
@@ -685,6 +704,31 @@ where
             ),
         ),
     }
+}
+
+/// Record **which clause refused a request**, on stderr, one line per refusal.
+///
+/// # Why the cause is recorded here and not answered on the wire
+///
+/// The rendered body is RFC 6749's, and it carries one `error` and one `error_description`
+/// per denial: five different refusals of a federated login — a connection nothing
+/// registered, an issuer that is not the connection's, a proof whose signature does not
+/// verify, an ambiguous tenant, a connection configured for no algorithm — all answer
+/// `access_denied` with the same description, and that is correct. A caller is told it was
+/// refused and is not owed the reason; telling it which of those five happened would let an
+/// unauthenticated caller map a deployment's configuration.
+///
+/// The **operator** is owed the reason, and had no way to get it: the same deployment that
+/// refuses every login for one cause and one that refuses each for its own were
+/// indistinguishable in everything this process emitted. So the clause goes to the
+/// operator's stream and the body stays closed.
+///
+/// **No caller-supplied material reaches this line.** The clause is a variant name of a
+/// `DenialClause` — a closed enum in this repository's own source — so the line is drawn
+/// from a fixed set and carries no token, no claim and no identifier
+/// (`../../AGENTS.md`: raw credentials must never enter logs).
+fn record_refusal(command: &str, clause: &str) {
+    eprintln!("mandate-control-plane: refused {command} {clause}");
 }
 
 /// RFC 6749 section 5.2: `invalid_client` may answer 401; every other code answers 400.
@@ -877,7 +921,8 @@ impl Response {
     }
 
     /// A handler's denial, rendered in place.
-    fn denied(refusal: &Refusal) -> Self {
+    fn denied(command: &str, refusal: &Refusal) -> Self {
+        record_refusal(command, &refusal.clause);
         let code = oauth::code_for_denial(&refusal.clause, refusal.reason);
         Self::error(
             status_for(code),

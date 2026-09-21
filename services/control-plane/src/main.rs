@@ -42,8 +42,12 @@ use mandate_control_plane::adapters::{
     read_connection_seed, read_key, read_resource_server_seed,
 };
 use mandate_control_plane::serve::{Limits, Listener};
+use mandate_federation::record::FederationConnection;
+use mandate_federation::verifier::VerifiedProof;
 use mandate_federation::verifier_real::{AllowedAlgorithms, RealVerifier, SystemClock, UreqJwks};
+use mandate_federation::{Denied, FederationVerifier};
 use mandate_sts::code::CodeLifetime;
+use mandate_types::CredentialProof;
 use mandate_types::{Duration, SigningAlgorithm};
 
 #[derive(Parser)]
@@ -257,8 +261,14 @@ fn serve(serving: &Serving) -> Result<(), Refused> {
             .map_err(Refused::Seed)?;
     }
 
-    let mut deployment = Deployment::new(configuration, verifier, SystemClock, secrets, allocator)
-        .map_err(Refused::Configuration)?;
+    let mut deployment = Deployment::new(
+        configuration,
+        RecordingVerifier(verifier),
+        SystemClock,
+        secrets,
+        allocator,
+    )
+    .map_err(Refused::Configuration)?;
     for (path, _, connection) in seeded {
         for event in &connection.events {
             deployment
@@ -317,4 +327,52 @@ fn serve(serving: &Serving) -> Result<(), Refused> {
         .serve(&mut deployment)
         .map_err(|error| Refused::Start(Box::new(error)))?;
     Ok(())
+}
+
+/// The real verifier, recording **the reason it refused for** on stderr.
+///
+/// # Why the clause the listener records is not enough
+///
+/// `mandate_federation::DenialClause::ProofInvalid` is one clause over twenty
+/// `RefusalReason`s: a malformed token, a `typ` that is not a JWT, an unread `crit`, an
+/// absent or unknown `kid`, a key set that could not be read, a malformed key, a key whose
+/// algorithm is not the configured one, an invalid signature, malformed claims, an absent,
+/// past or too-distant expiry, a proof not yet valid, an unverifiable sender constraint,
+/// and an absent or over-long subject (`crates/mandate-federation/src/verifier_real.rs`,
+/// `refused`). Collapsing them is right on the wire and right in the contract — they are
+/// one declared denial — but it leaves an operator unable to tell "your IdP rotated a key
+/// and we cannot see the new one" from "somebody is presenting forged proofs", which are
+/// the same clause and opposite incidents.
+///
+/// `RealVerifier` already keeps the reasons, bounded, for exactly this
+/// (`RealVerifier::refusals`, whose own documentation records that the material a refusal
+/// was about "is not here and never was"). This reads the newest one after a refusal and
+/// writes its name beside the clause.
+///
+/// # Why reading the last entry is sound
+///
+/// `Listener::serve` is a sequential accept loop — one connection accepted, answered and
+/// closed before the next, over `&mut Deployment` — so no second request can have refused
+/// between this call and this read. If that listener ever serves connections concurrently,
+/// this reads the wrong request's reason and must be replaced by one the verifier returns
+/// directly.
+///
+/// **The refusal path only.** A verification that succeeds is not touched, and nothing here
+/// runs for an accepted login.
+struct RecordingVerifier(RealVerifier<UreqJwks, SystemClock>);
+
+impl FederationVerifier for RecordingVerifier {
+    fn verify(
+        &self,
+        connection: &FederationConnection,
+        proof: &CredentialProof,
+    ) -> Result<VerifiedProof, Denied> {
+        let verified = self.0.verify(connection, proof);
+        if verified.is_err()
+            && let Some(reason) = self.0.refusals().last()
+        {
+            eprintln!("mandate-control-plane: verification refused {reason:?}");
+        }
+        verified
+    }
 }
