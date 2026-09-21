@@ -364,12 +364,25 @@ fn a_clause_that_lies_inside_another_clause_of_the_same_command_is_refused() {
         }));
     write_document(&root, "graph", &document);
 
+    // The overlap raises whichever coverage column the clause it copies is counted in,
+    // and which one that is moves with a ruling: `review-result:wave-d-obligations-graph-\
+    // adversary-1` filed this clause as `double`. Reading the column off the covering clause
+    // keeps the case about the rule — one position of the cause counted twice raises a
+    // coverage total with no new condition decided — instead of about today's filing.
+    let column = if rows(&covering["tests"])
+        .iter()
+        .any(|row| row["kind"] == "denial" && row["path"] == "real")
+    {
+        "real_covered"
+    } else {
+        "double_only"
+    };
     let outcome = run_after_write(&root);
     let after = report(&root);
     assert_eq!(
-        after["totals"]["real_covered"].as_u64().expect("a count"),
-        before["totals"]["real_covered"].as_u64().expect("a count") + 1,
-        "the overlapping clause raised the published real_covered total"
+        after["totals"][column].as_u64().expect("a count"),
+        before["totals"][column].as_u64().expect("a count") + 1,
+        "the overlapping clause raised the published {column} total"
     );
     let error = match outcome {
         Ok(table) => panic!(

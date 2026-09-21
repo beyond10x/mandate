@@ -335,20 +335,37 @@ fn the_step_refuses_a_double_row_added_to_a_clause_a_real_row_already_covers() {
         .iter()
         .position(|entry| entry["command"] == "mandate.graph.WriteRelationship")
         .expect("WriteRelationship has an entry");
-    let clause = rows(&graph["commands"][at]["clauses"])
-        .iter()
-        .position(covered_real)
-        .expect("WriteRelationship has a clause a real row covers");
+    // The precondition is built here rather than read out of the committed document. Which
+    // clauses a crate covers on the real path is a thing a ruling moves — after
+    // `review-result:wave-d-obligations-graph-adversary-2` this command covers none, every
+    // decider behind it being a port `mandate_graph::double::GraphDouble` is the only
+    // implementor of — and a case that searches the shipped data for its own precondition
+    // measures that data, not the rule it exists to decide.
+    let clause = 0;
     let name = graph["commands"][at]["clauses"][clause]["clause"].clone();
-    graph["commands"][at]["clauses"][clause]["tests"]
-        .as_array_mut()
-        .expect("tests")
-        .push(json!({
+    graph["commands"][at]["clauses"][clause]["tests"] = json!([
+        {
+            "id": "mandate-graph::obligations::a_relationship_write_on_another_organizations_resource_is_a_tenant_mismatch",
+            "kind": "denial",
+            "path": "real"
+        },
+        {
             "id": "mandate-graph::double::a_parent_that_does_not_resolve_is_denied",
             "kind": "denial",
             "path": "double",
             "double": "mandate_graph::double::GraphDouble"
-        }));
+        }
+    ]);
+    // A clause a real row covers carries no deferral; leaving one would refuse the run for
+    // the other reason and the case would pass having measured nothing.
+    graph["commands"][at]["clauses"][clause]
+        .as_object_mut()
+        .expect("a clause is an object")
+        .remove("blocked_on");
+    assert!(
+        covered_real(&graph["commands"][at]["clauses"][clause]),
+        "the fixture states the precondition: a clause a real row covers"
+    );
     write_document(&root, "graph", &graph);
 
     let error = match run(&root) {
