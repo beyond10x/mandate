@@ -4,10 +4,10 @@
     "mandate-authz": {"clauses": 5, "real_covered": 5, "double_only": 0, "deferred": 0},
     "mandate-federation": {"clauses": 40, "real_covered": 28, "double_only": 3, "deferred": 9},
     "mandate-graph": {"clauses": 19, "real_covered": 6, "double_only": 2, "deferred": 11},
-    "mandate-identity": {"clauses": 12, "real_covered": 4, "double_only": 0, "deferred": 8},
+    "mandate-identity": {"clauses": 12, "real_covered": 4, "double_only": 2, "deferred": 6},
     "mandate-model": {"clauses": 40, "real_covered": 2, "double_only": 0, "deferred": 38},
     "mandate-policy": {"clauses": 8, "real_covered": 0, "double_only": 6, "deferred": 2},
     "mandate-sts": {"clauses": 52, "real_covered": 32, "double_only": 0, "deferred": 20}
   },
-  "totals": {"clauses": 176, "real_covered": 77, "double_only": 11, "deferred": 88}
+  "totals": {"clauses": 176, "real_covered": 77, "double_only": 13, "deferred": 86}
 }
