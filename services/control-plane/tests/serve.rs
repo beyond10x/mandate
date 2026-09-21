@@ -2105,12 +2105,15 @@ fn a_first_login_provisions_one_link_and_a_second_resolves_it_and_provisions_not
 
 /// A verifier double that validates a **different subject on every call**, and counts them.
 ///
-/// Named here as the case that uses it requires. It is not a claim about identity providers:
-/// it is the one construction in which the *retry* resolves no link either, because with the
-/// shipped fold a provisioning creates exactly the key the retry then looks the link up
-/// under. `FederationVerifier` is a port and nothing in this composition may assume an
-/// implementation answers twice the same; what the case pins is that the port is consulted
-/// three times for one login — authenticate, provision, authenticate — and not a fourth.
+/// **It breaks a rule of the product deliberately, and is not a description of it.**
+/// `docs/architecture/federated-login.md` says the validations of one proof are pure
+/// functions of it inside its validity window, so the second cannot admit what the first
+/// refused; `adapters.rs`'s header says the same for the composition built on it. No
+/// conforming verifier behaves like this one. It exists because with a conforming verifier
+/// the retry always resolves the link the provisioning just created, so this is the only
+/// construction that reaches a second `LinkAbsent` at all — and what the case pins is that
+/// the composition *returns* it, consulting the port four times for one login and not a
+/// fifth.
 struct RotatingSubjects {
     calls: std::sync::Arc<std::sync::atomic::AtomicUsize>,
 }
@@ -2169,7 +2172,111 @@ fn a_second_link_absent_is_returned_and_the_sequence_does_not_run_again() {
     );
     assert_eq!(
         calls.load(std::sync::atomic::Ordering::Relaxed),
-        3,
-        "one login consults the verifier three times: authenticate, provision, authenticate"
+        4,
+        "one login consults the port a bounded number of times — authenticate, the key read, \
+         provision, authenticate — and not once more"
+    );
+}
+
+/// `mandate.federation.UnlinkExternalPrincipal` revokes, and the next login does not provision
+/// its way around the revocation.
+///
+/// `Projection::link` answers for the `Linked` state alone, so a revoked link reads to
+/// `authenticate_federation` exactly as a key that was never linked: both are `LinkAbsent`.
+/// A composition that admits provisioning on that clause alone answers the domain's only
+/// federated revocation by minting a **new** `PrincipalId` for the same external subject —
+/// the caller is back, as somebody else, and nothing downstream can correlate the two.
+#[test]
+fn a_revoked_external_principal_is_not_provisioned_around_by_the_next_login() {
+    let (mut deployment, connection_id) = deployment_unlinked(true);
+    let first = deployment
+        .authenticate(&login_input(connection_id))
+        .expect("the first login provisions the principal it opens a session for");
+    let provisioned = deployment.federation().links().to_vec();
+    assert_eq!(provisioned.len(), 1, "one first login, one link");
+
+    // The revocation, through the domain's own event.
+    deployment
+        .record_federation(&FederationEvent::ExternalPrincipalUnlinked {
+            context: context(),
+            id: provisioned[0].id,
+        })
+        .expect("a readable federation history");
+
+    let refusal = deployment
+        .authenticate(&login_input(connection_id))
+        .expect_err("a revoked external principal is not admitted by the next login");
+
+    assert_eq!(
+        refusal.clause, "LinkAbsent",
+        "the clause is the domain's own and is unchanged; what changed is that the \
+         composition no longer reads it as `never linked`"
+    );
+    assert_eq!(
+        deployment.federation().links().len(),
+        1,
+        "no second record is created on a key a revoked record already holds, got {:?}",
+        deployment.federation().links()
+    );
+    assert!(
+        deployment
+            .federation()
+            .links()
+            .iter()
+            .all(|record| record.principal_id == first.principal_id),
+        "a revocation is not answered with a new principal for the same subject, got {:?}",
+        deployment.federation().links()
+    );
+}
+
+/// The other half: a revocation is a revocation and not a brick. An administrator's
+/// `LinkExternalPrincipal` on the same key admits the subject again, as **that** command's
+/// principal, and the login resolves it without provisioning anything.
+#[test]
+fn an_explicitly_relinked_subject_logs_in_again_and_provisions_nothing() {
+    let (mut deployment, connection_id) = deployment_unlinked(true);
+    let first = deployment
+        .authenticate(&login_input(connection_id))
+        .expect("the first login provisions the principal it opens a session for");
+    let provisioned = deployment.federation().links()[0].clone();
+    deployment
+        .record_federation(&FederationEvent::ExternalPrincipalUnlinked {
+            context: context(),
+            id: provisioned.id,
+        })
+        .expect("a readable federation history");
+
+    // The recovery path: an authenticated administrator links the subject to a principal of
+    // their choosing, which is the command a revoked user comes back through.
+    deployment
+        .record_federation(&FederationEvent::ExternalPrincipalLinked {
+            context: context(),
+            connection_id,
+            principal_id: principal(),
+            external_principal_id: ExternalPrincipalId::new(uuid(0xe5)),
+            subject: ExternalSubject::new("subject-1"),
+            link_method: ExternalLinkMethod::ConfiguredFederation,
+            linked_at: Timestamp::new("2026-09-21T00:00:00Z"),
+        })
+        .expect("a readable federation history");
+
+    let login = deployment
+        .authenticate(&login_input(connection_id))
+        .expect("the explicitly linked subject logs in again");
+
+    assert_eq!(
+        login.principal_id,
+        principal(),
+        "the session is for the principal the administrator linked"
+    );
+    assert_ne!(
+        login.principal_id, first.principal_id,
+        "and not the one the revoked provisioning created"
+    );
+    assert_eq!(
+        deployment.federation().links().len(),
+        2,
+        "the revoked record and the administrator's, and nothing this login created, got {:?}",
+        deployment.federation().links()
     );
 }

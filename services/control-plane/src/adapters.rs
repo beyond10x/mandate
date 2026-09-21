@@ -32,6 +32,22 @@
 //! `mandate_federation::verifier_real::SystemClock` are the shipped other two, wired in
 //! `src/main.rs`. Every double the cases use is named in the case that uses it.
 //!
+//! # One proof, validated more than once, answering the same
+//!
+//! [`Deployment::authenticate`] puts a proof past the verifier up to four times for one
+//! login. That is sound and is stated as such: "the proof is validated twice; both
+//! validations are pure functions of the same proof inside its validity window, so the second
+//! cannot admit what the first refused" (`docs/architecture/federated-login.md`, *Why two
+//! commands at the adapter, not one*). Nothing here may be built on a verifier that answers
+//! two calls differently, and nothing here is.
+//!
+//! **`RotatingSubjects` in `tests/serve.rs` breaks that rule on purpose**, validating a
+//! different subject on every call. It is a test construction and not a description of the
+//! contract: it exists because with a conforming verifier the retry always resolves the link
+//! the provisioning just created, so it is the only way to reach the second `LinkAbsent` and
+//! show that the sequence returns it instead of running again. A reader must not take that
+//! double for what an issuer is allowed to do.
+//!
 //! # Named residue
 //!
 //! * **The identity fold is seeded with `mandate.identity.SessionOpened`**, which
@@ -67,8 +83,8 @@ use std::path::{Path, PathBuf};
 use mandate_federation::authorize::{IssueAuthorizationCodeInput, TargetRegistry};
 use mandate_federation::publicclient::{OAuthClientStore, registered_public_client};
 use mandate_federation::record::{
-    FederationEvent, FoldError as FederationFoldError, OAuthClientState,
-    Projection as FederationProjection,
+    ExternalKey, FederationConnection, FederationEvent, FoldError as FederationFoldError,
+    OAuthClientState, Projection as FederationProjection,
 };
 use mandate_federation::verifier_real::{AlgorithmPolicyError, Clock};
 use mandate_federation::{
@@ -1384,12 +1400,18 @@ where
         // connection the request selected is the only thing that admits it. Every other
         // refusal — a disabled connection, a refused proof, an unresolved tenant, a disabled
         // principal — is a condition creating a principal would not change.
-        if denied.clause != FederationClause::LinkAbsent
-            || !self
-                .federation
-                .connection(&input.connection_id)
-                .is_some_and(|connection| connection.jit_provisioning)
-        {
+        let Some(connection) = self.federation.connection(&input.connection_id) else {
+            return Err(Refusal::from(&denied));
+        };
+        if denied.clause != FederationClause::LinkAbsent || !connection.jit_provisioning {
+            return Err(Refusal::from(&denied));
+        }
+        // And the clause is not enough by itself: it is two conditions under one name, and
+        // only one of them may be provisioned into. See [`Deployment::key_holds_no_record`].
+        let Ok(verified) = self.verifier.verify(&connection, &input.proof) else {
+            return Err(Refusal::from(&denied));
+        };
+        if !self.key_holds_no_record(&connection, verified.subject()) {
             return Err(Refusal::from(&denied));
         }
         if !self.provisioned(input) {
@@ -1397,6 +1419,48 @@ where
         }
         self.authenticate_once(input)
             .map_err(|refused| Refusal::from(&refused))
+    }
+
+    /// Whether the key this login resolves to holds **no record at all**, in any lifecycle
+    /// state — which is the condition that admits creating one.
+    ///
+    /// **`LinkAbsent` is two conditions under one name.** `authenticate_federation` reads the
+    /// link through [`mandate_federation::LinkStore`], whose `Projection` answer is the
+    /// smallest `Linked` record on the key and `None` otherwise, so the clause fires both for
+    /// a key that was never linked *and* for a key whose every record is `Unlinked` — the
+    /// terminal state `mandate.federation.UnlinkExternalPrincipal` moves a link to
+    /// (`crates/mandate-federation/src/disable.rs`). Only the first may be provisioned into.
+    /// Provisioning on the second answers this domain's one federated revocation by minting a
+    /// **new** `PrincipalId` for the same external subject: the revoked caller returns as a
+    /// different principal, which is not a revocation and which nothing downstream can
+    /// correlate to the principal that was revoked.
+    ///
+    /// `ProvisionExternalPrincipal`'s own `ExternalKeyExists` does not close this: it reads
+    /// the same `Linked`-only port (`crates/mandate-federation/src/authenticate.rs`), so it
+    /// sees a revoked key as free exactly as the login does. The read that tells the two
+    /// apart is over the records themselves, which is [`FederationProjection::links`] keyed
+    /// by [`FederationProjection::key_of`] — the fold's own definition of the key, so this
+    /// cannot drift from the one the command resolved.
+    ///
+    /// The key's organization is the connection's, which is the same value the command
+    /// resolved: `resolve_tenant` refuses `OrganizationMismatch` unless the tenant rule
+    /// resolves to the connection's own binding, so a login that reached `LinkAbsent` reached
+    /// it on this organization.
+    fn key_holds_no_record(
+        &self,
+        connection: &FederationConnection,
+        subject: &ExternalSubject,
+    ) -> bool {
+        let key = ExternalKey {
+            organization_id: connection.organization_id,
+            issuer: connection.issuer.clone(),
+            subject: subject.clone(),
+        };
+        !self
+            .federation
+            .links()
+            .iter()
+            .any(|record| self.federation.key_of(record).as_ref() == Some(&key))
     }
 
     /// Drive `mandate.federation.ProvisionExternalPrincipal` for this login and fold the
