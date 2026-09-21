@@ -1,0 +1,129 @@
+type: ess-scenario/2
+domain: mandate.credential
+scenario: sts-disabled-client-issuance
+summary: '`the client the code would be bound to is disabled`: a disabled registration is issued no new code; code.rs:435-436; corpus: none.'
+arrange:
+- instance: server
+  entity: mandate.credential.ResourceServer
+- instance: client
+  entity: mandate.federation.OAuthClient
+- instance: session
+  entity: mandate.identity.Session
+  setup:
+    identity: 00000000-0000-4000-8000-0000000000f1
+    fields:
+      principal_id: 00000000-0000-4000-8000-000000000001
+      organization_id: 00000000-0000-4000-8000-0000000000a1
+      connection_id: null
+      epochs: 00000000-0000-4000-8000-0000000000b1
+      expires_at: '2026-01-05T23:00:00Z'
+    state: Active
+timeline:
+- at: '2026-01-05T09:00:00Z'
+  command: mandate.credential.RegisterResourceServer
+  input:
+    context:
+      subject: 00000000-0000-4000-8000-000000000001
+      actor: null
+      organization: 00000000-0000-4000-8000-0000000000a1
+      audience: mandate
+      credential: 00000000-0000-4000-8000-0000000000c1
+      delegation: null
+      execution: null
+      correlation: sts-disabled-client-server
+    audience: api-a
+    profile:
+      name: reference-api
+      kind: Reference
+      revocation: BoundedOffline
+      max_ttl: PT10M
+      positive_cache_ttl: PT1M
+      requires_online_authorization: false
+    allowed_exchange_sources: []
+  outcome: accepted
+  events:
+  - event: mandate.credential.ResourceServerRegistered
+    payload:
+      audience: api-a
+  capture:
+    instance: server
+    event: mandate.credential.ResourceServerRegistered
+    field: id
+- at: '2026-01-05T09:00:01Z'
+  command: mandate.federation.RegisterOAuthClient
+  input:
+    context:
+      subject: 00000000-0000-4000-8000-000000000001
+      actor: null
+      organization: 00000000-0000-4000-8000-0000000000a1
+      audience: mandate
+      credential: 00000000-0000-4000-8000-0000000000c1
+      delegation: null
+      execution: null
+      correlation: sts-disabled-client-register
+    public: true
+    redirect_uris:
+    - https://app.example.test/callback
+    pkce_method: S256
+  outcome: accepted
+  events:
+  - event: mandate.federation.OAuthClientRegistered
+    payload:
+      public: true
+  capture:
+    instance: client
+    event: mandate.federation.OAuthClientRegistered
+    field: id
+- at: '2026-01-05T09:00:02Z'
+  command: mandate.federation.DisableOAuthClient
+  input:
+    id:
+      $instance: client
+    context:
+      subject: 00000000-0000-4000-8000-000000000001
+      actor: null
+      organization: 00000000-0000-4000-8000-0000000000a1
+      audience: mandate
+      credential: 00000000-0000-4000-8000-0000000000c1
+      delegation: null
+      execution: null
+      correlation: sts-disabled-client-disable
+  outcome: accepted
+  events:
+  - event: mandate.federation.OAuthClientDisabled
+- at: '2026-01-05T09:00:03Z'
+  command: mandate.credential.IssueAuthorizationCode
+  input:
+    context:
+      subject: 00000000-0000-4000-8000-000000000001
+      actor: null
+      organization: 00000000-0000-4000-8000-0000000000a1
+      audience: mandate
+      credential: 00000000-0000-4000-8000-0000000000c1
+      delegation: null
+      execution: null
+      correlation: sts-disabled-client-issue
+    client_id:
+      $instance: client
+    session_id:
+      $instance: session
+    target:
+      $instance: server
+    requested_scope:
+      actions:
+      - document.read
+      resources:
+      - resource_type: document
+        resource_id: 00000000-0000-4000-8000-000000000071
+      space: null
+    challenge: E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM
+    method: S256
+    redirect_uri: https://app.example.test/callback
+    expires_at: '2026-01-05T09:05:00Z'
+  outcome: denied
+  error:
+    name: mandate.credential.Denied
+    fields:
+      reason: Denied
+  no_events:
+  - mandate.credential.AuthorizationCodeIssued

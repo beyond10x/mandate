@@ -1,0 +1,49 @@
+type: ess-scenario/2
+domain: mandate.federation
+scenario: federation-untrimmed-subject
+summary: sub is not its own trim; authenticate.rs:274-275; read by mandate_conformance::external::ScenarioVerifier, the standing decode-only verifier double; residue story:signing-and-verification.
+arrange:
+- instance: conn
+  entity: mandate.federation.FederationConnection
+timeline:
+- at: '2026-01-05T09:00:00Z'
+  command: mandate.federation.RegisterFederationConnection
+  input:
+    context:
+      subject: 00000000-0000-4000-8000-000000000001
+      actor: null
+      organization: 00000000-0000-4000-8000-0000000000a1
+      audience: mandate
+      credential: 00000000-0000-4000-8000-0000000000c1
+      delegation: null
+      execution: null
+      correlation: federation-untrimmed-subject
+    issuer: https://idp.example.test
+    client_id: mandate-client
+    tenant_resolution:
+      configured_organization: 00000000-0000-4000-8000-0000000000a1
+      verified_claim_name: null
+      verified_claim_value: null
+    jit_provisioning: false
+  outcome: accepted
+  events:
+  - event: mandate.federation.FederationConnectionCreated
+    payload:
+      issuer: https://idp.example.test
+  capture:
+    instance: conn
+    event: mandate.federation.FederationConnectionCreated
+    field: connection_id
+- at: '2026-01-05T09:00:01Z'
+  command: mandate.federation.AuthenticateFederation
+  input:
+    connection_id:
+      $instance: conn
+    proof: ZXlKaGJHY2lPaUpTVXpJMU5pSXNJblI1Y0NJNklrcFhWQ0lzSW10cFpDSTZJbXN4SW4wLmV5SnBjM01pT2lKb2RIUndjem92TDJsa2NDNWxlR0Z0Y0d4bExuUmxjM1FpTENKaGRXUWlPaUp0WVc1a1lYUmxMV05zYVdWdWRDSXNJbk4xWWlJNklpQjFMVEVnSWl3aVpYaHdJam94TnpZM05qVTBNREF3ZlEuYzJsbmJtRjBkWEps
+  outcome: denied
+  error:
+    name: mandate.federation.Denied
+    fields:
+      reason: InvalidCredential
+  no_events:
+  - mandate.federation.FederationAuthenticated
