@@ -1,0 +1,1557 @@
+{
+  "format": "mandate-use-case/1",
+  "use_case": "federated-login",
+  "title": "A customer's user signs in through the customer's own identity provider and reaches a resource server with a Mandate credential",
+  "summary": "The customer's user is already signed in to the customer's platform. They enter a Mandate-protected flow without creating a password or a second account: the customer's identity provider issues a proof, Mandate validates it against a connection the customer's administrator registered, mints a session, turns that session into an authorization code under PKCE, redeems the code for a Mandate credential, and the resource server introspects that credential rather than trusting the customer's identity provider.",
+  "serves": {
+    "epic": "epic:authentication",
+    "requirement": "docs/requirements.md:153",
+    "requirement_words": "customer user with an existing IdP session can enter Mandate-protected flows without creating a separate password/account login"
+  },
+  "parties": [
+    {
+      "party": "mandate-deployment",
+      "outside": false,
+      "role": "The process this repository builds: `mandate-control-plane serve`, holding the federation, identity and credential folds and serving the six routes.",
+      "delivers": [
+        {
+          "kind": "contract",
+          "element": "mandate.federation.AuthenticateFederation",
+          "element_kind": "command",
+          "statement": "A session is minted only when the connection is enabled, the proof's issuer and audience are the connection's, the signature verifies under a key the issuer published, tenant resolution has exactly one match, and the external subject resolves to a link — and a tenant that is ambiguous is denied rather than guessed."
+        },
+        {
+          "kind": "contract",
+          "element": "mandate.federation.Denied",
+          "element_kind": "error",
+          "statement": "A denial on this road moves no record and issues no credential, whichever step refused."
+        },
+        {
+          "kind": "contract",
+          "element": "mandate.credential.AuthorizationCode",
+          "element_kind": "entity",
+          "statement": "One authorization code is consumed exactly once; a second redemption is the declared wrong-state outcome and not a second credential."
+        },
+        {
+          "kind": "contract",
+          "element": "mandate.identity.Session",
+          "element_kind": "entity",
+          "statement": "A session records the connection it came from and the epoch snapshot it was minted under, so a credential can be bound to the login that produced it."
+        },
+        {
+          "kind": "route",
+          "method": "POST",
+          "path": "/v1/federation/login",
+          "binds": {
+            "command": "mandate.federation.AuthenticateFederation"
+          },
+          "statement": "The login route: a proof in, a session out, and no credential issued here."
+        },
+        {
+          "kind": "route",
+          "method": "GET",
+          "path": "/oauth/authorize",
+          "binds": {
+            "command": "mandate.federation.AuthorizePublicClient"
+          },
+          "statement": "The authorization endpoint, reached with a session proof."
+        },
+        {
+          "kind": "route",
+          "method": "POST",
+          "path": "/oauth/token",
+          "binds": {
+            "command": "mandate.credential.RedeemAuthorizationCode"
+          },
+          "statement": "The token endpoint: the code and its verifier in, one credential out."
+        },
+        {
+          "kind": "route",
+          "method": "POST",
+          "path": "/oauth/introspect",
+          "binds": {
+            "command": "mandate.credential.IntrospectCredential"
+          },
+          "statement": "The introspection endpoint the resource server calls."
+        },
+        {
+          "kind": "route",
+          "method": "GET",
+          "path": "/.well-known/oauth-authorization-server",
+          "binds": {
+            "document": "AuthorizationServerMetadata"
+          },
+          "statement": "The metadata document, advertising exactly the endpoints this deployment serves and no others."
+        },
+        {
+          "kind": "route",
+          "method": "GET",
+          "path": "/oauth/jwks",
+          "binds": {
+            "document": "Jwks"
+          },
+          "statement": "The key set a verifier of a self-contained Mandate credential reads."
+        },
+        {
+          "kind": "test",
+          "id": "mandate-sts::redemption::the_credential_is_returned_once_and_only_its_verifier_is_recorded",
+          "statement": "The credential is handed to the caller once; what the deployment keeps is a verifier, never the credential itself."
+        },
+        {
+          "kind": "test",
+          "id": "mandate-federation::pkce::a_refusal_carries_no_verifier_material",
+          "statement": "A PKCE refusal carries no part of the verifier back to the caller."
+        },
+        {
+          "kind": "test",
+          "id": "mandate-server::metadata::the_metadata_advertises_no_endpoint_this_deployment_does_not_serve",
+          "statement": "The advertised surface is the served surface; a client that reads the metadata reaches nothing this deployment does not answer."
+        },
+        {
+          "kind": "test",
+          "id": "mandate-control-plane::serve::a_generated_command_path_is_refused",
+          "statement": "The generated per-command OpenAPI paths are not served by this deployment; the product routes are the whole surface."
+        }
+      ],
+      "relies_on": [
+        {
+          "kind": "configuration",
+          "flag": "--connection",
+          "type": "ConnectionSeed",
+          "field": "issuer",
+          "statement": "The issuer a proof's `iss` must equal is the operator's configuration, never a value the caller supplies."
+        },
+        {
+          "kind": "configuration",
+          "flag": "--connection",
+          "type": "ConnectionSeed",
+          "field": "algorithm",
+          "statement": "The algorithm this connection's proofs are verified under has no default; absent, every login through the connection is refused."
+        },
+        {
+          "kind": "configuration",
+          "flag": "--connection",
+          "type": "ConnectionSeed",
+          "field": "tenant_resolution",
+          "statement": "The organization a validated proof resolves to comes only from this rule, never from an email domain or a hostname."
+        },
+        {
+          "kind": "configuration",
+          "flag": "--key",
+          "type": "argument",
+          "field": "keys",
+          "statement": "The public key set this deployment publishes is the operator's, one document per key, each carrying a distinct `kid`."
+        }
+      ]
+    },
+    {
+      "party": "customer-identity-provider",
+      "outside": true,
+      "role": "The customer's own identity provider — the issuer named in the connection. It signs the proof a user arrives with.",
+      "delivers": [
+        {
+          "kind": "promise",
+          "party": "customer-identity-provider",
+          "statement": "It signs every proof with a key its published key set holds, under a `kid` that set names.",
+          "locally_refutable": true,
+          "refuted_by": "every login through this connection is refused at resolution-order step 3 after one refetch of the key set; `mandate-federation::verifier_real::a_kid_that_no_published_set_holds_is_refused_after_one_refetch` is the shipped behaviour the operator would observe."
+        },
+        {
+          "kind": "promise",
+          "party": "customer-identity-provider",
+          "statement": "Its `iss` value is stable and is the one registered on the connection.",
+          "locally_refutable": true,
+          "refuted_by": "every login is refused at step 2 with the issuer mismatch; the connection's issuer is immutable, so the customer must register a new connection and relink."
+        },
+        {
+          "kind": "promise",
+          "party": "customer-identity-provider",
+          "statement": "It issues the proof to the client the connection names, so `aud` is that client.",
+          "locally_refutable": true,
+          "refuted_by": "every login is refused at step 4 with the audience mismatch."
+        },
+        {
+          "kind": "promise",
+          "party": "customer-identity-provider",
+          "statement": "It publishes a discovery document whose `jwks_uri` is on its own origin or on a host the operator listed for this connection.",
+          "locally_refutable": true,
+          "refuted_by": "the key set is never fetched and every login is refused; the split-issuer case is what this looks like in the deployment."
+        },
+        {
+          "kind": "promise",
+          "party": "customer-identity-provider",
+          "statement": "The claim the tenant rule reads — and `email_verified` where an email claim is involved — is true of the user, and it never emits a claim it has not verified.",
+          "locally_refutable": false,
+          "refuted_by": "nothing refuses it. Mandate refuses an *unverified* input and never falls back to an email domain, but a provider that asserts a verified claim falsely is believed: this is the promise on which the tenant boundary rests and the one with no local refutation at all."
+        },
+        {
+          "kind": "promise",
+          "party": "customer-identity-provider",
+          "statement": "Its `sub` is stable for the life of the user's account and is not reissued to a different person.",
+          "locally_refutable": false,
+          "refuted_by": "nothing refuses it. The canonical external key is `(organization, connection issuer, subject)`; a reissued `sub` resolves to the previous person's link and their principal."
+        }
+      ],
+      "relies_on": [
+        {
+          "kind": "contract",
+          "element": "mandate.federation.FederationConnection",
+          "element_kind": "entity",
+          "statement": "Mandate holds one record per trust relationship and derives the issuer from it, so the provider is never asked to accept an issuer a caller named."
+        }
+      ]
+    },
+    {
+      "party": "customer-administrator",
+      "outside": true,
+      "role": "The customer's own administrator. They decide which identity provider is trusted for their organization and on what rule it resolves to that organization.",
+      "delivers": [
+        {
+          "kind": "configuration",
+          "flag": "--connection",
+          "type": "ConnectionSeed",
+          "field": "tenant_resolution",
+          "statement": "The rule that maps a validated proof to their organization — a configured organization, or a verified claim name and value."
+        },
+        {
+          "kind": "configuration",
+          "flag": "--connection",
+          "type": "ConnectionSeed",
+          "field": "jit_provisioning",
+          "statement": "Whether a first login with no link may create the principal, stated rather than defaulted."
+        },
+        {
+          "kind": "configuration",
+          "flag": "--client",
+          "type": "ClientSeed",
+          "field": "redirect_uris",
+          "statement": "Every redirection endpoint their application may be returned to, byte for byte."
+        },
+        {
+          "kind": "promise",
+          "party": "customer-administrator",
+          "statement": "The issuer they register is the identity provider they mean, and the claim the tenant rule reads is one their provider actually sets for their users and for nobody else's.",
+          "locally_refutable": true,
+          "refuted_by": "a rule matching nobody denies every login with zero tenant matches; a rule matching another customer's users is not refused here at all, because the rule is the statement of who those users are."
+        },
+        {
+          "kind": "promise",
+          "party": "customer-administrator",
+          "statement": "The principal a seeded link names exists and is theirs.",
+          "locally_refutable": false,
+          "refuted_by": "nothing refuses a single document's `principal_id`: this process records no `mandate.identity` principal, so the command's own guard has nothing to read. Two documents placing one principal in two organizations is refused; one document placing it anywhere is believed."
+        }
+      ],
+      "relies_on": [
+        {
+          "kind": "contract",
+          "element": "mandate.federation.LinkExternalPrincipal",
+          "element_kind": "command",
+          "statement": "A link is made only by an explicit act; email equality never authorizes one, so an administrator's decision cannot be inferred around."
+        },
+        {
+          "kind": "test",
+          "id": "mandate-federation::record::a_connection_is_unadmitted_where_another_organization_resolves_the_issuer_unconditionally",
+          "statement": "Another customer cannot register a connection that would make this administrator's issuer resolve ambiguously; the registration is refused rather than their logins breaking later."
+        }
+      ]
+    },
+    {
+      "party": "customer-end-user",
+      "outside": true,
+      "role": "The person signing in. They hold a session with the customer's identity provider and a browser.",
+      "delivers": [
+        {
+          "kind": "promise",
+          "party": "customer-end-user",
+          "statement": "They present a proof their identity provider issued to them, in its validity window.",
+          "locally_refutable": true,
+          "refuted_by": "an expired or malformed proof is refused at step 3; a proof minted for another audience is refused at step 4."
+        }
+      ],
+      "relies_on": [
+        {
+          "kind": "contract",
+          "element": "mandate.federation.ExternalPrincipal",
+          "element_kind": "entity",
+          "statement": "Their external account is bound to exactly one Mandate principal under `(organization, issuer, subject)`, and unlinking is a recorded transition rather than a deletion."
+        },
+        {
+          "kind": "route",
+          "method": "POST",
+          "path": "/v1/federation/login",
+          "binds": {
+            "command": "mandate.federation.AuthenticateFederation"
+          },
+          "statement": "One route accepts the proof, and it issues a session rather than a credential — nothing they can present to a resource server is minted from the identity provider's proof directly."
+        }
+      ]
+    },
+    {
+      "party": "relying-application",
+      "outside": true,
+      "role": "The customer's application — an OAuth public client registered in the customer's organization. It runs the authorization-code exchange.",
+      "delivers": [
+        {
+          "kind": "configuration",
+          "flag": "--client",
+          "type": "ClientSeed",
+          "field": "pkce_method",
+          "statement": "The PKCE method its authorization requests use. The contract declares one, `S256`."
+        },
+        {
+          "kind": "promise",
+          "party": "relying-application",
+          "statement": "It generates a fresh code verifier per authorization request, keeps it in the client and sends only its S256 challenge to the authorization endpoint.",
+          "locally_refutable": true,
+          "refuted_by": "a verifier that does not match the recorded challenge is refused at the token endpoint; a verifier reused across requests is not refused at all, because the deployment sees only the challenge."
+        },
+        {
+          "kind": "promise",
+          "party": "relying-application",
+          "statement": "It sends a `state` it generated and checks the value it gets back before using the code.",
+          "locally_refutable": false,
+          "refuted_by": "nothing refuses it. `state` is echoed to the registered redirect unchanged; whether it was checked is observable only in the client."
+        },
+        {
+          "kind": "promise",
+          "party": "relying-application",
+          "statement": "It never places the credential in a URL, a log or a referrer.",
+          "locally_refutable": false,
+          "refuted_by": "nothing here refuses it. Mandate records a verifier and never the credential, which bounds what *this* side can leak and says nothing about the client's side."
+        }
+      ],
+      "relies_on": [
+        {
+          "kind": "route",
+          "method": "GET",
+          "path": "/oauth/authorize",
+          "binds": {
+            "command": "mandate.federation.AuthorizePublicClient"
+          },
+          "statement": "`GET`, as RFC 6749 section 3.1 requires, at an unversioned path the metadata document advertises."
+        },
+        {
+          "kind": "route",
+          "method": "POST",
+          "path": "/oauth/token",
+          "binds": {
+            "command": "mandate.credential.RedeemAuthorizationCode"
+          },
+          "statement": "`POST`, as RFC 6749 section 3.2 requires. A public client authenticates with nothing here; the verifier is what binds the redemption to the request."
+        },
+        {
+          "kind": "test",
+          "id": "mandate-control-plane::serve::a_registered_redirect_carrying_a_query_keeps_it_and_adds_the_code_to_it",
+          "statement": "A registered redirect that already carries a query keeps it; the code and state are added, not substituted."
+        },
+        {
+          "kind": "scenario",
+          "id": "mandate.credential/authored/pkce-reuse",
+          "outcome": "passed",
+          "statement": "A code presented twice yields at most one credential, so a code intercepted after use is worth nothing."
+        }
+      ]
+    },
+    {
+      "party": "resource-server",
+      "outside": true,
+      "role": "The API the credential is presented to. It is registered in Mandate as a resource server with one audience and a credential profile.",
+      "delivers": [
+        {
+          "kind": "configuration",
+          "flag": "--resource-server",
+          "type": "ResourceServerSeed",
+          "field": "audience",
+          "statement": "The audience every credential issued for it is bound to. One registration holds one audience."
+        },
+        {
+          "kind": "configuration",
+          "flag": "--resource-server",
+          "type": "ResourceServerSeed",
+          "field": "profile",
+          "statement": "The credential profile it is served under, which chooses between immediate online authorization and a bounded offline cache."
+        },
+        {
+          "kind": "promise",
+          "party": "resource-server",
+          "statement": "It trusts the Mandate credential and never the customer's identity provider's proof.",
+          "locally_refutable": false,
+          "refuted_by": "nothing here refuses it. Mandate never hands the identity provider's proof onward, which removes the easy path and not the possibility."
+        },
+        {
+          "kind": "promise",
+          "party": "resource-server",
+          "statement": "It honours the profile it registered under — it introspects each credential where the profile requires online authorization, and caches no longer than the profile's bound where it does not.",
+          "locally_refutable": false,
+          "refuted_by": "nothing here refuses it. The bound is enforced inside Mandate's own resolution of a cached answer; a resource server that caches beyond it is not observable from this side."
+        }
+      ],
+      "relies_on": [
+        {
+          "kind": "route",
+          "method": "POST",
+          "path": "/oauth/introspect",
+          "binds": {
+            "command": "mandate.credential.IntrospectCredential"
+          },
+          "statement": "`POST`, as RFC 7662 section 2 requires, advertised in the metadata document."
+        },
+        {
+          "kind": "contract",
+          "element": "mandate.credential.AccessCredential",
+          "element_kind": "entity",
+          "statement": "A credential carries the audience of the registration it was issued for; a credential minted for another target does not become active here."
+        },
+        {
+          "kind": "test",
+          "id": "mandate-sts::resolve::every_unusable_credential_is_one_inactive_answer_and_not_three",
+          "statement": "An introspection of an unusable credential answers inactive once, and does not tell the caller which of the reasons applied."
+        }
+      ]
+    },
+    {
+      "party": "mandate-operator",
+      "outside": true,
+      "role": "Whoever runs the Mandate deployment. They hold the signing key, write the flag documents and terminate the connection the routes are reached over.",
+      "delivers": [
+        {
+          "kind": "configuration",
+          "flag": "--issuer",
+          "type": "argument",
+          "field": "issuer",
+          "statement": "The issuer identifier this deployment is known by, which every URL in the metadata document is built from."
+        },
+        {
+          "kind": "configuration",
+          "flag": "--code-lifetime",
+          "type": "argument",
+          "field": "code_lifetime",
+          "statement": "The ceiling on an authorization code's life, as an ISO 8601 duration."
+        },
+        {
+          "kind": "configuration",
+          "flag": "--session-lifetime",
+          "type": "argument",
+          "field": "session_lifetime",
+          "statement": "The ceiling on a federated session's life; a code is redeemable only while its session is fresh."
+        },
+        {
+          "kind": "promise",
+          "party": "mandate-operator",
+          "statement": "The private half of every key in the published set is held by this deployment and by nothing else.",
+          "locally_refutable": false,
+          "refuted_by": "nothing here refuses it. The published document carries no private member and the signer refuses to install material it already holds, which bounds accidental disclosure and not custody."
+        },
+        {
+          "kind": "promise",
+          "party": "mandate-operator",
+          "statement": "The routes are reached over a transport the customer's users and applications can authenticate, and the process is not exposed on a plaintext interface.",
+          "locally_refutable": false,
+          "refuted_by": "nothing here refuses it, and nothing here provides it — see the `no transport security` gap below. The deployment binds a plaintext HTTP listener and has never been driven over TLS."
+        },
+        {
+          "kind": "promise",
+          "party": "mandate-operator",
+          "statement": "The flag documents stay in step with the customer's identity provider — the algorithm, the key-set hosts and the issuer are what the provider publishes today.",
+          "locally_refutable": true,
+          "refuted_by": "a provider that rotates to an algorithm the connection does not name refuses every login with the algorithm unconfigured refusal, which names the file it read."
+        }
+      ],
+      "relies_on": [
+        {
+          "kind": "test",
+          "id": "mandate-control-plane::serve::a_configuration_the_binary_cannot_serve_is_refused_with_exit_status_two",
+          "statement": "A configuration the deployment cannot honour is refused before the socket is bound and exits 2, so a bad document is a failed start rather than a road that denies every login."
+        },
+        {
+          "kind": "test",
+          "id": "mandate-control-plane::serve::every_refusal_of_a_flag_document_exits_two_and_names_the_file",
+          "statement": "Every such refusal names the file it read, so the correction is the operator's to make without reading the source."
+        },
+        {
+          "kind": "route",
+          "method": "GET",
+          "path": "/.well-known/oauth-authorization-server",
+          "binds": {
+            "document": "AuthorizationServerMetadata"
+          },
+          "statement": "The document the operator points clients at, built from the route table rather than from a second copy of the paths."
+        }
+      ]
+    }
+  ],
+  "steps": [
+    {
+      "step": 1,
+      "actor": "customer-administrator",
+      "command": "mandate.federation.RegisterFederationConnection",
+      "when": "configuration, once per identity provider",
+      "addendum_steps": [
+        1
+      ],
+      "statement": "The trust relationship is recorded: one organization, one issuer, one client, one tenant rule, and whether just-in-time provisioning is admitted. The issuer is immutable after this.",
+      "evidence": [
+        {
+          "kind": "scenario",
+          "id": "mandate.federation.RegisterFederationConnection/outcome/denied",
+          "outcome": "passed"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-federation::record::register_federation_connection_creates_an_enabled_connection"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-federation::record::register_federation_connection_denies_a_foreign_organization_binding"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-federation::record::a_connection_is_unadmitted_where_another_organization_resolves_the_issuer_unconditionally"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-control-plane::serve::two_connection_documents_on_one_issuer_in_two_organizations_are_refused"
+        }
+      ]
+    },
+    {
+      "step": 2,
+      "actor": "customer-administrator",
+      "command": "mandate.federation.RegisterOAuthClient",
+      "when": "configuration, once per application",
+      "statement": "The relying application is recorded as a public client of the customer's organization, with the exact redirection URIs it may be returned to and the PKCE method it must use.",
+      "evidence": [
+        {
+          "kind": "scenario",
+          "id": "mandate.federation.RegisterOAuthClient/outcome/denied",
+          "outcome": "passed"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-federation::record::an_oauth_client_registration_materializes_the_record_the_event_carries"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-federation::publicclient::a_registered_public_client_resolves_for_an_exactly_registered_redirect"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-federation::publicclient::a_redirect_that_is_not_byte_identical_to_a_registered_one_is_refused"
+        }
+      ]
+    },
+    {
+      "step": 3,
+      "actor": "customer-administrator",
+      "command": "mandate.credential.RegisterResourceServer",
+      "when": "configuration, once per API",
+      "statement": "The API a credential will be issued for is recorded with one audience and one credential profile, bound to the registering caller's verified organization.",
+      "evidence": [
+        {
+          "kind": "scenario",
+          "id": "mandate.credential.RegisterResourceServer/outcome/accepted",
+          "outcome": "passed"
+        },
+        {
+          "kind": "scenario",
+          "id": "mandate.credential.RegisterResourceServer/outcome/denied",
+          "outcome": "passed"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-sts::registry::the_registration_is_bound_to_the_callers_verified_organization"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-sts::registry::a_second_registration_on_one_audience_is_refused_and_leaves_the_fold_unchanged"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-sts::registry::the_same_audience_in_another_organization_is_a_different_key"
+        }
+      ]
+    },
+    {
+      "step": 4,
+      "actor": "mandate-operator",
+      "command": "mandate.credential.RegisterSigningKey",
+      "when": "configuration, once per key",
+      "statement": "The key a self-contained Mandate credential is signed under is recorded, and its public half is published at the JWKS route.",
+      "evidence": [
+        {
+          "kind": "scenario",
+          "id": "mandate.credential.RegisterSigningKey/outcome/denied",
+          "outcome": "passed"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-sts::keys::an_algorithm_outside_the_deployments_allowlist_is_refused"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-token::signing_real::es256_signs_and_verifies_through_the_published_jwk"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-server::metadata::a_jwks_carries_no_key_material_of_its_own"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-control-plane::serve::the_jwks_document_is_served_and_carries_no_private_member"
+        }
+      ]
+    },
+    {
+      "step": 5,
+      "actor": "customer-administrator",
+      "command": "mandate.federation.LinkExternalPrincipal",
+      "when": "configuration, and only in the provisioned mode — a connection that admits just-in-time provisioning takes step 7 instead",
+      "addendum_steps": [
+        7
+      ],
+      "statement": "An external subject is bound to a Mandate principal by an explicit administrative act. Email equality never authorizes this, and a principal recorded in another organization is refused.",
+      "evidence": [
+        {
+          "kind": "scenario",
+          "id": "mandate.federation.LinkExternalPrincipal/outcome/denied",
+          "outcome": "passed"
+        },
+        {
+          "kind": "scenario",
+          "id": "mandate.federation/authored/federation-configured-method-on-explicit-link",
+          "outcome": "passed"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-federation::link::explicit_link"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-federation::link::issuer_isolation"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-federation::link::email_isolation"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-federation::link::link_conflict"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-federation::link::a_target_principal_recorded_in_another_organization_is_refused"
+        }
+      ]
+    },
+    {
+      "step": 6,
+      "actor": "customer-end-user",
+      "command": "mandate.federation.AuthenticateFederation",
+      "when": "every login",
+      "addendum_steps": [
+        1,
+        2,
+        3,
+        4,
+        6,
+        7,
+        8
+      ],
+      "statement": "The proof is validated against the selected connection and a session is minted. Seven of the resolution order's nine steps are decided here; a tenant that resolves to zero or to more than one organization is denied rather than guessed.",
+      "evidence": [
+        {
+          "kind": "scenario",
+          "id": "mandate.federation.AuthenticateFederation/outcome/denied",
+          "outcome": "passed"
+        },
+        {
+          "kind": "scenario",
+          "id": "mandate.federation/authored/federation-disabled-connection",
+          "outcome": "passed"
+        },
+        {
+          "kind": "scenario",
+          "id": "mandate.federation/authored/federation-issuer-mismatch",
+          "outcome": "passed"
+        },
+        {
+          "kind": "scenario",
+          "id": "mandate.federation/authored/federation-malformed-proof",
+          "outcome": "passed"
+        },
+        {
+          "kind": "scenario",
+          "id": "mandate.federation/authored/federation-audience-mismatch",
+          "outcome": "passed"
+        },
+        {
+          "kind": "scenario",
+          "id": "mandate.federation/authored/federation-ambiguous-tenant",
+          "outcome": "passed"
+        },
+        {
+          "kind": "scenario",
+          "id": "mandate.federation/authored/federation-resolution-precedence",
+          "outcome": "passed"
+        },
+        {
+          "kind": "scenario",
+          "id": "mandate.federation/authored/federation-empty-subject",
+          "outcome": "passed"
+        },
+        {
+          "kind": "scenario",
+          "id": "mandate.federation/authored/federation-untrimmed-subject",
+          "outcome": "passed"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-federation::authenticate::tenant_valid"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-federation::authenticate::tenant_zero"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-federation::authenticate::tenant_ambiguous"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-federation::authenticate::tenant_unverified"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-federation::verifier_real::a_signature_under_a_key_the_issuer_never_published_is_refused"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-federation::verifier_real::a_header_algorithm_outside_the_policy_is_refused_though_its_signature_verifies"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-control-plane::end_to_end::the_spawned_binary_completes_one_login_against_an_issuer_that_signed_the_proof"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-control-plane::end_to_end::a_connection_nothing_seeded_is_refused_at_step_one"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-control-plane::end_to_end::a_proof_whose_issuer_is_not_the_connections_is_refused_at_step_two"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-control-plane::end_to_end::a_proof_signed_outside_the_published_key_set_is_refused_at_step_three"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-control-plane::end_to_end::a_proof_whose_audience_is_not_the_connections_client_is_refused_at_step_four"
+        }
+      ]
+    },
+    {
+      "step": 7,
+      "actor": "mandate-deployment",
+      "command": "mandate.federation.ProvisionExternalPrincipal",
+      "when": "first login only, and only on a connection whose `jit_provisioning` is true",
+      "addendum_steps": [
+        7
+      ],
+      "statement": "A first-time user's principal and link are created during that login, so nobody does per-user work ahead of it. A connection that does not admit provisioning refuses the first login and creates nothing.",
+      "evidence": [
+        {
+          "kind": "scenario",
+          "id": "mandate.federation.ProvisionExternalPrincipal/outcome/denied",
+          "outcome": "passed"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-federation::authenticate::jit_first_login"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-federation::authenticate::jit_disabled"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-federation::authenticate::jit_conflict"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-control-plane::end_to_end::a_first_login_a_connection_admits_provisioning_for_opens_a_session_at_step_seven"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-control-plane::end_to_end::a_first_login_a_connection_does_not_admit_provisioning_for_is_refused_at_step_seven"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-control-plane::serve::a_first_login_provisions_one_link_and_a_second_resolves_it_and_provisions_nothing"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-control-plane::serve::a_revoked_external_principal_is_not_provisioned_around_by_the_next_login"
+        }
+      ]
+    },
+    {
+      "step": 8,
+      "actor": "relying-application",
+      "command": "mandate.federation.AuthorizePublicClient",
+      "when": "once per authorization request",
+      "addendum_steps": [
+        5
+      ],
+      "statement": "The session is turned into an authorization code for a named target, under an S256 challenge, returned to a redirection URI the client registered byte for byte.",
+      "evidence": [
+        {
+          "kind": "test",
+          "id": "mandate-federation::publicclient::a_confidential_client_is_refused"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-federation::publicclient::a_disabled_client_is_refused"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-federation::publicclient::a_client_bound_to_another_organization_is_refused"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-federation::pkce::a_challenge_outside_the_declared_form_is_refused"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-federation::pkce::plain_is_unrepresentable_because_the_contract_declares_one_method"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-control-plane::serve::a_registered_redirect_carrying_a_query_keeps_it_and_adds_the_code_to_it"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-control-plane::serve::a_registered_redirect_carrying_a_fragment_is_refused_in_place"
+        }
+      ]
+    },
+    {
+      "step": 9,
+      "actor": "mandate-deployment",
+      "command": "mandate.credential.IssueAuthorizationCode",
+      "when": "once per authorization request, behind the STS port — no route reaches it directly",
+      "addendum_steps": [
+        9
+      ],
+      "statement": "The code record is created by the STS on the control plane's behalf. What is recorded is a verifier of the code, never the code itself, and its expiry is bounded by the deployment's own code lifetime.",
+      "evidence": [
+        {
+          "kind": "scenario",
+          "id": "mandate.credential.IssueAuthorizationCode/outcome/denied",
+          "outcome": "passed"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-sts::code::an_issuance_records_the_verifier_of_the_code_it_returns_and_never_the_code"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-sts::code::a_redirect_the_registration_does_not_carry_is_refused_at_issuance"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-sts::code::the_deployments_code_lifetime_ceiling_bounds_the_expiry"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-sts::code::the_code_lifetime_is_the_deployments_and_has_no_default"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-control-plane::serve::a_code_lifetime_of_a_year_still_issues_a_code"
+        }
+      ]
+    },
+    {
+      "step": 10,
+      "actor": "relying-application",
+      "command": "mandate.credential.RedeemAuthorizationCode",
+      "when": "once per code",
+      "addendum_steps": [
+        5,
+        9
+      ],
+      "statement": "The code and its verifier are exchanged for one credential. A code is consumed exactly once, is redeemable only while its session is fresh, and a verifier that does not match the recorded challenge is refused.",
+      "evidence": [
+        {
+          "kind": "scenario",
+          "id": "mandate.credential.RedeemAuthorizationCode/outcome/denied",
+          "outcome": "passed"
+        },
+        {
+          "kind": "scenario",
+          "id": "mandate.credential/authored/pkce-wrong",
+          "outcome": "passed"
+        },
+        {
+          "kind": "scenario",
+          "id": "mandate.credential/authored/pkce-reuse",
+          "outcome": "passed"
+        },
+        {
+          "kind": "scenario",
+          "id": "mandate.credential/authored/pkce-code-expired",
+          "outcome": "passed"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-sts::redemption::a_fresh_code_redeems_to_exactly_one_recorded_credential"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-sts::redemption::a_second_redemption_of_one_code_is_the_declared_wrong_state_outcome"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-sts::redemption::two_concurrent_redemptions_of_one_code_issue_at_most_one_credential"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-sts::redemption::an_expired_code_is_refused_at_the_request_instant"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-sts::redemption::the_credential_is_bound_to_the_codes_target_scope_and_expiry"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-federation::pkce::a_wrong_verifier_is_refused"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-control-plane::end_to_end::a_code_verifier_that_does_not_match_the_challenge_is_refused_at_step_five"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-control-plane::serve::a_code_is_redeemable_only_while_its_session_is_fresh"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-control-plane::serve::the_token_endpoint_refuses_an_unknown_code_as_a_declared_denial"
+        }
+      ]
+    },
+    {
+      "step": 11,
+      "actor": "resource-server",
+      "command": "mandate.credential.IntrospectCredential",
+      "when": "per request, or per the profile's cache bound",
+      "statement": "The resource server asks Mandate whether the credential is active, and is told once — an unusable credential is one inactive answer and not a list of reasons.",
+      "evidence": [
+        {
+          "kind": "scenario",
+          "id": "mandate.credential.IntrospectCredential/outcome/denied",
+          "outcome": "passed"
+        },
+        {
+          "kind": "scenario",
+          "id": "mandate.credential/authored/introspect-caller-proof-malformed",
+          "outcome": "passed"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-sts::resolve::an_active_answer_carries_the_descriptor_and_the_credential_it_names"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-sts::resolve::every_unusable_credential_is_one_inactive_answer_and_not_three"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-sts::resolve::a_cached_answer_older_than_the_profiles_bound_does_not_authorize"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-sts::resolve::a_profile_that_requires_online_authorization_never_reads_the_cache"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-control-plane::serve::the_login_road_is_served_end_to_end_over_http"
+        }
+      ]
+    }
+  ],
+  "routes": [
+    {
+      "method": "POST",
+      "path": "/v1/federation/login",
+      "binds": {
+        "command": "mandate.federation.AuthenticateFederation"
+      },
+      "steps": [
+        6,
+        7
+      ],
+      "statement": "A control-plane product route, not an OAuth endpoint: it mints a session from an identity provider's proof and issues no credential. The connection is named in the body, never in the path, because the tenant must not be selectable from the path."
+    },
+    {
+      "method": "GET",
+      "path": "/oauth/authorize",
+      "binds": {
+        "command": "mandate.federation.AuthorizePublicClient"
+      },
+      "steps": [
+        8,
+        9
+      ],
+      "statement": "The authorization endpoint. `GET` because RFC 6749 section 3.1 requires it; unversioned, like the rest of the OAuth surface."
+    },
+    {
+      "method": "POST",
+      "path": "/oauth/token",
+      "binds": {
+        "command": "mandate.credential.RedeemAuthorizationCode"
+      },
+      "steps": [
+        10
+      ],
+      "statement": "The token endpoint. `POST` because RFC 6749 section 3.2 requires it."
+    },
+    {
+      "method": "POST",
+      "path": "/oauth/introspect",
+      "binds": {
+        "command": "mandate.credential.IntrospectCredential"
+      },
+      "steps": [
+        11
+      ],
+      "statement": "The introspection endpoint. `POST` because RFC 7662 section 2 requires it."
+    },
+    {
+      "method": "GET",
+      "path": "/.well-known/oauth-authorization-server",
+      "binds": {
+        "document": "AuthorizationServerMetadata"
+      },
+      "steps": [
+        8,
+        10,
+        11
+      ],
+      "statement": "The RFC 8414 metadata document, at the host root the RFC fixes it at, built from the route table so an advertised endpoint is a served one."
+    },
+    {
+      "method": "GET",
+      "path": "/oauth/jwks",
+      "binds": {
+        "document": "Jwks"
+      },
+      "steps": [
+        4,
+        10
+      ],
+      "statement": "The key set the metadata document's `jwks_uri` names, carrying no private member."
+    }
+  ],
+  "configuration": [
+    {
+      "party": "mandate-operator",
+      "flag": "--listen",
+      "type": "argument",
+      "fields": [
+        {
+          "field": "listen",
+          "required": true,
+          "statement": "The socket address the listener binds. There is no default; a process given none does not serve."
+        }
+      ]
+    },
+    {
+      "party": "mandate-operator",
+      "flag": "--issuer",
+      "type": "argument",
+      "fields": [
+        {
+          "field": "issuer",
+          "required": true,
+          "statement": "The issuer identifier this deployment is known by. Every URL in the metadata document is this value joined with a path taken from the route table."
+        }
+      ]
+    },
+    {
+      "party": "mandate-operator",
+      "flag": "--code-lifetime",
+      "type": "argument",
+      "fields": [
+        {
+          "field": "code_lifetime",
+          "required": false,
+          "default": "PT5M",
+          "statement": "The longest life of an authorization code, as an ISO 8601 duration. A value naming no span is refused at construction rather than becoming a zero."
+        }
+      ]
+    },
+    {
+      "party": "mandate-operator",
+      "flag": "--session-lifetime",
+      "type": "argument",
+      "fields": [
+        {
+          "field": "session_lifetime",
+          "required": false,
+          "default": "PT8H",
+          "statement": "The longest life of a federated session. A code is redeemable only while its session is fresh, so this bounds the code lifetime in practice."
+        }
+      ]
+    },
+    {
+      "party": "mandate-operator",
+      "flag": "--key",
+      "type": "argument",
+      "repeatable": true,
+      "example": {
+        "kty": "EC",
+        "kid": "login-key-1",
+        "use": "sig",
+        "alg": "ES256",
+        "crv": "P-256",
+        "x": "f83OJ3D2xF1Bg8vub9tLe1gHMzV76e8Tus9uPHvRVEU",
+        "y": "x_FEzRu9m36HLN_tue659LNpXW6pCyStikYjKIWI5a0"
+      },
+      "fields": [
+        {
+          "field": "kid",
+          "required": true,
+          "statement": "The key identifier. Two documents naming one `kid` are refused before the socket, naming both files."
+        },
+        {
+          "field": "kty",
+          "required": true,
+          "statement": "The key type, as RFC 7517 names it."
+        },
+        {
+          "field": "alg",
+          "required": true,
+          "statement": "The algorithm the key is published for."
+        },
+        {
+          "field": "use",
+          "required": false,
+          "statement": "The public use, rendered under RFC 7517's own member name."
+        },
+        {
+          "field": "d",
+          "required": false,
+          "admitted": false,
+          "statement": "The private member is not one a published document may carry, and the constructor refuses every private member rather than dropping it."
+        }
+      ]
+    },
+    {
+      "party": "customer-administrator",
+      "flag": "--connection",
+      "type": "ConnectionSeed",
+      "repeatable": true,
+      "example": {
+        "connection_id": "00000000-0000-4000-8000-000000000003",
+        "organization": "00000000-0000-4000-8000-000000000001",
+        "issuer": "https://idp.example.test",
+        "client_id": "mandate-login",
+        "algorithm": "ES256",
+        "jwks_hosts": [
+          "keys.example.test"
+        ],
+        "tenant_resolution": {
+          "configured_organization": "00000000-0000-4000-8000-000000000001"
+        },
+        "jit_provisioning": true,
+        "link": {
+          "principal_id": "00000000-0000-4000-8000-000000000002",
+          "external_principal_id": "00000000-0000-4000-8000-000000000008",
+          "subject": "00000000-0000-4000-8000-000000000009",
+          "linked_at": "2026-09-01T00:00:00Z"
+        }
+      },
+      "fields": [
+        {
+          "field": "connection_id",
+          "required": false,
+          "statement": "The connection identity. Absent, one is allocated and printed — the login route selects on it, so a caller who cannot learn it cannot call the route."
+        },
+        {
+          "field": "organization",
+          "required": true,
+          "statement": "The organization the connection is bound to. The fold reads it from the registering caller's verified context, so it is carried here."
+        },
+        {
+          "field": "issuer",
+          "required": true,
+          "statement": "The issuer a proof's `iss` must equal. Immutable after registration: changing it means a new connection and explicit relinking."
+        },
+        {
+          "field": "client_id",
+          "required": true,
+          "statement": "The client a proof's `aud` must name."
+        },
+        {
+          "field": "algorithm",
+          "required": false,
+          "statement": "The algorithm this connection's proofs are verified under. Not a field of the connection record and deliberately not defaulted: absent, the verifier refuses every proof through this connection rather than falling back to the library's own default."
+        },
+        {
+          "field": "jwks_hosts",
+          "required": false,
+          "statement": "Hosts this connection's key set may be fetched from beside the issuer's own origin. Absent admits the issuer's origin and nothing else, which is why a provider serving discovery and keys on two hosts needs an entry here."
+        },
+        {
+          "field": "tenant_resolution",
+          "required": true,
+          "statement": "How the organization is resolved from validated claims: a configured organization, or a verified claim name and value. Nothing else resolves a tenant."
+        },
+        {
+          "field": "jit_provisioning",
+          "required": true,
+          "statement": "Whether a first login with no link may create the principal. Stated rather than defaulted, because a security-relevant value nobody wrote is not a value an operator chose."
+        },
+        {
+          "field": "link",
+          "required": false,
+          "statement": "An external principal seeded at startup. Optional because a deployment may seed the connection and link later; a connection carrying neither a link nor `jit_provisioning` is one every login is denied against."
+        }
+      ]
+    },
+    {
+      "party": "customer-administrator",
+      "flag": "--connection",
+      "type": "PrincipalLinkSeed",
+      "example": {
+        "principal_id": "00000000-0000-4000-8000-000000000002",
+        "external_principal_id": "00000000-0000-4000-8000-000000000008",
+        "subject": "00000000-0000-4000-8000-000000000009",
+        "linked_at": "2026-09-01T00:00:00Z"
+      },
+      "fields": [
+        {
+          "field": "principal_id",
+          "required": true,
+          "statement": "The Mandate principal the external subject resolves to. Taken as written: this process records no principal, so the command's own guard has nothing to read."
+        },
+        {
+          "field": "external_principal_id",
+          "required": false,
+          "statement": "The link identity. Absent, one is allocated."
+        },
+        {
+          "field": "subject",
+          "required": true,
+          "statement": "The external subject, exactly as the identity provider's `sub` presents it. A subject that is not its own trim is refused."
+        },
+        {
+          "field": "linked_at",
+          "required": true,
+          "statement": "The instant the link was made."
+        },
+        {
+          "field": "link_method",
+          "required": false,
+          "admitted": false,
+          "statement": "Not configurable. The other link methods each name an act a configuration file did not perform; a seeded link is `ConfiguredFederation`, which is what it is."
+        }
+      ]
+    },
+    {
+      "party": "customer-administrator",
+      "flag": "--client",
+      "type": "ClientSeed",
+      "repeatable": true,
+      "example": {
+        "client_id": "00000000-0000-4000-8000-000000000004",
+        "organization": "00000000-0000-4000-8000-000000000001",
+        "public": true,
+        "redirect_uris": [
+          "https://app.example.test/callback"
+        ],
+        "pkce_method": "S256"
+      },
+      "fields": [
+        {
+          "field": "client_id",
+          "required": false,
+          "statement": "The client identity. Absent, one is allocated and printed — the authorization route selects on it."
+        },
+        {
+          "field": "organization",
+          "required": true,
+          "statement": "The organization the client is bound to. The authorization endpoint refuses a client whose organization is not the authenticated session's, so this is the organization the connection resolves to."
+        },
+        {
+          "field": "public",
+          "required": true,
+          "statement": "Whether this is a public client. Stated rather than defaulted: a confidential client authenticates at the token endpoint and a public one does not."
+        },
+        {
+          "field": "redirect_uris",
+          "required": true,
+          "statement": "The redirection endpoints this client registers, compared byte for byte and normalized in no way, so a trailing slash the client does not send is a URI it has not registered."
+        },
+        {
+          "field": "pkce_method",
+          "required": true,
+          "statement": "The PKCE method this client's authorization requests must use. The contract declares one."
+        }
+      ]
+    },
+    {
+      "party": "resource-server",
+      "flag": "--resource-server",
+      "type": "ResourceServerSeed",
+      "repeatable": true,
+      "example": {
+        "resource_server_id": "00000000-0000-4000-8000-000000000005",
+        "organization": "00000000-0000-4000-8000-000000000001",
+        "audience": "https://api.example.test",
+        "profile": {
+          "name": "reference",
+          "kind": "Reference",
+          "revocation": "ImmediateOnline",
+          "max_ttl": "PT1H",
+          "positive_cache_ttl": "PT30S",
+          "requires_online_authorization": true
+        },
+        "allowed_exchange_sources": []
+      },
+      "fields": [
+        {
+          "field": "resource_server_id",
+          "required": false,
+          "statement": "The registration identity. Absent, one is allocated and printed — an authorization request names the target by it."
+        },
+        {
+          "field": "organization",
+          "required": true,
+          "statement": "The organization the registration is bound to. Carried in the context rather than in the payload, because the fold binds the registration to the registering caller's verified organization."
+        },
+        {
+          "field": "audience",
+          "required": true,
+          "statement": "The audience a credential issued for this target is bound to. One audience per organization; a second registration on it is refused."
+        },
+        {
+          "field": "profile",
+          "required": true,
+          "statement": "The credential profile the registration issues under, which chooses between immediate online authorization and a bounded offline cache."
+        },
+        {
+          "field": "allowed_exchange_sources",
+          "required": true,
+          "statement": "The registrations admitted as exchange sources into this one. Stated rather than defaulted, and empty is the ordinary value: every member widens what may be exchanged in."
+        }
+      ]
+    }
+  ],
+  "standards": [
+    {
+      "rfc": 6749,
+      "section": "3.1",
+      "governs": "the authorization endpoint's method and the request parameters it takes",
+      "steps": [
+        8
+      ],
+      "cited_at": "crates/mandate-server/src/routes.rs"
+    },
+    {
+      "rfc": 6749,
+      "section": "3.2",
+      "governs": "the token endpoint's method and form-encoded request",
+      "steps": [
+        10
+      ],
+      "cited_at": "crates/mandate-server/src/decode.rs"
+    },
+    {
+      "rfc": 6749,
+      "section": "4.1",
+      "governs": "the authorization-code grant this road runs end to end",
+      "steps": [
+        8,
+        9,
+        10
+      ],
+      "cited_at": "crates/mandate-server/src/decode.rs"
+    },
+    {
+      "rfc": 7636,
+      "section": "4.2",
+      "governs": "the S256 code challenge carried on the authorization request and the verifier presented at redemption",
+      "steps": [
+        8,
+        10
+      ],
+      "cited_at": "crates/mandate-federation/src/pkce.rs"
+    },
+    {
+      "rfc": 7662,
+      "section": "2",
+      "governs": "the introspection request and the active/inactive answer",
+      "steps": [
+        11
+      ],
+      "cited_at": "crates/mandate-server/src/metadata.rs"
+    },
+    {
+      "rfc": 8414,
+      "section": "3",
+      "governs": "the authorization server metadata document and the path it is published at",
+      "steps": [
+        8,
+        10,
+        11
+      ],
+      "cited_at": "crates/mandate-server/src/metadata.rs"
+    },
+    {
+      "rfc": 7517,
+      "section": "4",
+      "governs": "the JWK and JWK Set documents — the identity provider's, which the verifier reads, and this deployment's, which it publishes",
+      "steps": [
+        4,
+        6
+      ],
+      "cited_at": "crates/mandate-server/src/metadata.rs"
+    },
+    {
+      "rfc": 7515,
+      "section": "4.1",
+      "governs": "the signed proof's header, including the `alg` that is taken from policy and never from the header, and `crit`",
+      "steps": [
+        6
+      ],
+      "cited_at": "crates/mandate-federation/src/verifier_real.rs"
+    },
+    {
+      "rfc": 7638,
+      "section": "3",
+      "governs": "the thumbprint a signing key registration resolves to",
+      "steps": [
+        4
+      ],
+      "cited_at": "crates/mandate-token/src/signing_real.rs"
+    },
+    {
+      "rfc": 4648,
+      "section": "5",
+      "governs": "the base64url encoding of the code challenge and verifier, without padding",
+      "steps": [
+        8,
+        10
+      ],
+      "cited_at": "crates/mandate-federation/src/pkce.rs"
+    },
+    {
+      "rfc": 3986,
+      "section": "3",
+      "governs": "the `jwks_uri` destination bound by origin and by the listed hosts, and the redirection URI comparison",
+      "steps": [
+        6,
+        8
+      ],
+      "cited_at": "crates/mandate-federation/src/verifier_real.rs"
+    },
+    {
+      "rfc": 9112,
+      "section": "3",
+      "governs": "the request line, the framing of the body and the request-target forms the listener admits",
+      "steps": [
+        6,
+        8,
+        10,
+        11
+      ],
+      "cited_at": "services/control-plane/src/serve.rs"
+    }
+  ],
+  "not_yet_true": [
+    {
+      "gap": "no transport security",
+      "costs": "Every proof, session identifier, authorization code and credential on this road crosses the network in the clear. No customer may be put on it.",
+      "today": "`mandate-control-plane serve --listen` binds a plaintext HTTP listener and terminates nothing. The one end-to-end case that drives a really-signed proof stands its issuer on loopback `http`, which the key-set fetcher admits only because the host is loopback.",
+      "steps": [
+        6,
+        8,
+        10,
+        11
+      ],
+      "unowned": {
+        "noted_in": ".engineering/planning/story/connection-jwks-hosts.md",
+        "noted_words": "TLS — the cases stay on"
+      }
+    },
+    {
+      "gap": "no real identity provider has been driven",
+      "costs": "Nothing here is evidence that a commercial identity provider's proof is accepted. Every claim about the road is a claim about an issuer this repository stands up and signs with itself.",
+      "today": "The end-to-end cases mint the proof with this repository's own signer and publish the matching key set from a loopback listener the case owns. The configuration a split-host provider needs exists and is exercised against a split loopback issuer, not against a provider.",
+      "steps": [
+        6
+      ],
+      "unowned": {
+        "noted_in": ".engineering/planning/story/connection-jwks-hosts.md",
+        "noted_words": "is a road this repository has never driven"
+      }
+    },
+    {
+      "gap": "no persistence",
+      "costs": "A restart loses every session, every unredeemed authorization code, every credential and every link a first login provisioned. The deployment is configured per process and remembers nothing across one.",
+      "today": "Every fold is in-process and seeded from the flag documents at startup. Seeding the folds from an event log is the next milestone.",
+      "steps": [
+        6,
+        7,
+        9,
+        10,
+        11
+      ],
+      "blocked_on": "story:declared-writers"
+    },
+    {
+      "gap": "`RegisterFederationConnection` is served by no route",
+      "costs": "A customer's administrator cannot register their own identity provider. Steps 1 to 5 are not an API on this road; they are files a Mandate operator writes and a process restart.",
+      "today": "The route table holds four command routes and two document routes, and none of them binds a registration command. The `/v1/` control-plane resources are another story's.",
+      "steps": [
+        1,
+        2,
+        3,
+        5
+      ],
+      "blocked_on": "story:protocol-adapters"
+    },
+    {
+      "gap": "step 8 has no conformance scenario",
+      "costs": "The authorization step is the one step of the road that the synthesized corpus does not execute at all. Its evidence is crate-level and end-to-end cases only, so a contract-level regression in its declared outcomes would not be caught by the conformance gate.",
+      "today": "Both of `mandate.federation.AuthorizePublicClient`'s scenarios report `unsupported`, recorded in the injections ledger as `input-shape-unrealized`.",
+      "steps": [
+        8
+      ],
+      "blocked_on": "story:oauth-integration"
+    },
+    {
+      "gap": "no denial on this road is audited",
+      "costs": "A refusal at any step leaves no durable record a customer or an incident responder can read. Every refusal this road makes is observable only as the answer the caller got.",
+      "today": "The denial-audit obligation is deferred for every command in the obligations registry and is counted in neither the numerator nor the denominator of its report, because no shipped path routes a denial to the audit stream.",
+      "steps": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "blocked_on": "decision-blocker:audit-routing"
+    }
+  ]
+}
