@@ -111,12 +111,16 @@ so a clause whose only evidence is a double has no evidence that the shipped pat
 all.
 
 A double-backed clause's `blocked_on` names the story that owns the **port's real
-implementation**, never `story:obligations-<crate>`: if the only evidence is a double then the
-deciding code is not shipped, and no test the binding story writes can bind the clause. The
-eight double-backed clauses defer to `story:graph-policy-adapter`, which owns
-`mandate_policy::port::PolicyAdministration` and `mandate_graph::topology::ResourceRegistry` —
-each crate's own `double` is their only implementor today. The step refuses a double-backed
-clause that defers to its crate's binding story.
+implementation**, or the open `decision-blocker` holding the question that withholds it —
+never `story:obligations-<crate>`: if the only evidence is a double then the deciding code is
+not shipped, and no test the binding story writes can bind the clause. Which of the two it is
+follows the port: `story:graph-policy-adapter` owns `mandate_policy::port::PolicyAdministration`
+and `mandate_graph::topology::ResourceRegistry`; `decision-blocker:epoch-atomicity` holds the
+compare-and-set no shipped store performs, and `mandate_identity::IdentityLog` is the only
+implementor of `SecurityEpochWrite` until it is answered. This file states no count of the
+double-backed clauses and no closed list of what they defer to: both move on every merge that
+adds a document, and `contracts/conformance/obligations-report.json` is the thing that counts
+them. The step refuses a double-backed clause that defers to its crate's binding story.
 
 A double row sitting *beside* a real row on one clause is refused, because it would be counted
 in no column at all — not `real_covered`, which the real row already holds, and not
@@ -143,6 +147,13 @@ one rule read from two directions. Once that story reaches
 work is planned" into "the work is done" without anyone having to remember to.
 
 A command-level `blocked_on` carries the `no_state_change` obligation under the same rule.
+
+Where what withholds the path is an open question rather than planned work, the deferral names
+the open `decision-blocker` that holds it — `decision-blocker:guards` for an authority decision
+no shipped adapter makes, `decision-blocker:epoch-atomicity` for a transactional commit no
+shipped store performs, `decision-blocker:audit-routing` for a denial audit no shipped path
+routes. The step admits an open blocker exactly as it admits a live story, and refuses a cleared
+one, so clearing the blocker is what reopens the clause.
 
 ## `addendum`
 

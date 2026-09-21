@@ -238,7 +238,7 @@
         {
           "clause": "the relationship is not admitted by the authorization model",
           "tests": [],
-          "blocked_on": "story:cross-crate-clauses"
+          "blocked_on": "story:graph-policy-adapter"
         }
       ],
       "no_state_change": [
