@@ -29,19 +29,21 @@ use std::time::{Duration as HostDuration, Instant};
 
 use mandate_control_plane::adapters::{Configuration, Deployment, read_connection_seed, read_key};
 use mandate_control_plane::serve::{Limits, Listener};
-use mandate_federation::record::FederationEvent;
+use mandate_federation::record::{FederationConnection, FederationEvent};
 use mandate_federation::verifier::{ConstructedVerifier, VerifiedProof};
 use mandate_federation::verifier_real::FixedClock;
+use mandate_federation::{Denied as FederationDenied, FederationVerifier};
+use mandate_server::decode;
 use mandate_sts::code::CodeLifetime;
 use mandate_sts::registry::{RegisterResourceServer, register_resource_server};
 use mandate_sts::{CountingSecrets, SequentialAllocator};
 use mandate_token::CredentialProfile;
 use mandate_token::projection::Projection as CredentialProjection;
 use mandate_types::{
-    Audience, ClientId, CorrelationId, CredentialId, CredentialKind, Duration, ExternalLinkMethod,
-    ExternalPrincipalId, ExternalSubject, FederationConnectionId, Issuer, OAuthClientId,
-    OrganizationId, PkceMethod, PrincipalId, RedirectUri, ResourceServerId, RevocationGuarantee,
-    SigningAlgorithm, Timestamp, Uuid, VerifiedContext,
+    Audience, ClientId, CorrelationId, CredentialId, CredentialKind, CredentialProof, DenialReason,
+    Duration, ExternalLinkMethod, ExternalPrincipalId, ExternalSubject, FederationConnectionId,
+    Issuer, OAuthClientId, OrganizationId, PkceMethod, PrincipalId, RedirectUri, ResourceServerId,
+    RevocationGuarantee, SigningAlgorithm, Timestamp, Uuid, VerifiedContext,
 };
 
 /// RFC 7636 appendix B's code verifier and the S256 challenge of it.
@@ -1415,8 +1417,19 @@ fn seed_path(path: &Path) -> &str {
 ///
 /// `link` decides whether the document also carries the external-principal link. The login
 /// resolves its principal through one (`crates/mandate-federation/src/authenticate.rs:118`),
-/// so a document without it is a connection the road can select and cannot authenticate.
+/// so a document without it is a connection the road can select and authenticates nobody
+/// unless the connection admits just-in-time provisioning.
 fn connection_document(connection_id: Option<&str>, link: bool) -> String {
+    connection_document_admitting(connection_id, link, false)
+}
+
+/// The same document with `jit_provisioning` stated: whether a first login through this
+/// connection creates the principal and the link it resolves through, or refuses.
+fn connection_document_admitting(
+    connection_id: Option<&str>,
+    link: bool,
+    jit_provisioning: bool,
+) -> String {
     let identity = match connection_id {
         Some(id) => format!(r#""connection_id":"{id}","#),
         None => String::new(),
@@ -1435,7 +1448,7 @@ fn connection_document(connection_id: Option<&str>, link: bool) -> String {
         r#"{{{identity}"organization":"{organization}","issuer":"https://idp.example",
           "client_id":"mandate-at-idp",
           "tenant_resolution":{{"configured_organization":"{organization}"}},
-          "jit_provisioning":false{linked}}}"#,
+          "jit_provisioning":{jit_provisioning}{linked}}}"#,
         organization = organization(),
     )
 }
@@ -1675,10 +1688,11 @@ fn the_flag_documents_configure_a_deployment_that_completes_one_login_end_to_end
     );
 }
 
-/// A connection document naming no link is a connection the road selects and cannot
-/// authenticate: `authenticate_federation` resolves the principal through an explicit link
-/// and `ProvisionExternalPrincipal` is behind `decision-blocker:jit-provisioning` with no
-/// route reaching it. Measured, so the `link` member is not an invention.
+/// A connection document naming no link **and admitting no provisioning** is a connection the
+/// road selects and cannot authenticate: `authenticate_federation` resolves the principal
+/// through an explicit link, and `jit_provisioning` is the only thing that admits creating
+/// one. Measured, so the `link` member is not an invention: provision-ahead stays a supported
+/// mode, and this is what a deployment using neither is answered.
 #[test]
 fn a_connection_document_naming_no_link_selects_a_connection_and_authenticates_nobody() {
     let stated = FederationConnectionId::new(uuid(0xc2));
@@ -1838,5 +1852,324 @@ fn two_key_documents_naming_one_kid_are_refused_before_the_socket_is_bound() {
     assert!(
         said.contains("kid"),
         "the refusal says which member collided, got {said}"
+    );
+}
+
+// ---------------------------------------------------------------------------------------
+// The first login of a user nobody provisioned: `story:federated-jit-login`
+// ---------------------------------------------------------------------------------------
+
+/// A deployment holding one connection and nothing linked through it — the world a
+/// first-time user of a customer's platform meets — over the fixed verifier double.
+///
+/// No OAuth client and no registered target: these cases stop at step 1 of the road.
+fn deployment_unlinked(jit_provisioning: bool) -> (Wired, FederationConnectionId) {
+    deployment_verified_by(verifier(), jit_provisioning)
+}
+
+/// The same, with the verifier as a parameter, because one case turns on what the port
+/// answers rather than on what the connection says.
+fn deployment_verified_by<V: FederationVerifier>(
+    verifier: V,
+    jit_provisioning: bool,
+) -> (
+    Deployment<V, FixedClock, CountingSecrets, SequentialAllocator>,
+    FederationConnectionId,
+) {
+    let mut deployment = Deployment::new(
+        Configuration {
+            issuer: ISSUER.to_owned(),
+            code_lifetime: CodeLifetime::new(Duration::new("PT5M")),
+            session_lifetime: Duration::new("PT8H"),
+            keys: Vec::new(),
+        },
+        verifier,
+        FixedClock::at(NOW),
+        CountingSecrets::new(),
+        SequentialAllocator::new(),
+    )
+    .expect("a configuration this deployment serves");
+    deployment
+        .record_federation(&FederationEvent::FederationConnectionCreated {
+            context: context(),
+            connection_id: connection(),
+            issuer: Issuer::new("https://idp.example"),
+            client_id: ClientId::new("mandate-at-idp"),
+            tenant_resolution: mandate_model::TenantResolutionRule {
+                configured_organization: organization(),
+                verified_claim_name: None,
+                verified_claim_value: None,
+            },
+            jit_provisioning,
+        })
+        .expect("a readable federation history");
+    (deployment, connection())
+}
+
+/// The login the verifier double admits, as the decoded input the route hands the adapter.
+fn login_input(connection_id: FederationConnectionId) -> decode::AuthenticateFederation {
+    decode::AuthenticateFederation {
+        connection_id,
+        proof: CredentialProof::from_bytes(b"an idp proof".to_vec()),
+    }
+}
+
+/// The acceptance: a first-time user of a customer's platform logs in over the served road,
+/// through a connection that admits provisioning and has no link seeded ahead of it.
+///
+/// Measured before this story: the same request answered `400 access_denied`, because the
+/// composition returned `AuthenticateFederation`'s `LinkAbsent` and never reached
+/// `ProvisionExternalPrincipal`.
+///
+/// It is carried through all four routes rather than stopped at the session, because that is
+/// the measurement of what the provisioned principal needs to be *usable*: the composition
+/// seeds no `mandate.identity.Principal` for it — the event that would is
+/// `mandate.federation.ExternalPrincipalProvisioned` in its generated shape, which the
+/// library cannot name (see `adapters.rs`'s header) — and a road that completes without one
+/// is a road that reads none.
+#[test]
+fn a_first_login_on_a_connection_that_admits_provisioning_completes_the_whole_road() {
+    let stated = FederationConnectionId::new(uuid(0xc3));
+    let connection_path = seed_file(
+        "jit-connection.json",
+        &connection_document_admitting(Some(&stated.to_string()), false, true),
+    );
+    let key_path = seed_file("jit-key.json", KEY_DOCUMENT);
+    let (address, target, connection_id) = serving_from_documents(&connection_path, &key_path);
+
+    // 1. The login provisions the principal it then opens a session for.
+    let login = exchange(
+        address,
+        &post(
+            "/v1/federation/login",
+            "application/json",
+            &format!(
+                r#"{{"connection_id":"{connection_id}","proof":"{}"}}"#,
+                mandate_types::value::encode_base64(b"an idp proof")
+            ),
+            &[],
+        ),
+    );
+    assert_eq!(
+        login.status, 200,
+        "a connection admitting provisioning opens the first login a session; got {}",
+        login.body
+    );
+    assert!(
+        !member(&login.body, "session_id").is_empty(),
+        "the declared `session_id` response, got {}",
+        login.body
+    );
+    assert!(
+        !member(&login.body, "principal_id").is_empty(),
+        "the principal the first login created, got {}",
+        login.body
+    );
+    assert_eq!(
+        member(&login.body, "organization_id"),
+        organization().to_string(),
+        "the session is established in the connection's own organization, got {}",
+        login.body
+    );
+    let proof = member(&login.body, "session_proof");
+
+    // 2. That session authorizes, under the same epoch snapshot any other login gets.
+    let redirected = authorize(address, target, &proof, REDIRECT);
+    assert_eq!(
+        redirected.status, 302,
+        "the provisioned principal's session authorizes; got {}",
+        redirected.body
+    );
+    let code = code_of(redirected.header("Location").expect("a Location header"));
+
+    // 3 and 4. The code redeems, and the credential it issued introspects active.
+    let token = exchange(
+        address,
+        &post(
+            "/oauth/token",
+            "application/x-www-form-urlencoded",
+            &token_body(&code, REDIRECT),
+            &[],
+        ),
+    );
+    assert_eq!(
+        token.status, 200,
+        "the token endpoint answered {}",
+        token.body
+    );
+    let credential = member(&token.body, "access_token");
+    let introspect = exchange(
+        address,
+        &post(
+            "/oauth/introspect",
+            "application/x-www-form-urlencoded",
+            &format!("token={}", encoded(&credential)),
+            &[("Authorization", &format!("Bearer {credential}"))],
+        ),
+    );
+    let document: serde_json::Value =
+        serde_json::from_str(&introspect.body).expect("RFC 7662 section 2.2's JSON");
+    assert_eq!(
+        document.get("active").and_then(serde_json::Value::as_bool),
+        Some(true),
+        "a credential issued to a just-in-time principal is usable; got {}",
+        introspect.body
+    );
+}
+
+/// A connection that does not admit provisioning answers the declared `LinkAbsent` refusal,
+/// unchanged, and creates nothing — `decision-blocker:jit-provisioning`'s second required
+/// case, and the guarantee the flag is a guarantee of: "denies the first login and creates
+/// nothing" (`federation.yaml:4`).
+#[test]
+fn a_connection_that_does_not_admit_provisioning_refuses_the_first_login_and_creates_nothing() {
+    let (mut deployment, connection_id) = deployment_unlinked(false);
+
+    let refusal = deployment
+        .authenticate(&login_input(connection_id))
+        .expect_err("a connection that admits no provisioning authenticates nobody");
+
+    assert_eq!(
+        refusal.clause, "LinkAbsent",
+        "the refusal is `AuthenticateFederation`'s own, not a clause of a command the caller \
+         never made"
+    );
+    assert_eq!(
+        refusal.reason,
+        DenialReason::Denied,
+        "the declared reason of `LinkAbsent`"
+    );
+    assert!(
+        deployment.federation().links().is_empty(),
+        "a connection that does not admit provisioning creates no principal and no link, got \
+         {:?}",
+        deployment.federation().links()
+    );
+}
+
+/// The acceptance, twice over: the first login provisions exactly one link through
+/// `ConfiguredFederation`, and a second login by the same subject resolves *that* link and
+/// provisions nothing.
+///
+/// The fold is what is asserted and not the status: a second provisioning would put a second
+/// record in `links()` under a second principal, and a status says nothing about either.
+#[test]
+fn a_first_login_provisions_one_link_and_a_second_resolves_it_and_provisions_nothing() {
+    let (mut deployment, connection_id) = deployment_unlinked(true);
+
+    let first = deployment
+        .authenticate(&login_input(connection_id))
+        .expect("a connection admitting provisioning opens the first login a session");
+
+    let provisioned = deployment.federation().links().to_vec();
+    assert_eq!(
+        provisioned.len(),
+        1,
+        "one first login creates exactly one `ExternalPrincipal`, got {provisioned:?}"
+    );
+    let link = &provisioned[0];
+    assert_eq!(
+        link.link_method,
+        ExternalLinkMethod::ConfiguredFederation,
+        "the link a configured connection creates is `ConfiguredFederation`"
+    );
+    assert_eq!(
+        link.subject,
+        ExternalSubject::new("subject-1"),
+        "the link holds the validated subject, exactly as the issuer issued it"
+    );
+    assert_eq!(
+        link.principal_id, first.principal_id,
+        "the session is established for the principal the provisioning created"
+    );
+
+    let second = deployment
+        .authenticate(&login_input(connection_id))
+        .expect("the second login resolves the link the first one made");
+
+    assert_eq!(
+        second.principal_id, first.principal_id,
+        "the second login resolves the principal the first created rather than a new one"
+    );
+    assert_ne!(
+        second.session_id, first.session_id,
+        "each login opens its own session"
+    );
+    assert_eq!(
+        deployment.federation().links(),
+        provisioned.as_slice(),
+        "the second login provisions nothing: the fold holds exactly the record the first \
+         login wrote"
+    );
+}
+
+/// A verifier double that validates a **different subject on every call**, and counts them.
+///
+/// Named here as the case that uses it requires. It is not a claim about identity providers:
+/// it is the one construction in which the *retry* resolves no link either, because with the
+/// shipped fold a provisioning creates exactly the key the retry then looks the link up
+/// under. `FederationVerifier` is a port and nothing in this composition may assume an
+/// implementation answers twice the same; what the case pins is that the port is consulted
+/// three times for one login — authenticate, provision, authenticate — and not a fourth.
+struct RotatingSubjects {
+    calls: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+}
+
+impl FederationVerifier for RotatingSubjects {
+    fn verify(
+        &self,
+        _connection: &FederationConnection,
+        _proof: &CredentialProof,
+    ) -> Result<VerifiedProof, FederationDenied> {
+        let call = self
+            .calls
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        Ok(VerifiedProof::new(
+            Issuer::new("https://idp.example"),
+            ExternalSubject::new(format!("subject-{call}")),
+            ClientId::new("mandate-at-idp"),
+        ))
+    }
+}
+
+/// One retry, never a loop: a second `LinkAbsent` is returned as the login's answer, and
+/// nothing is driven a third time.
+///
+/// A composition that retried on the retry's own refusal would provision a second link, and a
+/// third, and never answer at all — so the case is answered on a thread with a deadline, a
+/// hang being a failure that reports nothing.
+#[test]
+fn a_second_link_absent_is_returned_and_the_sequence_does_not_run_again() {
+    let calls = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let (deployment, connection_id) = deployment_verified_by(
+        RotatingSubjects {
+            calls: std::sync::Arc::clone(&calls),
+        },
+        true,
+    );
+
+    let (sender, receiver) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let mut deployment = deployment;
+        let answered = deployment.authenticate(&login_input(connection_id));
+        let _ = sender.send((answered.err(), deployment.federation().links().len()));
+    });
+    let (refusal, links) = receiver
+        .recv_timeout(HostDuration::from_secs(10))
+        .expect("one retry answers; a loop does not");
+
+    let refusal = refusal.expect("the retry resolved no link either");
+    assert_eq!(
+        refusal.clause, "LinkAbsent",
+        "the second refusal is returned as it stands"
+    );
+    assert_eq!(
+        links, 1,
+        "`ProvisionExternalPrincipal` was driven exactly once"
+    );
+    assert_eq!(
+        calls.load(std::sync::atomic::Ordering::Relaxed),
+        3,
+        "one login consults the verifier three times: authenticate, provision, authenticate"
     );
 }
