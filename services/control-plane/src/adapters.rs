@@ -84,12 +84,14 @@ use mandate_federation::authorize::{IssueAuthorizationCodeInput, TargetRegistry}
 use mandate_federation::publicclient::{OAuthClientStore, registered_public_client};
 use mandate_federation::record::{
     ExternalKey, FederationConnection, FederationEvent, FoldError as FederationFoldError,
-    OAuthClientState, Projection as FederationProjection,
+    OAuthClientState, Projection as FederationProjection, RegisterFederationConnection,
+    register_federation_connection,
 };
 use mandate_federation::verifier_real::{AlgorithmPolicyError, Clock};
 use mandate_federation::{
     ConnectionStore, DenialClause as FederationClause, Denied as FederationDenied,
-    FederationVerifier, IssuedSession, SessionIssuer,
+    FederationVerifier, IdentityAllocator as FederationIdentityAllocator, IssuedSession,
+    PrincipalStore, SessionIssuer,
 };
 use mandate_identity::{
     EpochSnapshotRecorded, Generation, IdentityEvent, IdentityLog, IdentityRead,
@@ -767,6 +769,27 @@ pub struct ConnectionSeed {
 #[serde(deny_unknown_fields)]
 pub struct PrincipalLinkSeed {
     /// The Mandate principal the external subject resolves to.
+    ///
+    /// **Trusted, and this is the limit of what is checked.**
+    /// `mandate.federation.LinkExternalPrincipal` refuses a principal the records place in
+    /// another organization — `links.organization_of(&principal_id) != connection.organization_id`
+    /// is `PrincipalMismatch`, and an unanswered principal is refused too because "this path
+    /// fails closed" (`crates/mandate-federation/src/link.rs:71-79`). That guard cannot be
+    /// run here: this composition writes no `mandate.identity` principal and seeds no
+    /// principal record, so `organization_of` answers `None` for **every** first link and
+    /// the command would refuse every document — and `link_external_principal` refuses
+    /// `ExternalLinkMethod::ConfiguredFederation` outright (`LinkingAuthority`), which is
+    /// the method a configured link is.
+    ///
+    /// So a single document's `principal_id` is taken as written: nothing in this process
+    /// can contradict it. What is decided is the part that does not need an identity record
+    /// — two documents placing one principal in two organizations, which
+    /// [`ConnectionSeeding::admit`] refuses
+    /// ([`SeedRefused::PrincipalAcrossOrganizations`]). Making the single-document case
+    /// checkable needs a principal record in this process, which arrives with the folds
+    /// seeded from an event log (ruling D4, `story:declared-writers`); until then an
+    /// operator writing this field is asserting the principal exists and is that
+    /// organization's.
     pub principal_id: PrincipalId,
     /// The link identity, when the operator states one. Absent, one is allocated.
     #[serde(default, deserialize_with = "mandate_types::value::present")]
@@ -789,27 +812,124 @@ pub struct SeededConnection {
     pub events: Vec<FederationEvent>,
 }
 
-impl ConnectionSeed {
-    /// The events this document seeds, allocating the identities it states none for.
+/// The `--connection` documents one process was given, decided **together and in order**.
+///
+/// # Why a document is not read on its own
+///
+/// Every guard `mandate.federation.RegisterFederationConnection` states is a guard about the
+/// connections already held, so a reader that turns one document into an event on its own
+/// enforces none of them. Three ways that went wrong, each measured against the flag before
+/// this type existed:
+///
+/// * two documents on one issuer in two organizations were both seeded, and the first
+///   connection's login — which succeeded with only its own document present — was then
+///   denied `TenantAmbiguous`. `register_federation_connection` refuses that second document
+///   with `TenantResolutionUnadmitted` and says why in as many words: no command
+///   un-registers a connection, so the incumbent could not undo it.
+/// * a document whose `tenant_resolution` named an organization its connection was not bound
+///   to was seeded, and every login through it was denied `OrganizationMismatch`. The same
+///   command refuses it.
+/// * two documents stating one `connection_id` were both seeded and both printed, and only
+///   the first was the record the login route read.
+///
+/// So the documents are admitted one at a time against a fold of the ones before, through
+/// the command itself. The fold here is a **mirror** of the deployment's: the same events in
+/// the same order, built before the deployment exists because the per-connection verifier
+/// algorithm is installed from the allocated `connection_id` and must be known first.
+pub struct ConnectionSeeding {
+    projection: FederationProjection,
+    admitted: Vec<(PathBuf, FederationConnectionId)>,
+    linked: Vec<(PathBuf, PrincipalId, OrganizationId)>,
+}
+
+impl Default for ConnectionSeeding {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl ConnectionSeeding {
+    /// A seeding holding no connection.
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            projection: FederationProjection::default(),
+            admitted: Vec::new(),
+            linked: Vec::new(),
+        }
+    }
+
+    /// Admit one document against the ones already admitted, and answer the events it seeds.
     ///
     /// `allocate` is the identity source, so the binary mints from the host CSPRNG and a
-    /// case mints what it can assert against. Order matters: the fold refuses a link naming
-    /// a connection no event created ([`FederationFoldError::UnknownConnection`]).
-    pub fn events(&self, allocate: &mut impl FnMut() -> Uuid) -> SeededConnection {
-        let connection_id = self
-            .connection_id
-            .unwrap_or_else(|| FederationConnectionId::new(allocate()));
-        let mut events = vec![FederationEvent::FederationConnectionCreated {
-            context: self.context(),
-            connection_id,
-            issuer: self.issuer.clone(),
-            client_id: self.client_id.clone(),
-            tenant_resolution: self.tenant_resolution.clone(),
-            jit_provisioning: self.jit_provisioning,
-        }];
-        if let Some(link) = &self.link {
+    /// case mints what it can assert against. Order matters twice: the fold refuses a link
+    /// naming a connection no event created
+    /// ([`FederationFoldError::UnknownConnection`]), and the command reads the connections
+    /// admitted before this one.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SeedRefused`] naming the file — and the incumbent file, where two documents
+    /// contradict each other.
+    pub fn admit(
+        &mut self,
+        path: &Path,
+        seed: &ConnectionSeed,
+        allocate: &mut impl FnMut() -> Uuid,
+    ) -> Result<SeededConnection, SeedRefused> {
+        if let Some(stated) = seed.connection_id
+            && self.projection.connection(&stated).is_some()
+        {
+            return Err(SeedRefused::RepeatedConnectionId {
+                path: path.to_path_buf(),
+                incumbent: self.incumbent_of(stated),
+                connection_id: stated,
+            });
+        }
+        // The command decides the inputs; this reader decides nothing about them. A stated
+        // `connection_id` is handed to it as the identity it allocates, so the operator's
+        // own id and an allocated one take exactly the same path through the guards.
+        let registered = register_federation_connection(
+            &RegisterFederationConnection {
+                context: seeded_context(seed.organization),
+                issuer: seed.issuer.clone(),
+                client_id: seed.client_id.clone(),
+                tenant_resolution: seed.tenant_resolution.clone(),
+                jit_provisioning: seed.jit_provisioning,
+            },
+            &self.projection,
+            &mut StatedIdentities {
+                connection_id: seed.connection_id,
+                allocate,
+            },
+        )
+        .map_err(|denied| SeedRefused::Unregistrable {
+            path: path.to_path_buf(),
+            denied,
+        })?;
+        let connection_id = registered.connection_id;
+        let mut events = vec![registered.event];
+
+        if let Some(link) = &seed.link {
+            // The read `link_external_principal` makes, where this composition can answer
+            // it: `PrincipalStore::organization_of` reports the organization the records
+            // place a principal in, and for this fold those records are the links seeded
+            // before this one. A principal that two documents place in two organizations is
+            // refused; a principal no document has placed yet is admitted, which is the
+            // limitation [`PrincipalLinkSeed::principal_id`] states.
+            if let Some(held) = self.projection.organization_of(&link.principal_id)
+                && held != seed.organization
+            {
+                return Err(SeedRefused::PrincipalAcrossOrganizations {
+                    path: path.to_path_buf(),
+                    incumbent: self.incumbent_link_of(link.principal_id),
+                    principal_id: link.principal_id,
+                    organization: seed.organization,
+                    held,
+                });
+            }
             events.push(FederationEvent::ExternalPrincipalLinked {
-                context: self.context(),
+                context: seeded_context(seed.organization),
                 connection_id,
                 principal_id: link.principal_id,
                 external_principal_id: link
@@ -820,22 +940,97 @@ impl ConnectionSeed {
                 linked_at: link.linked_at.clone(),
             });
         }
-        SeededConnection {
+
+        for event in &events {
+            self.projection
+                .apply(event)
+                .map_err(|error| SeedRefused::Unseedable {
+                    path: path.to_path_buf(),
+                    error,
+                })?;
+        }
+        self.admitted.push((path.to_path_buf(), connection_id));
+        if let Some(link) = &seed.link {
+            self.linked
+                .push((path.to_path_buf(), link.principal_id, seed.organization));
+        }
+        Ok(SeededConnection {
             connection_id,
             events,
-        }
+        })
     }
 
-    /// The context a seeded event is recorded under.
-    ///
-    /// The organization is the document's, because the fold binds the connection to it. The
-    /// subject and the credential name none, spelled the way [`Deployment::authenticate`]
-    /// spells it for the same reason: the declared types are not `Optional`, and this
-    /// seeding authenticated no caller — it is the operator's own configuration, not a
-    /// command a credential was validated for.
-    fn context(&self) -> VerifiedContext {
-        seeded_context(self.organization)
+    /// The file that seeded this connection, for a refusal that has to name both.
+    fn incumbent_of(&self, connection_id: FederationConnectionId) -> PathBuf {
+        self.admitted
+            .iter()
+            .find(|(_, held)| *held == connection_id)
+            .map_or_else(PathBuf::new, |(path, _)| path.clone())
     }
+
+    /// The file that linked this principal first, for a refusal that has to name both.
+    fn incumbent_link_of(&self, principal_id: PrincipalId) -> PathBuf {
+        self.linked
+            .iter()
+            .find(|(_, held, _)| *held == principal_id)
+            .map_or_else(PathBuf::new, |(path, _, _)| path.clone())
+    }
+}
+
+/// The identity source [`register_federation_connection`] allocates through.
+///
+/// The command mints the `connection_id` it responds with, so a document stating one states
+/// what the command mints. The other three are never reached by that command and are minted
+/// from the same source rather than left to panic: an allocator that answers some of its
+/// trait and not the rest is a trap for the next caller.
+struct StatedIdentities<'a, F: FnMut() -> Uuid> {
+    connection_id: Option<FederationConnectionId>,
+    allocate: &'a mut F,
+}
+
+impl<F: FnMut() -> Uuid> FederationIdentityAllocator for StatedIdentities<'_, F> {
+    fn next_connection_id(&mut self) -> FederationConnectionId {
+        self.connection_id
+            .unwrap_or_else(|| FederationConnectionId::new((self.allocate)()))
+    }
+
+    fn next_principal_id(&mut self) -> PrincipalId {
+        PrincipalId::new((self.allocate)())
+    }
+
+    fn next_external_principal_id(&mut self) -> ExternalPrincipalId {
+        ExternalPrincipalId::new((self.allocate)())
+    }
+
+    fn next_o_auth_client_id(&mut self) -> OAuthClientId {
+        OAuthClientId::new((self.allocate)())
+    }
+}
+
+/// The key set these `--key` documents publish, or why they publish none.
+///
+/// [`Jwks::new`] refuses a repeated `kid` and is the rule; it is decided here because only
+/// the flags know which **file** each key was read from, and
+/// `two keys of the set carry the same kid` with neither file named is a refusal an operator
+/// cannot act on. [`Configuration::checked`] still runs the same check on whatever it is
+/// given, for a caller that is not this binary.
+///
+/// # Errors
+///
+/// Returns [`SeedRefused::RepeatedKeyId`] naming both files.
+pub fn key_set(documents: Vec<(PathBuf, Jwk)>) -> Result<Vec<Jwk>, SeedRefused> {
+    let mut held: Vec<(PathBuf, Jwk)> = Vec::with_capacity(documents.len());
+    for (path, key) in documents {
+        if let Some((incumbent, _)) = held.iter().find(|(_, carried)| carried.kid == key.kid) {
+            return Err(SeedRefused::RepeatedKeyId {
+                path,
+                incumbent: incumbent.clone(),
+                kid: key.kid,
+            });
+        }
+        held.push((path, key));
+    }
+    Ok(held.into_iter().map(|(_, key)| key).collect())
 }
 
 /// The `--client` document: a registered `mandate.federation.OAuthClient`.
@@ -1005,19 +1200,87 @@ const SEEDED_CONFIGURATION_AUDIENCE: &str = "mandate.control-plane.configuration
 
 /// The declared members of a JWK document, and everything else it carries.
 ///
-/// `#[serde(flatten)]` into a map of text, so a parameter whose value is not text is a
-/// refusal of the document rather than a member silently dropped from a published key. The
-/// map is ordered, so the published document does not depend on the order the file was
-/// written in.
-#[derive(Debug, Clone, Deserialize)]
+/// # Why this is not `#[serde(flatten)]` into a map
+///
+/// It was, into a `BTreeMap<String, String>`, and a map holds one value per name: a document
+/// stating `"crv":"P-256","crv":"P-521"` was read as `P-521` and **published** as `P-521`,
+/// with the first value dropped in silence — a key that states a curve the document's own
+/// first line did not. `serde_json` parses the repeat happily; the map is where it is lost.
+///
+/// So the members are collected **in document order, repeats and all**, and handed to
+/// [`Jwk::new`] as they were written. That constructor already refuses a repeat
+/// ([`JwkRefusal::DuplicateParameter`]) and a parameter colliding with a declared member
+/// ([`JwkRefusal::DeclaredMemberCollision`]); this reader's job is to stop deciding on the
+/// document's behalf which of two values it meant. A declared member stated twice reaches
+/// the constructor the same way — the first occurrence fills the field and the second is
+/// carried on as a parameter, where it collides with the member it repeats.
+#[derive(Debug, Clone)]
 struct KeySeed {
     kty: String,
     kid: String,
-    #[serde(rename = "use")]
     key_use: String,
     alg: String,
-    #[serde(flatten)]
-    parameters: BTreeMap<String, String>,
+    /// Every member that is not the first occurrence of one of the declared four, in the
+    /// order the document wrote them, repeats preserved.
+    parameters: Vec<(String, String)>,
+}
+
+impl<'de> Deserialize<'de> for KeySeed {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct Members;
+
+        impl<'de> serde::de::Visitor<'de> for Members {
+            type Value = Vec<(String, String)>;
+
+            fn expecting(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                formatter.write_str("a JWK object whose members are all text")
+            }
+
+            fn visit_map<M: serde::de::MapAccess<'de>>(
+                self,
+                mut map: M,
+            ) -> Result<Self::Value, M::Error> {
+                let mut members = Vec::new();
+                while let Some((name, value)) = map.next_entry::<String, String>()? {
+                    members.push((name, value));
+                }
+                Ok(members)
+            }
+        }
+
+        let members = deserializer.deserialize_map(Members)?;
+        let mut declared: BTreeMap<&'static str, String> = BTreeMap::new();
+        let mut parameters = Vec::new();
+        for (name, value) in members {
+            match Jwk::DECLARED_MEMBERS.iter().find(|held| **held == name) {
+                // The *first* occurrence fills the declared field; a second is carried on
+                // rather than dropped, and `Jwk::new` refuses it as a collision.
+                Some(held) if !declared.contains_key(held) => {
+                    declared.insert(held, value);
+                }
+                _ => parameters.push((name, value)),
+            }
+        }
+        let kty = declared
+            .remove("kty")
+            .ok_or_else(|| serde::de::Error::missing_field("kty"))?;
+        let kid = declared
+            .remove("kid")
+            .ok_or_else(|| serde::de::Error::missing_field("kid"))?;
+        let key_use = declared
+            .remove("use")
+            .ok_or_else(|| serde::de::Error::missing_field("use"))?;
+        let alg = declared
+            .remove("alg")
+            .ok_or_else(|| serde::de::Error::missing_field("alg"))?;
+        Ok(Self {
+            kty,
+            kid,
+            key_use,
+            alg,
+            parameters,
+        })
+    }
 }
 
 /// Why a document named by `--connection` or `--key` configures no deployment.
@@ -1077,6 +1340,73 @@ pub enum SeedRefused {
         /// The policy's own refusal.
         error: AlgorithmPolicyError,
     },
+    /// The command this document's inputs realize refuses them.
+    ///
+    /// **The guards are the domain's, not this reader's.** A `--connection` document is the
+    /// inputs of `mandate.federation.RegisterFederationConnection`, and
+    /// [`register_federation_connection`] is what decides them: a `tenant_resolution`
+    /// resolving to an organization the connection is not bound to is `OrganizationMismatch`,
+    /// and a rule another organization's connection on the same issuer could match for the
+    /// same proof is `TenantResolutionUnadmitted`. Both were seeded happily while this
+    /// reader built the event by hand, and both turn every login through the connection into
+    /// a denial — which is exactly what that command's own comment says not to do: "no
+    /// command un-registers a connection, so the incumbent could not undo it. Refuse the
+    /// configuration rather than the logins."
+    Unregistrable {
+        /// The file that was read.
+        path: PathBuf,
+        /// The command's own denial.
+        denied: FederationDenied,
+    },
+    /// Two `--key` documents publish one `kid`.
+    ///
+    /// A `kid` names at most one key in a set, so a reader resolving a signature's `kid`
+    /// against the published document resolves it to one key or to none ([`Jwks::new`]).
+    /// Decided here rather than there because only the flags know which **files** the two
+    /// keys were read from, and a refusal an operator cannot act on is not a refusal.
+    RepeatedKeyId {
+        /// The file that was read.
+        path: PathBuf,
+        /// The file the incumbent key was read from.
+        incumbent: PathBuf,
+        /// The `kid` both state.
+        kid: String,
+    },
+    /// Two `--connection` documents state one `connection_id`.
+    ///
+    /// For [`SeedRefused::RepeatedKeyId`]'s reason, one level up: the login route selects a
+    /// connection by this id, so the fold answers with the first document's record and the
+    /// second document's issuer, client and link are configured into a connection nothing
+    /// can reach. Both ids are printed as seeded, so nothing anywhere says which one won.
+    RepeatedConnectionId {
+        /// The file that was read.
+        path: PathBuf,
+        /// The file the incumbent connection was read from.
+        incumbent: PathBuf,
+        /// The identity both state.
+        connection_id: FederationConnectionId,
+    },
+    /// Two `--connection` documents link one principal under different organizations.
+    ///
+    /// `link_external_principal` refuses a principal the records place in another
+    /// organization (`crates/mandate-federation/src/link.rs:71-79`) and fails closed. This
+    /// composition records no `mandate.identity` principal, so that guard cannot be
+    /// satisfied by any document here — see [`PrincipalLinkSeed::principal_id`] for what is
+    /// therefore trusted. What **is** decidable is the contradiction between two documents,
+    /// and it is refused: a principal that logs into two tenants is the cross-tenant hole
+    /// the guard exists to close.
+    PrincipalAcrossOrganizations {
+        /// The file that was read.
+        path: PathBuf,
+        /// The file that linked the principal first.
+        incumbent: PathBuf,
+        /// The principal both link.
+        principal_id: PrincipalId,
+        /// The organization this document places it in.
+        organization: OrganizationId,
+        /// The organization the incumbent document placed it in.
+        held: OrganizationId,
+    },
 }
 
 impl SeedRefused {
@@ -1089,7 +1419,26 @@ impl SeedRefused {
             | Self::Key { path, .. }
             | Self::Unseedable { path, .. }
             | Self::UnseedableCredential { path, .. }
-            | Self::Algorithm { path, .. } => path,
+            | Self::Algorithm { path, .. }
+            | Self::Unregistrable { path, .. }
+            | Self::RepeatedKeyId { path, .. }
+            | Self::RepeatedConnectionId { path, .. }
+            | Self::PrincipalAcrossOrganizations { path, .. } => path,
+        }
+    }
+
+    /// The other file this refusal is about, when it is about two.
+    ///
+    /// A refusal that names one of two contradicting documents tells an operator half of
+    /// what to correct. Every variant that compares documents carries both, and this is the
+    /// reader for the second — `None` for the variants that read one file.
+    #[must_use]
+    pub fn incumbent(&self) -> Option<&Path> {
+        match self {
+            Self::RepeatedKeyId { incumbent, .. }
+            | Self::RepeatedConnectionId { incumbent, .. }
+            | Self::PrincipalAcrossOrganizations { incumbent, .. } => Some(incumbent),
+            _ => None,
         }
     }
 }
@@ -1104,6 +1453,38 @@ impl core::fmt::Display for SeedRefused {
             Self::Unseedable { error, .. } => write!(formatter, "{path}: {error:?}"),
             Self::UnseedableCredential { error, .. } => write!(formatter, "{path}: {error:?}"),
             Self::Algorithm { error, .. } => write!(formatter, "{path}: {error}"),
+            Self::Unregistrable { denied, .. } => write!(
+                formatter,
+                "{path}: mandate.federation.RegisterFederationConnection refuses these inputs \
+                 ({:?}, {:?})",
+                denied.clause, denied.reason
+            ),
+            Self::RepeatedKeyId { incumbent, kid, .. } => write!(
+                formatter,
+                "{path}: the kid `{kid}` is already published from {}",
+                incumbent.display()
+            ),
+            Self::RepeatedConnectionId {
+                incumbent,
+                connection_id,
+                ..
+            } => write!(
+                formatter,
+                "{path}: the connection_id {connection_id} is already seeded from {}",
+                incumbent.display()
+            ),
+            Self::PrincipalAcrossOrganizations {
+                incumbent,
+                principal_id,
+                organization,
+                held,
+                ..
+            } => write!(
+                formatter,
+                "{path}: the principal {principal_id} is linked in organization {organization} \
+                 here and in {held} from {}",
+                incumbent.display()
+            ),
         }
     }
 }

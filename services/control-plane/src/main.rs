@@ -13,6 +13,23 @@
 //! **Every identity is printed.** A caller who cannot learn the connection, the client and
 //! the target cannot call the three routes that select on them, so each is written to stdout
 //! before the listener binds — readable whether or not the bind succeeds.
+//!
+//! **The documents are decided together, by the commands they are the inputs of.** Every
+//! guard `RegisterFederationConnection` states is a guard about the connections already
+//! held, so `--connection` documents are admitted one at a time against a fold of the ones
+//! before ([`mandate_control_plane::adapters::ConnectionSeeding`]) and a set this process
+//! cannot serve is refused before the socket — not seeded, printed as seeded, and then
+//! denied at every login. The same holds one level down for a repeated `kid` across `--key`
+//! documents and a repeated `connection_id` across `--connection` documents.
+//!
+//! **What is trusted, and what would stop it being trusted.** A seeded link's
+//! `principal_id` is taken as written: this process records no `mandate.identity` principal,
+//! so `LinkExternalPrincipal`'s own guard — the principal must be recorded, and recorded in
+//! this connection's organization — has nothing to read and would refuse every first link.
+//! Two documents placing one principal in two organizations *is* decidable and is refused;
+//! one document placing it anywhere is not. A principal record in this process arrives with
+//! the folds seeded from an event log (ruling D4, `story:declared-writers`), and that is
+//! what would close it. There is deliberately no `--principal` flag.
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -20,8 +37,8 @@ use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
 use mandate_control_plane::adapters::{
-    ClientSeed, Configuration, ConfigurationRefused, ConnectionSeed, Deployment,
-    ResourceServerSeed, SeedRefused, SystemAllocator, SystemSecrets, read_client_seed,
+    ClientSeed, Configuration, ConfigurationRefused, ConnectionSeed, ConnectionSeeding, Deployment,
+    ResourceServerSeed, SeedRefused, SystemAllocator, SystemSecrets, key_set, read_client_seed,
     read_connection_seed, read_key, read_resource_server_seed,
 };
 use mandate_control_plane::serve::{Limits, Listener};
@@ -166,12 +183,17 @@ fn serve(serving: &Serving) -> Result<(), Refused> {
         .map(|path| Ok((path.clone(), read_resource_server_seed(path)?)))
         .collect::<Result<Vec<(PathBuf, ResourceServerSeed)>, SeedRefused>>()
         .map_err(Refused::Seed)?;
-    let published = serving
-        .keys
-        .iter()
-        .map(|path| read_key(path))
-        .collect::<Result<Vec<_>, SeedRefused>>()
-        .map_err(Refused::Seed)?;
+    // The path is carried beside the key, because a repeated `kid` is a refusal about two
+    // **files** and `Jwks::new` knows neither of them.
+    let published = key_set(
+        serving
+            .keys
+            .iter()
+            .map(|path| Ok((path.clone(), read_key(path)?)))
+            .collect::<Result<Vec<_>, SeedRefused>>()
+            .map_err(Refused::Seed)?,
+    )
+    .map_err(Refused::Seed)?;
 
     let configuration = Configuration {
         issuer: serving.issuer.clone(),
@@ -192,10 +214,18 @@ fn serve(serving: &Serving) -> Result<(), Refused> {
 
     // The identities the documents state none for are minted from the same CSPRNG every
     // other identity this deployment mints comes from, before the allocator is handed over.
+    //
+    // Each document is decided against the ones before it, through
+    // `mandate.federation.RegisterFederationConnection` itself: a connection this process
+    // cannot serve is refused here rather than seeded and denied at every login.
+    let mut seeding = ConnectionSeeding::new();
     let mut seeded = Vec::with_capacity(seeds.len());
     for (path, seed) in &seeds {
         let mut allocate = || allocator.next_uuid();
-        seeded.push((path, seed, seed.events(&mut allocate)));
+        let admitted = seeding
+            .admit(path, seed, &mut allocate)
+            .map_err(Refused::Seed)?;
+        seeded.push((path, seed, admitted));
     }
     let mut seeded_clients = Vec::with_capacity(client_seeds.len());
     for (path, seed) in &client_seeds {

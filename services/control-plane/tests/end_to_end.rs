@@ -1122,23 +1122,32 @@ fn a_code_verifier_that_does_not_match_the_challenge_is_refused_at_step_five() {
     seeded_connections(&mut served, &[connection()]);
 }
 
-/// Step 6, validate the configured organization: resolution is **ambiguous**.
+/// Step 6, validate the configured organization: resolution would be **ambiguous**, and the
+/// configuration is refused before a socket rather than every login through it.
 ///
 /// The promise `docs/architecture/federated-login.md` makes on its own — *if tenant
 /// resolution is ambiguous, Mandate denies rather than guesses*
-/// (`architecture-addendum.md:360`) — and `DenialClause::TenantAmbiguous`
-/// (`crates/mandate-federation/src/authenticate.rs`), which nothing reached through the
-/// served composition before this case.
+/// (`architecture-addendum.md:360`) — is now kept one step earlier than this case used to
+/// keep it. `mandate.federation.RegisterFederationConnection` refuses a rule another
+/// organization's connection on the same issuer could match for the same proof, and its own
+/// comment says why (`crates/mandate-federation/src/record.rs:946-949`): "no command
+/// un-registers a connection, so the incumbent could not undo it. Refuse the configuration
+/// rather than the logins." Every `--connection` document is run through that command, so
+/// this pair never stands a listener up — which is the point: the deployment this case used
+/// to build denied the *first* connection's login too, and that login succeeds when its
+/// document is the only one given.
 ///
-/// **Why two connections.** `resolve_tenant` reads every *enabled connection configured
-/// for the validated issuer*, collects the organizations whose rules match what the
-/// verifier validated, and refuses on two distinct ones. A single connection carries one
-/// rule and could only ever yield zero or one, which is why ambiguity is a property of the
-/// deployment's configuration and not of anything a caller can send. Both rules here name
-/// no claim, which `matches_validated` admits unconditionally, so both match and the two
-/// organizations differ.
+/// **The login-time clause is not gone and is not covered here.**
+/// `DenialClause::TenantAmbiguous` is still reached by a deployment whose folds came from an
+/// event log rather than from these flags: `Deployment::record_federation` is the replay
+/// path and enforces no command guard, and `register_federation_connection` is a
+/// read-then-write guard whose own comment records that storage must enforce it atomically.
+/// That case is
+/// `tests/serve.rs::two_connections_on_one_issuer_from_a_log_are_still_refused_as_ambiguous`.
+///
+/// No port is taken and no `PORT` lock is held: the child exits before it binds.
 #[test]
-fn an_ambiguous_tenant_resolution_is_refused_rather_than_guessed_at_step_six() {
+fn an_ambiguous_tenant_resolution_is_refused_as_a_configuration_before_the_socket() {
     let signer = idp_signer();
     let jwks = serde_json::to_string(&signer.published_keys()).expect("the published key set");
     let issuer = issuer_publishing(jwks);
@@ -1147,29 +1156,52 @@ fn an_ambiguous_tenant_resolution_is_refused_rather_than_guessed_at_step_six() {
     let sibling = ConnectionDocument {
         connection_id: other_connection(),
         organization: other_organization(),
-        // No link: step 6 refuses before step 7 reads one, so a link on the sibling would
-        // decide nothing and would assert a principal this case does not need.
+        // No link: the configuration is refused before any login, so a link on the sibling
+        // would decide nothing and would assert a principal this case does not need.
         linked: false,
         ..ConnectionDocument::accepted(&issuer)
     };
-    let (address, mut served) = stand_up(
-        "tenant-ambiguous",
-        &[selected.rendered(), sibling.rendered()],
-    );
+    let case = "tenant-ambiguous";
+    let paths: Vec<PathBuf> = [selected.rendered(), sibling.rendered()]
+        .iter()
+        .enumerate()
+        .map(|(nth, body)| document(case, &format!("connection-{nth}.json"), body))
+        .collect();
+    let key_path = document(case, "key.json", AS_KEY_DOCUMENT);
 
-    let proof = proof_from(&signer, &issuer, IDP_CLIENT, "proof-tenant");
-    let login = login_with(address, connection(), &proof);
-    refused(
-        "step 6 tenant: POST /v1/federation/login",
-        &login,
-        400,
-        &denied_body("access_denied"),
-    );
+    let refused = Command::new(env!("CARGO_BIN_EXE_mandate-control-plane"))
+        .args([
+            "serve",
+            "--listen",
+            "127.0.0.1:0",
+            "--issuer",
+            AS_ISSUER,
+            "--connection",
+            stated(&paths[0]),
+            "--connection",
+            stated(&paths[1]),
+            "--key",
+            stated(&key_path),
+        ])
+        .output()
+        .expect("the composition binary runs");
 
-    // Both connections were seeded, which is what separates this refusal from step one's:
-    // the two render the same body, and only the deployment the child stood up says which
-    // happened.
-    seeded_connections(&mut served, &[connection(), other_connection()]);
+    assert_eq!(
+        refused.status.code(),
+        Some(2),
+        "a configuration whose logins would all be ambiguous is the operator's to correct; \
+         it said {}",
+        String::from_utf8_lossy(&refused.stderr)
+    );
+    let said = String::from_utf8_lossy(&refused.stderr);
+    assert!(
+        said.contains("TenantResolutionUnadmitted"),
+        "the clause the registration command states for this pair, got {said}"
+    );
+    assert!(
+        said.contains(stated(&paths[1])),
+        "the refusal names the document it could not admit, got {said}"
+    );
 }
 
 /// The configuration step: a `--connection` document omitting `algorithm`.
