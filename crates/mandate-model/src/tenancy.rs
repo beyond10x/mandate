@@ -107,29 +107,104 @@
 //! # Every denial clause this fold does not realize
 //!
 //! A `denied` clause with no code behind it is a gap, and the gap is only visible if it is
-//! written down. These are all of them, and nothing else in `tenancy.yaml` is unrealized
-//! here:
+//! written down. These are all of them, and nothing else in `tenancy.yaml` is unrealized here:
+//! thirty clauses across ten commands, each quoted verbatim from its command's declared
+//! cause and grouped by what owes it. `contracts/obligations/model.json` is the record of what
+//! this crate does not decide; a clause is listed here exactly when it carries `blocked_on`
+//! there, and the two documents are one set read from two sides.
 //!
-//! * **The display name.** `CreateOrganization`, `CreateTeam` and `CreateSpace` each deny
-//!   when "the display name is not admitted", and this fold admits every string, the empty
-//!   one included and nothing trimmed. No admission rule exists to implement: the compiled
-//!   entity declares `display_name` as a bare string with no pattern, length or
-//!   uniqueness, and no document in `systems/mandate` states one. This one is owed to no
-//!   story; it is owed to a rule nobody has written.
-//! * **`RetireTeam`, the directory-mapping clause.** Denied when "a directory mapping
-//!   still contributes to it". `mandate.directory.DirectoryGroupTeamMappingCreated` and
-//!   the contributions that follow it are `mandate.directory`'s records and no projection
-//!   here holds one, so this fold cannot see a contributing mapping to refuse on. Owed to
-//!   `story:directory-provenance`.
-//! * **`RemoveTeamMembership`, the mapping-contribution clause.** Denied when "a
-//!   `mandate.directory` mapping contribution still supports it". The same record and the
-//!   same reason: `mandate.directory.MembershipContribution` is not projected here. Owed
-//!   to `story:directory-provenance`.
+//! A bullet names a command and quotes one clause; a quotation wrapped across lines is the
+//! clause with its line breaks collapsed to single spaces.
 //!
-//! `AddTeamMembership`'s accepted outcome is realized in part for the same reason, and is
-//! recorded in its own section above; `story:directory-provenance` owns that too. Every
-//! other clause of every other command is decided by a `decide_*` half and covered by a
-//! case in `crates/mandate-model/tests/tenancy.rs`.
+//! ## Owed to `decision-blocker:guards` — fourteen
+//!
+//! No guard runs here. Authority is the caller's statement (`MembershipAuthority`) and is
+//! `mandate-authz`'s to decide, and no admission rule for a display name exists to implement:
+//! the compiled entity declares `display_name` as a bare string with no pattern, length or
+//! uniqueness, and no document in `systems/mandate` states one. This fold admits every string,
+//! the empty one included and nothing trimmed.
+//!
+//! * `mandate.tenancy.AddOrganizationMembership` — "Caller lacks membership-administration
+//!   authority"
+//! * `mandate.tenancy.AddOrganizationMembership` — "the caller lacks platform
+//!   organization-administration authority"
+//! * `mandate.tenancy.AddTeamMembership` — "Caller lacks team-administration authority"
+//! * `mandate.tenancy.CloseOrganization` — "Caller lacks platform organization-administration
+//!   authority"
+//! * `mandate.tenancy.CreateOrganization` — "Caller lacks platform organization-administration
+//!   authority"
+//! * `mandate.tenancy.CreateOrganization` — "the requested display name is not admitted"
+//! * `mandate.tenancy.CreateSpace` — "Caller lacks space-administration authority"
+//! * `mandate.tenancy.CreateSpace` — "the display name is not admitted in the verified
+//!   organization"
+//! * `mandate.tenancy.CreateTeam` — "Caller lacks team-administration authority"
+//! * `mandate.tenancy.CreateTeam` — "the display name is not admitted in the verified
+//!   organization"
+//! * `mandate.tenancy.RemoveOrganizationMembership` — "Caller lacks membership-administration
+//!   authority"
+//! * `mandate.tenancy.RemoveTeamMembership` — "Caller lacks team-administration authority"
+//! * `mandate.tenancy.RetireSpace` — "Caller lacks space-administration authority"
+//! * `mandate.tenancy.RetireTeam` — "Caller lacks team-administration authority"
+//!
+//! ## Owed to `decision-blocker:epoch-atomicity` — nine
+//!
+//! Each of these denies on a commit this fold cannot attempt. A `Tenancy` is one in-memory
+//! projection with no transaction, no epoch and no second record to commit against, so it can
+//! neither observe the inconsistency nor refuse on it.
+//!
+//! * `mandate.tenancy.AddOrganizationMembership` — "membership and its dependent authorization
+//!   cannot commit consistently"
+//! * `mandate.tenancy.CloseOrganization` — "the sessions, credentials and delegations inside
+//!   it cannot be invalidated with the closure"
+//! * `mandate.tenancy.CreateOrganization` — "the isolation root cannot be created without
+//!   implying membership, grants or authority inside it"
+//! * `mandate.tenancy.CreateSpace` — "the space cannot be created without implying a grant or
+//!   a resource inside it"
+//! * `mandate.tenancy.CreateTeam` — "the team cannot be created without implying a grant or a
+//!   directory mapping"
+//! * `mandate.tenancy.RemoveOrganizationMembership` — "membership and dependent authorization
+//!   invalidation cannot commit consistently"
+//! * `mandate.tenancy.RemoveTeamMembership` — "dependent authorization invalidation cannot
+//!   commit consistently"
+//! * `mandate.tenancy.RetireSpace` — "retirement cannot refuse new authority inside it while
+//!   preserving the resources and grants already bound to it"
+//! * `mandate.tenancy.RetireTeam` — "retirement cannot revoke the grants that target it while
+//!   preserving membership provenance"
+//!
+//! ## Owed to `decision-blocker:lifecycle` — one
+//!
+//! Destruction and retention are unsettled, and this fold destroys nothing: every closure,
+//! retirement and removal keeps its record and moves a state.
+//!
+//! * `mandate.tenancy.CloseOrganization` — "closure would require destroying membership or
+//!   audit history"
+//!
+//! ## Owed to `story:directory-provenance` — three
+//!
+//! `mandate.directory`'s records — group-team mappings and membership contributions — are
+//! projected nowhere here, so this fold cannot see one to refuse on.
+//!
+//! * `mandate.tenancy.AddTeamMembership` — "the membership and the manual contribution
+//!   recording its provenance cannot be recorded together"
+//! * `mandate.tenancy.RemoveTeamMembership` — "a mandate.directory mapping contribution still
+//!   supports it"
+//! * `mandate.tenancy.RetireTeam` — "a directory mapping still contributes to it"
+//!
+//! ## Owed to `story:declared-writers` — three
+//!
+//! `Tenancy` holds no principal projection, so whether a principal resolves, is disabled, or
+//! sits outside the verified organization is a question it answers identically for every
+//! principal.
+//!
+//! * `mandate.tenancy.AddOrganizationMembership` — "the principal is unresolved or disabled"
+//! * `mandate.tenancy.AddTeamMembership` — "principal is unresolved or outside the verified
+//!   organization"
+//! * `mandate.tenancy.AddTeamMembership` — "the principal is disabled"
+//!
+//! `AddTeamMembership`'s accepted outcome is realized in part for the same reason as its
+//! `story:directory-provenance` clause above, and is recorded in its own section; that story
+//! owns it too. Every other clause of every other command is decided by a `decide_*` half and
+//! covered by a case in `tests/tenancy.rs` or `tests/obligations.rs` of this crate.
 //!
 //! This is the same kind of record the `space_id` section in `crate::graph` keeps for a
 //! field with no writer.
