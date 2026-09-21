@@ -19,12 +19,12 @@
         {
           "clause": "Caller lacks authority for the explicitly selected principal/organization/federation target",
           "tests": [],
-          "blocked_on": "story:obligations-identity"
+          "blocked_on": "decision-blocker:guards"
         },
         {
           "clause": "tenant containment fails",
           "tests": [],
-          "blocked_on": "story:obligations-identity"
+          "blocked_on": "story:identity-tenant-containment"
         },
         {
           "clause": "the exact unsigned generation is at its maximum",
@@ -32,28 +32,40 @@
             {
               "id": "mandate-identity::increment::epoch_overflow_an_increment_at_the_maximum_is_denied_and_the_generation_does_not_move",
               "kind": "denial",
-              "path": "real"
-            },
-            {
-              "id": "mandate-identity::generation::epoch_overflow_the_maximum_generation_does_not_advance",
-              "kind": "denial",
-              "path": "real"
+              "path": "double",
+              "double": "mandate_identity::IdentityLog"
             }
-          ]
+          ],
+          "blocked_on": "decision-blocker:epoch-atomicity"
         },
         {
           "clause": "atomic increment cannot commit",
-          "tests": [],
-          "blocked_on": "story:obligations-identity"
+          "tests": [
+            {
+              "id": "mandate-identity::obligations::an_increment_at_a_version_another_writer_moved_past_cannot_commit",
+              "kind": "denial",
+              "path": "double",
+              "double": "mandate_identity::IdentityLog"
+            },
+            {
+              "id": "mandate-identity::emitted_events::the_write_port_refuses_a_stream_version_it_was_not_read_at",
+              "kind": "denial",
+              "path": "double",
+              "double": "mandate_identity::IdentityLog"
+            }
+          ],
+          "blocked_on": "decision-blocker:epoch-atomicity"
         }
       ],
       "no_state_change": [
         {
           "id": "mandate-identity::emitted_events::a_refused_increment_emits_nothing_and_leaves_the_log_unchanged",
           "kind": "no-state-change",
-          "path": "real"
+          "path": "double",
+          "double": "mandate_identity::IdentityLog"
         }
       ],
+      "blocked_on": "decision-blocker:epoch-atomicity",
       "denial_audit": {
         "status": "deferred",
         "blocker": "decision-blocker:audit-routing",
@@ -67,7 +79,7 @@
         {
           "clause": "Refresh verifier is absent/incorrect",
           "tests": [],
-          "blocked_on": "story:obligations-identity"
+          "blocked_on": "decision-blocker:guards"
         },
         {
           "clause": "record is expired/revoked",
@@ -87,7 +99,7 @@
         {
           "clause": "principal/session is disabled",
           "tests": [],
-          "blocked_on": "story:obligations-identity"
+          "blocked_on": "story:declared-writers"
         },
         {
           "clause": "any applicable principal/organization/federation epoch mismatches",
@@ -131,7 +143,7 @@
         }
       ],
       "no_state_change": [],
-      "blocked_on": "story:obligations-identity",
+      "blocked_on": "story:declared-writers",
       "denial_audit": {
         "status": "deferred",
         "blocker": "decision-blocker:audit-routing",
@@ -152,17 +164,22 @@
         {
           "clause": "Caller lacks authority over this session",
           "tests": [],
-          "blocked_on": "story:obligations-identity"
+          "blocked_on": "decision-blocker:guards"
         },
         {
           "clause": "session is outside the verified organization",
-          "tests": [],
-          "blocked_on": "story:obligations-identity"
+          "tests": [
+            {
+              "id": "mandate-identity::obligations::a_session_outside_the_verified_organization_is_refused_at_revoke",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
         },
         {
           "clause": "revocation cannot be durably observed under the applicable profile",
           "tests": [],
-          "blocked_on": "story:obligations-identity"
+          "blocked_on": "decision-blocker:epoch-atomicity"
         }
       ],
       "no_state_change": [
