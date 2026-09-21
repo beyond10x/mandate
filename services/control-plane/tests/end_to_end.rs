@@ -32,6 +32,7 @@ use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStderr, ChildStdout, Command, Stdio};
+use std::sync::Mutex;
 use std::time::{Duration as HostDuration, Instant};
 
 use aws_lc_rs::rand::SystemRandom;
@@ -66,6 +67,21 @@ const TARGET_AUDIENCE: &str = "https://api.example";
 const VERIFIER: &str = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
 const CHALLENGE: &str = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM";
 
+/// A code verifier in the declared form that is not [`VERIFIER`]: 43 characters, every one
+/// of them in RFC 3986's unreserved set, differing in the last.
+///
+/// Well-formed on purpose. `services/sts/src/redemption.rs:228-241` refuses a malformed
+/// verifier as `VerifierMalformed` **before** it digests anything, so a verifier that was
+/// merely the wrong shape would drive that refusal and never reach the digest comparison
+/// this case exists to drive.
+const MISMATCHED_VERIFIER: &str = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXj";
+
+/// An issuer identifier no connection in this file is configured for.
+const FOREIGN_ISSUER: &str = "https://not-the-configured-issuer.example";
+
+/// A client identifier no connection in this file is configured for.
+const FOREIGN_CLIENT: &str = "mandate-at-some-other-idp";
+
 /// How far ahead the minted proof's `exp` sits. Well inside `RealVerifier`'s own ceiling on
 /// a proof lifetime, which is a day.
 const PROOF_TTL: u64 = 300;
@@ -93,6 +109,21 @@ fn principal() -> Uuid {
 
 fn connection() -> Uuid {
     uuid(0xc0)
+}
+
+/// A second organization, for the tenant-ambiguity case and nothing else.
+fn other_organization() -> Uuid {
+    uuid(0x0b)
+}
+
+/// The sibling connection the tenant-ambiguity case seeds on the same issuer.
+fn other_connection() -> Uuid {
+    uuid(0xc1)
+}
+
+/// A connection identity no `--connection` document seeds.
+fn unseeded_connection() -> Uuid {
+    uuid(0xcf)
 }
 
 fn client() -> Uuid {
@@ -204,10 +235,17 @@ fn request_target(stream: &TcpStream) -> Option<String> {
 
 // ------------------------------------------------------------------- the flag documents
 
-/// Where this case's flag documents are written: cargo's own per-target scratch directory,
+/// Where one case's flag documents are written: cargo's own per-target scratch directory,
 /// so nothing here writes outside the build tree.
-fn document(name: &str, body: &str) -> PathBuf {
-    let directory = Path::new(env!("CARGO_TARGET_TMPDIR")).join("end-to-end");
+///
+/// **The directory is the case's own.** Every case in this file writes a `connection.json`
+/// and the cases run in parallel threads of one process; a shared directory would have one
+/// case's child read another case's document, and the case that lost the race would fail
+/// for a reason that is not the one it drives.
+fn document(case: &str, name: &str, body: &str) -> PathBuf {
+    let directory = Path::new(env!("CARGO_TARGET_TMPDIR"))
+        .join("end-to-end")
+        .join(case);
     std::fs::create_dir_all(&directory).expect("a writable scratch directory");
     let path = directory.join(name);
     std::fs::write(&path, body).expect("the flag document is written");
@@ -218,20 +256,70 @@ fn stated(path: &Path) -> &str {
     path.to_str().expect("a UTF-8 path")
 }
 
-fn connection_document(issuer: &str) -> String {
-    format!(
-        r#"{{"connection_id":"{connection}","organization":"{organization}",
-          "issuer":"{issuer}","client_id":"{IDP_CLIENT}","algorithm":"{ALGORITHM}",
-          "tenant_resolution":{{"configured_organization":"{organization}"}},
-          "jit_provisioning":false,
-          "link":{{"principal_id":"{principal}","external_principal_id":"{external}",
-            "subject":"{subject}","linked_at":"2026-09-01T00:00:00Z"}}}}"#,
-        connection = connection(),
-        organization = organization(),
-        principal = principal(),
-        external = external_principal(),
-        subject = external_subject(),
-    )
+/// One `--connection` document, with every member a refusal case varies stated.
+///
+/// The accepted path is [`ConnectionDocument::accepted`] and each refusal case is that
+/// value with **one** member changed, so the construction a case drives is the difference
+/// between two documents and not a second document written from scratch.
+struct ConnectionDocument {
+    connection_id: Uuid,
+    organization: Uuid,
+    issuer: String,
+    /// The client a proof's `aud` must name. Not varied by any case here: the audience
+    /// case varies the *proof*, because a connection naming a client no proof carries and
+    /// a proof naming a client no connection carries are the same refusal read from the
+    /// two ends, and only the proof end is the caller's.
+    client_id: &'static str,
+    /// `None` writes **no member at all**, which is the operator declining to configure
+    /// verification. `ConnectionSeed::algorithm` reads through `mandate_types::value::present`,
+    /// so an explicit `null` is refused by the reader rather than treated as absence, and
+    /// the case would never reach the road it drives.
+    algorithm: Option<&'static str>,
+    /// Whether the document seeds the link a login resolves its principal through.
+    linked: bool,
+}
+
+impl ConnectionDocument {
+    /// The document the accepted case is served with.
+    fn accepted(issuer: &str) -> Self {
+        Self {
+            connection_id: connection(),
+            organization: organization(),
+            issuer: issuer.to_owned(),
+            client_id: IDP_CLIENT,
+            algorithm: Some(ALGORITHM),
+            linked: true,
+        }
+    }
+
+    fn rendered(&self) -> String {
+        let algorithm = match self.algorithm {
+            Some(named) => format!(r#""algorithm":"{named}","#),
+            None => String::new(),
+        };
+        let link = if self.linked {
+            format!(
+                r#","link":{{"principal_id":"{principal}",
+                  "external_principal_id":"{external}","subject":"{subject}",
+                  "linked_at":"2026-09-01T00:00:00Z"}}"#,
+                principal = principal(),
+                external = external_principal(),
+                subject = external_subject(),
+            )
+        } else {
+            String::new()
+        };
+        format!(
+            r#"{{"connection_id":"{connection}","organization":"{organization}",
+              "issuer":"{issuer}","client_id":"{client}",{algorithm}
+              "tenant_resolution":{{"configured_organization":"{organization}"}},
+              "jit_provisioning":false{link}}}"#,
+            connection = self.connection_id,
+            organization = self.organization,
+            issuer = self.issuer,
+            client = self.client_id,
+        )
+    }
 }
 
 fn client_document() -> String {
@@ -271,29 +359,39 @@ struct Served {
 
 impl Served {
     /// Spawn `serve` on `address`, configured through the four flag documents.
+    ///
+    /// `connections` is a slice because `--connection` is repeatable (`serve`'s
+    /// `connections: Vec<PathBuf>`), and the tenant-ambiguity case needs two: one
+    /// connection carries one rule and could only ever resolve to zero or one
+    /// organization.
     fn spawn(
         address: SocketAddr,
-        connection: &Path,
+        connections: &[PathBuf],
         key: &Path,
         client: &Path,
         target: &Path,
     ) -> Self {
+        let mut arguments = vec![
+            "serve".to_owned(),
+            "--listen".to_owned(),
+            address.to_string(),
+            "--issuer".to_owned(),
+            AS_ISSUER.to_owned(),
+        ];
+        for connection in connections {
+            arguments.push("--connection".to_owned());
+            arguments.push(stated(connection).to_owned());
+        }
+        for (flag, path) in [
+            ("--key", key),
+            ("--client", client),
+            ("--resource-server", target),
+        ] {
+            arguments.push(flag.to_owned());
+            arguments.push(stated(path).to_owned());
+        }
         let mut child = Command::new(env!("CARGO_BIN_EXE_mandate-control-plane"))
-            .args([
-                "serve",
-                "--listen",
-                &address.to_string(),
-                "--issuer",
-                AS_ISSUER,
-                "--connection",
-                stated(connection),
-                "--key",
-                stated(key),
-                "--client",
-                stated(client),
-                "--resource-server",
-                stated(target),
-            ])
+            .args(&arguments)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
@@ -472,6 +570,165 @@ fn answered(step: &str, response: &Response) {
     }
 }
 
+// ------------------------------------------------------- standing one case's child up
+
+/// Stand the child up for one case: its own document directory, its own port, and the
+/// `--connection` documents this case configures it with.
+///
+/// The `--key`, `--client` and `--resource-server` documents are the same for every case
+/// here. Only the connection is varied, because the connection is what the resolution
+/// order reads at every step except the last two.
+fn stand_up(case: &str, connections: &[String]) -> (SocketAddr, Served) {
+    let connection_paths: Vec<PathBuf> = connections
+        .iter()
+        .enumerate()
+        .map(|(nth, body)| document(case, &format!("connection-{nth}.json"), body))
+        .collect();
+    let key_path = document(case, "key.json", AS_KEY_DOCUMENT);
+    let client_path = document(case, "client.json", &client_document());
+    let target_path = document(case, "resource-server.json", &resource_server_document());
+
+    // Held from the probe's bind to the child's accept; see [`PORT`].
+    let holding = PORT
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    // A port nothing holds: bound to learn it, released before the child is told to take it.
+    let address = {
+        let probe = TcpListener::bind("127.0.0.1:0").expect("an ephemeral port on the loopback");
+        probe.local_addr().expect("the bound address")
+    };
+    let mut served = Served::spawn(
+        address,
+        &connection_paths,
+        &key_path,
+        &client_path,
+        &target_path,
+    );
+    served.listening(address);
+    drop(holding);
+    (address, served)
+}
+
+/// Serializes each case's **port selection and its child's bind**, and nothing else.
+///
+/// **Why a lock rather than a retry.** A case learns its port by binding an ephemeral one
+/// and releasing it, then telling the child to take it. Between the release and the child's
+/// bind the port belongs to nobody, and a second case probing inside that window is handed
+/// the same one. The two children then race for it: one binds and one exits, and the
+/// loser's [`Served::listening`] *succeeds* — against the winner's listener — so the loser
+/// goes on to drive a deployment it did not configure, or, once the winner has been reaped,
+/// finds nothing on the port at all.
+///
+/// Both halves of that were measured on this file's first parallel run: three of the eight
+/// refusal cases failed with `Connection refused` inside [`exchange`] **after** `listening`
+/// had returned, and the same eight run with `--test-threads=1` produced none. The
+/// accepted case did not expose it because it was the only case in the lane.
+///
+/// Held across the window, the window is empty: every earlier case's child already holds
+/// its own port when the next probe binds, so the kernel cannot hand that port out twice.
+/// A poisoned lock is taken anyway — the data it guards is `()`, and a case that panicked
+/// while holding it has already released its port with its child.
+static PORT: Mutex<()> = Mutex::new(());
+
+/// One proof, signed by `signer`, asserting `issuer` and `audience`.
+///
+/// The two claims the resolution order compares against the connection are parameters
+/// because that is the whole of what the issuer and audience cases vary; the signer is a
+/// parameter because the signature case varies that and nothing else.
+fn proof_from(
+    signer: &RealSigner<SystemClock>,
+    issuer: &str,
+    audience: &str,
+    token_id: &str,
+) -> String {
+    signer
+        .sign(
+            &serde_json::Map::new(),
+            &StandardClaims {
+                issuer: Issuer::new(issuer),
+                subject: PrincipalId::new(external_subject()),
+                audience: Audience::new(audience),
+                token_id: token_id.to_owned(),
+            },
+        )
+        .expect("a signed proof")
+        .token
+}
+
+/// `POST /v1/federation/login`, naming a connection and carrying a proof.
+fn login_with(address: SocketAddr, connection_id: Uuid, proof: &str) -> Response {
+    exchange(
+        address,
+        &post(
+            "/v1/federation/login",
+            "application/json",
+            &format!(
+                r#"{{"connection_id":"{connection_id}","proof":"{}"}}"#,
+                encode_base64(proof.as_bytes())
+            ),
+            &[],
+        ),
+    )
+}
+
+/// Assert the status **and the whole body**, byte for byte.
+///
+/// The body is asserted entire rather than by its `error` member because the description
+/// is the other half of what a caller reads, and because the whole-document form is what
+/// fails when a refusal starts carrying a clause name: `ErrorBody::to_json` renders
+/// exactly two members and an added one changes this string.
+///
+/// A case that read only the status would stay green if the binary refused **every** login
+/// for one reason, which is the state it was in until `story:served-login-end-to-end`.
+fn refused(step: &str, response: &Response, status: u16, body: &str) {
+    answered(step, response);
+    assert_eq!(
+        response.status, status,
+        "{step} answered {} {}",
+        response.status, response.body
+    );
+    assert_eq!(
+        response.body, body,
+        "{step} answered the body {}",
+        response.body
+    );
+}
+
+/// The whole body a refused login carries: `Response::denied` renders this code and this
+/// description, and `oauth::object` sorts the two members.
+fn denied_body(code: &str) -> String {
+    format!(r#"{{"error":"{code}","error_description":"the request was refused"}}"#)
+}
+
+/// The whole body a refused redemption carries. The description differs from
+/// [`denied_body`]'s, which is the one thing distinguishing a refusal at the token
+/// endpoint from a refusal at the login route by body alone.
+fn grant_refused_body(code: &str) -> String {
+    format!(r#"{{"error":"{code}","error_description":"the grant was refused"}}"#)
+}
+
+/// Kill the child, reap it, and answer what it printed — asserting it seeded every
+/// connection named.
+///
+/// **This is the discriminator the body does not carry.** `access_denied` is the answer to
+/// an unseeded connection *and* to a connection configured for no algorithm *and* to an
+/// ambiguous tenant; the refusals are three, the rendered body is one. What separates them
+/// on the wire-plus-stdout composition an operator actually has is whether the connection
+/// the request named was seeded at all, and the child prints that.
+fn seeded_connections(served: &mut Served, expected: &[Uuid]) -> String {
+    let (out, err) = served.output();
+    println!("child stdout {out:?}");
+    println!("child stderr {err:?}");
+    for connection_id in expected {
+        let line = format!("seeded federation connection {connection_id}");
+        assert!(
+            out.contains(&line),
+            "the child seeds and prints every connection it was given; {line:?} is not in {out:?}"
+        );
+    }
+    out
+}
+
 // ----------------------------------------------------------------------- the acceptance
 
 /// The acceptance of `story:served-login-end-to-end`: the spawned binary, configured through
@@ -482,53 +739,17 @@ fn the_spawned_binary_completes_one_login_against_an_issuer_that_signed_the_proo
     let jwks = serde_json::to_string(&signer.published_keys()).expect("the published key set");
     let issuer = issuer_publishing(jwks);
 
-    let connection_path = document("connection.json", &connection_document(&issuer));
-    let key_path = document("key.json", AS_KEY_DOCUMENT);
-    let client_path = document("client.json", &client_document());
-    let target_path = document("resource-server.json", &resource_server_document());
-
-    // A port nothing holds: bound to learn it, released before the child is told to take it.
-    let address = {
-        let probe = TcpListener::bind("127.0.0.1:0").expect("an ephemeral port on the loopback");
-        probe.local_addr().expect("the bound address")
-    };
-    let mut served = Served::spawn(
-        address,
-        &connection_path,
-        &key_path,
-        &client_path,
-        &target_path,
+    let (address, mut served) = stand_up(
+        "accepted",
+        &[ConnectionDocument::accepted(&issuer).rendered()],
     );
-    served.listening(address);
 
     // The proof, signed by the key the issuer publishes and by no other.
-    let proof = signer
-        .sign(
-            &serde_json::Map::new(),
-            &StandardClaims {
-                issuer: Issuer::new(&issuer),
-                subject: PrincipalId::new(external_subject()),
-                audience: Audience::new(IDP_CLIENT),
-                token_id: "proof-1".to_owned(),
-            },
-        )
-        .expect("a signed proof");
+    let proof = proof_from(&signer, &issuer, IDP_CLIENT, "proof-1");
 
     // 1. The login opens a session, which means the child fetched the discovery document and
     //    the key set off the loopback issuer and verified the signature under them.
-    let login = exchange(
-        address,
-        &post(
-            "/v1/federation/login",
-            "application/json",
-            &format!(
-                r#"{{"connection_id":"{}","proof":"{}"}}"#,
-                connection(),
-                encode_base64(proof.token.as_bytes())
-            ),
-            &[],
-        ),
-    );
+    let login = login_with(address, connection(), &proof);
     answered("step 1 POST /v1/federation/login", &login);
     assert_eq!(
         login.status, 200,
@@ -652,4 +873,335 @@ fn the_spawned_binary_completes_one_login_against_an_issuer_that_signed_the_proo
             "the child prints every identity it seeded; {seeded:?} is not in {out:?}"
         );
     }
+}
+
+// ------------------------------------------------------------------- the refusals
+//
+// One case per step of the resolution order `docs/architecture/federated-login.md`
+// mandates, each driving the **child process** over TCP.
+//
+// Every one of these decisions was, before this file, reached only through
+// `mandate_federation::verifier::ConstructedVerifier` in `tests/serve.rs` — a double that
+// performs no cryptography, fetches nothing, and hands back the proof it was built with.
+// The composition an operator deploys reaches them through `RealVerifier` over `UreqJwks`,
+// and that is what is driven here.
+
+/// Step 1, select the configured trust relationship: a `connection_id` nothing seeded.
+#[test]
+fn a_connection_nothing_seeded_is_refused_at_step_one() {
+    let signer = idp_signer();
+    let jwks = serde_json::to_string(&signer.published_keys()).expect("the published key set");
+    let issuer = issuer_publishing(jwks);
+    let (address, mut served) = stand_up(
+        "unseeded-connection",
+        &[ConnectionDocument::accepted(&issuer).rendered()],
+    );
+
+    // The accepted case's proof, unchanged and still valid. The only difference between
+    // this request and the one that opens a session is the connection it names, so the
+    // refusal cannot be attributed to the proof.
+    let proof = proof_from(&signer, &issuer, IDP_CLIENT, "proof-connection");
+    let login = login_with(address, unseeded_connection(), &proof);
+    refused(
+        "step 1 connection: POST /v1/federation/login",
+        &login,
+        400,
+        &denied_body("access_denied"),
+    );
+
+    // The discriminator the body does not carry: the connection this request named is
+    // seeded by nothing, and the one that is seeded is a different identity.
+    let out = seeded_connections(&mut served, &[connection()]);
+    assert!(
+        !out.contains(&format!(
+            "seeded federation connection {}",
+            unseeded_connection()
+        )),
+        "the connection this case names is seeded by no document; stdout {out:?}"
+    );
+}
+
+/// Step 2, validate the issuer: the proof's `iss` is not the connection's.
+#[test]
+fn a_proof_whose_issuer_is_not_the_connections_is_refused_at_step_two() {
+    let signer = idp_signer();
+    let jwks = serde_json::to_string(&signer.published_keys()).expect("the published key set");
+    let issuer = issuer_publishing(jwks);
+    let (address, mut served) = stand_up(
+        "issuer-mismatch",
+        &[ConnectionDocument::accepted(&issuer).rendered()],
+    );
+
+    // Signed by the key the **connection's** issuer publishes, so the key set is fetched
+    // and the signature verifies — `RealVerifier` resolves the `kid` against
+    // `connection.issuer` and never against the proof's claim — and the proof is then
+    // refused for the issuer it asserts.
+    let proof = proof_from(&signer, FOREIGN_ISSUER, IDP_CLIENT, "proof-issuer");
+    let login = login_with(address, connection(), &proof);
+    refused(
+        "step 2 issuer: POST /v1/federation/login",
+        &login,
+        400,
+        &denied_body("access_denied"),
+    );
+
+    seeded_connections(&mut served, &[connection()]);
+}
+
+/// Step 3, validate the signature: the issuer publishes a key set holding nothing.
+#[test]
+fn a_proof_whose_key_the_published_set_does_not_hold_is_refused_at_step_three() {
+    let signer = idp_signer();
+    // The discovery document is served as always; the key set it points at is empty, so
+    // the `kid` the proof's header carries resolves to no key and no signature is checked
+    // at all.
+    let issuer = issuer_publishing(r#"{"keys":[]}"#.to_owned());
+    let (address, mut served) = stand_up(
+        "empty-key-set",
+        &[ConnectionDocument::accepted(&issuer).rendered()],
+    );
+
+    let proof = proof_from(&signer, &issuer, IDP_CLIENT, "proof-empty-keys");
+    let login = login_with(address, connection(), &proof);
+    refused(
+        "step 3 signature (empty key set): POST /v1/federation/login",
+        &login,
+        400,
+        &denied_body("access_denied"),
+    );
+
+    seeded_connections(&mut served, &[connection()]);
+}
+
+/// Step 3, validate the signature: a proof signed by a key outside the published set.
+#[test]
+fn a_proof_signed_outside_the_published_key_set_is_refused_at_step_three() {
+    let published = idp_signer();
+    // A second key generated for this run, under the **same** `kid`. The `kid` has to
+    // match, or the refusal would be the unknown-key one the case above already drives
+    // and the signature itself would never be checked.
+    let outside = idp_signer();
+    let jwks = serde_json::to_string(&published.published_keys()).expect("the published key set");
+    let other = serde_json::to_string(&outside.published_keys()).expect("the withheld key set");
+    assert_ne!(
+        jwks, other,
+        "the two signers hold different keys, or this case drives no signature check"
+    );
+
+    let issuer = issuer_publishing(jwks);
+    let (address, mut served) = stand_up(
+        "foreign-signing-key",
+        &[ConnectionDocument::accepted(&issuer).rendered()],
+    );
+
+    let proof = proof_from(&outside, &issuer, IDP_CLIENT, "proof-foreign-key");
+    let login = login_with(address, connection(), &proof);
+    refused(
+        "step 3 signature (key outside the set): POST /v1/federation/login",
+        &login,
+        400,
+        &denied_body("access_denied"),
+    );
+
+    seeded_connections(&mut served, &[connection()]);
+}
+
+/// Step 4, validate the audience and client binding: the proof's `aud` is not the
+/// connection's `client_id`.
+#[test]
+fn a_proof_whose_audience_is_not_the_connections_client_is_refused_at_step_four() {
+    let signer = idp_signer();
+    let jwks = serde_json::to_string(&signer.published_keys()).expect("the published key set");
+    let issuer = issuer_publishing(jwks);
+    let (address, mut served) = stand_up(
+        "audience-mismatch",
+        &[ConnectionDocument::accepted(&issuer).rendered()],
+    );
+
+    let proof = proof_from(&signer, &issuer, FOREIGN_CLIENT, "proof-audience");
+    let login = login_with(address, connection(), &proof);
+    // `invalid_scope`, not `access_denied`: `DenialReason::AudienceMismatch` is the one
+    // reason on this road that does not map to the by-reason default
+    // (`crates/mandate-proto/src/oauth.rs`, `code_for_reason`). A case asserting only
+    // `400` would not have seen that, and a case asserting only `access_denied` would
+    // have been wrong.
+    refused(
+        "step 4 audience: POST /v1/federation/login",
+        &login,
+        400,
+        &denied_body("invalid_scope"),
+    );
+
+    seeded_connections(&mut served, &[connection()]);
+}
+
+/// Step 5, validate nonce, state and PKCE: a code verifier that does not digest to the
+/// recorded challenge.
+///
+/// The only refusal of the seven that is not answered by the login route. PKCE is redeemed
+/// at the token endpoint, so the case walks the accepted road as far as the code and then
+/// presents the wrong verifier for it.
+#[test]
+fn a_code_verifier_that_does_not_match_the_challenge_is_refused_at_step_five() {
+    let signer = idp_signer();
+    let jwks = serde_json::to_string(&signer.published_keys()).expect("the published key set");
+    let issuer = issuer_publishing(jwks);
+    let (address, mut served) = stand_up(
+        "pkce-mismatch",
+        &[ConnectionDocument::accepted(&issuer).rendered()],
+    );
+
+    let proof = proof_from(&signer, &issuer, IDP_CLIENT, "proof-pkce");
+    let login = login_with(address, connection(), &proof);
+    answered("step 5 pkce: POST /v1/federation/login", &login);
+    assert_eq!(
+        login.status, 200,
+        "the login this case builds on is the accepted one; got {} {}",
+        login.status, login.body
+    );
+    let session_proof = member(&login.body, "session_proof");
+
+    let authorize = exchange(
+        address,
+        &get(
+            &format!(
+                "/oauth/authorize?response_type=code&client_id={}&redirect_uri={}\
+                 &code_challenge={CHALLENGE}&code_challenge_method=S256&state=xyzzy\
+                 &nonce=n-0S6&target={}&scope={}",
+                client(),
+                encoded(REDIRECT),
+                resource_server(),
+                encoded("read")
+            ),
+            &[("Authorization", &format!("Bearer {session_proof}"))],
+        ),
+    );
+    answered("step 5 pkce: GET /oauth/authorize", &authorize);
+    assert_eq!(
+        authorize.status, 302,
+        "the authorization this case builds on is the accepted one; got {} {}",
+        authorize.status, authorize.body
+    );
+    let location = authorize
+        .header("Location")
+        .expect("a Location header")
+        .to_owned();
+    let (_, query) = location
+        .split_once('?')
+        .expect("a redirect carrying a query component");
+    let code = mandate_proto::oauth::decode_form(query)
+        .expect("an x-www-form-urlencoded query")
+        .get("code")
+        .expect("a code parameter")
+        .to_owned();
+
+    // The code the authorization just issued, presented with a verifier that is not the
+    // one its challenge was derived from.
+    let token = exchange(
+        address,
+        &post(
+            "/oauth/token",
+            "application/x-www-form-urlencoded",
+            &format!(
+                "grant_type=authorization_code&client_id={}&code={}\
+                 &code_verifier={MISMATCHED_VERIFIER}&redirect_uri={}",
+                client(),
+                encoded(&code),
+                encoded(REDIRECT)
+            ),
+            &[],
+        ),
+    );
+    refused(
+        "step 5 pkce: POST /oauth/token",
+        &token,
+        400,
+        &grant_refused_body("invalid_grant"),
+    );
+
+    seeded_connections(&mut served, &[connection()]);
+}
+
+/// Step 6, validate the configured organization: resolution is **ambiguous**.
+///
+/// The promise `docs/architecture/federated-login.md` makes on its own — *if tenant
+/// resolution is ambiguous, Mandate denies rather than guesses*
+/// (`architecture-addendum.md:360`) — and `DenialClause::TenantAmbiguous`
+/// (`crates/mandate-federation/src/authenticate.rs`), which nothing reached through the
+/// served composition before this case.
+///
+/// **Why two connections.** `resolve_tenant` reads every *enabled connection configured
+/// for the validated issuer*, collects the organizations whose rules match what the
+/// verifier validated, and refuses on two distinct ones. A single connection carries one
+/// rule and could only ever yield zero or one, which is why ambiguity is a property of the
+/// deployment's configuration and not of anything a caller can send. Both rules here name
+/// no claim, which `matches_validated` admits unconditionally, so both match and the two
+/// organizations differ.
+#[test]
+fn an_ambiguous_tenant_resolution_is_refused_rather_than_guessed_at_step_six() {
+    let signer = idp_signer();
+    let jwks = serde_json::to_string(&signer.published_keys()).expect("the published key set");
+    let issuer = issuer_publishing(jwks);
+
+    let selected = ConnectionDocument::accepted(&issuer);
+    let sibling = ConnectionDocument {
+        connection_id: other_connection(),
+        organization: other_organization(),
+        // No link: step 6 refuses before step 7 reads one, so a link on the sibling would
+        // decide nothing and would assert a principal this case does not need.
+        linked: false,
+        ..ConnectionDocument::accepted(&issuer)
+    };
+    let (address, mut served) = stand_up(
+        "tenant-ambiguous",
+        &[selected.rendered(), sibling.rendered()],
+    );
+
+    let proof = proof_from(&signer, &issuer, IDP_CLIENT, "proof-tenant");
+    let login = login_with(address, connection(), &proof);
+    refused(
+        "step 6 tenant: POST /v1/federation/login",
+        &login,
+        400,
+        &denied_body("access_denied"),
+    );
+
+    // Both connections were seeded, which is what separates this refusal from step one's:
+    // the two render the same body, and only the deployment the child stood up says which
+    // happened.
+    seeded_connections(&mut served, &[connection(), other_connection()]);
+}
+
+/// The configuration step: a `--connection` document omitting `algorithm`.
+///
+/// `RealVerifier` refuses to have a default at all — `jsonwebtoken`'s own would be `HS256`
+/// — and a connection no algorithm was configured for verifies nothing
+/// (`RefusalReason::ConnectionAlgorithmUnconfigured`). The proof this case presents is the
+/// one the accepted case's connection admits, so a deployment that defaulted to the
+/// signed-with algorithm would answer `200` here.
+#[test]
+fn a_connection_configured_for_no_algorithm_refuses_rather_than_defaulting() {
+    let signer = idp_signer();
+    let jwks = serde_json::to_string(&signer.published_keys()).expect("the published key set");
+    let issuer = issuer_publishing(jwks);
+
+    let unconfigured = ConnectionDocument {
+        algorithm: None,
+        ..ConnectionDocument::accepted(&issuer)
+    };
+    let (address, mut served) = stand_up("no-algorithm", &[unconfigured.rendered()]);
+
+    let proof = proof_from(&signer, &issuer, IDP_CLIENT, "proof-algorithm");
+    let login = login_with(address, connection(), &proof);
+    refused(
+        "configuration (no algorithm): POST /v1/federation/login",
+        &login,
+        400,
+        &denied_body("access_denied"),
+    );
+
+    // The child bound its listener and seeded the connection, so the document was read and
+    // accepted: this is a login refused at the verifier, not a configuration the binary
+    // rejected at startup — which would have been an exit status and no response at all.
+    seeded_connections(&mut served, &[connection()]);
 }
