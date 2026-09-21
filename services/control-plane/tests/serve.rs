@@ -27,7 +27,10 @@ use std::net::{SocketAddr, TcpStream};
 use std::path::{Path, PathBuf};
 use std::time::{Duration as HostDuration, Instant};
 
-use mandate_control_plane::adapters::{Configuration, Deployment, read_connection_seed, read_key};
+use mandate_control_plane::adapters::{
+    Configuration, ConnectionSeeding, Deployment, SeedRefused, key_set, read_connection_seed,
+    read_key,
+};
 use mandate_control_plane::serve::{Limits, Listener};
 use mandate_federation::record::{FederationConnection, FederationEvent};
 use mandate_federation::verifier::{ConstructedVerifier, VerifiedProof};
@@ -1503,7 +1506,9 @@ fn deployment_from_documents(
         minted = minted.wrapping_add(1);
         uuid(minted)
     };
-    let seeded = seed.events(&mut allocate);
+    let seeded = ConnectionSeeding::new()
+        .admit(connection_path, &seed, &mut allocate)
+        .expect("a connection document this deployment registers");
     for event in &seeded.events {
         deployment
             .record_federation(event)
@@ -1778,11 +1783,19 @@ fn a_connection_document_naming_no_id_is_allocated_one_and_prints_it() {
 /// the 1 of a listener that could not bind, and the file it read is named.
 ///
 /// The class, enumerated: a path that does not open, a body that is not JSON, a body missing
-/// a declared member, a JWK parameter outside `Jwk::ADMITTED_PARAMETERS`, and a JWK parameter
-/// that is not text. A duplicated JSON member and a parameter colliding with a declared
-/// member are the two `JwkRefusal` cases a JSON object cannot carry to `Jwk::new` — a
-/// `serde_json` object holds one value per name, and the four declared members are read by
-/// name before the rest are passed on.
+/// a declared member, a JWK parameter outside `Jwk::ADMITTED_PARAMETERS`, a JWK parameter
+/// that is not text, a JWK member stated twice, and a JWK parameter repeating one of the
+/// declared four.
+///
+/// **A correction of what this comment used to claim.** It said a duplicated JSON member and
+/// a declared-member collision were the two `JwkRefusal` cases a JSON object could not carry
+/// to `Jwk::new`, because "a `serde_json` object holds one value per name". The first half
+/// was wrong, and the reader was wrong with it: `serde_json` parses
+/// `"crv":"P-256","crv":"P-521"` without complaint, the `#[serde(flatten)] BTreeMap` the
+/// reader used kept the last, and the deployment **published** `P-521` — a key stating a
+/// curve the document's own first line did not. Both refusals are reachable and both are
+/// pinned below; the reader now carries every member to `Jwk::new` in document order, and
+/// it is that constructor which refuses, as it always said it would.
 #[test]
 fn every_refusal_of_a_flag_document_exits_two_and_names_the_file() {
     let absent = Path::new(env!("CARGO_TARGET_TMPDIR"))
@@ -1816,6 +1829,16 @@ fn every_refusal_of_a_flag_document_exits_two_and_names_the_file() {
             ),
             "a JWK parameter that is not text",
         ),
+        (
+            "--key",
+            seed_file("repeated-parameter-key.json", REPEATED_PARAMETER_DOCUMENT),
+            "a JWK parameter stated twice",
+        ),
+        (
+            "--key",
+            seed_file("repeated-kid-member-key.json", REPEATED_DECLARED_DOCUMENT),
+            "a JWK declared member stated twice",
+        ),
     ];
     for (flag, path, why) in cases {
         let refused = serve_with(&[flag, seed_path(&path)]);
@@ -1835,10 +1858,14 @@ fn every_refusal_of_a_flag_document_exits_two_and_names_the_file() {
 
 /// Two `--key` documents under one `kid` name a set no reader can resolve a signature
 /// against, and that is decided at startup rather than answered as a 500 to every client
-/// that reads the key set. `ConfigurationRefused::Keys` is the variant already declared for
-/// it.
+/// that reads the key set.
+///
+/// **And it names both files.** `Jwks::new` refuses a repeated `kid` and knows no path, so
+/// the refusal read `two keys of the set carry the same kid` and named neither document —
+/// which, with several `--key` flags given, tells an operator that something is wrong and
+/// nothing about where. The decision is the flags', because only the flags hold the paths.
 #[test]
-fn two_key_documents_naming_one_kid_are_refused_before_the_socket_is_bound() {
+fn two_key_documents_naming_one_kid_are_refused_naming_both_files() {
     let first = seed_file("first-key.json", KEY_DOCUMENT);
     let second = seed_file("second-key.json", REPEATED_KID_DOCUMENT);
     let refused = serve_with(&["--key", seed_path(&first), "--key", seed_path(&second)]);
@@ -1852,6 +1879,14 @@ fn two_key_documents_naming_one_kid_are_refused_before_the_socket_is_bound() {
     assert!(
         said.contains("kid"),
         "the refusal says which member collided, got {said}"
+    );
+    assert!(
+        said.contains(seed_path(&second)),
+        "the refusal names the document that repeated the kid, got {said}"
+    );
+    assert!(
+        said.contains(seed_path(&first)),
+        "the refusal names the document that published it first, got {said}"
     );
 }
 
@@ -2171,5 +2206,529 @@ fn a_second_link_absent_is_returned_and_the_sequence_does_not_run_again() {
         calls.load(std::sync::atomic::Ordering::Relaxed),
         3,
         "one login consults the verifier three times: authenticate, provision, authenticate"
+    );
+}
+
+// ---------------------------------------------------------------------------------------
+// The documents are decided together, by the commands they are the inputs of
+// ---------------------------------------------------------------------------------------
+
+/// The same key, stating one parameter twice. `serde_json` parses it; a map keeps the last.
+const REPEATED_PARAMETER_DOCUMENT: &str = r#"{"kty":"EC","kid":"login-key-1","use":"sig",
+  "alg":"ES256","crv":"P-256","crv":"P-521",
+  "x":"f83OJ3D2xF1Bg8vub9tLe1gHMzV76e8Tus9uPHvRVEU",
+  "y":"x_FEzRu9m36HLN_tue659LNpXW6pCyStikYjKIWI5a0"}"#;
+
+/// The same key, stating a *declared* member twice: which `kid` the document publishes
+/// under is not decidable, and a reader that picks one has picked for the operator.
+const REPEATED_DECLARED_DOCUMENT: &str = r#"{"kty":"EC","kid":"login-key-1",
+  "kid":"login-key-2","use":"sig","alg":"ES256","crv":"P-256",
+  "x":"f83OJ3D2xF1Bg8vub9tLe1gHMzV76e8Tus9uPHvRVEU",
+  "y":"x_FEzRu9m36HLN_tue659LNpXW6pCyStikYjKIWI5a0"}"#;
+
+/// A second published key under its own `kid`, so that the admitted half of the key-set
+/// rule is pinned beside the refused half.
+const DISTINCT_KID_DOCUMENT: &str = r#"{"kty":"EC","kid":"login-key-2","use":"sig",
+  "alg":"ES256","crv":"P-256","x":"MKBCTNIcKUSDii11ySs3526iDZ8AiTo7Tu6KPAqv7D4",
+  "y":"4Etl6SRW2YiLUrN5vfvVHuhp7x8PxltmWWlbbM4IFyM"}"#;
+
+/// A second organization, for the documents that have to contradict each other.
+fn other_organization() -> OrganizationId {
+    OrganizationId::new(uuid(0x0b))
+}
+
+/// A `--connection` document with every value a case needs to vary stated.
+///
+/// `resolves_to` is the `tenant_resolution.configured_organization`, which is normally the
+/// document's own `organization` and is the whole point of the case that makes it not.
+fn connection_document_for(
+    connection_id: Option<&str>,
+    organization: OrganizationId,
+    resolves_to: OrganizationId,
+    issuer: &str,
+    link: Option<PrincipalId>,
+) -> String {
+    let identity = match connection_id {
+        Some(id) => format!(r#""connection_id":"{id}","#),
+        None => String::new(),
+    };
+    let linked = match link {
+        Some(principal) => format!(
+            r#","link":{{"principal_id":"{principal}","subject":"subject-1",
+              "linked_at":"2026-09-01T00:00:00Z"}}"#
+        ),
+        None => String::new(),
+    };
+    format!(
+        r#"{{{identity}"organization":"{organization}","issuer":"{issuer}",
+          "client_id":"mandate-at-idp",
+          "tenant_resolution":{{"configured_organization":"{resolves_to}"}},
+          "jit_provisioning":false{linked}}}"#
+    )
+}
+
+/// Seed these documents in order, as `serve` does, and answer the refusal or the ids.
+///
+/// In process rather than through the binary, because the decision is the library's and a
+/// case that reads the refusal itself can pin *which* refusal fired rather than only that
+/// the process exited 2. The binary's own exit status is pinned beside each of these.
+fn seeding_of(documents: &[PathBuf]) -> Result<Vec<FederationConnectionId>, SeedRefused> {
+    let mut minted = 0xd0_u8;
+    let mut allocate = || {
+        minted = minted.wrapping_add(1);
+        uuid(minted)
+    };
+    let mut seeding = ConnectionSeeding::new();
+    let mut admitted = Vec::new();
+    for path in documents {
+        let seed = read_connection_seed(path).expect("a connection document serve reads");
+        admitted.push(seeding.admit(path, &seed, &mut allocate)?.connection_id);
+    }
+    Ok(admitted)
+}
+
+/// Write these documents and seed them in order.
+fn seeded_documents(named: &[(&str, String)]) -> Result<Vec<FederationConnectionId>, SeedRefused> {
+    let written: Vec<PathBuf> = named
+        .iter()
+        .map(|(name, body)| seed_file(name, body))
+        .collect();
+    seeding_of(&written)
+}
+
+/// Two connections on one issuer in two organizations make every login through either one
+/// ambiguous, and `register_federation_connection` refuses the second rather than the
+/// logins: "no command un-registers a connection, so the incumbent could not undo it"
+/// (`crates/mandate-federation/src/record.rs:946-949`).
+///
+/// Measured before this was decided: both documents were seeded, the process served, and
+/// the **first** connection's login — which succeeds when its document is the only one —
+/// was denied `TenantAmbiguous`. A flag that turns a working configuration into a broken
+/// one by adding a second document to it is the configuration the command refuses.
+#[test]
+fn two_connection_documents_on_one_issuer_in_two_organizations_are_refused() {
+    let refused = seeded_documents(&[
+        (
+            "ambiguous-first.json",
+            connection_document_for(
+                None,
+                organization(),
+                organization(),
+                "https://idp.example",
+                None,
+            ),
+        ),
+        (
+            "ambiguous-second.json",
+            connection_document_for(
+                None,
+                other_organization(),
+                other_organization(),
+                "https://idp.example",
+                None,
+            ),
+        ),
+    ])
+    .expect_err("two organizations on one issuer is the configuration that is refused");
+    let SeedRefused::Unregistrable { denied, path } = &refused else {
+        panic!("the command's own refusal, got {refused:?}");
+    };
+    assert_eq!(
+        format!("{:?}", denied.clause),
+        "TenantResolutionUnadmitted",
+        "the clause `register_federation_connection` states for this pair"
+    );
+    assert!(
+        path.ends_with("ambiguous-second.json"),
+        "the refusal names the document that could not be admitted, got {}",
+        path.display()
+    );
+}
+
+/// The same pair, through the binary: exit 2, before the socket is bound.
+#[test]
+fn two_connection_documents_on_one_issuer_exit_two_rather_than_serve() {
+    let first = seed_file(
+        "ambiguous-binary-first.json",
+        &connection_document_for(
+            None,
+            organization(),
+            organization(),
+            "https://idp.example",
+            None,
+        ),
+    );
+    let second = seed_file(
+        "ambiguous-binary-second.json",
+        &connection_document_for(
+            None,
+            other_organization(),
+            other_organization(),
+            "https://idp.example",
+            None,
+        ),
+    );
+    let refused = serve_with(&[
+        "--connection",
+        seed_path(&first),
+        "--connection",
+        seed_path(&second),
+    ]);
+    assert_eq!(
+        refused.status.code(),
+        Some(2),
+        "a configuration whose logins would all be ambiguous is refused; it said {}",
+        String::from_utf8_lossy(&refused.stderr)
+    );
+    let said = String::from_utf8_lossy(&refused.stderr);
+    assert!(
+        said.contains(seed_path(&second)),
+        "the refusal names the document it could not admit, got {said}"
+    );
+}
+
+/// A `tenant_resolution` resolving to an organization the connection is not bound to is
+/// `OrganizationMismatch` at registration — "the rule may only resolve to the organization
+/// the caller is verified in" — and was seeded happily while this reader built the event by
+/// hand, making every login through the connection a denial.
+#[test]
+fn a_connection_document_resolving_to_another_organization_is_refused() {
+    let refused = seeded_documents(&[(
+        "mismatched-tenant.json",
+        connection_document_for(
+            None,
+            organization(),
+            other_organization(),
+            "https://idp.example",
+            None,
+        ),
+    )])
+    .expect_err("a rule resolving outside its own organization is refused at registration");
+    let SeedRefused::Unregistrable { denied, path } = &refused else {
+        panic!("the command's own refusal, got {refused:?}");
+    };
+    assert_eq!(
+        format!("{:?}", denied.clause),
+        "OrganizationMismatch",
+        "the clause `register_federation_connection` states for this rule"
+    );
+    assert!(
+        path.ends_with("mismatched-tenant.json"),
+        "the refusal names the document, got {}",
+        path.display()
+    );
+}
+
+/// Two documents stating one `connection_id` are one connection: the fold answers with the
+/// first document's record, and the second document's issuer, client and link configure a
+/// connection nothing can reach — while both ids are printed as seeded and nothing says
+/// which one the login route reads.
+#[test]
+fn two_connection_documents_stating_one_id_are_refused_naming_both_files() {
+    let stated = FederationConnectionId::new(uuid(0xc4)).to_string();
+    let refused = seeded_documents(&[
+        (
+            "repeated-id-first.json",
+            connection_document_for(
+                Some(&stated),
+                organization(),
+                organization(),
+                "https://idp.example",
+                None,
+            ),
+        ),
+        (
+            "repeated-id-second.json",
+            connection_document_for(
+                Some(&stated),
+                organization(),
+                organization(),
+                "https://other-idp.example",
+                None,
+            ),
+        ),
+    ])
+    .expect_err("one `connection_id` names at most one connection");
+    let SeedRefused::RepeatedConnectionId {
+        path, incumbent, ..
+    } = &refused
+    else {
+        panic!("the repeated-identity refusal, got {refused:?}");
+    };
+    assert!(
+        path.ends_with("repeated-id-second.json") && incumbent.ends_with("repeated-id-first.json"),
+        "both documents are named, got {} and {}",
+        path.display(),
+        incumbent.display()
+    );
+}
+
+/// Two documents linking one principal under two organizations are a principal that logs
+/// into two tenants, which is the cross-tenant hole `link_external_principal`'s
+/// `PrincipalMismatch` exists to close. One document placing a principal anywhere is
+/// trusted, and `PrincipalLinkSeed::principal_id` says exactly why and what would change it.
+#[test]
+fn two_connection_documents_linking_one_principal_in_two_organizations_are_refused() {
+    let refused = seeded_documents(&[
+        (
+            "cross-tenant-first.json",
+            connection_document_for(
+                None,
+                organization(),
+                organization(),
+                "https://idp.example",
+                Some(principal()),
+            ),
+        ),
+        (
+            "cross-tenant-second.json",
+            connection_document_for(
+                None,
+                other_organization(),
+                other_organization(),
+                "https://other-idp.example",
+                Some(principal()),
+            ),
+        ),
+    ])
+    .expect_err("one principal does not belong to two organizations");
+    let SeedRefused::PrincipalAcrossOrganizations {
+        path,
+        incumbent,
+        principal_id,
+        ..
+    } = &refused
+    else {
+        panic!("the cross-organization refusal, got {refused:?}");
+    };
+    assert_eq!(
+        *principal_id,
+        principal(),
+        "the principal both documents link"
+    );
+    assert!(
+        path.ends_with("cross-tenant-second.json")
+            && incumbent.ends_with("cross-tenant-first.json"),
+        "both documents are named, got {} and {}",
+        path.display(),
+        incumbent.display()
+    );
+}
+
+/// The same pair, through the binary: exit 2, before the socket is bound.
+#[test]
+fn two_documents_linking_one_principal_across_organizations_exit_two() {
+    let first = seed_file(
+        "cross-tenant-binary-first.json",
+        &connection_document_for(
+            None,
+            organization(),
+            organization(),
+            "https://idp.example",
+            Some(principal()),
+        ),
+    );
+    let second = seed_file(
+        "cross-tenant-binary-second.json",
+        &connection_document_for(
+            None,
+            other_organization(),
+            other_organization(),
+            "https://other-idp.example",
+            Some(principal()),
+        ),
+    );
+    let refused = serve_with(&[
+        "--connection",
+        seed_path(&first),
+        "--connection",
+        seed_path(&second),
+    ]);
+    assert_eq!(
+        refused.status.code(),
+        Some(2),
+        "a principal in two tenants is refused before the socket; it said {}",
+        String::from_utf8_lossy(&refused.stderr)
+    );
+    let said = String::from_utf8_lossy(&refused.stderr);
+    assert!(
+        said.contains(seed_path(&second)) && said.contains(seed_path(&first)),
+        "both documents are named, got {said}"
+    );
+}
+
+/// Two documents linking one principal in **one** organization are admitted: the
+/// contradiction is what is refused, not the repetition. Without this the fix would read as
+/// "a principal may be linked once", which is not what any guard says.
+#[test]
+fn two_connection_documents_linking_one_principal_in_one_organization_are_admitted() {
+    let admitted = seeded_documents(&[
+        (
+            "same-tenant-first.json",
+            connection_document_for(
+                None,
+                organization(),
+                organization(),
+                "https://idp.example",
+                Some(principal()),
+            ),
+        ),
+        (
+            "same-tenant-second.json",
+            connection_document_for(
+                None,
+                organization(),
+                organization(),
+                "https://other-idp.example",
+                Some(principal()),
+            ),
+        ),
+    ])
+    .expect("one principal reachable through two of its own organization's connections");
+    assert_eq!(admitted.len(), 2, "both documents seeded a connection");
+    assert_ne!(
+        admitted[0], admitted[1],
+        "each document seeded a connection of its own"
+    );
+}
+
+/// A JWK document stating one parameter twice is refused, rather than published under
+/// whichever value the reader's map happened to keep.
+///
+/// The measured defect: `"crv":"P-256","crv":"P-521"` returned `Ok` with `P-521`, and the
+/// published key stated a curve the document's own first line did not.
+#[test]
+fn a_key_document_stating_one_parameter_twice_is_refused_rather_than_published() {
+    let path = seed_file("duplicate-crv.json", REPEATED_PARAMETER_DOCUMENT);
+    let refused = read_key(&path).expect_err("a document that states two curves publishes none");
+    assert!(
+        matches!(refused, SeedRefused::Key { .. }),
+        "`Jwk::new` is what refuses it, got {refused:?}"
+    );
+    assert!(
+        format!("{refused}").contains("twice"),
+        "the refusal names the repeat, got {refused}"
+    );
+    assert!(
+        format!("{refused}").contains(seed_path(&path)),
+        "the refusal names the file, got {refused}"
+    );
+}
+
+/// A JWK document stating a *declared* member twice is refused for the same reason: which
+/// `kid` a key is published under is not the reader's to pick.
+#[test]
+fn a_key_document_stating_one_declared_member_twice_is_refused() {
+    let path = seed_file("duplicate-kid-member.json", REPEATED_DECLARED_DOCUMENT);
+    let refused = read_key(&path).expect_err("a document that states two kids publishes none");
+    assert!(
+        matches!(refused, SeedRefused::Key { .. }),
+        "`Jwk::new` is what refuses it, got {refused:?}"
+    );
+}
+
+/// A key document stating each of its members once is still read, in the order it wrote
+/// them. The repeat cases above refuse; this one says what they refuse *against*.
+#[test]
+fn a_key_document_stating_each_member_once_is_read_and_published() {
+    let path = seed_file("single-member-key.json", KEY_DOCUMENT);
+    let key = read_key(&path).expect("a JWK document serve publishes");
+    assert_eq!(key.kid, "login-key-1");
+    assert_eq!(
+        key.parameters()
+            .iter()
+            .map(|(name, _)| name.as_str())
+            .collect::<Vec<_>>(),
+        vec!["crv", "x", "y"],
+        "the parameters are carried in the order the document wrote them"
+    );
+}
+
+/// Two keys under one `kid` are refused by `key_set` naming both files, and two keys under
+/// different `kid`s are not. The pair is what pins the rule rather than the refusal alone.
+#[test]
+fn the_key_set_refuses_a_repeated_kid_and_admits_a_distinct_one() {
+    let first = seed_file("set-first-key.json", KEY_DOCUMENT);
+    let repeated = seed_file("set-repeated-key.json", REPEATED_KID_DOCUMENT);
+    let distinct = seed_file("set-distinct-key.json", DISTINCT_KID_DOCUMENT);
+
+    let refused = key_set(vec![
+        (first.clone(), read_key(&first).expect("a readable key")),
+        (
+            repeated.clone(),
+            read_key(&repeated).expect("a readable key"),
+        ),
+    ])
+    .expect_err("one kid names at most one key");
+    let SeedRefused::RepeatedKeyId {
+        path,
+        incumbent,
+        kid,
+    } = &refused
+    else {
+        panic!("the repeated-kid refusal, got {refused:?}");
+    };
+    assert_eq!(kid, "login-key-1");
+    assert_eq!(path, &repeated, "the document that repeated it");
+    assert_eq!(incumbent, &first, "the document that published it first");
+
+    let admitted = key_set(vec![
+        (first.clone(), read_key(&first).expect("a readable key")),
+        (
+            distinct.clone(),
+            read_key(&distinct).expect("a readable key"),
+        ),
+    ])
+    .expect("two kids name two keys");
+    assert_eq!(admitted.len(), 2, "both keys are published");
+}
+
+/// `DenialClause::TenantAmbiguous` is still reached, and the flags are no longer how.
+///
+/// **This case exists because the correction above took something away.** Two `--connection`
+/// documents on one issuer in two organizations used to stand a process up, and the login
+/// through either was then denied `TenantAmbiguous`; that pair is now refused before the
+/// socket, so no `--connection` document reaches this clause any more. The clause is not
+/// gone from the domain, and this is where it is still decided.
+///
+/// **How a served deployment can hold the pair at all.**
+/// `register_federation_connection` is a read-then-write guard, and its own comment says so:
+/// "storage must enforce the same rule atomically ... which is a contract gap the
+/// coordinator records against this story" (`crates/mandate-federation/src/record.rs:951-953`).
+/// `Deployment::record_federation` is the raw fold — the seeding path a log replays through
+/// — and it enforces nothing, by design: a fold that re-decided a guard would not be a
+/// rebuild of an accepted history. So a deployment whose folds came from an event log can
+/// hold what the flags refuse, and `resolve_tenant` is what answers for it.
+///
+/// Both rules name no claim, which `matches_validated` admits unconditionally, so both match
+/// the one proof and the two organizations differ — which is ambiguity as a property of the
+/// configuration, not of anything a caller sent.
+#[test]
+fn two_connections_on_one_issuer_from_a_log_are_still_refused_as_ambiguous() {
+    let (mut deployment, selected) = deployment_verified_by(verifier(), false);
+    deployment
+        .record_federation(&FederationEvent::FederationConnectionCreated {
+            context: VerifiedContext {
+                organization: other_organization(),
+                ..context()
+            },
+            connection_id: FederationConnectionId::new(uuid(0xc9)),
+            issuer: Issuer::new("https://idp.example"),
+            client_id: ClientId::new("mandate-at-idp"),
+            tenant_resolution: mandate_model::TenantResolutionRule {
+                configured_organization: other_organization(),
+                verified_claim_name: None,
+                verified_claim_value: None,
+            },
+            jit_provisioning: false,
+        })
+        .expect("a readable federation history");
+
+    let refused = deployment
+        .authenticate(&login_input(selected))
+        .expect_err("one proof matching two organizations resolves to neither");
+    assert_eq!(
+        refused.clause, "TenantAmbiguous",
+        "the promise is to deny rather than guess; got {refused:?}"
     );
 }
