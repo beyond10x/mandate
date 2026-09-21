@@ -24,57 +24,57 @@
     ],
     "authored_sources": {
       "scenarios/authz-unadmitted-organization.yaml": {
-        "digest": "sha256:5e2f5f2c10184c6a822dceda8564e0b184e0ede0052c834a561ad51978ae6eeb",
+        "digest": "sha256:e7ebd7c845da7aa6538c932b84f72717713266e67495fd2ff127a170d105726e",
         "disposition": "accepted",
         "scenario": "mandate.authorization/authored/authz-unadmitted-organization"
       },
       "scenarios/credential-revoked-twice.yaml": {
-        "digest": "sha256:4683c0443aecc35d34ffdf5c7f19358cecfe675d1006ff269b28307524e3886a",
+        "digest": "sha256:635c5ae5e98fafc8e63932262252fc213bbcde437b73e83a91031e715945d0f0",
         "disposition": "accepted",
         "scenario": "mandate.credential/authored/credential-revoked-twice"
       },
       "scenarios/federation-ambiguous-tenant.yaml": {
-        "digest": "sha256:3b074b2a2cc75d2cb4e7444339a2a38da91980d3c0b5c845990fb59b2911e589",
+        "digest": "sha256:3822b850b7cece64f7d307c8b92df38c0d5e123d53e21983a44b639c55bca20b",
         "disposition": "accepted",
         "scenario": "mandate.federation/authored/federation-ambiguous-tenant"
       },
       "scenarios/federation-audience-mismatch.yaml": {
-        "digest": "sha256:4ccca6bf5352b5e58357624891f58efdfd80cf24ca1091bbe9b5ee69dd0a6070",
+        "digest": "sha256:0fa8e1888bfdbc7ff6b29bc88b949a6fa5999544f0450da0d9c6db708e65f6b5",
         "disposition": "accepted",
         "scenario": "mandate.federation/authored/federation-audience-mismatch"
       },
       "scenarios/federation-configured-method-on-explicit-link.yaml": {
-        "digest": "sha256:ade50e4a5a27c37cbb6c8bc05bbc18f50af5f9e1228e288b924b80a731414d4f",
+        "digest": "sha256:efe20499a652ab317f997e63e507536d1d5f9beb4d5f9ef1f5157324d51577ca",
         "disposition": "accepted",
         "scenario": "mandate.federation/authored/federation-configured-method-on-explicit-link"
       },
       "scenarios/federation-disabled-connection.yaml": {
-        "digest": "sha256:f28564ec925cff7d7d95f6ac78babba74a32cf376ba5062fb948a37c233e73ea",
+        "digest": "sha256:2edae1a4e879577c5ca1e1c4e91442319f5b5ddcdc7ced61de77ae4fa19b3edf",
         "disposition": "accepted",
         "scenario": "mandate.federation/authored/federation-disabled-connection"
       },
       "scenarios/federation-empty-subject.yaml": {
-        "digest": "sha256:cd9c6601d0cf9c8eb6e5e729a14444bcefc2089a3a6bd3b7c54f217d3c954f32",
+        "digest": "sha256:b9f35294801dcf987360ff927864a42acd46b9b8d38394918872c0c194805cf1",
         "disposition": "accepted",
         "scenario": "mandate.federation/authored/federation-empty-subject"
       },
       "scenarios/federation-issuer-mismatch.yaml": {
-        "digest": "sha256:47bcde97fcf71b8284b8b6732d1b8b8ae3aeaa1ddc3c151b4b3ebbfc653e814d",
+        "digest": "sha256:fc652c78f8de9f440b2fbf0b9122bbb551f5fe3906f52e868e96787842460419",
         "disposition": "accepted",
         "scenario": "mandate.federation/authored/federation-issuer-mismatch"
       },
       "scenarios/federation-malformed-proof.yaml": {
-        "digest": "sha256:d8ac0a1f8597f08d2f27c0dbffab4398001f6836401e5da519517b6051277025",
+        "digest": "sha256:b8ed5e671bf18e775c5f63d1ba3655e6850516f3c80c716bb97201d78de3e2ec",
         "disposition": "accepted",
         "scenario": "mandate.federation/authored/federation-malformed-proof"
       },
       "scenarios/federation-resolution-precedence.yaml": {
-        "digest": "sha256:bacdb689805bfde720f80b67059d7a2d4b9c9a2931e6db5f82f3ad67a757a51b",
+        "digest": "sha256:357bb6f926d6e953c74c504ed2239ce97d5fa4f7d583441aff4d3de6476e115b",
         "disposition": "accepted",
         "scenario": "mandate.federation/authored/federation-resolution-precedence"
       },
       "scenarios/federation-untrimmed-subject.yaml": {
-        "digest": "sha256:855ce4ae4a6c05eb859e3aeea742d07ffa2c8f5990741505a8ae2f38ce1d27f9",
+        "digest": "sha256:0292663759fec1adcd4f2a496fbb4a7d077c66177434d58bfe3018e3b62b7ee4",
         "disposition": "accepted",
         "scenario": "mandate.federation/authored/federation-untrimmed-subject"
       },
@@ -84,42 +84,42 @@
         "scenario": "mandate.credential/authored/introspect-caller-proof-malformed"
       },
       "scenarios/pkce-code-expired.yaml": {
-        "digest": "sha256:5eda4643276eb950685d47cf0cedf8d0191d17b357e8d172e7232b759a370bca",
+        "digest": "sha256:53f681f98f618234cfd38a6ced3fbeb6951a3569f8da08c03c8ed2545207b512",
         "disposition": "accepted",
         "scenario": "mandate.credential/authored/pkce-code-expired"
       },
       "scenarios/pkce-malformed-challenge.yaml": {
-        "digest": "sha256:13844551efa017b6c63960779d9eb609a6c01f13ff3fcde9869cdfe3ae119fd1",
+        "digest": "sha256:3c8a2d9e7a330ab493e63b95bcadddc0ee9e2b28e5338b6ba6c5f4689299191c",
         "disposition": "accepted",
         "scenario": "mandate.credential/authored/pkce-malformed-challenge"
       },
       "scenarios/pkce-redirect-mismatch.yaml": {
-        "digest": "sha256:5676927313db8941b36770d6a14496aea1ad219078806354d7c9dd6a8751d81c",
+        "digest": "sha256:414169b6b77f24b3d13ce092cfba2eaee753e6cd21313857de0d8435f7c14713",
         "disposition": "accepted",
         "scenario": "mandate.credential/authored/pkce-redirect-mismatch"
       },
       "scenarios/pkce-reuse.yaml": {
-        "digest": "sha256:2ddfd2a1f77e41ba5fbad1a482e3f3ff911b92dd1afd5d7ff387efdc62b496e4",
+        "digest": "sha256:2b90cbe0a4c8fc6be6d835d5220a558692fa53125316eee2221844e7ba5469f2",
         "disposition": "accepted",
         "scenario": "mandate.credential/authored/pkce-reuse"
       },
       "scenarios/pkce-wrong-org-target.yaml": {
-        "digest": "sha256:d5a2665659c9e719917ccfe2a33ec12a72fddab3b34ebb2654455613cba9c476",
+        "digest": "sha256:e65201ea64359993e49bffb1642a19b77fabc151257e54d6bd8b8ecba40af486",
         "disposition": "accepted",
         "scenario": "mandate.credential/authored/pkce-wrong-org-target"
       },
       "scenarios/pkce-wrong.yaml": {
-        "digest": "sha256:88219cab4b11072a9470ce83cb3ef0fcf1bffe3a692695b3464362c54128581f",
+        "digest": "sha256:5557f3959768759c204644ae71b9ad04a5008b5a5a708e271965828920197b9e",
         "disposition": "accepted",
         "scenario": "mandate.credential/authored/pkce-wrong"
       },
       "scenarios/sts-disabled-client-issuance.yaml": {
-        "digest": "sha256:a0ec7c528ffbb42c5a6322251282475318f70b6a1efadc88beb37d999a4b2820",
+        "digest": "sha256:a5f0ec66264e67408741e930901436f3a581173d11d33eb1d3247e0b5177c391",
         "disposition": "accepted",
         "scenario": "mandate.credential/authored/sts-disabled-client-issuance"
       },
       "scenarios/sts-disabled-registration-caller.yaml": {
-        "digest": "sha256:8b38cc07c26b2963c995490edd85e395abfd5a8f1a188fcbb36cdadbe69c6e11",
+        "digest": "sha256:7af17f4eecc9417e2e45edcec915a584a394413d9b256aa861eec226748068cb",
         "disposition": "accepted",
         "scenario": "mandate.credential/authored/sts-disabled-registration-caller"
       }
@@ -7741,12 +7741,9 @@
             "context": {
               "kind": "literal",
               "value": {
-                "actor": null,
                 "audience": "mandate",
                 "correlation": "authz-unadmitted-create",
                 "credential": "00000000-0000-4000-8000-0000000000c1",
-                "delegation": null,
-                "execution": null,
                 "organization": "00000000-0000-4000-8000-0000000000a1",
                 "subject": "00000000-0000-4000-8000-000000000001"
               }
@@ -7830,12 +7827,9 @@
             "context": {
               "kind": "literal",
               "value": {
-                "actor": null,
                 "audience": "mandate",
                 "correlation": "authz-unadmitted-member",
                 "credential": "00000000-0000-4000-8000-0000000000c1",
-                "delegation": null,
-                "execution": null,
                 "organization": "00000000-0000-4000-8000-0000000000a1",
                 "subject": "00000000-0000-4000-8000-000000000001"
               }
@@ -7924,12 +7918,9 @@
             "context": {
               "kind": "literal",
               "value": {
-                "actor": null,
                 "audience": "mandate",
                 "correlation": "authz-unadmitted-check",
                 "credential": "00000000-0000-4000-8000-0000000000c1",
-                "delegation": null,
-                "execution": null,
                 "organization": "00000000-0000-4000-8000-0000000000a2",
                 "subject": "00000000-0000-4000-8000-000000000001"
               }
@@ -35976,12 +35967,9 @@
             "context": {
               "kind": "literal",
               "value": {
-                "actor": null,
                 "audience": "mandate",
                 "correlation": "credential-revoked-twice-server",
                 "credential": "00000000-0000-4000-8000-0000000000c1",
-                "delegation": null,
-                "execution": null,
                 "organization": "00000000-0000-4000-8000-0000000000a1",
                 "subject": "00000000-0000-4000-8000-000000000001"
               }
@@ -36105,12 +36093,9 @@
             "context": {
               "kind": "literal",
               "value": {
-                "actor": null,
                 "audience": "mandate",
                 "correlation": "credential-revoked-twice-issue",
                 "credential": "00000000-0000-4000-8000-0000000000c1",
-                "delegation": null,
-                "execution": null,
                 "organization": "00000000-0000-4000-8000-0000000000a1",
                 "subject": "00000000-0000-4000-8000-000000000001"
               }
@@ -36126,8 +36111,7 @@
                     "resource_id": "00000000-0000-4000-8000-000000000071",
                     "resource_type": "document"
                   }
-                ],
-                "space": null
+                ]
               }
             },
             "target": {
@@ -36280,12 +36264,9 @@
             "context": {
               "kind": "literal",
               "value": {
-                "actor": null,
                 "audience": "mandate",
                 "correlation": "credential-revoked-twice-revoke",
                 "credential": "00000000-0000-4000-8000-0000000000c1",
-                "delegation": null,
-                "execution": null,
                 "organization": "00000000-0000-4000-8000-0000000000a1",
                 "subject": "00000000-0000-4000-8000-000000000001"
               }
@@ -36355,12 +36336,9 @@
             "context": {
               "kind": "literal",
               "value": {
-                "actor": null,
                 "audience": "mandate",
                 "correlation": "credential-revoked-twice-again",
                 "credential": "00000000-0000-4000-8000-0000000000c1",
-                "delegation": null,
-                "execution": null,
                 "organization": "00000000-0000-4000-8000-0000000000a1",
                 "subject": "00000000-0000-4000-8000-000000000001"
               }
@@ -36575,8 +36553,7 @@
                   "resource_id": "00000000-0000-4000-8000-000000000071",
                   "resource_type": "document"
                 }
-              ],
-              "space": null
+              ]
             },
             "session_id": "00000000-0000-4000-8000-0000000000f1",
             "target": "00000000-0000-4000-8000-0000000000e9",
@@ -36810,7 +36787,6 @@
         {
           "entity": "mandate.identity.Session",
           "fields": {
-            "connection_id": null,
             "epochs": "00000000-0000-4000-8000-0000000000b1",
             "expires_at": "2026-01-05T23:00:00Z",
             "organization_id": "00000000-0000-4000-8000-0000000000a1",
@@ -36835,12 +36811,9 @@
             "context": {
               "kind": "literal",
               "value": {
-                "actor": null,
                 "audience": "mandate",
                 "correlation": "pkce-malformed-challenge-server",
                 "credential": "00000000-0000-4000-8000-0000000000c1",
-                "delegation": null,
-                "execution": null,
                 "organization": "00000000-0000-4000-8000-0000000000a1",
                 "subject": "00000000-0000-4000-8000-000000000001"
               }
@@ -36964,12 +36937,9 @@
             "context": {
               "kind": "literal",
               "value": {
-                "actor": null,
                 "audience": "mandate",
                 "correlation": "pkce-malformed-challenge-client",
                 "credential": "00000000-0000-4000-8000-0000000000c1",
-                "delegation": null,
-                "execution": null,
                 "organization": "00000000-0000-4000-8000-0000000000a1",
                 "subject": "00000000-0000-4000-8000-000000000001"
               }
@@ -37084,12 +37054,9 @@
             "context": {
               "kind": "literal",
               "value": {
-                "actor": null,
                 "audience": "mandate",
                 "correlation": "pkce-malformed-challenge-issue",
                 "credential": "00000000-0000-4000-8000-0000000000c1",
-                "delegation": null,
-                "execution": null,
                 "organization": "00000000-0000-4000-8000-0000000000a1",
                 "subject": "00000000-0000-4000-8000-000000000001"
               }
@@ -37117,8 +37084,7 @@
                     "resource_id": "00000000-0000-4000-8000-000000000071",
                     "resource_type": "document"
                   }
-                ],
-                "space": null
+                ]
               }
             },
             "session_id": {
@@ -37329,7 +37295,6 @@
         {
           "entity": "mandate.identity.Session",
           "fields": {
-            "connection_id": null,
             "epochs": "00000000-0000-4000-8000-0000000000b1",
             "expires_at": "2026-01-05T23:00:00Z",
             "organization_id": "00000000-0000-4000-8000-0000000000a1",
@@ -37354,12 +37319,9 @@
             "context": {
               "kind": "literal",
               "value": {
-                "actor": null,
                 "audience": "mandate",
                 "correlation": "pkce-redirect-mismatch-server",
                 "credential": "00000000-0000-4000-8000-0000000000c1",
-                "delegation": null,
-                "execution": null,
                 "organization": "00000000-0000-4000-8000-0000000000a1",
                 "subject": "00000000-0000-4000-8000-000000000001"
               }
@@ -37483,12 +37445,9 @@
             "context": {
               "kind": "literal",
               "value": {
-                "actor": null,
                 "audience": "mandate",
                 "correlation": "pkce-redirect-mismatch-client",
                 "credential": "00000000-0000-4000-8000-0000000000c1",
-                "delegation": null,
-                "execution": null,
                 "organization": "00000000-0000-4000-8000-0000000000a1",
                 "subject": "00000000-0000-4000-8000-000000000001"
               }
@@ -37603,12 +37562,9 @@
             "context": {
               "kind": "literal",
               "value": {
-                "actor": null,
                 "audience": "mandate",
                 "correlation": "pkce-redirect-mismatch-issue",
                 "credential": "00000000-0000-4000-8000-0000000000c1",
-                "delegation": null,
-                "execution": null,
                 "organization": "00000000-0000-4000-8000-0000000000a1",
                 "subject": "00000000-0000-4000-8000-000000000001"
               }
@@ -37636,8 +37592,7 @@
                     "resource_id": "00000000-0000-4000-8000-000000000071",
                     "resource_type": "document"
                   }
-                ],
-                "space": null
+                ]
               }
             },
             "session_id": {
@@ -37784,8 +37739,7 @@
                   "resource_id": "00000000-0000-4000-8000-000000000071",
                   "resource_type": "document"
                 }
-              ],
-              "space": null
+              ]
             },
             "session_id": "00000000-0000-4000-8000-0000000000f1",
             "target": "00000000-0000-4000-8000-0000000000e9",
@@ -37955,8 +37909,7 @@
                   "resource_id": "00000000-0000-4000-8000-000000000071",
                   "resource_type": "document"
                 }
-              ],
-              "space": null
+              ]
             },
             "session_id": "00000000-0000-4000-8000-0000000000f1",
             "target": "00000000-0000-4000-8000-0000000000e9",
@@ -38190,7 +38143,6 @@
         {
           "entity": "mandate.identity.Session",
           "fields": {
-            "connection_id": null,
             "epochs": "00000000-0000-4000-8000-0000000000b1",
             "expires_at": "2026-01-05T23:00:00Z",
             "organization_id": "00000000-0000-4000-8000-0000000000a1",
@@ -38215,12 +38167,9 @@
             "context": {
               "kind": "literal",
               "value": {
-                "actor": null,
                 "audience": "mandate",
                 "correlation": "pkce-wrong-org-target-server",
                 "credential": "00000000-0000-4000-8000-0000000000c1",
-                "delegation": null,
-                "execution": null,
                 "organization": "00000000-0000-4000-8000-0000000000a2",
                 "subject": "00000000-0000-4000-8000-000000000001"
               }
@@ -38344,12 +38293,9 @@
             "context": {
               "kind": "literal",
               "value": {
-                "actor": null,
                 "audience": "mandate",
                 "correlation": "pkce-wrong-org-target-client",
                 "credential": "00000000-0000-4000-8000-0000000000c1",
-                "delegation": null,
-                "execution": null,
                 "organization": "00000000-0000-4000-8000-0000000000a1",
                 "subject": "00000000-0000-4000-8000-000000000001"
               }
@@ -38464,12 +38410,9 @@
             "context": {
               "kind": "literal",
               "value": {
-                "actor": null,
                 "audience": "mandate",
                 "correlation": "pkce-wrong-org-target-issue",
                 "credential": "00000000-0000-4000-8000-0000000000c1",
-                "delegation": null,
-                "execution": null,
                 "organization": "00000000-0000-4000-8000-0000000000a1",
                 "subject": "00000000-0000-4000-8000-000000000001"
               }
@@ -38497,8 +38440,7 @@
                     "resource_id": "00000000-0000-4000-8000-000000000071",
                     "resource_type": "document"
                   }
-                ],
-                "space": null
+                ]
               }
             },
             "session_id": {
@@ -38724,7 +38666,6 @@
         {
           "entity": "mandate.identity.Session",
           "fields": {
-            "connection_id": null,
             "epochs": "00000000-0000-4000-8000-0000000000b1",
             "expires_at": "2026-01-05T23:00:00Z",
             "organization_id": "00000000-0000-4000-8000-0000000000a1",
@@ -38749,12 +38690,9 @@
             "context": {
               "kind": "literal",
               "value": {
-                "actor": null,
                 "audience": "mandate",
                 "correlation": "sts-disabled-client-server",
                 "credential": "00000000-0000-4000-8000-0000000000c1",
-                "delegation": null,
-                "execution": null,
                 "organization": "00000000-0000-4000-8000-0000000000a1",
                 "subject": "00000000-0000-4000-8000-000000000001"
               }
@@ -38878,12 +38816,9 @@
             "context": {
               "kind": "literal",
               "value": {
-                "actor": null,
                 "audience": "mandate",
                 "correlation": "sts-disabled-client-register",
                 "credential": "00000000-0000-4000-8000-0000000000c1",
-                "delegation": null,
-                "execution": null,
                 "organization": "00000000-0000-4000-8000-0000000000a1",
                 "subject": "00000000-0000-4000-8000-000000000001"
               }
@@ -38990,12 +38925,9 @@
             "context": {
               "kind": "literal",
               "value": {
-                "actor": null,
                 "audience": "mandate",
                 "correlation": "sts-disabled-client-disable",
                 "credential": "00000000-0000-4000-8000-0000000000c1",
-                "delegation": null,
-                "execution": null,
                 "organization": "00000000-0000-4000-8000-0000000000a1",
                 "subject": "00000000-0000-4000-8000-000000000001"
               }
@@ -39073,12 +39005,9 @@
             "context": {
               "kind": "literal",
               "value": {
-                "actor": null,
                 "audience": "mandate",
                 "correlation": "sts-disabled-client-issue",
                 "credential": "00000000-0000-4000-8000-0000000000c1",
-                "delegation": null,
-                "execution": null,
                 "organization": "00000000-0000-4000-8000-0000000000a1",
                 "subject": "00000000-0000-4000-8000-000000000001"
               }
@@ -39106,8 +39035,7 @@
                     "resource_id": "00000000-0000-4000-8000-000000000071",
                     "resource_type": "document"
                   }
-                ],
-                "space": null
+                ]
               }
             },
             "session_id": {
@@ -39261,12 +39189,9 @@
             "context": {
               "kind": "literal",
               "value": {
-                "actor": null,
                 "audience": "mandate",
                 "correlation": "sts-disabled-registration-server",
                 "credential": "00000000-0000-4000-8000-0000000000c1",
-                "delegation": null,
-                "execution": null,
                 "organization": "00000000-0000-4000-8000-0000000000a1",
                 "subject": "00000000-0000-4000-8000-000000000001"
               }
@@ -39390,12 +39315,9 @@
             "context": {
               "kind": "literal",
               "value": {
-                "actor": null,
                 "audience": "mandate",
                 "correlation": "sts-disabled-registration-disable",
                 "credential": "00000000-0000-4000-8000-0000000000c1",
-                "delegation": null,
-                "execution": null,
                 "organization": "00000000-0000-4000-8000-0000000000a1",
                 "subject": "00000000-0000-4000-8000-000000000001"
               }
@@ -39465,12 +39387,9 @@
             "context": {
               "kind": "literal",
               "value": {
-                "actor": null,
                 "audience": "mandate",
                 "correlation": "sts-disabled-registration-again",
                 "credential": "00000000-0000-4000-8000-0000000000c1",
-                "delegation": null,
-                "execution": null,
                 "organization": "00000000-0000-4000-8000-0000000000a1",
                 "subject": "00000000-0000-4000-8000-000000000001"
               }
@@ -74583,12 +74502,9 @@
             "context": {
               "kind": "literal",
               "value": {
-                "actor": null,
                 "audience": "mandate",
                 "correlation": "federation-ambiguous-a",
                 "credential": "00000000-0000-4000-8000-0000000000c1",
-                "delegation": null,
-                "execution": null,
                 "organization": "00000000-0000-4000-8000-0000000000a1",
                 "subject": "00000000-0000-4000-8000-000000000001"
               }
@@ -74710,12 +74626,9 @@
             "context": {
               "kind": "literal",
               "value": {
-                "actor": null,
                 "audience": "mandate",
                 "correlation": "federation-ambiguous-b",
                 "credential": "00000000-0000-4000-8000-0000000000c1",
-                "delegation": null,
-                "execution": null,
                 "organization": "00000000-0000-4000-8000-0000000000a2",
                 "subject": "00000000-0000-4000-8000-000000000001"
               }
@@ -74967,12 +74880,9 @@
             "context": {
               "kind": "literal",
               "value": {
-                "actor": null,
                 "audience": "mandate",
                 "correlation": "federation-audience-mismatch",
                 "credential": "00000000-0000-4000-8000-0000000000c1",
-                "delegation": null,
-                "execution": null,
                 "organization": "00000000-0000-4000-8000-0000000000a1",
                 "subject": "00000000-0000-4000-8000-000000000001"
               }
@@ -74988,9 +74898,7 @@
             "tenant_resolution": {
               "kind": "literal",
               "value": {
-                "configured_organization": "00000000-0000-4000-8000-0000000000a1",
-                "verified_claim_name": null,
-                "verified_claim_value": null
+                "configured_organization": "00000000-0000-4000-8000-0000000000a1"
               }
             }
           },
@@ -75258,12 +75166,9 @@
             "context": {
               "kind": "literal",
               "value": {
-                "actor": null,
                 "audience": "mandate",
                 "correlation": "federation-configured-method",
                 "credential": "00000000-0000-4000-8000-0000000000c1",
-                "delegation": null,
-                "execution": null,
                 "organization": "00000000-0000-4000-8000-0000000000a1",
                 "subject": "00000000-0000-4000-8000-000000000001"
               }
@@ -75279,9 +75184,7 @@
             "tenant_resolution": {
               "kind": "literal",
               "value": {
-                "configured_organization": "00000000-0000-4000-8000-0000000000a1",
-                "verified_claim_name": null,
-                "verified_claim_value": null
+                "configured_organization": "00000000-0000-4000-8000-0000000000a1"
               }
             }
           },
@@ -75385,12 +75288,9 @@
             "context": {
               "kind": "literal",
               "value": {
-                "actor": null,
                 "audience": "mandate",
                 "correlation": "federation-configured-method-link",
                 "credential": "00000000-0000-4000-8000-0000000000c1",
-                "delegation": null,
-                "execution": null,
                 "organization": "00000000-0000-4000-8000-0000000000a1",
                 "subject": "00000000-0000-4000-8000-000000000001"
               }
@@ -75558,12 +75458,9 @@
             "context": {
               "kind": "literal",
               "value": {
-                "actor": null,
                 "audience": "mandate",
                 "correlation": "federation-disabled",
                 "credential": "00000000-0000-4000-8000-0000000000c1",
-                "delegation": null,
-                "execution": null,
                 "organization": "00000000-0000-4000-8000-0000000000a1",
                 "subject": "00000000-0000-4000-8000-000000000001"
               }
@@ -75579,9 +75476,7 @@
             "tenant_resolution": {
               "kind": "literal",
               "value": {
-                "configured_organization": "00000000-0000-4000-8000-0000000000a1",
-                "verified_claim_name": null,
-                "verified_claim_value": null
+                "configured_organization": "00000000-0000-4000-8000-0000000000a1"
               }
             }
           },
@@ -75681,12 +75576,9 @@
             "context": {
               "kind": "literal",
               "value": {
-                "actor": null,
                 "audience": "mandate",
                 "correlation": "federation-disabled-disable",
                 "credential": "00000000-0000-4000-8000-0000000000c1",
-                "delegation": null,
-                "execution": null,
                 "organization": "00000000-0000-4000-8000-0000000000a1",
                 "subject": "00000000-0000-4000-8000-000000000001"
               }
@@ -75897,12 +75789,9 @@
             "context": {
               "kind": "literal",
               "value": {
-                "actor": null,
                 "audience": "mandate",
                 "correlation": "federation-empty-subject",
                 "credential": "00000000-0000-4000-8000-0000000000c1",
-                "delegation": null,
-                "execution": null,
                 "organization": "00000000-0000-4000-8000-0000000000a1",
                 "subject": "00000000-0000-4000-8000-000000000001"
               }
@@ -75918,9 +75807,7 @@
             "tenant_resolution": {
               "kind": "literal",
               "value": {
-                "configured_organization": "00000000-0000-4000-8000-0000000000a1",
-                "verified_claim_name": null,
-                "verified_claim_value": null
+                "configured_organization": "00000000-0000-4000-8000-0000000000a1"
               }
             }
           },
@@ -76161,12 +76048,9 @@
             "context": {
               "kind": "literal",
               "value": {
-                "actor": null,
                 "audience": "mandate",
                 "correlation": "federation-issuer-mismatch",
                 "credential": "00000000-0000-4000-8000-0000000000c1",
-                "delegation": null,
-                "execution": null,
                 "organization": "00000000-0000-4000-8000-0000000000a1",
                 "subject": "00000000-0000-4000-8000-000000000001"
               }
@@ -76182,9 +76066,7 @@
             "tenant_resolution": {
               "kind": "literal",
               "value": {
-                "configured_organization": "00000000-0000-4000-8000-0000000000a1",
-                "verified_claim_name": null,
-                "verified_claim_value": null
+                "configured_organization": "00000000-0000-4000-8000-0000000000a1"
               }
             }
           },
@@ -76425,12 +76307,9 @@
             "context": {
               "kind": "literal",
               "value": {
-                "actor": null,
                 "audience": "mandate",
                 "correlation": "federation-malformed-proof",
                 "credential": "00000000-0000-4000-8000-0000000000c1",
-                "delegation": null,
-                "execution": null,
                 "organization": "00000000-0000-4000-8000-0000000000a1",
                 "subject": "00000000-0000-4000-8000-000000000001"
               }
@@ -76446,9 +76325,7 @@
             "tenant_resolution": {
               "kind": "literal",
               "value": {
-                "configured_organization": "00000000-0000-4000-8000-0000000000a1",
-                "verified_claim_name": null,
-                "verified_claim_value": null
+                "configured_organization": "00000000-0000-4000-8000-0000000000a1"
               }
             }
           },
@@ -76704,12 +76581,9 @@
             "context": {
               "kind": "literal",
               "value": {
-                "actor": null,
                 "audience": "mandate",
                 "correlation": "federation-precedence",
                 "credential": "00000000-0000-4000-8000-0000000000c1",
-                "delegation": null,
-                "execution": null,
                 "organization": "00000000-0000-4000-8000-0000000000a1",
                 "subject": "00000000-0000-4000-8000-000000000001"
               }
@@ -76725,9 +76599,7 @@
             "tenant_resolution": {
               "kind": "literal",
               "value": {
-                "configured_organization": "00000000-0000-4000-8000-0000000000a1",
-                "verified_claim_name": null,
-                "verified_claim_value": null
+                "configured_organization": "00000000-0000-4000-8000-0000000000a1"
               }
             }
           },
@@ -76827,12 +76699,9 @@
             "context": {
               "kind": "literal",
               "value": {
-                "actor": null,
                 "audience": "mandate",
                 "correlation": "federation-precedence-disable",
                 "credential": "00000000-0000-4000-8000-0000000000c1",
-                "delegation": null,
-                "execution": null,
                 "organization": "00000000-0000-4000-8000-0000000000a1",
                 "subject": "00000000-0000-4000-8000-000000000001"
               }
@@ -77043,12 +76912,9 @@
             "context": {
               "kind": "literal",
               "value": {
-                "actor": null,
                 "audience": "mandate",
                 "correlation": "federation-untrimmed-subject",
                 "credential": "00000000-0000-4000-8000-0000000000c1",
-                "delegation": null,
-                "execution": null,
                 "organization": "00000000-0000-4000-8000-0000000000a1",
                 "subject": "00000000-0000-4000-8000-000000000001"
               }
@@ -77064,9 +76930,7 @@
             "tenant_resolution": {
               "kind": "literal",
               "value": {
-                "configured_organization": "00000000-0000-4000-8000-0000000000a1",
-                "verified_claim_name": null,
-                "verified_claim_value": null
+                "configured_organization": "00000000-0000-4000-8000-0000000000a1"
               }
             }
           },
