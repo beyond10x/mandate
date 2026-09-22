@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:tenancy-authority
 kind: story
-status: draft
+status: implemented
 title: An authority decision is composed above the domain crates
 relations:
 - decomposes: epic:authorization
@@ -18,7 +18,7 @@ scope:
   path: services/control-plane/src/authority.rs
 - confidence: cited
   path: services/control-plane/tests/authority.rs
-revision: 15
+revision: 18
 ---
 # An authority decision is composed above the domain crates
 

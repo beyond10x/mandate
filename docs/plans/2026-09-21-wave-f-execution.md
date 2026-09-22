@@ -187,3 +187,102 @@ exist, and that is the thing to fix.
    served when it is consumed. The unit checked each against code and refused all three.
 4. The recipe given to the fixtures unit was insufficient and it measured that rather than following
    it: emptying the scenario list moves a corpus that is byte-compared at three places.
+
+## Wave G — closed 2026-09-22, released as 0.3.0
+
+Wave F's close left three stories owed a second adversary pass and the clause count unmoved. Wave G
+ran on the same integration branch and shipped both waves as `v0.3.0` (`aadcc49` on `main`, tag
+`61baffa`).
+
+| merge | |
+|---|---|
+| `05dfc99` | 0 of 31 caller-authority clauses are decidable from a fold |
+| `27a103b` | the port race closed: the child prints the address it bound |
+| `51d1d2f` | the composition can reach `mandate_authz::check`; 0 of 21 clauses bindable |
+| `a5e7f7a` | every `unsupported` scenario names a live story |
+| `78c552a` | all four flag documents run the guards of their commands |
+| `14195c9` | 0.3.0 cut; the boundary check stops restating the version |
+
+### The measurement that killed a story
+
+`story:tenancy-authority` was specified on 2026-09-21 as *the tenancy handlers refuse a caller the
+fold says lacks authority*, on two premises measured false the next day: `VerifiedContext` carries no
+authority scope, and `Tenancy::may_add_organization_membership` is a containment check already bound
+to a sibling clause. `tenancy.rs:93` says it outright — authority *"is `mandate-authz`'s and is
+decided nowhere here"*. The story was rewritten rather than dispatched. Had it run as written it
+would have added a trait taking a double, produced `double_only` rows, and moved `real_covered` by
+zero.
+
+### Honest coverage
+
+| ledger | rows | unexplained |
+|---|---|---|
+| coverage map | 292 elements | 0 |
+| obligations registry | 190 clauses | 0 |
+| conformance corpus | 166 scenarios | 0 (was 63) |
+| security cases | 50 | 0 |
+
+`cargo xtask conform` refuses a `failed` or `unsupported` row whose owner is unstated or terminal.
+`83 / 190` is unchanged, and that is the honest number: the 21 caller-authority clauses are bindable
+by nothing, measured twice.
+
+### Checks that restated what they govern — five, all fixed
+
+The registry suite's clause texts; five conform fixtures replacing a string that had stopped
+existing, four of which were passing while building nothing; three corpus totals in their own prose;
+`federated-login.md`'s self-check, true *"at the commit this document was written against"*; and
+`xtask/src/main.rs` pinning the workspace version, which failed this release's own bump.
+
+### Release infrastructure, two defects carried to the operator
+
+1. **The policy secret is capped below the policy.** GitHub allows 48 KB; `policy.json` is 53,324
+   bytes and was 51,167 before this wave, so the secret had been stale since before the file crossed
+   the line and a raw `gh secret set` answers 422. Set minified (42,549 bytes, parses identically).
+   `gates-policy/README.md` says CI reads a checkout; `shared-gates.yml:18` reads a secret.
+2. **A tag scan grows without bound.** It reads every commit since the adoption baseline, each
+   changed blob plus the version it replaces. 214 commits, and `journal.jsonl` — append-only, 9.1 MB
+   — touched by 37 of them, so that file alone is read ~74 times. Over the 256 MiB ceiling. The
+   baseline was advanced to `aadcc49`, the fifth such reset in that policy; it is a reset and not a
+   fix.
+
+### Owed and carried
+
+The second adversary pass ran on the login road as one surface (`review/login-road-pass-2`) rather
+than per unit. Its three cases were amended by the coordinator to the shipped behaviour — the
+correction refuses the whole document set before the socket where the cases expected the first to be
+admitted — and land with `dbd48c7`.
+
+### Evidence destroyed in cleanup, and recovered
+
+`services/control-plane/tests/adversary_login_flags.rs` — the A1 pass against
+`story:served-login-configurable`, 641 lines, six cases — was deleted on 2026-09-22 by a coordinator
+cleanup loop that matched `adversary_*.rs` on the assumption those files were committed. Two of three
+were; this one was not, and it existed in no branch. The loop ran minutes after the coordinator had
+written down, in this session, that this exact file was the one that did not land.
+
+It was reconstructed from the adversary sub-agent's own transcript, which holds the tool calls that
+produced it: one `Write`, one `Edit`, one appended heredoc, replayed in order to the same 641 lines.
+The reconstruction and the script that performs it are archived outside the repository at
+`~/.cache/mandate-evidence-recovery/`.
+
+It is not landed, and re-porting it would duplicate coverage. It does not compile against the
+correction it caused — `dbd48c7` replaced `ConnectionSeed::events` with `ConnectionSeeding::admit`,
+which holds the guards — and `6fbd8b9` ("Refuse a flag document the command behind it would refuse")
+already carries a regression case for each of its six findings in
+`services/control-plane/tests/serve.rs`:
+
+| A1 finding | case that holds it in `serve.rs` |
+|---|---|
+| a repeated `kid` across two key documents is published, naming neither file | `two_key_documents_naming_one_kid_are_refused_naming_both_files` |
+| two connections on one issuer in two organizations are seeded, and the first tenant's logins stop | `two_connection_documents_on_one_issuer_in_two_organizations_are_refused` |
+| a tenant rule naming another organization is seeded, and every login through it is denied | `a_connection_document_resolving_to_another_organization_is_refused` |
+| two documents stating one `connection_id` are both printed as seeded | `two_connection_documents_stating_one_id_are_refused_naming_both_files` |
+| a `link` naming another organization's principal opens a session for it here | `two_connection_documents_linking_one_principal_in_two_organizations_are_refused` |
+| a key document stating one parameter twice publishes one of the two values silently | `a_key_document_stating_one_parameter_twice_is_refused_rather_than_published` |
+
+`cargo test -p mandate-control-plane --test serve` on `f79bf46`: 62 passed, 0 failed, all six above
+green.
+
+What the loss cost is therefore the red evidence, not the coverage. What it showed is that a
+sub-agent's findings live in exactly one place until the coordinator commits them, and that a
+cleanup loop written from memory of what was committed is not a check of what was committed.
