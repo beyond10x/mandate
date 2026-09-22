@@ -11,14 +11,14 @@ relations:
 - depends_on: story:caller-authority-split
 scope:
 - confidence: cited
-  path: contracts/obligations/model.json
+  path: dependency-boundaries.json
 - confidence: cited
-  path: crates/mandate-model/src/authority.rs
+  path: services/control-plane/src/adapters.rs
 - confidence: cited
-  path: crates/mandate-model/src/tenancy.rs
+  path: services/control-plane/src/authority.rs
 - confidence: cited
-  path: crates/mandate-model/tests/obligations.rs
-revision: 7
+  path: services/control-plane/tests/authority.rs
+revision: 15
 ---
 # An authority decision is composed above the domain crates
 
