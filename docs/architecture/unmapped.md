@@ -72,3 +72,25 @@ AEP: `decision-blocker:audit-routing` blocks `story:audit-client` and `story:con
 The worker accepts the audit append command. Its later job scheduling, synchronization, cleanup, audit export, retry and transport behavior need explicit protocol/lifecycle decisions. Directory records and mutation ports remain control-plane-owned. The [ownership map](ownership.md) separates state ownership from invocation and does not invent worker lifecycle transitions.
 
 AEP: `decision-blocker:worker-orchestration` blocks `story:directory-provenance` and `story:domain-runtime`.
+
+## UNMAPPED-RUNTIME
+
+`docs/adr/0009-event-sourced-persistence.md` was accepted on 2026-09-18 and is implemented by nothing.
+The `eventlog` kit is pinned in the workspace manifest and named by two crates' manifests; no `.rs`
+file in this repository references it. Every fold is hand-written and synchronous, and each substitute
+was admitted one wave at a time — `docs/plans/2026-09-19-wave-c-execution.md:24`: *"the in-memory fake
+is a test double with the kit's shape, ADR 0009: no second mechanism."*
+
+One admission stands between the ADR and the code, and it has never been taken: the kit's `EventStore`
+is an async trait (`eventlog-core/src/lib.rs:59` at `0.3.0`), every `eventlog-sqlite` entry point is
+`pub async fn` including `SqliteEventStore::in_memory` (`:118`), and neither `Cargo.toml` nor
+`dependency-boundaries.json` admits `tokio`. Recorded as stop condition S1 on 2026-09-18
+(`docs/plans/2026-09-18-wave-3-execution.md:13`), deferred to "the next dispatch", and still open four
+waves later. A version bump does not resolve it: `0.3.0` is async exactly as `0.2.1` is.
+
+The ADR's own argument for believing a test proves a deployment property is the kit's in-memory
+backend — *"The kit's SQLite backend is `:memory:`-capable, which is why a property proved in a test is
+proved for the deployment"* — and that is the argument the hand-written doubles do not carry.
+
+AEP: `decision-blocker:async-runtime` blocks `story:domain-folds-over-the-kit`.
+`story:eventlog-repin-0-3-0` is the pin, and is hygiene rather than wiring.

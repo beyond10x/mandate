@@ -15,7 +15,9 @@ use mandate_federation::authenticate::{
     AuthenticateFederation, Authenticated, ProvisionExternalPrincipal, authenticate_federation,
     provision_external_principal,
 };
-use mandate_federation::record::{ExternalKey, FederationEvent, Projection};
+use mandate_federation::record::{
+    ExternalKey, ExternalPrincipal, FederationEvent, LinkState, Projection,
+};
 use mandate_federation::verifier::{ConstructedVerifier, VerifiedProof};
 use mandate_federation::{
     ConnectionStore, DenialClause, Denied, LinkStore, PrincipalState, RecordedPrincipals,
@@ -483,6 +485,182 @@ fn jit_conflict() {
         "the two callers minted distinct identities; only one is recorded"
     );
     assert_eq!(sessions.issued().len(), 1);
+}
+
+/// A revoked link still holds its composite key.
+///
+/// `DenialClause::LinkAbsent` names two conditions — never linked, and linked and then
+/// revoked — and `decision-blocker:jit-provisioning`'s composition provisions on it. The
+/// two are told apart by what `ProvisionExternalPrincipal` decides: `ExternalKeyExists`
+/// is refused for a key **any** record holds, in any lifecycle state, so the composition
+/// that provisions on the clause creates nothing on a key whose record reached the
+/// terminal `Unlinked` state of `mandate.federation.UnlinkExternalPrincipal`.
+///
+/// Without it the next login after an unlink mints a **new** `PrincipalId` for the same
+/// external subject: the revoked caller returns as a different principal, which is not a
+/// revocation and which nothing downstream can correlate to the principal that was
+/// revoked.
+#[test]
+fn a_revoked_link_still_holds_its_key_at_provisioning() {
+    let log = vec![
+        created(
+            connection(1),
+            organization(10),
+            ISSUER_ONE,
+            unconditional(organization(10)),
+            true,
+        ),
+        linked(connection(1), organization(10), SUBJECT, principal(0x21)),
+        FederationEvent::ExternalPrincipalUnlinked {
+            context: context(organization(10)),
+            id: mandate_types::ExternalPrincipalId::new(uuid(0x71)),
+        },
+    ];
+    let projection = Projection::fold(&log).expect("one connection, one revoked link");
+    let verifier = admitting(proof_for(ISSUER_ONE, SUBJECT));
+    let mut sessions = RecordingSessionIssuer::new();
+    let mut allocator = SequentialAllocator::new();
+
+    // The login the composition provisions on: the revoked record is not an explicitly
+    // linked principal, so the clause is the same one a never-linked subject gets.
+    let denied = authenticate(&projection, connection(1), &verifier, &mut sessions)
+        .expect_err("the link reached its terminal state");
+    assert_eq!(denied.reason, DenialReason::Denied);
+    assert_eq!(denied.clause, DenialClause::LinkAbsent);
+    assert!(sessions.issued().is_empty(), "no session was issued");
+
+    // And the provisioning that composition would reach for is refused.
+    let refused = provision(&projection, &mut allocator, connection(1), &verifier)
+        .expect_err("a record holds this key, whatever state it is in");
+    assert_eq!(refused.reason, DenialReason::Denied);
+    assert_eq!(refused.clause, DenialClause::ExternalKeyExists);
+    assert_eq!(
+        projection.links().len(),
+        1,
+        "the revoked record is the only record on the key, and no second was created"
+    );
+}
+
+/// Every lifecycle state `mandate.federation.ExternalPrincipal.State` declares, as the
+/// [`LinkState`] value this crate holds for it.
+///
+/// **Read off the contract, not written out here.** A list written out here is extended by
+/// widening a `match` arm — which satisfies the compiler and covers nothing, because the
+/// loop that drives the command still iterates the old list. Reading the declaration means
+/// a state added to it arrives in that loop without anyone remembering to add it, and the
+/// mapping below refuses the run *by name* until the case says which value the state is.
+/// The guard has to force the coverage, not the edit.
+fn declared_link_states() -> Vec<LinkState> {
+    const IR: &str = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../generated/ir/system.json"
+    );
+    const ELEMENT: &str = "mandate.federation.ExternalPrincipal.State";
+
+    let text = std::fs::read_to_string(IR).expect("the generated IR is readable");
+    let ir: serde_json::Value = serde_json::from_str(&text).expect("the generated IR is JSON");
+    let body = &ir["types"][ELEMENT]["body"];
+    assert_eq!(
+        body["kind"], "enum",
+        "{ELEMENT} is an enum in the generated IR"
+    );
+    let declared = body["variants"]
+        .as_array()
+        .unwrap_or_else(|| panic!("{ELEMENT} declares a variant list"));
+    let states: Vec<LinkState> = declared
+        .iter()
+        .map(|variant| {
+            let name = variant
+                .as_str()
+                .unwrap_or_else(|| panic!("{ELEMENT}: a declared variant name is a string"));
+            match name {
+                "Linked" => LinkState::Linked,
+                "Unlinked" => LinkState::Unlinked,
+                other => panic!(
+                    "{ELEMENT} declares `{other}`, which this case holds no `LinkState` for. \
+                     Name it here and every loop driven off this list covers it; leaving it \
+                     out is how a state escapes a guard that only forces an edit."
+                ),
+            }
+        })
+        .collect();
+    assert!(
+        states.len() >= 2,
+        "{ELEMENT} declares at least the initial and terminal states, got {states:?}"
+    );
+    states
+}
+
+/// A record in **any** lifecycle state holds its key at provisioning.
+///
+/// The loop is driven by [`declared_link_states`], so the states it covers are the states
+/// the contract declares. `ProvisionExternalPrincipal` asks whether the key is free to
+/// create a record on, and no lifecycle state makes a key that has a record free — the
+/// terminal `Unlinked` one least of all, since that is the state
+/// `mandate.federation.UnlinkExternalPrincipal` moves a revoked link to.
+#[test]
+fn a_record_in_any_lifecycle_state_holds_the_key_at_provisioning() {
+    /// A store that answers one record for every key, in whatever state the case built.
+    /// `LinkStore::records_on_key` requires exactly this: every record on the key, in
+    /// every lifecycle state.
+    struct OneRow(ExternalPrincipal);
+
+    impl LinkStore for OneRow {
+        fn records_on_key(&self, _key: &ExternalKey) -> Vec<ExternalPrincipal> {
+            vec![self.0.clone()]
+        }
+    }
+
+    let states = declared_link_states();
+
+    let log = vec![created(
+        connection(1),
+        organization(10),
+        ISSUER_ONE,
+        unconditional(organization(10)),
+        true,
+    )];
+    let projection = Projection::fold(&log).expect("one connection");
+    let verifier = admitting(proof_for(ISSUER_ONE, SUBJECT));
+
+    for state in states {
+        let links = OneRow(ExternalPrincipal {
+            id: mandate_types::ExternalPrincipalId::new(uuid(0x71)),
+            organization_id: organization(10),
+            subject: ExternalSubject::new(SUBJECT),
+            principal_id: principal(0x21),
+            connection_id: connection(1),
+            link_method: ExternalLinkMethod::Administrator,
+            linked_at: linked_at(),
+            state,
+        });
+        let mut allocator = SequentialAllocator::new();
+
+        let outcome = provision_external_principal(
+            &ProvisionExternalPrincipal {
+                connection_id: connection(1),
+                proof: presented(),
+            },
+            &request(),
+            &verifier,
+            &projection,
+            &links,
+            &mut allocator,
+        );
+        let refused = match outcome {
+            Ok(provisioned) => {
+                panic!("a record in state {state:?} holds this key: {provisioned:?}")
+            }
+            Err(refused) => refused,
+        };
+
+        assert_eq!(refused.reason, DenialReason::Denied, "state {state:?}");
+        assert_eq!(
+            refused.clause,
+            DenialClause::ExternalKeyExists,
+            "state {state:?}"
+        );
+    }
 }
 
 /// `federation.yaml:210`: "Connection is disabled/untrusted". No corpus case covers it;
