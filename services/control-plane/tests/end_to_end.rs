@@ -27,13 +27,23 @@
 //! [`Served`] owns it. `Drop` kills and reaps on every path — assertion failure, panic, early
 //! return — and the wait for the listener is bounded: a child that never binds fails the case
 //! with its own stderr rather than hanging.
+//!
+//! **No case here knows a port before its child does.** The child is spawned with
+//! `--listen 127.0.0.1:0`, binds what the kernel gives it, and prints the address on stdout;
+//! [`Served::address`] reads that line back. A case that instead learned a port by binding
+//! `127.0.0.1:0`, reading it and releasing it handed the window between the release and the
+//! child's bind to every other process on the machine — which is what CI saw on `8394bfa`,
+//! where one `check` job passed and the other failed at [`exchange`] with
+//! `ConnectionRefused` on the same commit.
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
-use std::process::{Child, ChildStderr, ChildStdout, Command, Stdio};
+use std::process::{Child, ChildStderr, Command, Stdio};
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::mpsc::{Receiver, RecvTimeoutError, channel};
 use std::sync::{Arc, Mutex};
+use std::thread::JoinHandle;
 use std::time::{Duration as HostDuration, Instant};
 
 use aws_lc_rs::rand::SystemRandom;
@@ -97,7 +107,12 @@ const FOREIGN_CLIENT: &str = "mandate-at-some-other-idp";
 /// a proof lifetime, which is a day.
 const PROOF_TTL: u64 = 300;
 
-/// How long the case waits for the child to bind before failing with its stderr.
+/// How long the case waits for the child to say which address it bound before failing with
+/// its stderr.
+///
+/// A child that dies before it says so fails immediately rather than on this deadline —
+/// [`Served::address`] watches for the exit and for the end of the pipe. The deadline is for
+/// the remaining case, a child that is alive and silent, which nothing else would end.
 const LISTEN_DEADLINE: HostDuration = HostDuration::from_secs(30);
 
 /// A public EC JWK the `--key` flag publishes as the deployment's own key set. Public parts
@@ -193,18 +208,10 @@ fn pem_of(der: &[u8]) -> String {
 /// The thread is detached: it lives as long as the test process, which is how the in-process
 /// listener cases serve theirs, and it holds no resource the child owns.
 fn issuer_publishing(jwks: String) -> String {
-    // Under [`PORT`], because this is the file's **other** ephemeral bind and taking the
-    // lock only in `stand_up` left the window it claims to close wide open: every case
-    // stands its issuer up first, so an issuer binding here could be handed exactly the
-    // port a concurrent case's probe had just released and its child had not yet taken.
-    // The listener is kept for the life of the process, so the lock is needed only for the
-    // bind itself — once bound, the port can never be handed out again.
-    let listener = {
-        let _holding = PORT
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        TcpListener::bind("127.0.0.1:0").expect("an ephemeral port on the loopback")
-    };
+    // No lock, and none is needed: this binds the port and keeps the socket, so the port is
+    // never handed out twice. See [`EPHEMERAL`] for the lock that used to be here and why
+    // it closed nothing.
+    let listener = TcpListener::bind("127.0.0.1:0").expect("an ephemeral port on the loopback");
     let address = listener.local_addr().expect("the bound address");
     let issuer = format!("http://{address}");
     let discovery = format!(r#"{{"issuer":"{issuer}","jwks_uri":"{issuer}/jwks"}}"#);
@@ -231,18 +238,12 @@ fn issuer_publishing(jwks: String) -> String {
 /// that **no request is made**, and a case that read only the login's answer could not tell
 /// a destination the deployment refused from one whose server happened to be down.
 fn split_issuer_publishing(jwks: String) -> (String, String, Reached) {
-    // Both binds take `PORT`, for the reason `issuer_publishing` does: a port released by a
-    // concurrent case's probe and not yet taken by its child must not be handed to a
-    // listener here.
-    let (keys, listener) = {
-        let _holding = PORT
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        (
-            TcpListener::bind("127.0.0.1:0").expect("an ephemeral port on the loopback"),
-            TcpListener::bind("127.0.0.1:0").expect("an ephemeral port on the loopback"),
-        )
-    };
+    // No lock, for the reason `issuer_publishing` gives: both sockets are kept, so neither
+    // port can be handed out again.
+    let (keys, listener) = (
+        TcpListener::bind("127.0.0.1:0").expect("an ephemeral port on the loopback"),
+        TcpListener::bind("127.0.0.1:0").expect("an ephemeral port on the loopback"),
+    );
     let keys_address = keys.local_addr().expect("the bound address");
     let reached = serving(keys, vec![("/jwks", jwks)]);
 
@@ -458,15 +459,35 @@ fn resource_server_document() -> String {
 
 // --------------------------------------------------------------------- the child process
 
-/// The spawned binary, and the two pipes it answers on.
+/// The spawned binary, the pipe it answers on, and the thread draining the other one.
 ///
-/// Every field is an `Option` so that the child can be killed and reaped exactly once, from
-/// either [`Served::output`] or [`Drop`], and the pipes read only after it is dead — a read
-/// to end of file on a live child's stdout does not return.
+/// # Why stdout is read by a thread and stderr is not
+///
+/// The case needs **one line of stdout while the child is alive** — the address it bound —
+/// and the whole of stdout once it is dead. A single handle cannot do both: a read to end
+/// of file on a live child's stdout does not return, and a `read_line` on the main thread
+/// would hang against a child that is alive and silent, which is exactly the failure
+/// [`LISTEN_DEADLINE`] exists to bound.
+///
+/// So one thread owns the handle for the child's whole life: it reads line by line,
+/// appends every line to [`Served::printed`], and hands each one to [`Served::address`]
+/// over a channel it can wait on **with a deadline**. `output` kills the child — which
+/// closes the pipe, which ends the thread — joins it, and reads the accumulated text.
+///
+/// **What it costs.** One extra thread and one `String` per child, both for the life of
+/// the case; stdout is buffered in memory rather than in the pipe, which is bounded by
+/// what the binary prints (four lines here); and `output` must join before it reads, or it
+/// races the last line. stderr keeps the simpler shape — no case wants a line of it while
+/// the child lives — and is still read to end of file after the child is dead.
 struct Served {
     child: Option<Child>,
-    stdout: Option<ChildStdout>,
     stderr: Option<ChildStderr>,
+    /// Every line the child has written to stdout so far, in order, newlines kept.
+    printed: Arc<Mutex<String>>,
+    /// The same lines, as they arrive, for a reader that cannot afford to block.
+    lines: Receiver<String>,
+    /// The thread draining stdout. Taken and joined by `output`, so nothing it read is lost.
+    draining: Option<JoinHandle<()>>,
 }
 
 impl Served {
@@ -476,17 +497,18 @@ impl Served {
     /// `connections: Vec<PathBuf>`), and the tenant-ambiguity case needs two: one
     /// connection carries one rule and could only ever resolve to zero or one
     /// organization.
-    fn spawn(
-        address: SocketAddr,
-        connections: &[PathBuf],
-        key: &Path,
-        client: &Path,
-        target: &Path,
-    ) -> Self {
+    ///
+    /// **There is no address parameter, and that is the point.** Every child is told
+    /// [`EPHEMERAL`] and answers with the address it actually got ([`Served::address`]), so
+    /// no case can name a port and no port can be released between being named and being
+    /// bound. The one case that drives `--listen` with a port of its own
+    /// ([`an_explicit_listen_is_the_address_it_binds_and_a_held_one_refuses`]) spawns the
+    /// binary directly, because it wants the exit status of a process that never serves.
+    fn spawn(connections: &[PathBuf], key: &Path, client: &Path, target: &Path) -> Self {
         let mut arguments = vec![
             "serve".to_owned(),
             "--listen".to_owned(),
-            address.to_string(),
+            EPHEMERAL.to_owned(),
             "--issuer".to_owned(),
             AS_ISSUER.to_owned(),
         ];
@@ -508,12 +530,38 @@ impl Served {
             .stderr(Stdio::piped())
             .spawn()
             .expect("the composition binary runs");
-        let stdout = child.stdout.take();
+        let stdout = child.stdout.take().expect("a piped stdout");
         let stderr = child.stderr.take();
+        let printed = Arc::new(Mutex::new(String::new()));
+        let accumulating = Arc::clone(&printed);
+        let (sending, lines) = channel();
+        let draining = std::thread::spawn(move || {
+            let mut reader = BufReader::new(stdout);
+            let mut line = String::new();
+            loop {
+                line.clear();
+                // End of file, or a pipe that failed: the child is gone and so is this
+                // thread. Nothing else ends it, which is what makes `output`'s join a
+                // bounded wait — it kills the child first.
+                match reader.read_line(&mut line) {
+                    Ok(0) | Err(_) => break,
+                    Ok(_) => {}
+                }
+                accumulating
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .push_str(&line);
+                // A dropped receiver is not a reason to stop: `printed` is what `output`
+                // reads, and it must hold the whole of stdout either way.
+                let _ = sending.send(line.clone());
+            }
+        });
         Self {
             child: Some(child),
-            stdout,
             stderr,
+            printed,
+            lines,
+            draining: Some(draining),
         }
     }
 
@@ -532,13 +580,23 @@ impl Served {
             .is_none_or(|child| child.try_wait().is_ok_and(|status| status.is_some()))
     }
 
-    /// The child's stdout and stderr, read after it is dead so both reads terminate.
+    /// The whole of the child's stdout and stderr, read after it is dead so both reads
+    /// terminate.
+    ///
+    /// **The join is load-bearing.** Killing the child closes its end of the stdout pipe,
+    /// the draining thread reads to end of file and stops, and only then is [`Served::printed`]
+    /// complete. Reading it without joining would return whatever had arrived by that
+    /// instant, and the lines these cases assert on are the last ones written.
     fn output(&mut self) -> (String, String) {
         self.kill_and_reap();
-        let mut out = String::new();
-        if let Some(mut handle) = self.stdout.take() {
-            let _ = handle.read_to_string(&mut out);
+        if let Some(draining) = self.draining.take() {
+            let _ = draining.join();
         }
+        let out = self
+            .printed
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone();
         let mut err = String::new();
         if let Some(mut handle) = self.stderr.take() {
             let _ = handle.read_to_string(&mut err);
@@ -546,36 +604,56 @@ impl Served {
         (out, err)
     }
 
-    /// Wait until the child accepts on `address`, bounded.
+    /// The address the child really bound, read off the child's own stdout, bounded.
     ///
-    /// A child that exits, or never binds within the deadline, fails the case **with its own
-    /// stderr**: a composition that refused its own configuration says why on that pipe, and
-    /// a case that hangs instead reports nothing at all.
-    fn listening(&mut self, address: SocketAddr) {
+    /// **Nothing is probed and nothing is guessed.** A case used to learn a port by binding
+    /// `127.0.0.1:0`, reading it and releasing it, and then telling the child to take it;
+    /// between the release and the child's bind the port belonged to nobody and any process
+    /// on the machine could take it. That window is what CI observed on `8394bfa`, where one
+    /// `check` job passed and the other failed at [`exchange`] with `ConnectionRefused` on
+    /// the same commit. The child now takes port `0` itself and prints what the kernel gave
+    /// it *after* `Listener::bind` has succeeded, so by the time this address exists
+    /// anywhere the child already holds it and no one else can be handed it.
+    ///
+    /// **The death check still comes first**, for the reason the probe loop this replaces
+    /// gave: a case must fail with the child's own stderr rather than hang. What has changed
+    /// is that success can no longer be reported by a stranger — this reads the child's own
+    /// pipe, which nothing but the child writes, where a successful `connect` said only that
+    /// *something* was accepting on the address, and reported a dead child as serving
+    /// whenever anyone else held the port.
+    fn address(&mut self) -> SocketAddr {
         let deadline = Instant::now() + LISTEN_DEADLINE;
         loop {
-            // **The death check comes first, and the order is the whole point.** A connect
-            // that succeeds says only that *something* is accepting on this address; it
-            // does not say it is this child. Reading it before `exited` reported a dead
-            // child as serving whenever anyone else held the port — the case then drove a
-            // deployment it had not configured, and the promise this function's own
-            // documentation makes, that a child which never binds fails with its own
-            // stderr, was not kept. Asking whether the child is alive first cannot report
-            // a dead one as serving.
             if self.exited() {
                 let (out, err) = self.output();
                 panic!(
-                    "the child exited before it bound {address}; stdout {out:?}, stderr {err:?}"
+                    "the child exited before it printed the address it bound; \
+                     stdout {out:?}, stderr {err:?}"
                 );
             }
-            if TcpStream::connect_timeout(&address, HostDuration::from_millis(200)).is_ok() {
-                return;
+            match self.lines.recv_timeout(HostDuration::from_millis(25)) {
+                Ok(line) => {
+                    if let Some(address) = bound_address(&line) {
+                        return address;
+                    }
+                }
+                Err(RecvTimeoutError::Timeout) => {}
+                // The draining thread stopped, so the child's stdout is at end of file: it
+                // is dead or dying and will never print the line.
+                Err(RecvTimeoutError::Disconnected) => {
+                    let (out, err) = self.output();
+                    panic!(
+                        "the child's stdout ended before it printed the address it bound; \
+                         stdout {out:?}, stderr {err:?}"
+                    );
+                }
             }
             if Instant::now() >= deadline {
                 let (out, err) = self.output();
-                panic!("the child never bound {address}; stdout {out:?}, stderr {err:?}");
+                panic!(
+                    "the child never printed the address it bound; stdout {out:?}, stderr {err:?}"
+                );
             }
-            std::thread::sleep(HostDuration::from_millis(25));
         }
     }
 }
@@ -583,7 +661,25 @@ impl Served {
 impl Drop for Served {
     fn drop(&mut self) {
         self.kill_and_reap();
+        // After the kill, so the thread is already at end of file: a `Served` dropped
+        // without `output` leaves no thread behind reading a pipe nobody holds.
+        if let Some(draining) = self.draining.take() {
+            let _ = draining.join();
+        }
     }
+}
+
+/// The address a `listening on` line names, or `None` for any other line the child prints.
+///
+/// The prefix is the binary's own (`src/main.rs`), and the parse is strict: a line that
+/// carries the prefix and something that is not a socket address is not an address, and
+/// waiting on rather than accepting it is what makes the deadline the reported failure
+/// instead of a panic inside a case.
+fn bound_address(line: &str) -> Option<SocketAddr> {
+    line.trim()
+        .strip_prefix(&format!("{CHILD}: {LISTENING} "))?
+        .parse()
+        .ok()
 }
 
 // ------------------------------------------------------------------------ the HTTP calls
@@ -708,55 +804,27 @@ fn stand_up(case: &str, connections: &[String]) -> (SocketAddr, Served) {
     let client_path = document(case, "client.json", &client_document());
     let target_path = document(case, "resource-server.json", &resource_server_document());
 
-    // Held from the probe's bind to the child's accept; see [`PORT`].
-    let holding = PORT
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    // A port nothing holds: bound to learn it, released before the child is told to take it.
-    let address = {
-        let probe = TcpListener::bind("127.0.0.1:0").expect("an ephemeral port on the loopback");
-        probe.local_addr().expect("the bound address")
-    };
-    let mut served = Served::spawn(
-        address,
-        &connection_paths,
-        &key_path,
-        &client_path,
-        &target_path,
-    );
-    served.listening(address);
-    drop(holding);
+    // The kernel picks the port, the child holds it, and the child says which it is. No
+    // port is chosen here, so there is nothing for another process to take.
+    let mut served = Served::spawn(&connection_paths, &key_path, &client_path, &target_path);
+    let address = served.address();
     (address, served)
 }
 
-/// Serializes each case's **port selection and its child's bind**, and nothing else.
+/// `--listen` as every case that wants a listener passes it: the loopback, and the port the
+/// kernel chooses.
 ///
-/// **Why a lock rather than a retry.** A case learns its port by binding an ephemeral one
-/// and releasing it, then telling the child to take it. Between the release and the child's
-/// bind the port belongs to nobody, and a second case probing inside that window is handed
-/// the same one. The two children then race for it: one binds and one exits, and the
-/// loser's [`Served::listening`] *succeeds* — against the winner's listener — so the loser
-/// goes on to drive a deployment it did not configure, or, once the winner has been reaped,
-/// finds nothing on the port at all.
-///
-/// Both halves of that were measured on this file's first parallel run: three of the eight
-/// refusal cases failed with `Connection refused` inside [`exchange`] **after** `listening`
-/// had returned, and the same eight run with `--test-threads=1` produced none. The
-/// accepted case did not expose it because it was the only case in the lane.
-///
-/// **Every ephemeral bind in this file takes it**, and that is what makes it work rather
-/// than merely look like it does. There are exactly two: the probe in [`stand_up`], and
-/// [`issuer_publishing`]'s listener. Covering only the probe left the window open — every
-/// case stands its issuer up first, so an issuer's bind could take a probe's just-released
-/// port — and a lock held around one of two binds closes nothing. A third bind added to
-/// this file without taking it would reopen the window, which is why there is one lock and
-/// not a lock per call site.
-///
-/// Held across the window, the window is empty: every earlier case's child already holds
-/// its own port when the next probe binds, so the kernel cannot hand that port out twice.
-/// A poisoned lock is taken anyway — the data it guards is `()`, and a case that panicked
-/// while holding it has already released its port with its child.
-static PORT: Mutex<()> = Mutex::new(());
+/// **There used to be a `PORT: Mutex<()>` here, and it is gone.** It serialised this file's
+/// own ephemeral binds — the probe in [`stand_up`] and the listeners in
+/// [`issuer_publishing`] and [`split_issuer_publishing`] — around the window between a
+/// probe releasing a port and a child binding it. A lock in this process cannot exclude the
+/// rest of the machine, so it narrowed that window and never closed it: CI ran two `check`
+/// jobs on `8394bfa`, one green and one failing at [`exchange`] with `ConnectionRefused`.
+/// Nothing guesses a port any more — the child binds `0` and reports what it got
+/// ([`Served::address`]), and this file's other listeners bind `0` and *keep* the socket for
+/// the life of the test process — so there is no window and nothing left to serialise. A
+/// lock kept here would be a claim that something still needs it.
+const EPHEMERAL: &str = "127.0.0.1:0";
 
 /// One proof, signed by `signer`, asserting `issuer` and `audience`.
 ///
@@ -940,6 +1008,13 @@ fn no_refusal_taken(served: &mut Served, connections: &[Uuid]) {
 /// The prefix every line the binary prints carries.
 const CHILD: &str = "mandate-control-plane";
 
+/// What the binary calls the line naming the address it bound (`src/main.rs`).
+///
+/// The one thing in this file that has to agree with the binary word for word. A binary
+/// that renamed it fails [`the_child_prints_the_address_it_bound_and_serves_there`] with
+/// its own stdout in the message, rather than every case here timing out.
+const LISTENING: &str = "listening on";
+
 /// The command the login route binds, as the child names it when it refuses.
 const LOGIN: &str = "mandate.federation.AuthenticateFederation";
 
@@ -1090,6 +1165,132 @@ fn the_spawned_binary_completes_one_login_against_an_issuer_that_signed_the_proo
             "the child prints every identity it seeded; {seeded:?} is not in {out:?}"
         );
     }
+}
+
+// ------------------------------------------------- the address the child serves on
+
+/// The child prints the address it **actually bound**, and it is already serving there.
+///
+/// This is what closes the race the rest of this file used to run: the port exists in the
+/// child's hands before its number exists anywhere else, so there is no instant at which a
+/// port has been chosen for the child and not yet taken by it. The assertion that nothing
+/// else can bind the printed address is that property stated directly — under the design
+/// this replaces, the same address was, by construction, free for anyone to take between
+/// the case choosing it and the child binding it.
+#[test]
+fn the_child_prints_the_address_it_bound_and_serves_there() {
+    let signer = idp_signer();
+    let jwks = serde_json::to_string(&signer.published_keys()).expect("the published key set");
+    let issuer = issuer_publishing(jwks);
+    let (address, mut served) = stand_up(
+        "prints-its-address",
+        &[ConnectionDocument::accepted(&issuer).rendered()],
+    );
+
+    assert_ne!(
+        address.port(),
+        0,
+        "the printed address names the port the kernel assigned, not the `0` that was asked \
+         for"
+    );
+    assert_eq!(
+        address.ip(),
+        std::net::IpAddr::from([127, 0, 0, 1]),
+        "the printed address is on the interface `--listen` named"
+    );
+
+    // The child holds it. A second bind of the same address is refused by the kernel, which
+    // is the whole of what "no window" means: there is no moment when this address is free.
+    let contested = TcpListener::bind(address);
+    assert!(
+        contested.is_err(),
+        "the address the child printed is one the child already holds; a second listener \
+         bound {address} as well"
+    );
+
+    // And it is really the deployment this case configured, not merely something accepting.
+    let published = exchange(address, &get("/oauth/jwks", &[]));
+    answered("the published key set", &published);
+    assert_eq!(
+        published.status, 200,
+        "the child serves on the address it printed; it answered {} {}",
+        published.status, published.body
+    );
+    assert!(
+        published.body.contains("login-key-1"),
+        "the key set on the printed address is the one `--key` seeded, got {}",
+        published.body
+    );
+
+    no_refusal_taken(&mut served, &[connection()]);
+}
+
+/// An explicit `--listen` is the address the process tries, and the only one.
+///
+/// An operator names a port, and a process that answered a port nobody asked for — because
+/// the one it was given was taken — would be a deployment nothing could route to. The port
+/// here is held by this case for the whole of the child's life, so the bind cannot succeed:
+/// the child exits **1**, the listener's own status rather than the **2** of a configuration
+/// it refused, and prints no `listening on` line at all.
+///
+/// This is also the case that keeps `--listen` honest now that every other case passes `0`.
+#[test]
+fn an_explicit_listen_is_the_address_it_binds_and_a_held_one_refuses() {
+    let signer = idp_signer();
+    let jwks = serde_json::to_string(&signer.published_keys()).expect("the published key set");
+    let issuer = issuer_publishing(jwks);
+
+    // Held, not released: this case does not hand the child a port, it takes one away.
+    let held = TcpListener::bind("127.0.0.1:0").expect("an ephemeral port on the loopback");
+    let taken = held.local_addr().expect("the bound address");
+
+    let case = "listen-held";
+    let connection_path = document(
+        case,
+        "connection-0.json",
+        &ConnectionDocument::accepted(&issuer).rendered(),
+    );
+    let key_path = document(case, "key.json", AS_KEY_DOCUMENT);
+
+    // Spawned directly rather than through [`Served`]: this case wants the exit status of a
+    // process that never serves, and `Served` exists to hold one that does.
+    let refused = Command::new(env!("CARGO_BIN_EXE_mandate-control-plane"))
+        .args([
+            "serve",
+            "--listen",
+            &taken.to_string(),
+            "--issuer",
+            AS_ISSUER,
+            "--connection",
+            stated(&connection_path),
+            "--key",
+            stated(&key_path),
+        ])
+        .output()
+        .expect("the composition binary runs");
+    let out = String::from_utf8_lossy(&refused.stdout).into_owned();
+    let err = String::from_utf8_lossy(&refused.stderr).into_owned();
+    println!("child stdout {out:?}");
+    println!("child stderr {err:?}");
+
+    assert_eq!(
+        refused.status.code(),
+        Some(1),
+        "a listener that could not bind is the **1** of a host resource, not the 2 of a \
+         configuration the operator must correct; it said {err}"
+    );
+    assert!(
+        !out.contains(LISTENING),
+        "a process that could not bind the address it was given claims no listener, and \
+         above all does not claim another; it printed {out:?}"
+    );
+    assert!(
+        out.contains(&format!("seeded federation connection {}", connection())),
+        "the documents are read and printed before the socket is touched, got {out:?}"
+    );
+    // Held for the whole of the child's life, which is what made the refusal certain
+    // rather than likely.
+    drop(held);
 }
 
 // ------------------------------------------------------------------- the refusals
@@ -1419,7 +1620,7 @@ fn a_code_verifier_that_does_not_match_the_challenge_is_refused_at_step_five() {
 /// That case is
 /// `tests/serve.rs::two_connections_on_one_issuer_from_a_log_are_still_refused_as_ambiguous`.
 ///
-/// No port is taken and no `PORT` lock is held: the child exits before it binds.
+/// No port is taken and no listener is stood up: the child exits before it binds.
 #[test]
 fn an_ambiguous_tenant_resolution_is_refused_as_a_configuration_before_the_socket() {
     let signer = idp_signer();
