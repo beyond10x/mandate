@@ -14,7 +14,7 @@ use mandate_federation::record::{
     Projection, RegisterFederationConnection, register_federation_connection,
 };
 use mandate_federation::{
-    ConnectionStore, DenialClause, LinkStore, PrincipalState, PrincipalStore, SequentialAllocator,
+    ConnectionStore, DenialClause, PrincipalState, PrincipalStore, SequentialAllocator,
 };
 use mandate_model::TenantResolutionRule;
 use mandate_types::value::Uuid;

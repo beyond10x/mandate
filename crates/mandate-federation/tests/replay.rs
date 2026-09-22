@@ -31,8 +31,8 @@ use mandate_federation::register_client::{
 };
 use mandate_federation::verifier::{ConstructedVerifier, VerifiedProof};
 use mandate_federation::{
-    ExternalPrincipalStore, LinkStore, PrincipalState, PrincipalStore, RecordedPrincipals,
-    RequestContext, SequentialAllocator,
+    ExternalPrincipalStore, PrincipalState, PrincipalStore, RecordedPrincipals, RequestContext,
+    SequentialAllocator,
 };
 use mandate_model::TenantResolutionRule;
 use mandate_types::value::Uuid;

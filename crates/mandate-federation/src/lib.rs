@@ -135,7 +135,7 @@ use mandate_types::{
     PrincipalId, SessionId, Timestamp, value::Uuid,
 };
 
-use record::{ExternalKey, ExternalPrincipal, FederationConnection, Projection};
+use record::{ExternalKey, ExternalPrincipal, FederationConnection, LinkState, Projection};
 use verifier::VerifiedProof;
 
 /// Which declared refusing outcome a [`Denied`] is.
@@ -507,14 +507,114 @@ pub trait ExternalPrincipalStore {
 }
 
 /// The external-principal read model, keyed by the canonical composite key.
+///
+/// **An implementor answers one question, and this crate derives every answer a command
+/// needs from it.** The three commands that read this port ask three different things of
+/// one key — is it held at all, which record holds it, is that record explicitly linked —
+/// and each of those is a decision the commands must own. A port with one method per
+/// question is a port whose implementations can disagree with each other, and a command
+/// whose correctness is then a property of the implementation it happened to be handed
+/// rather than of the port. So [`LinkStore::records_on_key`] is the only method this trait
+/// has, and every decision a command makes about a key is taken in [`LinkResolution`].
+///
+/// [`LinkResolution`] is a separate trait with a blanket implementation over every
+/// `LinkStore`, and that is the whole of what makes the sentence above true rather than
+/// merely intended: a defaulted method on *this* trait would be one an implementor is free
+/// to write — this crate's own [`PrincipalStore::state_of`] is defaulted and overridden
+/// twice — so the derivation would be a suggestion. A blanket implementation is not
+/// overridable: writing `impl LinkResolution for MyStore` collides with it and does not
+/// compile.
 pub trait LinkStore {
-    /// The link recorded for this exact key, if there is one.
+    /// Every record on this exact key, in every lifecycle state, in any order.
     ///
-    /// An implementation may return a row in any lifecycle state. Every command that
-    /// reads this port honours [`record::ExternalPrincipal::state`] itself rather than
-    /// relying on an implementation to filter, because a port cannot make that a
-    /// property of the command.
+    /// **Every record**: the terminal `Unlinked` state of
+    /// `mandate.federation.UnlinkExternalPrincipal` empties a key, it does not erase it,
+    /// and an implementation that omits a revoked record here reports a revoked key as
+    /// free. `LinkAbsent` names two conditions — never linked, and revoked — and a
+    /// composition that admits just-in-time provisioning on that clause would then answer
+    /// this domain's one federated revocation by minting a **new** `PrincipalId` for the
+    /// same external subject. That is why the read is here and not in one implementation
+    /// of it: [`authenticate::provision_external_principal`] refuses `ExternalKeyExists`
+    /// for a key this answers anything at all for, so every implementor has to say what
+    /// the key holds and none of them can leave a revoked record out of the answer by
+    /// saying nothing.
+    ///
+    /// An empty vector is the only way to say the key is free.
+    fn records_on_key(&self, key: &ExternalKey) -> Vec<ExternalPrincipal>;
+}
+
+/// What a command decides about a key, derived from [`LinkStore::records_on_key`].
+///
+/// **No implementation of this trait can exist but the one below.** It is implemented once,
+/// blanket, for every [`LinkStore`], so a store cannot supply its own answer to either
+/// question: `impl LinkResolution for MyStore` is a conflicting implementation and is
+/// refused by the compiler. That is the difference between a derivation and a default, and
+/// it is the reason this is a trait of its own rather than two more methods on
+/// [`LinkStore`] — a defaulted method is one an implementor may write, and an implementor
+/// that writes this one decides a command's outcome.
+pub trait LinkResolution {
+    /// The record that holds this key: the smallest `external_principal_id` among the
+    /// `Linked` records on it, and — when no record on the key is `Linked` — the smallest
+    /// among the records that remain.
+    ///
+    /// [`authenticate::authenticate_federation`] and [`link::link_external_principal`]
+    /// depend on it: both ask whether the key resolves to an **explicitly linked**
+    /// principal, and both read [`record::ExternalPrincipal::state`] on what they are
+    /// handed. An implementation free to answer the smallest `Unlinked` record while the
+    /// key still has a `Linked` one would deny `LinkAbsent` to a validly linked caller and
+    /// stop `LinkConflict` firing over a key that is taken — which is the same class of
+    /// defect as hiding the revoked record, one command further along.
+    ///
+    /// `ExternalPrincipalId` orders on the sixteen bytes of its UUID, which is the order
+    /// of its canonical lexical form, so "smallest" is a property of the identity the
+    /// event carried and of nothing else. An unlink of the holder promotes the next
+    /// smallest `Linked` record; see [`record::Projection`].
     fn link(&self, key: &ExternalKey) -> Option<ExternalPrincipal>;
+
+    /// Whether any record holds this key, in any lifecycle state — which is the question
+    /// [`authenticate::provision_external_principal`] asks, and the negation of "free to
+    /// create a record on".
+    fn key_is_held(&self, key: &ExternalKey) -> bool;
+}
+
+impl<T: LinkStore + ?Sized> LinkResolution for T {
+    fn link(&self, key: &ExternalKey) -> Option<ExternalPrincipal> {
+        let records = on_key(self, key);
+        records
+            .iter()
+            .filter(|record| record.state == LinkState::Linked)
+            .min_by_key(|record| record.id)
+            .or_else(|| records.iter().min_by_key(|record| record.id))
+            .cloned()
+    }
+
+    fn key_is_held(&self, key: &ExternalKey) -> bool {
+        !on_key(self, key).is_empty()
+    }
+}
+
+/// The records a store answered that are on the key it was asked about.
+///
+/// [`LinkStore::records_on_key`] promises "every record on this **exact** key", and a
+/// promise a derivation rests on is one the derivation checks where it can. Two of the
+/// key's three components are carried on the record — the organization the fold reads off
+/// the connection, and the subject — so a record naming another organization or another
+/// subject is not on this key whatever a store answered, and is dropped here rather than
+/// resolved into a session for its principal. The third component, the issuer, is the
+/// connection's and is not carried on an [`ExternalPrincipal`]; it cannot be checked from
+/// the value alone and is not.
+///
+/// This narrows, never widens: a store that answers only records on the key it was asked
+/// about — every implementation in this repository, [`record::Projection`] included, which
+/// filters on its own [`record::Projection::key_of`] — is unaffected.
+fn on_key<T: LinkStore + ?Sized>(store: &T, key: &ExternalKey) -> Vec<ExternalPrincipal> {
+    store
+        .records_on_key(key)
+        .into_iter()
+        .filter(|record| {
+            record.organization_id == key.organization_id && record.subject == key.subject
+        })
+        .collect()
 }
 
 /// The principal read model, for the half of "organization or target principal
@@ -661,8 +761,8 @@ impl ConnectionStore for RecordedPrincipals {
 }
 
 impl LinkStore for RecordedPrincipals {
-    fn link(&self, key: &ExternalKey) -> Option<ExternalPrincipal> {
-        self.links.link(key)
+    fn records_on_key(&self, key: &ExternalKey) -> Vec<ExternalPrincipal> {
+        self.links.records_on_key(key)
     }
 }
 

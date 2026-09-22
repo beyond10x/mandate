@@ -32,7 +32,7 @@ use crate::record::{
 };
 use crate::verifier::VerifiedProof;
 use crate::{ConnectionStore, DenialClause, Denied, FederationVerifier, IdentityAllocator};
-use crate::{LinkStore, RequestContext, SessionIssuer};
+use crate::{LinkResolution, LinkStore, RequestContext, SessionIssuer};
 use crate::{PrincipalState, PrincipalStore};
 
 /// `mandate.federation.AuthenticateFederation`.
@@ -114,7 +114,8 @@ pub fn authenticate_federation(
     // The key is the only route; no email, domain or display value reaches this read.
     // A row in the terminal `Unlinked` state is not an explicitly linked principal. The
     // command reads the lifecycle state itself: a port cannot make that a property of
-    // the command, and `LinkStore` asks no implementor to filter.
+    // the command. Which record holds the key is `LinkResolution`'s, blanket-implemented
+    // over every `LinkStore` so that no store can answer it and no store is asked to.
     let link = links
         .link(&resolved.key)
         .filter(|link| link.state == LinkState::Linked)
@@ -179,13 +180,23 @@ pub fn provision_external_principal(
             DenialClause::ProvisioningNotAdmitted,
         ));
     }
-    // "the composite (organization, configured issuer, subject) key already exists". A
-    // row in the terminal `Unlinked` state does not hold the key, here as at the other
-    // two call sites of this port: one key, one store, one answer.
-    if links
-        .link(&resolved.key)
-        .is_some_and(|held| held.state == LinkState::Linked)
-    {
+    // "the composite (organization, configured issuer, subject) key already exists". This
+    // command asks whether the key is free to create a record on, and a key whose every
+    // record reached the terminal `Unlinked` state of
+    // `mandate.federation.UnlinkExternalPrincipal` is not free — it is empty, not erased.
+    // `authenticate_federation` above and `link_external_principal` ask the other
+    // question, whether the key resolves to an *explicitly linked* principal, and so read
+    // `LinkResolution::link` and the lifecycle state on what it hands them.
+    //
+    // Both questions are answered in `LinkResolution`, blanket-implemented over every
+    // `LinkStore`, so neither is a property of the implementation this command was handed.
+    // `LinkAbsent` names two conditions — never linked, and revoked — and the composition
+    // `decision-blocker:jit-provisioning` prescribes provisions on it, so a store free to
+    // answer nothing for a key whose every record is revoked would mint a **new**
+    // `PrincipalId` for that subject, which is not a revocation and which nothing
+    // downstream can correlate to the principal that was revoked. A store is asked one
+    // thing, `records_on_key`, and an empty answer is the only way to say the key is free.
+    if links.key_is_held(&resolved.key) {
         return Err(Denied::new(
             DenialReason::Denied,
             DenialClause::ExternalKeyExists,
