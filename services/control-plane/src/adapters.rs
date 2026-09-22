@@ -80,6 +80,10 @@ use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
+use crate::authority::{
+    AUTHORITY_DENIED, Admission, Admitting, ISSUANCE_RELATION, ISSUE_AUTHORIZATION_CODE,
+    RESOURCE_SERVER,
+};
 use mandate_federation::authorize::{IssueAuthorizationCodeInput, TargetRegistry};
 use mandate_federation::publicclient::{OAuthClientStore, registered_public_client};
 use mandate_federation::record::{
@@ -121,11 +125,12 @@ use mandate_token::projection::{
 use mandate_token::verifier::{CredentialDigest, CredentialDomain, matches, verifier_in};
 use mandate_token::{CredentialDescriptor, CredentialProfile};
 use mandate_types::{
-    Audience, AuthorizationCodeId, ClientId, CorrelationId, CredentialId, CredentialProof,
+    Action, Audience, AuthorizationCodeId, ClientId, CorrelationId, CredentialId, CredentialProof,
     CredentialSecret, CredentialVerifier, DenialReason, Duration, EpochSnapshotRef,
     ExternalLinkMethod, ExternalPrincipalId, ExternalSubject, FederationConnectionId, Issuer,
-    OAuthClientId, OrganizationId, PkceMethod, PrincipalId, RedirectUri, ResourceServerId,
-    SecurityEpochTarget, SessionId, SigningAlgorithm, Timestamp, Transient, Uuid, VerifiedContext,
+    OAuthClientId, OrganizationId, PkceMethod, PrincipalId, RedirectUri, ResourceId, ResourceRef,
+    ResourceServerId, ResourceType, SecurityEpochTarget, SessionId, SigningAlgorithm, Timestamp,
+    Transient, Uuid, VerifiedContext,
 };
 use serde::Deserialize;
 
@@ -1657,6 +1662,18 @@ pub struct Deployment<V, C, X, A> {
     credentials: CredentialProjection,
     codes: InMemoryCodeLog,
     proofs: SessionProofs,
+    /// The authority decision taken before a handler is dispatched, when the deployment is
+    /// configured with one.
+    ///
+    /// `Option`, and `None` in `src/main.rs`, for the reason `crate::authority`'s header
+    /// gives: the two ports `mandate_authz::check` reads have one implementor each outside
+    /// a test file and both are doubles, so a shipped binary has nothing real to configure
+    /// here. A deployment that is given one asks before it dispatches; a deployment that is
+    /// not is exactly the deployment that shipped before this story, which decided no
+    /// authority at all.
+    ///
+    /// `Send` because [`crate::serve::Listener::serve`] takes a deployment onto a thread.
+    authority: Option<Box<dyn Admitting + Send>>,
 }
 
 impl<V, C, X, A> Deployment<V, C, X, A>
@@ -1707,7 +1724,21 @@ where
             credentials: CredentialProjection::default(),
             codes: InMemoryCodeLog::new(),
             proofs: SessionProofs::new(),
+            authority: None,
         })
+    }
+
+    /// The same deployment, deciding `mandate.authorization.Check` through `point` before
+    /// it dispatches a handler.
+    ///
+    /// A builder rather than a parameter of [`Deployment::new`]: the decision point is not
+    /// part of the configuration a deployment is validated against, and a deployment
+    /// without one is the deployment that shipped before this story. See
+    /// [`crate::authority`] for why nothing real can be passed here yet.
+    #[must_use]
+    pub fn with_authority(mut self, point: Box<dyn Admitting + Send>) -> Self {
+        self.authority = Some(point);
+        self
     }
 
     /// The issuer identifier this deployment publishes, normalised.
@@ -2166,6 +2197,41 @@ where
             redirect_uri: input.redirect_uri.clone(),
             expires_at,
         };
+
+        // The authority decision, **before** the handler is dispatched. Nothing below this
+        // point runs for a caller the decision point refuses: the code is not minted, the
+        // append is not made, and the refusal is the declared `mandate.authorization.Denied`
+        // reason rather than a clause of a command that was never called.
+        //
+        // The question is asked about the command that is about to be dispatched
+        // (`ISSUE_AUTHORIZATION_CODE`) on the registered target, under the context the
+        // dispatch would run in. `crate::authority`'s header records why the relation is a
+        // constant, why `scope` is `None`, and why a deployment that was given no decision
+        // point asks nothing at all.
+        if let Some(authority) = self.authority.as_mut() {
+            let action = Action::new(ISSUE_AUTHORIZATION_CODE);
+            let resource = ResourceRef {
+                resource_type: ResourceType::new(RESOURCE_SERVER),
+                resource_id: ResourceId::new(*input.target.as_uuid()),
+            };
+            if let Err(denied) = authority.admit(&Admission {
+                context: &assembled.context,
+                action: &action,
+                resource: &resource,
+                expected_audience: &assembled.context.audience,
+                relation: ISSUANCE_RELATION,
+                scope: None,
+            }) {
+                return Err(AuthorizationRefusal::AtRedirect {
+                    refusal: Refusal {
+                        clause: AUTHORITY_DENIED.to_owned(),
+                        reason: denied.reason,
+                    },
+                    redirect_uri: input.redirect_uri.clone(),
+                    state: input.state.clone(),
+                });
+            }
+        }
 
         let request = StsRequest {
             correlation: CorrelationId::new(session_id.to_string()),
