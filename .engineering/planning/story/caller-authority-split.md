@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:caller-authority-split
 kind: story
-status: active
+status: implemented
 title: Measure which caller-authority clauses the tenancy fold can decide
 relations:
 - decomposes: epic:authorization
@@ -23,7 +23,7 @@ scope:
   path: contracts/obligations/policy.json
 - confidence: cited
   path: contracts/obligations/sts.json
-revision: 10
+revision: 11
 ---
 # Which caller-authority clauses a fold can decide
 
