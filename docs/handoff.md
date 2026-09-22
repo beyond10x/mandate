@@ -1,36 +1,105 @@
 # Execution handoff
 
-## Next ten waves — proposal only
+Rewritten 2026-09-22 at the close of wave H. Everything before this file's previous revision
+described wave 1's preparation and had been true on 2026-09-18.
 
-The [ten-wave proposal](plans/2026-09-18-next-ten-waves.md), owned by `initiative:next-ten-waves`, supersedes the earlier single-story scheduling proposal. Skill: aep-drive:wave 0.8.1. Wave 1 proposes `story:canonical-types` alongside documentation-only `story:runtime-decision-dossier`; their write surfaces are disjoint. No implementation is launched or approved. The remaining nine waves are conditional forecasts and must be replanned after every wave against actual completed dependencies and unresolved decisions.
+## Read these first
 
-Canonical-type scope and exclusions are unchanged: four type/model/token/protocol crates plus workspace dependency files; no numeric epochs, invented lifecycle, crypto, PDP or HTTP implementation. Prepare the exact type/exclusion inventory and recheck resource/ownership preflight before dispatch. The dossier prepares decisions; it does not clear them. All runtime stories remain subject to their blockers. Independent scoper and critic evidence belongs to the planning store. Wave and Drive have separate lifecycle owners and cannot run concurrently for the same story.
+| | |
+|---|---|
+| where the plan lives | `.engineering/planning/`, written only through `aep plan artifact` |
+| how work is run | [ADR 0008](adr/0008-integration-batches.md) — units on their own branches, one integration branch per wave, PR to `main` when the operator selects the batch, tag only after the merge |
+| what is undecided | [`architecture/unmapped.md`](architecture/unmapped.md) and the bounded alternatives in [`architecture/runtime-decisions.md`](architecture/runtime-decisions.md) |
+| what is not true yet | `contracts/use-cases/federated-login.json`, the `not_yet_true` list |
 
-## Integration and publication
+## Where it stands
 
-The operator-selected flow is story/feature branches → integration/wave-YYYYMMDD-NNN → PR to main when the accumulated batch is selected → tag only after merge and release checks. This overrides automatic merge-to-main at each wave close. See [ADR 0008](adr/0008-integration-batches.md). The operator selected preparation batch integration/wave-20260918-001 for main through [PR #4](https://github.com/beyond10x/mandate/pull/4). Foundations is already published on main. Its obsolete checkout was retired through the worktree manager on 2026-09-18 after all 391 residual source files and the ESS ownership record were preserved and byte-verified in private recovery storage. No unique foundation commit was missing from main. The next implementation batch starts from verified main after this PR merges; implementation and release still require their own approval.
+`v0.3.0` is released. Eight waves have run — 1 to 3, then A to H. The federated-login road runs end
+to end against the shipped binary: `mandate-control-plane serve` serves `/v1/federation/login`,
+`/oauth/authorize`, `/oauth/token`, `/oauth/introspect`, `/oauth/jwks` and
+`/.well-known/oauth-authorization-server`, a first login provisions a user just in time where the
+connection admits it, and a revoked link is not provisioned around.
 
-## Separate Drive task — not launched
+Measured at `0.4.0`: `task check` exit 0, 250 suites, 1,920 tests, 0 failed; 11 named mutants each
+killed; 292 contract elements with 201 implemented; 166 conformance scenarios with 44 passed and 0
+error; 190 denial clauses with 83 decided on the real path.
 
-Task: `.engineering/tasks/canonical-types.yaml` with `derived_from: [story:canonical-types]`.
-Map: `.engineering/drivers/canonical-types.yaml`, id `mandate/canonical-types`, derived from AEP 0.55.0 development/default at the pinned protocol revision and adapted to Mandate packages. Its scope is the same accepted type work plus `xtask` verifier code; driver owns all lifecycle moves if selected. It must never run concurrently with the Wave owner.
+**83 of 190 has not moved since wave D.** Waves F, G and H were defect-driven and each shipped real
+fixes without touching a clause. That is not a sequencing problem — see *What is actually blocking*.
 
-The map runs Mandate canonical contract and credential-containment suites, workspace regression and static analysis. Unlike the upstream example it does not run AEP's own conformance or metaharness tests. `cargo xtask type-properties --out <record>` is a required evidence-producing verifier that has not yet been implemented; `decision-blocker:drive-verifier` blocks launch until its record schema and independent verification are reviewed. A zero-test scaffold is not evidence of canonical type realization.
+## In flight right now
 
-Preflight uses `aep doctor`, `aep govern resolve --root <resolved-pinned-protocol-root> --task .engineering/tasks/canonical-types.yaml`, and `aep govern validate --root <disposable-combined-protocol-tree>` for the explicit project map. AEP 0.55.0 resolve without an explicit root loaded no protocols in this session; doctor locates the pinned cached tree. The combined validation tree copies that exact protocol source and adds the project map without modifying the cache. Automatic map selection is ambiguous because the pinned protocol tree contains development/default and development/checks; the reviewed task explicitly proposes the Mandate map. Never choose one merely to bypass a refusal.
+| | |
+|---|---|
+| PR #20 | `Cut 0.4.0` — version in 18 manifests, lock, changelog. Gate green. **Awaiting merge, then the tag and GitHub Release** |
+| PR #21 | the public pages refreshed against the tree |
+| wave I | planned, not started: `jit-principal-record`, `folded-is-not-an-address-fold`, `linked-event-method-unenforced`, `road-lane-child-prints-address`, with `eventlog-repin-0-3-0` as a coordinator alignment commit |
 
-Current inspection: `aep drive status` reports no runs; the task resolves and the combined protocol/map tree validates, but the map has a missing property verifier and contradictory planning-write prompts/scopes. See [.engineering/drivers/README.md](../.engineering/drivers/README.md), verification-report:canonical-driver-readiness and decision-blocker:drive-map-authority.
+## What is actually blocking
 
-Launch is intentionally absent. The task must be reviewed and the operator must supply both `--budget-usd` and `--assume-usd-per-run`; neither is inferred here. Once prerequisites are satisfied, first use `--max-iterations 0` with the reviewed explicit map and limits, preserve the preflight result, then launch at most one governed run with `--pause-on-approval`. Do not use --take-lock or --allow-evidence-gap as a workaround. Follow the installed Drive skill; governed completion is experimental and may stop before completion.
+Two decisions, each with a written dossier, hold more of the remaining work than any amount of
+implementation does. Neither needs further analysis.
 
-## Review and validation evidence
+**`decision-blocker:guards`** — open since 2026-09-18. 35 clause entries across five contract files
+name it in `blocked_on`. It blocks `story:protocol-adapters`, `story:audit-client` and
+`story:product-listener`, which between them are the customer-facing registration route and every
+audited denial. The question, three bounded alternatives for the denial-record half, and what is out
+of bounds are in `architecture/runtime-decisions.md` § 3.
 
-Four installed aep-plan critic charters review frozen drafts independently, with at most three concurrent workers and two rounds. Charters request Sonnet/high; this session uses Codex subagents on the available inherited model, a disclosed harness deviation. The fourth reviewer starts after a slot opens and does not see other verdicts. AEP review-result records retain verbatim findings; outcomes are recorded sequentially.
+**`decision-blocker:async-runtime`** — filed 2026-09-22. ADR 0009 decided event-sourced persistence
+through the organization `eventlog` kit and **nothing implements it**: the kit is pinned and named by
+two manifests, no Rust file references it, and every fold is in memory. The kit's surface is async
+and this workspace admits no runtime; that was recorded as wave 3's stop condition S1 and deferred
+four waves ago. Three options are stated in the blocker.
 
-`task check` validates scaffold behavior, dependency policy, ESS compilation/projection drift, source hashes, corpus ownership and AEP records. It does not prove runtime authorization, cryptography or protocol enforcement. Source publication, documentation-manifest validation and the operator-approved Website publication are milestone requirements. Release tags, service deployments and Identity migration remain excluded.
+Between them they close three of the six gaps the use case lists. A fourth — **no transport
+security** — has no story and no owner, and is the reason the use case says no customer may be put
+on the road.
 
-## Published foundations
+## Traps this repository has already paid for
 
-The public source gate and publication evidence are recorded on `story:foundation-contracts`. The [foundation docs](https://beyond10x.github.io/docs/mandate/) and [ESS contract viewer](https://beyond10x.github.io/components/mandate/document/) are live and were opened in Brave. The exact production input passed the full Website gate and live viewer interaction checks. The operator explicitly expanded the original source-only milestone to include this Website publication.
+- **The Gates adoption baseline.** `gates-policy/policy.json` holds
+  `repositories."beyond10x/mandate".baseline`, and the push guard reads its outgoing range from that
+  commit. Any branch cut from a `main` that has gained a `GitHub`-committed merge since the baseline
+  is refused — *"outgoing commit must have the exact bot author and committer"* — **even for commits
+  already on `main`**. On 2026-09-22 this refused the release branch until it was rebased onto the
+  baseline itself. Wave G recorded advancing the baseline as a reset rather than a fix, five resets
+  ago; this was the sixth occasion. Until the baseline moves, cut publishable branches from it.
+- **A store write cannot be based on a pre-wave commit.** `.engineering/planning/journal.jsonl` is
+  append-only and nothing merges it: a branch whose base lacks the current tail produces a document
+  whose revision no event supports, which the store's own validator reports as forgery. Planning
+  writes go on a branch cut from the current store, which is why the transport-security story is not
+  filed yet.
+- **`cargo fmt --all --check` is the gate's first step.** A whole gate run was spent on one
+  unformatted import line whose failure hid every later step.
+- **Read a gate's own exit status.** A run piped into anything reports the pipe's status. One gate
+  here exited 201 and the harness reported 0.
+- **Adversary findings blocks are YAML.** A `message:` containing a colon followed by a space is
+  refused by the store; single-quote the scalar.
+- **Concurrency above four copies of a control-plane test lane measures the host**, not the code:
+  an 8-way probe put ~40,000 sockets in TIME_WAIT against a 28,231-port ephemeral range.
 
-The next work remains canonical Rust type realization within the accepted scope above. Drive still requires its reviewed verifier, reviewed task and explicitly supplied spending limits. No Wave or Drive execution, service deployment, release tag or Identity migration occurred.
+## Worktrees and branches
+
+`main` is clean. Two managed worktrees are retained and cannot be cleared: `mandate-w1-canonical-types`
+and `mandate-w1-runtime-decision-dossier`, whose commits `010688f` and `781517b` are advertised by no
+remote ref. Their trees are **byte-identical** to `8a60eee` and `5c99f43` on `main` — `git diff`
+between each pair is empty — so nothing is unintegrated. Publishing them to satisfy the recovery
+check is refused, because they predate the adoption baseline. They stay until somebody retires them
+out of band.
+
+## Drive — still not launched
+
+`.engineering/tasks/canonical-types.yaml` and `.engineering/drivers/canonical-types.yaml` are
+unchanged and unlaunched. `decision-blocker:drive-verifier` and `decision-blocker:drive-map-authority`
+both remain open; a launch needs a reviewed task and an operator-supplied `--budget-usd` and
+`--assume-usd-per-run`, neither of which is inferred. Wave and Drive never own one story at once.
+
+## What the next session should do first
+
+1. Merge PR #20, then tag the resulting `main` commit `v0.4.0` and create the GitHub Release — the
+   gate that backs it has already run green.
+2. Ask the operator for `guards`. It is one page of reading and it is what makes the coverage number
+   move.
+3. Move the Gates baseline to the current `main`, or expect every branch to need the rebase above.
+4. Then wave I, which is ready and does not wait on any of the three.
