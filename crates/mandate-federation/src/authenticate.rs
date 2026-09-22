@@ -179,13 +179,20 @@ pub fn provision_external_principal(
             DenialClause::ProvisioningNotAdmitted,
         ));
     }
-    // "the composite (organization, configured issuer, subject) key already exists". A
-    // row in the terminal `Unlinked` state does not hold the key, here as at the other
-    // two call sites of this port: one key, one store, one answer.
-    if links
-        .link(&resolved.key)
-        .is_some_and(|held| held.state == LinkState::Linked)
-    {
+    // "the composite (organization, configured issuer, subject) key already exists". The
+    // read is state-blind on purpose, and is the one call site of this port that is:
+    // `authenticate_federation` above and `link_external_principal` ask whether the key
+    // resolves to an *explicitly linked* principal and so read the lifecycle state
+    // themselves, while this command asks whether the key is free to create a record on,
+    // and a key whose record reached the terminal `Unlinked` state of
+    // `mandate.federation.UnlinkExternalPrincipal` is not.
+    //
+    // `LinkAbsent` names two conditions — never linked, and revoked — and the
+    // composition `decision-blocker:jit-provisioning` prescribes provisions on it. This
+    // refusal is what tells them apart: without it the first login after an unlink mints
+    // a **new** `PrincipalId` for the same external subject, which is not a revocation
+    // and which nothing downstream can correlate to the principal that was revoked.
+    if links.link(&resolved.key).is_some() {
         return Err(Denied::new(
             DenialReason::Denied,
             DenialClause::ExternalKeyExists,

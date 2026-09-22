@@ -20,15 +20,15 @@ use mandate_federation::record::{
 };
 use mandate_federation::verifier::{ConstructedVerifier, VerifiedProof};
 use mandate_federation::{
-    Denied, LinkStore, PrincipalStore, RecordedPrincipals, RecordingSessionIssuer, RequestContext,
-    SequentialAllocator,
+    DenialClause, Denied, LinkStore, PrincipalStore, RecordedPrincipals, RecordingSessionIssuer,
+    RequestContext, SequentialAllocator,
 };
 use mandate_model::TenantResolutionRule;
 use mandate_types::value::Uuid;
 use mandate_types::{
-    Audience, ClientId, CorrelationId, CredentialId, CredentialProof, ExternalLinkMethod,
-    ExternalPrincipalId, ExternalSubject, FederationConnectionId, Issuer, OrganizationId,
-    PrincipalId, PrincipalKind, SigningAlgorithm, Timestamp, VerifiedContext,
+    Audience, ClientId, CorrelationId, CredentialId, CredentialProof, DenialReason,
+    ExternalLinkMethod, ExternalPrincipalId, ExternalSubject, FederationConnectionId, Issuer,
+    OrganizationId, PrincipalId, PrincipalKind, SigningAlgorithm, Timestamp, VerifiedContext,
 };
 
 const ISSUER: &str = "https://idp.example/one";
@@ -402,16 +402,28 @@ impl PrincipalStore for RowInAnyState {
 }
 
 /// Of the three commands that read `LinkStore`, two honour the state the port hands back
-/// and one does not.
+/// and one is state-blind — which is the decision, not the defect.
 ///
-/// A terminal `Unlinked` row does not hold the key: `authenticate_federation`
-/// (`src/authenticate.rs:85-88`) denies `LinkAbsent` on it, and
-/// `link_external_principal` (`src/link.rs:104-107`) admits a relink over it.
-/// `provision_external_principal` (`src/authenticate.rs:140`) tests `is_some()` alone, so
-/// the same row that holds no key for either of the others blocks provisioning with
-/// `ExternalKeyExists`. The adapter sequence `decision-blocker:jit-provisioning`
-/// prescribes — authenticate, on an absent-link denial provision, authenticate again —
-/// has no exit at all in that state.
+/// **This case's assertion was reversed by `story:link-absent-discriminates`, and the
+/// finding it was filed for stands.** As written in pass 2 it asserted that
+/// `provision_external_principal` admits over a terminal `Unlinked` row, on the reading
+/// that a row holding no key for the other two commands must hold none here either.
+/// The adversary on `story:federated-jit-login` then measured what that admission costs
+/// (2026-09-21): `DenialClause::LinkAbsent` names two conditions — never linked, and
+/// linked and then revoked — and the composition `decision-blocker:jit-provisioning`
+/// prescribes provisions on the clause, so the first login after
+/// `UnlinkExternalPrincipal` minted a **new** `PrincipalId` for the same external
+/// subject. That is not a revocation, and nothing downstream can correlate the new
+/// principal to the revoked one.
+///
+/// The story's route out is the one asserted below: the three commands ask different
+/// questions of one port, so three answers to one row is what a correct port gives them.
+/// `authenticate_federation` and `link_external_principal` ask whether the key resolves
+/// to an *explicitly linked* principal and read the state; `provision_external_principal`
+/// asks whether the key is *free to create a record on*, and a key a revoked record holds
+/// is not. The adapter sequence still terminates: the refused provisioning is not the
+/// login's refusal (`services/control-plane/src/adapters.rs`), so the login's own
+/// `LinkAbsent` stands and the second authentication is never reached.
 #[test]
 fn an_unlinked_row_holds_no_key_for_two_commands_and_blocks_the_third() {
     let log = vec![created(
@@ -467,16 +479,26 @@ fn an_unlinked_row_holds_no_key_for_two_commands_and_blocks_the_third() {
         &mut allocator,
     );
 
-    assert!(
-        provisioned.is_ok(),
-        "the row the port returned is in the terminal Unlinked state. \
-         authenticate_federation reads that state and denies ({authenticated:?}); \
-         link_external_principal reads it and admits a relink over the key \
-         ({relinked:?}); provision_external_principal reads only is_some() and denies \
-         ({provisioned:?}). One key, one store, one moment, three answers — and the \
-         adapter sequence decision-blocker:jit-provisioning declares, authenticate then \
-         provision then authenticate, never terminates"
+    let denied = authenticated.expect_err(
+        "a terminal Unlinked row is not an explicitly linked principal, so the login is \
+         refused and no session is issued",
     );
+    assert_eq!(denied.reason, DenialReason::Denied);
+    assert_eq!(denied.clause, DenialClause::LinkAbsent);
+    assert!(sessions.issued().is_empty(), "no session was issued");
+
+    relinked.expect(
+        "a terminal Unlinked row is not a conflicting link: an administrator may bind the \
+         subject to a principal of their choosing",
+    );
+
+    let refused = provisioned.expect_err(
+        "the key the revoked record holds is not free to create a record on: without this \
+         refusal the composition decision-blocker:jit-provisioning prescribes mints a new \
+         PrincipalId for the subject whose link was revoked",
+    );
+    assert_eq!(refused.reason, DenialReason::Denied);
+    assert_eq!(refused.clause, DenialClause::ExternalKeyExists);
 }
 
 /// The losing half of the `jit-conflict` race is a principal nothing can name.

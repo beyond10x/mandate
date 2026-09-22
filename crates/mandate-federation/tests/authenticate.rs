@@ -15,7 +15,9 @@ use mandate_federation::authenticate::{
     AuthenticateFederation, Authenticated, ProvisionExternalPrincipal, authenticate_federation,
     provision_external_principal,
 };
-use mandate_federation::record::{ExternalKey, FederationEvent, Projection};
+use mandate_federation::record::{
+    ExternalKey, ExternalPrincipal, FederationEvent, LinkState, Projection,
+};
 use mandate_federation::verifier::{ConstructedVerifier, VerifiedProof};
 use mandate_federation::{
     ConnectionStore, DenialClause, Denied, LinkStore, PrincipalState, RecordedPrincipals,
@@ -483,6 +485,137 @@ fn jit_conflict() {
         "the two callers minted distinct identities; only one is recorded"
     );
     assert_eq!(sessions.issued().len(), 1);
+}
+
+/// A revoked link still holds its composite key.
+///
+/// `DenialClause::LinkAbsent` names two conditions — never linked, and linked and then
+/// revoked — and `decision-blocker:jit-provisioning`'s composition provisions on it. The
+/// two are told apart by what `ProvisionExternalPrincipal` decides: `ExternalKeyExists`
+/// is refused for a key **any** record holds, in any lifecycle state, so the composition
+/// that provisions on the clause creates nothing on a key whose record reached the
+/// terminal `Unlinked` state of `mandate.federation.UnlinkExternalPrincipal`.
+///
+/// Without it the next login after an unlink mints a **new** `PrincipalId` for the same
+/// external subject: the revoked caller returns as a different principal, which is not a
+/// revocation and which nothing downstream can correlate to the principal that was
+/// revoked.
+#[test]
+fn a_revoked_link_still_holds_its_key_at_provisioning() {
+    let log = vec![
+        created(
+            connection(1),
+            organization(10),
+            ISSUER_ONE,
+            unconditional(organization(10)),
+            true,
+        ),
+        linked(connection(1), organization(10), SUBJECT, principal(0x21)),
+        FederationEvent::ExternalPrincipalUnlinked {
+            context: context(organization(10)),
+            id: mandate_types::ExternalPrincipalId::new(uuid(0x71)),
+        },
+    ];
+    let projection = Projection::fold(&log).expect("one connection, one revoked link");
+    let verifier = admitting(proof_for(ISSUER_ONE, SUBJECT));
+    let mut sessions = RecordingSessionIssuer::new();
+    let mut allocator = SequentialAllocator::new();
+
+    // The login the composition provisions on: the revoked record is not an explicitly
+    // linked principal, so the clause is the same one a never-linked subject gets.
+    let denied = authenticate(&projection, connection(1), &verifier, &mut sessions)
+        .expect_err("the link reached its terminal state");
+    assert_eq!(denied.reason, DenialReason::Denied);
+    assert_eq!(denied.clause, DenialClause::LinkAbsent);
+    assert!(sessions.issued().is_empty(), "no session was issued");
+
+    // And the provisioning that composition would reach for is refused.
+    let refused = provision(&projection, &mut allocator, connection(1), &verifier)
+        .expect_err("a record holds this key, whatever state it is in");
+    assert_eq!(refused.reason, DenialReason::Denied);
+    assert_eq!(refused.clause, DenialClause::ExternalKeyExists);
+    assert_eq!(
+        projection.links().len(),
+        1,
+        "the revoked record is the only record on the key, and no second was created"
+    );
+}
+
+/// A record in **any** lifecycle state holds its key at provisioning.
+///
+/// The state list is built and then matched exhaustively, so a state added to
+/// `mandate.federation.ExternalPrincipal.State` does not compile here until this case
+/// says what `ProvisionExternalPrincipal` does about it. The alternative — one case per
+/// state, written by hand — is a list that only an adversary extends, and the state this
+/// story is about is the one that was missing from it.
+#[test]
+fn a_record_in_any_lifecycle_state_holds_the_key_at_provisioning() {
+    /// A store that answers one row for every key, in whatever state the case built.
+    /// `LinkStore` declares this to be within the port: "an implementation may return a
+    /// row in any lifecycle state".
+    struct OneRow(ExternalPrincipal);
+
+    impl LinkStore for OneRow {
+        fn link(&self, _key: &ExternalKey) -> Option<ExternalPrincipal> {
+            Some(self.0.clone())
+        }
+    }
+
+    let states = [LinkState::Linked, LinkState::Unlinked];
+    for state in states {
+        match state {
+            LinkState::Linked | LinkState::Unlinked => {}
+        }
+    }
+
+    let log = vec![created(
+        connection(1),
+        organization(10),
+        ISSUER_ONE,
+        unconditional(organization(10)),
+        true,
+    )];
+    let projection = Projection::fold(&log).expect("one connection");
+    let verifier = admitting(proof_for(ISSUER_ONE, SUBJECT));
+
+    for state in states {
+        let links = OneRow(ExternalPrincipal {
+            id: mandate_types::ExternalPrincipalId::new(uuid(0x71)),
+            organization_id: organization(10),
+            subject: ExternalSubject::new(SUBJECT),
+            principal_id: principal(0x21),
+            connection_id: connection(1),
+            link_method: ExternalLinkMethod::Administrator,
+            linked_at: linked_at(),
+            state,
+        });
+        let mut allocator = SequentialAllocator::new();
+
+        let outcome = provision_external_principal(
+            &ProvisionExternalPrincipal {
+                connection_id: connection(1),
+                proof: presented(),
+            },
+            &request(),
+            &verifier,
+            &projection,
+            &links,
+            &mut allocator,
+        );
+        let refused = match outcome {
+            Ok(provisioned) => {
+                panic!("a record in state {state:?} holds this key: {provisioned:?}")
+            }
+            Err(refused) => refused,
+        };
+
+        assert_eq!(refused.reason, DenialReason::Denied, "state {state:?}");
+        assert_eq!(
+            refused.clause,
+            DenialClause::ExternalKeyExists,
+            "state {state:?}"
+        );
+    }
 }
 
 /// `federation.yaml:210`: "Connection is disabled/untrusted". No corpus case covers it;

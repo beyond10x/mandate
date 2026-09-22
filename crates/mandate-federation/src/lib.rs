@@ -510,10 +510,24 @@ pub trait ExternalPrincipalStore {
 pub trait LinkStore {
     /// The link recorded for this exact key, if there is one.
     ///
-    /// An implementation may return a row in any lifecycle state. Every command that
-    /// reads this port honours [`record::ExternalPrincipal::state`] itself rather than
+    /// An implementation may return a row in any lifecycle state, and an implementation
+    /// that can return a `Linked` row for the key returns one. Every command that reads
+    /// this port decides for itself what the state it is handed means, rather than
     /// relying on an implementation to filter, because a port cannot make that a
-    /// property of the command.
+    /// property of the command:
+    ///
+    /// - [`authenticate::authenticate_federation`] and [`link::link_external_principal`]
+    ///   ask whether the key resolves to an **explicitly linked** principal, so they read
+    ///   [`record::ExternalPrincipal::state`] and refuse a terminal `Unlinked` row.
+    /// - [`authenticate::provision_external_principal`] asks whether the key is **free to
+    ///   create a record on**, so it reads no state: a key any record holds, in any
+    ///   lifecycle state, is refused `ExternalKeyExists`. `LinkAbsent` names both "never
+    ///   linked" and "revoked", and that refusal is what keeps a composition which
+    ///   provisions on the clause from minting a second `PrincipalId` for a subject whose
+    ///   link was revoked.
+    ///
+    /// An implementation that hides `Unlinked` rows from this port therefore reports a
+    /// revoked key as free, and every composition over it inherits that.
     fn link(&self, key: &ExternalKey) -> Option<ExternalPrincipal>;
 }
 

@@ -428,7 +428,10 @@ pub enum FoldError {
 /// [`PrincipalStore::organization_of`] answer for every link the log created, and the
 /// declared `unlink` move applies to any of them. When the holder is unlinked the next
 /// smallest `Linked` record on the key holds it — promotion, not a vacancy — which is what
-/// makes the key's holder a function of the records alone.
+/// makes the key's holder a function of the records alone. When the last of them is
+/// unlinked the key is *empty*, not free: [`Projection::link`] answers the smallest record
+/// that remains, so `ProvisionExternalPrincipal` refuses to create a second record on a key
+/// a revoked one holds.
 ///
 /// `linked_at` decides nothing about the key. It is the declared timestamp of the link and
 /// is carried as such; two writers racing one key hold no clock in common, and an instant
@@ -841,20 +844,38 @@ impl PrincipalStore for Projection {
 
 impl LinkStore for Projection {
     /// The record that holds the key: the smallest `external_principal_id` among the
-    /// `Linked` records on it.
+    /// `Linked` records on it, and — when no record on the key is `Linked` — the smallest
+    /// among the records that remain.
     ///
     /// `ExternalPrincipalId` orders on the sixteen bytes of its UUID, which is the order of
     /// its canonical lexical form, so "smallest" is a property of the identity the event
     /// carried and of nothing else — not of `linked_at`, not of the order the log presents
     /// the two aggregates in, not of the order they were applied. An unlink of the holder
-    /// promotes the next smallest; see [`Projection`].
+    /// promotes the next smallest `Linked` record; see [`Projection`].
+    ///
+    /// **The terminal `Unlinked` state empties the key, it does not erase it.** The
+    /// fallback is what [`LinkStore`] promises every implementor may do — "an
+    /// implementation may return a row in any lifecycle state" — and it is what makes
+    /// `mandate.federation.UnlinkExternalPrincipal` a revocation rather than a deletion:
+    /// [`crate::authenticate::provision_external_principal`] refuses `ExternalKeyExists`
+    /// for a key any record holds, so a composition that provisions on `LinkAbsent`
+    /// cannot mint a second `PrincipalId` for a subject whose link was revoked. The two
+    /// commands that ask "is this an explicitly linked principal" —
+    /// [`crate::authenticate::authenticate_federation`] and
+    /// [`crate::link::link_external_principal`] — read
+    /// [`ExternalPrincipal::state`] themselves and are unaffected: the preference above
+    /// hands them the `Linked` record whenever the key has one, so promotion and
+    /// `LinkConflict` decide exactly what they decided before.
     fn link(&self, key: &ExternalKey) -> Option<ExternalPrincipal> {
-        self.links
-            .iter()
-            .filter(|link| {
-                link.state == LinkState::Linked && self.key_of(link).as_ref() == Some(key)
-            })
+        let on_key = || {
+            self.links
+                .iter()
+                .filter(|link| self.key_of(link).as_ref() == Some(key))
+        };
+        on_key()
+            .filter(|link| link.state == LinkState::Linked)
             .min_by_key(|link| link.id)
+            .or_else(|| on_key().min_by_key(|link| link.id))
             .cloned()
     }
 }

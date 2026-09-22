@@ -2147,8 +2147,8 @@ fn a_first_login_provisions_one_link_and_a_second_resolves_it_and_provisions_not
 /// conforming verifier behaves like this one. It exists because with a conforming verifier
 /// the retry always resolves the link the provisioning just created, so this is the only
 /// construction that reaches a second `LinkAbsent` at all — and what the case pins is that
-/// the composition *returns* it, consulting the port four times for one login and not a
-/// fifth.
+/// the composition *returns* it, consulting the port three times for one login and not a
+/// fourth.
 struct RotatingSubjects {
     calls: std::sync::Arc<std::sync::atomic::AtomicUsize>,
 }
@@ -2207,20 +2207,26 @@ fn a_second_link_absent_is_returned_and_the_sequence_does_not_run_again() {
     );
     assert_eq!(
         calls.load(std::sync::atomic::Ordering::Relaxed),
-        4,
-        "one login consults the port a bounded number of times — authenticate, the key read, \
-         provision, authenticate — and not once more"
+        3,
+        "one login consults the port a bounded number of times — authenticate, provision, \
+         authenticate — and not once more"
     );
 }
 
 /// `mandate.federation.UnlinkExternalPrincipal` revokes, and the next login does not provision
 /// its way around the revocation.
 ///
-/// `Projection::link` answers for the `Linked` state alone, so a revoked link reads to
-/// `authenticate_federation` exactly as a key that was never linked: both are `LinkAbsent`.
-/// A composition that admits provisioning on that clause alone answers the domain's only
-/// federated revocation by minting a **new** `PrincipalId` for the same external subject —
-/// the caller is back, as somebody else, and nothing downstream can correlate the two.
+/// `authenticate_federation` reads the lifecycle state itself, so a revoked link reads to it
+/// exactly as a key that was never linked: both are `LinkAbsent`. A composition that admits
+/// provisioning on that clause alone would answer the domain's only federated revocation by
+/// minting a **new** `PrincipalId` for the same external subject — the caller is back, as
+/// somebody else, and nothing downstream can correlate the two.
+///
+/// What stops it is `ProvisionExternalPrincipal`, which refuses `ExternalKeyExists` for a key
+/// **any** record holds in any lifecycle state (`story:link-absent-discriminates`). This
+/// adapter carried a `key_holds_no_record` pre-check of its own until that story moved the
+/// condition into the library; the case below is unchanged by the move, because the answer is
+/// the same one and is now decided in one place.
 #[test]
 fn a_revoked_external_principal_is_not_provisioned_around_by_the_next_login() {
     let (mut deployment, connection_id) = deployment_unlinked(true);
