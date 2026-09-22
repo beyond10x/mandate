@@ -28,8 +28,8 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration as HostDuration, Instant};
 
 use mandate_control_plane::adapters::{
-    Configuration, ConnectionSeeding, Deployment, SeedRefused, key_set, read_connection_seed,
-    read_key,
+    ClientSeeding, Configuration, ConnectionSeeding, Deployment, SeedRefused, TargetSeeding,
+    key_set, read_client_seed, read_connection_seed, read_key, read_resource_server_seed,
 };
 use mandate_control_plane::serve::{Limits, Listener};
 use mandate_federation::record::{FederationConnection, FederationEvent};
@@ -2837,5 +2837,379 @@ fn two_connections_on_one_issuer_from_a_log_are_still_refused_as_ambiguous() {
     assert_eq!(
         refused.clause, "TenantAmbiguous",
         "the promise is to deny rather than guess; got {refused:?}"
+    );
+}
+
+// ------------------------------------------------- `--client` and `--resource-server`
+//
+// The other two flags. `--connection` and `--key` are admitted against the documents
+// before them (`ConnectionSeeding::admit`, `key_set`); these two were added later and went
+// through nothing at all, so a set this process cannot serve was seeded, printed as
+// seeded, and then denied at every request. These cases are the same shape as the
+// `--connection` ones above: the library's own refusal pinned in process, and the binary's
+// exit status pinned beside it.
+
+/// One `--resource-server` document, with the members a case varies stated.
+fn target_document_for(
+    resource_server_id: Option<ResourceServerId>,
+    organization: OrganizationId,
+    audience: &str,
+    max_ttl: &str,
+) -> String {
+    let identity = match resource_server_id {
+        Some(id) => format!(r#""resource_server_id":"{id}","#),
+        None => String::new(),
+    };
+    format!(
+        r#"{{{identity}"organization":"{organization}","audience":"{audience}",
+          "profile":{{"name":"reference","kind":"Reference","revocation":"ImmediateOnline",
+            "max_ttl":"{max_ttl}","positive_cache_ttl":"PT30S",
+            "requires_online_authorization":true}},
+          "allowed_exchange_sources":[]}}"#
+    )
+}
+
+/// One `--client` document, with the members a case varies stated.
+fn client_document_for(client_id: Option<OAuthClientId>, organization: OrganizationId) -> String {
+    let identity = match client_id {
+        Some(id) => format!(r#""client_id":"{id}","#),
+        None => String::new(),
+    };
+    format!(
+        r#"{{{identity}"organization":"{organization}","public":true,
+          "redirect_uris":["{REDIRECT}"],"pkce_method":"S256"}}"#
+    )
+}
+
+/// Seed these `--resource-server` documents in order, as `serve` does, and settle them.
+fn target_seeding_of(named: &[(&str, String)]) -> Result<Vec<ResourceServerId>, SeedRefused> {
+    let mut minted = 0xe0_u8;
+    let mut allocate = || {
+        minted = minted.wrapping_add(1);
+        uuid(minted)
+    };
+    let mut seeding = TargetSeeding::new();
+    let mut admitted = Vec::new();
+    for (name, body) in named {
+        let path = seed_file(name, body);
+        let seed = read_resource_server_seed(&path).expect("a document serve reads");
+        admitted.push(
+            seeding
+                .admit(&path, &seed, &mut allocate)?
+                .resource_server_id,
+        );
+    }
+    seeding.settled()?;
+    Ok(admitted)
+}
+
+/// Seed these `--client` documents in order, as `serve` does.
+fn client_seeding_of(named: &[(&str, String)]) -> Result<Vec<OAuthClientId>, SeedRefused> {
+    let mut minted = 0xf0_u8;
+    let mut allocate = || {
+        minted = minted.wrapping_add(1);
+        uuid(minted)
+    };
+    let mut seeding = ClientSeeding::new();
+    let mut admitted = Vec::new();
+    for (name, body) in named {
+        let path = seed_file(name, body);
+        let seed = read_client_seed(&path).expect("a document serve reads");
+        admitted.push(seeding.admit(&path, &seed, &mut allocate)?.client_id);
+    }
+    Ok(admitted)
+}
+
+/// Two `--resource-server` documents holding one `(organization, audience)` key are refused
+/// by the command's own guard, naming both files.
+///
+/// Measured before this correction: both were seeded and both printed as seeded, and which
+/// registration *held* the audience was decided by `Projection::registered`'s
+/// `min_by_key(|server| server.id)` — UUID ordering, a value no document states — while
+/// `services/sts/src/resolve.rs` reads introspection authority through it.
+#[test]
+fn two_resource_server_documents_holding_one_audience_are_refused_naming_both_files() {
+    let refused = target_seeding_of(&[
+        (
+            "audience-first.json",
+            target_document_for(None, organization(), "https://api.example", "PT1H"),
+        ),
+        (
+            "audience-second.json",
+            target_document_for(None, organization(), "https://api.example", "PT2H"),
+        ),
+    ])
+    .expect_err("one audience is registered by at most one enabled registration");
+    let SeedRefused::RepeatedAudience {
+        path,
+        incumbent,
+        audience,
+        organization,
+    } = &refused
+    else {
+        panic!("the two-document refusal, got {refused:?}");
+    };
+    assert_eq!(*audience, Audience::new("https://api.example"));
+    assert_eq!(*organization, self::organization());
+    // `SeedRefused::incumbent`'s own rule: "Every variant that compares documents carries
+    // both." An ambiguous audience compares two documents, so a refusal naming only the
+    // second tells an operator half of what to correct.
+    assert!(
+        path.ends_with("audience-second.json") && incumbent.ends_with("audience-first.json"),
+        "both documents are named, got {} and {}",
+        path.display(),
+        incumbent.display()
+    );
+}
+
+/// The same audience in **another** organization is a different key and is admitted. Without
+/// this the fix would read as "an audience may be registered once", which is not what
+/// `admits_audience` says.
+#[test]
+fn one_audience_in_two_organizations_is_two_keys_and_is_admitted() {
+    let admitted = target_seeding_of(&[
+        (
+            "audience-tenant-a.json",
+            target_document_for(None, organization(), "https://api.example", "PT1H"),
+        ),
+        (
+            "audience-tenant-b.json",
+            target_document_for(None, other_organization(), "https://api.example", "PT1H"),
+        ),
+    ])
+    .expect("an audience is unique within an organization, not across them");
+    assert_eq!(admitted.len(), 2, "both documents seeded a registration");
+    assert_ne!(admitted[0], admitted[1]);
+}
+
+/// Two `--resource-server` documents stating one `resource_server_id` are refused naming
+/// both files: the credential fold returns `Ok(())` for an id it already holds
+/// (`mandate-token/src/projection.rs:763-765`), so the second document's audience and
+/// profile were registered nowhere and both ids were printed as seeded.
+#[test]
+fn two_resource_server_documents_stating_one_id_are_refused_naming_both_files() {
+    let stated = ResourceServerId::new(uuid(0xe9));
+    let refused = target_seeding_of(&[
+        (
+            "target-id-first.json",
+            target_document_for(
+                Some(stated),
+                organization(),
+                "https://first.example",
+                "PT1H",
+            ),
+        ),
+        (
+            "target-id-second.json",
+            target_document_for(
+                Some(stated),
+                organization(),
+                "https://second.example",
+                "PT1H",
+            ),
+        ),
+    ])
+    .expect_err("one resource_server_id names at most one registration");
+    let SeedRefused::RepeatedResourceServerId {
+        path,
+        incumbent,
+        resource_server_id,
+    } = &refused
+    else {
+        panic!("the repeated-identity refusal, got {refused:?}");
+    };
+    assert_eq!(*resource_server_id, stated);
+    assert!(
+        path.ends_with("target-id-second.json") && incumbent.ends_with("target-id-first.json"),
+        "both documents are named, got {} and {}",
+        path.display(),
+        incumbent.display()
+    );
+}
+
+/// The audience is not the only guard the command holds, and routing the document through
+/// the command is what makes the rest of them run. A profile whose semantics are unadmitted
+/// — here a `max_ttl` that names no positive span — was seeded happily while this reader
+/// built the event by hand.
+#[test]
+fn a_resource_server_document_whose_profile_is_unadmitted_is_refused() {
+    let refused = target_seeding_of(&[(
+        "profile-unadmitted.json",
+        target_document_for(None, organization(), "https://api.example", "PT0S"),
+    )])
+    .expect_err("a profile that admits no lifetime issues no credential");
+    let SeedRefused::UnregistrableTarget { path, denied } = &refused else {
+        panic!("the command's own refusal, got {refused:?}");
+    };
+    assert_eq!(format!("{:?}", denied.clause), "ProfileUnadmitted");
+    assert!(path.ends_with("profile-unadmitted.json"));
+}
+
+/// A fold that already holds a registration which does not hold its audience is refused
+/// before the socket rather than resolved by UUID ordering.
+///
+/// `admits_audience` is a read-then-write guard, so it can only refuse a document being
+/// admitted now; a fold seeded from an event log (ruling D4) can already carry the pair two
+/// concurrent writers produced. `Projection::audience_conflicts` is the view over exactly
+/// that, and this is its first caller outside a test.
+#[test]
+fn a_fold_already_holding_a_conflicted_audience_is_refused_before_the_socket() {
+    // Two registrations on one key, written straight into the fold: the state a log
+    // replay can produce and no read-then-write guard can have refused.
+    let mut fold = CredentialProjection::default();
+    let mut allocator = SequentialAllocator::new();
+    for _ in 0..2 {
+        let registered = register_resource_server(
+            &RegisterResourceServer {
+                context: context(),
+                audience: Audience::new("https://api.example"),
+                profile: reference_profile(),
+                allowed_exchange_sources: Vec::new(),
+            },
+            // The empty fold each time, so the guard cannot see the other registration —
+            // which is what two writers each reading a free key looks like.
+            &CredentialProjection::default(),
+            &mut allocator,
+        )
+        .expect("a free audience against an empty fold");
+        fold.apply(&registered.event).expect("a readable history");
+    }
+
+    let refused = TargetSeeding::over(fold)
+        .settled()
+        .expect_err("a registration that does not hold its audience is not a deployment");
+    let SeedRefused::AudienceConflicted {
+        audience,
+        organization,
+        ..
+    } = &refused
+    else {
+        panic!("the conflict refusal, got {refused:?}");
+    };
+    assert_eq!(*audience, Audience::new("https://api.example"));
+    assert_eq!(*organization, self::organization());
+}
+
+/// Two `--client` documents naming one `client_id` are refused naming both files: the
+/// federation fold drops the second and answers `Ok(())`
+/// (`mandate-federation/src/record.rs:638`), so the redirect the operator wrote in that
+/// file is registered nowhere and denied at every authorization.
+#[test]
+fn two_client_documents_stating_one_id_are_refused_naming_both_files() {
+    let stated = OAuthClientId::new(uuid(0xf9));
+    let refused = client_seeding_of(&[
+        (
+            "client-id-first.json",
+            client_document_for(Some(stated), organization()),
+        ),
+        (
+            "client-id-second.json",
+            client_document_for(Some(stated), other_organization()),
+        ),
+    ])
+    .expect_err("one client_id names at most one client");
+    let SeedRefused::RepeatedClientId {
+        path,
+        incumbent,
+        client_id,
+    } = &refused
+    else {
+        panic!("the repeated-identity refusal, got {refused:?}");
+    };
+    assert_eq!(*client_id, stated);
+    assert!(
+        path.ends_with("client-id-second.json") && incumbent.ends_with("client-id-first.json"),
+        "both documents are named, got {} and {}",
+        path.display(),
+        incumbent.display()
+    );
+}
+
+/// Two `--client` documents with distinct identities are admitted. The repetition is what
+/// is refused, not the second document.
+#[test]
+fn two_client_documents_with_distinct_ids_are_admitted() {
+    let admitted = client_seeding_of(&[
+        (
+            "client-distinct-first.json",
+            client_document_for(None, organization()),
+        ),
+        (
+            "client-distinct-second.json",
+            client_document_for(None, organization()),
+        ),
+    ])
+    .expect("two documents naming no id seed two clients");
+    assert_eq!(admitted.len(), 2);
+    assert_ne!(admitted[0], admitted[1]);
+}
+
+/// The audience pair, through the binary: exit 2, before the socket is bound, naming the
+/// file the operator has to correct.
+#[test]
+fn two_resource_server_documents_holding_one_audience_exit_two() {
+    let first = seed_file(
+        "audience-binary-first.json",
+        &target_document_for(None, organization(), "https://binary.example", "PT1H"),
+    );
+    let second = seed_file(
+        "audience-binary-second.json",
+        &target_document_for(None, organization(), "https://binary.example", "PT2H"),
+    );
+    let refused = serve_with(&[
+        "--resource-server",
+        seed_path(&first),
+        "--resource-server",
+        seed_path(&second),
+    ]);
+    let said = String::from_utf8_lossy(&refused.stderr);
+    let printed = String::from_utf8_lossy(&refused.stdout);
+    assert_eq!(
+        refused.status.code(),
+        Some(2),
+        "an ambiguous audience is refused before the socket; it said {said}"
+    );
+    assert!(
+        said.contains(seed_path(&second)) && said.contains(seed_path(&first)),
+        "both documents are named, got {said}"
+    );
+    assert!(
+        !printed.contains("seeded resource server"),
+        "nothing is printed as seeded by a process that refused the set, got {printed:?}"
+    );
+}
+
+/// The repeated `client_id`, through the binary: exit 2, naming both files.
+#[test]
+fn two_client_documents_stating_one_id_exit_two() {
+    let stated = OAuthClientId::new(uuid(0xfb));
+    let first = seed_file(
+        "client-binary-first.json",
+        &client_document_for(Some(stated), organization()),
+    );
+    let second = seed_file(
+        "client-binary-second.json",
+        &client_document_for(Some(stated), organization()),
+    );
+    let refused = serve_with(&[
+        "--client",
+        seed_path(&first),
+        "--client",
+        seed_path(&second),
+    ]);
+    let said = String::from_utf8_lossy(&refused.stderr);
+    let printed = String::from_utf8_lossy(&refused.stdout);
+    assert_eq!(
+        refused.status.code(),
+        Some(2),
+        "a repeated client_id is refused before the socket; it said {said}"
+    );
+    assert!(
+        said.contains(seed_path(&second)) && said.contains(seed_path(&first)),
+        "both documents are named, got {said}"
+    );
+    assert!(
+        !printed.contains("seeded oauth client"),
+        "nothing is printed as seeded by a process that refused the set, got {printed:?}"
     );
 }
