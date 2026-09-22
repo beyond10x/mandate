@@ -25,6 +25,7 @@
 use std::io::{BufRead, Read, Write};
 use std::net::{SocketAddr, TcpStream};
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 use std::time::{Duration as HostDuration, Instant};
 
 use mandate_control_plane::adapters::{
@@ -1401,11 +1402,34 @@ const REPEATED_KID_DOCUMENT: &str = r#"{"kty":"EC","kid":"login-key-1","use":"si
   "alg":"ES256","crv":"P-256","x":"MKBCTNIcKUSDii11ySs3526iDZ8AiTo7Tu6KPAqv7D4",
   "y":"4Etl6SRW2YiLUrN5vfvVHuhp7x8PxltmWWlbbM4IFyM"}"#;
 
-/// Where a case's flag documents are written: cargo's own per-target scratch directory, so
-/// nothing here writes outside the build tree.
+/// Where **this execution** writes: cargo's own per-target scratch directory, so nothing
+/// here writes outside the build tree, and then a directory this process alone owns.
+///
+/// `env!("CARGO_TARGET_TMPDIR")` is resolved when this file is **compiled**, so every
+/// execution of this binary reads one string and two copies running at once would write
+/// one set of documents, each seeding the other's child (`story:per-run-test-scratch`).
+/// A process id is unique among the processes alive on a host, so two copies running at
+/// once never name one directory; a directory already standing under **this** process's id
+/// was left by a process that has since exited, so it is cleared here rather than written
+/// into. Clearing it is also what makes the absent document of
+/// [`every_refusal_of_a_flag_document_exits_two_and_names_the_file`] absent.
+fn run_root() -> &'static Path {
+    static ROOT: OnceLock<PathBuf> = OnceLock::new();
+    ROOT.get_or_init(|| {
+        let root = Path::new(env!("CARGO_TARGET_TMPDIR"))
+            .join("seeds")
+            .join(format!("run-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("a writable scratch directory");
+        root
+    })
+    .as_path()
+}
+
+/// Where a case's flag documents are written: this run's own directory ([`run_root`]).
 fn seed_file(name: &str, body: &str) -> PathBuf {
-    let directory = Path::new(env!("CARGO_TARGET_TMPDIR")).join("seeds");
-    std::fs::create_dir_all(&directory).expect("a writable scratch directory");
+    let directory = run_root();
+    std::fs::create_dir_all(directory).expect("a writable scratch directory");
     let path = directory.join(name);
     std::fs::write(&path, body).expect("the flag document is written");
     path
@@ -1798,9 +1822,7 @@ fn a_connection_document_naming_no_id_is_allocated_one_and_prints_it() {
 /// it is that constructor which refuses, as it always said it would.
 #[test]
 fn every_refusal_of_a_flag_document_exits_two_and_names_the_file() {
-    let absent = Path::new(env!("CARGO_TARGET_TMPDIR"))
-        .join("seeds")
-        .join("no-such-document.json");
+    let absent = run_root().join("no-such-document.json");
     let cases = [
         ("--connection", absent.clone(), "a path that does not open"),
         (
@@ -3211,5 +3233,77 @@ fn two_client_documents_stating_one_id_exit_two() {
     assert!(
         !printed.contains("seeded oauth client"),
         "nothing is printed as seeded by a process that refused the set, got {printed:?}"
+    );
+}
+
+// ---------------------------------------------------------------------------------------
+// Two copies of this binary, at once
+// ---------------------------------------------------------------------------------------
+
+/// What tells a copy of this binary that it is the second one.
+const SECOND_COPY: &str = "MANDATE_SECOND_COPY";
+
+/// Two copies of this binary, running at once, do not write each other's seed documents.
+///
+/// `CARGO_TARGET_TMPDIR` is resolved when this file is **compiled**, so a scratch path
+/// derived from it and from nothing else is the same string in every execution of the
+/// binary. This case measures the consequence rather than the path: it writes its own seed
+/// document, runs a second copy of this very binary — `current_exe`, filtered to this one
+/// case and told by [`SECOND_COPY`] which role to take — which writes the same name with a
+/// different body, and then reads its own document back.
+///
+/// `story:per-run-test-scratch`. [`seed_file`] takes no case, so every one of this file's
+/// documents is in one directory; two executions sharing it is the same collision one
+/// directory up.
+#[test]
+fn a_second_copy_of_this_binary_does_not_write_this_runs_documents() {
+    const NAME: &str = "two-copies-at-once.json";
+    const MINE: &str = r#"{"copy":"first"}"#;
+    const THEIRS: &str = r#"{"copy":"second"}"#;
+
+    if std::env::var_os(SECOND_COPY).is_some() {
+        let written = seed_file(NAME, THEIRS);
+        println!("second-copy-document={}", seed_path(&written));
+        return;
+    }
+
+    let mine = seed_file(NAME, MINE);
+    let second =
+        std::process::Command::new(std::env::current_exe().expect("this test binary's own path"))
+            .args([
+                "--exact",
+                "a_second_copy_of_this_binary_does_not_write_this_runs_documents",
+                "--nocapture",
+            ])
+            .env(SECOND_COPY, "1")
+            .output()
+            .expect("the second copy of this binary runs");
+    let printed = String::from_utf8_lossy(&second.stdout);
+    assert!(
+        second.status.success(),
+        "the second copy passed; it printed {printed} and {}",
+        String::from_utf8_lossy(&second.stderr)
+    );
+    let theirs = printed
+        .lines()
+        .find_map(|line| line.strip_prefix("second-copy-document="))
+        .unwrap_or_else(|| {
+            panic!(
+                "the second copy ran this case and printed the document it wrote. A filter \
+                 that selects no case exits 0 and proves nothing, so an absent line fails \
+                 here rather than passing quietly. It printed: {printed}"
+            )
+        });
+
+    assert_ne!(
+        theirs,
+        seed_path(&mine),
+        "two copies of this binary, at once, wrote one path"
+    );
+    assert_eq!(
+        std::fs::read_to_string(&mine).expect("this run's own document is still readable"),
+        MINE,
+        "the second copy overwrote this run's document at {}",
+        seed_path(&mine)
     );
 }

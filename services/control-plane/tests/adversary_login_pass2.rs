@@ -46,6 +46,7 @@
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::OnceLock;
 
 use mandate_control_plane::adapters::{
     AuthorizationRefusal, Configuration, Deployment, Login, SeededResourceServer,
@@ -82,12 +83,36 @@ const ONE_ORGANIZATION: &str = "0b5d5a4c-0000-4000-8000-0000000000a9";
 const TARGET_ONE: &str = "0b5d5a4c-0000-4000-8000-00000000a501";
 const TARGET_TWO: &str = "0b5d5a4c-0000-4000-8000-00000000a502";
 
-/// Where one case's flag documents are written: cargo's own per-target scratch directory,
-/// inside the build tree, one directory per case so two cases cannot read each other's.
+/// Where **this execution** writes: cargo's own per-target scratch directory, inside the
+/// build tree, then a directory this process alone owns.
+///
+/// `env!("CARGO_TARGET_TMPDIR")` is resolved when this file is **compiled**, so every
+/// execution of this binary reads one string and two copies running at once would write
+/// one set of paths (`story:per-run-test-scratch`). A process id is unique among the
+/// processes alive on a host, so two copies running at once never name one directory; a
+/// directory already standing under **this** process's id was left by a process that has
+/// since exited, so it is cleared here rather than written into.
+fn run_root() -> &'static Path {
+    static ROOT: OnceLock<PathBuf> = OnceLock::new();
+    ROOT.get_or_init(|| {
+        let root = Path::new(env!("CARGO_TARGET_TMPDIR"))
+            .join("adversary-login-pass2")
+            .join(format!("run-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("a writable scratch directory");
+        root
+    })
+    .as_path()
+}
+
+/// Where one case's flag documents are written: this run's own directory ([`run_root`]),
+/// then one directory per case so two cases cannot read each other's.
+///
+/// This comment used to say the per-case directory was the whole of it. It separated the
+/// cases of one execution and nothing else, which is what
+/// [`a_second_copy_of_this_binary_does_not_write_this_runs_documents`] measures.
 fn document(case: &str, name: &str, body: &str) -> PathBuf {
-    let directory = Path::new(env!("CARGO_TARGET_TMPDIR"))
-        .join("adversary-login-pass2")
-        .join(case);
+    let directory = run_root().join(case);
     std::fs::create_dir_all(&directory).expect("a writable scratch directory");
     let path = directory.join(name);
     std::fs::write(&path, body).expect("the flag document is written");
@@ -565,4 +590,73 @@ fn a_decision_that_denied_does_not_reach_the_handler_on_either_arm() {
              read `allowed`."
         ),
     }
+}
+
+// ------------------------------------------------- two copies of this binary, at once
+
+/// What tells a copy of this binary that it is the second one.
+const SECOND_COPY: &str = "MANDATE_SECOND_COPY";
+
+/// Two copies of this binary, running at once, do not write each other's documents.
+///
+/// `CARGO_TARGET_TMPDIR` is resolved when this file is **compiled**, so a scratch path
+/// derived from it and from nothing else is the same string in every execution of the
+/// binary. This case measures the consequence rather than the path: it writes its own
+/// `client.json`, runs a second copy of this very binary — `current_exe`, filtered to this
+/// one case and told by [`SECOND_COPY`] which role to take — which writes the same case's
+/// `client.json` with a different body, and then reads its own document back.
+///
+/// `story:per-run-test-scratch`. This lane is the reason the case is written this way: two
+/// copies of it happen to write *identical* bodies, so a harness that only counts failures
+/// measures nothing here while the shared path is as real as in every other lane.
+#[test]
+fn a_second_copy_of_this_binary_does_not_write_this_runs_documents() {
+    const CASE: &str = "two-copies-at-once";
+    const MINE: &str = r#"{"copy":"first"}"#;
+    const THEIRS: &str = r#"{"copy":"second"}"#;
+
+    if std::env::var_os(SECOND_COPY).is_some() {
+        let written = document(CASE, "client.json", THEIRS);
+        println!("second-copy-document={}", stated(&written));
+        return;
+    }
+
+    let mine = document(CASE, "client.json", MINE);
+    let second = Command::new(std::env::current_exe().expect("this test binary's own path"))
+        .args([
+            "--exact",
+            "a_second_copy_of_this_binary_does_not_write_this_runs_documents",
+            "--nocapture",
+        ])
+        .env(SECOND_COPY, "1")
+        .output()
+        .expect("the second copy of this binary runs");
+    let printed = String::from_utf8_lossy(&second.stdout);
+    assert!(
+        second.status.success(),
+        "the second copy passed; it printed {printed} and {}",
+        String::from_utf8_lossy(&second.stderr)
+    );
+    let theirs = printed
+        .lines()
+        .find_map(|line| line.strip_prefix("second-copy-document="))
+        .unwrap_or_else(|| {
+            panic!(
+                "the second copy ran this case and printed the document it wrote. A filter \
+                 that selects no case exits 0 and proves nothing, so an absent line fails \
+                 here rather than passing quietly. It printed: {printed}"
+            )
+        });
+
+    assert_ne!(
+        theirs,
+        stated(&mine),
+        "two copies of this binary, at once, wrote one path"
+    );
+    assert_eq!(
+        std::fs::read_to_string(&mine).expect("this run's own document is still readable"),
+        MINE,
+        "the second copy overwrote this run's document at {}",
+        stated(&mine)
+    );
 }
