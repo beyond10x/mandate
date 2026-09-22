@@ -11,7 +11,7 @@ Mandate separates establishing identity from deciding access and issuing constra
 | Security Token Service (STS) | Credential issuance, resolution and introspection, exchange, and revocation. |
 | Worker | Asynchronous provisioning, synchronization, and other background work. |
 
-The Rust service packages currently expose help and version information. The boundaries below describe the intended integration, not running request paths.
+Of the four, the control plane runs: `mandate-control-plane serve` composes the control plane and the STS in one process and serves the federated-login road over six routes. The STS is consumed as a library rather than run as a service; the authorization and worker binaries expose help and version information only. The boundaries below describe the intended integration rather than four running services.
 
 ```mermaid
 flowchart LR
