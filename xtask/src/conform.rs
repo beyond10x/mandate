@@ -16,10 +16,17 @@
 //!    equal the `x-ess-provenance.source_digest` every generated schema carries, and the
 //!    coverage receipt must be current for `systems/mandate`. The first binds the suite to the
 //!    projections; the second binds the projections to the sources.
-//! 3. **The outcomes are the ones the tree expects.** `contracts/expected-outcomes.json`
-//!    states, per scenario, what the target answers. Set equality both ways with the report,
-//!    `skipped == 0`, and the counts column by column: a scenario that vanishes, one that
-//!    appears, and one whose outcome moved are three different failures and each is named.
+//! 3. **The outcomes are the ones the tree expects, and every one of them that did not pass
+//!    says whose gap it is.** `contracts/expected-outcomes.json` states, per scenario, what the
+//!    target answers. Set equality both ways with the report, `skipped == 0`, and the counts
+//!    column by column: a scenario that vanishes, one that appears, and one whose outcome moved
+//!    are three different failures and each is named. Then every row that did not pass —
+//!    `unsupported` as much as `failed` — names a story this workspace's store holds on a rung
+//!    that is not terminal, and every row that does not is named in one refusal. Comparing the
+//!    outcome set alone applied the honesty rule to the `failed` half of the corpus and to no
+//!    other: 63 `unsupported` rows stated an outcome and no owner, the target's own ledger
+//!    answered for them, and a reader of the authored ledger — who reads it and not
+//!    `crates/mandate-conformance` — was told "unsupported" and nothing else.
 //! 4. **The honesty ledger did not move.** `contracts/conformance/injections.json` is
 //!    byte-compared with the run's. Every standing double, every armed port and every refusal
 //!    before dispatch is a row in it, so a double that quietly started answering differently
@@ -31,8 +38,11 @@
 //!
 //! `injections.json` is the target's own output and is compiled into `mandate-conformance`: it
 //! is the authority for every scenario the target refused before dispatch or does not support,
-//! and such a row moves by changing that crate. `contracts/expected-outcomes.json` is authored
-//! here and is the authority for a scenario that *executed* and whose expectation was unmet —
+//! and such a row moves by changing that crate. The authored ledger **restates** that owner and
+//! does not decide it: the two are compared and a disagreement is refused, so the restatement
+//! is a claim the gate checks rather than a second place the answer is kept.
+//! `contracts/expected-outcomes.json` is authored here and is the authority for a scenario that
+//! *executed* and whose expectation was unmet —
 //! the target marks those `story:conform-gate`, which is not an attribution but a statement
 //! that the attribution is not made there. A scenario named by both with two different stories
 //! is refused: one gap, one owner (`story:conform-gate`, ruling 2, wave D second half).
@@ -226,7 +236,7 @@ pub fn decide(root: &Path, release: bool, seams: &Seams) -> Result<String> {
     }
 
     let expected = expected(root)?;
-    let counts = outcomes(&expected, &report, root)?;
+    let counts = outcomes(&expected, &report, root, &seams.stories)?;
     let ledger = injections(root, &out)?;
     let attribution = attribute(&seams.stories, root, &expected, &ledger)?;
 
@@ -692,11 +702,13 @@ fn expected(root: &Path) -> Result<BTreeMap<String, Row>> {
     Ok(rows)
 }
 
-/// The report's outcomes against the ledger's, both ways, and its counts column by column.
+/// The report's outcomes against the ledger's, both ways, its counts column by column, and
+/// every row that did not pass naming a live story of its own.
 fn outcomes(
     expected: &BTreeMap<String, Row>,
     report: &Value,
     root: &Path,
+    stories: &Path,
 ) -> Result<BTreeMap<String, usize>> {
     let path = root.join("contracts/expected-outcomes.json");
     let mut observed: BTreeMap<String, String> = BTreeMap::new();
@@ -767,6 +779,50 @@ fn outcomes(
             )
             .into());
         }
+    }
+
+    // Every row that did not pass, `unsupported` as much as `failed`, names a live story
+    // *here*. Comparing the outcome set alone let the honesty rule be applied to the `failed`
+    // half of the corpus and to no other: the target's own ledger answered for what it does
+    // not support, so 63 rows stated an outcome and no owner and this step read past them.
+    // What the two ledgers disagree about is still [`attribute`]'s; what the authored one
+    // does not say at all is this step's, because a reader of the authored ledger reads it
+    // and not the target's source.
+    //
+    // Every offending row is named in one refusal rather than the first of them: a step that
+    // returns on row one reports a corpus as having a single unowned scenario, which is how
+    // an unowned corpus is mistaken for an unowned row.
+    let mut unowned: Vec<String> = Vec::new();
+    for (id, row) in expected {
+        if row.outcome == "passed" {
+            continue;
+        }
+        match &row.blocked_on {
+            None => unowned.push(format!(
+                "  {id}: answered {} and names no story",
+                row.outcome
+            )),
+            Some(story) => {
+                if let Some(why) = not_live(stories, story) {
+                    unowned.push(format!(
+                        "  {id}: answered {} and is blocked on {why}",
+                        row.outcome
+                    ));
+                }
+            }
+        }
+    }
+    if !unowned.is_empty() {
+        return Err(format!(
+            "{}: {} of its {} rows did not pass and name no live story; a `failed` or an \
+             `unsupported` row whose owner is unstated or over is a gap the corpus reports and \
+             nobody is answerable for:\n{}",
+            path.display(),
+            unowned.len(),
+            expected.len(),
+            unowned.join("\n")
+        )
+        .into());
     }
 
     let mut counts: BTreeMap<String, usize> = BTreeMap::new();
@@ -865,15 +921,21 @@ fn injections(root: &Path, out: &Path) -> Result<Injections> {
 }
 
 /// Every scenario that did not pass has exactly one live story, and the table of them.
+///
+/// The three counts per story are its rows, the rows the **authored** ledger names it in, and
+/// the rows the **target's** does. They overlap by design and are not a partition: since every
+/// non-passed row is authored ([`outcomes`]), `authored` is the whole count and `recorded` is
+/// how much of it the target says in its own source as well. Reporting them as a partition is
+/// what made the table read `authored 0` for 63 rows while the ledger attributed every one.
 fn attribute(
     stories: &Path,
     root: &Path,
     expected: &BTreeMap<String, Row>,
     ledger: &Injections,
-) -> Result<BTreeMap<String, (usize, usize)>> {
+) -> Result<BTreeMap<String, (usize, usize, usize)>> {
     let authored = root.join("contracts/expected-outcomes.json");
     let recorded = root.join("contracts/conformance/injections.json");
-    let mut table: BTreeMap<String, (usize, usize)> = BTreeMap::new();
+    let mut table: BTreeMap<String, (usize, usize, usize)> = BTreeMap::new();
 
     for (id, row) in expected {
         if row.outcome == "passed" {
@@ -891,21 +953,18 @@ fn attribute(
             )
             .into());
         }
-        let (story, source) = if ledger.unmet.contains(id) {
-            (
-                stated.ok_or_else(|| {
-                    format!(
-                        "{id}: the run executed it and its expectation was unmet, and {} names \
-                         no story for it",
-                        authored.display()
-                    )
-                })?,
-                0,
-            )
+        let story = if ledger.unmet.contains(id) {
+            stated.ok_or_else(|| {
+                format!(
+                    "{id}: the run executed it and its expectation was unmet, and {} names no \
+                     story for it",
+                    authored.display()
+                )
+            })?
         } else {
             match (target, stated) {
-                (Some(target), _) => (target, 1),
-                (None, Some(stated)) => (stated, 0),
+                (Some(target), _) => target,
+                (None, Some(stated)) => stated,
                 (None, None) => {
                     return Err(format!(
                         "{id}: answered {} and neither {} nor {} names a story for it",
@@ -926,30 +985,44 @@ fn attribute(
             )
             .into());
         }
-        let name = story
-            .strip_prefix("story:")
-            .ok_or_else(|| format!("{id}: {story:?} is no story id"))?;
-        let file = stories.join(format!("{name}.md"));
-        if !file.is_file() {
-            return Err(
-                format!("{id}: names {story}, which the planning store does not hold").into(),
-            );
-        }
-        if let Some(rung) = terminal_rung(&file) {
+        if let Some(why) = not_live(stories, story) {
             return Err(format!(
-                "{id}: blocked on {story}, which the store reports `{rung}`, a terminal rung; \
-                 the ledger answers \"whose gap is this\" with work that is over"
+                "{id}: blocked on {why}; the ledger answers \"whose gap is this\" with work \
+                 nobody is doing"
             )
             .into());
         }
-        let row = table.entry(story.to_owned()).or_insert((0, 0));
-        if source == 0 {
-            row.0 += 1;
-        } else {
-            row.1 += 1;
+        let counts = table.entry(story.to_owned()).or_insert((0, 0, 0));
+        counts.0 += 1;
+        if stated.is_some() {
+            counts.1 += 1;
+        }
+        if target.is_some() {
+            counts.2 += 1;
         }
     }
     Ok(table)
+}
+
+/// Why naming this story answers nothing, or `None` when it is a live owner.
+///
+/// The one reader of "is this a live owner", for both places a `blocked_on` is read: [`outcomes`]
+/// requires one of the authored ledger, [`attribute`] of whichever ledger answers. Two readers
+/// are two answers, and the stale one is the one that lets a row through — which is the shape of
+/// the defect this check exists for, one rung down.
+///
+/// The clause it returns is the tail of its caller's sentence, so a caller states the scenario
+/// and what it answered and this states what is wrong with the owner it named.
+fn not_live(stories: &Path, story: &str) -> Option<String> {
+    let Some(name) = story.strip_prefix("story:") else {
+        return Some(format!("{story:?}, which is no story id"));
+    };
+    let file = stories.join(format!("{name}.md"));
+    if !file.is_file() {
+        return Some(format!("{story}, which the planning store does not hold"));
+    }
+    terminal_rung(&file)
+        .map(|rung| format!("{story}, which the store reports `{rung}`, a terminal rung"))
 }
 
 /// The story's frontmatter `status:` when it is a terminal rung of the story lifecycle.
@@ -1202,7 +1275,7 @@ fn table(
     implementation: &str,
     schemas: usize,
     counts: &BTreeMap<String, usize>,
-    attribution: &BTreeMap<String, (usize, usize)>,
+    attribution: &BTreeMap<String, (usize, usize, usize)>,
     release: bool,
 ) -> Result<String> {
     let mut report = String::new();
@@ -1232,11 +1305,10 @@ fn table(
         "| {:>11} | {:>10} | {:>10} | story",
         "not passed", "authored", "recorded"
     )?;
-    for (story, (authored, recorded)) in attribution {
+    for (story, (rows, authored, recorded)) in attribution {
         writeln!(
             report,
-            "| {:>11} | {authored:>10} | {recorded:>10} | {story}",
-            authored + recorded
+            "| {rows:>11} | {authored:>10} | {recorded:>10} | {story}"
         )?;
     }
     Ok(report)
