@@ -4,6 +4,78 @@ All notable changes to Mandate are recorded here. The format follows [Keep a Cha
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-22
+
+Three defects the previous release's own adversary passes measured and filed, fixed and gated. The
+clause count is unchanged at 190 clauses and 83 decided on the real path: none of this touches a
+clause, and the number stands on `decision-blocker:guards`.
+
+### Changed
+
+- **Breaking.** `LinkStore` declares one required method, `records_on_key`, answering every record on
+  an external key in every lifecycle state. `link` and `key_is_held` moved to a new `LinkResolution`
+  trait with a blanket implementation over every `LinkStore`, so the record that holds a key and
+  whether a key is held are decided by this crate and cannot be answered by an implementor. Any
+  out-of-crate `LinkStore` implementing `link` must move to `records_on_key`; a blanket impl cannot
+  be overridden, which is the point — adversary pass 2 of `story:link-absent-discriminates` built a
+  store that satisfied every stated requirement and provisioned around a revocation.
+- `services/control-plane`'s `Deployment::key_holds_no_record` pre-check is removed with its call
+  site. The condition is decided in the library, in one place, and the adapter's own verifier call on
+  that path goes with it — one fewer port call per refused provisioning attempt.
+
+### Fixed
+
+- `ProvisionExternalPrincipal` refuses `ExternalKeyExists` for a key **any** record holds in any
+  lifecycle state, so a login after `UnlinkExternalPrincipal` no longer provisions around the
+  domain's only federated revocation by minting a new `PrincipalId` for the same external subject
+  (`story:link-absent-discriminates`). `Projection::link` prefers the smallest `Linked` record and
+  falls back to the smallest record in any state only when the key has none, so
+  `authenticate_federation`, `LinkConflict` and `Projection::conflicts()` are unchanged — verified
+  over eight lifecycle-state masks × eight append orders.
+- `UreqJwks::admits` folds the destination host once and hands one name to all three comparisons, so
+  a host and its absolute spelling get one answer and `127.0.0.1.` can no longer list its way past
+  the SSRF containment (`story:host-spelling-folded`). The class had seven members beyond the one
+  reported. Measured over 12,168 base→head decisions: 241 move refused → admitted and every one
+  leaves through the issuer's own-origin comparison; 716 move admitted → refused and every one is an
+  address literal spelled with a trailing dot. Nothing becomes reachable through the containment
+  branch that was not reachable before.
+- Every execution of a control-plane test binary gets its own scratch root, and each run sweeps the
+  roots of runs whose process id is no longer live, so the parent is bounded by the live runs
+  (`story:per-run-test-scratch`). `CARGO_TARGET_TMPDIR` is resolved at compile time, so two
+  concurrent copies of one lane clobbered each other's flag documents: 45, 14 and 29 failures
+  measured across three lanes before, 0 after, with 3,780 cases at 4-way concurrency clean.
+
+### Added
+
+- `decision-blocker:async-runtime` and `UNMAPPED-RUNTIME` in `docs/architecture/unmapped.md`. ADR
+  0009 — event-sourced persistence through the organization `eventlog` kit, accepted 2026-09-18 — is
+  implemented by nothing: the kit is pinned and named by two manifests, no Rust file references it,
+  and every fold is hand-written and synchronous. One admission stands between the ADR and the code
+  and was never taken — the kit's `EventStore` is async and this workspace admits no runtime, which
+  wave 3 recorded as stop condition S1 on 2026-09-18 and deferred. `story:domain-folds-over-the-kit`
+  is blocked on it; `story:eventlog-repin-0-3-0` moves the pin to the tag released today and says
+  plainly that it buys nothing until the admission is taken.
+- Five stories filed from what the adversary passes found and this release did not fix, each
+  carrying the red case that found it verbatim in its own body:
+  `story:control-plane-loopback-fold`, `story:linked-event-method-unenforced`,
+  `story:road-lane-child-prints-address`, `story:folded-is-not-an-address-fold`,
+  `story:enabled-for-issuer-filters-in-the-implementor`.
+- `crates/mandate-conformance`'s completeness guard scans port **declarations** rather than one
+  implementation's overrides, so a defaulted port method is no longer invisible to it. Turning it on
+  surfaced four methods the override scan had never seen, two of them defective:
+  `CredentialResolution::cached` and `::cached_at` answered `None` consulting nothing, which is the
+  armed-unreached the guard exists to catch.
+
+### State at this release
+
+| | |
+|---|---|
+| `task check` | exit 0 — 250 suites, 1,920 tests passed, 0 failed |
+| named mutants | 11, each killed by the target it names |
+| conformance | 166 scenarios, `error` 0 |
+| obligations | 190 clauses · 83 real · 21 double-only · 86 deferred — unchanged |
+| coverage map | 292 elements, 0 unexplained |
+
 ## [0.3.0] - 2026-09-22
 
 ### Added
