@@ -166,7 +166,7 @@
         {
           "clause": "authority narrowing",
           "tests": [],
-          "blocked_on": "decision-blocker:guards"
+          "blocked_on": "story:agent-authority-kernel"
         },
         {
           "clause": "bounded expiry validation fails",
@@ -214,7 +214,7 @@
         {
           "clause": "subject/actor authority or ceilings do not cover requested scope",
           "tests": [],
-          "blocked_on": "decision-blocker:guards"
+          "blocked_on": "story:agent-authority-kernel"
         },
         {
           "clause": "target/profile is unregistered/disabled/outside tenant",
@@ -267,7 +267,7 @@
         {
           "clause": "subject/actor authority or ceilings do not cover requested scope",
           "tests": [],
-          "blocked_on": "decision-blocker:guards"
+          "blocked_on": "story:agent-authority-kernel"
         },
         {
           "clause": "target/profile/signing algorithm or key is unadmitted",

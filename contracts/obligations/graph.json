@@ -12,7 +12,7 @@
         {
           "clause": "Caller lacks resource registration/ownership authority",
           "tests": [],
-          "blocked_on": "decision-blocker:guards"
+          "blocked_on": "story:graph-policy-adapter"
         },
         {
           "clause": "the resource is outside the verified organization",
@@ -66,7 +66,7 @@
         {
           "clause": "Caller lacks resource registration/ownership authority",
           "tests": [],
-          "blocked_on": "decision-blocker:guards"
+          "blocked_on": "story:graph-policy-adapter"
         },
         {
           "clause": "parent is unresolved",
@@ -120,7 +120,7 @@
         {
           "clause": "Caller lacks relationship-write authority",
           "tests": [],
-          "blocked_on": "decision-blocker:guards"
+          "blocked_on": "story:graph-policy-adapter"
         },
         {
           "clause": "relation/resource is outside the verified organization",
@@ -162,7 +162,7 @@
         {
           "clause": "Caller lacks grant-revocation authority",
           "tests": [],
-          "blocked_on": "decision-blocker:guards"
+          "blocked_on": "story:graph-policy-adapter"
         },
         {
           "clause": "grant is outside the verified organization",
@@ -204,7 +204,7 @@
         {
           "clause": "Caller lacks relationship-write authority",
           "tests": [],
-          "blocked_on": "decision-blocker:guards"
+          "blocked_on": "story:graph-policy-adapter"
         },
         {
           "clause": "the chosen principal/team subject is unresolved",
