@@ -34,6 +34,7 @@ mod coverage;
 
 use serde_json::Value;
 use std::{
+    collections::BTreeSet,
     fs,
     path::{Path, PathBuf},
     process::Command,
@@ -148,6 +149,18 @@ fn row(body: &str, id: &str) -> String {
     found[0].trim_end_matches(',').to_owned()
 }
 
+/// One ledger row with whatever attribution it carries taken off it.
+///
+/// `blocked_on` is the last key a row states — `expected` refuses any other — so the row ends
+/// at the comma before it, and a row that names no story is returned as it stands. The trailing
+/// comma of a row that is not the ledger's last is not part of what [`row`] returns.
+fn strip_attribution(row: &str) -> String {
+    match row.find(",\"blocked_on\":") {
+        Some(at) => format!("{}}}", &row[..at]),
+        None => row.to_owned(),
+    }
+}
+
 fn failure(root: &Path, release: bool) -> String {
     failure_with(root, release, seams())
 }
@@ -179,7 +192,7 @@ fn the_committed_corpus_is_accepted() {
         assert!(report.contains(column), "the counts table states {column}");
     }
     assert!(
-        report.contains("146"),
+        report.contains(&carried(&repo()).to_string()),
         "the counts table states the scenario total:\n{report}"
     );
     for story in [
@@ -272,10 +285,11 @@ fn a_suite_that_is_not_a_fresh_synthesis_is_refused() {
 
 /// The specification's own scenario list is read, so an authored scenario reaches the corpus.
 ///
-/// `ess-inputs.yaml` carries `scenarios: []` today and `story:authored-denial-scenarios` fills
-/// it. The step passes `--scenarios` exactly when that list is non-empty — ESS refuses the flag
-/// against an empty list — so the case that decides it lists a file the synthesizer cannot
-/// parse and asks the gate what it noticed
+/// `ess-inputs.yaml` carried `scenarios: []` when this case was written and
+/// `story:authored-denial-scenarios` has filled it. The step passes `--scenarios` exactly when
+/// that list is non-empty — ESS refuses the flag against an empty list — so the case that
+/// decides it adds a file the synthesizer cannot parse to the list the specification already
+/// carries, and asks the gate what it noticed
 /// (`review-result:wave-d-conform-gate-adversary-1` F2).
 #[test]
 fn the_specifications_scenario_list_is_read_when_it_is_not_empty() {
@@ -288,9 +302,16 @@ fn the_specifications_scenario_list_is_read_when_it_is_not_empty() {
     )
     .expect("write the fixture scenario");
     let inputs = root.join("systems/mandate/ess-inputs.yaml");
-    let listed = fs::read_to_string(&inputs)
-        .expect("the fixture inputs")
-        .replace("scenarios: []", "scenarios:\n- scenarios/unparseable.yaml");
+    let before = fs::read_to_string(&inputs).expect("the fixture inputs");
+    let listed = listing(&before, "- scenarios/unparseable.yaml");
+    assert_ne!(
+        listed, before,
+        "the fixture listed the scenario in the specification's inputs"
+    );
+    assert!(
+        listed.contains("- scenarios/unparseable.yaml"),
+        "the scenario is listed in the specification's inputs"
+    );
     fs::write(&inputs, listed).expect("write the fixture inputs");
     let error = failure(&root, false);
     assert!(
@@ -376,12 +397,23 @@ fn a_double_attribution_is_refused_by_name() {
     let body = outcomes(&root);
     // `injections.json` is the authority for this one: the target refused it before dispatch
     // and named the story in its own output. A second, different story here is the ambiguity.
+    //
+    // The row now states an owner of its own — every non-passed row does — so the ambiguity is
+    // made by *moving* that owner and not by adding a second key beside it. A row with two
+    // `blocked_on` keys is not a doubly attributed scenario: `serde_json` keeps the last of
+    // them, so such a fixture would hand the step the target's own story back and prove
+    // nothing. Measured here on the way in: the case went green against a ledger it had not
+    // doctored at all.
     let unsupported = row(&body, "mandate.tenancy.CreateTeam/outcome/denied");
-    let claimed = unsupported.replace(
-        "\"outcome\":\"unsupported\"",
-        "\"outcome\":\"unsupported\",\"blocked_on\":\"story:declared-writers\"",
+    let claimed = format!(
+        "{},\"blocked_on\":\"story:declared-writers\"}}",
+        strip_attribution(&unsupported).trim_end_matches('}')
     );
-    assert_ne!(claimed, unsupported, "a second attribution was added");
+    assert!(
+        claimed.matches("blocked_on").count() == 1,
+        "the row states one owner, and it is not the target's: {claimed}"
+    );
+    assert_ne!(claimed, unsupported, "the attribution was moved");
     write_outcomes(&root, &body.replace(&unsupported, &claimed));
     let error = failure(&root, false);
     assert!(
@@ -430,6 +462,113 @@ fn an_unattributed_scenario_is_refused_by_name() {
     assert!(
         error.contains("mandate.tenancy.CreateTeam/outcome/accepted"),
         "the refusal names the unattributed scenario: {error}"
+    );
+}
+
+/// One `unsupported` row the authored ledger leaves unowned.
+///
+/// The sibling above drives the same rule over a `failed` row, which is the half that was
+/// checked: until this case, `unsupported` was the 38% of the corpus the attribution rule was
+/// never applied to, because the target's own ledger answered for it and nothing required the
+/// authored one to. A reader of `contracts/expected-outcomes.json` saw a bare `unsupported`
+/// and no owner.
+#[test]
+fn an_unsupported_row_that_names_no_story_is_refused_by_name() {
+    let root = fixture("unattributed-unsupported");
+    let body = outcomes(&root);
+    let attributed = row(&body, "mandate.audit.RecordAuditEvent/outcome/denied");
+    let bare = strip_attribution(&attributed);
+    assert!(
+        !bare.contains("blocked_on"),
+        "the row names no story: {bare}"
+    );
+    write_outcomes(&root, &body.replace(&attributed, &bare));
+    let error = failure(&root, false);
+    assert!(
+        error.contains("mandate.audit.RecordAuditEvent/outcome/denied"),
+        "the refusal names the unattributed scenario: {error}"
+    );
+    assert!(
+        error.contains("unsupported"),
+        "the refusal states the outcome the unowned row carries: {error}"
+    );
+}
+
+/// Every `unsupported` row unowned at once: the refusal is the whole class, not its first
+/// member.
+///
+/// A step that returns on the first offender reports one scenario and leaves the reader to
+/// re-run for the next, which is how 63 rows stayed unattributed one run at a time. The
+/// refusal names every one of them and says how many.
+#[test]
+fn every_unattributed_row_is_named_in_one_refusal() {
+    let root = fixture("unattributed-corpus");
+    let body = outcomes(&root);
+    let unowned: Vec<String> = body
+        .lines()
+        .filter(|line| line.contains("\"outcome\":\"unsupported\""))
+        .map(|line| line.trim_end_matches(',').to_owned())
+        .collect();
+    assert!(
+        unowned.len() > 1,
+        "the corpus carries more than one unsupported row: {}",
+        unowned.len()
+    );
+    let mut doctored = body.clone();
+    for attributed in &unowned {
+        doctored = doctored.replace(attributed, &strip_attribution(attributed));
+    }
+    assert!(
+        !doctored
+            .lines()
+            .any(|line| line.contains("\"outcome\":\"unsupported\"") && line.contains("blocked_on")),
+        "no unsupported row names a story any more"
+    );
+    write_outcomes(&root, &doctored);
+    let error = failure(&root, false);
+    for attributed in &unowned {
+        let id = attributed
+            .trim_start_matches("{\"id\":\"")
+            .split('"')
+            .next()
+            .expect("the row names a scenario");
+        assert!(
+            error.contains(id),
+            "the refusal names {id} among the {} it refuses: {error}",
+            unowned.len()
+        );
+    }
+    assert!(
+        error.contains(&unowned.len().to_string()),
+        "the refusal counts the rows it names: {error}"
+    );
+}
+
+/// An `unsupported` row owned by a story whose work is over.
+///
+/// Distinct from `a_dead_blocked_on_is_refused_by_name`, which drives a `failed` row through
+/// the attribution step: this row's owner is read where the outcomes are compared, before the
+/// two ledgers are laid beside each other, so a ledger whose own attribution has gone dead is
+/// refused for the rung it names and not for disagreeing with the target.
+#[test]
+fn an_unsupported_row_on_a_terminal_story_is_refused_by_name() {
+    let root = fixture("dead-unsupported");
+    let body = outcomes(&root);
+    let attributed = row(&body, "mandate.audit.RecordAuditEvent/outcome/denied");
+    let dead = format!(
+        "{},\"blocked_on\":\"story:graph-policy\"}}",
+        strip_attribution(&attributed).trim_end_matches('}')
+    );
+    write_outcomes(&root, &body.replace(&attributed, &dead));
+    let error = failure(&root, false);
+    assert!(
+        error.contains("mandate.audit.RecordAuditEvent/outcome/denied")
+            && error.contains("story:graph-policy"),
+        "the refusal names the scenario and the story whose work is over: {error}"
+    );
+    assert!(
+        error.contains("implemented"),
+        "the refusal states the rung the store reports: {error}"
     );
 }
 
@@ -741,9 +880,215 @@ fn release_accepts_the_evidence_the_store_writes() {
     write_evidence(&root, &spec_digest(&root), &format!("git:{}", head()));
     let report = conform::decide(&root, true, &seams()).expect("current evidence is accepted");
     assert!(
-        report.contains("146"),
+        report.contains(&carried(&root).to_string()),
         "the release run states the counts:\n{report}"
     );
+}
+
+/// `ess-inputs.yaml` with `block` written into the specification's `scenarios:` list.
+///
+/// The list read `scenarios: []` when these cases were written and
+/// `story:authored-denial-scenarios` has since filled it with the twenty files it authored, so
+/// a fixture that replaced the empty list replaced nothing: it wrote the specification back
+/// unchanged and drove the gate over a corpus it had not doctored. The key line itself is
+/// rewritten instead — `block` is listed whatever the list already holds, and the entries the
+/// specification carries follow it.
+fn listing(inputs: &str, block: &str) -> String {
+    let mut listed = String::new();
+    let mut keys = 0_usize;
+    for line in inputs.lines() {
+        if line.starts_with("scenarios:") {
+            keys += 1;
+            listed.push_str("scenarios:\n");
+            listed.push_str(block);
+            listed.push('\n');
+            continue;
+        }
+        listed.push_str(line);
+        listed.push('\n');
+    }
+    assert_eq!(keys, 1, "the specification names its scenario list once");
+    listed
+}
+
+/// The scenarios the corpus at `root` carries, by id, read from the suite the gate compares.
+fn scenarios(root: &Path) -> BTreeSet<String> {
+    let suite = root.join("generated/conformance/suite.json");
+    let document: Value = serde_json::from_slice(&fs::read(&suite).expect("the fixture suite"))
+        .expect("the suite parses");
+    document["scenarios"]
+        .as_object()
+        .expect("the suite states its scenarios")
+        .keys()
+        .cloned()
+        .collect()
+}
+
+/// How many, for a case that reads the total out of the table the gate prints.
+///
+/// Read rather than written down: the corpus went 146 → 166 when
+/// `story:authored-denial-scenarios` merged, and a case naming a total in its own text decides
+/// about the corpus it was written beside rather than the one it runs against.
+fn carried(root: &Path) -> usize {
+    scenarios(root).len()
+}
+
+/// `ledger` with every row naming a scenario `carried` does not hold removed.
+///
+/// Row by row over the text, never a parse and a render: `conform::injections` byte-compares
+/// this ledger against the one the run writes, and it is the target's own serializer that
+/// wrote it — a `serde_json::Value` rendered from here would sort the keys of every row and
+/// move bytes no scenario moved.
+fn rows_carried(ledger: &str, carried: &BTreeSet<String>) -> String {
+    let mut kept: Vec<String> = Vec::new();
+    let mut row: Vec<&str> = Vec::new();
+    let mut inside = false;
+    for line in ledger.lines() {
+        if !inside {
+            if line == "    {" {
+                inside = true;
+                row.clear();
+                row.push(line);
+            } else {
+                kept.push(line.to_owned());
+            }
+            continue;
+        }
+        row.push(line);
+        if line != "    }" && line != "    }," {
+            continue;
+        }
+        inside = false;
+        let named = row.iter().find_map(|line| {
+            line.trim_start()
+                .strip_prefix("\"scenario\": \"")
+                .map(|rest| rest.trim_end_matches(',').trim_end_matches('"'))
+        });
+        if named.is_some_and(|scenario| !carried.contains(scenario)) {
+            continue;
+        }
+        kept.extend(row.iter().map(|line| (*line).to_owned()));
+    }
+    assert!(!inside, "every row of the ledger closes");
+    // The comma a dropped row left behind: the last row of an array carries none and every
+    // other one does, whichever rows went.
+    for index in 0..kept.len() {
+        let followed = kept.get(index + 1).is_some_and(|next| next == "    {");
+        if kept[index] == "    }," && !followed {
+            kept[index] = "    }".to_owned();
+        } else if kept[index] == "    }" && followed {
+            kept[index] = "    },".to_owned();
+        }
+    }
+    let mut pruned = kept.join("\n");
+    pruned.push('\n');
+    pruned
+}
+
+/// A fixture whose specification lists no scenario file, carrying the corpus that
+/// specification yields; answers the inputs it wrote. `tail` follows the emptied key, which is
+/// where a comment about the list sits.
+///
+/// The corpus is rebuilt because emptying the list moves it. `generated/conformance/suite.json`
+/// holds the 166 scenarios the filled list synthesizes and both authored ledgers account for
+/// exactly those, while the suite the gate re-synthesizes from an emptied list is the
+/// synthesized-only 146: a fixture that emptied the list alone would be refused at the first
+/// byte-comparison — measured, `generated/conformance/suite.json: not what ess verify conform
+/// synthesize writes … 3432823 committed bytes against 3233927 synthesized` — and would decide
+/// nothing about what the comment beside the list means.
+fn without_scenarios(root: &Path, tail: &str) -> String {
+    let path = root.join("systems/mandate/ess-inputs.yaml");
+    let inputs = fs::read_to_string(&path).expect("the fixture inputs");
+    let mut emptied = String::new();
+    let mut keys = 0_usize;
+    let mut lines = inputs.lines().peekable();
+    while let Some(line) = lines.next() {
+        if line.starts_with("scenarios:") {
+            keys += 1;
+            emptied.push_str("scenarios: []");
+            emptied.push_str(tail);
+            emptied.push('\n');
+            while lines.next_if(|next| next.starts_with("- ")).is_some() {}
+            continue;
+        }
+        emptied.push_str(line);
+        emptied.push('\n');
+    }
+    assert_eq!(keys, 1, "the specification names its scenario list once");
+    assert_ne!(
+        emptied, inputs,
+        "the fixture emptied the specification's scenario list"
+    );
+    assert!(
+        !emptied.contains("\n- scenarios/"),
+        "the emptied list carries no scenario file:\n{emptied}"
+    );
+    fs::write(&path, &emptied).expect("write the fixture inputs");
+
+    let filled = carried(root);
+    // Tolerantly, and without `--scenarios`: `synthesize` exits 1 on the refusals the contract
+    // carries while writing a complete suite for the rest, so the artifact is the answer and
+    // the status is not. This is the invocation the gate itself falls back to against a list
+    // ESS answers is empty.
+    let synthesis = Command::new("ess")
+        .args([
+            "verify",
+            "conform",
+            "synthesize",
+            "--path",
+            root.join("systems/mandate")
+                .to_str()
+                .expect("the fixture specification path"),
+            "--suite-format",
+            "5",
+            "--out",
+            root.join("generated/conformance/suite.json")
+                .to_str()
+                .expect("the fixture suite path"),
+        ])
+        .output()
+        .expect("ess verify conform synthesize");
+    let ids = scenarios(root);
+    assert!(
+        ids.len() < filled,
+        "the emptied specification synthesizes the corpus without the authored scenarios: \
+         {} against {filled}; {}",
+        ids.len(),
+        String::from_utf8_lossy(&synthesis.stderr)
+    );
+
+    let path = root.join("contracts/expected-outcomes.json");
+    let mut expected: Value = serde_json::from_slice(&fs::read(&path).expect("the fixture ledger"))
+        .expect("the ledger parses");
+    let rows: Vec<Value> = expected["scenarios"]
+        .as_array()
+        .expect("the ledger states its scenarios")
+        .iter()
+        .filter(|row| ids.contains(row["id"].as_str().unwrap_or_default()))
+        .cloned()
+        .collect();
+    assert_eq!(
+        rows.len(),
+        ids.len(),
+        "the ledger carries one row per scenario the suite carries"
+    );
+    expected["scenarios"] = Value::from(rows);
+    fs::write(
+        &path,
+        serde_json::to_vec_pretty(&expected).expect("render the ledger"),
+    )
+    .expect("write the fixture ledger");
+
+    let path = root.join("contracts/conformance/injections.json");
+    let injections = fs::read_to_string(&path).expect("the fixture injections");
+    let pruned = rows_carried(&injections, &ids);
+    assert!(
+        pruned.len() < injections.len(),
+        "the injections ledger drops the rows of the scenarios the suite no longer carries"
+    );
+    fs::write(&path, pruned).expect("write the fixture injections");
+
+    emptied
 }
 
 /// Re-derive the coverage receipt for a fixture whose ESS sources were edited.
@@ -803,17 +1148,18 @@ fn walk(directory: &Path, into: &mut Vec<PathBuf>) {
 /// authored files, so no reader here has to decide what `scenarios: []  # …` means — which is
 /// what the two readings this replaces both got wrong
 /// (`review-result:wave-d-conform-gate-adversary-2` F1/F2).
+///
+/// The fixture empties the list rather than assuming it is empty, and carries the corpus that
+/// emptied specification yields: 146 is the synthesized-only total, and it is the total only
+/// while no authored file is listed.
 #[test]
 fn a_comment_beside_the_empty_scenarios_list_is_not_a_scenario() {
     let root = fixture("commented-empty-list");
-    let path = root.join("systems/mandate/ess-inputs.yaml");
-    let commented = fs::read_to_string(&path)
-        .expect("the fixture inputs")
-        .replace(
-            "scenarios: []",
-            "scenarios: []  # story:authored-denial-scenarios fills this",
-        );
-    fs::write(&path, commented).expect("write the fixture inputs");
+    let commented = without_scenarios(&root, "  # story:authored-denial-scenarios fills this");
+    assert!(
+        commented.contains("scenarios: []  # story:authored-denial-scenarios fills this"),
+        "the comment is beside an empty list:\n{commented}"
+    );
     reseal_receipt(&root);
     let report = conform::decide(&root, false, &seams())
         .expect("a comment beside the empty list is the same empty list");
@@ -923,7 +1269,10 @@ fn release_accepts_a_test_only_commit() {
     write_evidence(&root, &spec_digest(&root), &format!("git:{recorded}"));
     let report = conform::decide(&root, true, &conform::Seams { sources, ..seams() })
         .expect("a test-only commit is not a moved implementation");
-    assert!(report.contains("146"), "the release run states the counts");
+    assert!(
+        report.contains(&carried(&root).to_string()),
+        "the release run states the counts"
+    );
 }
 
 /// An approval recorded after the conformance run does not answer for it.

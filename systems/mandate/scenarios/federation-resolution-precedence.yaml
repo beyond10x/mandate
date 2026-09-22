@@ -1,0 +1,58 @@
+type: ess-scenario/2
+domain: mandate.federation
+scenario: federation-resolution-precedence
+summary: 'Resolution order 1 before 3: the connection state is decided for a proof no verifier can decode, so the answer is Denied and never InvalidCredential; authenticate.rs:242-243; corpus: none.'
+arrange:
+- instance: conn
+  entity: mandate.federation.FederationConnection
+timeline:
+- at: '2026-01-05T09:00:00Z'
+  command: mandate.federation.RegisterFederationConnection
+  input:
+    context:
+      subject: 00000000-0000-4000-8000-000000000001
+      organization: 00000000-0000-4000-8000-0000000000a1
+      audience: mandate
+      credential: 00000000-0000-4000-8000-0000000000c1
+      correlation: federation-precedence
+    issuer: https://idp.example.test
+    client_id: mandate-client
+    tenant_resolution:
+      configured_organization: 00000000-0000-4000-8000-0000000000a1
+    jit_provisioning: false
+  outcome: accepted
+  events:
+  - event: mandate.federation.FederationConnectionCreated
+    payload:
+      issuer: https://idp.example.test
+  capture:
+    instance: conn
+    event: mandate.federation.FederationConnectionCreated
+    field: connection_id
+- at: '2026-01-05T09:00:01Z'
+  command: mandate.federation.DisableFederationConnection
+  input:
+    id:
+      $instance: conn
+    context:
+      subject: 00000000-0000-4000-8000-000000000001
+      organization: 00000000-0000-4000-8000-0000000000a1
+      audience: mandate
+      credential: 00000000-0000-4000-8000-0000000000c1
+      correlation: federation-precedence-disable
+  outcome: accepted
+  events:
+  - event: mandate.federation.FederationConnectionDisabled
+- at: '2026-01-05T09:00:02Z'
+  command: mandate.federation.AuthenticateFederation
+  input:
+    connection_id:
+      $instance: conn
+    proof: b3BhcXVlLW5vdC1hLWNvbXBhY3Qtandz
+  outcome: denied
+  error:
+    name: mandate.federation.Denied
+    fields:
+      reason: Denied
+  no_events:
+  - mandate.federation.FederationAuthenticated

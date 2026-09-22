@@ -228,6 +228,41 @@
       "consulted": 1
     },
     {
+      "scenario": "mandate.credential/authored/pkce-malformed-challenge",
+      "command": "mandate.identity.Session",
+      "port": "mandate_identity::IdentityLog",
+      "kind": "established-prerequisite",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.credential/authored/pkce-redirect-mismatch",
+      "command": "mandate.identity.Session",
+      "port": "mandate_identity::IdentityLog",
+      "kind": "established-prerequisite",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.credential/authored/pkce-reuse",
+      "command": "mandate.credential.AuthorizationCode",
+      "port": "mandate_sts::store::AuthorizationCodeLog",
+      "kind": "established-prerequisite",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.credential/authored/pkce-wrong-org-target",
+      "command": "mandate.identity.Session",
+      "port": "mandate_identity::IdentityLog",
+      "kind": "established-prerequisite",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.credential/authored/sts-disabled-client-issuance",
+      "command": "mandate.identity.Session",
+      "port": "mandate_identity::IdentityLog",
+      "kind": "established-prerequisite",
+      "consulted": 0
+    },
+    {
       "scenario": "mandate.delegation.CompleteExecution/outcome/denied",
       "command": "mandate.delegation.CompleteExecution",
       "port": "none",
@@ -387,6 +422,13 @@
       "port": "mandate_federation::ExternalPrincipalStore",
       "kind": "armed-unrefused",
       "consulted": 1
+    },
+    {
+      "scenario": "mandate.federation/authored/federation-configured-method-on-explicit-link",
+      "command": "mandate.federation.ExternalPrincipal",
+      "port": "mandate_federation::ConnectionStore",
+      "kind": "established-prerequisite",
+      "consulted": 0
     },
     {
       "scenario": "mandate.graph.DeregisterResource/outcome/denied",
@@ -594,6 +636,12 @@
       "blocked_on": "story:conform-gate"
     },
     {
+      "scenario": "mandate.authorization/authored/authz-unadmitted-organization",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
       "scenario": "mandate.credential.AccessCredential/state/Revoked/refuses/mandate.credential.RevokeAccessCredential",
       "command": "mandate.credential.ExchangeCredential",
       "reason": "unrealized-command",
@@ -709,6 +757,30 @@
     },
     {
       "scenario": "mandate.credential.SigningKey/transition/revoke/by/mandate.credential.RevokeSigningKey/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.credential/authored/pkce-malformed-challenge",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.credential/authored/pkce-redirect-mismatch",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.credential/authored/pkce-wrong-org-target",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.credential/authored/sts-disabled-client-issuance",
       "command": "",
       "reason": "expectation-unmet",
       "blocked_on": "story:conform-gate"

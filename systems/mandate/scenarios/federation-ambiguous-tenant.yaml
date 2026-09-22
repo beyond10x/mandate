@@ -1,0 +1,67 @@
+type: ess-scenario/2
+domain: mandate.federation
+scenario: federation-ambiguous-tenant
+summary: '`tenant resolution has zero or multiple matches`, multiple: two rules on one issuer read different validated claims, both match; authenticate.rs:348-349; corpus tenant-ambiguous.'
+arrange:
+- instance: conn
+  entity: mandate.federation.FederationConnection
+timeline:
+- at: '2026-01-05T09:00:00Z'
+  command: mandate.federation.RegisterFederationConnection
+  input:
+    context:
+      subject: 00000000-0000-4000-8000-000000000001
+      organization: 00000000-0000-4000-8000-0000000000a1
+      audience: mandate
+      credential: 00000000-0000-4000-8000-0000000000c1
+      correlation: federation-ambiguous-a
+    issuer: https://idp.example.test
+    client_id: mandate-client
+    tenant_resolution:
+      configured_organization: 00000000-0000-4000-8000-0000000000a1
+      verified_claim_name: tid
+      verified_claim_value: acme
+    jit_provisioning: false
+  outcome: accepted
+  events:
+  - event: mandate.federation.FederationConnectionCreated
+    payload:
+      issuer: https://idp.example.test
+  capture:
+    instance: conn
+    event: mandate.federation.FederationConnectionCreated
+    field: connection_id
+- at: '2026-01-05T09:00:01Z'
+  command: mandate.federation.RegisterFederationConnection
+  input:
+    context:
+      subject: 00000000-0000-4000-8000-000000000001
+      organization: 00000000-0000-4000-8000-0000000000a2
+      audience: mandate
+      credential: 00000000-0000-4000-8000-0000000000c1
+      correlation: federation-ambiguous-b
+    issuer: https://idp.example.test
+    client_id: mandate-client
+    tenant_resolution:
+      configured_organization: 00000000-0000-4000-8000-0000000000a2
+      verified_claim_name: dept
+      verified_claim_value: acme
+    jit_provisioning: false
+  outcome: accepted
+  events:
+  - event: mandate.federation.FederationConnectionCreated
+    payload:
+      issuer: https://idp.example.test
+- at: '2026-01-05T09:00:02Z'
+  command: mandate.federation.AuthenticateFederation
+  input:
+    connection_id:
+      $instance: conn
+    proof: ZXlKaGJHY2lPaUpTVXpJMU5pSXNJblI1Y0NJNklrcFhWQ0lzSW10cFpDSTZJbXN4SW4wLmV5SnBjM01pT2lKb2RIUndjem92TDJsa2NDNWxlR0Z0Y0d4bExuUmxjM1FpTENKaGRXUWlPaUp0WVc1a1lYUmxMV05zYVdWdWRDSXNJbk4xWWlJNkluVXRNU0lzSW1WNGNDSTZNVGMyTnpZMU5EQXdNQ3dpZEdsa0lqb2lZV050WlNJc0ltUmxjSFFpT2lKaFkyMWxJbjAuYzJsbmJtRjBkWEps
+  outcome: denied
+  error:
+    name: mandate.federation.Denied
+    fields:
+      reason: TenantMismatch
+  no_events:
+  - mandate.federation.FederationAuthenticated

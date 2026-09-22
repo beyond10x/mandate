@@ -1,0 +1,64 @@
+type: ess-scenario/2
+domain: mandate.authorization
+scenario: authz-unadmitted-organization
+summary: '`Credential-derived context is invalid/revoked/expired/stale`: a context naming an organization no CreateOrganization recorded admits no authority; context.rs:104; corpus: none.'
+arrange:
+- instance: organization
+  entity: mandate.tenancy.Organization
+timeline:
+- at: '2026-01-05T09:00:00Z'
+  command: mandate.tenancy.CreateOrganization
+  input:
+    context:
+      subject: 00000000-0000-4000-8000-000000000001
+      organization: 00000000-0000-4000-8000-0000000000a1
+      audience: mandate
+      credential: 00000000-0000-4000-8000-0000000000c1
+      correlation: authz-unadmitted-create
+    display_name: Acme
+  outcome: accepted
+  events:
+  - event: mandate.tenancy.OrganizationCreated
+    payload:
+      display_name: Acme
+  capture:
+    instance: organization
+    event: mandate.tenancy.OrganizationCreated
+    field: organization_id
+- at: '2026-01-05T09:00:01Z'
+  command: mandate.tenancy.AddOrganizationMembership
+  input:
+    context:
+      subject: 00000000-0000-4000-8000-000000000001
+      organization: 00000000-0000-4000-8000-0000000000a1
+      audience: mandate
+      credential: 00000000-0000-4000-8000-0000000000c1
+      correlation: authz-unadmitted-member
+    organization_id:
+      $instance: organization
+    principal_id: 00000000-0000-4000-8000-000000000002
+  outcome: accepted
+  events:
+  - event: mandate.tenancy.OrganizationMembershipAdded
+    payload:
+      principal_id: 00000000-0000-4000-8000-000000000002
+- at: '2026-01-05T09:00:02Z'
+  command: mandate.authorization.Check
+  input:
+    context:
+      subject: 00000000-0000-4000-8000-000000000001
+      organization: 00000000-0000-4000-8000-0000000000a2
+      audience: mandate
+      credential: 00000000-0000-4000-8000-0000000000c1
+      correlation: authz-unadmitted-check
+    action: document.read
+    resource:
+      resource_type: document
+      resource_id: 00000000-0000-4000-8000-000000000072
+  outcome: denied
+  error:
+    name: mandate.authorization.Denied
+    fields:
+      reason: InvalidCredential
+  no_events:
+  - mandate.authorization.DecisionRecorded

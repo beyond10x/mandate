@@ -2,13 +2,13 @@
 format: aep.planning-md/1
 id: decision-blocker:jit-provisioning
 kind: decision-blocker
-status: open
+status: cleared
 title: 'JIT provisioning: create the principal and link on first login, or provision ahead'
 relations:
 - blocks: story:federation-linking
 - blocks: story:domain-runtime
 withholds: test_result
-revision: 1
+revision: 3
 ---
 Just-in-time provisioning: does a customer's user who has never logged in get a Mandate principal and an `ExternalPrincipal` link created during that first login, or must somebody provision both ahead of time?
 
@@ -37,3 +37,27 @@ Out of bounds: a new enum or struct type for the JIT rule — `crates/mandate-ty
 - A recorded row for the new command in `docs/architecture/command-obligations.md`.
 
 **Operator decision, 2026-09-18.** Alternative 2. Recorded as `approval` evidence against this blocker. Not a clearance: none of the cases above exists.
+
+## Decided 2026-09-21 — alternative 2
+
+The operator set the session goal as the federated-login use case and stated
+the JIT step in its own words:
+
+> If no link exists and `jit_provisioning` is on, `ProvisionExternalPrincipal`
+> creates the `ExternalPrincipal` and seeds the `Principal`, then login is
+> retried.
+
+That is alternative 2 in shape and in sequence: the new command gated by the
+`jit_provisioning` field on `FederationConnection`, creating the link with
+`ExternalLinkMethod::ConfiguredFederation`, driven by the adapter as
+`AuthenticateFederation` → absent-link denial with JIT admitted →
+`ProvisionExternalPrincipal` → `AuthenticateFederation`.
+
+Measured the same day, which is why the question came due: the command exists
+and no path reaches it. `crates/mandate-federation/src/authenticate.rs:118-121`
+refuses `DenialClause::LinkAbsent`, and `jit_provisioning` is read from the
+connection and ignored. `story:federated-jit-login` takes the adapter sequence.
+
+Alternatives 1 and 4 are not refused by this decision. Provision-ahead remains
+available, and SCIM push stays `story:directory-provenance`; this settles what
+happens when neither has run and a user arrives.

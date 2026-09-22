@@ -15,4 +15,4 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]
-mandate-contract = { version = "0.2.0", path = "../mandate-contract" }
+mandate-contract = { version = "0.3.0", path = "../mandate-contract" }

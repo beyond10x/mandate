@@ -1,0 +1,44 @@
+type: ess-scenario/2
+domain: mandate.federation
+scenario: federation-malformed-proof
+summary: '`proof signature/issuer/audience/expiry is invalid`, refused at the verifier: the proof is not a compact JWS, so no double can decode it; verifier_real.rs:1281; corpus: none.'
+arrange:
+- instance: conn
+  entity: mandate.federation.FederationConnection
+timeline:
+- at: '2026-01-05T09:00:00Z'
+  command: mandate.federation.RegisterFederationConnection
+  input:
+    context:
+      subject: 00000000-0000-4000-8000-000000000001
+      organization: 00000000-0000-4000-8000-0000000000a1
+      audience: mandate
+      credential: 00000000-0000-4000-8000-0000000000c1
+      correlation: federation-malformed-proof
+    issuer: https://idp.example.test
+    client_id: mandate-client
+    tenant_resolution:
+      configured_organization: 00000000-0000-4000-8000-0000000000a1
+    jit_provisioning: false
+  outcome: accepted
+  events:
+  - event: mandate.federation.FederationConnectionCreated
+    payload:
+      issuer: https://idp.example.test
+  capture:
+    instance: conn
+    event: mandate.federation.FederationConnectionCreated
+    field: connection_id
+- at: '2026-01-05T09:00:01Z'
+  command: mandate.federation.AuthenticateFederation
+  input:
+    connection_id:
+      $instance: conn
+    proof: dGhpcy1pcy1ub3QtYS1qc29uLXdlYi10b2tlbg==
+  outcome: denied
+  error:
+    name: mandate.federation.Denied
+    fields:
+      reason: InvalidCredential
+  no_events:
+  - mandate.federation.FederationAuthenticated

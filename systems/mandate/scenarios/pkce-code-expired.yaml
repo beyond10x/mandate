@@ -1,0 +1,42 @@
+type: ess-scenario/2
+domain: mandate.credential
+scenario: pkce-code-expired
+summary: '`code is expired`: the code record is seeded with the computed verifier of the code presented and an expiry the redemption has passed; redemption.rs:329-330; corpus: none.'
+arrange:
+- instance: code
+  entity: mandate.credential.AuthorizationCode
+  setup:
+    identity: 00000000-0000-4000-8000-0000000000d1
+    fields:
+      client_id: 00000000-0000-4000-8000-0000000000c9
+      session_id: 00000000-0000-4000-8000-0000000000f1
+      verifier: f7fc02f9a089bbebd7daa7154428ffe86dd58f605a3eb0c8b72c2528b58e2e90
+      challenge: E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM
+      method: S256
+      redirect_uri: https://app.example.test/callback
+      expires_at: '2026-01-05T09:01:00Z'
+      target: 00000000-0000-4000-8000-0000000000e9
+      scope:
+        actions:
+        - document.read
+        resources:
+        - resource_type: document
+          resource_id: 00000000-0000-4000-8000-000000000071
+    state: Issued
+timeline:
+- at: '2026-01-05T09:30:00Z'
+  command: mandate.credential.RedeemAuthorizationCode
+  input:
+    code_id:
+      $instance: code
+    client_id: 00000000-0000-4000-8000-0000000000c9
+    code: cHJlc2VudGVkLWF1dGhvcml6YXRpb24tY29kZQ==
+    pkce_verifier: ZEJqZnRKZVo0Q1ZQLW1COTJLMjd1aGJVSlUxcDFyX3dXMWdGV0ZPRWpYaw==
+    redirect_uri: https://app.example.test/callback
+  outcome: denied
+  error:
+    name: mandate.credential.Denied
+    fields:
+      reason: InvalidCredential
+  no_events:
+  - mandate.credential.AuthorizationCodeRedeemed

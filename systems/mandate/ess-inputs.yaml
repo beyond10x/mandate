@@ -14,4 +14,48 @@ specification:
 - domains/workload.yaml
 - domains/audit.yaml
 - domains/authorization.yaml
-scenarios: []
+scenarios:
+- scenarios/authz-unadmitted-organization.yaml
+- scenarios/credential-revoked-twice.yaml
+- scenarios/federation-ambiguous-tenant.yaml
+- scenarios/federation-audience-mismatch.yaml
+- scenarios/federation-configured-method-on-explicit-link.yaml
+- scenarios/federation-disabled-connection.yaml
+- scenarios/federation-empty-subject.yaml
+- scenarios/federation-issuer-mismatch.yaml
+- scenarios/federation-malformed-proof.yaml
+- scenarios/federation-resolution-precedence.yaml
+- scenarios/federation-untrimmed-subject.yaml
+- scenarios/introspect-caller-proof-malformed.yaml
+- scenarios/pkce-code-expired.yaml
+- scenarios/pkce-malformed-challenge.yaml
+- scenarios/pkce-redirect-mismatch.yaml
+- scenarios/pkce-reuse.yaml
+- scenarios/pkce-wrong-org-target.yaml
+- scenarios/pkce-wrong.yaml
+- scenarios/sts-disabled-client-issuance.yaml
+- scenarios/sts-disabled-registration-caller.yaml
+# Five cases of story:authored-denial-scenarios are not authored as the scope names them.
+# Each names the live story that owns the missing port or declaration.
+# identity-stale-epoch-refresh: mandate.identity.RefreshSession declares one input,
+#   refresh_proof, and no port in this tree resolves a proof to a session, so no file can
+#   reach the stale-epoch verdict of crates/mandate-identity/src/snapshot.rs:73.
+#   Routed to story:epoch-snapshot-generations.
+# pkce-stale-session-epoch: services/sts/src/binding.rs:281 asks epoch_standing for a
+#   generation, and mandate.identity.SecurityEpochSnapshot declares principal_id,
+#   organization_id and connection_id and no generation, so `setup:` cannot establish a
+#   snapshot that is behind. Routed to story:epoch-snapshot-generations.
+# authz-missing-approval: crates/mandate-authz/src/decision.rs:232 sits behind
+#   context.rs:113 (the audience the Check handler supplies) and context.rs:117 (a resource
+#   placement), and mandate.graph.RegisterResource has no port that would record one.
+#   Routed to story:graph-policy-adapter, which owns that port.
+# authz-cross-tenant-resource: mandate.authorization.Check names its organization only
+#   inside mandate.core.VerifiedContext, and an ESS input admits an instance reference at
+#   the top level of a field alone, never inside a struct (ESS-AUTHOR-015), so no file can
+#   Check the organization CreateOrganization allocated. Authored as the reachable first
+#   guard, authz-unadmitted-organization. Routed to story:declared-writers, which owns the
+#   contract shape the binding would have to change.
+# introspect-audience-mismatch: resolve.rs:492 sits behind resolve.rs:454, which reads
+#   AccessCredential.target; mandate.credential.AccessCredential declares no target field,
+#   so `setup:` cannot seed one (ESS-AUTHOR-015). Authored as the reachable first guard,
+#   introspect-caller-proof-malformed. Routed to story:declared-writers.
