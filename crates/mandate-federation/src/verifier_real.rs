@@ -502,13 +502,29 @@ fn listed(entry: &str, target: &Uri) -> bool {
 
 /// The one spelling of a host that every containment check is asked about.
 ///
-/// A trailing dot is the absolute form of a name and carries no other meaning, so
-/// `127.0.0.1.` and `127.0.0.1` are one destination and `localhost.` and `localhost` are
-/// one name. Case is already folded by [`origin`], which lowercases the host.
+/// It strips trailing dots, and that is the whole of what it does. A trailing dot is the
+/// absolute form of a name and carries no other meaning, so `127.0.0.1.` and `127.0.0.1`
+/// are one destination and `localhost.` and `localhost` are one name. Case is already
+/// folded by [`origin`], which lowercases the host.
 ///
 /// Both of [`UreqJwks::admits`]'s decisions about the destination host are made about
 /// this name: whether it is the issuer's own, and whether it is an address literal or a
 /// spelling of the loopback interface.
+///
+/// # What it does not fold
+///
+/// It is not a general spelling-equivalence. [`literal_address`] and [`loopback`] read
+/// the host through `IpAddr::from_str`, which collapses every spelling of one address;
+/// the issuer's own-origin comparison is string equality, which collapses none of them.
+/// So `[::1]`, `[0:0:0:0:0:0:0:1]` and `[0:0::0:1]` are one host to the first two and
+/// three strangers to the third, and a loopback issuer whose discovery document spells
+/// its own address a second valid way is refused. That fails closed, it is recorded
+/// rather than fixed, and closing it means comparing parsed addresses rather than names —
+/// a different decision from this one, taken in a different story.
+///
+/// A host of nothing but dots is returned unfolded. Stripping them yields the empty host
+/// [`origin`] refuses outright, and putting it back would make `.`, `..` and `...` one
+/// origin — a name with an empty label is not a spelling of anything.
 ///
 /// The fold belongs there and never to [`origin`] itself, because [`listed`] compares the
 /// host a discovery document spelled against the host a deployment wrote down. That
@@ -516,7 +532,8 @@ fn listed(entry: &str, target: &Uri) -> bool {
 /// host the guard is asked about, and it is pinned by its own case in
 /// `tests/verifier_real.rs`.
 fn folded(host: &str) -> &str {
-    host.trim_end_matches('.')
+    let trimmed = host.trim_end_matches('.');
+    if trimmed.is_empty() { host } else { trimmed }
 }
 
 /// Whether the folded host name ([`folded`]) is an address literal rather than a name.

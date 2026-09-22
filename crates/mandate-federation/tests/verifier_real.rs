@@ -63,16 +63,36 @@
 //! ## What this fold widened, and why it was kept
 //!
 //! Folding a spelling narrows the containment guard and widens the issuer's own origin,
-//! because an absolute spelling of the issuer's host is the issuer's host. Measured
-//! `06c6747` → head over every ordered (issuer, destination) pair of the spellings in
-//! these tables, under both schemes and under the empty host list `JwksSource::jwks`
-//! passes (`verifier_real.rs:400`): **77 pairs change. Every one is refused-before and
-//! admitted-after, and every one is a pair whose two spellings are the same host.** No
-//! pair reaches a host it could not reach before, and none goes admitted-before to
-//! refused-after.
+//! because an absolute spelling of the issuer's host is the issuer's host. **It moves
+//! decisions in both directions, and a measurement that sees only one direction is a
+//! measurement taken where the other branch is dead.** Under the empty host list the
+//! containment branch cannot admit anything at all, so a sweep scoped to it reports the
+//! widening and none of the narrowing.
 //!
-//! Seven of the 77 are the plaintext own-origin branch with the issuer and the `jwks_uri`
-//! spelled the *same* way — the shape `services/control-plane/tests/end_to_end.rs` drives:
+//! Measured `06c6747` → head over every ordered (issuer, destination) pair of the 39
+//! spellings in these tables, under both schemes and under four host lists each — empty,
+//! the bare host, `host:port`, and a list carrying every spelling at once — **12 168
+//! decisions**:
+//!
+//! | direction | decisions | branch they leave through |
+//! |---|---|---|
+//! | refused → admitted | **241** | the issuer's own origin, all of them |
+//! | admitted → refused | **716** | the containment guard, all of them |
+//!
+//! Not one decision is widened through the containment guard, which is the SSRF
+//! containment this story is about; and every one of the 716 narrowed decisions is an
+//! address literal spelled with a trailing dot — `127.0.0.1.`, `[::1.]`,
+//! `[::ffff:127.0.0.1.]` and their siblings — which is precisely the bypass this story
+//! closed. Each of the 241 widened decisions is a pair whose two spellings are one host.
+//!
+//! `tests/adversary_host_spelling_2.rs` ran the same sweep independently over its own
+//! 39-spelling corpus and reports 269 and 777 with the same split by branch and the same
+//! account of what the narrowed decisions are; the counts differ because the corpora do,
+//! the structure does not.
+//!
+//! Seven of the widened decisions are the plaintext own-origin branch with the issuer and
+//! the `jwks_uri` spelled the *same* way — the shape
+//! `services/control-plane/tests/end_to_end.rs` drives:
 //!
 //! | issuer and `jwks_uri` | base | head |
 //! |---|---|---|
@@ -84,11 +104,22 @@
 //! | `http://[0:0:0:0:0:0:0:1.]/` | refused | admitted |
 //! | `http://127.0.0.1.:443/` | refused | admitted |
 //!
-//! The other 70 are the pairs whose two spellings differ, which is the case a discovery
-//! document produces: it writes `jwks_uri` and it does not have to spell the host the way
-//! the deployment spelled the issuer. `verifier_real.rs`'s contract admits plaintext for a
+//! The rest are pairs whose two spellings differ, which is the case a discovery document
+//! produces: it writes `jwks_uri` and it does not have to spell the host the way the
+//! deployment spelled the issuer. `verifier_real.rs`'s contract admits plaintext for a
 //! loopback issuer, and an absolute spelling of the loopback is the loopback; refusing
 //! these was the same fold disagreement pointing the other way.
+//!
+//! ## What the fold still does not fold
+//!
+//! `folded` strips trailing dots and nothing else. `literal_address` and `loopback` read
+//! the host through `IpAddr::from_str`, which collapses every spelling of one address,
+//! while the issuer's own-origin comparison is string equality, which collapses none — so
+//! `[::1]`, `[0:0:0:0:0:0:0:1]` and `[0:0::0:1]` are one host to the first two and three
+//! strangers to the third. A loopback issuer whose discovery document spells its own
+//! address a second valid way is refused. It fails closed, it reproduces at `06c6747`,
+//! and `tests/adversary_host_spelling_2.rs` holds the case that reports it; closing it
+//! means comparing parsed addresses rather than names, which is a different story.
 //!
 //! ## What still reaches the list, and why it is not fixed here
 //!
@@ -2292,10 +2323,12 @@ fn a_listed_jwks_host_admits_only_the_port_listed_beside_it() {
 /// The loopback guard refuses a name class, not one string — and every spelling of a
 /// member of that class, not one spelling of it.
 ///
-/// Every row of the module's own table is here. `127.0.0.1.` and its siblings are the
-/// rows that reached `allowed_hosts` before the fold was computed once: `literal_address`
-/// trimmed no trailing dot and `loopback` trimmed one for its name halves only, so a
-/// dotted literal was an address to neither of them.
+/// All 25 rows of the module's own first table are here, and this case is what covers the
+/// containment guard: deleting `!literal_address(host) && !loopback(host)` from `admits`
+/// turns every one of the 25 red, because the `<host>:443` entry below reaches the list.
+/// `127.0.0.1.` and its siblings are the rows that reached `allowed_hosts` before the fold
+/// was computed once: `literal_address` trimmed no trailing dot and `loopback` trimmed one
+/// for its name halves only, so a dotted literal was an address to neither of them.
 #[test]
 fn a_listed_host_that_spells_the_loopback_interface_is_refused() {
     let issuer = Issuer::new("https://idp.example");
@@ -2331,6 +2364,8 @@ fn a_listed_host_that_spells_the_loopback_interface_is_refused() {
         "[::ffff:127.0.0.1]",
         "[::ffff:127.0.0.1.]",
         "[::ffff:7f00:1]",
+        "[::FFFF:7F00:1]",
+        "[::127.0.0.1]",
     ] {
         let bare = spelling.trim_matches(|c| c == '[' || c == ']');
         let listed = [
@@ -2372,27 +2407,51 @@ fn a_listed_host_that_spells_the_loopback_interface_is_refused() {
 /// site 1 — an enumeration wearing a property's clothes, which is how
 /// `tests/adversary_host_spelling_1.rs` found the unfolded comparison. Site 3 is the
 /// deliberate exception and is pinned by its own assertion at the end.
+///
+/// # Why each row states its answer instead of comparing the two spellings
+///
+/// An `assert_eq!(one_spelling, the_other)` holds when both are refusals, and for 14 of
+/// the 16 rows below the containment comparison *is* two refusals — the nine `https` rows
+/// whose host is a spelling of the loopback are refused by the guard before
+/// `allowed_hosts` is read, and the five `http` rows are refused at
+/// `target.scheme == "https"` before that. Only `keys.idp.example` and `idp.example` are
+/// admitted there. So the two spellings agreeing would say nothing about the branch this
+/// case names, which is what `tests/adversary_host_spelling_2.rs` reported.
+///
+/// Each row therefore carries the answer the guard owes it, and every comparison below is
+/// against that answer rather than against the other spelling. Equality of the two
+/// spellings follows, because both are asserted against one constant — and now a row
+/// whose answer is a refusal fails when the refusal stops happening. The nine loopback
+/// `https` rows die if `!literal_address(host) && !loopback(host)` is deleted, the five
+/// `http` rows die if the scheme gate is, and the `("http", "idp.example")` row dies if
+/// the loopback condition at `verifier_real.rs:347` is — it is the only row whose
+/// own-origin answer is a refusal, which is the rule that plaintext survives on the
+/// loopback interface and nowhere else.
 #[test]
 fn a_trailing_dot_does_not_change_what_the_jwks_destination_guard_answers() {
     let no_hosts_listed: [String; 0] = [];
 
-    for (scheme, host) in [
-        ("https", "localhost"),
-        ("https", "localhost.localdomain"),
-        ("https", "keys.localdomain"),
-        ("https", "127.0.0.1"),
-        ("https", "127.0.0.2"),
-        ("https", "127.255.255.254"),
-        ("https", "keys.idp.example"),
-        ("https", "idp.example"),
-        ("https", "[::1]"),
-        ("https", "[0:0:0:0:0:0:0:1]"),
-        ("https", "[::ffff:127.0.0.1]"),
-        ("http", "localhost"),
-        ("http", "localhost.localdomain"),
-        ("http", "127.0.0.1"),
-        ("http", "[::1]"),
-        ("http", "idp.example"),
+    // (scheme, host, admitted as the issuer's own origin, admitted when a third party's
+    // document names it and the deployment listed it)
+    for (scheme, host, is_own_origin, is_admitted_when_listed) in [
+        ("https", "localhost", true, false),
+        ("https", "localhost.localdomain", true, false),
+        ("https", "keys.localdomain", true, false),
+        ("https", "127.0.0.1", true, false),
+        ("https", "127.0.0.2", true, false),
+        ("https", "127.255.255.254", true, false),
+        ("https", "keys.idp.example", true, true),
+        ("https", "idp.example", true, true),
+        ("https", "[::1]", true, false),
+        ("https", "[0:0:0:0:0:0:0:1]", true, false),
+        ("https", "[::ffff:127.0.0.1]", true, false),
+        ("http", "localhost", true, false),
+        ("http", "localhost.localdomain", true, false),
+        ("http", "127.0.0.1", true, false),
+        ("http", "[::1]", true, false),
+        // The only row that is neither a spelling of the loopback nor `https`: plaintext
+        // off the loopback is not its own origin's key-set source either.
+        ("http", "idp.example", false, false),
     ] {
         // The absolute form. For an IPv6 literal the dot goes inside the brackets: the
         // brackets belong to the URI's authority and not to the host.
@@ -2401,24 +2460,23 @@ fn a_trailing_dot_does_not_change_what_the_jwks_destination_guard_answers() {
             None => format!("{host}."),
         };
 
-        // Site 1. Both spellings of the issuer are asked, so neither side of the equality
-        // is left standing on an unfolded name.
+        // Site 1, every combination of the two spellings on both sides, so neither side
+        // of the comparison is left standing on an unfolded name.
         for issuer_spelling in [host, dotted.as_str()] {
             let issuer = Issuer::new(format!("{scheme}://{issuer_spelling}"));
-            assert_eq!(
-                UreqJwks::admits(
-                    &issuer,
-                    &format!("{scheme}://{host}/jwks"),
-                    &no_hosts_listed
-                ),
-                UreqJwks::admits(
-                    &issuer,
-                    &format!("{scheme}://{dotted}/jwks"),
-                    &no_hosts_listed
-                ),
-                "issuer {scheme}://{issuer_spelling}: {host} and {dotted} are one host \
-                 and the guard gave them two answers"
-            );
+            for destination in [host, dotted.as_str()] {
+                assert_eq!(
+                    UreqJwks::admits(
+                        &issuer,
+                        &format!("{scheme}://{destination}/jwks"),
+                        &no_hosts_listed
+                    ),
+                    is_own_origin,
+                    "issuer {scheme}://{issuer_spelling}, destination \
+                     {scheme}://{destination}: one host, and this is not the answer the \
+                     guard owes it"
+                );
+            }
         }
 
         // Sites 2 and 3, against an issuer neither spelling belongs to. `<host>:<port>`
@@ -2431,12 +2489,18 @@ fn a_trailing_dot_does_not_change_what_the_jwks_destination_guard_answers() {
             format!("{}:{port}", unbracket(&dotted)),
         ];
         let elsewhere = Issuer::new(format!("{scheme}://third-party.example"));
-        assert_eq!(
-            UreqJwks::admits(&elsewhere, &format!("{scheme}://{host}/jwks"), &listed),
-            UreqJwks::admits(&elsewhere, &format!("{scheme}://{dotted}/jwks"), &listed),
-            "listed {scheme}://{host}: {host} and {dotted} are one host and the guard \
-             gave them two answers"
-        );
+        for destination in [host, dotted.as_str()] {
+            assert_eq!(
+                UreqJwks::admits(
+                    &elsewhere,
+                    &format!("{scheme}://{destination}/jwks"),
+                    &listed
+                ),
+                is_admitted_when_listed,
+                "listed {scheme}://{destination}: one host, and this is not the answer \
+                 the guard owes it"
+            );
+        }
     }
 
     // Two refusals satisfy an equality, so the loopback issuer is asked positively as
