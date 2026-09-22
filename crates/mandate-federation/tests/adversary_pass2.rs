@@ -374,12 +374,13 @@ fn the_link_that_wins_one_key_changes_with_the_order_the_streams_are_replayed_in
     );
 }
 
-/// A `LinkStore` that answers one key with one row, in whatever state the case built.
+/// A `LinkStore` that answers one key with one record, in whatever state the case built.
 ///
-/// `src/lib.rs:238-246` declares this to be within the port's contract: "An
-/// implementation may return a row in any lifecycle state. Every command that reads this
-/// port honours [`record::ExternalPrincipal::state`] itself rather than relying on an
-/// implementation to filter."
+/// `src/lib.rs`'s `LinkStore::records_on_key` declares this to be within the port's
+/// contract: "Every record on this exact key, in every lifecycle state, in any order …
+/// an empty vector is the only way to say the key is free." The record is surfaced
+/// whatever its state; which command honours the state and which does not is the
+/// command's own decision, which is what the case below is about.
 struct RowInAnyState {
     key: ExternalKey,
     row: ExternalPrincipal,
@@ -387,8 +388,12 @@ struct RowInAnyState {
 }
 
 impl LinkStore for RowInAnyState {
-    fn link(&self, key: &ExternalKey) -> Option<ExternalPrincipal> {
-        (*key == self.key).then(|| self.row.clone())
+    fn records_on_key(&self, key: &ExternalKey) -> Vec<ExternalPrincipal> {
+        if *key == self.key {
+            vec![self.row.clone()]
+        } else {
+            Vec::new()
+        }
     }
 }
 

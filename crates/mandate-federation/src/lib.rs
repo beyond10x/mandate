@@ -135,7 +135,7 @@ use mandate_types::{
     PrincipalId, SessionId, Timestamp, value::Uuid,
 };
 
-use record::{ExternalKey, ExternalPrincipal, FederationConnection, Projection};
+use record::{ExternalKey, ExternalPrincipal, FederationConnection, LinkState, Projection};
 use verifier::VerifiedProof;
 
 /// Which declared refusing outcome a [`Denied`] is.
@@ -507,28 +507,59 @@ pub trait ExternalPrincipalStore {
 }
 
 /// The external-principal read model, keyed by the canonical composite key.
+///
+/// **An implementor answers one question, and this crate derives every answer a command
+/// needs from it.** The three commands that read this port ask three different things of
+/// one key — is it held at all, which record holds it, is that record explicitly linked —
+/// and each of those is a decision the commands must own. A port with one method per
+/// question is a port whose implementations can disagree with each other, and a command
+/// whose correctness is then a property of the implementation it happened to be handed
+/// rather than of the port. So [`LinkStore::records_on_key`] is the only method an
+/// implementor writes, and [`LinkStore::link`] is computed from it here.
 pub trait LinkStore {
-    /// The link recorded for this exact key, if there is one.
+    /// Every record on this exact key, in every lifecycle state, in any order.
     ///
-    /// An implementation may return a row in any lifecycle state, and an implementation
-    /// that can return a `Linked` row for the key returns one. Every command that reads
-    /// this port decides for itself what the state it is handed means, rather than
-    /// relying on an implementation to filter, because a port cannot make that a
-    /// property of the command:
+    /// **Every record**: the terminal `Unlinked` state of
+    /// `mandate.federation.UnlinkExternalPrincipal` empties a key, it does not erase it,
+    /// and an implementation that omits a revoked record here reports a revoked key as
+    /// free. `LinkAbsent` names two conditions — never linked, and revoked — and a
+    /// composition that admits just-in-time provisioning on that clause would then answer
+    /// this domain's one federated revocation by minting a **new** `PrincipalId` for the
+    /// same external subject. That is why the read is here and not in one implementation
+    /// of it: [`authenticate::provision_external_principal`] refuses `ExternalKeyExists`
+    /// for a key this answers anything at all for, so every implementor has to say what
+    /// the key holds and none of them can leave a revoked record out of the answer by
+    /// saying nothing.
     ///
-    /// - [`authenticate::authenticate_federation`] and [`link::link_external_principal`]
-    ///   ask whether the key resolves to an **explicitly linked** principal, so they read
-    ///   [`record::ExternalPrincipal::state`] and refuse a terminal `Unlinked` row.
-    /// - [`authenticate::provision_external_principal`] asks whether the key is **free to
-    ///   create a record on**, so it reads no state: a key any record holds, in any
-    ///   lifecycle state, is refused `ExternalKeyExists`. `LinkAbsent` names both "never
-    ///   linked" and "revoked", and that refusal is what keeps a composition which
-    ///   provisions on the clause from minting a second `PrincipalId` for a subject whose
-    ///   link was revoked.
+    /// An empty vector is the only way to say the key is free.
+    fn records_on_key(&self, key: &ExternalKey) -> Vec<ExternalPrincipal>;
+
+    /// The record that holds this key: the smallest `external_principal_id` among the
+    /// `Linked` records on it, and — when no record on the key is `Linked` — the smallest
+    /// among the records that remain.
     ///
-    /// An implementation that hides `Unlinked` rows from this port therefore reports a
-    /// revoked key as free, and every composition over it inherits that.
-    fn link(&self, key: &ExternalKey) -> Option<ExternalPrincipal>;
+    /// Derived here rather than asked of an implementor, because
+    /// [`authenticate::authenticate_federation`] and [`link::link_external_principal`]
+    /// depend on it: both ask whether the key resolves to an **explicitly linked**
+    /// principal, and both read [`record::ExternalPrincipal::state`] on what they are
+    /// handed. An implementation free to answer the smallest `Unlinked` record while the
+    /// key still has a `Linked` one would deny `LinkAbsent` to a validly linked caller and
+    /// stop `LinkConflict` firing over a key that is taken — which is the same class of
+    /// defect as hiding the revoked record, one command further along.
+    ///
+    /// `ExternalPrincipalId` orders on the sixteen bytes of its UUID, which is the order
+    /// of its canonical lexical form, so "smallest" is a property of the identity the
+    /// event carried and of nothing else. An unlink of the holder promotes the next
+    /// smallest `Linked` record; see [`record::Projection`].
+    fn link(&self, key: &ExternalKey) -> Option<ExternalPrincipal> {
+        let records = self.records_on_key(key);
+        records
+            .iter()
+            .filter(|record| record.state == LinkState::Linked)
+            .min_by_key(|record| record.id)
+            .or_else(|| records.iter().min_by_key(|record| record.id))
+            .cloned()
+    }
 }
 
 /// The principal read model, for the half of "organization or target principal
@@ -675,8 +706,8 @@ impl ConnectionStore for RecordedPrincipals {
 }
 
 impl LinkStore for RecordedPrincipals {
-    fn link(&self, key: &ExternalKey) -> Option<ExternalPrincipal> {
-        self.links.link(key)
+    fn records_on_key(&self, key: &ExternalKey) -> Vec<ExternalPrincipal> {
+        self.links.records_on_key(key)
     }
 }
 

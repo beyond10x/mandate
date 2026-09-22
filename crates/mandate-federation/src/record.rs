@@ -419,9 +419,11 @@ pub enum FoldError {
 /// — so the key's holder cannot be a property of the order a log presents them in, and it
 /// cannot be a property of the order they were *applied* either. It is a total order over
 /// the records themselves: **the smallest `external_principal_id` on the key holds it**
-/// ([`Projection::link`]), every other `Linked` record on that key is a
+/// ([`LinkStore::link`]), every other `Linked` record on that key is a
 /// [`ExternalKeyConflict`], and a rebuild that interleaves the two streams differently
-/// resolves the key the same way.
+/// resolves the key the same way. That rule is the port's and not this fold's — this fold
+/// answers [`LinkStore::records_on_key`] and nothing more, so no other implementation of
+/// the port can resolve one key differently.
 ///
 /// Every link event's record lives in one map, keyed by its own identity: a record is never
 /// displaced anywhere, so [`ExternalPrincipalStore::external_principal`] and
@@ -429,9 +431,8 @@ pub enum FoldError {
 /// declared `unlink` move applies to any of them. When the holder is unlinked the next
 /// smallest `Linked` record on the key holds it — promotion, not a vacancy — which is what
 /// makes the key's holder a function of the records alone. When the last of them is
-/// unlinked the key is *empty*, not free: [`Projection::link`] answers the smallest record
-/// that remains, so `ProvisionExternalPrincipal` refuses to create a second record on a key
-/// a revoked one holds.
+/// unlinked the key is *empty*, not free: the revoked record is still on the key, so
+/// `ProvisionExternalPrincipal` refuses to create a second record there.
 ///
 /// `linked_at` decides nothing about the key. It is the declared timestamp of the link and
 /// is carried as such; two writers racing one key hold no clock in common, and an instant
@@ -843,40 +844,21 @@ impl PrincipalStore for Projection {
 }
 
 impl LinkStore for Projection {
-    /// The record that holds the key: the smallest `external_principal_id` among the
-    /// `Linked` records on it, and — when no record on the key is `Linked` — the smallest
-    /// among the records that remain.
+    /// Every record the log created on this key, in every lifecycle state, in the order
+    /// the fold materialized them.
     ///
-    /// `ExternalPrincipalId` orders on the sixteen bytes of its UUID, which is the order of
-    /// its canonical lexical form, so "smallest" is a property of the identity the event
-    /// carried and of nothing else — not of `linked_at`, not of the order the log presents
-    /// the two aggregates in, not of the order they were applied. An unlink of the holder
-    /// promotes the next smallest `Linked` record; see [`Projection`].
-    ///
-    /// **The terminal `Unlinked` state empties the key, it does not erase it.** The
-    /// fallback is what [`LinkStore`] promises every implementor may do — "an
-    /// implementation may return a row in any lifecycle state" — and it is what makes
-    /// `mandate.federation.UnlinkExternalPrincipal` a revocation rather than a deletion:
-    /// [`crate::authenticate::provision_external_principal`] refuses `ExternalKeyExists`
-    /// for a key any record holds, so a composition that provisions on `LinkAbsent`
-    /// cannot mint a second `PrincipalId` for a subject whose link was revoked. The two
-    /// commands that ask "is this an explicitly linked principal" —
-    /// [`crate::authenticate::authenticate_federation`] and
-    /// [`crate::link::link_external_principal`] — read
-    /// [`ExternalPrincipal::state`] themselves and are unaffected: the preference above
-    /// hands them the `Linked` record whenever the key has one, so promotion and
-    /// `LinkConflict` decide exactly what they decided before.
-    fn link(&self, key: &ExternalKey) -> Option<ExternalPrincipal> {
-        let on_key = || {
-            self.links
-                .iter()
-                .filter(|link| self.key_of(link).as_ref() == Some(key))
-        };
-        on_key()
-            .filter(|link| link.state == LinkState::Linked)
-            .min_by_key(|link| link.id)
-            .or_else(|| on_key().min_by_key(|link| link.id))
+    /// The fold displaces no record anywhere — see [`Projection`] — so this is a filter
+    /// over [`Projection::links`] by [`Projection::key_of`], the fold's own definition of
+    /// the key, and a revoked record is in the answer exactly as a `Linked` one is. Which
+    /// of them *holds* the key is [`LinkStore::link`]'s question and this crate decides
+    /// it, so no reader of this projection has to know the rule and no other
+    /// implementation of the port can decide it differently.
+    fn records_on_key(&self, key: &ExternalKey) -> Vec<ExternalPrincipal> {
+        self.links
+            .iter()
+            .filter(|link| self.key_of(link).as_ref() == Some(key))
             .cloned()
+            .collect()
     }
 }
 

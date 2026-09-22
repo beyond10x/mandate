@@ -332,11 +332,11 @@ fn an_unlinked_external_principal_returned_by_the_port_still_issues_a_session() 
     }
 
     impl LinkStore for RecordedRow {
-        fn link(&self, key: &ExternalKey) -> Option<ExternalPrincipal> {
+        fn records_on_key(&self, key: &ExternalKey) -> Vec<ExternalPrincipal> {
             if *key == self.key {
-                Some(self.row.clone())
+                vec![self.row.clone()]
             } else {
-                None
+                Vec::new()
             }
         }
     }

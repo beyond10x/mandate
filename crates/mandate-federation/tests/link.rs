@@ -554,8 +554,8 @@ fn a_terminal_unlinked_row_does_not_hold_the_key() {
     struct UnlinkedRow(ExternalPrincipal);
 
     impl LinkStore for UnlinkedRow {
-        fn link(&self, _key: &ExternalKey) -> Option<ExternalPrincipal> {
-            Some(self.0.clone())
+        fn records_on_key(&self, _key: &ExternalKey) -> Vec<ExternalPrincipal> {
+            vec![self.0.clone()]
         }
     }
 

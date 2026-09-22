@@ -585,12 +585,12 @@ impl mandate_federation::ConnectionStore for Substituted {
 }
 
 impl mandate_federation::LinkStore for Substituted {
-    fn link(
+    fn records_on_key(
         &self,
         _key: &mandate_federation::record::ExternalKey,
-    ) -> Option<mandate_federation::record::ExternalPrincipal> {
+    ) -> Vec<mandate_federation::record::ExternalPrincipal> {
         self.read();
-        None
+        Vec::new()
     }
 }
 

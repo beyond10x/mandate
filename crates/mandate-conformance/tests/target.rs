@@ -799,9 +799,9 @@ fn every_port_method_the_substituted_reader_implements_counts_its_read() {
             }),
         ),
         (
-            "LinkStore::link",
+            "LinkStore::records_on_key",
             Box::new(|r: &Substituted| {
-                let _ = LinkStore::link(
+                let _ = LinkStore::records_on_key(
                     r,
                     &mandate_federation::record::ExternalKey {
                         organization_id: OrganizationId::new(identity(0x32)),

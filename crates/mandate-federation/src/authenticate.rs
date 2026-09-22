@@ -179,20 +179,23 @@ pub fn provision_external_principal(
             DenialClause::ProvisioningNotAdmitted,
         ));
     }
-    // "the composite (organization, configured issuer, subject) key already exists". The
-    // read is state-blind on purpose, and is the one call site of this port that is:
-    // `authenticate_federation` above and `link_external_principal` ask whether the key
-    // resolves to an *explicitly linked* principal and so read the lifecycle state
-    // themselves, while this command asks whether the key is free to create a record on,
-    // and a key whose record reached the terminal `Unlinked` state of
-    // `mandate.federation.UnlinkExternalPrincipal` is not.
+    // "the composite (organization, configured issuer, subject) key already exists". This
+    // command asks whether the key is free to create a record on, which is the port's own
+    // required read and not a filter over what holds it: `authenticate_federation` above
+    // and `link_external_principal` ask whether the key resolves to an *explicitly
+    // linked* principal and so read `LinkStore::link` and the lifecycle state on it,
+    // while a key whose every record reached the terminal `Unlinked` state of
+    // `mandate.federation.UnlinkExternalPrincipal` is not free — it is empty, not erased.
     //
-    // `LinkAbsent` names two conditions — never linked, and revoked — and the
-    // composition `decision-blocker:jit-provisioning` prescribes provisions on it. This
-    // refusal is what tells them apart: without it the first login after an unlink mints
-    // a **new** `PrincipalId` for the same external subject, which is not a revocation
-    // and which nothing downstream can correlate to the principal that was revoked.
-    if links.link(&resolved.key).is_some() {
+    // Reading `records_on_key` rather than `link(..).is_some()` is what makes that a
+    // property of the port instead of one implementation of it. `LinkAbsent` names two
+    // conditions — never linked, and revoked — and the composition
+    // `decision-blocker:jit-provisioning` prescribes provisions on it, so a `LinkStore`
+    // free to answer nothing for a key whose every record is revoked would mint a **new**
+    // `PrincipalId` for that subject, which is not a revocation and which nothing
+    // downstream can correlate to the principal that was revoked. Every implementor has
+    // to answer this read, and an empty vector is the only way to say the key is free.
+    if !links.records_on_key(&resolved.key).is_empty() {
         return Err(Denied::new(
             DenialReason::Denied,
             DenialClause::ExternalKeyExists,
