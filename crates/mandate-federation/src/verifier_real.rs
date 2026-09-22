@@ -305,10 +305,14 @@ impl UreqJwks {
     ///   loopback interface, which is the shape an SSRF attempt at a link-local metadata
     ///   service takes.
     ///
-    /// Those last two are asked about one folded host name ([`folded`]) rather than each
-    /// about the spelling it happens to receive, because two checks over one host that
-    /// fold different spellings disagree, and the disagreement is what reaches
-    /// `allowed_hosts`.
+    /// This function compares the destination host in three places, and the first two are
+    /// asked about one folded host name ([`folded`]) rather than each about the spelling
+    /// it happens to receive, because two checks over one host that fold different
+    /// spellings disagree and the disagreement is what gets through. The issuer's own
+    /// (host, port) is one of those two: an absolute spelling of the issuer's host **is**
+    /// the issuer's host, and a discovery document does not have to spell it the way the
+    /// deployment spelled the issuer. The third is `allowed_hosts`, which is deliberately
+    /// exact — see [`folded`].
     ///
     /// Both comparisons normalize the port: RFC 3986 6.2.3 makes the scheme's default port
     /// equivalent to an elided one, so `https://idp.example` and `https://idp.example:443`
@@ -327,14 +331,18 @@ impl UreqJwks {
         if target.scheme != source.scheme {
             return false;
         }
-        // One name, folded once, handed to every containment check below: a spelling
-        // cannot be an address literal to one of them and an ordinary name to the next.
-        // It is folded here and never in `origin`, because `listed` compares the host a
-        // discovery document spelled against the host a deployment wrote down, and that
-        // comparison is not a containment question — folding it would admit
-        // `keys.idp.example.` on an entry naming `keys.idp.example`.
+        // One name, folded once, and every comparison this function makes about the
+        // destination host is made about it — the issuer's own origin below and the
+        // containment guard under that. A spelling cannot be the issuer's host to one of
+        // them and a stranger to the next, nor an address literal to one and an ordinary
+        // name to the other.
+        //
+        // The fold is here and never in `origin`, because `allowed_hosts` is the one
+        // comparison that must stay exact: it reads a string an operator wrote down, and
+        // folding it would admit `keys.idp.example.` on an entry naming
+        // `keys.idp.example`. That boundary is pinned in `tests/verifier_real.rs`.
         let host = folded(&target.host);
-        if (&target.host, target.port) == (&source.host, source.port) {
+        if (host, target.port) == (folded(&source.host), source.port) {
             return target.scheme == "https" || loopback(host);
         }
         target.scheme == "https"
@@ -498,10 +506,15 @@ fn listed(entry: &str, target: &Uri) -> bool {
 /// `127.0.0.1.` and `127.0.0.1` are one destination and `localhost.` and `localhost` are
 /// one name. Case is already folded by [`origin`], which lowercases the host.
 ///
-/// The fold belongs to the containment path and never to [`origin`] itself: [`listed`]
-/// compares the host a discovery document spelled against the host a deployment wrote
-/// down, and widening that comparison is a different decision from agreeing on which host
-/// the guard is asked about.
+/// Both of [`UreqJwks::admits`]'s decisions about the destination host are made about
+/// this name: whether it is the issuer's own, and whether it is an address literal or a
+/// spelling of the loopback interface.
+///
+/// The fold belongs there and never to [`origin`] itself, because [`listed`] compares the
+/// host a discovery document spelled against the host a deployment wrote down. That
+/// comparison stays exact: widening it is a different decision from agreeing on which
+/// host the guard is asked about, and it is pinned by its own case in
+/// `tests/verifier_real.rs`.
 fn folded(host: &str) -> &str {
     host.trim_end_matches('.')
 }
