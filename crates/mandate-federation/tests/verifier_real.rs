@@ -181,7 +181,7 @@ use mandate_federation::verifier_real::{
     RefusalReason, UreqJwks,
 };
 use mandate_federation::{
-    ConnectionStore, DenialClause, Denied, FederationVerifier, LinkStore, PrincipalState,
+    ConnectionStore, DenialClause, Denied, FederationVerifier, PrincipalState,
     RecordedPrincipals, RecordingSessionIssuer, RequestContext, SequentialAllocator,
 };
 use mandate_model::TenantResolutionRule;
