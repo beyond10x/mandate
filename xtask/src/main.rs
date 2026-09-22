@@ -240,10 +240,32 @@ fn boundaries() -> Result<()> {
     if packages.len() != PACKAGES || libraries.len() != LIBRARIES {
         return Err(format!("expected {PACKAGES} packages and {LIBRARIES} libraries").into());
     }
+    // The workspace states one version in `[workspace.package]` and every member inherits it
+    // with `version.workspace = true`. This reads that statement rather than restating the
+    // number, which is what made a legitimate bump break this step — a check failing for the
+    // change it exists to allow. It reads the workspace and not the first package, so a member
+    // that differs is named as the one that differs rather than shifting the expectation.
+    let manifest = fs::read_to_string("Cargo.toml")?;
+    let stated = manifest
+        .split_once("[workspace.package]")
+        .and_then(|(_, rest)| rest.split_once("version = \""))
+        .and_then(|(_, rest)| rest.split_once('"'))
+        .map(|(v, _)| v.to_owned())
+        .ok_or("Cargo.toml states no [workspace.package] version")?;
     for p in packages {
         let name = p["name"].as_str().ok_or("package name")?;
-        if p["version"] != "0.2.0"
-            || p["edition"] != "2024"
+        // Named separately from the rest: a version that differs is the one fact this loop can
+        // report about a *specific* package, and folding it into the general message made the
+        // step name whichever member happened to be read first rather than the one that differs.
+        if p["version"] != *stated {
+            let found = p["version"].as_str().unwrap_or("none");
+            return Err(format!(
+                "package version violation: {name} states {found}, and the workspace states \
+                 {stated}; every member inherits one version with `version.workspace = true`"
+            )
+            .into());
+        }
+        if p["edition"] != "2024"
             || p["rust_version"] != "1.98.1"
             || p["license"] != "Apache-2.0"
             || p["publish"] != serde_json::json!([])

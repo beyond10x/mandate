@@ -4,6 +4,8 @@ All notable changes to Mandate are recorded here. The format follows [Keep a Cha
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-22
+
 ### Added
 
 - The federated-login road runs against the spawned binary. `mandate-control-plane serve` takes four repeatable document flags — `--connection`, `--key`, `--client`, `--resource-server` — and `services/control-plane/tests/end_to_end.rs` stands a loopback OIDC issuer beside the child, mints a proof under the key it publishes, and drives login → authorize → token → introspect over TCP. Driving it found that the binary had refused every login since it was written: `main.rs` built `RealVerifier` and never called `configure_connection`, and 78 green cases said nothing because every one substituted a double.

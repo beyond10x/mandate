@@ -11,5 +11,5 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-mandate-types = { version = "0.2.0", path = "../mandate-types" }
-mandate-proto = { version = "0.2.0", path = "../mandate-proto" }
+mandate-types = { version = "0.3.0", path = "../mandate-types" }
+mandate-proto = { version = "0.3.0", path = "../mandate-proto" }
