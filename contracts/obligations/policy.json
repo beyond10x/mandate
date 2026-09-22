@@ -12,7 +12,7 @@
         {
           "clause": "Caller lacks authorization-model administration authority",
           "tests": [],
-          "blocked_on": "decision-blocker:guards"
+          "blocked_on": "story:graph-policy-adapter"
         },
         {
           "clause": "the model is outside the verified organization",
@@ -78,7 +78,7 @@
         {
           "clause": "Caller lacks policy-administration authority",
           "tests": [],
-          "blocked_on": "decision-blocker:guards"
+          "blocked_on": "story:graph-policy-adapter"
         },
         {
           "clause": "the policy is outside the verified organization",
