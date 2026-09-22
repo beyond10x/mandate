@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:per-run-test-scratch
 kind: story
-status: active
+status: implemented
 title: Two copies of one test binary do not share a scratch directory
 relations:
 - decomposes: epic:foundations
@@ -16,7 +16,7 @@ scope:
   path: services/control-plane/tests/end_to_end.rs
 - confidence: cited
   path: services/control-plane/tests/serve.rs
-revision: 8
+revision: 11
 ---
 # Two copies of one test binary do not share a scratch directory
 
@@ -65,12 +65,22 @@ exit status and case count under ordinary `cargo test`.
 
 ## Out of scope
 
-The port handling, which is fixed: `Served::spawn` takes no address and the
-child prints the one it bound.
+**What was written here and is now false:** *"The port handling, which is fixed: `Served::spawn`
+takes no address and the child prints the one it bound."* That is true of
+`services/control-plane/tests/end_to_end.rs`, which wave G moved in `27a103b`, and false of
+`services/control-plane/tests/adversary_login_road.rs`, whose `Served::spawn` does take an address
+and whose `stand_up` picks it by binding an ephemeral port and dropping the probe. Adversary pass 1
+measured the collision at four or more concurrent copies — 12 of 192 at 16-way against 0 of 40
+sequential — and `story:road-lane-child-prints-address` now carries it. Corrected by the coordinator
+at wave H's close.
+
+Out of scope, and still true: the port handling itself, in either lane. This story is about the
+scratch directory a run writes its flag documents into.
 
 ## Scope
 
-Derived 2026-09-22 by `story-scoper`. Every line is **cited** (read from the story or the tree) or
+Derived 2026-09-22 by `story-scoper`, and **rewritten at wave H's close from what the unit
+confirmed**. Every line is **cited** (read from the story or the tree) or
 **inferred** (a reading that could be wrong).
 
 - **Primary surface:** `services/control-plane/tests` — cited; all four lanes that write flag
@@ -88,10 +98,14 @@ Derived 2026-09-22 by `story-scoper`. Every line is **cited** (read from the sto
 - **Not affected, checked:** `adversary_listener_1.rs`, `adversary_listener_2.rs`,
   `adversary_jit_login.rs`, `adapters.rs`, `authority.rs` — cited; no `std::fs`, no `Command::new`,
   no `Path` use
-- **Also likely:** the doc comments above three of the helpers claim the per-case directory makes a
-  collision impossible (`end_to_end.rs:328-336`, `adversary_login_pass2.rs:85-86`,
-  `serve.rs:1404-1405`) — inferred, they state the property this story falsifies and are rewritten
-  with the code
+- **Checked by the unit, and one line was wrong:** two of the three doc comments claimed the per-case
+  directory makes a collision impossible (`end_to_end.rs:328-336`, `adversary_login_pass2.rs:85-86`).
+  `serve.rs:1404-1405` made no collision claim at all — it said only that writes stay inside the
+  build tree. All three were rewritten anyway, because the code under them moved
+- **What the unit added that no scope line predicted:** a liveness sweep. Each lane gained
+  `finished`, `finished_under`, `procfs_answers`, `sweep_finished_runs` and `run_root_under`, because
+  adversary pass 1 measured the parent growing by one directory per process id that had ever run the
+  binary. The scope named the five write sites and not the lifetime of what they write
 - **No new dependency:** the workspace carries no `tempfile` and none is added; the run identity comes
   from what is already admitted, so `services/control-plane/Cargo.toml`, the root `Cargo.toml`,
   `Cargo.lock` and `dependency-boundaries.json` are **not** touched

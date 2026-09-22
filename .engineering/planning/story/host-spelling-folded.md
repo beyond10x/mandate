@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:host-spelling-folded
 kind: story
-status: active
+status: implemented
 title: Both halves of the SSRF check fold the same host spellings
 relations:
 - decomposes: epic:hardening
@@ -14,7 +14,7 @@ scope:
   path: crates/mandate-federation/tests/adversary_verifier_2.rs
 - confidence: cited
   path: crates/mandate-federation/tests/verifier_real.rs
-revision: 7
+revision: 9
 ---
 # Every spelling of a host is folded before both checks, not before one
 
@@ -75,8 +75,22 @@ answer for it.
 
 ## Out of scope
 
-Widening or narrowing what `admits` allows. The scheme and host-list rules are
-right; this is about which host they are asked about.
+The scheme and host-list rules are right; this story is about which host they are asked about, and
+`listed`'s comparison against a host a deployment wrote down stays exact.
+
+**What was written here and is now false:** *"Widening or narrowing what `admits` allows."* The
+shipped change does both, and it could not answer its own finding otherwise — folding the issuer's
+own-origin comparison is what makes one host get one answer, and any consistent fold moves something.
+Measured over 12,168 decisions (39 × 39 spellings × 2 schemes × 4 host lists), wave base → head: 241
+move refused → admitted, every one through the issuer's own-origin comparison; 716 move admitted →
+refused, every one an address literal spelled with a trailing dot. Zero move into the containment
+branch. Corrected by the coordinator at wave H's close, on adversary pass 2's finding.
+
+Still out of scope: refusing the spellings the guard does not agree about. `0`, `127.1`,
+`2130706433`, `0177.0.0.1`, `127.0.0.001` and the percent-encoded forms are recorded in the test
+module's own documentation rather than refused, because refusing them widens the guard instead of
+agreeing which host it was asked about. So is `folded` not being a general address fold, which
+`story:folded-is-not-an-address-fold` now carries.
 
 ## Scope
 
