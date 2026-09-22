@@ -504,3 +504,40 @@ fn a_deployment_configured_with_no_decision_point_takes_no_authority_decision() 
 
     assert_eq!(issued.state, "state-1");
 }
+
+/// A context whose audience is not the one the caller requires is refused, and it is refused
+/// over the **fold**: `mandate_authz::context::bind` compares the two before either port is
+/// read.
+///
+/// This case exists because the composition cannot reach this arm. `Deployment::authorize`
+/// builds the context's audience and the expectation it passes from **one** read of the
+/// credential fold, so the two are equal by construction and `AudienceMismatch` is
+/// unreachable from there — recorded at the call site and in `crate::authority`'s header.
+/// The binding is still a real refusal of the decision point, and a caller with an
+/// independent expectation gets it; that is what this decides.
+#[test]
+fn a_context_whose_audience_is_not_the_expected_one_is_refused_by_the_decision_point() {
+    let target = ResourceServerId::new(uuid(0xa5));
+    let mut point = decision_point(Held::Grant, Answers::Allow, target);
+    let context = context();
+    let action = issue_action();
+    let resource = target_resource(target);
+    // The caller requires a credential issued for another audience than the one the context
+    // carries. Nothing else about the world changes.
+    let required = Audience::new("https://other.example");
+    assert_ne!(context.audience, required, "the case varies the audience");
+
+    let denied = point
+        .admit(&Admission {
+            context: &context,
+            action: &action,
+            resource: &resource,
+            expected_audience: &required,
+            relation: mandate_control_plane::authority::ISSUANCE_RELATION,
+            scope: None,
+        })
+        .expect_err("a credential issued for another audience binds to nothing");
+
+    assert_eq!(denied.reason, DenialReason::AudienceMismatch);
+    assert!(!denied.decision.allowed);
+}

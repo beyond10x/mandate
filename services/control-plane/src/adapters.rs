@@ -114,13 +114,15 @@ use mandate_sts::issue::Sha256Digest;
 use mandate_sts::redemption::{
     BoundReads, RedeemAuthorizationCode, RedemptionParts, RedemptionRefused, redeem_and_consume,
 };
-use mandate_sts::registry::ResourceServerReads;
+use mandate_sts::registry::{
+    RegisterResourceServer, ResourceServerReads, register_resource_server,
+};
 use mandate_sts::resolve::{IntrospectCredential, IntrospectionParts, introspect_credential};
 use mandate_sts::store::{AuthorizationCodeLog, AuthorizationCodeReads, InMemoryCodeLog};
 use mandate_sts::{IdentityAllocator, RequestContext as StsRequest, SecretSource};
 use mandate_token::projection::{
-    CredentialEvent, Denied as CredentialDenied, FoldError as CredentialFoldError,
-    Projection as CredentialProjection,
+    CredentialEvent, DenialClause as CredentialClause, Denied as CredentialDenied,
+    FoldError as CredentialFoldError, Projection as CredentialProjection,
 };
 use mandate_token::verifier::{CredentialDigest, CredentialDomain, matches, verifier_in};
 use mandate_token::{CredentialDescriptor, CredentialProfile};
@@ -129,8 +131,8 @@ use mandate_types::{
     CredentialSecret, CredentialVerifier, DenialReason, Duration, EpochSnapshotRef,
     ExternalLinkMethod, ExternalPrincipalId, ExternalSubject, FederationConnectionId, Issuer,
     OAuthClientId, OrganizationId, PkceMethod, PrincipalId, RedirectUri, ResourceId, ResourceRef,
-    ResourceServerId, ResourceType, SecurityEpochTarget, SessionId, SigningAlgorithm, Timestamp,
-    Transient, Uuid, VerifiedContext,
+    ResourceServerId, ResourceType, SecurityEpochTarget, SessionId, SigningAlgorithm, SigningKeyId,
+    Timestamp, Transient, Uuid, VerifiedContext,
 };
 use serde::Deserialize;
 
@@ -1036,6 +1038,315 @@ impl<F: FnMut() -> Uuid> FederationIdentityAllocator for StatedIdentities<'_, F>
     }
 }
 
+/// The `--client` documents, decided against the ones before them.
+///
+/// # Why this exists, and why it is not the command
+///
+/// `src/main.rs`'s header states the rule for all four flags — "the documents are decided
+/// together, by the commands they are the inputs of … a set this process cannot serve is
+/// refused before the socket — not seeded, printed as seeded, and then denied at every
+/// login". `--connection` and `--key` were routed through
+/// [`ConnectionSeeding::admit`] and [`key_set`]; `--client` was added afterwards and went
+/// through neither, so two documents naming one `client_id` were both seeded and both
+/// printed. The federation fold answers `Ok(())` for an `OAuthClientRegistered` whose id it
+/// already holds (`crates/mandate-federation/src/record.rs:638`), so the second document's
+/// redirect URIs were registered nowhere and every authorization naming one was denied.
+///
+/// **It does not run `register_o_auth_client`, and that is deliberate.** That command's
+/// three guards are all questions about a *caller* —
+/// `ClientRegistrationAdmission::admits_client_administration`, `admits_organization` and
+/// `admits_redirect_uri` — behind a port whose only implementation in this workspace is
+/// `mandate_federation::register_client::ConfiguredAdmission`, which its own documentation
+/// calls "a fixture, never a shipped implementation". Seeding authenticates no caller
+/// ([`seeded_context`] says so for every document), so running it here would mean this
+/// composition inventing a registration policy in order to satisfy a guard about a caller
+/// that does not exist. What *is* decidable from the documents alone is the contradiction
+/// between two of them, and that is what is refused. A `--client` document whose redirect
+/// set a deployment policy would reject is admitted here, exactly as a seeded link's
+/// `principal_id` is trusted and for the same reason.
+pub struct ClientSeeding {
+    projection: FederationProjection,
+    admitted: Vec<(PathBuf, OAuthClientId)>,
+}
+
+impl Default for ClientSeeding {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl ClientSeeding {
+    /// A seeding holding no client.
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            projection: FederationProjection::default(),
+            admitted: Vec::new(),
+        }
+    }
+
+    /// Admit one document against the ones already admitted, and answer the events it
+    /// seeds.
+    ///
+    /// The fold here is a **mirror** of the deployment's, for [`ConnectionSeeding`]'s
+    /// reason: the whole set is decided before a deployment is built, so a refusal reaches
+    /// the operator instead of the socket.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SeedRefused::RepeatedClientId`] naming both files when two documents state
+    /// one identity, and [`SeedRefused::Unseedable`] when the events are not a history the
+    /// fold reads.
+    pub fn admit(
+        &mut self,
+        path: &Path,
+        seed: &ClientSeed,
+        allocate: &mut impl FnMut() -> Uuid,
+    ) -> Result<SeededClient, SeedRefused> {
+        if let Some(stated) = seed.client_id
+            && self.projection.client(&stated).is_some()
+        {
+            return Err(SeedRefused::RepeatedClientId {
+                path: path.to_path_buf(),
+                incumbent: self.incumbent_of(stated),
+                client_id: stated,
+            });
+        }
+        let client = seed.events(allocate);
+        for event in &client.events {
+            self.projection
+                .apply(event)
+                .map_err(|error| SeedRefused::Unseedable {
+                    path: path.to_path_buf(),
+                    error,
+                })?;
+        }
+        self.admitted.push((path.to_path_buf(), client.client_id));
+        Ok(client)
+    }
+
+    /// The file that seeded this client, for a refusal that has to name both.
+    fn incumbent_of(&self, client_id: OAuthClientId) -> PathBuf {
+        self.admitted
+            .iter()
+            .find(|(_, held)| *held == client_id)
+            .map_or_else(PathBuf::new, |(path, _)| path.clone())
+    }
+}
+
+/// The `--resource-server` documents, through the command they are the inputs of.
+///
+/// # Why this one *is* the command
+///
+/// Every guard `mandate.credential.RegisterResourceServer` states is a question about the
+/// registrations already held or about the document's own profile, and **not one of them is
+/// about a caller**: "audience registration is ambiguous"
+/// ([`CredentialProjection::admits_audience`]), a profile whose semantics are unadmitted,
+/// and an exchange source that is unresolved, disabled or in another organization. So the
+/// documents go through `register_resource_server` itself and this reader decides nothing
+/// about them — the shape [`ConnectionSeeding::admit`] already establishes. Whether a caller
+/// holds resource-server administration authority is the one question that command does not
+/// ask, and `services/sts/src/registry.rs` says why: "the adapter has decided it before the
+/// handler is reached". For a document the operator wrote, the adapter is the operator.
+///
+/// Before the correction this reader built the event by hand ([`ResourceServerSeed::events`])
+/// and asked nothing, so two documents holding one `(organization, audience)` key were both
+/// seeded and both printed as seeded.
+pub struct TargetSeeding {
+    projection: CredentialProjection,
+    admitted: Vec<(PathBuf, ResourceServerId)>,
+}
+
+impl Default for TargetSeeding {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl TargetSeeding {
+    /// A seeding holding no registration.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::over(CredentialProjection::default())
+    }
+
+    /// A seeding over a fold that already holds registrations.
+    ///
+    /// The in-memory folds are seeded from documents today and from an event log at the
+    /// next milestone (ruling D4), and a replayed log can hold what no document could: two
+    /// writers that each read a free `(organization, audience)` key both append, and
+    /// `admits_audience` — a read-then-write guard — refused neither. [`Self::settled`] is
+    /// what answers for that, and this constructor is what lets it be asked.
+    #[must_use]
+    pub fn over(projection: CredentialProjection) -> Self {
+        Self {
+            projection,
+            admitted: Vec::new(),
+        }
+    }
+
+    /// Admit one document against the ones already admitted, and answer the events it
+    /// seeds.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SeedRefused::RepeatedResourceServerId`] naming both files when two
+    /// documents state one identity, [`SeedRefused::UnregistrableTarget`] with the command's
+    /// own denial, and [`SeedRefused::UnseedableCredential`] when the event is not a history
+    /// the credential fold reads.
+    pub fn admit(
+        &mut self,
+        path: &Path,
+        seed: &ResourceServerSeed,
+        allocate: &mut impl FnMut() -> Uuid,
+    ) -> Result<SeededResourceServer, SeedRefused> {
+        if let Some(stated) = seed.resource_server_id
+            && self.projection.resource_server(&stated).is_some()
+        {
+            return Err(SeedRefused::RepeatedResourceServerId {
+                path: path.to_path_buf(),
+                incumbent: self.incumbent_of(stated),
+                resource_server_id: stated,
+            });
+        }
+        // The command decides the inputs; this reader decides nothing about them. A stated
+        // `resource_server_id` is handed to it as the identity it allocates, so the
+        // operator's own id and an allocated one take exactly the same path through the
+        // guards — [`StatedIdentities`]'s rule, one crate over.
+        let registered = register_resource_server(
+            &RegisterResourceServer {
+                context: seeded_context(seed.organization),
+                audience: seed.audience.clone(),
+                profile: seed.profile.clone(),
+                allowed_exchange_sources: seed.allowed_exchange_sources.clone(),
+            },
+            &self.projection,
+            &mut StatedResourceServerIdentity {
+                resource_server_id: seed.resource_server_id,
+                allocate,
+            },
+        )
+        .map_err(|denied| self.refusal(path, seed, denied))?;
+        let resource_server_id = registered.resource_server_id;
+        self.projection.apply(&registered.event).map_err(|error| {
+            SeedRefused::UnseedableCredential {
+                path: path.to_path_buf(),
+                error,
+            }
+        })?;
+        self.admitted.push((path.to_path_buf(), resource_server_id));
+        Ok(SeededResourceServer {
+            resource_server_id,
+            events: vec![registered.event],
+        })
+    }
+
+    /// Every registration the seeded fold holds records an audience it holds.
+    ///
+    /// The post-condition over the whole fold, asked once after every document is admitted.
+    /// [`CredentialProjection::admits_audience`] is a read-then-write guard and can refuse
+    /// only a document being admitted now; this reads
+    /// [`CredentialProjection::audience_conflicts`], the view over the records themselves,
+    /// and so also answers for a fold that arrived already holding a pair. Until now that
+    /// view had no caller outside a test, and its own documentation said as much: "A read
+    /// for the adapter, not for a command: no handler consults it."
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SeedRefused::AudienceConflicted`] naming the registration that does not
+    /// hold its audience and the one that does, with the files that seeded them where
+    /// files did.
+    pub fn settled(&self) -> Result<(), SeedRefused> {
+        // The first, not all of them: a refusal an operator acts on names one correction,
+        // and the next run reports the next. Deciding the order by the fold's own order
+        // rather than by identifier keeps the report stable across a rebuild.
+        let Some(conflict) = self.projection.audience_conflicts().into_iter().next() else {
+            return Ok(());
+        };
+        let held_by = self
+            .projection
+            .registered(&conflict.organization_id, &conflict.audience)
+            .map(|holder| holder.id);
+        Err(SeedRefused::AudienceConflicted {
+            path: self.incumbent_of(conflict.id),
+            incumbent: held_by.map_or_else(PathBuf::new, |id| self.incumbent_of(id)),
+            organization: conflict.organization_id,
+            audience: conflict.audience,
+            resource_server_id: conflict.id,
+        })
+    }
+
+    /// The command's denial, as the refusal an operator reads.
+    ///
+    /// One clause of `register_resource_server` compares this document with another
+    /// **document** — `AudienceAmbiguous` — and [`SeedRefused::incumbent`] requires every
+    /// such variant to carry both files. The command does not know the files, so the
+    /// translation is here: the incumbent is the registration that holds the key, and the
+    /// file that seeded it. Every other clause is about this document alone and is carried
+    /// verbatim.
+    fn refusal(
+        &self,
+        path: &Path,
+        seed: &ResourceServerSeed,
+        denied: CredentialDenied,
+    ) -> SeedRefused {
+        if denied.clause != CredentialClause::AudienceAmbiguous {
+            return SeedRefused::UnregistrableTarget {
+                path: path.to_path_buf(),
+                denied,
+            };
+        }
+        let incumbent = self
+            .projection
+            .registered(&seed.organization, &seed.audience)
+            .map_or_else(PathBuf::new, |holder| self.incumbent_of(holder.id));
+        SeedRefused::RepeatedAudience {
+            path: path.to_path_buf(),
+            incumbent,
+            organization: seed.organization,
+            audience: seed.audience.clone(),
+        }
+    }
+
+    /// The file that seeded this registration, for a refusal that has to name both. Empty
+    /// for a registration the fold carried before any document was read.
+    fn incumbent_of(&self, resource_server_id: ResourceServerId) -> PathBuf {
+        self.admitted
+            .iter()
+            .find(|(_, held)| *held == resource_server_id)
+            .map_or_else(PathBuf::new, |(path, _)| path.clone())
+    }
+}
+
+/// The identity source [`register_resource_server`] allocates through.
+///
+/// [`StatedIdentities`]'s rule for the credential side: the command mints the
+/// `resource_server_id` it responds with, so a document stating one states what the command
+/// mints, and the other three are minted from the same source rather than left to panic.
+struct StatedResourceServerIdentity<'a, F: FnMut() -> Uuid> {
+    resource_server_id: Option<ResourceServerId>,
+    allocate: &'a mut F,
+}
+
+impl<F: FnMut() -> Uuid> IdentityAllocator for StatedResourceServerIdentity<'_, F> {
+    fn next_resource_server_id(&mut self) -> ResourceServerId {
+        self.resource_server_id
+            .unwrap_or_else(|| ResourceServerId::new((self.allocate)()))
+    }
+
+    fn next_credential_id(&mut self) -> CredentialId {
+        CredentialId::new((self.allocate)())
+    }
+
+    fn next_signing_key_id(&mut self) -> SigningKeyId {
+        SigningKeyId::new((self.allocate)())
+    }
+
+    fn next_authorization_code_id(&mut self) -> AuthorizationCodeId {
+        AuthorizationCodeId::new((self.allocate)())
+    }
+}
+
 /// Install one document's **deployment** configuration on the verifier: the algorithm this
 /// connection's proofs are verified under, and the hosts its key set may be fetched from.
 ///
@@ -1361,7 +1672,8 @@ impl<'de> Deserialize<'de> for KeySeed {
     }
 }
 
-/// Why a document named by `--connection` or `--key` configures no deployment.
+/// Why a document named by `--connection`, `--key`, `--client` or `--resource-server`
+/// configures no deployment.
 ///
 /// Every variant carries the path, because an operator running a process with several of
 /// each learns nothing from a refusal that does not say which file it read.
@@ -1485,6 +1797,102 @@ pub enum SeedRefused {
         /// The organization the incumbent document placed it in.
         held: OrganizationId,
     },
+    /// `mandate.credential.RegisterResourceServer` refuses a `--resource-server` document.
+    ///
+    /// The credential half of [`SeedRefused::Unregistrable`], and separate for that
+    /// variant's reason: the two commands raise different denials and neither renders as
+    /// the other. Every guard that command states is a guard about the registrations
+    /// already held or about the document's own profile — an unadmitted profile, an
+    /// unresolved, disabled or cross-tenant exchange source — and **none of them is about a
+    /// caller**, which is why a `--resource-server` document goes through the command itself
+    /// and a `--client` document does not.
+    ///
+    /// The one clause that compares two *documents* is carried by
+    /// [`SeedRefused::RepeatedAudience`] instead, so that it can name both files.
+    UnregistrableTarget {
+        /// The file that was read.
+        path: PathBuf,
+        /// The command's own denial.
+        denied: CredentialDenied,
+    },
+    /// Two `--resource-server` documents hold one `(organization, audience)` key.
+    ///
+    /// `register_resource_server`'s own `AudienceAmbiguous`, rendered as the two-document
+    /// refusal it is. The command decides it — nothing here re-implements
+    /// `admits_audience` — and this variant is chosen from the clause the command returned,
+    /// because [`SeedRefused::incumbent`] states the rule this would otherwise break:
+    /// "Every variant that compares documents carries both", and a refusal naming one of
+    /// two contradicting files tells an operator half of what to correct.
+    ///
+    /// Measured before this was decided: both documents were seeded and both printed as
+    /// seeded, and which registration *held* the audience was
+    /// `Projection::registered`'s `min_by_key(|server| server.id)` — sixteen bytes of UUID,
+    /// a value no document states.
+    RepeatedAudience {
+        /// The file that was read.
+        path: PathBuf,
+        /// The file the incumbent registration was read from.
+        incumbent: PathBuf,
+        /// The organization the key is in.
+        organization: OrganizationId,
+        /// The audience both documents register.
+        audience: Audience,
+    },
+    /// Two `--resource-server` documents state one `resource_server_id`.
+    ///
+    /// [`SeedRefused::RepeatedConnectionId`]'s defect in the credential fold: `apply`
+    /// answers `Ok(())` for a `ResourceServerRegistered` whose id it already holds
+    /// (`crates/mandate-token/src/projection.rs:763-765`), so the second document's
+    /// audience, profile and exchange sources are registered nowhere while both ids are
+    /// printed as seeded.
+    RepeatedResourceServerId {
+        /// The file that was read.
+        path: PathBuf,
+        /// The file the incumbent registration was read from.
+        incumbent: PathBuf,
+        /// The identity both state.
+        resource_server_id: ResourceServerId,
+    },
+    /// Two `--client` documents state one `client_id`.
+    ///
+    /// The same defect one fold over: `Projection::apply` returns `Ok(())` for an
+    /// `OAuthClientRegistered` whose id it already holds
+    /// (`crates/mandate-federation/src/record.rs:638`), so the redirect URIs the second
+    /// document registers are registered nowhere and every authorization naming them is
+    /// denied `RedirectUnregistered` — while both ids are printed as seeded.
+    RepeatedClientId {
+        /// The file that was read.
+        path: PathBuf,
+        /// The file the incumbent client was read from.
+        incumbent: PathBuf,
+        /// The identity both state.
+        client_id: OAuthClientId,
+    },
+    /// The seeded credential fold holds a registration that does not hold its audience.
+    ///
+    /// [`TargetSeeding::settled`]'s refusal, and the one this set of flags cannot produce
+    /// on its own: `admits_audience` is a read-then-write guard, so it refuses a document
+    /// being admitted now and can say nothing about a pair a fold already carried. A fold
+    /// seeded from an event log (ruling D4) can carry one, because two writers that each
+    /// read a free key both append
+    /// (`crates/mandate-token/src/projection.rs:45-56`). Which registration then *holds*
+    /// the key is `Projection::registered`'s `min_by_key(|server| server.id)` — sixteen
+    /// bytes of UUID, a value no document states and no operator chose — and
+    /// `services/sts/src/resolve.rs` reads introspection authority through it. So the set
+    /// is refused before the socket rather than served under a registration nothing named.
+    AudienceConflicted {
+        /// The file that seeded the registration that does not hold the key, where a file
+        /// seeded it; empty for a registration the fold already carried.
+        path: PathBuf,
+        /// The file that seeded the registration that does hold it, on the same terms.
+        incumbent: PathBuf,
+        /// The organization the key is in.
+        organization: OrganizationId,
+        /// The audience two registrations record.
+        audience: Audience,
+        /// The registration that does not hold it.
+        resource_server_id: ResourceServerId,
+    },
 }
 
 impl SeedRefused {
@@ -1501,7 +1909,12 @@ impl SeedRefused {
             | Self::Unregistrable { path, .. }
             | Self::RepeatedKeyId { path, .. }
             | Self::RepeatedConnectionId { path, .. }
-            | Self::PrincipalAcrossOrganizations { path, .. } => path,
+            | Self::PrincipalAcrossOrganizations { path, .. }
+            | Self::UnregistrableTarget { path, .. }
+            | Self::RepeatedAudience { path, .. }
+            | Self::RepeatedResourceServerId { path, .. }
+            | Self::RepeatedClientId { path, .. }
+            | Self::AudienceConflicted { path, .. } => path,
         }
     }
 
@@ -1515,7 +1928,11 @@ impl SeedRefused {
         match self {
             Self::RepeatedKeyId { incumbent, .. }
             | Self::RepeatedConnectionId { incumbent, .. }
-            | Self::PrincipalAcrossOrganizations { incumbent, .. } => Some(incumbent),
+            | Self::PrincipalAcrossOrganizations { incumbent, .. }
+            | Self::RepeatedAudience { incumbent, .. }
+            | Self::RepeatedResourceServerId { incumbent, .. }
+            | Self::RepeatedClientId { incumbent, .. }
+            | Self::AudienceConflicted { incumbent, .. } => Some(incumbent),
             _ => None,
         }
     }
@@ -1561,6 +1978,55 @@ impl core::fmt::Display for SeedRefused {
                 formatter,
                 "{path}: the principal {principal_id} is linked in organization {organization} \
                  here and in {held} from {}",
+                incumbent.display()
+            ),
+            Self::UnregistrableTarget { denied, .. } => write!(
+                formatter,
+                "{path}: mandate.credential.RegisterResourceServer refuses these inputs \
+                 ({:?}, {:?})",
+                denied.clause, denied.reason
+            ),
+            Self::RepeatedAudience {
+                incumbent,
+                organization,
+                audience,
+                ..
+            } => write!(
+                formatter,
+                "{path}: the audience {audience} is already registered in organization \
+                 {organization} from {}",
+                incumbent.display()
+            ),
+            Self::RepeatedResourceServerId {
+                incumbent,
+                resource_server_id,
+                ..
+            } => write!(
+                formatter,
+                "{path}: the resource_server_id {resource_server_id} is already seeded from {}",
+                incumbent.display()
+            ),
+            Self::RepeatedClientId {
+                incumbent,
+                client_id,
+                ..
+            } => write!(
+                formatter,
+                "{path}: the client_id {client_id} is already seeded from {}",
+                incumbent.display()
+            ),
+            Self::AudienceConflicted {
+                incumbent,
+                organization,
+                audience,
+                resource_server_id,
+                ..
+            } => write!(
+                formatter,
+                "{path}: the registration {resource_server_id} records the audience \
+                 {audience} in organization {organization} and does not hold it; {} holds \
+                 it, and which of the two a request resolves to is decided by identifier \
+                 order and by no document",
                 incumbent.display()
             ),
         }
@@ -2214,6 +2680,13 @@ where
                 resource_type: ResourceType::new(RESOURCE_SERVER),
                 resource_id: ResourceId::new(*input.target.as_uuid()),
             };
+            // The expectation is the context's own audience, and `context::bind`'s
+            // `AudienceMismatch` arm is therefore **unreachable from here**: both values
+            // are the registered target's, read from the credential fold a few lines
+            // above, and this endpoint runs before any credential exists for a second
+            // source to disagree with. Said plainly rather than left for a reader to
+            // discover, and said in `crate::authority`'s header too, with what it would
+            // take to make the arm reachable honestly.
             if let Err(denied) = authority.admit(&Admission {
                 context: &assembled.context,
                 action: &action,

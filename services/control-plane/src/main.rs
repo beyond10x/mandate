@@ -22,13 +22,28 @@
 //! the port was free for anything on the machine to take — a window no code here could
 //! close, because none of it runs during the window. There is nothing to choose now.
 //!
-//! **The documents are decided together, by the commands they are the inputs of.** Every
-//! guard `RegisterFederationConnection` states is a guard about the connections already
-//! held, so `--connection` documents are admitted one at a time against a fold of the ones
-//! before ([`mandate_control_plane::adapters::ConnectionSeeding`]) and a set this process
-//! cannot serve is refused before the socket — not seeded, printed as seeded, and then
-//! denied at every login. The same holds one level down for a repeated `kid` across `--key`
-//! documents and a repeated `connection_id` across `--connection` documents.
+//! **The documents are decided together, and all four flags are covered.** A set this
+//! process cannot serve is refused before the socket — not seeded, printed as seeded, and
+//! then denied at every request. Each flag goes through the reader that can decide it, and
+//! each reader is named here so that a flag added later is visibly not covered rather than
+//! silently uncovered, which is what `--client` and `--resource-server` were:
+//!
+//! | Flag | Admitted by | What is decided against the documents before it |
+//! |---|---|---|
+//! | `--connection` | [`mandate_control_plane::adapters::ConnectionSeeding`] | every guard of `RegisterFederationConnection`, plus a repeated `connection_id` and a principal linked across two organizations |
+//! | `--key` | [`mandate_control_plane::adapters::key_set`] | a repeated `kid` |
+//! | `--client` | [`mandate_control_plane::adapters::ClientSeeding`] | a repeated `client_id` |
+//! | `--resource-server` | [`mandate_control_plane::adapters::TargetSeeding`] | every guard of `RegisterResourceServer` — an ambiguous audience above all — plus a repeated `resource_server_id`, and then the whole set is settled against `Projection::audience_conflicts` |
+//!
+//! **Why two of them run the command and two do not.** A document is put through the
+//! command it is the inputs of wherever that command's guards are about the *records*:
+//! `RegisterFederationConnection` and `RegisterResourceServer` both are, so both run.
+//! `RegisterOAuthClient`'s three guards are all about a **caller** — client-administration
+//! authority, the organization binding, and an admitted redirect URI — behind a port whose
+//! only implementation here is a fixture, and this seeding authenticates no caller, so
+//! running it would mean inventing a registration policy to satisfy a guard about a caller
+//! that does not exist. `ClientSeeding` decides what the documents alone decide, and its
+//! header says what that leaves.
 //!
 //! **What is trusted, and what would stop it being trusted.** A seeded link's
 //! `principal_id` is taken as written: this process records no `mandate.identity` principal,
@@ -45,9 +60,10 @@ use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
 use mandate_control_plane::adapters::{
-    ClientSeed, Configuration, ConfigurationRefused, ConnectionSeed, ConnectionSeeding, Deployment,
-    ResourceServerSeed, SeedRefused, SystemAllocator, SystemSecrets, configure_verifier, key_set,
-    read_client_seed, read_connection_seed, read_key, read_resource_server_seed,
+    ClientSeed, ClientSeeding, Configuration, ConfigurationRefused, ConnectionSeed,
+    ConnectionSeeding, Deployment, ResourceServerSeed, SeedRefused, SystemAllocator, SystemSecrets,
+    TargetSeeding, configure_verifier, key_set, read_client_seed, read_connection_seed, read_key,
+    read_resource_server_seed,
 };
 use mandate_control_plane::serve::{Limits, Listener};
 use mandate_federation::record::FederationConnection;
@@ -239,16 +255,30 @@ fn serve(serving: &Serving) -> Result<(), Refused> {
             .map_err(Refused::Seed)?;
         seeded.push((path, seed, admitted));
     }
+    // The other two flags, on the same terms. Each document is decided against the ones
+    // before it — `--client` against the clients already seeded, `--resource-server`
+    // through `mandate.credential.RegisterResourceServer` itself — and the whole
+    // `--resource-server` set is then settled, because the command's audience guard is a
+    // read-then-write one and cannot answer for a pair the fold already held.
+    let mut client_seeding = ClientSeeding::new();
     let mut seeded_clients = Vec::with_capacity(client_seeds.len());
     for (path, seed) in &client_seeds {
         let mut allocate = || allocator.next_uuid();
-        seeded_clients.push((path, seed.events(&mut allocate)));
+        let admitted = client_seeding
+            .admit(path, seed, &mut allocate)
+            .map_err(Refused::Seed)?;
+        seeded_clients.push((path, admitted));
     }
+    let mut target_seeding = TargetSeeding::new();
     let mut seeded_targets = Vec::with_capacity(target_seeds.len());
     for (path, seed) in &target_seeds {
         let mut allocate = || allocator.next_uuid();
-        seeded_targets.push((path, seed.events(&mut allocate)));
+        let admitted = target_seeding
+            .admit(path, seed, &mut allocate)
+            .map_err(Refused::Seed)?;
+        seeded_targets.push((path, admitted));
     }
+    target_seeding.settled().map_err(Refused::Seed)?;
 
     // The algorithm and the hosts this connection's key set may be fetched from are per
     // connection, and the connection's identity is only known once it has been allocated,

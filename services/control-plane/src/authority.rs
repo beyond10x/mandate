@@ -41,10 +41,28 @@
 //! `mandate_model::tenancy::Tenancy` and `mandate_model::graph::Topology`, both folds, and
 //! decides four things before either port is read: the organization still admits authority,
 //! the subject is a member of it, the request is direct, and the credential's audience is
-//! the expected one. A caller failing any of those is refused over the fold. What a fold
-//! cannot answer is the one thing the caller-authority clauses name — whether the caller
-//! *holds* the authority — because `tenancy.rs:317-318` puts that with "grants and
-//! relationships", which are the graph's and the policy's.
+//! the one the caller requires. A caller failing any of those is refused over the fold.
+//!
+//! **This composition can fail three of the four, and the fourth is the audience.**
+//! `bind` compares `context.audience` against the `expected_audience` the *caller* states,
+//! and a caller has two independent sources only when the context comes from credential
+//! validation and the expectation from a registry.
+//! [`Deployment::authorize`](crate::adapters::Deployment::authorize) has one: it is the
+//! authorization endpoint, before any credential exists — the assembled context carries
+//! `CredentialId::new([0; 16])` — so both the context's audience and the expectation it
+//! passes are the registered target's, read from the credential fold. Two reads of one
+//! value cannot disagree, so `DenialReason::AudienceMismatch` is unreachable from this call
+//! site. It is **not** unreachable from the decision point, which any caller with a real
+//! expectation reaches, and
+//! `mandate-control-plane::authority::a_context_whose_audience_is_not_the_expected_one_is_refused_by_the_decision_point`
+//! is the case that decides it. Passing a value this composition does not have — the
+//! deployment's own issuer audience, say — would make the arm reachable by comparing the
+//! target's audience against something no contract says it should equal, which is a
+//! refusal invented rather than decided.
+//!
+//! What a fold cannot answer at all is the one thing the caller-authority clauses name —
+//! whether the caller *holds* the authority — because `tenancy.rs:317-318` puts that with
+//! "grants and relationships", which are the graph's and the policy's.
 //!
 //! # Named residue
 //!
