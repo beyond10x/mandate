@@ -10,7 +10,10 @@ use mandate_types::{
 use crate::PrincipalState;
 use crate::RequestContext;
 use crate::record::{ConnectionState, ExternalKey, FederationEvent, LinkState};
-use crate::{ConnectionStore, DenialClause, Denied, IdentityAllocator, LinkStore, PrincipalStore};
+use crate::{
+    ConnectionStore, DenialClause, Denied, IdentityAllocator, LinkResolution, LinkStore,
+    PrincipalStore,
+};
 
 /// `mandate.federation.LinkExternalPrincipal`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
