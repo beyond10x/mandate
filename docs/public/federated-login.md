@@ -86,7 +86,7 @@ Responses carrying credentials are sent `no-store`.
 
 ## Configuration and deployment
 
-```
+```text
 mandate-control-plane serve --listen <addr> --issuer <url>
     [--code-lifetime <ISO 8601 duration>] [--session-lifetime <ISO 8601 duration>]
     [--connection <path>]... [--key <path>]... [--client <path>]... [--resource-server <path>]...
