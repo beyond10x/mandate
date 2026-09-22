@@ -327,27 +327,74 @@ fn request_target(stream: &TcpStream) -> Option<String> {
 
 // ------------------------------------------------------------------- the flag documents
 
+/// Whether a process id names a run that is **over**.
+///
+/// `/proc/<pid>` stands for the whole life of a process, zombie included, and is gone once
+/// it has been reaped. A wrong `true` here deletes a live run's documents — this story's own
+/// collision, inverted — so a host with no `/proc` to read is told nothing has finished and
+/// sweeps nothing rather than sweeping everything.
+fn finished(pid: u32) -> bool {
+    Path::new("/proc").is_dir() && !Path::new(&format!("/proc/{pid}")).exists()
+}
+
+/// Remove the roots of the runs that are over, leaving every running one standing.
+///
+/// A run can only ever clear a directory named for **its own** id, so without this the
+/// parent gains one directory for every id that has ever run this binary; the adversary
+/// measured `target/tmp` at 644 MB and 6,179 entries across one pass. `mine` is skipped
+/// because this process is alive and its own root is its own to clear.
+fn sweep_finished_runs(parent: &Path, mine: u32) {
+    let Ok(entries) = std::fs::read_dir(parent) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let named = entry.file_name();
+        let Some(pid) = named
+            .to_str()
+            .and_then(|named| named.strip_prefix("run-"))
+            .and_then(|pid| pid.parse::<u32>().ok())
+        else {
+            continue;
+        };
+        if pid != mine && finished(pid) {
+            let _ = std::fs::remove_dir_all(entry.path());
+        }
+    }
+}
+
+/// The scratch root of one run: `parent`, then a directory named for the id of the process
+/// that owns it.
+///
+/// Two things happen here and [`the_run_root_clears_what_is_finished_and_keeps_what_is_running`]
+/// decides each of them: the roots of runs that are **over** are swept, so the parent holds
+/// the runs that are running rather than every id that has ever run this binary; and a
+/// directory standing under **this** id is cleared rather than written into, because an id
+/// is unique among live processes, so anything left under ours belongs to a process that
+/// has exited and whose id the kernel has since handed to us.
+fn run_root_under(parent: &Path, pid: u32) -> PathBuf {
+    sweep_finished_runs(parent, pid);
+    let root = parent.join(format!("run-{pid}"));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root).expect("a writable scratch directory");
+    root
+}
+
 /// Where **this execution** writes: cargo's own per-target scratch directory, so nothing
-/// here writes outside the build tree, and then a directory this process alone owns.
+/// here writes outside the build tree, and then this run's own root ([`run_root_under`]).
 ///
 /// `env!("CARGO_TARGET_TMPDIR")` is resolved when this file is **compiled**, so every
 /// execution of this binary reads one string and two copies running at once would write
 /// one set of paths — a child reading the other run's connection document and refusing a
 /// proof that was correct for its own (`story:per-run-test-scratch`). A process id is
 /// unique among the processes alive on a host, so two copies running at once never name
-/// one directory. A directory already standing under **this** process's id was left by a
-/// process that has since exited — nothing alive can hold our id — so it is cleared here
-/// rather than written into, which is also what keeps the parent from growing without
-/// bound.
+/// one directory.
 fn run_root() -> &'static Path {
     static ROOT: OnceLock<PathBuf> = OnceLock::new();
     ROOT.get_or_init(|| {
-        let root = Path::new(env!("CARGO_TARGET_TMPDIR"))
-            .join("end-to-end")
-            .join(format!("run-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&root);
-        std::fs::create_dir_all(&root).expect("a writable scratch directory");
-        root
+        run_root_under(
+            &Path::new(env!("CARGO_TARGET_TMPDIR")).join("end-to-end"),
+            std::process::id(),
+        )
     })
     .as_path()
 }
@@ -2205,4 +2252,237 @@ fn a_second_copy_of_this_binary_does_not_write_this_runs_documents() {
         "the second copy overwrote this run's document at {}",
         stated(&mine)
     );
+}
+
+/// What [`run_root_under`] removes, and what it must not.
+///
+/// Each line of that function is decided by one assertion here, and deleting the line makes
+/// that assertion red:
+///
+/// * the root of a run that is **over** is swept by the next run. Without it the parent
+///   gains one directory for every process id that has ever run this binary — measured at
+///   644 MB across one adversary pass — because a run can only clear a directory named for
+///   its own id.
+/// * the root of a run that is **running** is left alone. A sweep that does not ask deletes
+///   a live copy's documents mid-run, which is `story:per-run-test-scratch`'s own collision
+///   inverted and worse than what it fixed.
+/// * a directory standing under **this** run's id is cleared. Ids are recycled, and a run
+///   that reads the documents of the process that held its id before it is reading another
+///   run's state, which is the whole defect.
+///
+/// The finished id is a child of this process that has been waited on, so it is a run that
+/// is genuinely over rather than an id picked for being absent. The live id is `1`, which
+/// is running on any host that is running this case.
+#[test]
+fn the_run_root_clears_what_is_finished_and_keeps_what_is_running() {
+    let parent = run_root().join("sweep-fixture");
+    let mine = std::process::id();
+
+    let copy = Command::new(std::env::current_exe().expect("this test binary's own path"))
+        .args([
+            "--exact",
+            "a_second_copy_of_this_binary_does_not_write_this_runs_documents",
+            "--nocapture",
+        ])
+        .env(SECOND_COPY, "1")
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("a copy of this binary runs");
+    let over = copy.id();
+    let finished = copy.wait_with_output().expect("the copy is waited on");
+    assert!(
+        finished.status.success(),
+        "the copy passed; its stderr: {}",
+        String::from_utf8_lossy(&finished.stderr)
+    );
+
+    let of_a_finished_run = parent.join(format!("run-{over}"));
+    let of_a_running_one = parent.join("run-1");
+    let of_this_run = parent.join(format!("run-{mine}"));
+    for root in [&of_a_finished_run, &of_a_running_one, &of_this_run] {
+        std::fs::create_dir_all(root).expect("a writable scratch directory");
+        std::fs::write(root.join("connection.json"), "{}").expect("the fixture is written");
+    }
+
+    let root = run_root_under(&parent, mine);
+
+    // Where there is no `/proc` to read, no run is claimed to have finished and none is
+    // swept: a wrong answer deletes a live run's documents, so absence answers "keep".
+    let swept = Path::new("/proc").is_dir();
+    assert_eq!(
+        of_a_finished_run.exists(),
+        !swept,
+        "the root of run {over}, which has exited, is swept by the next run, so what stands \
+         in the parent is the runs that are running"
+    );
+    assert!(
+        of_a_running_one.exists(),
+        "the root of process 1, which is running, is left standing; a sweep that took it \
+         would be a copy deleting its neighbour's documents mid-run"
+    );
+    assert_eq!(
+        root, of_this_run,
+        "this run's root is the one named for its id"
+    );
+    assert!(
+        !of_this_run.join("connection.json").exists(),
+        "a directory standing under this run's own id was written by a process that has \
+         exited and whose id was handed on; it is cleared, not written into"
+    );
+    assert!(root.is_dir(), "this run's root is created");
+}
+
+// ---------------------------------------- adversary pass 1, `story:per-run-test-scratch`
+
+/// What stands in the scratch parent is the runs that are **running**.
+///
+/// The story states what it delivers as "a directory named from something unique to the
+/// run, **created at start and removed at end**, with every document written under it".
+/// A run cannot remove its own root at its end: libtest returns from the last case and
+/// exits, there is no hook after it, and this file may take no dependency to get one
+/// (`story:per-run-test-scratch`, "take no new dependency"). What is delivered instead is
+/// the bound that statement exists for — **the next run removes it** — and this case, which
+/// is the adversary's, is changed from "a finished run has removed its own root" to that.
+///
+/// It is not the weaker claim. The adversary measured the parent at 644 MB across one pass
+/// because every id that had ever run this binary left a directory standing; what is
+/// asserted here is that none of them does. Delete [`sweep_finished_runs`] and this case is
+/// red again on the same four roots, which is the property the adversary's case had.
+///
+/// Four copies are run to completion — `output` does not return until a copy has exited, so
+/// every root named here belongs to a run that is over — and then a fifth, whose start is
+/// the sweep. A root still standing after it is a run this binary will never clean up.
+#[test]
+fn a_finished_runs_scratch_root_does_not_outlive_the_next_run() {
+    const COPIES: usize = 4;
+
+    let mut roots: Vec<PathBuf> = Vec::new();
+    for copy in 0..COPIES {
+        let finished = Command::new(std::env::current_exe().expect("this test binary's own path"))
+            .args([
+                "--exact",
+                "a_second_copy_of_this_binary_does_not_write_this_runs_documents",
+                "--nocapture",
+            ])
+            .env(SECOND_COPY, "1")
+            .output()
+            .expect("a copy of this binary runs");
+        let printed = String::from_utf8_lossy(&finished.stdout);
+        assert!(
+            finished.status.success(),
+            "copy {copy} passed; it printed {printed} and {}",
+            String::from_utf8_lossy(&finished.stderr)
+        );
+        let written = printed
+            .lines()
+            .find_map(|line| line.strip_prefix("second-copy-document="))
+            .unwrap_or_else(|| {
+                panic!("copy {copy} printed the document it wrote; it printed {printed}")
+            });
+        // `<run root>/<case>/connection.json`, so the run root is two directories up.
+        let root = Path::new(written)
+            .parent()
+            .and_then(Path::parent)
+            .expect("the document sits two directories under that copy's run root");
+        roots.push(root.to_path_buf());
+    }
+
+    // The fifth run. Its own start is what sweeps the four roots above, so this is the
+    // "next run" the bound is stated in terms of.
+    let next = Command::new(std::env::current_exe().expect("this test binary's own path"))
+        .args([
+            "--exact",
+            "a_second_copy_of_this_binary_does_not_write_this_runs_documents",
+            "--nocapture",
+        ])
+        .env(SECOND_COPY, "1")
+        .output()
+        .expect("the next run of this binary runs");
+    assert!(
+        next.status.success(),
+        "the next run passed; its stderr: {}",
+        String::from_utf8_lossy(&next.stderr)
+    );
+
+    let standing: Vec<&PathBuf> = roots.iter().filter(|root| root.exists()).collect();
+    // A host with no `/proc` to read is told nothing has finished and sweeps nothing, which
+    // is the safe answer rather than the tidy one; there the four roots stand.
+    let expected = if Path::new("/proc").is_dir() {
+        0
+    } else {
+        COPIES
+    };
+    assert_eq!(
+        standing.len(),
+        expected,
+        "{} of {COPIES} runs that have exited left their scratch root standing after the \
+         next run started: {standing:?}. The parent holds the runs that are running; a root \
+         that outlives the run after it is one the binary will never clean up, and the \
+         parent then gains one directory for every process id that has ever run it",
+        standing.len()
+    );
+}
+
+/// What tells a copy of this binary that it is one of the concurrent copies below.
+const CONCURRENT_COPY: &str = "MANDATE_ADVERSARY_CONCURRENT_COPY";
+
+/// Two copies of this lane, run at once, both pass — the story's `## Acceptance`, asserted.
+///
+/// The acceptance statement is "two copies of `end_to_end` run concurrently and both pass,
+/// repeated enough times to mean something". The lane's own new case measures one path
+/// against one other path; it says nothing about whether the lane as a whole survives a
+/// second copy of itself, which is what the story asks for and what the discarded harness
+/// measured.
+///
+/// Each copy skips the two cases this adversary pass added, so what runs in a copy is the
+/// lane exactly as the unit left it: eighteen cases, and the copy reports `0 failed`.
+#[test]
+fn two_copies_of_this_lane_run_at_once_and_both_pass() {
+    if std::env::var_os(CONCURRENT_COPY).is_some() {
+        return;
+    }
+    const ROUNDS: usize = 10;
+    const COPIES: usize = 4;
+
+    for round in 0..ROUNDS {
+        let running: Vec<Child> = (0..COPIES)
+            .map(|_| {
+                Command::new(std::env::current_exe().expect("this test binary's own path"))
+                    .args([
+                        "--skip",
+                        "a_finished_runs_scratch_root_does_not_outlive_the_next_run",
+                        "--skip",
+                        "two_copies_of_this_lane_run_at_once_and_both_pass",
+                    ])
+                    .env(CONCURRENT_COPY, "1")
+                    .stdout(Stdio::piped())
+                    .stderr(Stdio::piped())
+                    .spawn()
+                    .expect("a copy of this lane runs")
+            })
+            .collect();
+
+        for (copy, child) in running.into_iter().enumerate() {
+            let finished = child
+                .wait_with_output()
+                .expect("a copy of this lane is waited on");
+            let printed = String::from_utf8_lossy(&finished.stdout);
+            let summary = printed
+                .lines()
+                .find(|line| line.starts_with("test result:"))
+                .unwrap_or("<no summary was printed>")
+                .to_string();
+            assert!(
+                finished.status.success(),
+                "round {round}, copy {copy} of this lane passed while the other copy of it \
+                 ran. It said {summary}. Its stderr: {}",
+                String::from_utf8_lossy(&finished.stderr)
+            );
+            assert!(
+                summary.contains("0 failed"),
+                "round {round}, copy {copy} reports no failing case; it said {summary}"
+            );
+        }
+    }
 }

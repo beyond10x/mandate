@@ -1402,26 +1402,74 @@ const REPEATED_KID_DOCUMENT: &str = r#"{"kty":"EC","kid":"login-key-1","use":"si
   "alg":"ES256","crv":"P-256","x":"MKBCTNIcKUSDii11ySs3526iDZ8AiTo7Tu6KPAqv7D4",
   "y":"4Etl6SRW2YiLUrN5vfvVHuhp7x8PxltmWWlbbM4IFyM"}"#;
 
+/// Whether a process id names a run that is **over**.
+///
+/// `/proc/<pid>` stands for the whole life of a process, zombie included, and is gone once
+/// it has been reaped. A wrong `true` here deletes a live run's documents — this story's own
+/// collision, inverted — so a host with no `/proc` to read is told nothing has finished and
+/// sweeps nothing rather than sweeping everything.
+fn finished(pid: u32) -> bool {
+    Path::new("/proc").is_dir() && !Path::new(&format!("/proc/{pid}")).exists()
+}
+
+/// Remove the roots of the runs that are over, leaving every running one standing.
+///
+/// A run can only ever clear a directory named for **its own** id, so without this the
+/// parent gains one directory for every id that has ever run this binary; the adversary
+/// measured `target/tmp` at 644 MB and 6,179 entries across one pass. `mine` is skipped
+/// because this process is alive and its own root is its own to clear.
+fn sweep_finished_runs(parent: &Path, mine: u32) {
+    let Ok(entries) = std::fs::read_dir(parent) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let named = entry.file_name();
+        let Some(pid) = named
+            .to_str()
+            .and_then(|named| named.strip_prefix("run-"))
+            .and_then(|pid| pid.parse::<u32>().ok())
+        else {
+            continue;
+        };
+        if pid != mine && finished(pid) {
+            let _ = std::fs::remove_dir_all(entry.path());
+        }
+    }
+}
+
+/// The scratch root of one run: `parent`, then a directory named for the id of the process
+/// that owns it.
+///
+/// Two things happen here and [`the_run_root_clears_what_is_finished_and_keeps_what_is_running`]
+/// decides each of them: the roots of runs that are **over** are swept, so the parent holds
+/// the runs that are running rather than every id that has ever run this binary; and a
+/// directory standing under **this** id is cleared rather than written into. The clearing
+/// is what stops a run from reading the seed documents of the process that held its id
+/// before it — a `--connection` document this run did not write is exactly what
+/// `story:per-run-test-scratch` is about.
+fn run_root_under(parent: &Path, pid: u32) -> PathBuf {
+    sweep_finished_runs(parent, pid);
+    let root = parent.join(format!("run-{pid}"));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root).expect("a writable scratch directory");
+    root
+}
+
 /// Where **this execution** writes: cargo's own per-target scratch directory, so nothing
-/// here writes outside the build tree, and then a directory this process alone owns.
+/// here writes outside the build tree, and then this run's own root ([`run_root_under`]).
 ///
 /// `env!("CARGO_TARGET_TMPDIR")` is resolved when this file is **compiled**, so every
 /// execution of this binary reads one string and two copies running at once would write
 /// one set of documents, each seeding the other's child (`story:per-run-test-scratch`).
 /// A process id is unique among the processes alive on a host, so two copies running at
-/// once never name one directory; a directory already standing under **this** process's id
-/// was left by a process that has since exited, so it is cleared here rather than written
-/// into. Clearing it is also what makes the absent document of
-/// [`every_refusal_of_a_flag_document_exits_two_and_names_the_file`] absent.
+/// once never name one directory.
 fn run_root() -> &'static Path {
     static ROOT: OnceLock<PathBuf> = OnceLock::new();
     ROOT.get_or_init(|| {
-        let root = Path::new(env!("CARGO_TARGET_TMPDIR"))
-            .join("seeds")
-            .join(format!("run-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&root);
-        std::fs::create_dir_all(&root).expect("a writable scratch directory");
-        root
+        run_root_under(
+            &Path::new(env!("CARGO_TARGET_TMPDIR")).join("seeds"),
+            std::process::id(),
+        )
     })
     .as_path()
 }
@@ -3306,4 +3354,84 @@ fn a_second_copy_of_this_binary_does_not_write_this_runs_documents() {
         "the second copy overwrote this run's document at {}",
         seed_path(&mine)
     );
+}
+
+/// What [`run_root_under`] removes, and what it must not.
+///
+/// Each line of that function is decided by one assertion here, and deleting the line makes
+/// that assertion red:
+///
+/// * the root of a run that is **over** is swept by the next run. Without it the parent
+///   gains one directory for every process id that has ever run this binary — measured at
+///   644 MB across one adversary pass — because a run can only clear a directory named for
+///   its own id.
+/// * the root of a run that is **running** is left alone. A sweep that does not ask deletes
+///   a live copy's documents mid-run, which is `story:per-run-test-scratch`'s own collision
+///   inverted and worse than what it fixed.
+/// * a directory standing under **this** run's id is cleared. Ids are recycled, and a run
+///   that reads the documents of the process that held its id before it is reading another
+///   run's state, which is the whole defect.
+///
+/// The finished id is a child of this process that has been waited on, so it is a run that
+/// is genuinely over rather than an id picked for being absent. The live id is `1`, which
+/// is running on any host that is running this case.
+#[test]
+fn the_run_root_clears_what_is_finished_and_keeps_what_is_running() {
+    let parent = run_root().join("sweep-fixture");
+    let mine = std::process::id();
+
+    let copy =
+        std::process::Command::new(std::env::current_exe().expect("this test binary's own path"))
+            .args([
+                "--exact",
+                "a_second_copy_of_this_binary_does_not_write_this_runs_documents",
+                "--nocapture",
+            ])
+            .env(SECOND_COPY, "1")
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .expect("a copy of this binary runs");
+    let over = copy.id();
+    let finished = copy.wait_with_output().expect("the copy is waited on");
+    assert!(
+        finished.status.success(),
+        "the copy passed; its stderr: {}",
+        String::from_utf8_lossy(&finished.stderr)
+    );
+
+    let of_a_finished_run = parent.join(format!("run-{over}"));
+    let of_a_running_one = parent.join("run-1");
+    let of_this_run = parent.join(format!("run-{mine}"));
+    for root in [&of_a_finished_run, &of_a_running_one, &of_this_run] {
+        std::fs::create_dir_all(root).expect("a writable scratch directory");
+        std::fs::write(root.join("connection.json"), "{}").expect("the fixture is written");
+    }
+
+    let root = run_root_under(&parent, mine);
+
+    // Where there is no `/proc` to read, no run is claimed to have finished and none is
+    // swept: a wrong answer deletes a live run's documents, so absence answers "keep".
+    let swept = Path::new("/proc").is_dir();
+    assert_eq!(
+        of_a_finished_run.exists(),
+        !swept,
+        "the root of run {over}, which has exited, is swept by the next run, so what stands \
+         in the parent is the runs that are running"
+    );
+    assert!(
+        of_a_running_one.exists(),
+        "the root of process 1, which is running, is left standing; a sweep that took it \
+         would be a copy deleting its neighbour's documents mid-run"
+    );
+    assert_eq!(
+        root, of_this_run,
+        "this run's root is the one named for its id"
+    );
+    assert!(
+        !of_this_run.join("connection.json").exists(),
+        "a directory standing under this run's own id was written by a process that has \
+         exited and whose id was handed on; it is cleared, not written into"
+    );
+    assert!(root.is_dir(), "this run's root is created");
 }
