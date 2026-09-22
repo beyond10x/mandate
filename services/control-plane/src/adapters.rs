@@ -87,8 +87,8 @@ use crate::authority::{
 use mandate_federation::authorize::{IssueAuthorizationCodeInput, TargetRegistry};
 use mandate_federation::publicclient::{OAuthClientStore, registered_public_client};
 use mandate_federation::record::{
-    ExternalKey, FederationConnection, FederationEvent, FoldError as FederationFoldError,
-    OAuthClientState, Projection as FederationProjection, RegisterFederationConnection,
+    FederationEvent, FoldError as FederationFoldError, OAuthClientState,
+    Projection as FederationProjection, RegisterFederationConnection,
     register_federation_connection,
 };
 use mandate_federation::verifier_real::{AlgorithmPolicyError, Clock, JwksSource, RealVerifier};
@@ -2332,7 +2332,22 @@ where
     /// **A refused provisioning is not the login's refusal either.** The caller called one
     /// command; a clause from a command it never made — `ProvisioningNotAdmitted`,
     /// `ExternalKeyExists` — is not an answer to the one it did. The declared `LinkAbsent` of
-    /// the login stands instead, and the attempt creates nothing.
+    /// the login stands instead, and the attempt **records** nothing: no event is emitted, no
+    /// principal exists that did not before, and the fold is the one the login read.
+    ///
+    /// It is not free of every effect, and saying "creates nothing" would be the file lying
+    /// about itself. [`Deployment::provisioned`] builds the whole `RequestContext` before it
+    /// calls the command, and minting the correlation of the record the command *would*
+    /// write is part of building it — so one identity is drawn from this deployment's own
+    /// source per attempt, refused attempts included. **The draw precedes the decision; the
+    /// decision never consults it.** `provision_external_principal` reads
+    /// `request.correlation` in one place, inside the accepted outcome it emits, and no
+    /// refusal path in that command reads the request at all. Moving the draw after the
+    /// command admits would therefore change no outcome, and is a shape this call site does
+    /// not have: the context is one value, built eagerly, and the correlation is one of its
+    /// fields. Nothing observable to a caller rests on the draw either — the source is a
+    /// CSPRNG — and `ExternalKeyExists` is now reachable here on every revoked key, which is
+    /// what makes the refused attempts routine rather than exceptional.
     ///
     /// # Errors
     ///
@@ -2357,61 +2372,24 @@ where
         if denied.clause != FederationClause::LinkAbsent || !connection.jit_provisioning {
             return Err(Refusal::from(&denied));
         }
-        // And the clause is not enough by itself: it is two conditions under one name, and
-        // only one of them may be provisioned into. See [`Deployment::key_holds_no_record`].
-        let Ok(verified) = self.verifier.verify(&connection, &input.proof) else {
-            return Err(Refusal::from(&denied));
-        };
-        if !self.key_holds_no_record(&connection, verified.subject()) {
-            return Err(Refusal::from(&denied));
-        }
+        // And the clause is not enough by itself: it is two conditions under one name —
+        // never linked, and linked and then revoked — and only one of them may be
+        // provisioned into. **The command decides that, not this adapter.**
+        // `ProvisionExternalPrincipal` refuses `ExternalKeyExists` for a key any record
+        // holds in any lifecycle state (`crates/mandate-federation/src/authenticate.rs`),
+        // including the terminal `Unlinked` one `mandate.federation.UnlinkExternalPrincipal`
+        // moves a link to, so a revoked key creates nothing here: `provisioned` answers
+        // false and the login's own `LinkAbsent` stands.
+        //
+        // This adapter carried a `key_holds_no_record` pre-check of its own until
+        // `story:link-absent-discriminates` moved the condition into the library, where
+        // every composition inherits it rather than one. Deciding it in two places is what
+        // lets them disagree.
         if !self.provisioned(input) {
             return Err(Refusal::from(&denied));
         }
         self.authenticate_once(input)
             .map_err(|refused| Refusal::from(&refused))
-    }
-
-    /// Whether the key this login resolves to holds **no record at all**, in any lifecycle
-    /// state — which is the condition that admits creating one.
-    ///
-    /// **`LinkAbsent` is two conditions under one name.** `authenticate_federation` reads the
-    /// link through [`mandate_federation::LinkStore`], whose `Projection` answer is the
-    /// smallest `Linked` record on the key and `None` otherwise, so the clause fires both for
-    /// a key that was never linked *and* for a key whose every record is `Unlinked` — the
-    /// terminal state `mandate.federation.UnlinkExternalPrincipal` moves a link to
-    /// (`crates/mandate-federation/src/disable.rs`). Only the first may be provisioned into.
-    /// Provisioning on the second answers this domain's one federated revocation by minting a
-    /// **new** `PrincipalId` for the same external subject: the revoked caller returns as a
-    /// different principal, which is not a revocation and which nothing downstream can
-    /// correlate to the principal that was revoked.
-    ///
-    /// `ProvisionExternalPrincipal`'s own `ExternalKeyExists` does not close this: it reads
-    /// the same `Linked`-only port (`crates/mandate-federation/src/authenticate.rs`), so it
-    /// sees a revoked key as free exactly as the login does. The read that tells the two
-    /// apart is over the records themselves, which is [`FederationProjection::links`] keyed
-    /// by [`FederationProjection::key_of`] — the fold's own definition of the key, so this
-    /// cannot drift from the one the command resolved.
-    ///
-    /// The key's organization is the connection's, which is the same value the command
-    /// resolved: `resolve_tenant` refuses `OrganizationMismatch` unless the tenant rule
-    /// resolves to the connection's own binding, so a login that reached `LinkAbsent` reached
-    /// it on this organization.
-    fn key_holds_no_record(
-        &self,
-        connection: &FederationConnection,
-        subject: &ExternalSubject,
-    ) -> bool {
-        let key = ExternalKey {
-            organization_id: connection.organization_id,
-            issuer: connection.issuer.clone(),
-            subject: subject.clone(),
-        };
-        !self
-            .federation
-            .links()
-            .iter()
-            .any(|record| self.federation.key_of(record).as_ref() == Some(&key))
     }
 
     /// Drive `mandate.federation.ProvisionExternalPrincipal` for this login and fold the
@@ -2420,12 +2398,25 @@ where
     /// Answers whether the record the retry resolves through was created: a refused command
     /// and a fold that cannot read the event it emitted are the same thing to the caller,
     /// which is a login that still has no linked principal.
+    ///
+    /// **One identity is drawn per attempt, refused attempts included**, because the whole
+    /// `RequestContext` below is built before the command is called and the correlation is
+    /// one of its fields. The command does not decide against it: `provision_external_principal`
+    /// reads `request.correlation` only inside the accepted outcome it emits, and no refusal
+    /// path there reads the request at all — see [`Deployment::authenticate`], which says
+    /// what a refused attempt does and does not leave behind. Since
+    /// `story:link-absent-discriminates` the command refuses `ExternalKeyExists` for every
+    /// key a revoked record holds, so this is the ordinary path for a revoked subject's every
+    /// login attempt, not an exceptional one.
     fn provisioned(&mut self, input: &decode::AuthenticateFederation) -> bool {
         let request = mandate_federation::RequestContext {
             audience: self.audience(),
             // Minted here, from the deployment's own identity source, for the reason the
             // login's own correlation is minted rather than read: nothing a caller sent may
-            // become the correlation of a persisted record.
+            // become the correlation of a persisted record. Drawn before the command decides
+            // — not because the decision needs it, which it does not, but because this
+            // context is built in one go — so a refusal has consumed one: see this
+            // function's header.
             correlation: CorrelationId::new(self.next_identity().to_string()),
             // As at `Deployment::authenticate_once`: this route authenticates no caller
             // credential, and the nil UUID is what "names none" spells.
