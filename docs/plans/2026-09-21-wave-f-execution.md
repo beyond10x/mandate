@@ -251,3 +251,38 @@ The second adversary pass ran on the login road as one surface (`review/login-ro
 than per unit. Its three cases were amended by the coordinator to the shipped behaviour — the
 correction refuses the whole document set before the socket where the cases expected the first to be
 admitted — and land with `dbd48c7`.
+
+### Evidence destroyed in cleanup, and recovered
+
+`services/control-plane/tests/adversary_login_flags.rs` — the A1 pass against
+`story:served-login-configurable`, 641 lines, six cases — was deleted on 2026-09-22 by a coordinator
+cleanup loop that matched `adversary_*.rs` on the assumption those files were committed. Two of three
+were; this one was not, and it existed in no branch. The loop ran minutes after the coordinator had
+written down, in this session, that this exact file was the one that did not land.
+
+It was reconstructed from the adversary sub-agent's own transcript, which holds the tool calls that
+produced it: one `Write`, one `Edit`, one appended heredoc, replayed in order to the same 641 lines.
+The reconstruction and the script that performs it are archived outside the repository at
+`~/.cache/mandate-evidence-recovery/`.
+
+It is not landed, and re-porting it would duplicate coverage. It does not compile against the
+correction it caused — `dbd48c7` replaced `ConnectionSeed::events` with `ConnectionSeeding::admit`,
+which holds the guards — and `6fbd8b9` ("Refuse a flag document the command behind it would refuse")
+already carries a regression case for each of its six findings in
+`services/control-plane/tests/serve.rs`:
+
+| A1 finding | case that holds it in `serve.rs` |
+|---|---|
+| a repeated `kid` across two key documents is published, naming neither file | `two_key_documents_naming_one_kid_are_refused_naming_both_files` |
+| two connections on one issuer in two organizations are seeded, and the first tenant's logins stop | `two_connection_documents_on_one_issuer_in_two_organizations_are_refused` |
+| a tenant rule naming another organization is seeded, and every login through it is denied | `a_connection_document_resolving_to_another_organization_is_refused` |
+| two documents stating one `connection_id` are both printed as seeded | `two_connection_documents_stating_one_id_are_refused_naming_both_files` |
+| a `link` naming another organization's principal opens a session for it here | `two_connection_documents_linking_one_principal_in_two_organizations_are_refused` |
+| a key document stating one parameter twice publishes one of the two values silently | `a_key_document_stating_one_parameter_twice_is_refused_rather_than_published` |
+
+`cargo test -p mandate-control-plane --test serve` on `f79bf46`: 62 passed, 0 failed, all six above
+green.
+
+What the loss cost is therefore the red evidence, not the coverage. What it showed is that a
+sub-agent's findings live in exactly one place until the coordinator commits them, and that a
+cleanup loop written from memory of what was committed is not a check of what was committed.
