@@ -39,7 +39,7 @@
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
-use std::process::{Child, ChildStderr, Command, Stdio};
+use std::process::{Child, ChildStderr, Command, Output, Stdio};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, channel};
 use std::sync::{Arc, Mutex, OnceLock};
@@ -327,14 +327,36 @@ fn request_target(stream: &TcpStream) -> Option<String> {
 
 // ------------------------------------------------------------------- the flag documents
 
-/// Whether a process id names a run that is **over**.
+/// Whether `procfs` is answering: whether it is a procfs that can be asked whether a
+/// process is running at all.
 ///
-/// `/proc/<pid>` stands for the whole life of a process, zombie included, and is gone once
-/// it has been reaped. A wrong `true` here deletes a live run's documents — this story's own
-/// collision, inverted — so a host with no `/proc` to read is told nothing has finished and
-/// sweeps nothing rather than sweeping everything.
+/// The question is **not** whether `/proc` is a directory. A mount point with nothing
+/// mounted on it is a directory too, every `<procfs>/<pid>` under it is absent, every id
+/// then reads as finished, and the sweep takes the root of every run that is running. That
+/// host is not hypothetical: it is one `mount -t tmpfs none /proc` away, and an adversary
+/// pass built it in a mount namespace and watched this lane's own
+/// [`the_run_root_clears_what_is_finished_and_keeps_what_is_running`] fail inside it.
+///
+/// So the question asked is whether this procfs answers correctly about a process that is
+/// certainly running, and the one process certainly running is **this** one.
+fn procfs_answers(procfs: &Path) -> bool {
+    procfs.join(std::process::id().to_string()).is_dir()
+}
+
+/// Whether `pid` names a run that is **over**, according to `procfs`.
+///
+/// `<procfs>/<pid>` stands for the whole life of a process, zombie included, and is gone
+/// once it has been reaped. A wrong `true` here deletes a live run's documents — this
+/// story's own collision, inverted — so a procfs that is not answering ([`procfs_answers`])
+/// is read as "nothing has finished", and a zombie or an id belonging to another user's
+/// process reads as running, which is the same safe direction.
+fn finished_under(procfs: &Path, pid: u32) -> bool {
+    procfs_answers(procfs) && !procfs.join(pid.to_string()).exists()
+}
+
+/// [`finished_under`], asking the host's own procfs.
 fn finished(pid: u32) -> bool {
-    Path::new("/proc").is_dir() && !Path::new(&format!("/proc/{pid}")).exists()
+    finished_under(Path::new("/proc"), pid)
 }
 
 /// Remove the roots of the runs that are over, leaving every running one standing.
@@ -371,11 +393,36 @@ fn sweep_finished_runs(parent: &Path, mine: u32) {
 /// directory standing under **this** id is cleared rather than written into, because an id
 /// is unique among live processes, so anything left under ours belongs to a process that
 /// has exited and whose id the kernel has since handed to us.
+///
+/// **A removal that was refused is not a removal.** Discarding it left `create_dir_all`
+/// succeeding on the surviving directory and handed this run a root still holding the
+/// previous id-holder's documents — silently, and that is the defect this story exists to
+/// close. A refusal that is not "there was nothing there" stops the run, and the root is
+/// read back empty before it is used, so neither a refusal nor anything else that leaves a
+/// document standing can pass for a clear. The sweep's own discarded result is a different
+/// thing and stays: a root it could not take is one more directory, not this run's state.
 fn run_root_under(parent: &Path, pid: u32) -> PathBuf {
     sweep_finished_runs(parent, pid);
     let root = parent.join(format!("run-{pid}"));
-    let _ = std::fs::remove_dir_all(&root);
+    match std::fs::remove_dir_all(&root) {
+        Ok(()) => {}
+        Err(refused) if refused.kind() == std::io::ErrorKind::NotFound => {}
+        Err(refused) => panic!(
+            "the directory standing under this run's id is cleared before this run writes \
+             into it; removing {} was refused with {refused}",
+            root.display()
+        ),
+    }
     std::fs::create_dir_all(&root).expect("a writable scratch directory");
+    assert!(
+        std::fs::read_dir(&root)
+            .expect("this run's own root is readable")
+            .next()
+            .is_none(),
+        "this run's root starts empty; {} still holds what the process that had this id \
+         before it wrote, and a run reading those documents is reading another run's state",
+        root.display()
+    );
     root
 }
 
@@ -2185,12 +2232,12 @@ fn the_hosts_a_document_lists_are_the_hosts_the_verifier_is_configured_with() {
     );
 }
 
-// ------------------------------------------------- two copies of this binary, at once
+// --------------------------------------------- a second execution of this binary
 
 /// What tells a copy of this binary that it is the second one.
 const SECOND_COPY: &str = "MANDATE_SECOND_COPY";
 
-/// Two copies of this binary, running at once, do not write each other's documents.
+/// A second execution of this binary does not write this run's documents.
 ///
 /// `CARGO_TARGET_TMPDIR` is resolved when this file is **compiled**, so a scratch path
 /// derived from it and from nothing else is the same string in every execution of the
@@ -2202,6 +2249,13 @@ const SECOND_COPY: &str = "MANDATE_SECOND_COPY";
 /// Before `story:per-run-test-scratch` both copies wrote one path, and a case read the
 /// other copy's connection out of what it had written itself. That is what the story's
 /// measured `IssuerMismatch`/`SignatureInvalid` failures were, stated as one assertion.
+///
+/// **The two executions do not overlap, and the case does not need them to.** `output`
+/// returns when the second one has exited, so what is measured is that the two write
+/// different paths — which is decided by the paths and not by the timing, and is the same
+/// answer at any interleaving. Overlapping copies are what
+/// `copies_of_this_lane_run_at_once_and_all_pass` in `tests/end_to_end.rs` runs, and a case
+/// here that raced its own child would report a collision it had not reliably caused.
 #[test]
 fn a_second_copy_of_this_binary_does_not_write_this_runs_documents() {
     const CASE: &str = "two-copies-at-once";
@@ -2244,7 +2298,7 @@ fn a_second_copy_of_this_binary_does_not_write_this_runs_documents() {
     assert_ne!(
         theirs,
         stated(&mine),
-        "two copies of this binary, at once, wrote one path"
+        "a second execution of this binary wrote the path this run writes"
     );
     assert_eq!(
         std::fs::read_to_string(&mine).expect("this run's own document is still readable"),
@@ -2291,10 +2345,37 @@ fn the_run_root_clears_what_is_finished_and_keeps_what_is_running() {
         .expect("a copy of this binary runs");
     let over = copy.id();
     let finished = copy.wait_with_output().expect("the copy is waited on");
+    let printed = String::from_utf8_lossy(&finished.stdout);
     assert!(
         finished.status.success(),
-        "the copy passed; its stderr: {}",
+        "the copy passed; it printed {printed} and {}",
         String::from_utf8_lossy(&finished.stderr)
+    );
+    assert!(
+        printed.contains("second-copy-document="),
+        "the copy ran the case it was filtered to and wrote a document. A filter that selects \
+         no case exits 0, so without this the run whose id is read below could be a process \
+         that did nothing. It printed: {printed}"
+    );
+
+    // What [`finished`] reads is a procfs, and the three answers it can give are decided
+    // here against directories this case builds, so the branch needs no sandbox to drive.
+    let answering = parent.join("procfs-answering");
+    std::fs::create_dir_all(answering.join(mine.to_string())).expect("a writable fixture");
+    let mount_point = parent.join("procfs-nothing-mounted");
+    std::fs::create_dir_all(&mount_point).expect("a writable fixture");
+    assert!(
+        !finished_under(&mount_point, over),
+        "a `/proc` that is a directory with nothing mounted on it answers about no process \
+         at all, so no run is claimed to have finished and the sweep takes nothing"
+    );
+    assert!(
+        finished_under(&answering, over),
+        "a procfs that answers, and carries no entry for run {over}, says that run is over"
+    );
+    assert!(
+        !finished_under(&answering, mine),
+        "a procfs that carries an entry for this run says this run is running"
     );
 
     let of_a_finished_run = parent.join(format!("run-{over}"));
@@ -2309,7 +2390,7 @@ fn the_run_root_clears_what_is_finished_and_keeps_what_is_running() {
 
     // Where there is no `/proc` to read, no run is claimed to have finished and none is
     // swept: a wrong answer deletes a live run's documents, so absence answers "keep".
-    let swept = Path::new("/proc").is_dir();
+    let swept = procfs_answers(Path::new("/proc"));
     assert_eq!(
         of_a_finished_run.exists(),
         !swept,
@@ -2331,6 +2412,33 @@ fn the_run_root_clears_what_is_finished_and_keeps_what_is_running() {
          exited and whose id was handed on; it is cleared, not written into"
     );
     assert!(root.is_dir(), "this run's root is created");
+
+    // A removal that is refused is not a removal, and the run stops there rather than
+    // writing into a root it did not clear. The refusal is built from a mode that denies
+    // it; where this process can delete through that mode anyway — running as root — there
+    // is nothing to refuse, and the assertion reads the other way rather than being skipped.
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        let denying = parent.join("clear-refused");
+        let held = denying.join(format!("run-{mine}"));
+        std::fs::create_dir_all(held.join("standing")).expect("a writable fixture");
+        std::fs::set_permissions(&held, std::fs::Permissions::from_mode(0o500))
+            .expect("the fixture's mode is set");
+        let refuses = std::fs::create_dir(held.join("probe")).is_err();
+        let cleared = std::panic::catch_unwind(|| run_root_under(&denying, mine));
+        std::fs::set_permissions(&held, std::fs::Permissions::from_mode(0o700))
+            .expect("the fixture's mode is restored");
+        assert_eq!(
+            cleared.is_err(),
+            refuses,
+            "a run whose own root could not be cleared stops there rather than writing into \
+             a directory that still holds another run's documents; this host {} deny the \
+             removal",
+            if refuses { "does" } else { "does not" }
+        );
+    }
 }
 
 // ---------------------------------------- adversary pass 1, `story:per-run-test-scratch`
@@ -2406,9 +2514,9 @@ fn a_finished_runs_scratch_root_does_not_outlive_the_next_run() {
     );
 
     let standing: Vec<&PathBuf> = roots.iter().filter(|root| root.exists()).collect();
-    // A host with no `/proc` to read is told nothing has finished and sweeps nothing, which
-    // is the safe answer rather than the tidy one; there the four roots stand.
-    let expected = if Path::new("/proc").is_dir() {
+    // A host whose procfs does not answer is told nothing has finished and sweeps nothing,
+    // which is the safe answer rather than the tidy one; there the four roots stand.
+    let expected = if procfs_answers(Path::new("/proc")) {
         0
     } else {
         COPIES
@@ -2427,34 +2535,137 @@ fn a_finished_runs_scratch_root_does_not_outlive_the_next_run() {
 /// What tells a copy of this binary that it is one of the concurrent copies below.
 const CONCURRENT_COPY: &str = "MANDATE_ADVERSARY_CONCURRENT_COPY";
 
-/// Two copies of this lane, run at once, both pass — the story's `## Acceptance`, asserted.
+/// The cases a copy of this lane is told **not** to run, because each of them starts copies
+/// of this binary itself and a copy that ran them would multiply.
+///
+/// This list is the one place the names are written. It used to be written twice — once in
+/// the acceptance case's arguments and once in an English count in its comment — and the
+/// correction that added a third self-starting case updated neither, so forty copies ran a
+/// case that spawns a child apiece. A list two readers share cannot drift from itself, and
+/// [`cases_a_copy_runs`] refuses a name this binary does not have.
+const CASES_A_COPY_SKIPS: [&str; 3] = [
+    "the_run_root_clears_what_is_finished_and_keeps_what_is_running",
+    "a_finished_runs_scratch_root_does_not_outlive_the_next_run",
+    "copies_of_this_lane_run_at_once_and_all_pass",
+];
+
+/// The arguments every copy of this lane is started with.
+fn copy_arguments() -> Vec<String> {
+    CASES_A_COPY_SKIPS
+        .iter()
+        .flat_map(|skipped| ["--skip".to_owned(), (*skipped).to_owned()])
+        .collect()
+}
+
+/// How many cases one copy of this lane runs: every case this binary has, less the ones a
+/// copy is told to skip.
+///
+/// Read from libtest's own `--list` rather than counted by hand, because a number written
+/// into a comment is a number that stops being true the next time a case is added — which
+/// is exactly what happened to the comment this replaces. The names in
+/// [`CASES_A_COPY_SKIPS`] are checked against that listing here, because a `--skip` naming
+/// a case that does not exist skips nothing and says nothing.
+fn cases_a_copy_runs() -> usize {
+    let listed = Command::new(std::env::current_exe().expect("this test binary's own path"))
+        .args(["--list", "--format", "terse"])
+        .output()
+        .expect("libtest lists this binary's cases");
+    let printed = String::from_utf8_lossy(&listed.stdout);
+    let names: Vec<&str> = printed
+        .lines()
+        .filter_map(|line| line.strip_suffix(": test"))
+        .collect();
+    assert!(
+        names.len() > CASES_A_COPY_SKIPS.len(),
+        "libtest listed this binary's cases; it printed {printed}"
+    );
+    for skipped in CASES_A_COPY_SKIPS {
+        assert!(
+            names.contains(&skipped),
+            "{skipped} is a case this binary has. A copy is told to skip it by name, and a \
+             name that matches nothing skips nothing; the listing was {names:?}"
+        );
+    }
+    names.len() - CASES_A_COPY_SKIPS.len()
+}
+
+/// Whether one copy of this lane **passed** it, and why not when it did not.
+///
+/// Exit status and `0 failed` are not enough on their own: `test result: ok. 0 passed;
+/// 0 failed` is what libtest prints for a filter that selected nothing, and it exits 0. A
+/// copy that ran no case has not passed the lane, so the number of cases it reports is
+/// compared with the number its own arguments select.
+fn copy_passed(finished: &Output, expected: usize) -> Result<(), String> {
+    let printed = String::from_utf8_lossy(&finished.stdout);
+    let summary = printed
+        .lines()
+        .find(|line| line.starts_with("test result:"))
+        .unwrap_or("<no summary was printed>");
+    // What a copy prints when a case in it fails: the reason belongs in this message, or a
+    // copy's failure is reported as a number and read back as a mystery.
+    let why = printed
+        .lines()
+        .skip_while(|line| !line.starts_with("---- "))
+        .take(6)
+        .collect::<Vec<&str>>()
+        .join(" / ");
+    if !finished.status.success() {
+        return Err(format!(
+            "it exited {:?} and said {summary}. It printed: {why}. Its stderr: {}",
+            finished.status.code(),
+            String::from_utf8_lossy(&finished.stderr)
+        ));
+    }
+    if !summary.contains("0 failed") {
+        return Err(format!(
+            "it reported a failing case and said {summary}. It printed: {why}"
+        ));
+    }
+    // `test result: ok. 21 passed; 0 failed; …` — the count is the word before `passed`,
+    // and libtest writes the separator onto the word itself.
+    let ran: Option<usize> = summary
+        .split_whitespace()
+        .collect::<Vec<&str>>()
+        .windows(2)
+        .find(|pair| pair[1].trim_end_matches(';') == "passed")
+        .and_then(|pair| pair[0].parse().ok());
+    match ran {
+        Some(ran) if ran == expected => Ok(()),
+        Some(ran) => Err(format!(
+            "it ran {ran} of the {expected} cases its own arguments select, so it did not \
+             run this lane; it said {summary}"
+        )),
+        None => Err(format!("it printed no case count; it said {summary}")),
+    }
+}
+
+/// Copies of this lane, run at once, all pass — the story's `## Acceptance`, asserted.
 ///
 /// The acceptance statement is "two copies of `end_to_end` run concurrently and both pass,
-/// repeated enough times to mean something". The lane's own new case measures one path
-/// against one other path; it says nothing about whether the lane as a whole survives a
-/// second copy of itself, which is what the story asks for and what the discarded harness
-/// measured.
+/// repeated enough times to mean something, with the count reported". **Four** copies are
+/// started at once and waited on together, ten times: forty runs of the lane, each one
+/// overlapping three others. The lane's own [`a_second_copy_of_this_binary_does_not_write_this_runs_documents`]
+/// measures one path against one other path and says nothing about whether the lane as a
+/// whole survives a copy of itself, which is what the story asks for.
 ///
-/// Each copy skips the two cases this adversary pass added, so what runs in a copy is the
-/// lane exactly as the unit left it: eighteen cases, and the copy reports `0 failed`.
+/// What a copy runs is every case in this file less [`CASES_A_COPY_SKIPS`], and how many
+/// that is, is read from libtest rather than written down here. Each copy is held to
+/// [`copy_passed`]: exit status, no failing case, **and** the number of cases its arguments
+/// select, so a copy that ran nothing cannot pass for a copy that passed.
 #[test]
-fn two_copies_of_this_lane_run_at_once_and_both_pass() {
+fn copies_of_this_lane_run_at_once_and_all_pass() {
     if std::env::var_os(CONCURRENT_COPY).is_some() {
         return;
     }
     const ROUNDS: usize = 10;
     const COPIES: usize = 4;
+    let expected = cases_a_copy_runs();
 
     for round in 0..ROUNDS {
         let running: Vec<Child> = (0..COPIES)
             .map(|_| {
                 Command::new(std::env::current_exe().expect("this test binary's own path"))
-                    .args([
-                        "--skip",
-                        "a_finished_runs_scratch_root_does_not_outlive_the_next_run",
-                        "--skip",
-                        "two_copies_of_this_lane_run_at_once_and_both_pass",
-                    ])
+                    .args(copy_arguments())
                     .env(CONCURRENT_COPY, "1")
                     .stdout(Stdio::piped())
                     .stderr(Stdio::piped())
@@ -2467,22 +2678,194 @@ fn two_copies_of_this_lane_run_at_once_and_both_pass() {
             let finished = child
                 .wait_with_output()
                 .expect("a copy of this lane is waited on");
-            let printed = String::from_utf8_lossy(&finished.stdout);
-            let summary = printed
-                .lines()
-                .find(|line| line.starts_with("test result:"))
-                .unwrap_or("<no summary was printed>")
-                .to_string();
-            assert!(
-                finished.status.success(),
-                "round {round}, copy {copy} of this lane passed while the other copy of it \
-                 ran. It said {summary}. Its stderr: {}",
-                String::from_utf8_lossy(&finished.stderr)
-            );
-            assert!(
-                summary.contains("0 failed"),
-                "round {round}, copy {copy} reports no failing case; it said {summary}"
-            );
+            if let Err(why) = copy_passed(&finished, expected) {
+                panic!(
+                    "round {round}, copy {copy} of this lane did not pass it while the other \
+                     copies ran: {why}"
+                );
+            }
         }
     }
+}
+
+// ---------------------------------------- adversary pass 2, `story:per-run-test-scratch`
+
+/// A copy started by [`copies_of_this_lane_run_at_once_and_all_pass`] runs no case that
+/// starts copies of its own.
+///
+/// This case is the adversary's, and what it found was drift between a list of names and a
+/// count of them written in English beside it: the acceptance case's comment read "the lane
+/// exactly as the unit left it: eighteen cases", the correction at `d08e7f4` added a
+/// nineteenth — [`the_run_root_clears_what_is_finished_and_keeps_what_is_running`], which
+/// spawns a child apiece — and neither the `--skip` list nor the count was updated, so all
+/// forty copies ran it.
+///
+/// The answer is that neither the list nor the count is written twice any more:
+/// [`CASES_A_COPY_SKIPS`] is the one list, [`copy_arguments`] is what every copy is started
+/// with, and [`cases_a_copy_runs`] reads the number from libtest. This case starts a copy
+/// **with those arguments** rather than with a transcription of them, and reads back the
+/// names libtest reports, so a name added to the list without a case, or a case added
+/// without the list, is red here.
+#[test]
+fn a_copy_started_by_the_acceptance_case_runs_only_the_lane_the_unit_left() {
+    if std::env::var_os(CONCURRENT_COPY).is_some() || std::env::var_os(SECOND_COPY).is_some() {
+        return;
+    }
+
+    let copy = Command::new(std::env::current_exe().expect("this test binary's own path"))
+        .args(copy_arguments())
+        .env(CONCURRENT_COPY, "1")
+        .output()
+        .expect("a copy of this lane runs");
+    let printed = String::from_utf8_lossy(&copy.stdout);
+    let ran: Vec<&str> = printed
+        .lines()
+        .filter_map(|line| line.strip_prefix("test "))
+        .filter_map(|line| line.split_once(" ... "))
+        .map(|(name, _)| name)
+        .collect();
+    assert!(
+        !ran.is_empty(),
+        "the copy reported the cases it ran. A filter that selects no case exits 0 and \
+         proves nothing. It printed: {printed}"
+    );
+    for skipped in CASES_A_COPY_SKIPS {
+        assert!(
+            !ran.contains(&skipped),
+            "a copy started with the acceptance case's own arguments ran {skipped}, which \
+             starts copies of this binary itself; forty copies of the lane would then be \
+             forty more processes than the case accounts for. It ran {} cases: {ran:?}",
+            ran.len()
+        );
+    }
+    assert_eq!(
+        ran.len(),
+        cases_a_copy_runs(),
+        "a copy runs every case this binary has, less the ones it is told to skip. It ran \
+         {ran:?}"
+    );
+}
+
+/// The check [`copies_of_this_lane_run_at_once_and_all_pass`] applies to each copy tells a
+/// copy that passed the lane from a copy that ran **no case at all**.
+///
+/// This case is the adversary's. The check it found accepted a copy on
+/// `finished.status.success()` and `summary.contains("0 failed")`, and a libtest filter that
+/// selects nothing prints `test result: ok. 0 passed; 0 failed; ...` and exits 0 — so both
+/// held for a copy that executed nothing, while the acceptance statement is "two copies of
+/// `end_to_end` run concurrently and **both pass**".
+/// [`a_second_copy_of_this_binary_does_not_write_this_runs_documents`] guards exactly this
+/// hazard in its own `unwrap_or_else`; the acceptance case did not.
+///
+/// It does now, in [`copy_passed`], which compares the number of cases a copy reports with
+/// the number its own arguments select. This case builds the copy that ran nothing and
+/// **calls that check** rather than restating it — a restated check is what the adversary's
+/// other case caught drifting, and a copy of this one would drift the same way.
+#[test]
+fn the_acceptance_cases_check_of_a_copy_rejects_a_copy_that_ran_no_case() {
+    if std::env::var_os(CONCURRENT_COPY).is_some() || std::env::var_os(SECOND_COPY).is_some() {
+        return;
+    }
+
+    let ran_nothing = Command::new(std::env::current_exe().expect("this test binary's own path"))
+        .args(["--exact", "a_case_this_lane_does_not_have"])
+        .env(CONCURRENT_COPY, "1")
+        .output()
+        .expect("a copy of this lane runs");
+    let printed = String::from_utf8_lossy(&ran_nothing.stdout);
+    let summary = printed
+        .lines()
+        .find(|line| line.starts_with("test result:"))
+        .unwrap_or("<no summary was printed>")
+        .to_string();
+    assert!(
+        ran_nothing.status.success() && summary.contains("0 failed"),
+        "the copy that ran nothing is the one this case is about: libtest exits 0 for it and \
+         says `0 failed`. It said {summary}"
+    );
+
+    let accepted = copy_passed(&ran_nothing, cases_a_copy_runs()).is_ok();
+    assert!(
+        !accepted,
+        "the check copies_of_this_lane_run_at_once_and_all_pass applies to each copy accepted \
+         a copy that executed no case at all. It said {summary}. A copy that ran nothing has \
+         not passed the lane, so that check cannot tell the story's `## Acceptance` from a \
+         filter that matched nothing"
+    );
+}
+
+/// [`finished`] answers **not finished** where there is no `/proc` to read, so the sweep takes
+/// nothing rather than everything.
+///
+/// That is the contract [`finished`]'s own doc comment states: "A wrong `true` here deletes a
+/// live run's documents — this story's own collision, inverted".
+///
+/// The guard it was written with, `Path::new("/proc").is_dir()`, asked whether the
+/// **directory** `/proc` exists, not whether procfs is mounted on it. A mount point with
+/// nothing mounted on it is a directory, so on such a host that guard passed, every
+/// `/proc/<pid>` was absent, every live run read as finished, and the sweep removed the root
+/// of every run that was running — which is what this case measured when it was written, and
+/// what the assertion below reports if it ever holds again. It asks
+/// [`procfs_answers`] instead now: whether this procfs carries an entry for a process that is
+/// certainly running, namely the asking one.
+///
+/// The host is built here rather than waited for: a private mount namespace with an empty
+/// `tmpfs` over `/proc` and another over this lane's scratch parent, so the sandboxed run
+/// touches no directory of the run that started it. `/proc/self/exe` is supplied as a symlink
+/// because `std::env::current_exe` reads it. Where the namespace cannot be built — no
+/// `unshare`, no unprivileged user namespaces — this case says so and returns.
+#[test]
+fn a_host_whose_proc_is_not_mounted_sweeps_nothing_rather_than_everything() {
+    if std::env::var_os(CONCURRENT_COPY).is_some() || std::env::var_os(SECOND_COPY).is_some() {
+        return;
+    }
+
+    let exe = std::env::current_exe().expect("this test binary's own path");
+    let exe = exe.display();
+    let parent = Path::new(env!("CARGO_TARGET_TMPDIR")).join("end-to-end");
+    std::fs::create_dir_all(&parent).expect("a writable scratch directory");
+    let parent = parent.display();
+    let script = format!(
+        "mount -t tmpfs none '{parent}' || exit 98; \
+         mount -t tmpfs none /proc || exit 98; \
+         mkdir -p /proc/self || exit 98; \
+         ln -s '{exe}' /proc/self/exe || exit 98; \
+         exec '{exe}' --exact \
+         the_run_root_clears_what_is_finished_and_keeps_what_is_running --nocapture"
+    );
+    let sandboxed = Command::new("unshare")
+        .args([
+            "--user",
+            "--map-root-user",
+            "--mount",
+            "--propagation",
+            "private",
+            "/bin/sh",
+            "-c",
+            &script,
+        ])
+        .output();
+    let Ok(sandboxed) = sandboxed else {
+        println!("no `unshare` on this host; the sandbox this case needs cannot be built");
+        return;
+    };
+    let printed = String::from_utf8_lossy(&sandboxed.stdout);
+    if !printed.contains("test result:") {
+        println!(
+            "the sandbox this case needs cannot be built here, so nothing was measured. \
+             unshare said: {}",
+            String::from_utf8_lossy(&sandboxed.stderr)
+        );
+        return;
+    }
+
+    assert!(
+        sandboxed.status.success(),
+        "on a host whose `/proc` is a directory with nothing mounted on it, this lane's own \
+         the_run_root_clears_what_is_finished_and_keeps_what_is_running fails: `finished` \
+         answers **finished** for every live process id, so the sweep removes the root of a \
+         run that is running. Its doc comment says the opposite — that such a host `sweeps \
+         nothing rather than sweeping everything`. It printed: {printed} and {}",
+        String::from_utf8_lossy(&sandboxed.stderr)
+    );
 }
