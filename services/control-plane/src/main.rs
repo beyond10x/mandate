@@ -14,6 +14,14 @@
 //! the target cannot call the three routes that select on them, so each is written to stdout
 //! before the listener binds — readable whether or not the bind succeeds.
 //!
+//! **And so is the address.** `--listen` may name port `0`, which asks the kernel for
+//! whichever port is free and leaves only the bound socket knowing which that was, so the
+//! address is written to stdout once `Listener::bind` has succeeded and before anything is
+//! served. A caller that instead had to *choose* a port bound one, read it and released it
+//! before handing it over, and in the interval between that release and this process's bind
+//! the port was free for anything on the machine to take — a window no code here could
+//! close, because none of it runs during the window. There is nothing to choose now.
+//!
 //! **The documents are decided together, by the commands they are the inputs of.** Every
 //! guard `RegisterFederationConnection` states is a guard about the connections already
 //! held, so `--connection` documents are admitted one at a time against a fold of the ones
@@ -315,6 +323,20 @@ fn serve(serving: &Serving) -> Result<(), Refused> {
 
     let listener = Listener::bind(serving.listen, Limits::default())
         .map_err(|error| Refused::Start(Box::new(error)))?;
+    // The address the socket **has**, which is not always the one `--listen` named: port 0
+    // is a request for whichever port the kernel has free, and only the bound socket knows
+    // which that was. Printed after the bind and before a byte is served, so a caller learns
+    // it from a process that already holds it.
+    //
+    // **This is what closes the window.** A caller that needed a port had to bind one
+    // itself, read it, release it and pass it here — and between the release and this bind
+    // the port belonged to nobody, so any process on the machine could take it. Nothing
+    // this process does could shorten that window, because the window is outside it. Saying
+    // which port was bound removes the need to choose one.
+    let bound = listener
+        .local_addr()
+        .map_err(|error| Refused::Start(Box::new(error)))?;
+    println!("mandate-control-plane: listening on {bound}");
     listener
         .serve(&mut deployment)
         .map_err(|error| Refused::Start(Box::new(error)))?;
