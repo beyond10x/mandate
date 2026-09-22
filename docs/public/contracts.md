@@ -26,7 +26,7 @@ The same specification generates a complete Markdown reference:
 
 ESS generates command-oriented OpenAPI references for the [control plane](https://beyond10x.github.io/api/mandate/control-plane/), [authorization service](https://beyond10x.github.io/api/mandate/authorization/), [STS](https://beyond10x.github.io/api/mandate/sts/), and [worker](https://beyond10x.github.io/api/mandate/worker/).
 
-Generated command routes are contract projections. They do not implement product routes, OAuth token exchange, authorization-code/PKCE, introspection, SCIM, or federation protocols. Those adapters are required implementation work. S256 is the initial PKCE policy; device authorization remains deferred.
+Generated command routes are contract projections and are never served as product endpoints. The product routes are implemented separately, in `mandate-server` and `mandate-proto`, and the control plane serves six of them today: `/v1/federation/login`, `/oauth/authorize`, `/oauth/token`, `/oauth/introspect`, `/oauth/jwks` and `/.well-known/oauth-authorization-server`. Authorization-code redemption with S256 PKCE, introspection and the metadata and JWKS documents are implemented; token exchange, SCIM, SAML and the federation protocols a customer's administrator would call are not. Device authorization remains deferred.
 
 ## Unsettled semantics remain visible
 
