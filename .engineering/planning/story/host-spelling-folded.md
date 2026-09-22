@@ -2,12 +2,19 @@
 format: aep.planning-md/1
 id: story:host-spelling-folded
 kind: story
-status: draft
+status: implemented
 title: Both halves of the SSRF check fold the same host spellings
 relations:
 - decomposes: epic:hardening
 - serves: vision:mandate
-revision: 1
+scope:
+- confidence: cited
+  path: crates/mandate-federation/src/verifier_real.rs
+- confidence: inferred
+  path: crates/mandate-federation/tests/adversary_verifier_2.rs
+- confidence: cited
+  path: crates/mandate-federation/tests/verifier_real.rs
+revision: 9
 ---
 # Every spelling of a host is folded before both checks, not before one
 
@@ -68,5 +75,49 @@ answer for it.
 
 ## Out of scope
 
-Widening or narrowing what `admits` allows. The scheme and host-list rules are
-right; this is about which host they are asked about.
+The scheme and host-list rules are right; this story is about which host they are asked about, and
+`listed`'s comparison against a host a deployment wrote down stays exact.
+
+**What was written here and is now false:** *"Widening or narrowing what `admits` allows."* The
+shipped change does both, and it could not answer its own finding otherwise — folding the issuer's
+own-origin comparison is what makes one host get one answer, and any consistent fold moves something.
+Measured over 12,168 decisions (39 × 39 spellings × 2 schemes × 4 host lists), wave base → head: 241
+move refused → admitted, every one through the issuer's own-origin comparison; 716 move admitted →
+refused, every one an address literal spelled with a trailing dot. Zero move into the containment
+branch. Corrected by the coordinator at wave H's close, on adversary pass 2's finding.
+
+Still out of scope: refusing the spellings the guard does not agree about. `0`, `127.1`,
+`2130706433`, `0177.0.0.1`, `127.0.0.001` and the percent-encoded forms are recorded in the test
+module's own documentation rather than refused, because refusing them widens the guard instead of
+agreeing which host it was asked about. So is `folded` not being a general address fold, which
+`story:folded-is-not-an-address-fold` now carries.
+
+## Scope
+
+Derived 2026-09-22 by `story-scoper`. Every line is **cited** (read from the story or the tree) or
+**inferred** (a reading that could be wrong).
+
+- **Primary surface:** `crates/mandate-federation` — cited, the acceptance is `cargo test -p
+  mandate-federation --locked`
+- **Files:** `crates/mandate-federation/src/verifier_real.rs:318,484,498` — cited, `admits`,
+  `literal_address` and `loopback` are all in this one file
+- **Files:** `crates/mandate-federation/tests/verifier_real.rs:2179` — cited,
+  `a_listed_host_that_spells_the_loopback_interface_is_refused` already enumerates `localhost.`,
+  `localhost..`, `127.0.0.1` and `[::1]`, and is where the table's rows and the missing `127.0.0.1.`
+  row land
+- **Symbols:** `UreqJwks::admits`, `literal_address`, `loopback` — cited
+- **Symbols:** `origin` / `Uri::host` (`src/verifier_real.rs:414`) — inferred, it already lowercases
+  the host and strips IPv6 brackets, so it is the other candidate site for the one folded name
+- **Also likely:** `crates/mandate-federation/tests/adversary_verifier_2.rs` — inferred, it holds the
+  same guard's other spelling cases (`:425` `localhost.`/`localhost.localdomain`, `:474`
+  `[::1]`/`[::ffff:127.0.0.1]`) that the enumeration must be measured against
+- **Documents:** none — cited, the acceptance records the enumeration in the test module's own `//!`
+  documentation, and `docs/public/federated-login.md:135` states a rule the fix does not change
+- **The story's `admits` citation is off by a branch** — cited, it says `:326`, which is the
+  issuer-own-origin return; the signature is `:318` and the branch where the two checks disagree is
+  `:328-331`. `loopback()` at `:498` is exact.
+- **Confidence:** high — the story names the defect site, both functions were read at the cited lines,
+  and the acceptance names the crate
+- **Would collide with:** any unit touching `mandate-federation`'s JWKS destination guard in
+  `src/verifier_real.rs` (`origin`, `listed`, `literal_address`, `loopback`, `admits`) or the single
+  2.4k-line `tests/verifier_real.rs`

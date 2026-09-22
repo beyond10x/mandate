@@ -6,7 +6,7 @@ status: draft
 title: Coordinate shared runtime gates, dependencies and fixture isolation
 relations:
 - derived_from: initiative:next-ten-waves
-revision: 5
+revision: 6
 ---
 # Coordinate shared runtime integration surfaces
 
@@ -46,3 +46,22 @@ The four plan critics of 2026-09-18 cited absolute worktree paths under the oper
 - Event log: `eventlog-core` and `eventlog-sqlite` from `https://github.com/beyond10x/eventlog.git` at tag `0.2.1` (`docs/adr/0009-event-sourced-persistence.md`). First consumers `crates/mandate-provisioning` and `services/worker` under `story:directory-provenance`, execution wave 3 (forecast wave 4). `deny.toml` `[sources]` gains the git allow entry; `dependency-boundaries.json` gains the two arrays.
 - Open: `decision-blocker:audit-routing` carries no operator decision. `story:audit-client` (execution wave 4) does not dispatch before one is recorded.
 - Branch for execution wave 3: `integration/wave-20260918-004`, cut from `20f354d` (tree equals `main` at `46167f6`, zero-line diff), for the reason recorded above.
+
+## Event log, 2026-09-22
+
+The kit is pinned and consumed by nothing. `Cargo.toml:22-23` carries `eventlog-core` and
+`eventlog-sqlite` at `0.2.1`; `services/worker` and `crates/mandate-provisioning` name them in their
+manifests; no `.rs` file in this repository references either. Every fold is hand-written and
+synchronous.
+
+The reason is one admission that was deferred and never taken: the kit's surface is async and this
+workspace admits no runtime. It was recorded as stop condition **S1** in
+`docs/plans/2026-09-18-wave-3-execution.md:13` — *"`tokio` admitted nowhere though every
+`eventlog-sqlite` call needs a runtime"* — as a coordinator admission before the next dispatch. Four
+waves have run since. It is now `decision-blocker:async-runtime`, which blocks
+`story:domain-folds-over-the-kit`.
+
+`0.3.0` was tagged 2026-09-22 and is additive — `Added`, `Changed`, `Fixed`, `Known`, no `Removed`.
+It does not change this: `EventStore` is async at `0.3.0` exactly as at `0.2.1`, and
+`SqliteEventStore::in_memory` is still `pub async fn`. The repin is `story:eventlog-repin-0-3-0` and
+is hygiene, not the wiring.

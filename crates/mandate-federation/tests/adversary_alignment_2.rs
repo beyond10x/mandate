@@ -24,8 +24,7 @@ use mandate_federation::record::{
 };
 use mandate_federation::verifier::{ConstructedVerifier, VerifiedProof};
 use mandate_federation::{
-    LinkStore, PrincipalState, RecordedPrincipals, RecordingSessionIssuer, RequestContext,
-    SequentialAllocator,
+    PrincipalState, RecordedPrincipals, RecordingSessionIssuer, RequestContext, SequentialAllocator,
 };
 use mandate_model::TenantResolutionRule;
 use mandate_types::value::Uuid;

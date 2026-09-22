@@ -46,6 +46,7 @@
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::OnceLock;
 
 use mandate_control_plane::adapters::{
     AuthorizationRefusal, Configuration, Deployment, Login, SeededResourceServer,
@@ -82,12 +83,131 @@ const ONE_ORGANIZATION: &str = "0b5d5a4c-0000-4000-8000-0000000000a9";
 const TARGET_ONE: &str = "0b5d5a4c-0000-4000-8000-00000000a501";
 const TARGET_TWO: &str = "0b5d5a4c-0000-4000-8000-00000000a502";
 
-/// Where one case's flag documents are written: cargo's own per-target scratch directory,
-/// inside the build tree, one directory per case so two cases cannot read each other's.
+/// Whether `procfs` is answering: whether it is a procfs that can be asked whether a
+/// process is running at all.
+///
+/// The question is **not** whether `/proc` is a directory. A mount point with nothing
+/// mounted on it is a directory too, every `<procfs>/<pid>` under it is absent, every id
+/// then reads as finished, and the sweep takes the root of every run that is running. That
+/// host is not hypothetical: it is one `mount -t tmpfs none /proc` away, and an adversary
+/// pass built it in a mount namespace and watched `tests/end_to_end.rs`'s own
+/// [`the_run_root_clears_what_is_finished_and_keeps_what_is_running`] fail inside it.
+///
+/// So the question asked is whether this procfs answers correctly about a process that is
+/// certainly running, and the one process certainly running is **this** one.
+fn procfs_answers(procfs: &Path) -> bool {
+    procfs.join(std::process::id().to_string()).is_dir()
+}
+
+/// Whether `pid` names a run that is **over**, according to `procfs`.
+///
+/// `<procfs>/<pid>` stands for the whole life of a process, zombie included, and is gone
+/// once it has been reaped. A wrong `true` here deletes a live run's documents — this
+/// story's own collision, inverted — so a procfs that is not answering ([`procfs_answers`])
+/// is read as "nothing has finished", and a zombie or an id belonging to another user's
+/// process reads as running, which is the same safe direction.
+fn finished_under(procfs: &Path, pid: u32) -> bool {
+    procfs_answers(procfs) && !procfs.join(pid.to_string()).exists()
+}
+
+/// [`finished_under`], asking the host's own procfs.
+fn finished(pid: u32) -> bool {
+    finished_under(Path::new("/proc"), pid)
+}
+
+/// Remove the roots of the runs that are over, leaving every running one standing.
+///
+/// A run can only ever clear a directory named for **its own** id, so without this the
+/// parent gains one directory for every id that has ever run this binary; the adversary
+/// measured `target/tmp` at 644 MB and 6,179 entries across one pass. `mine` is skipped
+/// because this process is alive and its own root is its own to clear.
+fn sweep_finished_runs(parent: &Path, mine: u32) {
+    let Ok(entries) = std::fs::read_dir(parent) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let named = entry.file_name();
+        let Some(pid) = named
+            .to_str()
+            .and_then(|named| named.strip_prefix("run-"))
+            .and_then(|pid| pid.parse::<u32>().ok())
+        else {
+            continue;
+        };
+        if pid != mine && finished(pid) {
+            let _ = std::fs::remove_dir_all(entry.path());
+        }
+    }
+}
+
+/// The scratch root of one run: `parent`, then a directory named for the id of the process
+/// that owns it.
+///
+/// Two things happen here and [`the_run_root_clears_what_is_finished_and_keeps_what_is_running`]
+/// decides each of them: the roots of runs that are **over** are swept, so the parent holds
+/// the runs that are running rather than every id that has ever run this binary; and a
+/// directory standing under **this** id is cleared rather than written into, because an id
+/// is unique among live processes, so anything left under ours belongs to a process that
+/// has exited and whose id the kernel has since handed to us.
+///
+/// **A removal that was refused is not a removal.** Discarding it left `create_dir_all`
+/// succeeding on the surviving directory and handed this run a root still holding the
+/// previous id-holder's documents — silently, and that is the defect this story exists to
+/// close. A refusal that is not "there was nothing there" stops the run, and the root is
+/// read back empty before it is used, so neither a refusal nor anything else that leaves a
+/// document standing can pass for a clear. The sweep's own discarded result is a different
+/// thing and stays: a root it could not take is one more directory, not this run's state.
+fn run_root_under(parent: &Path, pid: u32) -> PathBuf {
+    sweep_finished_runs(parent, pid);
+    let root = parent.join(format!("run-{pid}"));
+    match std::fs::remove_dir_all(&root) {
+        Ok(()) => {}
+        Err(refused) if refused.kind() == std::io::ErrorKind::NotFound => {}
+        Err(refused) => panic!(
+            "the directory standing under this run's id is cleared before this run writes \
+             into it; removing {} was refused with {refused}",
+            root.display()
+        ),
+    }
+    std::fs::create_dir_all(&root).expect("a writable scratch directory");
+    assert!(
+        std::fs::read_dir(&root)
+            .expect("this run's own root is readable")
+            .next()
+            .is_none(),
+        "this run's root starts empty; {} still holds what the process that had this id \
+         before it wrote, and a run reading those documents is reading another run's state",
+        root.display()
+    );
+    root
+}
+
+/// Where **this execution** writes: cargo's own per-target scratch directory, inside the
+/// build tree, then this run's own root ([`run_root_under`]).
+///
+/// `env!("CARGO_TARGET_TMPDIR")` is resolved when this file is **compiled**, so every
+/// execution of this binary reads one string and two copies running at once would write
+/// one set of paths (`story:per-run-test-scratch`). A process id is unique among the
+/// processes alive on a host, so two copies running at once never name one directory.
+fn run_root() -> &'static Path {
+    static ROOT: OnceLock<PathBuf> = OnceLock::new();
+    ROOT.get_or_init(|| {
+        run_root_under(
+            &Path::new(env!("CARGO_TARGET_TMPDIR")).join("adversary-login-pass2"),
+            std::process::id(),
+        )
+    })
+    .as_path()
+}
+
+/// Where one case's flag documents are written: this run's own directory ([`run_root`]),
+/// then one directory per case so two cases cannot read each other's.
+///
+/// This comment used to say the per-case directory was the whole of it. It separated the
+/// cases of one execution and nothing else, which is what
+/// [`a_second_copy_of_this_binary_does_not_write_this_runs_documents`] measures.
 fn document(case: &str, name: &str, body: &str) -> PathBuf {
-    let directory = Path::new(env!("CARGO_TARGET_TMPDIR"))
-        .join("adversary-login-pass2")
-        .join(case);
+    let directory = run_root().join(case);
     std::fs::create_dir_all(&directory).expect("a writable scratch directory");
     let path = directory.join(name);
     std::fs::write(&path, body).expect("the flag document is written");
@@ -564,5 +684,214 @@ fn a_decision_that_denied_does_not_reach_the_handler_on_either_arm() {
              fix then is for `Admitting` to state totality at the trait or for `authorize` to \
              read `allowed`."
         ),
+    }
+}
+
+// --------------------------------------------- a second execution of this binary
+
+/// What tells a copy of this binary that it is the second one.
+const SECOND_COPY: &str = "MANDATE_SECOND_COPY";
+
+/// A second execution of this binary does not write this run's documents.
+///
+/// `CARGO_TARGET_TMPDIR` is resolved when this file is **compiled**, so a scratch path
+/// derived from it and from nothing else is the same string in every execution of the
+/// binary. This case measures the consequence rather than the path: it writes its own
+/// `client.json`, runs a second copy of this very binary — `current_exe`, filtered to this
+/// one case and told by [`SECOND_COPY`] which role to take — which writes the same case's
+/// `client.json` with a different body, and then reads its own document back.
+///
+/// `story:per-run-test-scratch`. This lane is the reason the case is written this way: two
+/// copies of it happen to write *identical* bodies, so a harness that only counts failures
+/// measures nothing here while the shared path is as real as in every other lane.
+///
+/// **The two executions do not overlap, and the case does not need them to.** `output`
+/// returns when the second one has exited, so what is measured is that the two write
+/// different paths — which is decided by the paths and not by the timing, and is the same
+/// answer at any interleaving. Overlapping copies are what
+/// `copies_of_this_lane_run_at_once_and_all_pass` in `tests/end_to_end.rs` runs, and a case
+/// here that raced its own child would report a collision it had not reliably caused.
+#[test]
+fn a_second_copy_of_this_binary_does_not_write_this_runs_documents() {
+    const CASE: &str = "two-copies-at-once";
+    const MINE: &str = r#"{"copy":"first"}"#;
+    const THEIRS: &str = r#"{"copy":"second"}"#;
+
+    if std::env::var_os(SECOND_COPY).is_some() {
+        let written = document(CASE, "client.json", THEIRS);
+        println!("second-copy-document={}", stated(&written));
+        return;
+    }
+
+    let mine = document(CASE, "client.json", MINE);
+    let second = Command::new(std::env::current_exe().expect("this test binary's own path"))
+        .args([
+            "--exact",
+            "a_second_copy_of_this_binary_does_not_write_this_runs_documents",
+            "--nocapture",
+        ])
+        .env(SECOND_COPY, "1")
+        .output()
+        .expect("the second copy of this binary runs");
+    let printed = String::from_utf8_lossy(&second.stdout);
+    assert!(
+        second.status.success(),
+        "the second copy passed; it printed {printed} and {}",
+        String::from_utf8_lossy(&second.stderr)
+    );
+    let theirs = printed
+        .lines()
+        .find_map(|line| line.strip_prefix("second-copy-document="))
+        .unwrap_or_else(|| {
+            panic!(
+                "the second copy ran this case and printed the document it wrote. A filter \
+                 that selects no case exits 0 and proves nothing, so an absent line fails \
+                 here rather than passing quietly. It printed: {printed}"
+            )
+        });
+
+    assert_ne!(
+        theirs,
+        stated(&mine),
+        "a second execution of this binary wrote the path this run writes"
+    );
+    assert_eq!(
+        std::fs::read_to_string(&mine).expect("this run's own document is still readable"),
+        MINE,
+        "the second copy overwrote this run's document at {}",
+        stated(&mine)
+    );
+}
+
+/// What [`run_root_under`] removes, and what it must not.
+///
+/// Each line of that function is decided by one assertion here, and deleting the line makes
+/// that assertion red:
+///
+/// * the root of a run that is **over** is swept by the next run. Without it the parent
+///   gains one directory for every process id that has ever run this binary — measured at
+///   644 MB across one adversary pass — because a run can only clear a directory named for
+///   its own id.
+/// * the root of a run that is **running** is left alone. A sweep that does not ask deletes
+///   a live copy's documents mid-run, which is `story:per-run-test-scratch`'s own collision
+///   inverted and worse than what it fixed.
+/// * a directory standing under **this** run's id is cleared. Ids are recycled, and a run
+///   that reads the documents of the process that held its id before it is reading another
+///   run's state, which is the whole defect.
+///
+/// The finished id is a child of this process that has been waited on, so it is a run that
+/// is genuinely over rather than an id picked for being absent. The live id is `1`, which
+/// is running on any host that is running this case.
+#[test]
+fn the_run_root_clears_what_is_finished_and_keeps_what_is_running() {
+    let parent = run_root().join("sweep-fixture");
+    let mine = std::process::id();
+
+    let copy = Command::new(std::env::current_exe().expect("this test binary's own path"))
+        .args([
+            "--exact",
+            "a_second_copy_of_this_binary_does_not_write_this_runs_documents",
+            "--nocapture",
+        ])
+        .env(SECOND_COPY, "1")
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .expect("a copy of this binary runs");
+    let over = copy.id();
+    let finished = copy.wait_with_output().expect("the copy is waited on");
+    let printed = String::from_utf8_lossy(&finished.stdout);
+    assert!(
+        finished.status.success(),
+        "the copy passed; it printed {printed} and {}",
+        String::from_utf8_lossy(&finished.stderr)
+    );
+    assert!(
+        printed.contains("second-copy-document="),
+        "the copy ran the case it was filtered to and wrote a document. A filter that selects \
+         no case exits 0, so without this the run whose id is read below could be a process \
+         that did nothing. It printed: {printed}"
+    );
+
+    // What [`finished`] reads is a procfs, and the three answers it can give are decided
+    // here against directories this case builds, so the branch needs no sandbox to drive.
+    let answering = parent.join("procfs-answering");
+    std::fs::create_dir_all(answering.join(mine.to_string())).expect("a writable fixture");
+    let mount_point = parent.join("procfs-nothing-mounted");
+    std::fs::create_dir_all(&mount_point).expect("a writable fixture");
+    assert!(
+        !finished_under(&mount_point, over),
+        "a `/proc` that is a directory with nothing mounted on it answers about no process \
+         at all, so no run is claimed to have finished and the sweep takes nothing"
+    );
+    assert!(
+        finished_under(&answering, over),
+        "a procfs that answers, and carries no entry for run {over}, says that run is over"
+    );
+    assert!(
+        !finished_under(&answering, mine),
+        "a procfs that carries an entry for this run says this run is running"
+    );
+
+    let of_a_finished_run = parent.join(format!("run-{over}"));
+    let of_a_running_one = parent.join("run-1");
+    let of_this_run = parent.join(format!("run-{mine}"));
+    for root in [&of_a_finished_run, &of_a_running_one, &of_this_run] {
+        std::fs::create_dir_all(root).expect("a writable scratch directory");
+        std::fs::write(root.join("connection.json"), "{}").expect("the fixture is written");
+    }
+
+    let root = run_root_under(&parent, mine);
+
+    // Where there is no `/proc` to read, no run is claimed to have finished and none is
+    // swept: a wrong answer deletes a live run's documents, so absence answers "keep".
+    let swept = procfs_answers(Path::new("/proc"));
+    assert_eq!(
+        of_a_finished_run.exists(),
+        !swept,
+        "the root of run {over}, which has exited, is swept by the next run, so what stands \
+         in the parent is the runs that are running"
+    );
+    assert!(
+        of_a_running_one.exists(),
+        "the root of process 1, which is running, is left standing; a sweep that took it \
+         would be a copy deleting its neighbour's documents mid-run"
+    );
+    assert_eq!(
+        root, of_this_run,
+        "this run's root is the one named for its id"
+    );
+    assert!(
+        !of_this_run.join("connection.json").exists(),
+        "a directory standing under this run's own id was written by a process that has \
+         exited and whose id was handed on; it is cleared, not written into"
+    );
+    assert!(root.is_dir(), "this run's root is created");
+
+    // A removal that is refused is not a removal, and the run stops there rather than
+    // writing into a root it did not clear. The refusal is built from a mode that denies
+    // it; where this process can delete through that mode anyway — running as root — there
+    // is nothing to refuse, and the assertion reads the other way rather than being skipped.
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        let denying = parent.join("clear-refused");
+        let held = denying.join(format!("run-{mine}"));
+        std::fs::create_dir_all(held.join("standing")).expect("a writable fixture");
+        std::fs::set_permissions(&held, std::fs::Permissions::from_mode(0o500))
+            .expect("the fixture's mode is set");
+        let refuses = std::fs::create_dir(held.join("probe")).is_err();
+        let cleared = std::panic::catch_unwind(|| run_root_under(&denying, mine));
+        std::fs::set_permissions(&held, std::fs::Permissions::from_mode(0o700))
+            .expect("the fixture's mode is restored");
+        assert_eq!(
+            cleared.is_err(),
+            refuses,
+            "a run whose own root could not be cleared stops there rather than writing into \
+             a directory that still holds another run's documents; this host {} deny the \
+             removal",
+            if refuses { "does" } else { "does not" }
+        );
     }
 }
