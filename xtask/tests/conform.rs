@@ -149,6 +149,18 @@ fn row(body: &str, id: &str) -> String {
     found[0].trim_end_matches(',').to_owned()
 }
 
+/// One ledger row with whatever attribution it carries taken off it.
+///
+/// `blocked_on` is the last key a row states — `expected` refuses any other — so the row ends
+/// at the comma before it, and a row that names no story is returned as it stands. The trailing
+/// comma of a row that is not the ledger's last is not part of what [`row`] returns.
+fn strip_attribution(row: &str) -> String {
+    match row.find(",\"blocked_on\":") {
+        Some(at) => format!("{}}}", &row[..at]),
+        None => row.to_owned(),
+    }
+}
+
 fn failure(root: &Path, release: bool) -> String {
     failure_with(root, release, seams())
 }
@@ -385,12 +397,23 @@ fn a_double_attribution_is_refused_by_name() {
     let body = outcomes(&root);
     // `injections.json` is the authority for this one: the target refused it before dispatch
     // and named the story in its own output. A second, different story here is the ambiguity.
+    //
+    // The row now states an owner of its own — every non-passed row does — so the ambiguity is
+    // made by *moving* that owner and not by adding a second key beside it. A row with two
+    // `blocked_on` keys is not a doubly attributed scenario: `serde_json` keeps the last of
+    // them, so such a fixture would hand the step the target's own story back and prove
+    // nothing. Measured here on the way in: the case went green against a ledger it had not
+    // doctored at all.
     let unsupported = row(&body, "mandate.tenancy.CreateTeam/outcome/denied");
-    let claimed = unsupported.replace(
-        "\"outcome\":\"unsupported\"",
-        "\"outcome\":\"unsupported\",\"blocked_on\":\"story:declared-writers\"",
+    let claimed = format!(
+        "{},\"blocked_on\":\"story:declared-writers\"}}",
+        strip_attribution(&unsupported).trim_end_matches('}')
     );
-    assert_ne!(claimed, unsupported, "a second attribution was added");
+    assert!(
+        claimed.matches("blocked_on").count() == 1,
+        "the row states one owner, and it is not the target's: {claimed}"
+    );
+    assert_ne!(claimed, unsupported, "the attribution was moved");
     write_outcomes(&root, &body.replace(&unsupported, &claimed));
     let error = failure(&root, false);
     assert!(
@@ -439,6 +462,113 @@ fn an_unattributed_scenario_is_refused_by_name() {
     assert!(
         error.contains("mandate.tenancy.CreateTeam/outcome/accepted"),
         "the refusal names the unattributed scenario: {error}"
+    );
+}
+
+/// One `unsupported` row the authored ledger leaves unowned.
+///
+/// The sibling above drives the same rule over a `failed` row, which is the half that was
+/// checked: until this case, `unsupported` was the 38% of the corpus the attribution rule was
+/// never applied to, because the target's own ledger answered for it and nothing required the
+/// authored one to. A reader of `contracts/expected-outcomes.json` saw a bare `unsupported`
+/// and no owner.
+#[test]
+fn an_unsupported_row_that_names_no_story_is_refused_by_name() {
+    let root = fixture("unattributed-unsupported");
+    let body = outcomes(&root);
+    let attributed = row(&body, "mandate.audit.RecordAuditEvent/outcome/denied");
+    let bare = strip_attribution(&attributed);
+    assert!(
+        !bare.contains("blocked_on"),
+        "the row names no story: {bare}"
+    );
+    write_outcomes(&root, &body.replace(&attributed, &bare));
+    let error = failure(&root, false);
+    assert!(
+        error.contains("mandate.audit.RecordAuditEvent/outcome/denied"),
+        "the refusal names the unattributed scenario: {error}"
+    );
+    assert!(
+        error.contains("unsupported"),
+        "the refusal states the outcome the unowned row carries: {error}"
+    );
+}
+
+/// Every `unsupported` row unowned at once: the refusal is the whole class, not its first
+/// member.
+///
+/// A step that returns on the first offender reports one scenario and leaves the reader to
+/// re-run for the next, which is how 63 rows stayed unattributed one run at a time. The
+/// refusal names every one of them and says how many.
+#[test]
+fn every_unattributed_row_is_named_in_one_refusal() {
+    let root = fixture("unattributed-corpus");
+    let body = outcomes(&root);
+    let unowned: Vec<String> = body
+        .lines()
+        .filter(|line| line.contains("\"outcome\":\"unsupported\""))
+        .map(|line| line.trim_end_matches(',').to_owned())
+        .collect();
+    assert!(
+        unowned.len() > 1,
+        "the corpus carries more than one unsupported row: {}",
+        unowned.len()
+    );
+    let mut doctored = body.clone();
+    for attributed in &unowned {
+        doctored = doctored.replace(attributed, &strip_attribution(attributed));
+    }
+    assert!(
+        !doctored
+            .lines()
+            .any(|line| line.contains("\"outcome\":\"unsupported\"") && line.contains("blocked_on")),
+        "no unsupported row names a story any more"
+    );
+    write_outcomes(&root, &doctored);
+    let error = failure(&root, false);
+    for attributed in &unowned {
+        let id = attributed
+            .trim_start_matches("{\"id\":\"")
+            .split('"')
+            .next()
+            .expect("the row names a scenario");
+        assert!(
+            error.contains(id),
+            "the refusal names {id} among the {} it refuses: {error}",
+            unowned.len()
+        );
+    }
+    assert!(
+        error.contains(&unowned.len().to_string()),
+        "the refusal counts the rows it names: {error}"
+    );
+}
+
+/// An `unsupported` row owned by a story whose work is over.
+///
+/// Distinct from `a_dead_blocked_on_is_refused_by_name`, which drives a `failed` row through
+/// the attribution step: this row's owner is read where the outcomes are compared, before the
+/// two ledgers are laid beside each other, so a ledger whose own attribution has gone dead is
+/// refused for the rung it names and not for disagreeing with the target.
+#[test]
+fn an_unsupported_row_on_a_terminal_story_is_refused_by_name() {
+    let root = fixture("dead-unsupported");
+    let body = outcomes(&root);
+    let attributed = row(&body, "mandate.audit.RecordAuditEvent/outcome/denied");
+    let dead = format!(
+        "{},\"blocked_on\":\"story:graph-policy\"}}",
+        strip_attribution(&attributed).trim_end_matches('}')
+    );
+    write_outcomes(&root, &body.replace(&attributed, &dead));
+    let error = failure(&root, false);
+    assert!(
+        error.contains("mandate.audit.RecordAuditEvent/outcome/denied")
+            && error.contains("story:graph-policy"),
+        "the refusal names the scenario and the story whose work is over: {error}"
+    );
+    assert!(
+        error.contains("implemented"),
+        "the refusal states the rung the store reports: {error}"
     );
 }
 
