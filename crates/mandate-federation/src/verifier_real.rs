@@ -305,6 +305,11 @@ impl UreqJwks {
     ///   loopback interface, which is the shape an SSRF attempt at a link-local metadata
     ///   service takes.
     ///
+    /// Those last two are asked about one folded host name ([`folded`]) rather than each
+    /// about the spelling it happens to receive, because two checks over one host that
+    /// fold different spellings disagree, and the disagreement is what reaches
+    /// `allowed_hosts`.
+    ///
     /// Both comparisons normalize the port: RFC 3986 6.2.3 makes the scheme's default port
     /// equivalent to an elided one, so `https://idp.example` and `https://idp.example:443`
     /// are one origin, and a document that spells the default leaves the connection
@@ -322,12 +327,19 @@ impl UreqJwks {
         if target.scheme != source.scheme {
             return false;
         }
+        // One name, folded once, handed to every containment check below: a spelling
+        // cannot be an address literal to one of them and an ordinary name to the next.
+        // It is folded here and never in `origin`, because `listed` compares the host a
+        // discovery document spelled against the host a deployment wrote down, and that
+        // comparison is not a containment question — folding it would admit
+        // `keys.idp.example.` on an entry naming `keys.idp.example`.
+        let host = folded(&target.host);
         if (&target.host, target.port) == (&source.host, source.port) {
-            return target.scheme == "https" || loopback(&target.host);
+            return target.scheme == "https" || loopback(host);
         }
         target.scheme == "https"
-            && !literal_address(&target.host)
-            && !loopback(&target.host)
+            && !literal_address(host)
+            && !loopback(host)
             && allowed_hosts.iter().any(|entry| listed(entry, &target))
     }
 
@@ -480,26 +492,46 @@ fn listed(entry: &str, target: &Uri) -> bool {
     host.eq_ignore_ascii_case(&target.host) && port == target.port
 }
 
-/// Whether the host is an address literal rather than a name.
+/// The one spelling of a host that every containment check is asked about.
+///
+/// A trailing dot is the absolute form of a name and carries no other meaning, so
+/// `127.0.0.1.` and `127.0.0.1` are one destination and `localhost.` and `localhost` are
+/// one name. Case is already folded by [`origin`], which lowercases the host.
+///
+/// The fold belongs to the containment path and never to [`origin`] itself: [`listed`]
+/// compares the host a discovery document spelled against the host a deployment wrote
+/// down, and widening that comparison is a different decision from agreeing on which host
+/// the guard is asked about.
+fn folded(host: &str) -> &str {
+    host.trim_end_matches('.')
+}
+
+/// Whether the folded host name ([`folded`]) is an address literal rather than a name.
 fn literal_address(host: &str) -> bool {
     host.parse::<std::net::IpAddr>().is_ok()
 }
 
-/// Whether the host is the loopback interface, by name class or by literal.
+/// Whether the folded host name ([`folded`]) is the loopback interface, by name class or
+/// by literal.
 ///
 /// A name class, not a string: `localhost.` is the absolute form of the same name, and
 /// `localhost.localdomain` is in the stock `/etc/hosts` of an ordinary Linux host. Both
 /// resolve to `127.0.0.1`, so a guard that compared against `"localhost"` alone would
 /// admit the loopback interface under two spellings the deployment could list.
 ///
-/// Every address literal that is loopback is one too. Whether a *name* resolves to the
-/// loopback interface at fetch time is a resolution-order question this function cannot
-/// answer; the residue is recorded with DNS rebinding in the module documentation.
-fn loopback(host: &str) -> bool {
-    let name = host.trim_end_matches('.');
+/// Every address literal that is loopback is one too, and it is read from the same folded
+/// name the two name comparisons are. This function used to fold for those and parse the
+/// unfolded host for this, so `localhost.` was the loopback interface and `127.0.0.1.`
+/// was not — and a host that is neither an address literal nor a spelling of the loopback
+/// is exactly a host that reaches `allowed_hosts`.
+///
+/// Whether a *name* resolves to the loopback interface at fetch time is a resolution-order
+/// question this function cannot answer; the residue is recorded with DNS rebinding in the
+/// module documentation.
+fn loopback(name: &str) -> bool {
     name.eq_ignore_ascii_case("localhost")
         || name.to_ascii_lowercase().ends_with(".localdomain")
-        || host
+        || name
             .parse::<std::net::IpAddr>()
             .is_ok_and(|address| address.is_loopback())
 }

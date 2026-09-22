@@ -6,6 +6,79 @@
 //! [`RealVerifier`]. The other ports of the crate — the allocator and the session issuer
 //! — keep their fixtures, because they belong to other stories.
 //!
+//! # Every spelling of a host the JWKS destination guard is asked about
+//!
+//! [`UreqJwks::admits`] refuses a `jwks_uri` host that is an address literal or a
+//! spelling of the loopback interface *before* `allowed_hosts` is consulted, so no
+//! deployment can list its way to the loopback. Both halves of that refusal are asked
+//! about one folded name, so a spelling cannot be an address literal to one half and an
+//! ordinary name to the other.
+//!
+//! Measured 2026-09-22 for `story:host-spelling-folded` against `literal_address` and
+//! `loopback` (`verifier_real.rs`), before and after the fold was computed once. "reaches
+//! the list" is the destination arriving at `allowed_hosts` at all; it is still refused
+//! there unless the deployment wrote that exact spelling into `jwks_hosts`.
+//!
+//! | spelling | host after `origin` | `literal_address` | `loopback` | reaches the list |
+//! |---|---|---|---|---|
+//! | `127.0.0.1` | `127.0.0.1` | true | true | no |
+//! | `127.0.0.1.` | `127.0.0.1.` | false → **true** | false → **true** | **yes → no** |
+//! | `127.0.0.1..` | `127.0.0.1..` | false → **true** | false → **true** | **yes → no** |
+//! | `127.0.0.2` | `127.0.0.2` | true | true | no |
+//! | `127.0.0.2.` | `127.0.0.2.` | false → **true** | false → **true** | **yes → no** |
+//! | `127.255.255.254.` | `127.255.255.254.` | false → **true** | false → **true** | **yes → no** |
+//! | `localhost` | `localhost` | false | true | no |
+//! | `localhost.` | `localhost.` | false | true | no |
+//! | `localhost..` | `localhost..` | false | true | no |
+//! | `LOCALHOST` | `localhost` | false | true | no |
+//! | `LOCALHOST.` | `localhost.` | false | true | no |
+//! | `localhost.localdomain` | `localhost.localdomain` | false | true | no |
+//! | `localhost.localdomain.` | `localhost.localdomain.` | false | true | no |
+//! | `keys.localdomain` | `keys.localdomain` | false | true | no |
+//! | `keys.localdomain.` | `keys.localdomain.` | false | true | no |
+//! | `[::1]` | `::1` | true | true | no |
+//! | `[::1.]` | `::1.` | false → **true** | false → **true** | **yes → no** |
+//! | `[0:0:0:0:0:0:0:1]` | `0:0:0:0:0:0:0:1` | true | true | no |
+//! | `[0:0:0:0:0:0:0:1.]` | `0:0:0:0:0:0:0:1.` | false → **true** | false → **true** | **yes → no** |
+//! | `[0:0::0:1]` | `0:0::0:1` | true | true | no |
+//! | `[::ffff:127.0.0.1]` | `::ffff:127.0.0.1` | true | false | no |
+//! | `[::ffff:127.0.0.1.]` | `::ffff:127.0.0.1.` | false → **true** | false | **yes → no** |
+//! | `[::ffff:7f00:1]` | `::ffff:7f00:1` | true | false | no |
+//! | `[::FFFF:7F00:1]` | `::ffff:7f00:1` | true | false | no |
+//! | `[::127.0.0.1]` | `::127.0.0.1` | true | false | no |
+//!
+//! Case is folded by `origin`, which lowercases the host, so `LOCALHOST` and
+//! `[::FFFF:7F00:1]` never reach either check in the spelling they were written in. IPv6
+//! bracket forms, zero-compression and the IPv4-mapped forms are all one literal to
+//! `IpAddr`, and `::ffff:127.0.0.1` is refused as a *literal* rather than as a loopback,
+//! because `Ipv6Addr::is_loopback` is false for a mapped address. A second refusal is
+//! behind that one: `listed` splits an entry on its last `:`, so an entry carrying a
+//! colon names no host at all and no IPv6 destination can be listed however it is spelled.
+//!
+//! ## What still reaches the list, and why it is not fixed here
+//!
+//! These are spellings a C resolver folds and `std::net::IpAddr` does not. They reached
+//! the list before this fold and they reach it after it, because refusing them widens
+//! what the guard refuses rather than agreeing on which host it is asked about, and
+//! `story:host-spelling-folded` puts that out of scope.
+//!
+//! | spelling | host after `origin` | `literal_address` | `loopback` | reaches the list |
+//! |---|---|---|---|---|
+//! | `127.1` | `127.1` | false | false | yes |
+//! | `2130706433` | `2130706433` | false | false | yes |
+//! | `0177.0.0.1` | `0177.0.0.1` | false | false | yes |
+//! | `127.0.0.1%2e` | `127.0.0.1%2e` | false | false | yes |
+//! | `localhost%2e` | `localhost%2e` | false | false | yes |
+//! | `%6cocalhost` | `%6cocalhost` | false | false | yes |
+//! | `%31%32%37.0.0.1` | `%31%32%37.0.0.1` | false | false | yes |
+//! | `.` | `.` | false | false | yes |
+//!
+//! `origin` percent-decodes nothing, so a percent-encoded authority is compared as the
+//! literal bytes it was written as — which is also what `listed` compares, so such a host
+//! is admitted only when the deployment listed that exact encoded string. Whether a
+//! *name* resolves to the loopback interface at fetch time remains the resolution-order
+//! residue recorded with DNS rebinding in `verifier_real.rs`'s own module documentation.
+//!
 //! # No key is committed and no test reaches the network
 //!
 //! Every private key is generated by `aws_lc_rs` when the case runs
@@ -2176,22 +2249,47 @@ fn a_listed_jwks_host_admits_only_the_port_listed_beside_it() {
     ));
 }
 
-/// The loopback guard refuses a name class, not one string.
+/// The loopback guard refuses a name class, not one string — and every spelling of a
+/// member of that class, not one spelling of it.
+///
+/// Every row of the module's own table is here. `127.0.0.1.` and its siblings are the
+/// rows that reached `allowed_hosts` before the fold was computed once: `literal_address`
+/// trimmed no trailing dot and `loopback` trimmed one for its name halves only, so a
+/// dotted literal was an address to neither of them.
 #[test]
 fn a_listed_host_that_spells_the_loopback_interface_is_refused() {
     let issuer = Issuer::new("https://idp.example");
 
     for spelling in [
+        // The name class, absolute and relative, in either case.
         "localhost",
         "localhost.",
         "localhost..",
         "LOCALHOST",
+        "LOCALHOST.",
         "localhost.localdomain",
         "localhost.localdomain.",
         "keys.localdomain",
+        "keys.localdomain.",
+        // The literal class. The dotted forms are the ones that were admitted.
         "127.0.0.1",
+        "127.0.0.1.",
+        "127.0.0.1..",
         "127.0.0.2",
+        "127.0.0.2.",
+        "127.255.255.254.",
+        // IPv6 literals, bracketed, zero-compressed and IPv4-mapped. `listed` splits an
+        // entry on its last `:` and so names no host at all when the entry carries one,
+        // which refuses these before the guard is consulted; the guard is the second
+        // line and this asserts it is there.
         "[::1]",
+        "[::1.]",
+        "[0:0:0:0:0:0:0:1]",
+        "[0:0:0:0:0:0:0:1.]",
+        "[0:0::0:1]",
+        "[::ffff:127.0.0.1]",
+        "[::ffff:127.0.0.1.]",
+        "[::ffff:7f00:1]",
     ] {
         let listed = [
             spelling.to_owned(),
@@ -2202,6 +2300,76 @@ fn a_listed_host_that_spells_the_loopback_interface_is_refused() {
             "{spelling} is the loopback interface, listed or not"
         );
     }
+}
+
+/// A trailing dot is the absolute form of the same host, so the destination guard answers
+/// the same with one and without it.
+///
+/// This is the class `story:host-spelling-folded` reports — *two checks over one host
+/// that fold different spellings will disagree, and the disagreement is what gets
+/// through* — written as a check rather than as a list somebody has to remember to
+/// extend. A host added below is covered by it without any enumeration being edited.
+#[test]
+fn a_trailing_dot_does_not_change_what_the_jwks_destination_guard_answers() {
+    let issuer = Issuer::new("https://idp.example");
+
+    for host in [
+        "localhost",
+        "localhost.localdomain",
+        "keys.localdomain",
+        "127.0.0.1",
+        "127.0.0.2",
+        "127.255.255.254",
+        "keys.idp.example",
+        "idp.example",
+    ] {
+        let dotted = format!("{host}.");
+        let both = [host.to_owned(), dotted.clone()];
+        let admits =
+            |spelling: &str| UreqJwks::admits(&issuer, &format!("https://{spelling}/jwks"), &both);
+        assert_eq!(
+            admits(host),
+            admits(&dotted),
+            "{host} and {dotted} are one host and the guard gave them two answers"
+        );
+    }
+
+    // The issuer's own origin is asked the same question. A test's own listener is the
+    // only plaintext issuer there is, and the absolute spelling of that listener is the
+    // same listener: the fold used to make `localhost.` the loopback interface and
+    // `127.0.0.1.` not it, so one listener was its own key-set source under one spelling
+    // and not under the other.
+    for spelling in [
+        "localhost",
+        "localhost.",
+        "127.0.0.1",
+        "127.0.0.1.",
+        "[::1]",
+        "[::1.]",
+    ] {
+        assert!(
+            UreqJwks::admits(
+                &Issuer::new(format!("http://{spelling}")),
+                &format!("http://{spelling}/jwks"),
+                &[]
+            ),
+            "{spelling} is the loopback interface and a plaintext issuer on it reads its \
+             own key set"
+        );
+    }
+
+    // The fold is on the containment path and not inside `origin`: `listed` compares the
+    // host the document spelled against the host the deployment wrote down, and that is
+    // not a containment question. Folding it would make an entry admit a host it does not
+    // name, which is a widening this story does not make.
+    assert!(
+        !UreqJwks::admits(
+            &issuer,
+            "https://keys.idp.example./jwks",
+            &["keys.idp.example".to_owned()]
+        ),
+        "a listed host was widened to a spelling the deployment did not write"
+    );
 }
 
 /// An `azp` in a shape OIDC does not define is still an `azp`, and it does not name this
