@@ -751,6 +751,31 @@ impl mandate_sts::resolve::CredentialResolution for Substituted {
         self.read();
         Ok(None)
     }
+
+    /// Overridden only so that the read is counted.
+    ///
+    /// The port defaults this to `None` without consulting anything, which is the right
+    /// default for a store with no cache and is the wrong answer for *this* reader: a
+    /// handler that consults the cache and is told nothing would leave `consulted` at zero,
+    /// and an `injections.json` row for a command that reads only this port would say
+    /// `armed-unreached` while the reader had in fact answered. `None` is what an empty
+    /// standing fold answers here too, so the answer is unchanged and only the count moves.
+    fn cached(
+        &self,
+        _verifier: &mandate_types::CredentialVerifier,
+    ) -> Option<mandate_token::projection::AccessCredential> {
+        self.read();
+        None
+    }
+
+    /// Overridden only so that the read is counted; see [`Substituted::cached`].
+    fn cached_at(
+        &self,
+        _verifier: &mandate_types::CredentialVerifier,
+    ) -> Option<mandate_types::Timestamp> {
+        self.read();
+        None
+    }
 }
 
 impl mandate_sts::keys::SigningKeyReads for Substituted {

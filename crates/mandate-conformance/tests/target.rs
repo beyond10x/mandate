@@ -911,6 +911,37 @@ fn every_port_method_the_substituted_reader_implements_counts_its_read() {
             }),
         ),
         (
+            "CredentialResolution::cached",
+            Box::new(|r: &Substituted| {
+                let _ = CredentialResolution::cached(
+                    r,
+                    &CredentialVerifier::new("verifier".to_owned()),
+                );
+            }),
+        ),
+        (
+            "CredentialResolution::cached_at",
+            Box::new(|r: &Substituted| {
+                let _ = CredentialResolution::cached_at(
+                    r,
+                    &CredentialVerifier::new("verifier".to_owned()),
+                );
+            }),
+        ),
+        (
+            "ResourceServerReads::organization_of",
+            Box::new(|r: &Substituted| {
+                let _ =
+                    ResourceServerReads::organization_of(r, &ResourceServerId::new(identity(0x3a)));
+            }),
+        ),
+        (
+            "ResourceServerReads::is_enabled",
+            Box::new(|r: &Substituted| {
+                let _ = ResourceServerReads::is_enabled(r, &ResourceServerId::new(identity(0x3a)));
+            }),
+        ),
+        (
             "SigningKeyReads::signing_key",
             Box::new(|r: &Substituted| {
                 let _ = SigningKeyReads::signing_key(r, &SigningKeyId::new(identity(0x3b)));
@@ -1039,36 +1070,105 @@ fn every_port_method_the_substituted_reader_implements_counts_its_read() {
     );
     // The list above is hand-written, and a hand-written list of what to check is the
     // defect an adversary extends one entry at a time. So it is checked against the source
-    // it is a list of: every `fn` inside an `impl … for Substituted` block must appear here
-    // by name. A method added to a port and not to this list fails on the next run rather
-    // than reaching a reader as an uncounted read.
-    let source =
-        std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("src/external.rs"))
-            .expect("this crate's own source is readable");
-    let mut implemented: BTreeSet<String> = BTreeSet::new();
-    let mut inside = false;
-    for line in source.lines() {
-        if line.starts_with("impl ") {
-            inside = line.ends_with("for Substituted {") && !line.contains("Default for");
-            continue;
-        }
-        if inside && let Some(rest) = line.strip_prefix("    fn ") {
-            implemented.insert(rest.split(['(', '<']).next().unwrap_or_default().to_owned());
-        }
-    }
+    // it is a list of: every method **declared** by a port `Substituted` implements must
+    // appear here by name. A method added to a port and not to this list fails on the next
+    // run rather than reaching a reader as an uncounted read.
+    //
+    // **Declared, not overridden.** This scan read `src/external.rs` for the `fn`s inside
+    // each `impl … for Substituted` block until `story:link-absent-discriminates` added a
+    // port method with a default body: a defaulted method is never in an impl block, so it
+    // was invisible to the scan and the sentence above did not hold for the one kind of
+    // method whose body lives somewhere `external.rs` never sees — which is also the one
+    // kind that can answer a handler without `Substituted::read` running at all, the
+    // `consulted: 0` an `injections.json` row reads as `armed-unreached`. The impl blocks
+    // are still where the *ports* are read from, because they are the ones this reader
+    // substitutes for; the methods now come off each port's own declaration.
+    let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let source = std::fs::read_to_string(manifest.join("src/external.rs"))
+        .expect("this crate's own source is readable");
+    let implemented: BTreeSet<String> = source
+        .lines()
+        .filter_map(|line| line.strip_prefix("impl "))
+        .filter_map(|line| line.strip_suffix(" for Substituted {"))
+        .filter(|path| *path != "Default")
+        .flat_map(|path| declared_methods(manifest, path))
+        .collect();
     assert!(
         implemented.len() >= 20,
-        "the source scan found {} port methods, which cannot be right",
+        "the scan of the port declarations found {} methods, which cannot be right",
         implemented.len()
     );
-    let listed: BTreeSet<String> = methods
-        .iter()
-        .filter_map(|(name, _)| name.split("::").nth(1).map(ToOwned::to_owned))
-        .collect();
+    // Matched as `Trait::method`, not on the method name alone: two ports may name a method
+    // the same way, and an entry for one of them is not evidence about the other.
+    let listed: BTreeSet<String> = methods.iter().map(|(name, _)| (*name).to_owned()).collect();
     let unexercised: Vec<&String> = implemented.difference(&listed).collect();
     assert!(
         unexercised.is_empty(),
-        "`Substituted` implements port methods this case never calls, so nothing shows \
-         they count their reads: {unexercised:?}"
+        "these methods are declared by a port `Substituted` implements and are never called \
+         by this case, so nothing shows they count their reads: {unexercised:?}"
     );
+}
+
+/// Where each crate that declares a port `Substituted` implements keeps its source.
+const PORT_CRATE_SOURCES: &[(&str, &str)] = &[
+    ("mandate_federation", "../mandate-federation/src"),
+    ("mandate_identity", "../mandate-identity/src"),
+    ("mandate_graph", "../mandate-graph/src"),
+    ("mandate_sts", "../../services/sts/src"),
+];
+
+/// Every method a port declares, required or defaulted, as `Trait::method`.
+///
+/// `path` is the trait as `external.rs` names it in its own `impl … for Substituted` line,
+/// so the crate is its first segment and the trait its last. The module segments between
+/// them are *not* used to find the file: a port may be declared in one module and
+/// re-exported from the crate root — `mandate_identity::IdentityRead` is — so the crate's
+/// whole source tree is searched for the declaration instead.
+fn declared_methods(manifest: &Path, path: &str) -> Vec<String> {
+    let mut segments = path.split("::");
+    let krate = segments.next().unwrap_or_default();
+    let name = path.rsplit("::").next().unwrap_or_default();
+    let (_, root) = PORT_CRATE_SOURCES
+        .iter()
+        .find(|(declaring, _)| *declaring == krate)
+        .unwrap_or_else(|| {
+            panic!(
+                "`{path}` is implemented for `Substituted` and `{krate}` has no entry in \
+                 PORT_CRATE_SOURCES, so this guard cannot read what the port declares"
+            )
+        });
+
+    let mut pending = vec![manifest.join(root)];
+    while let Some(directory) = pending.pop() {
+        let entries = std::fs::read_dir(&directory)
+            .unwrap_or_else(|error| panic!("{} is readable: {error}", directory.display()));
+        for entry in entries {
+            let entry = entry.expect("a readable directory entry").path();
+            if entry.is_dir() {
+                pending.push(entry);
+                continue;
+            }
+            if entry.extension().is_none_or(|extension| extension != "rs") {
+                continue;
+            }
+            let source = std::fs::read_to_string(&entry)
+                .unwrap_or_else(|error| panic!("{} is readable: {error}", entry.display()));
+            let Some(start) = source.lines().position(|line| {
+                line.strip_prefix("pub trait ")
+                    .and_then(|rest| rest.strip_prefix(name))
+                    .is_some_and(|rest| rest.starts_with(['{', ':', '<', ' ']))
+            }) else {
+                continue;
+            };
+            return source
+                .lines()
+                .skip(start + 1)
+                .take_while(|line| *line != "}")
+                .filter_map(|line| line.strip_prefix("    fn "))
+                .filter_map(|rest| rest.split(['(', '<']).next())
+                .map(|method| format!("{name}::{method}"))
+                .collect();
+        }
+    }
+    panic!("`pub trait {name}` is declared nowhere under {root}, so `{path}` cannot be read")
 }

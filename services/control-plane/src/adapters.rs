@@ -2336,14 +2336,18 @@ where
     /// principal exists that did not before, and the fold is the one the login read.
     ///
     /// It is not free of every effect, and saying "creates nothing" would be the file lying
-    /// about itself. [`Deployment::provisioned`] mints the correlation of the record the
-    /// command would write *before* it can decide, because the command is handed a
-    /// `RequestContext` and decides against it — so one identity is drawn from this
-    /// deployment's own source per attempt, refused attempts included. Nothing observable to
-    /// a caller rests on that draw: the source is a CSPRNG, and `ExternalKeyExists` is now
-    /// reachable here on every revoked key, which is what makes the refused attempts routine
-    /// rather than exceptional. Drawing it later is not available — the correlation is an
-    /// input to the decision, not a product of it.
+    /// about itself. [`Deployment::provisioned`] builds the whole `RequestContext` before it
+    /// calls the command, and minting the correlation of the record the command *would*
+    /// write is part of building it — so one identity is drawn from this deployment's own
+    /// source per attempt, refused attempts included. **The draw precedes the decision; the
+    /// decision never consults it.** `provision_external_principal` reads
+    /// `request.correlation` in one place, inside the accepted outcome it emits, and no
+    /// refusal path in that command reads the request at all. Moving the draw after the
+    /// command admits would therefore change no outcome, and is a shape this call site does
+    /// not have: the context is one value, built eagerly, and the correlation is one of its
+    /// fields. Nothing observable to a caller rests on the draw either — the source is a
+    /// CSPRNG — and `ExternalKeyExists` is now reachable here on every revoked key, which is
+    /// what makes the refused attempts routine rather than exceptional.
     ///
     /// # Errors
     ///
@@ -2395,19 +2399,24 @@ where
     /// and a fold that cannot read the event it emitted are the same thing to the caller,
     /// which is a login that still has no linked principal.
     ///
-    /// **One identity is drawn per attempt, refused attempts included**, because the
-    /// correlation below is an input to the command's decision and not a product of it —
-    /// see [`Deployment::authenticate`], which says what a refused attempt does and does not
-    /// leave behind. Since `story:link-absent-discriminates` the command refuses
-    /// `ExternalKeyExists` for every key a revoked record holds, so this is the ordinary
-    /// path for a revoked subject's every login attempt, not an exceptional one.
+    /// **One identity is drawn per attempt, refused attempts included**, because the whole
+    /// `RequestContext` below is built before the command is called and the correlation is
+    /// one of its fields. The command does not decide against it: `provision_external_principal`
+    /// reads `request.correlation` only inside the accepted outcome it emits, and no refusal
+    /// path there reads the request at all — see [`Deployment::authenticate`], which says
+    /// what a refused attempt does and does not leave behind. Since
+    /// `story:link-absent-discriminates` the command refuses `ExternalKeyExists` for every
+    /// key a revoked record holds, so this is the ordinary path for a revoked subject's every
+    /// login attempt, not an exceptional one.
     fn provisioned(&mut self, input: &decode::AuthenticateFederation) -> bool {
         let request = mandate_federation::RequestContext {
             audience: self.audience(),
             // Minted here, from the deployment's own identity source, for the reason the
             // login's own correlation is minted rather than read: nothing a caller sent may
-            // become the correlation of a persisted record. Drawn before the command decides,
-            // so a refusal has consumed one: see this function's header.
+            // become the correlation of a persisted record. Drawn before the command decides
+            // — not because the decision needs it, which it does not, but because this
+            // context is built in one go — so a refusal has consumed one: see this
+            // function's header.
             correlation: CorrelationId::new(self.next_identity().to_string()),
             // As at `Deployment::authenticate_once`: this route authenticates no caller
             // credential, and the nil UUID is what "names none" spells.

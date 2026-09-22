@@ -30,8 +30,8 @@ use mandate_types::{
 use mandate_types::DenialReason;
 
 use crate::{
-    ConnectionStore, DenialClause, Denied, ExternalPrincipalStore, IdentityAllocator, LinkStore,
-    PrincipalState, PrincipalStore,
+    ConnectionStore, DenialClause, Denied, ExternalPrincipalStore, IdentityAllocator,
+    LinkResolution, LinkStore, PrincipalState, PrincipalStore,
 };
 
 /// The canonical external key: `(organization, connection.issuer, external subject)`.
@@ -419,11 +419,12 @@ pub enum FoldError {
 /// — so the key's holder cannot be a property of the order a log presents them in, and it
 /// cannot be a property of the order they were *applied* either. It is a total order over
 /// the records themselves: **the smallest `external_principal_id` on the key holds it**
-/// ([`LinkStore::link`]), every other `Linked` record on that key is a
+/// ([`LinkResolution::link`]), every other `Linked` record on that key is a
 /// [`ExternalKeyConflict`], and a rebuild that interleaves the two streams differently
-/// resolves the key the same way. That rule is the port's and not this fold's — this fold
-/// answers [`LinkStore::records_on_key`] and nothing more, so no other implementation of
-/// the port can resolve one key differently.
+/// resolves the key the same way. That rule is [`LinkResolution`]'s and not this fold's —
+/// this fold answers [`LinkStore::records_on_key`] and nothing more, and `LinkResolution` is
+/// implemented once, blanket over every `LinkStore`, so no implementation of the port can
+/// resolve one key differently: `impl LinkResolution for …` does not compile.
 ///
 /// Every link event's record lives in one map, keyed by its own identity: a record is never
 /// displaced anywhere, so [`ExternalPrincipalStore::external_principal`] and
@@ -772,6 +773,19 @@ impl Projection {
             .collect()
     }
 
+    /// The record that holds this key, as [`LinkResolution::link`] decides it.
+    ///
+    /// **A forwarder, and nothing else may ever be written here.** The rule lives in
+    /// [`LinkResolution`], which is blanket-implemented over every [`LinkStore`] so that no
+    /// implementation can answer a key differently; a body here that did anything but
+    /// delegate would be the second answer that trait exists to make impossible. It is an
+    /// inherent method so that a reader of this projection can ask without naming the trait,
+    /// which is what every case in this crate's own suite does.
+    #[must_use]
+    pub fn link(&self, key: &ExternalKey) -> Option<ExternalPrincipal> {
+        LinkResolution::link(self, key)
+    }
+
     /// The canonical key of a recorded link.
     #[must_use]
     pub fn key_of(&self, link: &ExternalPrincipal) -> Option<ExternalKey> {
@@ -850,9 +864,10 @@ impl LinkStore for Projection {
     /// The fold displaces no record anywhere — see [`Projection`] — so this is a filter
     /// over [`Projection::links`] by [`Projection::key_of`], the fold's own definition of
     /// the key, and a revoked record is in the answer exactly as a `Linked` one is. Which
-    /// of them *holds* the key is [`LinkStore::link`]'s question and this crate decides
-    /// it, so no reader of this projection has to know the rule and no other
-    /// implementation of the port can decide it differently.
+    /// of them *holds* the key is [`LinkResolution::link`]'s question, and that trait is
+    /// implemented once for every [`LinkStore`] there is or will be, so no reader of this
+    /// projection has to know the rule and no implementation of the port can decide it
+    /// differently.
     fn records_on_key(&self, key: &ExternalKey) -> Vec<ExternalPrincipal> {
         self.links
             .iter()

@@ -22,7 +22,7 @@ use mandate_federation::record::{
 };
 use mandate_federation::verifier::{ConstructedVerifier, VerifiedProof};
 use mandate_federation::{
-    DenialClause, LinkStore, PrincipalState, PrincipalStore, RecordedPrincipals,
+    DenialClause, LinkResolution, LinkStore, PrincipalState, PrincipalStore, RecordedPrincipals,
     RecordingSessionIssuer, RequestContext, SequentialAllocator,
 };
 use mandate_model::TenantResolutionRule;
@@ -411,14 +411,18 @@ fn record(
 ///
 /// 1. a store answering the port's one required read is refused `ExternalKeyExists` for a
 ///    key whose every record is revoked — the original assertion, now true;
-/// 2. a store that additionally overrides `link` to hide the revoked record, which is
-///    exactly the store that broke this case as filed, is refused all the same, because
-///    the guard does not read `link`. The old attack is dead by construction, not by
-///    prose;
+/// 2. a store that *also* resolves the key from an index of its own, hiding the revoked
+///    record the way the store that broke this case as filed did, is refused all the same.
+///    Pass 2 showed why "the guard does not read `link`" was not enough on its own — `link`
+///    was a defaulted trait method, so a store could write it — and the correction moved it
+///    to [`mandate_federation::LinkResolution`], blanket-implemented over every
+///    `LinkStore`. The store below can therefore only carry its index as an *inherent*
+///    method, which no command can reach;
 /// 3. the other half of the same class, which the case as filed did not reach: the record
-///    that holds the key is the port's rule too. A conforming store is never asked for it,
-///    so no implementation can answer the smallest `Unlinked` record while the key still
-///    has a `Linked` one — which would deny `LinkAbsent` to a validly linked caller.
+///    that holds the key is the port's rule too. A conforming store is never asked for it
+///    and cannot answer it, so no implementation can answer the smallest `Unlinked` record
+///    while the key still has a `Linked` one — which would deny `LinkAbsent` to a validly
+///    linked caller.
 #[test]
 fn the_port_requires_the_state_blind_read_the_provisioning_guard_depends_on() {
     /// A `LinkStore` that answers the port's one required read and nothing else.
@@ -437,21 +441,29 @@ fn the_port_requires_the_state_blind_read_the_provisioning_guard_depends_on() {
     }
 
     /// The store that broke this case as filed: it answers the required read honestly and
-    /// overrides `link` to the smallest `Linked` record, hiding a revoked one from every
-    /// reader of that method. The closest an implementor can now come to the old attack.
+    /// resolves the key from an index of its own that hides a revoked record.
+    ///
+    /// **The index is an inherent method, because it can no longer be anything else.** As
+    /// filed this store overrode `LinkStore::link`; `LinkResolution::link` replaced it, and
+    /// a blanket implementation leaves an implementor nowhere to put a second answer that a
+    /// command could reach. What survives is a method on the type, which nothing but this
+    /// case ever calls — and the case calls it, so the difference between the two answers
+    /// is on the record rather than assumed away.
     struct HidesTheRevokedRecordFromLink(Vec<ExternalPrincipal>);
 
-    impl LinkStore for HidesTheRevokedRecordFromLink {
-        fn records_on_key(&self, _key: &ExternalKey) -> Vec<ExternalPrincipal> {
-            self.0.clone()
-        }
-
-        fn link(&self, _key: &ExternalKey) -> Option<ExternalPrincipal> {
+    impl HidesTheRevokedRecordFromLink {
+        fn own_index(&self, _key: &ExternalKey) -> Option<ExternalPrincipal> {
             self.0
                 .iter()
                 .filter(|row| row.state == LinkState::Linked)
                 .min_by_key(|row| row.id)
                 .cloned()
+        }
+    }
+
+    impl LinkStore for HidesTheRevokedRecordFromLink {
+        fn records_on_key(&self, _key: &ExternalKey) -> Vec<ExternalPrincipal> {
+            self.0.clone()
         }
     }
 
@@ -487,13 +499,19 @@ fn the_port_requires_the_state_blind_read_the_provisioning_guard_depends_on() {
     assert_eq!(refused.reason, DenialReason::Denied);
     assert_eq!(refused.clause, DenialClause::ExternalKeyExists);
 
-    // 2. The store that hides the revoked record from `link` — the original attack — is
-    //    refused identically, because the guard does not read `link`.
+    // 2. The store whose own index hides the revoked record — the original attack — is
+    //    refused identically. The index disagrees with the crate and reaches no command.
     let hiding = HidesTheRevokedRecordFromLink(revoked.clone());
     assert!(
-        hiding.link(&key()).is_none(),
-        "the premise of the attack: this store answers `link` with nothing for a key its \
+        hiding.own_index(&key()).is_none(),
+        "the premise of the attack: this store's own index answers nothing for a key its \
          own records hold"
+    );
+    assert_eq!(
+        LinkResolution::link(&hiding, &key()).map(|held| held.id),
+        Some(external_principal(0x71)),
+        "and the answer every command reads is the crate's, not the store's: the revoked \
+         record is on the key and is what the key resolves to while nothing else is"
     );
     let mut allocator = SequentialAllocator::new();
     let refused = match provision_external_principal(
