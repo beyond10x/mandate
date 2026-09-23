@@ -7,7 +7,20 @@ title: enabled_for_issuer leaves its filter to the implementor
 relations:
 - decomposes: epic:hardening
 - serves: vision:mandate
-revision: 1
+scope:
+- confidence: inferred
+  path: crates/mandate-conformance/src/external.rs
+- confidence: inferred
+  path: crates/mandate-conformance/tests/adversary_conformance_2.rs
+- confidence: inferred
+  path: crates/mandate-conformance/tests/target.rs
+- confidence: cited
+  path: crates/mandate-federation/src/authenticate.rs
+- confidence: cited
+  path: crates/mandate-federation/src/lib.rs
+- confidence: inferred
+  path: crates/mandate-federation/src/record.rs
+revision: 4
 ---
 # `enabled_for_issuer` leaves its filter to the implementor
 
@@ -52,3 +65,12 @@ unmodified.
 
 `LinkStore`, which wave H moved. `PrincipalStore::state_of`, whose default is the documented
 `mandate.identity` seam rather than a private filter.
+
+## Scope
+
+Derived 2026-09-23 by `aep-drive:story-scoper` at `92fc026`. Every line is **cited** or **inferred**.
+
+- **Primary surface:** `crates/mandate-federation` — cited
+- **Files:** `crates/mandate-federation/src/lib.rs:482-489` (`ConnectionStore::enabled_for_issuer`), `:753-759` (impl for `RecordedPrincipals`, inferred); `src/authenticate.rs:241,310-336` (`resolve`, `resolve_tenant`) — cited
+- **Also likely:** `src/record.rs:807-815,973`; `crates/mandate-conformance/src/external.rs:581`, `tests/target.rs:796`, `tests/adversary_conformance_2.rs:85` if the method is renamed — inferred
+- **Confidence:** medium — rename versus semantics-only is undecided, and the acceptance keeps existing cases unmodified

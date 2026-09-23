@@ -7,7 +7,22 @@ title: The store can record the conformance run this repository produces
 relations:
 - decomposes: epic:foundations
 - serves: vision:mandate
-revision: 1
+scope:
+- confidence: cited
+  path: .engineering/project.yaml
+- confidence: inferred
+  path: .github/workflows/ci.yml
+- confidence: inferred
+  path: AGENTS.md
+- confidence: inferred
+  path: README.md
+- confidence: cited
+  path: docs/adr/0010-drift-enforcement.md
+- confidence: inferred
+  path: docs/plans/2026-09-21-wave-f-execution.md
+- confidence: inferred
+  path: xtask/src/conform.rs
+revision: 4
 ---
 # AEP cannot read the suite this repository synthesizes
 
@@ -64,3 +79,12 @@ sequence is corrected to match.
 ## Out of scope
 
 Reaching `conforming`. That needs the 59 unmet scenarios, not this.
+
+## Scope
+
+Derived 2026-09-23 by `aep-drive:story-scoper` at `92fc026`. Every line is **cited** or **inferred**.
+
+- **Files:** `docs/adr/0010-drift-enforcement.md:205-219`; `.engineering/project.yaml:8` — cited
+- **Also likely:** `.github/workflows/ci.yml:24`, `AGENTS.md:13`, `README.md:26`, `docs/plans/2026-09-21-wave-f-execution.md:173`, `xtask/src/conform.rs:1103-1149` — inferred
+- **Confidence:** high for either option's files
+- **Not implementable as option 1 here:** AEP `origin/main` (0.57.0-1, `e912c35e`) still accepts only `ess-conformance/1`–`/4` in `crates/observe/aep-ess-evidence/src/count_suite.rs`. Option 2 is a document edit; the body leaves the choice open

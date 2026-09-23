@@ -7,7 +7,10 @@ title: The login-road lane still picks its child's port by dropping a listener
 relations:
 - decomposes: epic:foundations
 - serves: vision:mandate
-revision: 1
+scope:
+- confidence: cited
+  path: services/control-plane/tests/adversary_login_road.rs
+revision: 3
 ---
 # The login-road lane still picks its child's port by dropping a listener
 
@@ -153,3 +156,13 @@ index 478b385..9f81985 100644
 +    );
 +}
 ```
+
+## Scope
+
+Derived 2026-09-23 by `aep-drive:story-scoper` at `92fc026`. Every line is **cited** or **inferred**.
+
+- **Primary surface:** `services/control-plane` tests — cited
+- **Files:** `services/control-plane/tests/adversary_login_road.rs` (`Served::spawn` `:435`, `listening` `:504`, `PORT` `:640`, `stand_up` `:643`; the body's line numbers have drifted) — cited
+- **Model, read not edited:** `services/control-plane/tests/end_to_end.rs` (`EPHEMERAL` `:949`, `LISTENING` `:1138`); the child already prints `listening on <addr>` at `services/control-plane/src/main.rs:369` — cited
+- **Confidence:** high
+- **Would collide with:** any unit touching `adversary_login_road.rs`

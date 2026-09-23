@@ -7,7 +7,14 @@ title: The control-plane's own loopback fold asks a different question from the 
 relations:
 - decomposes: epic:hardening
 - serves: vision:mandate
-revision: 2
+scope:
+- confidence: cited
+  path: services/control-plane/src/adapters.rs
+- confidence: inferred
+  path: services/control-plane/tests/adapters.rs
+- confidence: cited
+  path: services/control-plane/tests/adversary_host_spelling_1.rs
+revision: 5
 ---
 # The control-plane's own loopback fold asks a different question from the one beside it
 
@@ -145,3 +152,15 @@ fn a_plaintext_issuer_naming_another_host_behind_userinfo_is_not_the_loopback() 
     }
 }
 ```
+
+## Scope
+
+Derived 2026-09-23 by `aep-drive:story-scoper` at `92fc026`. Every line is **cited** or **inferred**.
+
+- **Primary surface:** `services/control-plane` — cited
+- **Files:** `services/control-plane/src/adapters.rs:626` (`is_loopback`), called from `normalised_issuer` `:594` — cited
+- **Files:** `services/control-plane/tests/adversary_host_spelling_1.rs` (new) — cited
+- **Also likely:** `services/control-plane/tests/adapters.rs` (existing plaintext-loopback cases stay green) — inferred
+- **Symbols:** `is_loopback`, `normalised_issuer`, `Configuration::checked`, `IssuerRefused::SchemeUnadmitted` — cited
+- **Confidence:** high
+- **Would collide with:** any unit touching `adapters.rs`

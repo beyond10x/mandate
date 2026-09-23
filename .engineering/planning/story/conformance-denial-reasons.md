@@ -9,7 +9,22 @@ relations:
 - informed_by: initiative:drift-enforcement
 - depends_on: story:conform-gate
 - serves: vision:mandate
-revision: 1
+scope:
+- confidence: inferred
+  path: contracts/conformance/injections.json
+- confidence: cited
+  path: contracts/expected-outcomes.json
+- confidence: inferred
+  path: crates/mandate-conformance/src/commands
+- confidence: inferred
+  path: crates/mandate-conformance/src/commands/mod.rs
+- confidence: inferred
+  path: crates/mandate-conformance/src/lib.rs
+- confidence: cited
+  path: xtask/src/conform.rs
+- confidence: inferred
+  path: xtask/tests/conform.rs
+revision: 4
 ---
 ## Why
 
@@ -22,3 +37,12 @@ Every denied scenario in `run.json` carries the declared `reason` and the crate-
 ## Acceptance
 
 `mandate-conform` over the committed suite writes `reason` and `clause` for all 54 denied-unmet scenarios; `contracts/expected-outcomes.json` carries both per row; `cargo xtask conform` exits non-zero when a recorded clause differs from the run's.
+
+## Scope
+
+Derived 2026-09-23 by `aep-drive:story-scoper` at `92fc026`. Every line is **cited** or **inferred**.
+
+- **Primary surface:** `crates/mandate-conformance` + `xtask` conform step — cited
+- **Files:** `contracts/expected-outcomes.json` (0 rows carry `reason`); `xtask/src/conform.rs` (`reason` at `:900`, `UNMET` at `:137`) — cited
+- **Also likely:** `crates/mandate-conformance/src/commands/mod.rs:402` (`refused()`), `src/lib.rs:718-746` (`Executed::of`), `contracts/conformance/injections.json`, `xtask/tests/conform.rs` — inferred
+- **Confidence:** medium — `run.json` is ESS's closed `CountRun` (`deny_unknown_fields`, ess 0.26.0 `counts.rs:350`), so reason and clause need a Mandate-owned home, which is undecided

@@ -9,7 +9,34 @@ relations:
 - informed_by: initiative:drift-enforcement
 - depends_on: story:obligation-registry
 - serves: vision:mandate
-revision: 6
+scope:
+- confidence: inferred
+  path: contracts/obligations/README.md
+- confidence: cited
+  path: contracts/obligations/model.json
+- confidence: cited
+  path: crates/mandate-model/src/tenancy.rs
+- confidence: cited
+  path: crates/mandate-model/tests/adversary_obligations_model_1.rs
+- confidence: inferred
+  path: generated/conformance/suite.json
+- confidence: inferred
+  path: generated/ir/system.json
+- confidence: inferred
+  path: generated/openapi
+- confidence: inferred
+  path: systems/mandate/domains/authorization.yaml
+- confidence: inferred
+  path: systems/mandate/domains/graph.yaml
+- confidence: inferred
+  path: systems/mandate/domains/policy.yaml
+- confidence: cited
+  path: systems/mandate/domains/tenancy.yaml
+- confidence: cited
+  path: xtask/src/obligations_registry.rs
+- confidence: cited
+  path: xtask/tests/obligations_registry.rs
+revision: 9
 ---
 ## Why
 
@@ -34,3 +61,12 @@ Every `wrong-state` outcome of an implemented command is an obligation row in `c
 - 2026-09-21, the `mandate-authz` instance in its final form, after the clause split landed. `crates/mandate-authz/src/context.rs:109-111` refuses a delegated or execution-bearing context — `!direct(context)` → `DenialReason::Denied` — and `mandate.authorization.Check`'s declared cause names no condition for it: no verbatim substring of the cause says "not direct". Two tests decide that refusal on the command's own path (`context::a_delegated_request_is_refused_closed_and_reads_nothing` and `context::a_context_naming_a_delegation_or_an_execution_is_refused_closed`), and after the split they are **rows of nothing** — the correction rightly declined to invent a clause for them, because a clause is a verbatim substring of the declared cause and there is none to take. So the crate decides a refusal it does not publish, and two good tests have nowhere to be named. That is the same shape as `mandate-graph`'s `declared_name` and `mandate-policy`'s unresolved id, and it is the cleanest instance of the four: the tests exist, they pass, they drive the command, and the contract has no place for them.
 
 - 2026-09-21, from `story:obligations-policy` correction 2, beside the fold-order entry above and sharpening it. The `current()` conjunct of both later-version guards (`crates/mandate-policy/src/double.rs:264` and `:301`) **can only decide a refusal on a fold the shipped writer cannot produce.** `crates/mandate-policy/src/record.rs:23-25` defines `Superseded` as "a later version is current and this one is kept for attribution", so a fold whose later same-organization records are all superseded contradicts its own projection — and that is the only shape in which `current() && organization_id == organization` answers differently from `organization_id == organization` alone. The unit's two cases now build it through the `pub` `record_policy` / `record_model` directly, which is the only way the conjunct decides anything today, and all four mutations of the two predicates now fell a case. What this leaves on the record is a guard that is real, load-bearing under test, and unreachable through any path a caller has: when a real adapter folds from a store, whether that adapter can produce the shape — and what it should answer if it does — is a question the adapter's story has to settle.
+
+## Scope
+
+Derived 2026-09-23 by `aep-drive:story-scoper` at `92fc026`. Every line is **cited** or **inferred**.
+
+- **Primary surface:** obligations registry + specification — cited
+- **Files:** `xtask/src/obligations_registry.rs`, `xtask/tests/obligations_registry.rs`, `crates/mandate-model/tests/adversary_obligations_model_1.rs:229,288,348`, `systems/mandate/domains/tenancy.yaml`, `contracts/obligations/model.json`, `crates/mandate-model/src/tenancy.rs` (deciders now at `:656,:698,:889,:929,:1078`) — cited
+- **Also likely:** `generated/{ir/system.json,openapi,conformance/suite.json}`; `systems/mandate/domains/{graph,policy,authorization}.yaml` (the tree-wide scan reaches `relationship.rs:91`, `mandate-policy/src/double.rs:286`, `mandate-authz/src/context.rs:109`) — inferred
+- **Confidence:** medium — the body names no mechanism for the code-to-contract refusal scan

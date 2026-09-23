@@ -2,12 +2,19 @@
 format: aep.planning-md/1
 id: story:folded-is-not-an-address-fold
 kind: story
-status: draft
+status: active
 title: folded agrees on names, and the two halves of the guard disagree on addresses
 relations:
 - decomposes: epic:hardening
 - serves: vision:mandate
-revision: 1
+scope:
+- confidence: cited
+  path: crates/mandate-federation/src/verifier_real.rs
+- confidence: cited
+  path: crates/mandate-federation/tests/adversary_host_spelling_2.rs
+- confidence: inferred
+  path: crates/mandate-federation/tests/verifier_real.rs
+revision: 6
 ---
 # `folded` agrees on names, and the two halves of the guard disagree on addresses
 
@@ -116,3 +123,16 @@ fn one_host_gets_one_answer_at_the_issuers_own_origin_however_the_literal_is_spe
 }
 
 ```
+
+## Scope
+
+Derived 2026-09-23 by `aep-drive:story-scoper` at `92fc026`. Every line is **cited** (read from the story or the tree) or **inferred**.
+
+- **Primary surface:** `crates/mandate-federation` — cited
+- **Files:** `crates/mandate-federation/src/verifier_real.rs:345` (own-origin comparison in `UreqJwks::admits`) — cited
+- **Files:** `crates/mandate-federation/tests/verifier_real.rs` (the red case, beside `a_trailing_dot_does_not_change_what_the_jwks_destination_guard_answers`) — inferred
+- **Also likely:** `crates/mandate-federation/tests/adversary_host_spelling_2.rs` (the 12,168-decision sweep that is re-run) — cited, its own doc at `:14`
+- **Symbols:** `UreqJwks::admits`, `folded`, `literal_address`, `loopback`, `origin` — cited
+- **Confidence:** high
+- **Would collide with:** any unit touching the JWKS destination guard in `verifier_real.rs`
+- **Not established:** where the account of what the sweep moved is written

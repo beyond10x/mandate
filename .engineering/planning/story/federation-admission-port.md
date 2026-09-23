@@ -8,7 +8,24 @@ relations:
 - decomposes: epic:foundations
 - informed_by: initiative:drift-enforcement
 - serves: vision:mandate
-revision: 2
+scope:
+- confidence: cited
+  path: contracts/obligations/federation.json
+- confidence: inferred
+  path: crates/mandate-conformance/src/commands/federation.rs
+- confidence: inferred
+  path: crates/mandate-conformance/src/external.rs
+- confidence: cited
+  path: crates/mandate-federation/src/disable.rs
+- confidence: cited
+  path: crates/mandate-federation/src/record.rs
+- confidence: cited
+  path: crates/mandate-federation/src/register_client.rs
+- confidence: inferred
+  path: crates/mandate-federation/tests
+- confidence: inferred
+  path: services/control-plane/src/adapters.rs
+revision: 5
 ---
 ## Why
 
@@ -29,3 +46,15 @@ The four rows bind `path: real` `denial` tests in `crates/mandate-federation/tes
 **Outcome (amended).** The four handlers take an admission port of the same shape and refuse their authority clause when the port does not hold the caller as the named administrator, with no event appended.
 
 **Acceptance (amended).** The four rows bind `path: double` `denial` tests (`double: mandate_federation::register_client::ConfiguredAdmission`) with `blocked_on: decision-blocker:guards`, each red with the admission call removed (the mutation control); `cargo xtask obligations-registry` lists 0 `mandate-federation` clauses deferred to this story, and `double_only` rises by four. No row of this story is `path: real` until a shipped `ClientRegistrationAdmission` exists.
+
+## Scope
+
+Derived 2026-09-23 by `aep-drive:story-scoper` at `92fc026`. Every line is **cited** or **inferred**.
+
+- **Primary surface:** `crates/mandate-federation` command handlers — cited
+- **Files:** `crates/mandate-federation/src/disable.rs:101,143,197`; `src/record.rs:950` (`register_federation_connection`); `src/register_client.rs:93,189` (the `ConfiguredAdmission` pattern) — cited
+- **Files:** `contracts/obligations/federation.json:246,284,528,635` (four `blocked_on` rows) — cited
+- **Also likely:** `crates/mandate-conformance/src/commands/federation.rs:48-366`, `src/external.rs:250`; `services/control-plane/src/adapters.rs:923`; about 10 `crates/mandate-federation/tests/*.rs` call sites — inferred
+- **Confidence:** high
+
+**Open design call the body does not name:** `register_federation_connection` is also called by control-plane connection seeding (`adapters.rs:923`), which has no caller to admit. Client seeding skips its command for this reason (`adapters.rs:1055-1066`). How the seed path passes the new guard is undecided; left out of waves I–K for that reason.

@@ -8,7 +8,30 @@ relations:
 - decomposes: epic:foundations
 - informed_by: initiative:drift-enforcement
 - serves: vision:mandate
-revision: 1
+scope:
+- confidence: inferred
+  path: contracts/conformance/injections.json
+- confidence: inferred
+  path: contracts/coverage.json
+- confidence: inferred
+  path: contracts/expected-outcomes.json
+- confidence: inferred
+  path: crates/mandate-conformance/src/commands/identity.rs
+- confidence: inferred
+  path: crates/mandate-conformance/src/commands/mod.rs
+- confidence: cited
+  path: crates/mandate-identity/src/lib.rs
+- confidence: inferred
+  path: crates/mandate-identity/src/port.rs
+- confidence: cited
+  path: crates/mandate-identity/src/snapshot.rs
+- confidence: cited
+  path: generated
+- confidence: cited
+  path: systems/mandate/domains/identity.yaml
+- confidence: cited
+  path: systems/mandate/scenarios
+revision: 4
 ---
 ## Why
 
@@ -25,3 +48,12 @@ Found by wave D (2026-09-19): `review-result:wave-d-authored-denials-adversary-2
 ## Acceptance
 
 `cargo xtask conform` reports the two stale-epoch scenarios and both `RefreshSession` scenarios `passed` with no standing double on the epoch path.
+
+## Scope
+
+Derived 2026-09-23 by `aep-drive:story-scoper` at `92fc026`. Every line is **cited** or **inferred**.
+
+- **Primary surface:** `systems/mandate/domains/identity.yaml` + `crates/mandate-identity` — cited
+- **Files:** `identity.yaml:132-148,350-359`; `crates/mandate-identity/src/snapshot.rs:80-87`; `src/lib.rs:219-244`; `generated/` via `cargo xtask generate`; `systems/mandate/scenarios/` — cited
+- **Also likely:** `crates/mandate-identity/src/port.rs` (new refresh-proof → session port); `crates/mandate-conformance/src/commands/identity.rs:48-85`, `commands/mod.rs:63`; `contracts/expected-outcomes.json:130-131`, `contracts/coverage.json:236-240`, `contracts/conformance/injections.json` — inferred
+- **Confidence:** medium — where the new port lives is not named anywhere in the tree
