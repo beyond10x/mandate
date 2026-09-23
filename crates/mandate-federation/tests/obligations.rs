@@ -733,22 +733,17 @@ fn a_proof_matching_no_configured_tenant_is_refused_at_provisioning() {
 /// behind one issuer and the proof matches both, so the first login resolves neither.
 ///
 /// The two connections are built by `register_federation_connection` rather than folded by
-/// hand, because the writer refuses a pair of rules it holds as ambiguous and a hand-folded
-/// pair it refuses is not a state a deployment reaches. Each organization keys on the claim
-/// it uses — `{org: acme}` and `{dept: eng}` — which the shipped writer admits, and one
-/// proof carrying both claims matches both rules.
+/// hand. The writer refuses a second organization's rule a proof could satisfy alongside a
+/// held one, so the pair is only reachable the way the guard's own comment says it is: the
+/// guard is read-then-write, and two registrations that each read the issuer before the
+/// other's event is folded are both admitted. Each organization keys on the claim it uses —
+/// `{org: acme}` and `{dept: eng}` — and one proof carrying both claims matches both rules.
 #[test]
 fn a_proof_matching_two_configured_tenants_is_refused_at_provisioning() {
     let mut allocator = SequentialAllocator::new();
-    let incumbent = register(
-        organization(10),
-        "org",
-        "acme",
-        &Projection::default(),
-        &mut allocator,
-    );
-    let one = Projection::fold(std::slice::from_ref(&incumbent.event)).expect("one connection");
-    let second = register(organization(11), "dept", "eng", &one, &mut allocator);
+    let unheld = Projection::default();
+    let incumbent = register(organization(10), "org", "acme", &unheld, &mut allocator);
+    let second = register(organization(11), "dept", "eng", &unheld, &mut allocator);
     let held =
         Projection::fold(&[incumbent.event, second.event]).expect("two connections on one issuer");
     let signing = keys("2026-09");
