@@ -4,6 +4,8 @@ All notable changes to Mandate are recorded here. The format follows [Keep a Cha
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-23
+
 Waves I, J and K: nine stories, each attacked twice. The clause count moves for the first time since
 wave D: 191 clauses (one split in two), 85 decided on the real path.
 

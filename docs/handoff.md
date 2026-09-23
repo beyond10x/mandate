@@ -1,39 +1,43 @@
 # Execution handoff
 
-Rewritten 2026-09-22 at the close of wave H. Everything before this file's previous revision
-described wave 1's preparation and had been true on 2026-09-18.
+Rewritten 2026-09-22 at the close of wave H; its state sections refreshed 2026-09-23 at the 0.5.0
+release, after waves I, J and K.
 
 ## Read these first
 
 | | |
 |---|---|
 | where the plan lives | `.engineering/planning/`, written only through `aep plan artifact` |
-| how work is run | [ADR 0008](adr/0008-integration-batches.md) — units on their own branches, one integration branch per wave, PR to `main` when the operator selects the batch, tag only after the merge |
+| how work is run | [ADR 0008](adr/0008-integration-batches.md) — units on their own branches, one integration branch per batch; under the standing cadence in `AGENTS.md` every closed batch is merged, released and cleaned up without a further ask |
 | what is undecided | [`architecture/unmapped.md`](architecture/unmapped.md) and the bounded alternatives in [`architecture/runtime-decisions.md`](architecture/runtime-decisions.md) |
 | what is not true yet | `contracts/use-cases/federated-login.json`, the `not_yet_true` list |
 
 ## Where it stands
 
-`v0.3.0` is released. Eight waves have run — 1 to 3, then A to H. The federated-login road runs end
+`v0.5.0` is the latest release. Eleven waves have run — 1 to 3, then A to K. The federated-login road runs end
 to end against the shipped binary: `mandate-control-plane serve` serves `/v1/federation/login`,
 `/oauth/authorize`, `/oauth/token`, `/oauth/introspect`, `/oauth/jwks` and
 `/.well-known/oauth-authorization-server`, a first login provisions a user just in time where the
 connection admits it, and a revoked link is not provisioned around.
 
-Measured at `0.4.0`: `task check` exit 0, 250 suites, 1,920 tests, 0 failed; 11 named mutants each
+Measured at `0.5.0`: `task check` exit 0, 267 suites, 1,991 tests, 0 failed; 11 named mutants each
 killed; 292 contract elements with 201 implemented; 166 conformance scenarios with 44 passed and 0
-error; 190 denial clauses with 83 decided on the real path.
+error; 191 denial clauses with 85 decided on the real path.
 
-**83 of 190 has not moved since wave D.** Waves F, G and H were defect-driven and each shipped real
-fixes without touching a clause. That is not a sequencing problem — see *What is actually blocking*.
+Waves I–K moved the clause count for the first time since wave D (83 of 190 → 85 of 191; one
+clause was split). The account is `docs/plans/2026-09-23-waves-i-j-k-execution.md`.
 
 ## In flight right now
 
-| | |
-|---|---|
-| PR #20 | `Cut 0.4.0` — version in 18 manifests, lock, changelog. Gate green. **Awaiting merge, then the tag and GitHub Release** |
-| PR #21 | the public pages refreshed against the tree |
-| wave I | planned, not started: `jit-principal-record`, `folded-is-not-an-address-fold`, `linked-event-method-unenforced`, `road-lane-child-prints-address`, with `eventlog-repin-0-3-0` as a coordinator alignment commit |
+Nothing. `main` holds 0.5.0; no integration branch is open. The next batch is wave L, not yet
+proposed. Candidates with no blocker and typed scope: `federation-guard-trailing-dots` and
+`bracketed-literal-trailing-dot` (one file, one unit or sequenced), `control-plane-readable-instant`,
+`enabled-for-issuer-filters-in-the-implementor`, `provisioning-replay-principal` and
+`control-plane-multi-fold-writes` (both `adapters.rs`, different waves).
+
+Left out of waves I–K and still undecided: `linked-event-method-unenforced` (its premise is
+contradicted by the connection seeding at `services/control-plane/src/adapters.rs:962-970`) and
+`federation-admission-port` (the seed path has no caller to admit).
 
 ## What is actually blocking
 
@@ -97,9 +101,13 @@ both remain open; a launch needs a reviewed task and an operator-supplied `--bud
 
 ## What the next session should do first
 
-1. Merge PR #20, then tag the resulting `main` commit `v0.4.0` and create the GitHub Release — the
-   gate that backs it has already run green.
-2. Ask the operator for `guards`. It is one page of reading and it is what makes the coverage number
-   move.
-3. Move the Gates baseline to the current `main`, or expect every branch to need the rebase above.
-4. Then wave I, which is ready and does not wait on any of the three.
+1. Take `decision-blocker:guards` and `decision-blocker:async-runtime` from their dossiers
+   (`architecture/runtime-decisions.md`); the operator has asked the orchestrator to decide within the
+   approved design and to ask only for a disruptive or critical architecture change. They are what
+   moves the clause count and the persistence gap.
+2. Propose wave L from the candidates above, run it, and follow the standing cadence in `AGENTS.md`
+   at its close.
+3. Two more traps from waves I–K: a change to `services/sts` can move a named mutant's anchor
+   (`tests/mutants/*.json`), which only the last step of `cargo xtask check` notices; and fast-forwarding
+   the `gates-policy` checkout rewrites `policy.json` as mode 644, which `b10x-gates api` refuses
+   (*"protected file ownership or permissions invalid"*) until it is `chmod 600` again.
