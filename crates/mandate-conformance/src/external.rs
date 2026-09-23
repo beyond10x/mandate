@@ -715,6 +715,18 @@ impl mandate_sts::registry::ResourceServerReads for Substituted {
         None
     }
 
+    /// Overridden so that the read is counted here rather than through the port default's
+    /// call to [`Substituted::registered`]: a default that answered without delegating would
+    /// leave `consulted` at zero. Empty, as `registered` is.
+    fn registrations_holding(
+        &self,
+        _organization_id: &mandate_types::OrganizationId,
+        _audience: &mandate_types::Audience,
+    ) -> Vec<mandate_token::projection::ResourceServer> {
+        self.read();
+        Vec::new()
+    }
+
     /// The one read of this port that answers a `Result`, and the one an armed outcome can
     /// place a fault at: the store says this organization does not admit the audience,
     /// which is the same answer the real fold gives for an audience another registration
