@@ -110,16 +110,44 @@
 //! loopback issuer, and an absolute spelling of the loopback is the loopback; refusing
 //! these was the same fold disagreement pointing the other way.
 //!
-//! ## What the fold still does not fold
+//! ## What the fold does not fold, and the comparison that does
 //!
 //! `folded` strips trailing dots and nothing else. `literal_address` and `loopback` read
 //! the host through `IpAddr::from_str`, which collapses every spelling of one address,
-//! while the issuer's own-origin comparison is string equality, which collapses none — so
-//! `[::1]`, `[0:0:0:0:0:0:0:1]` and `[0:0::0:1]` are one host to the first two and three
-//! strangers to the third. A loopback issuer whose discovery document spells its own
-//! address a second valid way is refused. It fails closed, it reproduces at `06c6747`,
-//! and `tests/adversary_host_spelling_2.rs` holds the case that reports it; closing it
-//! means comparing parsed addresses rather than names, which is a different story.
+//! and the issuer's own-origin comparison used to be string equality, which collapsed
+//! none — so `[::1]`, `[0:0:0:0:0:0:0:1]` and `[0:0::0:1]` were one host to the first two
+//! and three strangers to the third. `story:folded-is-not-an-address-fold` resolved that
+//! by **widening**: the own-origin comparison now asks `one_host`, which compares two
+//! address literals as `IpAddr`s and anything else as the name it folded to.
+//!
+//! Narrowing — refusing every literal own-origin — was measured first and refused:
+//! `the_corpus_the_reworked_property_iterates_asserts_something_at_both_sites` went red
+//! (`https://127.0.0.1` is its own origin by that corpus's declaration), and the loopback
+//! `ureq` cases in `tests/adversary_verifier_1.rs` hung, because their `127.0.0.1`
+//! listener waited for a key-set request the guard no longer let through. The plaintext
+//! loopback listener is this module's contract and `end_to_end.rs`'s shape; narrowing
+//! removes it.
+//!
+//! Measured `86a32ae` → head with the sweep described above — every ordered (issuer, destination)
+//! pair of 39 spellings (the 25 rows of the first table, the 10 of the residue table
+//! below, and `idp.example`/`keys.idp.example` with and without a trailing dot), both
+//! schemes, four host lists each, **12 168 decisions**:
+//!
+//! | direction | decisions | branch they leave through |
+//! |---|---|---|
+//! | refused → admitted | **160** | the issuer's own origin, all of them |
+//! | admitted → refused | **0** | — |
+//!
+//! Each branch is attributed by asking the same destination and list against a
+//! third-party issuer, which leaves only through the containment guard: its answer moved
+//! for none of the 12 168. The 160 are 40 (issuer, destination) pairs under each of the
+//! four lists — the 32 cross-spellings of `[::1]`, `[::1.]`, `[0:0:0:0:0:0:0:1]`,
+//! `[0:0:0:0:0:0:0:1.]` and `[0:0::0:1]` under both schemes, and the 8 `https`
+//! cross-spellings of `[::ffff:127.0.0.1]`/`[::ffff:127.0.0.1.]` with
+//! `[::ffff:7f00:1]`/`[::FFFF:7F00:1]`, which are one mapped address. The mapped pairs
+//! stay refused under `http`, because `Ipv6Addr::is_loopback` is false for a mapped
+//! address, and `[::ffff:127.0.0.1]` stays a stranger to `127.0.0.1`: the families are
+//! not canonicalised across each other.
 //!
 //! ## What still reaches the list, and why it is not fixed here
 //!
@@ -2542,6 +2570,149 @@ fn a_trailing_dot_does_not_change_what_the_jwks_destination_guard_answers() {
         ),
         "a listed host was widened to a spelling the deployment did not write"
     );
+}
+
+/// `folded` is not total: the guard still folds different spellings at different sites.
+///
+/// Kept verbatim from `story:folded-is-not-an-address-fold`, where adversary pass 2 of
+/// `story:host-spelling-folded` left it. `literal_address` and `loopback` read the host
+/// through `IpAddr::from_str`, which collapses every spelling of one address, while the
+/// issuer's own-origin comparison was string equality, which collapsed none of them — so
+/// `[::1]`, `[0:0:0:0:0:0:0:1]` and `[0:0::0:1]` were one host to the first two and three
+/// strangers to the third, and a loopback issuer whose discovery document spelled its own
+/// address a second valid way got two answers for one host.
+///
+/// Asserted as an equality rather than as an admission, because which way it is resolved
+/// is the unit's call and not this case's. It was resolved by widening — see
+/// [`an_address_literal_is_the_issuers_own_origin_under_every_spelling_of_that_address`],
+/// which asks the admission positively, because two refusals satisfy an equality.
+#[test]
+fn one_host_gets_one_answer_at_the_issuers_own_origin_however_the_literal_is_spelled() {
+    let no_hosts_listed: [String; 0] = [];
+
+    for (canonical, second_spelling) in [
+        ("[::1]", "[0:0:0:0:0:0:0:1]"),
+        ("[::1]", "[0:0::0:1]"),
+        ("[0:0:0:0:0:0:0:1]", "[::1]"),
+    ] {
+        for scheme in ["http", "https"] {
+            let issuer = Issuer::new(format!("{scheme}://{canonical}:8443"));
+
+            let spelled_alike = UreqJwks::admits(
+                &issuer,
+                &format!("{scheme}://{canonical}:8443/jwks"),
+                &no_hosts_listed,
+            );
+            let spelled_otherwise = UreqJwks::admits(
+                &issuer,
+                &format!("{scheme}://{second_spelling}:8443/jwks"),
+                &no_hosts_listed,
+            );
+
+            assert_eq!(
+                spelled_alike, spelled_otherwise,
+                "issuer {scheme}://{canonical}:8443: {canonical} and {second_spelling} \
+                 are one address and the guard gave them two answers: \
+                 alike={spelled_alike}, otherwise={spelled_otherwise}"
+            );
+        }
+    }
+}
+
+/// The issuer's own-origin comparison asks the question the containment halves ask:
+/// whether two hosts are one host. For an address literal that is whether they are one
+/// address, so every spelling `IpAddr` reads as the issuer's address is the issuer's
+/// origin — and nothing else becomes one.
+///
+/// Resolved by widening rather than by refusing every literal own-origin. Refusing them
+/// would refuse the plaintext loopback listener `verifier_real.rs`'s contract admits and
+/// that this file's own `ureq` cases and `services/control-plane/tests/end_to_end.rs`
+/// bind on `127.0.0.1`. Widening admits nothing the containment guard decides: the
+/// destination is the address the deployment already named as its issuer.
+///
+/// The bounds are asserted beside the admissions, because the widening is only as narrow
+/// as its comparison:
+///
+/// - the IPv4-mapped `::ffff:127.0.0.1` is a different `IpAddr` from `127.0.0.1` and stays
+///   a stranger to it — `Ipv6Addr::is_loopback` is false for a mapped address, and the
+///   comparison does not canonicalise across families;
+/// - a name is never an address: `localhost` is not the issuer `127.0.0.1`'s origin;
+/// - a different port is a different origin, however the address is spelled;
+/// - a listed host stays exact: `allowed_hosts` is not read on this arm.
+#[test]
+fn an_address_literal_is_the_issuers_own_origin_under_every_spelling_of_that_address() {
+    let no_hosts_listed: [String; 0] = [];
+
+    for (scheme, family) in [
+        (
+            "http",
+            &["[::1]", "[0:0:0:0:0:0:0:1]", "[0:0::0:1]", "[::0:1]"][..],
+        ),
+        (
+            "https",
+            &["[::1]", "[0:0:0:0:0:0:0:1]", "[0:0::0:1]", "[::1.]"][..],
+        ),
+        (
+            "https",
+            &[
+                "[2001:db8::7]",
+                "[2001:0db8:0:0:0:0:0:7]",
+                "[2001:DB8::0:7]",
+            ][..],
+        ),
+    ] {
+        for issuer_spelling in family {
+            for target_spelling in family {
+                assert!(
+                    UreqJwks::admits(
+                        &Issuer::new(format!("{scheme}://{issuer_spelling}:8443")),
+                        &format!("{scheme}://{target_spelling}:8443/jwks"),
+                        &no_hosts_listed
+                    ),
+                    "{scheme}://{issuer_spelling}:8443 and {scheme}://{target_spelling}:8443 \
+                     are one address and one port, so one origin"
+                );
+            }
+        }
+    }
+
+    for (issuer, destination, why) in [
+        (
+            "http://127.0.0.1:8443",
+            "http://[::ffff:127.0.0.1]:8443/jwks",
+            "an IPv4-mapped address is not the IPv4 address it maps",
+        ),
+        (
+            "https://127.0.0.1:8443",
+            "https://[::ffff:127.0.0.1]:8443/jwks",
+            "an IPv4-mapped address is not the IPv4 address it maps",
+        ),
+        (
+            "https://[::ffff:127.0.0.1]:8443",
+            "https://127.0.0.1:8443/jwks",
+            "an IPv4 address is not the IPv4-mapped address that maps it",
+        ),
+        (
+            "http://127.0.0.1:8443",
+            "http://localhost:8443/jwks",
+            "a name is not an address, even one it resolves to",
+        ),
+        (
+            "http://[::1]:8443",
+            "http://[0:0::0:1]:8444/jwks",
+            "one address on another port is another origin",
+        ),
+        (
+            "https://[2001:db8::7]",
+            "https://[2001:db8::8]/jwks",
+            "two addresses are two hosts",
+        ),
+    ] {
+        assert!(
+            !UreqJwks::admits(&Issuer::new(issuer), destination, &no_hosts_listed),
+            "issuer {issuer}, destination {destination}: {why}"
+        );
+    }
 }
 
 /// An `azp` in a shape OIDC does not define is still an `azp`, and it does not name this
