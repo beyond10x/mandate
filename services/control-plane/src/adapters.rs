@@ -621,16 +621,48 @@ fn normalised_issuer(configured: &str) -> Result<String, IssuerRefused> {
 
 /// Whether an authority names this host: RFC 6761's `localhost`, the IPv4 loopback block, or
 /// the IPv6 loopback address.
+///
+/// It asks the question `mandate-federation`'s destination guard asks of the same kind of
+/// authority (`origin` and `loopback` in `crates/mandate-federation/src/verifier_real.rs`),
+/// so the two cannot disagree about one host:
+///
+/// * An authority carrying `@` is refused outright. Userinfo exists here only to make an
+///   authority look like it names one host while naming another — `localhost:80@evil.example`
+///   names `evil.example`.
+/// * A port that is spelled must parse. Anything else is a host this guard would be guessing
+///   about.
+/// * Trailing dots are folded, because they are the absolute form of the same name, and the
+///   host is read through `IpAddr::from_str`, so every spelling of one address is one host.
 fn is_loopback(authority: &str) -> bool {
-    let host = match authority.rsplit_once(':') {
+    if authority.contains('@') {
+        return false;
+    }
+    let (host, port) = match authority.split_once(']') {
         // An IPv6 literal carries colons of its own and is bracketed.
-        Some((host, _)) if !authority.ends_with(']') => host,
-        _ => authority,
+        // Anything after it but a port is not an authority.
+        Some((bracketed, after)) => match (bracketed.strip_prefix('['), after) {
+            (Some(host), "") => (host, None),
+            (Some(host), _) => match after.strip_prefix(':') {
+                Some(port) => (host, Some(port)),
+                None => return false,
+            },
+            (None, _) => return false,
+        },
+        None => match authority.rsplit_once(':') {
+            Some((host, port)) => (host, Some(port)),
+            None => (authority, None),
+        },
     };
+    if let Some(spelled) = port.filter(|port| !port.is_empty())
+        && spelled.parse::<u16>().is_err()
+    {
+        return false;
+    }
+    let trimmed = host.trim_end_matches('.');
+    let host = if trimmed.is_empty() { host } else { trimmed };
     host.eq_ignore_ascii_case("localhost")
-        || host == "[::1]"
         || host
-            .parse::<std::net::Ipv4Addr>()
+            .parse::<std::net::IpAddr>()
             .is_ok_and(|address| address.is_loopback())
 }
 
