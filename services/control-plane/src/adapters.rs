@@ -631,8 +631,12 @@ fn normalised_issuer(configured: &str) -> Result<String, IssuerRefused> {
 ///   names `evil.example`.
 /// * A port that is spelled must parse. Anything else is a host this guard would be guessing
 ///   about.
-/// * Trailing dots are folded, because they are the absolute form of the same name, and the
-///   host is read through `IpAddr::from_str`, so every spelling of one address is one host.
+/// * Each of RFC 3986 section 3.2.2's host forms is read by the parser for that form and no
+///   other: a bracketed host is an `IP-literal` and must parse as `Ipv6Addr`; an unbracketed
+///   host is an `IPv4address` or a `reg-name`, neither of which carries a `:`, so one that
+///   does is refused rather than read as an address.
+/// * One trailing dot is folded on an unbracketed host, because it is the absolute form of
+///   the same name. A second is a name with an empty label, which is no spelling of anything.
 fn is_loopback(authority: &str) -> bool {
     if authority.contains('@') {
         return false;
@@ -641,16 +645,16 @@ fn is_loopback(authority: &str) -> bool {
         // An IPv6 literal carries colons of its own and is bracketed.
         // Anything after it but a port is not an authority.
         Some((bracketed, after)) => match (bracketed.strip_prefix('['), after) {
-            (Some(host), "") => (host, None),
+            (Some(host), "") => (Host::Literal(host), None),
             (Some(host), _) => match after.strip_prefix(':') {
-                Some(port) => (host, Some(port)),
+                Some(port) => (Host::Literal(host), Some(port)),
                 None => return false,
             },
             (None, _) => return false,
         },
         None => match authority.rsplit_once(':') {
-            Some((host, port)) => (host, Some(port)),
-            None => (authority, None),
+            Some((host, port)) => (Host::Unbracketed(host), Some(port)),
+            None => (Host::Unbracketed(authority), None),
         },
     };
     if let Some(spelled) = port.filter(|port| !port.is_empty())
@@ -658,12 +662,30 @@ fn is_loopback(authority: &str) -> bool {
     {
         return false;
     }
-    let trimmed = host.trim_end_matches('.');
-    let host = if trimmed.is_empty() { host } else { trimmed };
-    host.eq_ignore_ascii_case("localhost")
-        || host
-            .parse::<std::net::IpAddr>()
-            .is_ok_and(|address| address.is_loopback())
+    match host {
+        Host::Literal(host) => host
+            .parse::<std::net::Ipv6Addr>()
+            .is_ok_and(|address| address.is_loopback()),
+        Host::Unbracketed(host) if host.contains(':') => false,
+        Host::Unbracketed(host) => {
+            let host = match host.strip_suffix('.') {
+                Some(name) if !name.is_empty() => name,
+                _ => host,
+            };
+            host.eq_ignore_ascii_case("localhost")
+                || host
+                    .parse::<std::net::Ipv4Addr>()
+                    .is_ok_and(|address| address.is_loopback())
+        }
+    }
+}
+
+/// Which of RFC 3986 section 3.2.2's host forms an authority's host was spelled in.
+enum Host<'a> {
+    /// Between `[` and `]`: an `IP-literal`.
+    Literal(&'a str),
+    /// Anything else: an `IPv4address` or a `reg-name`.
+    Unbracketed(&'a str),
 }
 
 /// Why a deployment could not be built.
