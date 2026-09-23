@@ -104,6 +104,7 @@ use mandate_identity::{
     SecurityEpochRecorded, SessionOpened, StreamVersion,
 };
 use mandate_model::TenantResolutionRule;
+use mandate_proto::oauth;
 use mandate_server::decode;
 use mandate_server::metadata::{
     AuthorizationServerMetadata, Jwk, JwkRefusal, Jwks, authorization_server_metadata,
@@ -951,23 +952,110 @@ pub fn relying_party_connection(
     }))
 }
 
-/// Whether a `return_uri` can carry a `handoff` parameter in a `Location` header: absolute
-/// `https` (or `http` on the loopback interface), no fragment, no control or whitespace
-/// byte, and no `handoff` already in its query.
+/// The parameters the callback adds to a `return_uri`, and the ones a relying party's
+/// redirects carry anywhere on its way. A `return_uri` whose query already names one of
+/// these — in any spelling, decoded — is refused: a second value is a parameter two readers
+/// may resolve differently, and the application's own reader is one of them.
+pub const RETURN_RESERVED_PARAMETERS: &[&str] =
+    &["state", "code", "error", "iss", "handoff", "app_state"];
+
+/// Whether a `return_uri` can carry a handoff: the one check the seed and the callback both
+/// run, because [`return_redirect`] is the whole of it.
 fn return_uri_is_usable(uri: &str) -> bool {
-    let absolute = uri.starts_with("https://")
-        || uri.starts_with("http://127.0.0.1")
-        || uri.starts_with("http://localhost")
-        || uri.starts_with("http://[::1]");
-    let names_handoff = uri.split_once('?').is_some_and(|(_, query)| {
-        query
-            .split('&')
-            .any(|pair| pair.split('=').next() == Some("handoff"))
-    });
-    absolute
-        && !uri.contains('#')
-        && !uri.chars().any(|c| c.is_control() || c.is_whitespace())
-        && !names_handoff
+    return_redirect(uri, &[("handoff", "x"), ("app_state", "x")]).is_ok()
+}
+
+/// Why a `return_uri` cannot carry a handoff.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum ReturnUriRefused {
+    /// A control or whitespace byte, which would be a header of its own in `Location`.
+    NotAHeaderValue,
+    /// Neither `https`, nor `http` on the loopback interface — decided on the parsed host.
+    SchemeUnadmitted,
+    /// The authority carries userinfo, or no host at all.
+    AuthorityMalformed,
+    /// A fragment: every parameter appended after it would be inside the fragment.
+    Fragment,
+    /// The query is not an `application/x-www-form-urlencoded` form.
+    QueryNotAForm,
+    /// The query already names one of [`RETURN_RESERVED_PARAMETERS`].
+    QueryNamesReservedParameter,
+}
+
+/// The `Location` a completed callback sends the browser to: `return_uri` with
+/// `parameters` added to its query, or why it cannot carry them.
+///
+/// **The seed runs this same function** ([`relying_party_connection`]), so a `return_uri`
+/// the process starts with is one every callback can compose onto, and the two cannot
+/// disagree about one.
+///
+/// # Errors
+///
+/// [`ReturnUriRefused`], naming the first rule the URI breaks.
+pub fn return_redirect(
+    return_uri: &str,
+    parameters: &[(&str, &str)],
+) -> Result<String, ReturnUriRefused> {
+    if return_uri
+        .chars()
+        .any(|c| c.is_control() || c.is_whitespace())
+    {
+        return Err(ReturnUriRefused::NotAHeaderValue);
+    }
+    if return_uri.contains('#') {
+        return Err(ReturnUriRefused::Fragment);
+    }
+    let lowered = return_uri.to_ascii_lowercase();
+    let (plaintext, rest) = if lowered.starts_with("https://") {
+        (false, &return_uri["https://".len()..])
+    } else if lowered.starts_with("http://") {
+        (true, &return_uri["http://".len()..])
+    } else {
+        return Err(ReturnUriRefused::SchemeUnadmitted);
+    };
+    let authority = rest.split(['/', '?']).next().unwrap_or("");
+    if authority.is_empty() || authority.contains('@') {
+        return Err(ReturnUriRefused::AuthorityMalformed);
+    }
+    // The host, parsed, and asked the question the issuer's own plaintext rule asks of it:
+    // a string prefix is not a host, and `localhost.attacker.example` begins with one.
+    if plaintext && !is_loopback(authority) {
+        return Err(ReturnUriRefused::SchemeUnadmitted);
+    }
+    let registered_query = return_uri.split_once('?').map(|(_, query)| query);
+    if let Some(query) = registered_query {
+        let form = oauth::decode_form(query).map_err(|_| ReturnUriRefused::QueryNotAForm)?;
+        if form.keys().any(|name| {
+            RETURN_RESERVED_PARAMETERS
+                .iter()
+                .any(|reserved| name.eq_ignore_ascii_case(reserved))
+        }) {
+            return Err(ReturnUriRefused::QueryNamesReservedParameter);
+        }
+    }
+    let mut location = return_uri.to_owned();
+    let mut separator = match registered_query {
+        Some("") => None,
+        Some(_) => Some('&'),
+        None => Some('?'),
+    };
+    for (name, value) in parameters {
+        if let Some(separator) = separator {
+            location.push(separator);
+        }
+        location.push_str(name);
+        location.push('=');
+        for byte in value.bytes() {
+            if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~') {
+                location.push(char::from(byte));
+            } else {
+                location.push_str(&format!("%{byte:02X}"));
+            }
+        }
+        separator = Some('&');
+    }
+    Ok(location)
 }
 
 /// How long a pending sign-in waits for its callback, in seconds.
@@ -1073,6 +1161,8 @@ struct PendingLogin {
     /// The random value the `__Host-` cookie set on the authorize response carries, which
     /// binds this sign-in to the browser that started it.
     binding: String,
+    /// The embedding application's `app_state`, bound to the handoff this sign-in ends in.
+    app_state: Option<String>,
 }
 
 /// What a completed callback hands the browser: where to go, and the code to go with.
@@ -1082,6 +1172,26 @@ pub struct Handoff {
     pub return_uri: Option<String>,
     /// The single-use code `POST /v1/federation/handoff` exchanges for the session.
     pub code: String,
+    /// The `app_state` the sign-in was started with, returned beside the code.
+    ///
+    /// **The embedding application must check it against its own session** before it
+    /// exchanges the code, exactly as an OAuth client checks `state`: it is what tells the
+    /// application that this browser's sign-in is the one it started, and not an attacker's
+    /// completed sign-in delivered to it. The exchange presents it again and is refused —
+    /// and the code used up — when it differs.
+    pub app_state: Option<String>,
+}
+
+/// What a callback answers: its outcome, and what becomes of the browser's binding cookie.
+#[derive(Debug)]
+pub struct CallbackAnswer {
+    /// The bindings the cookie is to carry afterwards, when this callback used up the
+    /// sign-in one of the presented bindings bound; empty clears the cookie. `None` leaves
+    /// the cookie alone: a callback naming a state nobody issued, or another sign-in's,
+    /// changes nothing the browser holds.
+    pub bindings_left: Option<Vec<String>>,
+    /// The handoff, or the refusal.
+    pub outcome: Result<Handoff, Refusal>,
 }
 
 /// What an accepted authorize step answers: the IdP URL and the browser binding.
@@ -1089,9 +1199,14 @@ pub struct Handoff {
 pub struct Started {
     /// The IdP authorization URL the browser is sent to.
     pub location: String,
-    /// The value the browser-binding cookie is set to.
-    pub binding: String,
+    /// The bindings the browser-binding cookie is set to: the ones the browser presented,
+    /// newest last and at most [`MAX_HELD_BINDINGS`], and this sign-in's.
+    pub bindings: Vec<String>,
 }
+
+/// How many sign-ins one browser's binding cookie holds at once. A tab past this many has
+/// its binding dropped, oldest first, and its callback is refused.
+pub const MAX_HELD_BINDINGS: usize = 4;
 
 /// The relying party toward external OIDC IdPs: the token-endpoint port, what each
 /// connection holds, the sign-ins waiting for a callback, and the sessions waiting for
@@ -1107,7 +1222,7 @@ pub struct RelyingParty {
     endpoint: Box<dyn IdpTokenEndpoint + Send>,
     connections: BTreeMap<FederationConnectionId, RelyingPartyConnection>,
     pending: OnceStore<PendingLogin>,
-    handoffs: OnceStore<Login>,
+    handoffs: OnceStore<(Login, Option<String>)>,
 }
 
 impl RelyingParty {
@@ -3402,16 +3517,21 @@ where
     }
 
     /// Start a sign-in through the connection's IdP: mint a `state`, a `nonce`, a PKCE
-    /// verifier and a browser binding, hold them, and answer the IdP authorization URL the
-    /// browser is sent to with the binding its cookie carries.
+    /// verifier and a browser binding, hold them with the application's `app_state`, and
+    /// answer the IdP authorization URL the browser is sent to with the bindings its cookie
+    /// carries.
     ///
     /// Each value is one draw of this deployment's secret source — the 44-character base64
     /// text of 32 random bytes — re-rendered in unpadded base64url, so each is 59 characters
     /// and the verifier is inside RFC 7636's 43 to 128 of its unreserved set. Its S256
     /// challenge is sent in its place.
     ///
+    /// The browser keeps the bindings of the sign-ins it already holds, newest last and at
+    /// most [`MAX_HELD_BINDINGS`] with this one, so two tabs signing in at once each complete.
+    ///
     /// A full pending store evicts its oldest sign-in rather than refusing this one
-    /// ([`OnceStore`]).
+    /// ([`OnceStore`]); the flood that exploits that is `story:authorize-flood-eviction`'s,
+    /// and the ingress rate limit is the defence until it lands.
     ///
     /// # Errors
     ///
@@ -3470,13 +3590,17 @@ where
                 nonce,
                 verifier: CredentialProof::from_bytes(verifier.into_bytes()),
                 binding: binding.clone(),
+                app_state: input.app_state.clone(),
             },
             now,
         );
-        Ok(Started { location, binding })
+        let kept = input.bindings.len().saturating_sub(MAX_HELD_BINDINGS - 1);
+        let mut bindings: Vec<String> = input.bindings[kept..].to_vec();
+        bindings.push(binding);
+        Ok(Started { location, bindings })
     }
 
-    /// Finish a sign-in: take the pending `state` once, require the browser binding the
+    /// Finish a sign-in: take the pending `state` once, require a browser binding the
     /// authorize step set, redeem the code at the IdP's token endpoint with HTTP Basic client
     /// authentication and the PKCE verifier, verify the returned ID token with the
     /// deployment's verifier, check its `nonce`, realize
@@ -3488,47 +3612,66 @@ where
     /// response, a refused code — so a replayed or a second callback finds nothing and
     /// reaches no IdP.
     ///
+    /// **The browser's binding cookie changes only when this callback used up the sign-in
+    /// one of its bindings binds** ([`CallbackAnswer::bindings_left`]). A callback naming a
+    /// state nobody issued, or another browser's or another tab's sign-in, leaves every
+    /// binding the browser holds where it is: a cross-site navigation to this route cannot end
+    /// the sign-in the browser is in the middle of.
+    ///
     /// **The session proof is not answered here.** The callback is a browser navigation, and
     /// a bearer credential in its response is one in the browser's history and every
-    /// extension that reads it. A single-use code is answered instead, and the embedding
-    /// application exchanges it server-to-server ([`Deployment::redeem_handoff`]).
+    /// extension that reads it. A single-use code is answered instead, beside the
+    /// application's `app_state`, and the embedding application exchanges it server-to-server
+    /// ([`Deployment::redeem_handoff`]).
     ///
-    /// # Errors
-    ///
-    /// Returns the declared refusal when the state is unknown, used or expired, the binding
-    /// is absent or another browser's, the IdP answered an error, the callback's `iss` is not
-    /// the connection's issuer or is absent where the IdP advertises it, the code is not
+    /// The outcome is a refusal when the state is unknown, used or expired, no presented
+    /// binding binds it, the IdP answered an error, the callback's `iss` is not the
+    /// connection's issuer or is absent where the IdP advertises it, the code is not
     /// redeemed, the ID token is refused, its nonce is not the one sent, or the login itself
     /// is refused.
-    pub fn complete_federation(
+    pub fn complete_federation(&mut self, input: &decode::CompleteFederation) -> CallbackAnswer {
+        let now = self.clock.unix_seconds();
+        let refused = |clause| CallbackAnswer {
+            bindings_left: None,
+            outcome: Err(relying_refusal(DenialReason::InvalidCredential, clause)),
+        };
+        let Some(relying_party) = self.relying_party.as_mut() else {
+            return refused(FederationClause::ConnectionUnknown);
+        };
+        let Some(pending) = relying_party.pending.take(&input.state, now) else {
+            return refused(FederationClause::StateMismatch);
+        };
+        // Login CSRF: a callback URL completed by any client but the browser that started
+        // the sign-in opens nothing. Every presented binding is compared, so the answer does
+        // not depend on where in the cookie the matching one sits.
+        let bound = input.bindings.iter().fold(false, |found, presented| {
+            found | same_text(presented, &pending.binding)
+        });
+        if !bound {
+            return refused(FederationClause::StateMismatch);
+        }
+        let bindings_left = input
+            .bindings
+            .iter()
+            .filter(|presented| !same_text(presented, &pending.binding))
+            .cloned()
+            .collect();
+        CallbackAnswer {
+            bindings_left: Some(bindings_left),
+            outcome: self.finish_federation(input, pending, now),
+        }
+    }
+
+    /// The rest of the callback, once the pending sign-in is taken and its binding matched.
+    fn finish_federation(
         &mut self,
         input: &decode::CompleteFederation,
+        pending: PendingLogin,
+        now: u64,
     ) -> Result<Handoff, Refusal> {
-        let now = self.clock.unix_seconds();
         let relying_party = self.relying_party.as_mut().ok_or_else(|| {
             relying_refusal(DenialReason::Denied, FederationClause::ConnectionUnknown)
         })?;
-        let pending = relying_party
-            .pending
-            .take(&input.state, now)
-            .ok_or_else(|| {
-                relying_refusal(
-                    DenialReason::InvalidCredential,
-                    FederationClause::StateMismatch,
-                )
-            })?;
-        // Login CSRF: a callback URL completed by any client but the browser that started
-        // the sign-in opens nothing.
-        if !input
-            .binding
-            .as_deref()
-            .is_some_and(|presented| same_text(presented, &pending.binding))
-        {
-            return Err(relying_refusal(
-                DenialReason::InvalidCredential,
-                FederationClause::StateMismatch,
-            ));
-        }
         // OIDC Core 3.1.2.6: the IdP refused. Its text is not read and never echoed.
         let Some(code) = input.code.as_ref().filter(|_| !input.error) else {
             eprintln!("mandate-control-plane: relying party refused IdpError");
@@ -3603,21 +3746,34 @@ where
         })?;
         let code = base64url(self.secrets.next_secret().expose_bytes());
         if let Some(relying_party) = self.relying_party.as_mut() {
-            relying_party.handoffs.insert(code.clone(), login, now);
+            relying_party
+                .handoffs
+                .insert(code.clone(), (login, pending.app_state.clone()), now);
         }
-        Ok(Handoff { return_uri, code })
+        Ok(Handoff {
+            return_uri,
+            code,
+            app_state: pending.app_state,
+        })
     }
 
-    /// Exchange a handoff code for the session a callback opened: once, and only within
-    /// [`HANDOFF_LIFETIME`].
+    /// Exchange a handoff code for the session a callback opened: once, only within
+    /// [`HANDOFF_LIFETIME`], and only for the application that started the sign-in — the one
+    /// presenting the same `app_state`, or none where it was started with none.
+    ///
+    /// **A mismatched `app_state` uses the code up.** The code is taken before the comparison,
+    /// so an attacker's completed sign-in delivered to a victim's application, which presents
+    /// its own `app_state`, is refused there and cannot then be redeemed by anyone.
     ///
     /// # Errors
     ///
-    /// Returns the declared refusal when the deployment has no relying party, or the code
-    /// is unknown, already exchanged or expired.
+    /// Returns the declared refusal when the deployment has no relying party, the code is
+    /// unknown, already exchanged or expired (`SessionUnknown`), or the `app_state` is not the
+    /// one the sign-in was started with (`StateMismatch`).
     pub fn redeem_handoff(&mut self, input: &decode::RedeemHandoff) -> Result<Login, Refusal> {
         let now = self.clock.unix_seconds();
-        self.relying_party
+        let (login, bound) = self
+            .relying_party
             .as_mut()
             .and_then(|relying_party| relying_party.handoffs.take(&input.handoff, now))
             .ok_or_else(|| {
@@ -3625,7 +3781,19 @@ where
                     DenialReason::InvalidCredential,
                     FederationClause::SessionUnknown,
                 )
-            })
+            })?;
+        let same = match (&bound, &input.app_state) {
+            (None, None) => true,
+            (Some(bound), Some(presented)) => same_text(bound, presented),
+            _ => false,
+        };
+        if !same {
+            return Err(relying_refusal(
+                DenialReason::InvalidCredential,
+                FederationClause::StateMismatch,
+            ));
+        }
+        Ok(login)
     }
 }
 

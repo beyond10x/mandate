@@ -508,6 +508,11 @@ pub fn authenticate_federation(request: &Request) -> Result<AuthenticateFederati
 pub struct BeginFederation {
     /// The connection whose IdP the browser is sent to.
     pub connection_id: FederationConnectionId,
+    /// The embedding application's own value, bound to the handoff this sign-in ends in and
+    /// presented again at `POST /v1/federation/handoff`.
+    pub app_state: Option<String>,
+    /// The bindings of the sign-ins this browser already holds, off its binding cookie.
+    pub bindings: Vec<String>,
 }
 
 /// The relying-party callback, as the IdP's redirect presents it.
@@ -523,9 +528,9 @@ pub struct CompleteFederation {
     /// Whether the IdP answered an error response (OIDC Core 3.1.2.6). Its text is not
     /// carried: nothing an IdP writes there is rendered back.
     pub error: bool,
-    /// The value of the [`FEDERATION_BINDING_COOKIE`] the browser presented, when it
-    /// presented exactly one.
-    pub binding: Option<String>,
+    /// The bindings the browser's [`FEDERATION_BINDING_COOKIE`] carries — one per sign-in it
+    /// holds — when it presented that cookie exactly once.
+    pub bindings: Vec<String>,
 }
 
 /// `POST /v1/federation/handoff`, as the embedding application presents it.
@@ -533,16 +538,30 @@ pub struct CompleteFederation {
 pub struct RedeemHandoff {
     /// The single-use code the callback sent the browser back with.
     pub handoff: String,
+    /// The `app_state` the application started the sign-in with, when it started it with one.
+    pub app_state: Option<String>,
 }
 
-/// The cookie that binds a relying-party sign-in to the browser that started it.
+/// The cookie that binds relying-party sign-ins to the browser that started them.
 ///
 /// `__Host-` (RFC 6265bis section 4.1.3.2): set only with `Secure`, `Path=/` and no
 /// `Domain`, so no other host and no plaintext response can set or shadow it.
+///
+/// **One cookie, one binding per sign-in the browser holds**, separated by
+/// [`FEDERATION_BINDING_SEPARATOR`], so two tabs signing in at once each keep theirs: an
+/// authorize step adds its binding to the ones the browser presented, and a callback removes
+/// the one it used up and leaves the others.
 pub const FEDERATION_BINDING_COOKIE: &str = "__Host-mandate-rp";
 
+/// What separates two bindings in the [`FEDERATION_BINDING_COOKIE`]'s value. Outside the
+/// base64url alphabet a binding is written in.
+pub const FEDERATION_BINDING_SEPARATOR: char = '.';
+
+/// The longest `app_state` the authorize step admits, in bytes.
+pub const MAX_APP_STATE_BYTES: usize = 256;
+
 /// The parameters the relying-party authorize step admits, and nothing else.
-pub const FEDERATION_AUTHORIZE_PARAMETERS: &[&str] = &["connection_id"];
+pub const FEDERATION_AUTHORIZE_PARAMETERS: &[&str] = &["connection_id", "app_state"];
 
 /// The parameters the relying-party callback admits, and nothing else.
 ///
@@ -563,23 +582,27 @@ pub const FEDERATION_CALLBACK_PARAMETERS: &[&str] = &[
 ];
 
 /// The members the handoff body admits, and nothing else.
-pub const HANDOFF_MEMBERS: &[&str] = &["handoff"];
+pub const HANDOFF_MEMBERS: &[&str] = &["handoff", "app_state"];
 
-/// Decode the relying-party authorize step from its query string.
+/// Decode the relying-party authorize step from its query string and the binding cookie.
 ///
 /// # Errors
 ///
 /// Returns [`Refusal`] for another method, an oversized query, a presented body or caller
-/// credential, a malformed, repeated, undeclared or missing parameter, or a `connection_id`
-/// that is not one.
+/// credential, a repeated `Cookie` header, a malformed, repeated, undeclared or missing
+/// parameter, a `connection_id` that is not one, or an `app_state` that is empty, longer
+/// than [`MAX_APP_STATE_BYTES`] or outside RFC 3986's unreserved set.
 pub fn begin_federation(request: &Request) -> Result<BeginFederation, Refusal> {
     entry(request, "GET", Reads::Query)?;
     no_presented_credential(request)?;
     let form = oauth::decode_form(request.query())?;
     closed(&form, FEDERATION_AUTHORIZE_PARAMETERS)?;
+    let app_state = form.get("app_state").map(app_state).transpose()?;
     Ok(BeginFederation {
         connection_id: FederationConnectionId::parse(field(&form, "connection_id")?)
             .map_err(|_| Refusal::MalformedField)?,
+        app_state,
+        bindings: bindings(request)?,
     })
 }
 
@@ -616,15 +639,12 @@ pub fn complete_federation(request: &Request) -> Result<CompleteFederation, Refu
         Some(_) => Some(free_text(&form, "iss")?),
         None => None,
     };
-    let binding = request
-        .single_header("Cookie")?
-        .and_then(|cookies| cookie(cookies, FEDERATION_BINDING_COOKIE));
     Ok(CompleteFederation {
         code,
         state: free_text(&form, "state")?,
         issuer,
         error,
-        binding,
+        bindings: bindings(request)?,
     })
 }
 
@@ -634,7 +654,8 @@ pub fn complete_federation(request: &Request) -> Result<CompleteFederation, Refu
 ///
 /// Returns [`Refusal`] for another method or media type, an oversized or non-UTF-8 body, a
 /// presented caller credential, a body that is not a flat JSON object of strings, an
-/// undeclared or missing member, or a value that is too long or carries a control character.
+/// undeclared or missing member, a value that is too long or carries a control character, or
+/// an `app_state` outside the form the authorize step admits.
 pub fn redeem_handoff(request: &Request) -> Result<RedeemHandoff, Refusal> {
     entry(request, "POST", Reads::Body)?;
     let body = require_body(request, JSON_MEDIA_TYPE)?;
@@ -655,9 +676,55 @@ pub fn redeem_handoff(request: &Request) -> Result<RedeemHandoff, Refusal> {
     if handoff.chars().any(char::is_control) {
         return Err(Refusal::ControlCharacter);
     }
+    let app_state = match member(&members, "app_state") {
+        Ok(value) => Some(app_state(value)?),
+        Err(_) => None,
+    };
     Ok(RedeemHandoff {
         handoff: handoff.to_owned(),
+        app_state,
     })
+}
+
+/// An `app_state`, in the form the authorize step admits: non-empty, at most
+/// [`MAX_APP_STATE_BYTES`], and RFC 3986's unreserved set alone, so it is written into a
+/// `Location` query as it stands.
+fn app_state(value: &str) -> Result<String, Refusal> {
+    if value.is_empty() {
+        return Err(Refusal::MalformedField);
+    }
+    if value.len() > MAX_APP_STATE_BYTES {
+        return Err(Refusal::TextTooLong);
+    }
+    if !value
+        .bytes()
+        .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~'))
+    {
+        return Err(Refusal::MalformedField);
+    }
+    Ok(value.to_owned())
+}
+
+/// The bindings the request's [`FEDERATION_BINDING_COOKIE`] carries: none when the cookie is
+/// absent or named twice, and only the members in the base64url alphabet a binding is
+/// written in.
+fn bindings(request: &Request) -> Result<Vec<String>, Refusal> {
+    Ok(request
+        .single_header("Cookie")?
+        .and_then(|cookies| cookie(cookies, FEDERATION_BINDING_COOKIE))
+        .map(|value| {
+            value
+                .split(FEDERATION_BINDING_SEPARATOR)
+                .filter(|binding| {
+                    !binding.is_empty()
+                        && binding
+                            .bytes()
+                            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+                })
+                .map(ToOwned::to_owned)
+                .collect()
+        })
+        .unwrap_or_default())
 }
 
 /// The value of the cookie `name` in a `Cookie` header, when the header names it exactly

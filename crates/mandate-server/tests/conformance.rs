@@ -164,6 +164,8 @@ fn every_route_of_the_table_is_a_command_the_registry_serves_or_a_document_this_
                 assert_eq!(request.route_path(), route.path);
                 let input = decode::begin_federation(&request).unwrap();
                 assert_eq!(input.connection_id.to_string(), UUID);
+                assert_eq!(input.app_state, None);
+                assert!(input.bindings.is_empty());
             }
             Binding::RelyingParty(routes::RelyingPartyStep::Callback) => {
                 let request = Request::new("GET", &format!("{}?code=Zm9v&state=xyz", route.path));
@@ -175,7 +177,7 @@ fn every_route_of_the_table_is_a_command_the_registry_serves_or_a_document_this_
                 );
                 assert_eq!(input.state, "xyz");
                 assert!(!input.error);
-                assert_eq!(input.binding, None);
+                assert!(input.bindings.is_empty());
             }
             Binding::RelyingParty(routes::RelyingPartyStep::Handoff) => {
                 let request = Request::new("POST", route.path)

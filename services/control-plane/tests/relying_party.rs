@@ -688,9 +688,31 @@ impl Returned {
 
 /// Mandate's authorize and the IdP's authorize, as a browser follows them.
 fn to_the_idp_and_back(stood: &Stood) -> Returned {
-    let started = get(
+    to_the_idp_and_back_holding(stood, None, None)
+}
+
+/// The same, with the embedding application's `app_state` on the authorize request.
+fn to_the_idp_and_back_with(stood: &Stood, app_state: Option<&str>) -> Returned {
+    to_the_idp_and_back_holding(stood, app_state, None)
+}
+
+/// The same, from a browser already holding the binding cookie `holding`.
+fn to_the_idp_and_back_holding(
+    stood: &Stood,
+    app_state: Option<&str>,
+    holding: Option<&str>,
+) -> Returned {
+    let bound = app_state.map_or_else(String::new, |value| format!("&app_state={value}"));
+    let headers: Vec<(&str, &str)> = holding.map(|c| ("Cookie", c)).into_iter().collect();
+    let started = send(
         stood.address,
-        &format!("/v1/federation/authorize?connection_id={}", connection()),
+        "GET",
+        &format!(
+            "/v1/federation/authorize?connection_id={}{bound}",
+            connection()
+        ),
+        &headers,
+        None,
     );
     assert_eq!(
         started.status, 302,
@@ -782,12 +804,21 @@ fn handoff_of(response: &Response) -> Option<String> {
 
 /// The embedding application's server-to-server exchange of a handoff code.
 fn exchange(stood: &Stood, code: &str) -> Response {
+    exchange_with(stood, code, None)
+}
+
+/// The exchange, presenting the embedding application's own `app_state`.
+fn exchange_with(stood: &Stood, code: &str, app_state: Option<&str>) -> Response {
+    let mut body = serde_json::json!({ "handoff": code });
+    if let Some(value) = app_state {
+        body["app_state"] = value.into();
+    }
     send(
         stood.address,
         "POST",
         "/v1/federation/handoff",
         &[],
-        Some(&serde_json::json!({ "handoff": code }).to_string()),
+        Some(&body.to_string()),
     )
 }
 
@@ -1025,6 +1056,128 @@ fn a_relying_party_connection_admits_no_proof_at_the_login_route() {
     let (_, err) = stood.served.output();
     assert!(
         err.contains("refused mandate.federation.AuthenticateFederation NonceMismatch"),
+        "{err}"
+    );
+}
+
+/// A: two tabs of one browser sign in at once. The second authorize keeps the first tab's
+/// binding beside its own, each callback removes only its own, and both complete — in
+/// either order.
+#[test]
+fn two_tabs_of_one_browser_each_complete_their_own_sign_in() {
+    let stood = stand("two-tabs-own", Tamper::None, IDP_SECRET);
+    let first = to_the_idp_and_back(&stood);
+    let second = to_the_idp_and_back_holding(&stood, None, Some(&first.cookie));
+    let first_binding = first.cookie.split_once('=').expect("name=value").1;
+    let held = second.cookie.split_once('=').expect("name=value").1;
+    let bindings: Vec<&str> = held.split('.').collect();
+    assert_eq!(bindings.len(), 2, "{held}");
+    assert_eq!(
+        bindings[0], first_binding,
+        "the first tab's binding is kept"
+    );
+
+    // The first tab returns first, from the browser that holds both.
+    let completed = callback(&stood, &first.query, Some(&second.cookie));
+    assert!(opened_a_session(&completed), "{}", completed.body);
+    let left = completed
+        .header("Set-Cookie")
+        .expect("the used binding is dropped");
+    let left_value = left
+        .split(';')
+        .next()
+        .and_then(|pair| pair.split_once('='))
+        .expect("name=value")
+        .1;
+    assert_eq!(
+        left_value, bindings[1],
+        "only the second tab's binding is left"
+    );
+    assert!(!left.contains("Max-Age=0"), "{left}");
+
+    let remaining = format!("{BINDING_COOKIE}={left_value}");
+    let completed = callback(&stood, &second.query, Some(&remaining));
+    assert!(opened_a_session(&completed), "{}", completed.body);
+    let cleared = completed
+        .header("Set-Cookie")
+        .expect("the last binding is cleared");
+    assert!(cleared.contains("Max-Age=0"), "{cleared}");
+
+    // A callback naming a state nobody issued changes nothing the browser holds.
+    let forged = callback(&stood, "code=x&state=nobody-issued-this", Some(&remaining));
+    assert!(!opened_a_session(&forged));
+    assert!(
+        forged.header("Set-Cookie").is_none(),
+        "the browser's cookie is left alone"
+    );
+}
+
+/// E: the handoff is bound to the embedding application. An attacker who completes a
+/// sign-in of their own and delivers its handoff code to a victim's application redeems
+/// nothing there — the victim's application presents its own `app_state` — and the code is
+/// used up by the attempt, so the attacker cannot then redeem it either.
+#[test]
+fn an_attackers_handoff_presented_with_another_app_state_redeems_nothing() {
+    let mut stood = stand("app-state", Tamper::None, IDP_SECRET);
+    let attacker = to_the_idp_and_back_with(&stood, Some("attacker-app-state"));
+    let completed = callback(&stood, &attacker.query, Some(&attacker.cookie));
+    let code = handoff_of(&completed).expect("the attacker's own sign-in completed");
+    let location = completed.header("Location").expect("a Location").to_owned();
+    let returned = form(location.split_once('?').expect("a query").1);
+    assert_eq!(
+        returned.get("app_state").map(String::as_str),
+        Some("attacker-app-state"),
+        "the app_state comes back beside the handoff: {location}"
+    );
+
+    let at_victim = exchange_with(&stood, &code, Some("victim-app-state"));
+    assert_ne!(at_victim.status, 200, "{}", at_victim.body);
+    assert!(
+        !at_victim.body.contains("session_proof"),
+        "{}",
+        at_victim.body
+    );
+    let afterwards = exchange_with(&stood, &code, Some("attacker-app-state"));
+    assert_ne!(
+        afterwards.status, 200,
+        "the refused attempt used the code up"
+    );
+
+    // A handoff bound to an app_state is not redeemed without one, and is with the right one.
+    let own = to_the_idp_and_back_with(&stood, Some("the-apps-own-state"));
+    let own_code =
+        handoff_of(&callback(&stood, &own.query, Some(&own.cookie))).expect("a handoff code");
+    assert_ne!(exchange(&stood, &own_code).status, 200);
+    let again = to_the_idp_and_back_with(&stood, Some("the-apps-own-state"));
+    let again_code =
+        handoff_of(&callback(&stood, &again.query, Some(&again.cookie))).expect("a handoff code");
+    let redeemed = exchange_with(&stood, &again_code, Some("the-apps-own-state"));
+    assert_eq!(redeemed.status, 200, "{}", redeemed.body);
+
+    // An app_state outside the URL-safe set, or over the bound, is refused at authorize and
+    // sets no binding.
+    for bad in ["has%20space", "semi%3Bcolon", &"a".repeat(257)] {
+        let refused = get(
+            stood.address,
+            &format!(
+                "/v1/federation/authorize?connection_id={}&app_state={bad}",
+                connection()
+            ),
+        );
+        assert_eq!(refused.status, 400, "{bad}: {}", refused.body);
+        assert!(refused.header("Set-Cookie").is_none(), "{bad}");
+    }
+    let (_, err) = stood.served.output();
+    // The victim's application, the used-up retry, and the exchange without an app_state.
+    let refused: Vec<&str> = err
+        .lines()
+        .filter_map(|line| {
+            line.strip_prefix("mandate-control-plane: refused relying-party handoff ")
+        })
+        .collect();
+    assert_eq!(
+        refused,
+        vec!["StateMismatch", "SessionUnknown", "StateMismatch"],
         "{err}"
     );
 }

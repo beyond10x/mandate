@@ -910,8 +910,14 @@ const SHIPPED_PENDING_CAPACITY: usize = 4096;
 /// requests — no credential, one public `connection_id` — push a waiting browser's sign-in
 /// out of the one store every connection shares. `SHIPPED_PENDING_CAPACITY` of them between
 /// the victim's authorize and its callback is enough, and nothing bounds who sends them.
+///
+/// **The defect is open**, and this case pins today's documented behaviour rather than the
+/// fixed one (coordinator ruling, correction round 2): the residual defence is the ingress
+/// rate limit, and the fix is `story:authorize-flood-eviction`. When that story lands, this
+/// assertion must flip back to `signed_in`.
 #[test]
-fn anonymous_authorize_requests_do_not_evict_a_browser_waiting_at_its_idp() {
+fn anonymous_authorize_requests_evict_a_waiting_browser_until_story_authorize_flood_eviction_lands()
+{
     let mut stood = stand("evicted", Tamper::None, IDP_SECRET, RETURN_URI);
     let victim = to_the_idp_and_back(&stood);
     let target = format!("/v1/federation/authorize?connection_id={}", connection());
@@ -922,12 +928,17 @@ fn anonymous_authorize_requests_do_not_evict_a_browser_waiting_at_its_idp() {
     let mut jar = Jar::holding(&victim.cookie);
     let completed = callback_in(&stood, &victim.query, &mut jar);
     assert!(
-        signed_in(&stood, &completed),
-        "{SHIPPED_PENDING_CAPACITY} anonymous authorize requests evicted a waiting browser's \
-         sign-in: {} {} (refused {})",
+        !signed_in(&stood, &completed),
+        "{SHIPPED_PENDING_CAPACITY} anonymous authorize requests no longer evict a waiting \
+         browser's sign-in: story:authorize-flood-eviction has landed, so flip this case back \
+         to asserting the sign-in succeeds ({} {})",
         completed.status,
         completed.body,
-        refused_for(&mut stood)
+    );
+    assert_eq!(
+        refused_for(&mut stood),
+        "StateMismatch",
+        "evicted, and so unknown"
     );
 }
 
@@ -936,13 +947,17 @@ fn anonymous_authorize_requests_do_not_evict_a_browser_waiting_at_its_idp() {
 /// naming `code`, `state` or `error`) then answers **every** completed sign-in with a `400`
 /// — after the IdP redeemed the code and a session was opened and held for a handoff nobody
 /// is told.
+///
+/// Re-pinned by coordinator ruling (M1 final correction): the seed now refuses a query naming
+/// `state` (decision C, pinned by the case below), so this case uses a benign query the seed
+/// admits and still asserts that an admitted `return_uri` completes a sign-in.
 #[test]
 fn a_return_uri_the_seed_admits_is_one_the_callback_can_send_the_browser_to() {
     let mut stood = stand(
         "return-query",
         Tamper::None,
         IDP_SECRET,
-        "https://app.example/signed-in?state=keep",
+        "https://app.example/signed-in?tab=home",
     );
     let (_, completed) = walk(&stood);
     let redeemed = stood.idp.held().token_calls;

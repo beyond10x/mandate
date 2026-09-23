@@ -54,7 +54,9 @@ use mandate_sts::redemption::RedemptionRefused;
 use mandate_sts::{IdentityAllocator, SecretSource};
 use mandate_types::value::encode_base64;
 
-use crate::adapters::{AuthorizationRefusal, Deployment, PENDING_LIFETIME, Refusal};
+use crate::adapters::{
+    AuthorizationRefusal, Deployment, PENDING_LIFETIME, Refusal, return_redirect,
+};
 
 /// What this listener will read from one connection, and how long it waits for it.
 #[derive(Debug, Clone)]
@@ -704,15 +706,9 @@ where
                     // and nowhere else: a refused authorize sets nothing, and neither does a
                     // redirect `Response::redirect` refused to write.
                     Ok(started) => match Response::redirect(&started.location) {
-                        redirect if redirect.status == 302 => redirect.with_header(
-                            "Set-Cookie",
-                            &format!(
-                                "{}={}; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age={}",
-                                decode::FEDERATION_BINDING_COOKIE,
-                                started.binding,
-                                PENDING_LIFETIME
-                            ),
-                        ),
+                        redirect if redirect.status == 302 => {
+                            redirect.with_header("Set-Cookie", &binding_cookie(&started.bindings))
+                        }
                         unwritable => unwritable,
                     },
                     Err(refusal) => Response::denied("relying-party authorize", &refusal),
@@ -720,35 +716,55 @@ where
             }
         }
         Binding::RelyingParty(RelyingPartyStep::Callback) => {
-            let answered = match decode::complete_federation(request) {
-                Err(refused) => Response::refused(&refused),
-                Ok(input) => match deployment.complete_federation(&input) {
-                    Ok(handoff) => match &handoff.return_uri {
-                        Some(return_uri) => {
-                            match redirect_to(return_uri, &[("handoff", &handoff.code)]) {
-                                Ok(location) => Response::redirect(&location),
-                                Err(refused) => redirect_unusable(refused),
+            match decode::complete_federation(request) {
+                // A callback the decoder refused names no sign-in, and the browser's
+                // bindings are left alone.
+                Err(refused) => Response::refused(&refused).no_store(),
+                Ok(input) => {
+                    let answer = deployment.complete_federation(&input);
+                    let answered = match answer.outcome {
+                        Ok(handoff) => {
+                            let mut parameters = vec![("handoff", handoff.code.as_str())];
+                            if let Some(app_state) = &handoff.app_state {
+                                parameters.push(("app_state", app_state.as_str()));
+                            }
+                            match &handoff.return_uri {
+                                // The composer the seed decided this URI with, so it composes.
+                                Some(return_uri) => {
+                                    match return_redirect(return_uri, &parameters) {
+                                        Ok(location) => Response::redirect(&location),
+                                        Err(_) => Response::error(
+                                            500,
+                                            ErrorBody::new(
+                                                ErrorCode::ServerError,
+                                                "the return URI cannot carry the handoff",
+                                            ),
+                                        ),
+                                    }
+                                }
+                                // No return URI configured: the code is answered in the body,
+                                // and the session proof still never is.
+                                None => Response::json(
+                                    200,
+                                    serde_json::json!({
+                                        "handoff": handoff.code,
+                                        "app_state": handoff.app_state,
+                                    })
+                                    .to_string(),
+                                ),
                             }
                         }
-                        // No return URI configured: the code is answered in the body, and the
-                        // session proof still never is.
-                        None => Response::json(
-                            200,
-                            serde_json::json!({ "handoff": handoff.code }).to_string(),
-                        ),
-                    },
-                    Err(refusal) => Response::denied("relying-party callback", &refusal),
-                },
-            };
-            // Whatever the callback answered, the sign-in it named is over, and so is the
-            // binding.
-            answered.no_store().with_header(
-                "Set-Cookie",
-                &format!(
-                    "{}=; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=0",
-                    decode::FEDERATION_BINDING_COOKIE
-                ),
-            )
+                        Err(refusal) => Response::denied("relying-party callback", &refusal),
+                    }
+                    .no_store();
+                    // Only a callback that used up the sign-in one of the presented bindings
+                    // binds changes the cookie: it drops that binding and keeps the others.
+                    match answer.bindings_left {
+                        Some(left) => answered.with_header("Set-Cookie", &binding_cookie(&left)),
+                        None => answered,
+                    }
+                }
+            }
         }
         Binding::RelyingParty(RelyingPartyStep::Handoff) => match decode::redeem_handoff(request) {
             Err(refused) => Response::refused(&refused).no_store(),
@@ -1089,5 +1105,20 @@ fn unwritable_header() -> Response {
             ErrorCode::ServerError,
             "the response could not be written as a header",
         ),
+    )
+}
+
+/// The `Set-Cookie` value carrying these relying-party bindings, or clearing the cookie when
+/// there are none left.
+fn binding_cookie(bindings: &[String]) -> String {
+    let joined = bindings.join(&decode::FEDERATION_BINDING_SEPARATOR.to_string());
+    let max_age = if bindings.is_empty() {
+        0
+    } else {
+        PENDING_LIFETIME
+    };
+    format!(
+        "{}={joined}; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age={max_age}",
+        decode::FEDERATION_BINDING_COOKIE
     )
 }
