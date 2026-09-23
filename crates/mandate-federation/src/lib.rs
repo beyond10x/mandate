@@ -633,15 +633,29 @@ fn on_key<T: LinkStore + ?Sized>(store: &T, key: &ExternalKey) -> Vec<ExternalPr
 /// for the reason [`LinkResolution`] is blanket: a defaulted method is one an implementor
 /// may write, and an implementor that writes this one decides a command's outcome.
 ///
+/// The enumeration contributes **identities and nothing else**. Each identity is read
+/// once, through [`ConnectionStore::connection`] — the one answer the selected connection
+/// is also decided on in step 1 — and its state and issuer are taken from that answer, so
+/// a stale or duplicated copy in the enumeration decides nothing: an identity the store
+/// answers `Disabled` by identity takes no part however the enumeration presents it, and
+/// an identity answered twice counts once.
+///
 /// This narrows, never widens: a store that answers only `Enabled` connections on the
-/// issuer it was asked about — [`record::Projection`] included — is unaffected.
+/// issuer it was asked about, once each and as it answers them by identity —
+/// [`record::Projection`] included — is unaffected.
 fn enabled_on_issuer<T: ConnectionStore + ?Sized>(
     store: &T,
     issuer: &Issuer,
 ) -> Vec<FederationConnection> {
-    store
-        .enabled_for_issuer(issuer)
-        .into_iter()
+    let mut identities: Vec<FederationConnectionId> = Vec::new();
+    for answered in store.enabled_for_issuer(issuer) {
+        if !identities.contains(&answered.id) {
+            identities.push(answered.id);
+        }
+    }
+    identities
+        .iter()
+        .filter_map(|id| store.connection(id))
         .filter(|connection| {
             connection.state == record::ConnectionState::Enabled && connection.issuer == *issuer
         })

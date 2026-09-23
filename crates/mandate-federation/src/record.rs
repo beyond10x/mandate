@@ -491,6 +491,17 @@ impl Projection {
                 tenant_resolution,
                 jit_provisioning,
             } => {
+                // Insert-if-absent at the record's own identity, the rule the
+                // `OAuthClientRegistered` arm below and `record_link` keep: a redelivered
+                // creation writes nothing, rather than leaving an `Enabled` copy beside a
+                // record the terminal `Disabled` state already holds.
+                if self
+                    .connections
+                    .iter()
+                    .any(|connection| connection.id == *connection_id)
+                {
+                    return Ok(());
+                }
                 self.connections.push(FederationConnection {
                     id: *connection_id,
                     // The payload declares no organization; the registering caller's
