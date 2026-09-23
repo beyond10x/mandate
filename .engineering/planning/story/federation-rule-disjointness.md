@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:federation-rule-disjointness
 kind: story
-status: active
+status: implemented
 title: Registration refuses two tenant rules one proof could satisfy
 relations:
 - decomposes: epic:foundations
@@ -12,12 +12,18 @@ scope:
 - confidence: cited
   path: contracts/obligations/federation.json
 - confidence: cited
+  path: contracts/use-cases/federated-login.json
+- confidence: cited
   path: crates/mandate-federation/src/record.rs
 - confidence: cited
   path: crates/mandate-federation/tests/adversary_obligations_federation_1.rs
 - confidence: inferred
   path: crates/mandate-federation/tests/obligations.rs
-revision: 6
+- confidence: cited
+  path: generated/conformance/suite.json
+- confidence: cited
+  path: systems/mandate/scenarios/federation-ambiguous-tenant.yaml
+revision: 9
 ---
 ## Why
 
@@ -41,3 +47,13 @@ Derived 2026-09-23 by `aep-drive:story-scoper` at `92fc026`. Every line is **cit
 - **Also likely:** `contracts/obligations/federation.json:453` (multiple-match row) — cited; `crates/mandate-federation/tests/obligations.rs` — inferred
 - **Confidence:** high
 - **Not established:** whether a seeded `--connection` document in control-plane tests puts two different-claim rules from different organizations on one issuer; if so it starts being refused
+
+## Scope — confirmed at close
+
+From the implementor's confirmation table, wave I–K (`docs/plans/2026-09-23-waves-i-j-k-execution.md`). Corrections to the `## Scope` above are kept visible here, not deleted there.
+
+federation-rule-disjointness
+- `record.rs` `collides` — confirmed
+- `tests/adversary_obligations_federation_1.rs`, `tests/obligations.rs` — confirmed
+- `contracts/obligations/federation.json:453` — not needed
+- not in scope but needed: `systems/mandate/scenarios/federation-ambiguous-tenant.yaml`, `generated/conformance/suite.json` and coverage receipt (regenerated), `contracts/use-cases/federated-login.json`

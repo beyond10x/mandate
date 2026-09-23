@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:road-lane-child-prints-address
 kind: story
-status: active
+status: implemented
 title: The login-road lane still picks its child's port by dropping a listener
 relations:
 - decomposes: epic:foundations
@@ -10,7 +10,7 @@ relations:
 scope:
 - confidence: cited
   path: services/control-plane/tests/adversary_login_road.rs
-revision: 5
+revision: 6
 ---
 # The login-road lane still picks its child's port by dropping a listener
 

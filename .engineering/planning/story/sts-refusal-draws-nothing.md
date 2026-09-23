@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:sts-refusal-draws-nothing
 kind: story
-status: active
+status: implemented
 title: STS handlers draw from the secret source and allocator only after every refusal
 relations:
 - decomposes: epic:foundations
@@ -12,14 +12,18 @@ scope:
 - confidence: cited
   path: contracts/obligations/sts.json
 - confidence: cited
+  path: services/control-plane/src/adapters.rs
+- confidence: cited
   path: services/sts/src/issue.rs
+- confidence: cited
+  path: services/sts/src/lib.rs
 - confidence: cited
   path: services/sts/src/redemption.rs
 - confidence: inferred
   path: services/sts/src/store.rs
 - confidence: cited
   path: services/sts/tests/adversary_obligations_sts_2.rs
-revision: 6
+revision: 9
 ---
 ## Why
 
@@ -44,3 +48,11 @@ Derived 2026-09-23 by `aep-drive:story-scoper` at `92fc026`. Every line is **cit
 - **Documents:** `contracts/obligations/sts.json` (`no_state_change` rows) — cited
 - **Confidence:** high
 - **Design choice inside the unit:** draws cannot move after an append that needs their output; the CAS half needs a pre-check or a reservation
+
+## Scope — confirmed at close
+
+From the implementor's confirmation table, wave I–K (`docs/plans/2026-09-23-waves-i-j-k-execution.md`). Corrections to the `## Scope` above are kept visible here, not deleted there.
+
+sts-refusal-draws-nothing
+- `redemption.rs`, `issue.rs`, `store.rs`, `contracts/obligations/sts.json` — confirmed
+- not in scope but needed: `services/sts/src/lib.rs` (`IdentityAllocator`), `services/control-plane/src/adapters.rs` (`SystemAllocator`, `StatedResourceServerIdentity`)

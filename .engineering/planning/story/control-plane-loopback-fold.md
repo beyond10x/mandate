@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:control-plane-loopback-fold
 kind: story
-status: active
+status: implemented
 title: The control-plane's own loopback fold asks a different question from the one beside it
 relations:
 - decomposes: epic:hardening
@@ -14,7 +14,7 @@ scope:
   path: services/control-plane/tests/adapters.rs
 - confidence: cited
   path: services/control-plane/tests/adversary_host_spelling_1.rs
-revision: 7
+revision: 8
 ---
 # The control-plane's own loopback fold asks a different question from the one beside it
 

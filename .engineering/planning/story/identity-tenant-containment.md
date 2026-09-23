@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:identity-tenant-containment
 kind: story
-status: active
+status: implemented
 title: IncrementSecurityEpoch refuses a target outside the caller's organization
 relations:
 - decomposes: epic:foundations
@@ -10,14 +10,20 @@ relations:
 - serves: vision:mandate
 scope:
 - confidence: cited
+  path: contracts/conformance/injections.json
+- confidence: cited
   path: contracts/obligations/identity.json
+- confidence: cited
+  path: crates/mandate-conformance/src/external.rs
+- confidence: cited
+  path: crates/mandate-conformance/tests/target.rs
 - confidence: cited
   path: crates/mandate-identity/src/increment.rs
 - confidence: cited
   path: crates/mandate-identity/src/port.rs
 - confidence: cited
   path: crates/mandate-identity/tests/adversary_obligations_identity_1.rs
-revision: 5
+revision: 8
 ---
 ## Why
 
@@ -41,3 +47,13 @@ Derived 2026-09-23 by `aep-drive:story-scoper` at `92fc026`. Every line is **cit
 - **Pattern, read not edited:** `crates/mandate-identity/src/session.rs:222,369` — inferred
 - **Documents:** `contracts/obligations/identity.json:25` — cited
 - **Confidence:** high
+
+## Scope — confirmed at close
+
+From the implementor's confirmation table, wave I–K (`docs/plans/2026-09-23-waves-i-j-k-execution.md`). Corrections to the `## Scope` above are kept visible here, not deleted there.
+
+identity-tenant-containment
+- `increment.rs` `execute` — confirmed (the decision lives here)
+- `port.rs:911-925` — wrong as the place to change: a new `TargetTenancy` impl was added at the end of `port.rs`, so line-pinned citations did not move
+- `contracts/obligations/identity.json` — confirmed
+- not in scope but needed: `crates/mandate-conformance/src/external.rs`, `tests/target.rs`, `contracts/conformance/injections.json`

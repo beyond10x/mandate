@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:folded-is-not-an-address-fold
 kind: story
-status: active
+status: implemented
 title: folded agrees on names, and the two halves of the guard disagree on addresses
 relations:
 - decomposes: epic:hardening
@@ -14,7 +14,7 @@ scope:
   path: crates/mandate-federation/tests/adversary_host_spelling_2.rs
 - confidence: inferred
   path: crates/mandate-federation/tests/verifier_real.rs
-revision: 6
+revision: 8
 ---
 # `folded` agrees on names, and the two halves of the guard disagree on addresses
 
@@ -136,3 +136,12 @@ Derived 2026-09-23 by `aep-drive:story-scoper` at `92fc026`. Every line is **cit
 - **Confidence:** high
 - **Would collide with:** any unit touching the JWKS destination guard in `verifier_real.rs`
 - **Not established:** where the account of what the sweep moved is written
+
+## Scope — confirmed at close
+
+From the implementor's confirmation table, wave I–K (`docs/plans/2026-09-23-waves-i-j-k-execution.md`). Corrections to the `## Scope` above are kept visible here, not deleted there.
+
+folded-is-not-an-address-fold
+- `src/verifier_real.rs` own-origin comparison, and `origin` itself in the correction — confirmed
+- `tests/verifier_real.rs` — confirmed
+- `tests/adversary_host_spelling_2.rs` as "the sweep that is re-run" — wrong: it only describes the sweep; the code was never committed and was rebuilt in scratch

@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:cross-crate-clauses
 kind: story
-status: active
+status: implemented
 title: A clause decided in another crate names that crate
 relations:
 - decomposes: epic:foundations
@@ -23,13 +23,19 @@ scope:
   path: contracts/obligations/identity.json
 - confidence: inferred
   path: contracts/obligations/model.json
+- confidence: cited
+  path: crates/mandate-federation/tests/adversary_obligations_federation_2.rs
+- confidence: cited
+  path: crates/mandate-model/tests/obligations.rs
 - confidence: inferred
   path: services/sts/tests
 - confidence: cited
   path: xtask/src/obligations_registry.rs
 - confidence: cited
+  path: xtask/tests/adversary_obligations_1.rs
+- confidence: cited
   path: xtask/tests/obligations_registry.rs
-revision: 14
+revision: 17
 ---
 ## Why
 
@@ -90,3 +96,12 @@ Derived 2026-09-23 by `aep-drive:story-scoper` at `92fc026`. Every line is **cit
 - **Also likely:** `contracts/obligations/{model,authz,graph,identity}.json`; `services/sts/tests/*.rs` if no existing test decides the two clauses (candidates `issue.rs:279`, `code.rs:517`, `obligations.rs:317`); `contracts/conformance/obligations-report.json` — inferred
 - **Symbols:** `decided_in` (not in the tree), `PATHS`, `obligation` — cited
 - **Confidence:** high for the xtask step; medium for which contract files change
+
+## Scope — confirmed at close
+
+From the implementor's confirmation table, wave I–K (`docs/plans/2026-09-23-waves-i-j-k-execution.md`). Corrections to the `## Scope` above are kept visible here, not deleted there.
+
+cross-crate-clauses
+- `xtask/src/obligations_registry.rs`, `xtask/tests/obligations_registry.rs`, `contracts/obligations/README.md`, `federation.json` (rows now at :223/:299), `model.json`, `identity.json`, the report — confirmed
+- `authz.json`, `graph.json`, `services/sts/tests` (inferred) — not needed; the deciding test is `code::each_declared_refusal_names_its_clause_and_mints_nothing`
+- not in scope but needed: `xtask/tests/adversary_obligations_1.rs`, `crates/mandate-federation/tests/{adversary_obligations_federation_2,obligations}.rs`, `crates/mandate-model/tests/obligations.rs`

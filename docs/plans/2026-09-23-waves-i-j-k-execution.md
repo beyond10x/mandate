@@ -97,14 +97,14 @@ Scratch roots are under `~/.cache/claude-tmp/wijk/`.
 
 | unit | branch | managed id | build dir | scratch | stage |
 |---|---|---|---|---|---|
-| coordinator | `integration/wave-20260923-001` | `mandate-wijk-coordinator` | its own `target/` | `~/.cache/claude-tmp/wijk/` | open |
+| coordinator | `integration/wave-20260923-001` | `mandate-wijk-coordinator` | its own `target/` | `~/.cache/claude-tmp/wijk/` | closed |
 | I1 | `impl/jit-principal-record` | `mandate-wi-jit-principal` | its own `target/` | `~/.cache/claude-tmp/wijk/i1/` | merged `9a68796` |
 | I2 | `impl/folded-is-not-an-address-fold` | `mandate-wi-folded` | its own `target/` | `~/.cache/claude-tmp/wijk/i2/` | merged `bb3312d` |
 | I3 | `impl/sts-lifetime-bounds` | `mandate-wi-sts-lifetime` | its own `target/` | `~/.cache/claude-tmp/wijk/i3/` | merged `c2eab4e` |
 | J1 | `impl/control-plane-loopback-fold` | `mandate-wj-loopback` | its own `target/` | `~/.cache/claude-tmp/wijk/j1/` | merged `ab1ee6d` |
 | J2 | `impl/identity-tenant-containment` | `mandate-wj-tenant` | its own `target/` | `~/.cache/claude-tmp/wijk/j2/` | merged `9646f68` |
 | J3 | `impl/federation-rule-disjointness` | `mandate-wj-disjoint` | its own `target/` | `~/.cache/claude-tmp/wijk/j3/` | merged `9c4ca4a` |
-| K1 | `impl/cross-crate-clauses` | `mandate-wk-cross-crate` | its own `target/` | `~/.cache/claude-tmp/wijk/k1/` | final correction |
+| K1 | `impl/cross-crate-clauses` | `mandate-wk-cross-crate` | its own `target/` | `~/.cache/claude-tmp/wijk/k1/` | merged `a0a848e` |
 | K2 | `impl/sts-refusal-draws-nothing` | `mandate-wk-draws` | its own `target/` | `~/.cache/claude-tmp/wijk/k2/` | merged `a72996f` |
 | K3 | `impl/road-lane-child-prints-address` | `mandate-wk-road-lane` | its own `target/` | `~/.cache/claude-tmp/wijk/k3/` | merged `fb1910c` |
 
@@ -167,3 +167,40 @@ Scratch roots are under `~/.cache/claude-tmp/wijk/`.
 - K1 correction 1 green (xtask 244, federation 328, model 116; 5 adversary cases green unedited). F1 re-pointed to a `mandate-federation` test (no `decided_in`: same crate); F2 split, narrowing deferred to `story:agent-authority-kernel`. Registry "191 external denial clauses; 86 decided on the real path, 21 reached only by a double, 84 deferred". Coordinator applied the implementor's doc patch to `crates/mandate-federation/tests/obligations.rs` (0 non-comment lines). Committed `2aa9f5c`, outcomes `fixed` ×5. Adversary pass 2 dispatched.
 - Gate run 1 on `a72996f` (8 units merged), per step: fmt 0, clippy 0, test **101**, build 0, boundaries 0, corpus 0, contracts 0, deny 0, licenses 0, validate 0, documents 0, coverage 0, obligations-registry 0, conform 0; `cargo xtask check` 1 (stopped at the same test step). The one failure: `crates/mandate-proto/tests/adversary_adapters_2.rs:271`, a reachability control that K2's `decide`/`mint` split left behind (it followed sibling-module calls only; the shipped `tests/oauth.rs` check follows same-module calls and stayed green). Coordinator alignment commit on the integration branch: the control follows same-module calls; proto lanes 3 and 31 passed, clippy 0.
 - K1 adversary 2: red, 2 findings (blocker: the DisableOAuthClient clause is a refusal of that command, counted real on a test that requires the disable to succeed; warning: the story's Acceptance still claims both rows decided in `mandate-sts`, and `xtask/tests/obligations_registry.rs:737` was weakened to fit), recorded `review-result:wijk-k1-cross-crate-adversary-2`; case `1204630`. Findings trend 5 → 2, carried 0. Rulings: the row goes back to deferred (`decision-blocker:epoch-atomicity`); the coordinator amended the story's Acceptance section (`### Amended 2026-09-23, wave K`); `:737` re-pinned to an exact assertion. Final correction to the same implementor.
+- K1 final correction: coordinator verified — the re-pinned acceptance case asserts exact equality on the one `decided_in` row, plus no `blocked_on` and real-path denial rows; doc patch 0 non-comment lines. Committed `6aebaa8`, outcomes `fixed` ×2. **K1 merged** as `a0a848e`. Findings trend 5 → 2. **Wave K is fully merged.**
+
+## Close
+
+Closing gate on the integration tree at `f974382` plus the mutant re-anchor, one exit status per step:
+
+| step | exit |
+|---|---|
+| `cargo fmt --all --check` | 0 |
+| `cargo clippy --workspace --all-targets --locked -D warnings` | 0 |
+| `cargo test --workspace --locked --no-fail-fast` | 0 — 267 suites, 1,991 passed, 0 failed, 1 ignored |
+| `cargo build --workspace --locked` | 0 |
+| boundaries, corpus, contracts, deny, licenses | 0 each |
+| `aep plan artifact validate` | 0 (valid) |
+| documents, coverage, obligations-registry, conform | 0 each |
+| `cargo xtask check` | 1, then 1, then **0** — the named-mutant step refused `cas-ahead` (patch no longer applied to `store.rs`) and then `event-field-obsolete` (anchor `issue.rs:379` drifted to `:381`); both re-anchored in `38b4af9`; 11 named mutants each killed |
+
+Numbers at close, read from the gate:
+
+| | before (`docs/handoff.md`, 0.4.0) | after |
+|---|---|---|
+| test suites / tests | 250 / 1,920 | 267 / 1,991 |
+| denial clauses decided on the real path | 83 of 190 | 85 of 191 (one clause split) |
+| contract elements implemented | 201 of 292 | 201 of 292 |
+| conformance scenarios | 166 | 166 |
+
+Ten stories moved `active → implemented` on a `test_result` recorded against `38b4af9`: the nine units and `story:eventlog-repin-0-3-0`.
+
+Filed from pre-existing findings: `story:bracketed-literal-trailing-dot`, `story:control-plane-readable-instant`, `story:provisioning-replay-principal`, `story:control-plane-multi-fold-writes`, `story:federation-guard-trailing-dots`.
+
+Escalated to open blockers, not fixed: the tenancy read vs compare-and-set race (J2), a post-build append refusal (K2) and the `DisableOAuthClient` clause (K1), all to `decision-blocker:epoch-atomicity`.
+
+Coordinator rulings a reviewer should read: J2 keeps a fail-closed placement rule; K2's two mutually unsatisfiable adversary cases were ruled wrong-now against the corrected docs instead of going to a person; I2 refuses percent-encoded host spellings beyond its story's scope; K1's story Acceptance was amended.
+
+Cost: 30 sub-agents (`aep-drive:story-scoper` ×3, `aep-drive:implementor` ×9, `aep-drive:adversary` ×18), about 3.03M tokens summed as the largest figure each agent reported. Two HTTP 429 interruptions; every agent resumed in its own context on the same model.
+
+**This batch stops at the integration branch** (`AGENTS.md` § Integration batches): no PR, no merge to `main`, no tag.

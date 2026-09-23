@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:sts-lifetime-bounds
 kind: story
-status: active
+status: implemented
 title: Resource-server profiles are bounded to the renderable timeline
 relations:
 - decomposes: epic:foundations
@@ -21,7 +21,7 @@ scope:
   path: services/sts/src/registry.rs
 - confidence: cited
   path: services/sts/tests/adversary_obligations_sts_1.rs
-revision: 6
+revision: 8
 ---
 ## Why
 
@@ -45,3 +45,11 @@ Derived 2026-09-23 by `aep-drive:story-scoper` at `92fc026`. Every line is **cit
 - **Symbols:** `admits_profile`, `DenialClause::ProfileUnadmitted`, `issue_reference_credential` (`issue.rs:341`) — cited
 - **Confidence:** high for `registry.rs`; medium for "every issuance path"
 - **Would collide with:** `story:sts-refusal-draws-nothing` on `issue.rs`, `redemption.rs`
+
+## Scope — confirmed at close
+
+From the implementor's confirmation table, wave I–K (`docs/plans/2026-09-23-waves-i-j-k-execution.md`). Corrections to the `## Scope` above are kept visible here, not deleted there.
+
+sts-lifetime-bounds
+- `registry.rs` `admits_profile`, `lib.rs` `instant::at` (the fix point), `issue.rs`, `redemption.rs` — confirmed
+- `code.rs` (inferred) — not needed: nothing is rendered there

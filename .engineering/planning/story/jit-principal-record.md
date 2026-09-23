@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:jit-principal-record
 kind: story
-status: active
+status: implemented
 title: A just-in-time login records the principal its event declares
 relations:
 - decomposes: epic:authentication
@@ -16,9 +16,13 @@ scope:
   path: services/control-plane/Cargo.toml
 - confidence: cited
   path: services/control-plane/src/adapters.rs
+- confidence: cited
+  path: services/control-plane/src/main.rs
 - confidence: inferred
   path: services/control-plane/tests/adapters.rs
-revision: 9
+- confidence: cited
+  path: services/control-plane/tests/serve.rs
+revision: 12
 ---
 # A just-in-time login mints a principal nothing records
 
@@ -99,3 +103,13 @@ Derived 2026-09-22 by `story-scoper`. Every line is **cited** (read from the sto
 - **Would collide with:** any unit touching `services/control-plane/src/adapters.rs` or
   `services/control-plane/Cargo.toml`; on the second design path, also any unit touching
   `crates/mandate-identity/src/port.rs`
+
+## Scope — confirmed at close
+
+From the implementor's confirmation table, wave I–K (`docs/plans/2026-09-23-waves-i-j-k-execution.md`). Corrections to the `## Scope` above are kept visible here, not deleted there.
+
+jit-principal-record
+- `services/control-plane/src/adapters.rs`, `Cargo.toml` (mandate-contract promoted to a dependency), `tests/adapters.rs` — confirmed
+- `services/control-plane/src/main.rs`, `tests/serve.rs` — touched (comments that became false); scope said not touched
+- `crates/mandate-identity/src/port.rs` (inferred) — not needed
+- `dependency-boundaries.json` — not needed; it already allowed control-plane → mandate-contract
