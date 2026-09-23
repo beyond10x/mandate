@@ -447,22 +447,51 @@ fn origin(uri: &str) -> Option<Uri> {
     if authority.contains('@') {
         return None;
     }
+    // Four shapes and no others: `host`, `host:port`, `[v6]` and `[v6]:port`. `ureq`
+    // reads the authority with a second parser, and a shape this one accepted loosely is
+    // a destination the guard decided about and the fetcher did not go to —
+    // `[::1]x:9999` was port 80 here and port 9999 to `http::Authority::port`. So after
+    // `]` comes nothing or `:`, and a bracket anywhere else is refused.
     let (host, port) = match authority.split_once(']') {
-        // An IPv6 literal: `[::1]` or `[::1]:8443`.
-        Some((bracketed, after)) => (bracketed.strip_prefix('[')?, after.strip_prefix(':')),
+        Some((bracketed, after)) => {
+            let port = match after {
+                "" => None,
+                after => Some(after.strip_prefix(':')?),
+            };
+            (bracketed.strip_prefix('[')?, port)
+        }
         None => match authority.rsplit_once(':') {
             Some((host, port)) => (host, Some(port)),
             None => (authority, None),
         },
     };
-    if host.is_empty() {
+    // An IPv6 literal outside brackets is not an authority RFC 3986 defines, and `ureq`
+    // refuses to parse one, so a `:` left in an unbracketed host is refused with it.
+    // Inside brackets there is an IPv6 address and nothing else — a zone (`[::1%25eth0]`)
+    // or an IPvFuture (`[v1.x]`) is a literal `IpAddr` does not read, so it would be an
+    // ordinary name to `literal_address` and `loopback` and reach `allowed_hosts`.
+    // Outside them every byte is one `http::Uri` accepts in a host: unreserved and the
+    // sub-delimiters. It refuses `%` there, so a percent-encoded host is one the fetcher
+    // could never have fetched, and a space or a control byte never names a host here.
+    let bracketed = authority.starts_with('[');
+    let well_formed = if bracketed {
+        folded(host).parse::<std::net::Ipv6Addr>().is_ok()
+    } else {
+        host.bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"-._~!$&'()*+,;=".contains(&byte))
+    };
+    if host.is_empty() || !well_formed {
         return None;
     }
-    // A port that is spelled must parse. Anything else is a host this parser would be
-    // guessing about, and guessing is what the whole guard exists not to do.
+    // A port that is spelled must be digits and must fit. Anything else is a host this
+    // parser would be guessing about, and guessing is what the whole guard exists not to
+    // do. `u16::from_str` alone reads `+22` as 22.
     let port = match port {
         None | Some("") => default_port(&scheme)?,
-        Some(spelled) => spelled.parse::<u16>().ok()?,
+        Some(spelled) if spelled.bytes().all(|byte| byte.is_ascii_digit()) => {
+            spelled.parse::<u16>().ok()?
+        }
+        Some(_) => return None,
     };
     Some(Uri {
         scheme,
