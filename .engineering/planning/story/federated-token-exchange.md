@@ -22,7 +22,7 @@ scope:
   path: services/sts/src/issue.rs
 - confidence: inferred
   path: services/sts/src/lib.rs
-revision: 4
+revision: 5
 ---
 # A session is exchanged for a credential another platform accepts
 
@@ -32,7 +32,11 @@ revision: 4
 
 ## Acceptance
 
-Given a session and a resource server whose `allowed_exchange_sources` admits that session's connection, when `/oauth/token` receives `grant_type=urn:ietf:params:oauth:grant-type:token-exchange` with the session proof as `subject_token`, then `TokenExchangeAllowed` is recorded and a credential for that resource server is issued that `/oauth/introspect` answers active; a source the resource server does not admit, an expired or revoked session, or an unknown target is refused with `TokenExchangeDenied` and draws nothing. The metadata document advertises the grant. Subject-only: no actor, no delegation.
+Given a Mandate access credential issued for resource server S and a resource server T whose `allowed_exchange_sources` lists S, when `/oauth/token` receives `grant_type=urn:ietf:params:oauth:grant-type:token-exchange` with that credential as `subject_token` (`subject_token_type=urn:ietf:params:oauth:token-type:access_token`) and T as `audience`/`resource`, then `TokenExchangeAllowed` is recorded and a credential for T with the same subject and organization is issued that `/oauth/introspect` answers active; a source T does not admit, an expired, revoked or unknown subject credential, or an unknown target is refused with `TokenExchangeDenied` and draws nothing. The metadata document advertises the grant. Subject-only: no actor, no delegation.
+
+### Amended 2026-09-23, wave M
+
+The first statement named "the session's connection" as the source. `allowed_exchange_sources` is a list of `ResourceServerId` (`systems/mandate/domains/credential.yaml:22-23`) and registration admits only enabled resource servers of the same organization (`services/sts/src/registry.rs:196-218`); a connection id cannot be one. The source is therefore the resource server the subject credential was issued for, as `docs/architecture/combined.md:53` states (unit M2's report; coordinator decision, option A).
 
 ## Scope
 
