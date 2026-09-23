@@ -727,9 +727,11 @@ where
 /// RFC 8693 section 2.2.1's response.
 ///
 /// A refusal is answered from `mandate_proto::oauth::CLAUSE_CODES`, the one table of this
-/// domain's clauses, exactly as the redemption and introspection arms answer theirs
-/// (correction round 1, F1): a second mapping here is a second answer to one question, and
-/// the two had already disagreed. RFC 6749 section 5.2's 401 for `invalid_client` follows.
+/// domain's clauses, read through `code_for_exchange_clause`: RFC 8693 section 2.2.2's
+/// `invalid_target` for a refusal about the target, and the table's own code for every other
+/// (correction round 1, F1; final correction, F2). A second mapping here would be a second
+/// answer to one question, and the two had already disagreed. An unusable subject token's
+/// cause goes to the operator's line and nowhere else (final correction, F7).
 fn exchanged<V, C, X, A>(
     deployment: &mut Deployment<V, C, X, A>,
     input: &decode::ExchangeCredential,
@@ -753,11 +755,13 @@ where
         )
         .no_store(),
         Err(denied) => {
-            record_refusal(
-                "mandate.credential.ExchangeCredential",
-                &format!("{:?}", denied.clause),
-            );
-            let code = oauth::code_for_clause(denied.clause);
+            // The cause is a fixed word from a closed enum, never the token.
+            let clause = match denied.cause {
+                Some(cause) => format!("{:?} {}", denied.clause, cause.as_str()),
+                None => format!("{:?}", denied.clause),
+            };
+            record_refusal("mandate.credential.ExchangeCredential", &clause);
+            let code = oauth::code_for_exchange_clause(denied.clause);
             Response::error(
                 status_for(code),
                 ErrorBody::new(code, "the exchange was refused"),

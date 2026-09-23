@@ -234,6 +234,10 @@ pub enum ErrorCode {
     InvalidGrant,
     /// Token endpoint: the grant type is not one this endpoint supports.
     UnsupportedGrantType,
+    /// Token endpoint, RFC 8693 section 2.2.2: the authorization server is unwilling or unable
+    /// to issue a token for the target the `audience` or `resource` named. Answered by a token
+    /// exchange alone ([`code_for_exchange_clause`]).
+    InvalidTarget,
     /// Authorization endpoint: the client is not authorized to request an authorization code
     /// using this method. [`UNAUTHORIZED_CLIENT_CLAUSES`] is the set of refusals that produce
     /// it.
@@ -258,6 +262,7 @@ impl ErrorCode {
         Self::InvalidClient,
         Self::InvalidGrant,
         Self::UnsupportedGrantType,
+        Self::InvalidTarget,
         Self::UnauthorizedClient,
         Self::InvalidScope,
         Self::UnsupportedResponseType,
@@ -266,13 +271,15 @@ impl ErrorCode {
         Self::TemporarilyUnavailable,
     ];
 
-    /// The codes RFC 6749 section 5.2 declares for the token endpoint.
+    /// The codes RFC 6749 section 5.2 declares for the token endpoint, and the one RFC 8693
+    /// section 2.2.2 adds to them for a token exchange.
     pub const TOKEN_ENDPOINT: &'static [Self] = &[
         Self::InvalidRequest,
         Self::InvalidClient,
         Self::InvalidGrant,
         Self::UnsupportedGrantType,
         Self::InvalidScope,
+        Self::InvalidTarget,
     ];
 
     /// The codes RFC 6749 section 4.1.2.1 declares for the authorization endpoint.
@@ -294,6 +301,7 @@ impl ErrorCode {
             Self::InvalidClient => "invalid_client",
             Self::InvalidGrant => "invalid_grant",
             Self::UnsupportedGrantType => "unsupported_grant_type",
+            Self::InvalidTarget => "invalid_target",
             Self::UnauthorizedClient => "unauthorized_client",
             Self::InvalidScope => "invalid_scope",
             Self::UnsupportedResponseType => "unsupported_response_type",
@@ -502,7 +510,8 @@ pub const CLAUSE_CODES: &[(DenialClause, ErrorCode)] = &[
     (DenialClause::RedirectMismatch, ErrorCode::InvalidGrant),
     (DenialClause::SessionEpochStale, ErrorCode::InvalidGrant),
     (DenialClause::SessionUnusable, ErrorCode::InvalidGrant),
-    (DenialClause::SourceUnadmitted, ErrorCode::InvalidGrant),
+    // Exchange-only, and a property of the target's registration: RFC 8693 section 2.2.2.
+    (DenialClause::SourceUnadmitted, ErrorCode::InvalidTarget),
     (DenialClause::ScopeNotNarrowed, ErrorCode::InvalidScope),
     (
         DenialClause::ExchangeNotSubjectOnly,
@@ -510,6 +519,35 @@ pub const CLAUSE_CODES: &[(DenialClause, ErrorCode)] = &[
     ),
     (DenialClause::SubjectTokenInvalid, ErrorCode::InvalidGrant),
 ];
+
+/// The clauses a token exchange refuses **about its target**, which it answers RFC 8693
+/// section 2.2.2's `invalid_target` for.
+///
+/// Five, and one code for all of them: the target names no registration (or its name none
+/// or two), is disabled, is another organization's, issues a family this road cannot mint,
+/// or does not list the subject credential's registration as a source. One code, because a
+/// caller that could tell "another organization's" from "none" would hold an oracle over
+/// which identities exist. Four of them are shared with other commands, whose answers
+/// [`CLAUSE_CODES`] keeps: this is the exchange's reading of that table, not a second one —
+/// every other clause an exchange refuses with is answered exactly as the table says.
+pub const EXCHANGE_TARGET_CLAUSES: &[DenialClause] = &[
+    DenialClause::TargetUnregistered,
+    DenialClause::TargetDisabled,
+    DenialClause::OrganizationMismatch,
+    DenialClause::ProfileUnadmitted,
+    DenialClause::SourceUnadmitted,
+];
+
+/// The standard error code a token exchange's refusal carrying this clause is answered with:
+/// `invalid_target` for [`EXCHANGE_TARGET_CLAUSES`], and [`code_for_clause`] for every other.
+#[must_use]
+pub fn code_for_exchange_clause(clause: DenialClause) -> ErrorCode {
+    if EXCHANGE_TARGET_CLAUSES.contains(&clause) {
+        ErrorCode::InvalidTarget
+    } else {
+        code_for_clause(clause)
+    }
+}
 
 /// The standard error code a refusal carrying this clause is answered with.
 ///

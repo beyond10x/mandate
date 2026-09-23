@@ -126,17 +126,69 @@ impl From<&ExchangeCredential> for ExchangeRequest {
     }
 }
 
-/// The `requested_target` a `TokenExchangeDenied` records for a target named by an audience
-/// that resolved to no single registration: the nil identity.
+/// The `requested_target` a `TokenExchangeDenied` records, in the ordinary case, for a target
+/// named by an audience that resolved to no single registration: the nil identity.
 ///
 /// The event declares `requested_target` a required `ResourceServerId`, and a name no
 /// registration answers — or one the refusal was decided before it could be resolved, because
-/// the subject that scopes it did not validate — has no identity to record. The nil UUID is
-/// the one value no allocator in this tree mints: the host allocator mints version-4
-/// identities, whose version bits are never all zero. The requested name is not recorded: it
-/// is caller text, and the record's fields are the contract's. Named here as residue — a
-/// `requested_audience` field is a contract change.
+/// the subject that scopes it did not validate — has no identity to record. The requested
+/// name is not recorded: it is caller text, and the record's fields are the contract's. Named
+/// here as residue — a `requested_audience` field is a contract change.
+///
+/// **What is recorded is the least identity no registration holds, starting here**
+/// ([`unresolved_target`]), not this constant unconditionally. The host allocator never mints
+/// the nil identity, but an operator's seeding document may *state* any identity, the nil one
+/// included (final correction, F4), and a denial recorded against a registration that exists
+/// would name a target the request never reached.
 pub const UNRESOLVED_TARGET: ResourceServerId = ResourceServerId::new(Uuid::from_bytes([0; 16]));
+
+/// The least identity, counting up from [`UNRESOLVED_TARGET`], that no registration this
+/// read model holds, whatever its state.
+///
+/// A registration read model holds finitely many identities, so the count ends; in every
+/// deployment that states no small identity it ends at the first step.
+fn unresolved_target(servers: &impl ResourceServerReads) -> ResourceServerId {
+    let mut candidate: u128 = 0;
+    loop {
+        let id = ResourceServerId::new(Uuid::from_bytes(candidate.to_be_bytes()));
+        if servers.resource_server(&id).is_none() {
+            return id;
+        }
+        candidate += 1;
+    }
+}
+
+/// Which of the four causes made a subject token unusable.
+///
+/// For the operator's line alone (final correction, F7). The refusal a caller is answered
+/// with is one — `SubjectTokenInvalid`, 400 `invalid_grant` — because a caller holding a
+/// well-formed token is owed only that it is unusable; the operator is owed the reason, so a
+/// replayed revoked credential and garbage are different lines on its stream. Each cause is a
+/// fixed word ([`SubjectTokenCause::as_str`]) and carries nothing the caller sent.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum SubjectTokenCause {
+    /// The token resolves to no credential this deployment holds.
+    Unknown,
+    /// The credential it resolves to is revoked.
+    Revoked,
+    /// The credential it resolves to has expired.
+    Expired,
+    /// The registration the credential was issued for is disabled.
+    SourceDisabled,
+}
+
+impl SubjectTokenCause {
+    /// The fixed word the operator's line carries.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Unknown => "unknown",
+            Self::Revoked => "revoked",
+            Self::Expired => "expired",
+            Self::SourceDisabled => "source-disabled",
+        }
+    }
+}
 
 /// The deployment's ports for an exchange.
 pub struct ExchangeParts<'a, D, R, X, A>
@@ -163,6 +215,9 @@ pub struct ExchangeRefused {
     pub denied: Denied,
     /// `mandate.credential.TokenExchangeDenied`, for the adapter to record.
     pub event: CredentialEvent,
+    /// Why the subject token was unusable, when that is what refused: for the operator's
+    /// line, never the wire.
+    pub cause: Option<SubjectTokenCause>,
 }
 
 /// What an admitted exchange has decided, before anything is drawn.
@@ -226,26 +281,31 @@ where
 {
     let mut validated: Option<VerifiedContext> = None;
     let mut resolved_target = match &input.target {
-        ExchangeTarget::Registration(id) => *id,
-        ExchangeTarget::Audience(_) => UNRESOLVED_TARGET,
+        ExchangeTarget::Registration(id) => Some(*id),
+        ExchangeTarget::Audience(_) => None,
     };
+    let mut cause = None;
     let decided = decide(
         input,
         request,
         servers,
         parts.digest,
         parts.resolution,
-        &mut validated,
-        &mut resolved_target,
+        &mut Findings {
+            validated: &mut validated,
+            resolved_target: &mut resolved_target,
+            cause: &mut cause,
+        },
     )
     .map_err(|denied| {
         Box::new(ExchangeRefused {
             denied,
             event: CredentialEvent::TokenExchangeDenied {
                 context: validated.clone(),
-                requested_target: resolved_target,
+                requested_target: resolved_target.unwrap_or_else(|| unresolved_target(servers)),
                 requested_scope: input.requested_scope.clone(),
             },
+            cause,
         })
     })?;
 
@@ -281,6 +341,16 @@ where
     })
 }
 
+/// What [`decide`] learned on the way to a refusal, for the record of it.
+struct Findings<'a> {
+    /// The context the subject token validated to, once it has.
+    validated: &'a mut Option<VerifiedContext>,
+    /// The registration the target resolved to, once it has.
+    resolved_target: &'a mut Option<ResourceServerId>,
+    /// Why the subject token was unusable, when it was.
+    cause: &'a mut Option<SubjectTokenCause>,
+}
+
 /// Every refusal, in the order a caller earns the right to learn it: possession of a usable
 /// subject credential first, then everything about the target.
 fn decide<D, R>(
@@ -289,8 +359,7 @@ fn decide<D, R>(
     servers: &impl ResourceServerReads,
     digest: &D,
     resolution: &R,
-    validated: &mut Option<VerifiedContext>,
-    resolved_target: &mut ResourceServerId,
+    found: &mut Findings<'_>,
 ) -> Result<Decided, Denied>
 where
     D: CredentialDigest,
@@ -332,12 +401,21 @@ where
     }
     // Unknown, revoked, expired, or issued by a registration that no longer admits anything:
     // one refusal, so a caller holding a well-formed proof learns only that it is unusable.
-    let subject = resolved.ok_or_else(invalid)?;
-    let live = subject.state == AccessCredentialState::Active
-        && instant::seconds_of(&subject.descriptor.expires_at).is_some_and(|expiry| now < expiry)
-        && servers.is_enabled(&subject.target) == Some(true);
-    if !live {
-        return Err(invalid());
+    let unusable = |cause: SubjectTokenCause, found: &mut Findings<'_>| {
+        *found.cause = Some(cause);
+        invalid()
+    };
+    let Some(subject) = resolved else {
+        return Err(unusable(SubjectTokenCause::Unknown, found));
+    };
+    if subject.state != AccessCredentialState::Active {
+        return Err(unusable(SubjectTokenCause::Revoked, found));
+    }
+    if !instant::seconds_of(&subject.descriptor.expires_at).is_some_and(|expiry| now < expiry) {
+        return Err(unusable(SubjectTokenCause::Expired, found));
+    }
+    if servers.is_enabled(&subject.target) != Some(true) {
+        return Err(unusable(SubjectTokenCause::SourceDisabled, found));
     }
     let context = VerifiedContext {
         subject: subject.descriptor.subject,
@@ -349,7 +427,7 @@ where
         execution: subject.descriptor.execution,
         correlation: request.correlation.clone(),
     };
-    *validated = Some(context.clone());
+    *found.validated = Some(context.clone());
 
     if input.actor_proof.is_some()
         || input.delegation_id.is_some()
@@ -366,18 +444,30 @@ where
     // enabled registrations: exactly one, or none at all.
     let target = match &input.target {
         ExchangeTarget::Registration(id) => *id,
+        // An audience whose text is the identity of a registration names that registration;
+        // any other text is a name (final correction, F3). A registration of another
+        // organization found this way is refused by `admitted_target` below exactly as one
+        // named by `urn:uuid:` is, and with the same code as a name that resolves to nothing.
         ExchangeTarget::Audience(audience) => {
-            let holders = servers.registrations_holding(&context.organization, audience);
-            let [holder] = holders.as_slice() else {
-                return Err(Denied::new(
-                    DenialReason::Denied,
-                    DenialClause::TargetUnregistered,
-                ));
-            };
-            holder.id
+            let registered = ResourceServerId::parse(audience.as_str())
+                .ok()
+                .filter(|id| servers.resource_server(id).is_some());
+            match registered {
+                Some(id) => id,
+                None => {
+                    let holders = servers.registrations_holding(&context.organization, audience);
+                    let [holder] = holders.as_slice() else {
+                        return Err(Denied::new(
+                            DenialReason::Denied,
+                            DenialClause::TargetUnregistered,
+                        ));
+                    };
+                    holder.id
+                }
+            }
         }
     };
-    *resolved_target = target;
+    *found.resolved_target = Some(target);
     // Registered, enabled, the subject's own organization's, issuing the family this
     // deployment mints without a signer.
     let server = admitted_target(&context, &target, servers, CredentialKind::Reference)?;

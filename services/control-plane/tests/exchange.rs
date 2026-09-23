@@ -587,7 +587,7 @@ fn every_exchange_refusal_on_the_wire_is_the_code_clause_codes_declares() {
             .expect_err("the exchange is refused")
             .clause;
         seen.insert(format!("{clause:?}"));
-        let code = mandate_proto::oauth::code_for_clause(clause);
+        let code = mandate_proto::oauth::code_for_exchange_clause(clause);
         let refused = post(address, "/oauth/token", &wire, &[]);
         assert_eq!(
             refused.json()["error"],
@@ -656,44 +656,39 @@ fn a_target_named_by_its_registered_audience_is_exchanged_over_http() {
     assert_eq!(introspected.json()["aud"], "platform-api");
 }
 
-/// Correction round 1, F2: the in-memory record is bounded. Past
-/// `EXCHANGE_RECORD_CAPACITY` decisions the oldest is evicted, so an unauthenticated caller
-/// refusing itself in a loop holds a fixed amount of memory, not an unbounded one.
+/// Correction round 1, F2, as final correction F6 bounds it: refusals are held to
+/// `EXCHANGE_RECORD_CAPACITY` and, past it, the **oldest refusal** is evicted — so an
+/// unauthenticated caller refusing itself in a loop holds a fixed amount of memory.
 #[test]
 fn the_exchange_record_holds_at_most_its_capacity_and_evicts_the_oldest() {
     use mandate_control_plane::adapters::EXCHANGE_RECORD_CAPACITY;
 
     let (mut deployment, targets) = deployment(FixedClock::at(NOW));
     let subject_token = code_flow_credential(&mut deployment, targets.source);
-    // The first decision is the one admitted exchange; every later one is refused.
-    deployment
-        .exchange(&decoded_exchange(&exchange_body(
-            &subject_token,
-            targets.target,
-            "read",
-        )))
-        .expect("T admits S");
-    let refused = decoded_exchange(&exchange_body(&subject_token, targets.closed, "read"));
+    // The first refusal names the closed target; every later one an identity no registration
+    // has, which the handler then reads as a name and records as unresolved.
+    let _ = deployment.exchange(&decoded_exchange(&exchange_body(
+        &subject_token,
+        targets.closed,
+        "read",
+    )));
+    let unknown = decoded_exchange(&exchange_body(
+        &subject_token,
+        ResourceServerId::new(uuid(0x99)),
+        "read",
+    ));
     for _ in 0..EXCHANGE_RECORD_CAPACITY {
-        let _ = deployment.exchange(&refused);
+        let _ = deployment.exchange(&unknown);
     }
     let recorded = deployment.exchanges();
     assert_eq!(recorded.len(), EXCHANGE_RECORD_CAPACITY);
     assert!(
-        recorded
-            .iter()
-            .all(|record| matches!(record, CredentialEvent::TokenExchangeDenied { .. })),
-        "the oldest decision, the admitted one, was evicted first"
-    );
-    // The record is not the fold: the credential it issued is still folded.
-    assert_eq!(
-        deployment
-            .credentials()
-            .credentials()
-            .iter()
-            .filter(|record| record.target == targets.target)
-            .count(),
-        1
+        recorded.iter().all(|record| matches!(
+            record,
+            CredentialEvent::TokenExchangeDenied { requested_target, .. }
+                if *requested_target != targets.closed
+        )),
+        "the oldest refusal, the one naming the closed target, was evicted first"
     );
 }
 
@@ -739,4 +734,121 @@ fn an_unusable_subject_token_is_answered_400_invalid_grant() {
     assert_eq!(refused.status, 400, "{}", refused.body);
     assert_eq!(refused.json()["error"], "invalid_grant");
     assert!(refused.header("WWW-Authenticate").is_none());
+}
+
+/// Final correction, F2: every refusal about the **target** of an exchange — unknown,
+/// disabled, another organization's, one whose profile this road cannot mint for, one that
+/// does not admit the source — answers RFC 8693 section 2.2.2's 400 `invalid_target`, and
+/// the same code for all, so the answer does not say which of them it was.
+#[test]
+fn every_target_refusal_of_an_exchange_answers_invalid_target() {
+    use mandate_proto::oauth::{ErrorCode, code_for_clause, code_for_exchange_clause};
+    for clause in [
+        DenialClause::TargetUnregistered,
+        DenialClause::TargetDisabled,
+        DenialClause::OrganizationMismatch,
+        DenialClause::ProfileUnadmitted,
+        DenialClause::SourceUnadmitted,
+    ] {
+        assert_eq!(
+            code_for_exchange_clause(clause),
+            ErrorCode::InvalidTarget,
+            "{clause:?}"
+        );
+    }
+    // What the other grants answer for the shared clauses is unchanged.
+    assert_eq!(
+        code_for_clause(DenialClause::TargetUnregistered),
+        ErrorCode::InvalidGrant
+    );
+    assert_eq!(
+        code_for_clause(DenialClause::ProfileUnadmitted),
+        ErrorCode::InvalidScope
+    );
+    assert_eq!(ErrorCode::InvalidTarget.as_str(), "invalid_target");
+
+    let (address, targets, subject_token) = serving();
+    for body in [
+        exchange_body(&subject_token, targets.closed, "read"),
+        exchange_body(&subject_token, ResourceServerId::new(uuid(0x99)), "read"),
+    ] {
+        let refused = post(address, "/oauth/token", &body, &[]);
+        assert_eq!(refused.status, 400, "{}", refused.body);
+        assert_eq!(
+            refused.json()["error"],
+            "invalid_target",
+            "{}",
+            refused.body
+        );
+    }
+}
+
+/// Final correction, F6: allowed and denied decisions are bounded separately, so refusals —
+/// which any caller can produce — never evict the record of an exchange that was admitted.
+#[test]
+fn refusals_never_evict_the_record_of_an_admitted_exchange() {
+    use mandate_control_plane::adapters::EXCHANGE_RECORD_CAPACITY;
+
+    let (mut deployment, targets) = deployment(FixedClock::at(NOW));
+    let subject_token = code_flow_credential(&mut deployment, targets.source);
+    deployment
+        .exchange(&decoded_exchange(&exchange_body(
+            &subject_token,
+            targets.target,
+            "read",
+        )))
+        .expect("T admits S");
+    let refused = decoded_exchange(&exchange_body(&subject_token, targets.closed, "read"));
+    for _ in 0..EXCHANGE_RECORD_CAPACITY + 5 {
+        let _ = deployment.exchange(&refused);
+    }
+    let allowed = deployment
+        .exchanges()
+        .iter()
+        .filter(|record| matches!(record, CredentialEvent::TokenExchangeAllowed { .. }))
+        .count();
+    let denied = deployment
+        .exchanges()
+        .iter()
+        .filter(|record| matches!(record, CredentialEvent::TokenExchangeDenied { .. }))
+        .count();
+    assert_eq!(allowed, 1, "the admitted exchange is still recorded");
+    assert_eq!(
+        denied, EXCHANGE_RECORD_CAPACITY,
+        "refusals are bounded on their own"
+    );
+}
+
+/// Final correction, F7: the wire answer for an unusable subject token is one answer, and the
+/// operator is told which of the four causes it was — never the token.
+#[test]
+fn the_operator_is_told_why_a_subject_token_was_unusable() {
+    use mandate_sts::exchange::SubjectTokenCause;
+
+    let clock = FixedClock::at(NOW);
+    let (mut deployment, targets) = deployment(clock.clone());
+    let subject_token = code_flow_credential(&mut deployment, targets.source);
+    let unknown = deployment
+        .exchange(&decoded_exchange(&exchange_body(
+            &encode_base64(b"no such credential"),
+            targets.target,
+            "read",
+        )))
+        .expect_err("unknown");
+    assert_eq!(unknown.clause, DenialClause::SubjectTokenInvalid);
+    assert_eq!(unknown.cause, Some(SubjectTokenCause::Unknown));
+    assert_eq!(
+        unknown.cause.map(SubjectTokenCause::as_str),
+        Some("unknown")
+    );
+    clock.advance(3600);
+    let expired = deployment
+        .exchange(&decoded_exchange(&exchange_body(
+            &subject_token,
+            targets.target,
+            "read",
+        )))
+        .expect_err("expired");
+    assert_eq!(expired.clause, DenialClause::SubjectTokenInvalid);
+    assert_eq!(expired.cause, Some(SubjectTokenCause::Expired));
 }

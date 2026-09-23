@@ -637,3 +637,79 @@ fn an_audience_two_registrations_hold_is_refused_rather_than_resolved_to_either(
     ));
     assert_eq!((minted, drew), (0, false));
 }
+
+// ------------------------------------------- final correction, F7: the operator's cause
+
+#[test]
+fn each_cause_of_an_unusable_subject_token_is_named_for_the_operator_and_none_on_the_wire() {
+    use mandate_sts::exchange::SubjectTokenCause;
+
+    let cause_of = |world: &mut World, request: &ExchangeCredential, instant: &str| {
+        let (outcome, _, _) = exchange(world, request, instant);
+        let refused = outcome.expect_err("an unusable subject token");
+        assert_eq!(refused.denied.clause, DenialClause::SubjectTokenInvalid);
+        refused.cause
+    };
+
+    let mut fresh = world();
+    let mut unknown = input(&fresh, fresh.target);
+    unknown.subject_proof = CredentialProof::from_bytes(b"no-such-credential".to_vec());
+    assert_eq!(
+        cause_of(&mut fresh, &unknown, "2026-09-19T00:10:00Z"),
+        Some(SubjectTokenCause::Unknown)
+    );
+
+    let request = input(&fresh, fresh.target);
+    assert_eq!(
+        cause_of(&mut fresh, &request, "2026-09-19T01:00:00Z"),
+        Some(SubjectTokenCause::Expired)
+    );
+
+    let mut revoked = world();
+    revoked
+        .held
+        .apply(&CredentialEvent::AccessCredentialRevoked {
+            context: context(),
+            id: revoked.subject_credential_id,
+        })
+        .expect("a readable revocation");
+    let request = input(&revoked, revoked.target);
+    assert_eq!(
+        cause_of(&mut revoked, &request, "2026-09-19T00:10:00Z"),
+        Some(SubjectTokenCause::Revoked)
+    );
+
+    let mut disabled = world();
+    disabled
+        .held
+        .apply(&CredentialEvent::ResourceServerDisabled {
+            context: context(),
+            id: disabled.source,
+        })
+        .expect("a readable disablement");
+    let request = input(&disabled, disabled.target);
+    assert_eq!(
+        cause_of(&mut disabled, &request, "2026-09-19T00:10:00Z"),
+        Some(SubjectTokenCause::SourceDisabled)
+    );
+
+    // Any other refusal carries no subject cause.
+    let mut other = world();
+    let request = input(&other, other.closed);
+    let (outcome, _, _) = exchange(&mut other, &request, "2026-09-19T00:10:00Z");
+    assert_eq!(outcome.expect_err("closed target").cause, None);
+    for cause in [
+        SubjectTokenCause::Unknown,
+        SubjectTokenCause::Revoked,
+        SubjectTokenCause::Expired,
+        SubjectTokenCause::SourceDisabled,
+    ] {
+        assert!(
+            cause
+                .as_str()
+                .bytes()
+                .all(|byte| byte.is_ascii_lowercase() || byte == b'-'),
+            "a fixed word, never caller material"
+        );
+    }
+}

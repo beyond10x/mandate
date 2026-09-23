@@ -485,14 +485,29 @@ pub struct Token {
     pub issued_at: Timestamp,
 }
 
-/// How many exchange decisions [`Deployment::exchanges`] holds: 1024.
+/// How many exchange decisions of **each kind** [`Deployment::exchanges`] holds: 1024 admitted
+/// and 1024 refused.
 ///
 /// The token endpoint authenticates no client, so an unbounded record is memory any caller
-/// can grow by being refused in a loop (correction round 1, F2). Past this many the oldest
-/// decision is evicted. The number is a bound, not a retention policy: the record is the
+/// can grow by being refused in a loop (correction round 1, F2). Past this many of a kind the
+/// oldest of that kind is evicted, and only of that kind: refusals, which any caller can
+/// produce, never evict the record of an admitted exchange (final correction, F6). The number is a bound, not a retention policy: the record is the
 /// in-memory stand-in for durable delivery, which is `decision-blocker:audit-routing`'s, and
 /// at the size of one `TokenExchangeDenied` it holds well under a megabyte.
 pub const EXCHANGE_RECORD_CAPACITY: usize = 1024;
+
+/// A refused `mandate.credential.ExchangeCredential`: the declared refusal, and the cause the
+/// operator is told.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ExchangeDenied {
+    /// The refusing clause, which decides the wire answer.
+    pub clause: CredentialClause,
+    /// The declared `mandate.core.DenialReason`.
+    pub reason: DenialReason,
+    /// Why the subject token was unusable, when that is what refused. The operator's line
+    /// carries it and the wire never does (final correction, F7).
+    pub cause: Option<mandate_sts::exchange::SubjectTokenCause>,
+}
 
 /// The accepted outcome of `mandate.credential.ExchangeCredential`, as RFC 8693 section
 /// 2.2.1 renders it.
@@ -2238,7 +2253,7 @@ pub struct Deployment<V, C, X, A> {
     credentials: CredentialProjection,
     codes: InMemoryCodeLog,
     proofs: SessionProofs,
-    /// The last [`EXCHANGE_RECORD_CAPACITY`] `TokenExchangeAllowed` and `TokenExchangeDenied`
+    /// The last [`EXCHANGE_RECORD_CAPACITY`] `TokenExchangeAllowed` and, bounded apart, the last as many `TokenExchangeDenied`
     /// this deployment recorded, oldest first: the in-memory record of each exchange
     /// decision. Durable delivery is `decision-blocker:audit-routing`'s.
     exchanges: Vec<CredentialEvent>,
@@ -2405,9 +2420,10 @@ where
         &self.credentials
     }
 
-    /// The last [`EXCHANGE_RECORD_CAPACITY`] exchange decisions this deployment recorded,
-    /// oldest first: one `mandate.credential.TokenExchangeAllowed` per admitted exchange and
-    /// one `mandate.credential.TokenExchangeDenied` per refused one.
+    /// The exchange decisions this deployment still holds, oldest first: the last
+    /// [`EXCHANGE_RECORD_CAPACITY`] `mandate.credential.TokenExchangeAllowed`, one per admitted
+    /// exchange, and, bounded separately, the last as many `TokenExchangeDenied`, one per
+    /// refused one.
     #[must_use]
     pub fn exchanges(&self) -> &[CredentialEvent] {
         &self.exchanges
@@ -3060,7 +3076,7 @@ where
     pub fn exchange(
         &mut self,
         input: &decode::ExchangeCredential,
-    ) -> Result<Exchanged, CredentialDenied> {
+    ) -> Result<Exchanged, ExchangeDenied> {
         let at = self.now();
         let request = StsRequest {
             correlation: CorrelationId::new("exchange"),
@@ -3092,7 +3108,11 @@ where
         match outcome {
             Err(refused) => {
                 self.record_exchange(refused.event);
-                Err(refused.denied)
+                Err(ExchangeDenied {
+                    clause: refused.denied.clause,
+                    reason: refused.denied.reason,
+                    cause: refused.cause,
+                })
             }
             Ok(issued) => {
                 // **Unreachable refusal, discarded for the reason `redeem` gives for its own.**
@@ -3116,10 +3136,27 @@ where
 
 impl<V, C, X, A> Deployment<V, C, X, A> {
     /// Record one exchange decision, evicting the oldest past [`EXCHANGE_RECORD_CAPACITY`].
+    ///
+    /// One ordered record, so [`Deployment::exchanges`] reads the decisions as they were
+    /// taken, and two bounds over it: the oldest record **of the arriving kind** is what is
+    /// evicted, so a flood of refusals leaves every admitted record where it was.
     fn record_exchange(&mut self, event: CredentialEvent) {
-        if self.exchanges.len() >= EXCHANGE_RECORD_CAPACITY {
-            let excess = self.exchanges.len() + 1 - EXCHANGE_RECORD_CAPACITY;
-            self.exchanges.drain(..excess);
+        let allowed = |record: &CredentialEvent| {
+            matches!(record, CredentialEvent::TokenExchangeAllowed { .. })
+        };
+        let arriving = allowed(&event);
+        let same_kind = self
+            .exchanges
+            .iter()
+            .filter(|record| allowed(record) == arriving)
+            .count();
+        if same_kind >= EXCHANGE_RECORD_CAPACITY
+            && let Some(oldest) = self
+                .exchanges
+                .iter()
+                .position(|record| allowed(record) == arriving)
+        {
+            self.exchanges.remove(oldest);
         }
         self.exchanges.push(event);
     }

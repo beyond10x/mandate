@@ -401,15 +401,11 @@ fn with_audience(body: &str, target: ResourceServerId, audience: &str) -> String
     )
 }
 
-/// The story's acceptance, verbatim: "Given a session and a resource server whose
-/// `allowed_exchange_sources` admits that session's connection, when `/oauth/token` receives
-/// `grant_type=urn:ietf:params:oauth:grant-type:token-exchange` with the session proof as
-/// `subject_token`, then `TokenExchangeAllowed` is recorded and a credential for that
-/// resource server is issued". The unit's brief says the same: "`subject_token` is a Mandate
-/// session proof". The login below opens exactly that session; the implementation admits only
-/// an access credential as the subject.
+/// A session proof presented as the `subject_token` is not an access credential, so it is
+/// refused `SubjectTokenInvalid`, answered 400 `invalid_grant`, and recorded.
+// Rewritten by coordinator ruling (M2 final correction, F1): the Acceptance was amended to option A, so this case was stale.
 #[test]
-fn the_session_proof_a_login_returns_is_exchanged_as_the_acceptance_states() {
+fn the_session_proof_a_login_returns_is_refused_as_an_unusable_subject_token_and_recorded() {
     let (mut deployment, targets) = deployment(FixedClock::at(NOW));
     let login = deployment
         .authenticate(
@@ -428,19 +424,20 @@ fn the_session_proof_a_login_returns_is_exchanged_as_the_acceptance_states() {
             .expect("a declared login"),
         )
         .expect("the login opens a session");
-    let outcome = deployment.exchange(&decoded_exchange(&exchange_body(
-        &encode_base64(login.session_proof.expose_bytes()),
-        targets.target,
-        "read",
-    )));
-    assert!(
-        outcome.is_ok(),
-        "the acceptance exchanges a session proof; refused with {:?}",
-        outcome.err().map(|denied| denied.clause)
-    );
+    let refused = deployment
+        .exchange(&decoded_exchange(&exchange_body(
+            &encode_base64(login.session_proof.expose_bytes()),
+            targets.target,
+            "read",
+        )))
+        .expect_err("a session proof is not an access credential");
+    assert_eq!(refused.clause, DenialClause::SubjectTokenInvalid);
+    let code = mandate_proto::oauth::code_for_exchange_clause(refused.clause);
+    assert_eq!(code, mandate_proto::oauth::ErrorCode::InvalidGrant);
+    assert_eq!(code.as_str(), "invalid_grant");
     assert!(matches!(
         deployment.exchanges(),
-        [CredentialEvent::TokenExchangeAllowed { .. }]
+        [CredentialEvent::TokenExchangeDenied { context: None, .. }]
     ));
 }
 

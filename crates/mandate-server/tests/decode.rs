@@ -908,6 +908,10 @@ fn registration(id: &str) -> decode::ExchangeTarget {
     decode::ExchangeTarget::Registration(mandate_types::ResourceServerId::parse(id).unwrap())
 }
 
+fn named(name: &str) -> decode::ExchangeTarget {
+    decode::ExchangeTarget::Audience(mandate_types::Audience::new(name))
+}
+
 const EXCHANGE_GRANT: &str = "urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Atoken-exchange";
 const ACCESS_TOKEN: &str = "urn%3Aietf%3Aparams%3Aoauth%3Atoken-type%3Aaccess_token";
 
@@ -922,7 +926,9 @@ fn exchange_form() -> String {
 fn a_token_exchange_decodes_the_declared_input_subject_only() {
     let input = decode::exchange_credential(&token(&exchange_form())).unwrap();
     assert_eq!(input.subject_proof.expose_bytes(), b"foo");
-    assert_eq!(input.target, registration(UUID));
+    // Final correction, F3: an audience is carried as the text presented, whatever it spells;
+    // the handler reads it as a registration identity only when one has it.
+    assert_eq!(input.target, named(UUID));
     assert_eq!(
         input
             .requested_scope
@@ -988,24 +994,26 @@ fn a_token_exchange_names_its_target_by_audience_or_by_a_uuid_resource() {
         decode::exchange_credential(&token(&neither)).unwrap_err(),
         Refusal::MissingField
     );
-    // A resource that is not the URN of a registration identity is a malformed target, and is
-    // still the decoder's refusal.
-    for malformed in [
-        exchange_form().replace(
-            &format!("audience={UUID}"),
-            "resource=https%3A%2F%2Fapi.example",
-        ),
-        exchange_form().replace(
-            &format!("audience={UUID}"),
-            "resource=urn%3Auuid%3Anot-a-uuid",
-        ),
-    ] {
-        assert_eq!(
-            decode::exchange_credential(&token(&malformed)).unwrap_err(),
-            Refusal::MalformedField,
-            "{malformed}"
-        );
-    }
+    // Final correction, F5: a resource that is not a registration's `urn:uuid:` URI is an RFC
+    // 8707 URI naming the target, and reaches the handler as a name.
+    let by_uri = exchange_form().replace(
+        &format!("audience={UUID}"),
+        "resource=https%3A%2F%2Fapi.example",
+    );
+    assert_eq!(
+        decode::exchange_credential(&token(&by_uri)).unwrap().target,
+        named("https://api.example")
+    );
+    // A `urn:uuid:` that names no UUID is a malformed target, and is still the decoder's.
+    let malformed = exchange_form().replace(
+        &format!("audience={UUID}"),
+        "resource=urn%3Auuid%3Anot-a-uuid",
+    );
+    assert_eq!(
+        decode::exchange_credential(&token(&malformed)).unwrap_err(),
+        Refusal::MalformedField,
+        "{malformed}"
+    );
 }
 
 #[test]

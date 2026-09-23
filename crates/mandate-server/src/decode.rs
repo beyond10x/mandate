@@ -497,13 +497,15 @@ impl ExchangeCredential {
 /// How an exchange request names its target (RFC 8693 section 2.1, RFC 8707).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ExchangeTarget {
-    /// A registration identity: `audience=<uuid>` or `resource=urn:uuid:<uuid>`.
+    /// A registration identity, named as one: `resource=urn:uuid:<uuid>`.
     Registration(ResourceServerId),
-    /// Any other `audience`: RFC 8693's "logical name of the target service", which the
-    /// handler resolves among the subject's organization's registrations and nowhere else.
+    /// Every `audience`, and every `resource` that is not a `urn:uuid:` URI: RFC 8693's
+    /// "logical name of the target service" or RFC 8707's URI of it, carried as presented.
     ///
-    /// An audience whose text is itself a UUID is read as the identity, so a registration
-    /// whose audience is spelled as a UUID is reachable by its identity and not by that name.
+    /// The handler reads the text as a registration identity when a registration has that
+    /// identity, and otherwise resolves it as a name among the subject's organization's
+    /// registrations (final correction, F3 and F5). This module decides neither: it cannot
+    /// see a registration.
     Audience(Audience),
 }
 
@@ -735,9 +737,8 @@ pub fn token_request(request: &Request) -> Result<TokenRequest, Refusal> {
 /// Returns [`Refusal`] for another method or media type, an oversized or non-UTF-8 body, a
 /// presented client credential, a malformed, repeated or undeclared parameter, a missing
 /// parameter, a `grant_type` other than [`TOKEN_EXCHANGE_GRANT`], a token type other than
-/// [`ACCESS_TOKEN_TYPE`], a target named twice or in neither form, a `resource` that is not a
-/// registration's `urn:uuid:` URI, an audience name that is too long or carries a control
-/// character, and a value outside the lexical form its declared type admits. An actor is not
+/// [`ACCESS_TOKEN_TYPE`], a target named twice or in neither form, a `urn:uuid:` resource that
+/// names no UUID, an audience or resource that is too long or carries a control character, and a value outside the lexical form its declared type admits. An actor is not
 /// among them: it reaches the handler.
 pub fn exchange_credential(request: &Request) -> Result<ExchangeCredential, Refusal> {
     entry(request, "POST", Reads::Body)?;
@@ -760,16 +761,15 @@ pub fn exchange_credential(request: &Request) -> Result<ExchangeCredential, Refu
     let target = match (form.get("audience"), form.get("resource")) {
         (Some(_), Some(_)) => return Err(Refusal::TargetAmbiguous),
         (None, None) => return Err(Refusal::MissingField),
-        (Some(audience), None) => match ResourceServerId::parse(audience) {
-            Ok(id) => ExchangeTarget::Registration(id),
-            Err(_) => ExchangeTarget::Audience(Audience::new(free_text(&form, "audience")?)),
+        (Some(_), None) => ExchangeTarget::Audience(Audience::new(free_text(&form, "audience")?)),
+        (None, Some(resource)) => match resource.strip_prefix(RESOURCE_URN_PREFIX) {
+            // A `urn:uuid:` names an identity, and one that names no UUID is a malformed
+            // target: still this module's refusal.
+            Some(id) => ExchangeTarget::Registration(
+                ResourceServerId::parse(id).map_err(|_| Refusal::MalformedField)?,
+            ),
+            None => ExchangeTarget::Audience(Audience::new(free_text(&form, "resource")?)),
         },
-        (None, Some(resource)) => ExchangeTarget::Registration(
-            resource
-                .strip_prefix(RESOURCE_URN_PREFIX)
-                .and_then(|id| ResourceServerId::parse(id).ok())
-                .ok_or(Refusal::MalformedField)?,
-        ),
     };
     let actor_proof = match (form.get("actor_token"), form.get("actor_token_type")) {
         (None, None) => None,

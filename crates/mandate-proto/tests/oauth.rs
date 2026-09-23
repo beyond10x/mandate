@@ -511,7 +511,8 @@ fn the_three_authorization_endpoint_codes_render_their_declared_names() {
         ErrorCode::UnauthorizedClient.as_str(),
         "unauthorized_client"
     );
-    assert_eq!(ErrorCode::ALL.len(), 10);
+    assert_eq!(ErrorCode::InvalidTarget.as_str(), "invalid_target");
+    assert_eq!(ErrorCode::ALL.len(), 11);
 }
 
 // ------------------- adversary pass 2, F4: the authorization endpoint's seventh code
