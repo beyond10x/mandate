@@ -135,10 +135,10 @@ fn world() -> IdentityLog {
 /// target, and `mandate.identity.IncrementSecurityEpoch` declares "tenant containment fails" as
 /// one of the four conditions of its `denied` outcome.
 ///
-/// Pinned by the coordinator to the shipped behaviour on 2026-09-21 (`review-result:wave-d-obligations-identity-adversary-1` F1): the
-/// increment is accepted and the other organization's generation advances. The clause defers to
-/// `story:identity-tenant-containment`, which adds the comparison to the increment path; the
-/// assertion flips there.
+/// Pinned by the coordinator to the shipped behaviour on 2026-09-21 (`review-result:wave-d-obligations-identity-adversary-1` F1)
+/// and flipped by `story:identity-tenant-containment`, which added the comparison to
+/// `IncrementSecurityEpoch::execute`: the increment is refused with `TenantMismatch` through the
+/// `denied` outcome, and neither the other organization's generation nor the log moves.
 #[test]
 fn an_increment_naming_another_organizations_target_fails_tenant_containment() {
     let log = world();
@@ -164,20 +164,19 @@ fn an_increment_naming_another_organizations_target_fails_tenant_containment() {
 
     // The same predicate, on the command whose declared cause also publishes it.
     let mut log = log;
+    let before = log.clone();
     let read_at = log.current(&victim).version();
-    let accepted =
-        IncrementSecurityEpoch::new(context(), victim.clone()).execute(&mut log, read_at);
-    assert!(
-        accepted.is_ok(),
-        "the shipped increment refused a target outside the caller's organization ({:?}); \
-         story:identity-tenant-containment landed and this pin is stale",
-        accepted.err()
-    );
+    let refused = IncrementSecurityEpoch::new(context(), victim.clone())
+        .execute(&mut log, read_at)
+        .expect_err("a caller verified in one organization advanced another's generation");
+    assert_eq!(refused.reason(), DenialReason::TenantMismatch);
+    assert_eq!(refused.outcome(), RefusedOutcome::Denied);
     assert_eq!(
         log.current(&victim).generation(),
-        generation(6),
-        "the other organization's generation advanced under a caller verified elsewhere"
+        generation(5),
+        "the other organization's generation moved under a caller verified elsewhere"
     );
+    assert_eq!(log, before, "the refused increment appended an event");
 }
 
 // ==================================================================================

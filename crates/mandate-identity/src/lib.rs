@@ -136,7 +136,7 @@ mod session;
 mod snapshot;
 
 pub use generation::Generation;
-pub use increment::{IncrementSecurityEpoch, SecurityEpochIncremented};
+pub use increment::{IncrementSecurityEpoch, SecurityEpochIncremented, TargetTenancy};
 pub use port::{
     EpochSnapshotRecorded, EpochState, IdentityEvent, IdentityLog, IdentityRead, Principal,
     PrincipalState, SecurityEpochRecorded, SecurityEpochWrite, StreamVersion,

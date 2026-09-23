@@ -932,3 +932,81 @@ impl SecurityEpochWrite for IdentityLog {
         Ok(EpochState::new(generation, version))
     }
 }
+
+impl crate::TargetTenancy for IdentityLog {
+    /// Every organization a recorded event places the target in.
+    ///
+    /// Four events carry a principal or a connection together with an organization: the
+    /// snapshot recording, the two openings and the provisioning. Each is read through the
+    /// same seam the fold reads it through, so a payload the fold materializes nothing from
+    /// places nothing either.
+    fn organizations_of(&self, target: &SecurityEpochTarget) -> Vec<OrganizationId> {
+        if let SecurityEpochTarget::Organization(id) = target {
+            return vec![*id];
+        }
+        let mut found: Vec<OrganizationId> = Vec::new();
+        for event in &self.events {
+            let placed = match event {
+                IdentityEvent::EpochSnapshotRecorded(snapshot) => placement(
+                    target,
+                    &snapshot.principal_id,
+                    snapshot.connection_id.as_ref(),
+                    snapshot.organization_id,
+                ),
+                IdentityEvent::SessionOpened(opened) => placement(
+                    target,
+                    &opened.principal_id,
+                    opened.connection_id.as_ref(),
+                    opened.organization_id,
+                ),
+                IdentityEvent::FederationAuthenticated(login) => {
+                    session_of(login).and_then(|session| {
+                        placement(
+                            target,
+                            session.principal(),
+                            session.connection(),
+                            *session.organization(),
+                        )
+                    })
+                }
+                IdentityEvent::ExternalPrincipalProvisioned(provisioned) => {
+                    principal_of(provisioned).and_then(|principal| {
+                        placement(
+                            target,
+                            principal.id(),
+                            FederationConnectionId::parse(&provisioned.connection_id.0)
+                                .ok()
+                                .as_ref(),
+                            OrganizationId::parse(&provisioned.organization_id.0).ok()?,
+                        )
+                    })
+                }
+                IdentityEvent::SessionRevoked(_)
+                | IdentityEvent::SecurityEpochRecorded(_)
+                | IdentityEvent::SecurityEpochIncremented(_) => None,
+            };
+            if let Some(organization) = placed
+                && !found.contains(&organization)
+            {
+                found.push(organization);
+            }
+        }
+        found
+    }
+}
+
+/// The organization a record places a principal or connection target in, when the record
+/// names that target.
+fn placement(
+    target: &SecurityEpochTarget,
+    principal: &PrincipalId,
+    connection: Option<&FederationConnectionId>,
+    organization: OrganizationId,
+) -> Option<OrganizationId> {
+    let names = match target {
+        SecurityEpochTarget::Principal(id) => id == principal,
+        SecurityEpochTarget::Federation(id) => connection == Some(id),
+        SecurityEpochTarget::Organization(id) => *id == organization,
+    };
+    names.then_some(organization)
+}

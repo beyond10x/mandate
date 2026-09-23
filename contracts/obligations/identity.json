@@ -23,8 +23,23 @@
         },
         {
           "clause": "tenant containment fails",
-          "tests": [],
-          "blocked_on": "story:identity-tenant-containment"
+          "tests": [
+            {
+              "id": "mandate-identity::adversary_obligations_identity_1::an_increment_naming_another_organizations_target_fails_tenant_containment",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-identity::increment::tenant_containment_a_principal_a_snapshot_places_in_another_organization_is_refused",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-identity::increment::tenant_containment_a_connection_a_snapshot_places_in_another_organization_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
         },
         {
           "clause": "the exact unsigned generation is at its maximum",

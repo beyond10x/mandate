@@ -684,6 +684,19 @@ impl mandate_identity::SecurityEpochWrite for Substituted {
     }
 }
 
+impl mandate_identity::TargetTenancy for Substituted {
+    /// A port that holds no records places no target in any organization, so an
+    /// organization target is still compared by identity and every other target reaches the
+    /// substituted write port. Counted like every other read of this reader.
+    fn organizations_of(
+        &self,
+        _target: &mandate_types::SecurityEpochTarget,
+    ) -> Vec<mandate_types::OrganizationId> {
+        self.read();
+        Vec::new()
+    }
+}
+
 impl mandate_sts::registry::ResourceServerReads for Substituted {
     fn resource_server(
         &self,

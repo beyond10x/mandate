@@ -740,6 +740,7 @@ fn every_port_method_the_substituted_reader_implements_counts_its_read() {
     use mandate_graph::topology::ResourceLookup;
     use mandate_identity::IdentityRead;
     use mandate_identity::SecurityEpochWrite;
+    use mandate_identity::TargetTenancy;
     use mandate_sts::keys::{KeyMaterialResolver, SigningKeyReads};
     use mandate_sts::registry::ResourceServerReads;
     use mandate_sts::resolve::{CredentialReads, CredentialResolution};
@@ -863,6 +864,15 @@ fn every_port_method_the_substituted_reader_implements_counts_its_read() {
             "IdentityRead::snapshot",
             Box::new(|r: &Substituted| {
                 let _ = IdentityRead::snapshot(r, &EpochSnapshotRef::new(identity(0x39)));
+            }),
+        ),
+        (
+            "TargetTenancy::organizations_of",
+            Box::new(|r: &Substituted| {
+                let _ = TargetTenancy::organizations_of(
+                    r,
+                    &SecurityEpochTarget::Principal(PrincipalId::new(identity(0x31))),
+                );
             }),
         ),
         (

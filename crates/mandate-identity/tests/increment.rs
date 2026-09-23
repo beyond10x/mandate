@@ -2,9 +2,19 @@
 //! (`tests/security/cases.json`): `mandate.identity.IncrementSecurityEpoch` over the
 //! write port, and the concurrent disable/refresh race.
 
+use mandate_contract::events::{
+    MandateFederationExternalPrincipalProvisioned, MandateFederationFederationAuthenticated,
+};
+use mandate_contract::types::{
+    MandateCoreAudience, MandateCoreCorrelationId, MandateCoreEpochSnapshotRef,
+    MandateCoreExternalLinkMethod, MandateCoreExternalPrincipalId, MandateCoreExternalSubject,
+    MandateCoreFederationConnectionId, MandateCoreOrganizationId, MandateCorePrincipalId,
+    MandateCorePrincipalKind, MandateCoreSessionId,
+};
 use mandate_identity::{
     EpochSnapshotRecorded, Generation, IdentityEvent, IdentityLog, IdentityRead,
-    IncrementSecurityEpoch, SecurityEpochRecorded, SessionOpened, StreamVersion, refresh_session,
+    IncrementSecurityEpoch, RefusedOutcome, SecurityEpochRecorded, SessionOpened, StreamVersion,
+    refresh_session,
 };
 use mandate_types::{
     Audience, CorrelationId, CredentialId, DenialReason, EpochSnapshotRef, FederationConnectionId,
@@ -247,4 +257,169 @@ fn a_refresh_racing_a_committed_disable_driven_increment_is_denied_and_the_other
         refresh_session(&log, &session_in_b).is_ok(),
         "another principal in another organization is untouched"
     );
+}
+
+// ==================================================================================
+// "tenant containment fails" (`identity.yaml`, `IncrementSecurityEpoch`, `denied`)
+// ==================================================================================
+
+/// The declared uuid form, as the generated shapes carry it.
+fn declared(tag: u8) -> String {
+    uuid(tag).to_string()
+}
+
+/// A log in which `principal()` and `connection()` are recorded under `organization`, through
+/// one snapshot, with every dimension it names stated first.
+fn recorded_under(organization: OrganizationId) -> IdentityLog {
+    let mut log = recorded(&[
+        (SecurityEpochTarget::Principal(principal()), 3),
+        (SecurityEpochTarget::Organization(organization_a()), 7),
+        (SecurityEpochTarget::Organization(organization_b()), 5),
+        (SecurityEpochTarget::Federation(connection()), 1),
+    ]);
+    log.try_record(IdentityEvent::EpochSnapshotRecorded(
+        EpochSnapshotRecorded {
+            id: EpochSnapshotRef::new(uuid(10)),
+            principal_id: principal(),
+            organization_id: organization,
+            connection_id: Some(connection()),
+        },
+    ))
+    .expect("every dimension the snapshot names is stated");
+    log
+}
+
+/// Refused through `denied` with `TenantMismatch`, and the log is exactly as it was.
+fn refused_for_tenancy(log: &mut IdentityLog, target: &SecurityEpochTarget) {
+    let before = log.clone();
+    let expected = log.current(target).version();
+    let refused = IncrementSecurityEpoch::new(context(), target.clone())
+        .execute(log, expected)
+        .expect_err("the target is recorded outside the caller's organization");
+    assert_eq!(refused.reason(), DenialReason::TenantMismatch);
+    assert_eq!(refused.outcome(), RefusedOutcome::Denied);
+    assert_eq!(*log, before, "the refused increment appended an event");
+}
+
+#[test]
+fn tenant_containment_an_organization_target_is_compared_by_identity() {
+    let mut log = recorded(&[(SecurityEpochTarget::Organization(organization_b()), 5)]);
+    refused_for_tenancy(
+        &mut log,
+        &SecurityEpochTarget::Organization(organization_b()),
+    );
+}
+
+#[test]
+fn tenant_containment_a_principal_a_snapshot_places_in_another_organization_is_refused() {
+    let mut log = recorded_under(organization_b());
+    refused_for_tenancy(&mut log, &SecurityEpochTarget::Principal(principal()));
+}
+
+#[test]
+fn tenant_containment_a_connection_a_snapshot_places_in_another_organization_is_refused() {
+    let mut log = recorded_under(organization_b());
+    refused_for_tenancy(&mut log, &SecurityEpochTarget::Federation(connection()));
+}
+
+#[test]
+fn tenant_containment_a_principal_and_connection_in_the_callers_organization_advance() {
+    for target in [
+        SecurityEpochTarget::Principal(principal()),
+        SecurityEpochTarget::Federation(connection()),
+    ] {
+        let mut log = recorded_under(organization_a());
+        let before = log.current(&target).generation();
+        let expected = log.current(&target).version();
+        IncrementSecurityEpoch::new(context(), target.clone())
+            .execute(&mut log, expected)
+            .expect("the target is recorded in the caller's organization alone");
+        assert_eq!(
+            log.current(&target).generation(),
+            before.advance().expect("below the maximum")
+        );
+    }
+}
+
+/// A principal's generation gates every session it holds, in every organization: a caller in
+/// one of them advancing it would invalidate the other's sessions, so a record in any other
+/// organization refuses the increment.
+#[test]
+fn tenant_containment_a_principal_recorded_in_two_organizations_is_refused() {
+    let mut log = recorded_under(organization_a());
+    log.try_record(IdentityEvent::SessionOpened(SessionOpened {
+        id: SessionId::new(uuid(21)),
+        principal_id: principal(),
+        organization_id: organization_b(),
+        connection_id: None,
+        epochs: EpochSnapshotRef::new(uuid(10)),
+        expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+    }))
+    .expect("the snapshot the opening names is recorded");
+    refused_for_tenancy(&mut log, &SecurityEpochTarget::Principal(principal()));
+}
+
+#[test]
+fn tenant_containment_a_federated_login_in_another_organization_places_its_principal_and_connection()
+ {
+    for target in [
+        SecurityEpochTarget::Principal(principal()),
+        SecurityEpochTarget::Federation(connection()),
+    ] {
+        let mut log = recorded_under(organization_a());
+        log.try_record(IdentityEvent::FederationAuthenticated(
+            MandateFederationFederationAuthenticated {
+                session_id: MandateCoreSessionId(declared(22)),
+                principal_id: MandateCorePrincipalId(principal().to_string()),
+                audience: MandateCoreAudience("mandate".to_owned()),
+                correlation: MandateCoreCorrelationId("correlation".to_owned()),
+                connection_id: MandateCoreFederationConnectionId(connection().to_string()),
+                organization_id: MandateCoreOrganizationId(organization_b().to_string()),
+                epochs: MandateCoreEpochSnapshotRef(declared(10)),
+                expires_at: "2026-12-31T00:00:00Z".to_owned(),
+            },
+        ))
+        .expect("a well-formed login on a recorded snapshot");
+        refused_for_tenancy(&mut log, &target);
+    }
+}
+
+#[test]
+fn tenant_containment_a_provisioning_in_another_organization_places_its_principal_and_connection() {
+    for target in [
+        SecurityEpochTarget::Principal(principal()),
+        SecurityEpochTarget::Federation(connection()),
+    ] {
+        let mut log = recorded_under(organization_a());
+        log.try_record(IdentityEvent::ExternalPrincipalProvisioned(
+            MandateFederationExternalPrincipalProvisioned {
+                organization_id: MandateCoreOrganizationId(organization_b().to_string()),
+                correlation: MandateCoreCorrelationId("correlation".to_owned()),
+                connection_id: MandateCoreFederationConnectionId(connection().to_string()),
+                principal_id: MandateCorePrincipalId(principal().to_string()),
+                kind: MandateCorePrincipalKind::User,
+                display_name: "Display Name".to_owned(),
+                external_principal_id: MandateCoreExternalPrincipalId(declared(0x71)),
+                subject: MandateCoreExternalSubject("subject-one".to_owned()),
+                link_method: MandateCoreExternalLinkMethod::ConfiguredFederation,
+                linked_at: "2026-09-19T00:00:00Z".to_owned(),
+            },
+        ))
+        .expect("a well-formed provisioning");
+        refused_for_tenancy(&mut log, &target);
+    }
+}
+
+/// The refusal is decided before the write port is reached: a cross-organization increment at a
+/// stale version is refused for its tenancy, not reported as a moved stream.
+#[test]
+fn tenant_containment_is_decided_before_the_compare_and_set() {
+    let target = SecurityEpochTarget::Organization(organization_b());
+    let mut log = recorded(&[(target.clone(), 5)]);
+    let before = log.clone();
+    let refused = IncrementSecurityEpoch::new(context(), target)
+        .execute(&mut log, StreamVersion::INITIAL)
+        .expect_err("another organization's target at a stale version");
+    assert_eq!(refused.reason(), DenialReason::TenantMismatch);
+    assert_eq!(log, before);
 }

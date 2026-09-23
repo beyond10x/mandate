@@ -477,7 +477,7 @@
       "command": "mandate.identity.IncrementSecurityEpoch",
       "port": "mandate_identity::SecurityEpochWrite",
       "kind": "armed",
-      "consulted": 1
+      "consulted": 2
     },
     {
       "scenario": "mandate.identity.RefreshSession/outcome/denied",
