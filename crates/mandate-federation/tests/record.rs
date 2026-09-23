@@ -1016,3 +1016,71 @@ fn an_oauth_client_registration_materializes_the_record_the_event_carries() {
         "the record is the event's, organization included"
     );
 }
+
+/// A `ConnectionStore` that answers `enabled_for_issuer` with every connection it holds,
+/// in every lifecycle state and on every issuer, as the port allows.
+struct AnsweringEveryConnection<'a> {
+    projection: &'a Projection,
+    held: Vec<FederationConnectionId>,
+}
+
+impl ConnectionStore for AnsweringEveryConnection<'_> {
+    fn connection(
+        &self,
+        id: &FederationConnectionId,
+    ) -> Option<mandate_federation::record::FederationConnection> {
+        self.projection.connection(id)
+    }
+
+    fn enabled_for_issuer(
+        &self,
+        _issuer: &Issuer,
+    ) -> Vec<mandate_federation::record::FederationConnection> {
+        self.held
+            .iter()
+            .filter_map(|id| self.projection.connection(id))
+            .collect()
+    }
+}
+
+/// `story:enabled-for-issuer-filters-in-the-implementor`, at registration: a store that
+/// answers a `Disabled` connection, or one on another issuer, changes no decision about
+/// whether a new connection's rule collides with another organization's.
+#[test]
+fn a_connection_store_answering_a_disabled_connection_changes_no_registration() {
+    let log = vec![
+        created(connection(1), organization(11), "https://idp.example/one"),
+        FederationEvent::FederationConnectionDisabled {
+            context: context(organization(11)),
+            id: connection(1),
+        },
+        created(connection(2), organization(12), "https://idp.example/two"),
+    ];
+    let projection = Projection::fold(&log).expect("two connections");
+    let everything = AnsweringEveryConnection {
+        projection: &projection,
+        held: vec![connection(1), connection(2)],
+    };
+    let input = RegisterFederationConnection {
+        context: context(organization(10)),
+        issuer: Issuer::new("https://idp.example/one"),
+        client_id: ClientId::new("configured-client"),
+        tenant_resolution: unconditional(organization(10)),
+        jit_provisioning: false,
+    };
+
+    let expected =
+        register_federation_connection(&input, &projection, &mut SequentialAllocator::new())
+            .map(|registered| registered.connection_id)
+            .map_err(|denied| denied.clause);
+    let observed =
+        register_federation_connection(&input, &everything, &mut SequentialAllocator::new())
+            .map(|registered| registered.connection_id)
+            .map_err(|denied| denied.clause);
+
+    assert!(
+        expected.is_ok(),
+        "no enabled connection on this issuer collides"
+    );
+    assert_eq!(observed, expected);
+}

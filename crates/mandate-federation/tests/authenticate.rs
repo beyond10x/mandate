@@ -16,12 +16,12 @@ use mandate_federation::authenticate::{
     provision_external_principal,
 };
 use mandate_federation::record::{
-    ExternalKey, ExternalPrincipal, FederationEvent, LinkState, Projection,
+    ExternalKey, ExternalPrincipal, FederationConnection, FederationEvent, LinkState, Projection,
 };
 use mandate_federation::verifier::{ConstructedVerifier, VerifiedProof};
 use mandate_federation::{
-    ConnectionStore, DenialClause, Denied, LinkStore, PrincipalState, RecordedPrincipals,
-    RecordingSessionIssuer, RequestContext, SequentialAllocator,
+    ConnectionStore, DenialClause, Denied, LinkStore, PrincipalState, PrincipalStore,
+    RecordedPrincipals, RecordingSessionIssuer, RequestContext, SequentialAllocator,
 };
 use mandate_model::TenantResolutionRule;
 use mandate_types::value::Uuid;
@@ -1013,4 +1013,141 @@ fn a_jit_refusing_connection_still_authenticates_an_existing_link() {
     let refused = provision(&projection, &mut allocator, connection(1), &verifier)
         .expect_err("this connection creates nothing");
     assert_eq!(refused.clause, DenialClause::ProvisioningNotAdmitted);
+}
+
+/// A `ConnectionStore` that answers `enabled_for_issuer` with every connection it holds,
+/// in every lifecycle state and on every issuer, as the port now allows. The admission
+/// rule is the command's: nothing this store adds may change a decision the projection's
+/// own answer produces.
+struct AnsweringEveryConnection<'a> {
+    projection: &'a Projection,
+    held: Vec<FederationConnectionId>,
+}
+
+impl ConnectionStore for AnsweringEveryConnection<'_> {
+    fn connection(&self, id: &FederationConnectionId) -> Option<FederationConnection> {
+        self.projection.connection(id)
+    }
+
+    fn enabled_for_issuer(&self, _issuer: &Issuer) -> Vec<FederationConnection> {
+        self.held
+            .iter()
+            .filter_map(|id| self.projection.connection(id))
+            .collect()
+    }
+}
+
+impl PrincipalStore for AnsweringEveryConnection<'_> {
+    fn organization_of(&self, principal_id: &PrincipalId) -> Option<OrganizationId> {
+        self.projection.organization_of(principal_id)
+    }
+
+    fn state_of(&self, principal_id: &PrincipalId) -> Option<PrincipalState> {
+        self.projection.state_of(principal_id)
+    }
+}
+
+fn authenticate_through(
+    connections: &(impl ConnectionStore + PrincipalStore),
+    links: &Projection,
+    verifier: &ConstructedVerifier,
+) -> Result<Authenticated, Denied> {
+    let input = AuthenticateFederation {
+        connection_id: connection(1),
+        proof: presented(),
+    };
+    authenticate_federation(
+        &input,
+        &request(),
+        verifier,
+        connections,
+        links,
+        &mut RecordingSessionIssuer::new(),
+    )
+}
+
+/// `story:enabled-for-issuer-filters-in-the-implementor`: a store that answers a
+/// `Disabled` connection, or one on another issuer, changes no decision. Each proof is
+/// decided once through the projection and once through a store that answers everything,
+/// and the two decisions must be the same one.
+#[test]
+fn a_connection_store_answering_a_disabled_connection_changes_no_decision() {
+    let log = vec![
+        created(
+            connection(1),
+            organization(10),
+            ISSUER_ONE,
+            on_claim(organization(10), "org", "acme"),
+            false,
+        ),
+        // Another organization, same issuer, a rule the same proofs satisfy — disabled.
+        created(
+            connection(2),
+            organization(11),
+            ISSUER_ONE,
+            on_claim(organization(11), "org", "acme"),
+            false,
+        ),
+        FederationEvent::FederationConnectionDisabled {
+            context: context(organization(11)),
+            id: connection(2),
+        },
+        // Another organization, same issuer, a rule only an unvalidated hint satisfies —
+        // disabled.
+        created(
+            connection(3),
+            organization(12),
+            ISSUER_ONE,
+            on_claim(organization(12), "dept", "engineering"),
+            false,
+        ),
+        FederationEvent::FederationConnectionDisabled {
+            context: context(organization(12)),
+            id: connection(3),
+        },
+        // Another organization, another issuer, a rule the same proofs satisfy — enabled.
+        created(
+            connection(4),
+            organization(13),
+            ISSUER_TWO,
+            on_claim(organization(13), "org", "acme"),
+            false,
+        ),
+        linked(connection(1), organization(10), SUBJECT, principal(0x21)),
+    ];
+    let projection = Projection::fold(&log).expect("four connections, one link");
+    let everything = AnsweringEveryConnection {
+        projection: &projection,
+        held: vec![connection(1), connection(2), connection(3), connection(4)],
+    };
+    assert_eq!(
+        everything
+            .enabled_for_issuer(&Issuer::new(ISSUER_ONE))
+            .len(),
+        4,
+        "the store answers the disabled and the foreign-issuer connections"
+    );
+
+    let proofs = [
+        (
+            "admitted",
+            proof_for(ISSUER_ONE, SUBJECT).with_verified_claim("org", "acme"),
+        ),
+        (
+            "zero, not a fallback",
+            proof_for(ISSUER_ONE, SUBJECT)
+                .with_verified_claim("org", "another")
+                .with_unverified_hint("dept", "engineering"),
+        ),
+    ];
+    for (name, proof) in proofs {
+        let verifier = admitting(proof);
+        let expected = authenticate_through(&projection, &projection, &verifier)
+            .map(|authenticated| authenticated.organization_id)
+            .map_err(|denied| (denied.reason, denied.clause));
+        let observed = authenticate_through(&everything, &projection, &verifier)
+            .map(|authenticated| authenticated.organization_id)
+            .map_err(|denied| (denied.reason, denied.clause));
+        assert_eq!(observed, expected, "{name}");
+    }
 }
