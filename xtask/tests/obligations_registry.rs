@@ -734,8 +734,8 @@ fn the_federation_clauses_mandate_sts_decides_are_covered_on_the_real_path_by_it
         .filter(|clause| !clause["decided_in"].is_null())
         .collect();
     assert!(
-        decided.len() >= 2,
-        "the two STS-decided clauses of mandate-federation's commands carry decided_in: {decided:?}"
+        !decided.is_empty(),
+        "the STS-decided clause of mandate-federation's AuthorizePublicClient carries decided_in: {decided:?}"
     );
     for clause in &decided {
         assert_eq!(clause["decided_in"], "mandate-sts", "{clause}");

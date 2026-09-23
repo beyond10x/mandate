@@ -460,7 +460,9 @@ enum Paths {
     Mixed,
 }
 
-/// `decided_in` belongs on a clause row and on nothing else.
+/// `decided_in` belongs on a clause row and on nothing else — not a command entry, not a
+/// test row, not an addendum, case or audit obligation. Anywhere else it is read by nothing,
+/// and a field nothing reads states a decider the step never held the row to.
 fn clause_only(what: &str, entry: &Value, problems: &mut Vec<String>) {
     if !entry["decided_in"].is_null() {
         problems.push(format!(
@@ -510,28 +512,51 @@ fn unresolved_double(double: &str, compiled: &Compiled) -> Option<String> {
     }
     let modules = &segments[1..segments.len() - 1];
     let item = segments[segments.len() - 1];
-    let file = if modules.is_empty() {
-        source.join("lib.rs")
-    } else {
-        let stem = modules.join("/");
+    // Walked from the crate root one module at a time: each segment is a `pub mod` of the
+    // module before it. A private module's items are declared `pub` and still nameable by
+    // nothing outside the library, so reading the file the path lands in is not enough.
+    let mut file = source.join("lib.rs");
+    let mut text = fs::read_to_string(&file).unwrap_or_default();
+    for (depth, module) in modules.iter().enumerate() {
+        if !public_module(&text, module) {
+            return Some(format!(
+                "passes through {}, which {} does not declare `pub mod`, so nothing outside the \
+                 library can name the path",
+                segments[..depth + 2].join("::"),
+                file.strip_prefix(directory).unwrap_or(&file).display()
+            ));
+        }
+        let stem = modules[..=depth].join("/");
         let flat = source.join(format!("{stem}.rs"));
-        if flat.is_file() {
+        file = if flat.is_file() {
             flat
         } else {
             source.join(stem).join("mod.rs")
-        }
-    };
-    let Ok(text) = fs::read_to_string(&file) else {
-        return Some(format!(
-            "names the module {}, which the library of {} does not hold",
-            modules.join("::"),
-            segments[0]
-        ));
-    };
+        };
+        let Ok(read) = fs::read_to_string(&file) else {
+            return Some(format!(
+                "names the module {}, which the library of {} does not hold",
+                modules[..=depth].join("::"),
+                segments[0]
+            ));
+        };
+        text = read;
+    }
     (!declares(&text, item)).then(|| {
         format!(
             "names {item}, which {} neither declares `pub` nor re-exports",
             file.strip_prefix(directory).unwrap_or(&file).display()
+        )
+    })
+}
+
+/// Whether `text` declares the module `name` with `pub mod name;` or `pub mod name {`.
+fn public_module(text: &str, name: &str) -> bool {
+    let head = format!("pub mod {name}");
+    text.match_indices(&head).any(|(at, _)| {
+        matches!(
+            text[at + head.len()..].trim_start().chars().next(),
+            Some(';' | '{')
         )
     })
 }
@@ -779,6 +804,12 @@ fn command_entry(
     labels: &mut Labels,
     problems: &mut Vec<String>,
 ) {
+    clause_only(command, entry, problems);
+    clause_only(
+        &format!("{command}: denial_audit"),
+        &entry["denial_audit"],
+        problems,
+    );
     let status = entry["status"].as_str().unwrap_or_default();
     let manifest = realized.map_or("", |entry| entry["status"].as_str().unwrap_or_default());
     let implemented = manifest == "implemented";
@@ -859,6 +890,17 @@ fn command_entry(
         }
         if !seen.insert(text) {
             problems.push(format!("{command}: the clause {text:?} is stated twice"));
+        }
+        // A clause names a condition. Text that is nothing but separators and joiners —
+        // including no text at all — is a verbatim substring of any cause, and the tiling walk
+        // places it happily; counted, it raises `clauses` and `real_covered` with nothing new
+        // decided.
+        if unaccounted(text).is_empty() {
+            problems.push(format!(
+                "{command}: the clause {text:?} is only separators and list joiners, so it \
+                 names no condition of the declared cause; a clause states one condition the \
+                 cause enumerates"
+            ));
         }
         // Nesting is a question about position, and [`tiles`] answers it: a clause lying
         // inside its predecessor's span has no occurrence after it. Text containment is not
@@ -1080,15 +1122,19 @@ fn tiles(command: &str, cause: &str, clauses: &[&str], problems: &mut Vec<String
     separators(command, &cause[cursor..], problems);
 }
 
+/// The words of `run` that are neither separators nor list joiners, joined by one space.
+fn unaccounted(run: &str) -> String {
+    run.split(|character: char| {
+        character.is_whitespace() || matches!(character, ',' | ';' | '/' | '.')
+    })
+    .filter(|word| !word.is_empty() && !JOINERS.contains(word))
+    .collect::<Vec<&str>>()
+    .join(" ")
+}
+
 /// One run between two clauses: separators only, or the condition it holds is named.
 fn separators(command: &str, run: &str, problems: &mut Vec<String>) {
-    let unaccounted: String = run
-        .split(|character: char| {
-            character.is_whitespace() || matches!(character, ',' | ';' | '/' | '.')
-        })
-        .filter(|word| !word.is_empty() && !JOINERS.contains(word))
-        .collect::<Vec<&str>>()
-        .join(" ");
+    let unaccounted = unaccounted(run);
     if !unaccounted.is_empty() {
         problems.push(format!(
             "{command}: its declared cause states {run:?}, which no clause accounts for — the \
@@ -1127,6 +1173,7 @@ fn obligation(
     let mut paths: BTreeSet<&str> = BTreeSet::new();
     for row in rows {
         let id = row["id"].as_str().unwrap_or_default();
+        clause_only(&format!("{what}: the row {id}"), row, problems);
         if !compiled.tests.contains(id) {
             problems.push(format!(
                 "{what}: names the test {id}, which no compiled test binary lists and runs"

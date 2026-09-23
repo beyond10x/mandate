@@ -52,16 +52,16 @@
 //!
 //! # What is not here
 //!
-//! Nine clauses of this crate's commands stay deferred, and none of them for want of a case.
+//! Some clauses of this crate's commands stay deferred, and none of them for want of a case.
 //! Four name an administration authority the handler deciding them takes no admission port
 //! for at all, which is `story:federation-admission-port`; `register_client.rs:93` is where
 //! that port exists, and it decides nothing itself — the answer is the implementation's, and
 //! today the only one is the fixture [`ConfiguredAdmission`] (above). The durable-commit and
-//! invalidation clauses name the adapter's transaction. Two more — "STS code
-//! issuance/narrowing is refused" and "disablement cannot stop the issuance of new
-//! authorization codes to it" — are decided by `mandate-sts` code no case in this crate
-//! reaches, which is `story:cross-crate-clauses`. `contracts/obligations/federation.json`
-//! records which story or blocker owns each of those paths.
+//! invalidation clauses name the adapter's transaction. "STS code issuance" is decided by
+//! `mandate-sts` code no case in this crate reaches, and its row says so with `decided_in`;
+//! "narrowing is refused" is an authority narrowing nothing in the workspace performs yet.
+//! `contracts/obligations/federation.json` records which story, blocker or crate owns each of
+//! those paths.
 
 use aws_lc_rs::rand::SystemRandom;
 use aws_lc_rs::signature::{ECDSA_P256_SHA256_FIXED_SIGNING, EcdsaKeyPair};

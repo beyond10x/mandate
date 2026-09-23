@@ -76,7 +76,9 @@ step walks the cause rather than searching it. Nesting is a question of **positi
 walk is what answers it: a clause whose text also occurs inside a sibling is not nested when the
 walk places it at a position of its own. `team` in `mandate.tenancy.AddTeamMembership` is such
 a clause — the word lies inside "Caller lacks team-administration authority", and the condition
-it names is the team half of "team or principal is unresolved". The granularity is the one
+it names is the team half of "team or principal is unresolved". A clause that is empty, or that
+is nothing but separators and joiners (`or`, `and`, `,`), names no condition and is refused: it
+is a substring of every cause and the walk would place it. The granularity is the one
 `services/sts/tests/declared_denials.rs` established by hand for the eleven STS commands —
 one clause per condition the cause enumerates, so several of that file's discriminators may
 answer to one clause.
@@ -113,8 +115,11 @@ makes the decision, not the code that holds the data. **One test id is on one `p
 `double`, wherever the directory names it**, for the reason one id is one kind.
 
 A `double` value is a `::`-separated Rust path into a **library target**: its root is a
-workspace member with a library, and its last segment is declared `pub` — or re-exported by a
-`pub use` — in the module the path names. A stand-in defined inside one test binary is one
+workspace member with a library, every module segment between is a `pub mod` of the one
+before it, and its last segment is declared `pub` — or re-exported by a `pub use` — in the
+module the path names. `mandate_identity::port::IdentityLog` is refused although `port.rs`
+declares `pub struct IdentityLog`: `port` is a private module, and the path is nameable by
+nothing outside the library. A stand-in defined inside one test binary is one
 nothing outside that binary can name, so no later reader can check the row's classification
 against it; and `mandate-graph::…` is not a Rust path at all.
 
@@ -154,7 +159,7 @@ parent that does not resolve and only the tenant half produces the declared deni
 ### `decided_in`
 
 ```json
-{"clause": "STS code issuance/narrowing is refused", "decided_in": "mandate-sts",
+{"clause": "STS code issuance", "decided_in": "mandate-sts",
  "tests": [{"id": "mandate-sts::code::…", "kind": "denial", "path": "real"}]}
 ```
 
@@ -163,7 +168,8 @@ through a composition: `mandate.federation.AuthorizePublicClient` is refused whe
 `mandate-sts` code issuance it hands its validated input to refuses. No test the entry's crate
 can write binds such a clause, so the row names the deciding crate in `decided_in` and the
 same-crate rule holds that row to the named crate instead of the entry's. The field sits on a
-clause and on nothing else; it names a workspace member, never the entry's own crate — which
+clause and on nothing else — a command entry, a test row, an addendum, case or audit row carrying
+it is refused; it names a workspace member, never the entry's own crate — which
 would say nothing the rule does not already say — and a clause carrying it names at least one
 test. It is a claim about where a decision is made, so it follows a measurement of that code
 and not a module doc naming another crate.
