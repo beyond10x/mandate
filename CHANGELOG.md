@@ -4,6 +4,8 @@ All notable changes to Mandate are recorded here. The format follows [Keep a Cha
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-09-23
+
 Wave L: four stories in three units, each attacked twice.
 
 ### Changed
