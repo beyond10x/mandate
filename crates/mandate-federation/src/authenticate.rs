@@ -333,11 +333,14 @@ fn resolve_tenant(
         // Zero matches with no fallback owed. When the rule's claim arrived as a
         // non-string, the verifier is told its type so the refusal says why; the denial
         // is the `TenantZero` a skipped claim always produced, and nothing before this
-        // point — the subject checks, the fallback analysis — answers differently.
-        if let Some(kind) = connection
-            .tenant_resolution
+        // point — the subject checks, the fallback analysis — answers differently. A rule
+        // with a claim name and no value matches nothing of any type, so the type is not
+        // reported for it.
+        let rule = &connection.tenant_resolution;
+        if let Some(kind) = rule
             .verified_claim_name
             .as_deref()
+            .filter(|_| rule.verified_claim_value.is_some())
             .and_then(|name| verified.claim_type(name))
         {
             verifier.tenant_claim_refused(kind);
