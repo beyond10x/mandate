@@ -288,7 +288,7 @@ fn resolve(
     }
     // 6: resolve the configured organization. Step 5, nonce/state/PKCE, applies to
     // `AuthorizePublicClient`, which `story:pkce-sessions` realizes.
-    let organization_id = resolve_tenant(connections, &connection, &verified)?;
+    let organization_id = resolve_tenant(verifier, connections, &connection, &verified)?;
     Ok(Resolved {
         key: ExternalKey {
             organization_id,
@@ -308,6 +308,7 @@ fn resolve(
 /// because a single connection carries one rule and could only ever yield zero or one
 /// match, while the declared denial names "zero or multiple matches".
 fn resolve_tenant(
+    verifier: &impl FederationVerifier,
     connections: &impl ConnectionStore,
     connection: &FederationConnection,
     verified: &VerifiedProof,
@@ -323,13 +324,27 @@ fn resolve_tenant(
             .iter()
             .chain(std::iter::once(connection))
             .any(|candidate| matches_unvalidated(&candidate.tenant_resolution, verified));
+        if fallback {
+            return Err(Denied::new(
+                DenialReason::TenantMismatch,
+                DenialClause::UnverifiedFallback,
+            ));
+        }
+        // Zero matches with no fallback owed. When the rule's claim arrived as a
+        // non-string, the verifier is told its type so the refusal says why; the denial
+        // is the `TenantZero` a skipped claim always produced, and nothing before this
+        // point — the subject checks, the fallback analysis — answers differently.
+        if let Some(kind) = connection
+            .tenant_resolution
+            .verified_claim_name
+            .as_deref()
+            .and_then(|name| verified.claim_type(name))
+        {
+            verifier.tenant_claim_refused(kind);
+        }
         return Err(Denied::new(
             DenialReason::TenantMismatch,
-            if fallback {
-                DenialClause::UnverifiedFallback
-            } else {
-                DenialClause::TenantZero
-            },
+            DenialClause::TenantZero,
         ));
     }
     let matched: BTreeSet<OrganizationId> = candidates

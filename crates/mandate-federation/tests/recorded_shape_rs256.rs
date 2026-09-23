@@ -376,3 +376,20 @@ fn every_non_string_tenant_claim_type_is_refused_by_name() {
         );
     }
 }
+
+/// The type is reported only where resolution answers `TenantZero`. A refusal owed earlier
+/// — here an untrimmed `sub`, checked before tenant resolution — keeps its own answer, and
+/// the verifier's log does not claim a tenant refusal that was never made.
+#[test]
+fn a_refusal_owed_before_tenant_resolution_keeps_its_answer_and_logs_no_tenant_type() {
+    let projection = two_tenants_on_one_issuer();
+    let clock = FixedClock::at(NOW);
+    let verifier = verifier(&clock);
+    let mut body = recorded_shape(serde_json::json!(7_204_118));
+    body["sub"] = format!(" {PAIRWISE_SUBJECT}").into();
+    let denied = authenticate(&projection, connection(1), &verifier, mint(&body))
+        .expect_err("an untrimmed subject is refused");
+    assert_eq!(denied.reason, DenialReason::InvalidCredential);
+    assert_eq!(denied.clause, DenialClause::SubjectNotTrimmed);
+    assert_eq!(verifier.refusals(), Vec::new());
+}

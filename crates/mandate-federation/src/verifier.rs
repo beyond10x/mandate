@@ -27,6 +27,25 @@ pub struct VerifiedProof {
     audience: ClientId,
     verified_claims: BTreeMap<String, String>,
     unverified_hints: BTreeMap<String, String>,
+    claim_types: BTreeMap<String, ClaimType>,
+}
+
+/// The JSON type a claim arrived as, when it is not the string a tenant rule compares
+/// against.
+///
+/// A bare name, so a refusal naming it stays log-safe: the value is never carried.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum ClaimType {
+    /// A JSON number.
+    Number,
+    /// A JSON array, whatever its members.
+    Array,
+    /// A JSON object.
+    Object,
+    /// `true` or `false`.
+    Boolean,
+    /// `null`.
+    Null,
 }
 
 impl VerifiedProof {
@@ -39,7 +58,24 @@ impl VerifiedProof {
             audience,
             verified_claims: BTreeMap::new(),
             unverified_hints: BTreeMap::new(),
+            claim_types: BTreeMap::new(),
         }
+    }
+
+    /// Record that the claim `name` arrived as a non-string JSON value of type `kind`.
+    ///
+    /// The type alone, never the value. Nothing resolves on it; it lets a tenant refusal
+    /// say why the rule's claim could not match.
+    #[must_use]
+    pub fn with_claim_type(mut self, name: &str, kind: ClaimType) -> Self {
+        self.claim_types.insert(name.to_owned(), kind);
+        self
+    }
+
+    /// The non-string JSON type the claim `name` arrived as, if one was recorded.
+    #[must_use]
+    pub fn claim_type(&self, name: &str) -> Option<ClaimType> {
+        self.claim_types.get(name).copied()
     }
 
     /// Record a claim the verifier validated.
