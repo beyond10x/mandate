@@ -54,7 +54,7 @@ use mandate_sts::redemption::RedemptionRefused;
 use mandate_sts::{IdentityAllocator, SecretSource};
 use mandate_types::value::encode_base64;
 
-use crate::adapters::{AuthorizationRefusal, Deployment, Refusal};
+use crate::adapters::{AuthorizationRefusal, Deployment, PENDING_LIFETIME, Refusal};
 
 /// What this listener will read from one connection, and how long it waits for it.
 #[derive(Debug, Clone)]
@@ -700,32 +700,75 @@ where
             match decode::begin_federation(request) {
                 Err(refused) => Response::refused(&refused),
                 Ok(input) => match deployment.begin_federation(&input) {
-                    Ok(location) => Response::redirect(&location),
+                    // The binding cookie is set on the one response that starts the sign-in,
+                    // and nowhere else: a refused authorize sets nothing, and neither does a
+                    // redirect `Response::redirect` refused to write.
+                    Ok(started) => match Response::redirect(&started.location) {
+                        redirect if redirect.status == 302 => redirect.with_header(
+                            "Set-Cookie",
+                            &format!(
+                                "{}={}; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age={}",
+                                decode::FEDERATION_BINDING_COOKIE,
+                                started.binding,
+                                PENDING_LIFETIME
+                            ),
+                        ),
+                        unwritable => unwritable,
+                    },
                     Err(refusal) => Response::denied("relying-party authorize", &refusal),
                 },
             }
         }
         Binding::RelyingParty(RelyingPartyStep::Callback) => {
-            match decode::complete_federation(request) {
-                Err(refused) => Response::refused(&refused).no_store(),
+            let answered = match decode::complete_federation(request) {
+                Err(refused) => Response::refused(&refused),
                 Ok(input) => match deployment.complete_federation(&input) {
-                    Ok(login) => Response::json(
-                        200,
-                        serde_json::json!({
-                            "session_id": login.session_id.to_string(),
-                            "principal_id": login.principal_id.to_string(),
-                            "organization_id": login.organization_id.to_string(),
-                            "epochs": login.epochs.to_string(),
-                            "expires_at": login.expires_at.to_string(),
-                            "session_proof": encode_base64(login.session_proof.expose_bytes()),
-                        })
-                        .to_string(),
-                    )
-                    .no_store(),
-                    Err(refusal) => Response::denied("relying-party callback", &refusal).no_store(),
+                    Ok(handoff) => match &handoff.return_uri {
+                        Some(return_uri) => {
+                            match redirect_to(return_uri, &[("handoff", &handoff.code)]) {
+                                Ok(location) => Response::redirect(&location),
+                                Err(refused) => redirect_unusable(refused),
+                            }
+                        }
+                        // No return URI configured: the code is answered in the body, and the
+                        // session proof still never is.
+                        None => Response::json(
+                            200,
+                            serde_json::json!({ "handoff": handoff.code }).to_string(),
+                        ),
+                    },
+                    Err(refusal) => Response::denied("relying-party callback", &refusal),
                 },
-            }
+            };
+            // Whatever the callback answered, the sign-in it named is over, and so is the
+            // binding.
+            answered.no_store().with_header(
+                "Set-Cookie",
+                &format!(
+                    "{}=; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=0",
+                    decode::FEDERATION_BINDING_COOKIE
+                ),
+            )
         }
+        Binding::RelyingParty(RelyingPartyStep::Handoff) => match decode::redeem_handoff(request) {
+            Err(refused) => Response::refused(&refused).no_store(),
+            Ok(input) => match deployment.redeem_handoff(&input) {
+                Ok(login) => Response::json(
+                    200,
+                    serde_json::json!({
+                        "session_id": login.session_id.to_string(),
+                        "principal_id": login.principal_id.to_string(),
+                        "organization_id": login.organization_id.to_string(),
+                        "epochs": login.epochs.to_string(),
+                        "expires_at": login.expires_at.to_string(),
+                        "session_proof": encode_base64(login.session_proof.expose_bytes()),
+                    })
+                    .to_string(),
+                )
+                .no_store(),
+                Err(refusal) => Response::denied("relying-party handoff", &refusal).no_store(),
+            },
+        },
         Binding::Command(_) => Response::error(
             404,
             ErrorBody::new(
@@ -960,7 +1003,13 @@ impl Response {
         )
     }
 
+    /// A `302` to `location` — or, when `location` carries a byte that is not part of a
+    /// header value, a `500` that redirects nowhere. A CR LF in a `Location` is a header of
+    /// its own, written by whoever supplied the URI.
     fn redirect(location: &str) -> Self {
+        if !is_header_value(location) {
+            return unwritable_header();
+        }
         Self {
             status: 302,
             headers: vec![("Location".to_owned(), location.to_owned())],
@@ -1003,6 +1052,16 @@ impl Response {
             503 => "Service Unavailable",
             _ => "",
         };
+        // The class, decided where every header is written rather than where each one is
+        // built: a name or value carrying a control byte is a response this listener does
+        // not send, whoever built it. A fixed refusal is sent in its place.
+        if !self
+            .headers
+            .iter()
+            .all(|(name, value)| is_header_value(name) && is_header_value(value))
+        {
+            return unwritable_header().write_to(stream, limits, deadline);
+        }
         let mut head = format!("HTTP/1.1 {} {reason}\r\n", self.status);
         for (name, value) in &self.headers {
             head.push_str(&format!("{name}: {value}\r\n"));
@@ -1013,4 +1072,22 @@ impl Response {
         write_within(stream, limits, deadline, &self.body)?;
         stream.flush()
     }
+}
+
+/// Whether a header name or value carries no control byte: no CR, no LF, no NUL, no DEL, and
+/// none of the C1 controls.
+fn is_header_value(text: &str) -> bool {
+    !text.chars().any(char::is_control)
+}
+
+/// The response sent in place of one whose headers could not be written as built.
+/// Fixed text, and headers carrying nothing a caller or an IdP supplied.
+fn unwritable_header() -> Response {
+    Response::error(
+        500,
+        ErrorBody::new(
+            ErrorCode::ServerError,
+            "the response could not be written as a header",
+        ),
+    )
 }

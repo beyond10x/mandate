@@ -108,6 +108,9 @@ pub enum TokenRefusal {
     EndpointAbsent,
     /// An endpoint is neither on the issuer's origin nor on a host the deployment listed.
     EndpointNotAdmitted,
+    /// An endpoint carries a control or whitespace byte, which no URI does and which would
+    /// become a header or a request line of its own where the endpoint is written.
+    EndpointMalformed,
     /// The token endpoint could not be reached, or did not answer within the deadline.
     Unreachable,
     /// The token endpoint answered with anything but success: a refused client
@@ -134,6 +137,10 @@ pub struct IdpEndpoints {
     pub authorization_endpoint: String,
     /// Where the code is redeemed.
     pub token_endpoint: String,
+    /// Whether the metadata advertises `iss` in the authorization response
+    /// (`authorization_response_iss_parameter_supported: true`, RFC 9207 section 3). When it
+    /// does, a callback without `iss` is refused (section 2.4).
+    pub issuer_in_response: bool,
 }
 
 /// The endpoints `document` publishes for `issuer`, each admitted by the fetch guard.
@@ -144,8 +151,8 @@ pub struct IdpEndpoints {
 ///
 /// # Errors
 ///
-/// [`TokenRefusal::DiscoveryIssuerMismatch`], [`TokenRefusal::EndpointAbsent`] or
-/// [`TokenRefusal::EndpointNotAdmitted`].
+/// [`TokenRefusal::DiscoveryIssuerMismatch`], [`TokenRefusal::EndpointAbsent`],
+/// [`TokenRefusal::EndpointMalformed`] or [`TokenRefusal::EndpointNotAdmitted`].
 pub fn endpoints(
     issuer: &Issuer,
     document: &serde_json::Value,
@@ -164,8 +171,19 @@ pub fn endpoints(
     let found = IdpEndpoints {
         authorization_endpoint: named("authorization_endpoint")?,
         token_endpoint: named("token_endpoint")?,
+        issuer_in_response: document.get("authorization_response_iss_parameter_supported")
+            == Some(&serde_json::Value::Bool(true)),
     };
     for endpoint in [&found.authorization_endpoint, &found.token_endpoint] {
+        // `admits` reads the origin and nothing after it, so a byte later in the string is
+        // decided here: the authorization endpoint is written into a `Location` header and
+        // the token endpoint into a request line, and a CR LF in either is a header of its own.
+        if endpoint
+            .chars()
+            .any(|c| c.is_control() || c.is_whitespace())
+        {
+            return Err(TokenRefusal::EndpointMalformed);
+        }
         if !UreqJwks::admits(issuer, endpoint, allowed_hosts) {
             return Err(TokenRefusal::EndpointNotAdmitted);
         }
@@ -334,6 +352,13 @@ impl IdpTokenEndpoint for UreqIdpToken {
     fn redeem(&self, redemption: &CodeRedemption<'_>) -> Result<CredentialProof, TokenRefusal> {
         // Decided here too, not only by `endpoints`: the port may be called with an endpoint
         // nobody read out of a discovery document, and the guard is the port's.
+        if redemption
+            .token_endpoint
+            .chars()
+            .any(|c| c.is_control() || c.is_whitespace())
+        {
+            return Err(TokenRefusal::EndpointMalformed);
+        }
         if !UreqJwks::admits(
             redemption.issuer,
             redemption.token_endpoint,

@@ -360,3 +360,79 @@ fn a_client_secret_never_renders_and_is_read_from_a_file_without_its_line_end() 
     );
     let _ = std::fs::remove_dir_all(&directory);
 }
+
+// ------------------------------------------------ correction round 1, adversary pass 1
+
+/// F1, the class: an endpoint is written into a `Location` header and a request line, so
+/// any byte that is not part of a URI — a control or any whitespace, anywhere in it — is
+/// refused before it is used. `admits` reads the origin alone and cannot see a byte later on.
+#[test]
+fn an_endpoint_carrying_a_control_or_whitespace_byte_anywhere_is_refused() {
+    let issuer = Issuer::new("https://idp.example");
+    let document = |authorize: &str, token: &str| {
+        serde_json::json!({
+            "issuer": "https://idp.example",
+            "authorization_endpoint": authorize,
+            "token_endpoint": token,
+        })
+    };
+    let good = "https://idp.example/authorize";
+    for bad in [
+        "https://idp.example/authorize\r\nSet-Cookie: injected=1",
+        "https://idp.example/authorize\n",
+        "https://idp.example/author ize",
+        "https://idp.example/authorize\t",
+        "https://idp.example/authorize\u{0}",
+        "https://idp.example/authorize\u{7f}",
+        "https://idp.example/authorize\u{85}",
+        "https://idp.example/authorize\u{a0}",
+        "https://idp.example/authorize\u{2028}",
+    ] {
+        assert_eq!(
+            endpoints(&issuer, &document(bad, good), &[]).err(),
+            Some(TokenRefusal::EndpointMalformed),
+            "authorization endpoint {bad:?}"
+        );
+        assert_eq!(
+            endpoints(&issuer, &document(good, bad), &[]).err(),
+            Some(TokenRefusal::EndpointMalformed),
+            "token endpoint {bad:?}"
+        );
+    }
+}
+
+/// F2: RFC 9207 section 2.4 — metadata advertising
+/// `authorization_response_iss_parameter_supported: true` obliges the client to require `iss`.
+#[test]
+fn the_endpoints_say_whether_the_idp_advertises_iss_in_the_authorization_response() {
+    let issuer = Issuer::new("https://idp.example");
+    let mut document = serde_json::json!({
+        "issuer": "https://idp.example",
+        "authorization_endpoint": "https://idp.example/authorize",
+        "token_endpoint": "https://idp.example/token",
+    });
+    assert!(
+        !endpoints(&issuer, &document, &[])
+            .unwrap()
+            .issuer_in_response
+    );
+    document["authorization_response_iss_parameter_supported"] = true.into();
+    assert!(
+        endpoints(&issuer, &document, &[])
+            .unwrap()
+            .issuer_in_response
+    );
+    document["authorization_response_iss_parameter_supported"] = false.into();
+    assert!(
+        !endpoints(&issuer, &document, &[])
+            .unwrap()
+            .issuer_in_response
+    );
+    // Anything but the boolean `true` advertises nothing, a string "true" included.
+    document["authorization_response_iss_parameter_supported"] = "true".into();
+    assert!(
+        !endpoints(&issuer, &document, &[])
+            .unwrap()
+            .issuer_in_response
+    );
+}

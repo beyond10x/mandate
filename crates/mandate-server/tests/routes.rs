@@ -20,8 +20,8 @@ use mandate_server::routes::{self, Binding, Document, Method, ROUTES, RelyingPar
 const OPENAPI: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../generated/openapi");
 
 #[test]
-fn the_table_carries_the_four_road_routes_the_two_documents_and_the_two_relying_party_steps() {
-    assert_eq!(ROUTES.len(), 8);
+fn the_table_carries_the_four_road_routes_the_two_documents_and_the_three_relying_party_steps() {
+    assert_eq!(ROUTES.len(), 9);
     let commands: Vec<&str> = ROUTES
         .iter()
         .filter_map(|route| match route.binds {
@@ -68,6 +68,11 @@ fn the_table_carries_the_four_road_routes_the_two_documents_and_the_two_relying_
                 Method::Get,
                 "/v1/federation/callback",
                 RelyingPartyStep::Callback
+            ),
+            (
+                Method::Post,
+                "/v1/federation/handoff",
+                RelyingPartyStep::Handoff
             ),
         ]
     );

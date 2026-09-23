@@ -513,13 +513,33 @@ pub struct BeginFederation {
 /// The relying-party callback, as the IdP's redirect presents it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CompleteFederation {
-    /// The code the IdP issued. A credential, and carried as one.
-    pub code: CredentialProof,
+    /// The code the IdP issued, absent from an error response. A credential, and carried as
+    /// one.
+    pub code: Option<CredentialProof>,
     /// The exact state the IdP returned.
     pub state: String,
     /// RFC 9207's `iss`, when the IdP sends one.
     pub issuer: Option<String>,
+    /// Whether the IdP answered an error response (OIDC Core 3.1.2.6). Its text is not
+    /// carried: nothing an IdP writes there is rendered back.
+    pub error: bool,
+    /// The value of the [`FEDERATION_BINDING_COOKIE`] the browser presented, when it
+    /// presented exactly one.
+    pub binding: Option<String>,
 }
+
+/// `POST /v1/federation/handoff`, as the embedding application presents it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RedeemHandoff {
+    /// The single-use code the callback sent the browser back with.
+    pub handoff: String,
+}
+
+/// The cookie that binds a relying-party sign-in to the browser that started it.
+///
+/// `__Host-` (RFC 6265bis section 4.1.3.2): set only with `Secure`, `Path=/` and no
+/// `Domain`, so no other host and no plaintext response can set or shadow it.
+pub const FEDERATION_BINDING_COOKIE: &str = "__Host-mandate-rp";
 
 /// The parameters the relying-party authorize step admits, and nothing else.
 pub const FEDERATION_AUTHORIZE_PARAMETERS: &[&str] = &["connection_id"];
@@ -529,8 +549,21 @@ pub const FEDERATION_AUTHORIZE_PARAMETERS: &[&str] = &["connection_id"];
 /// `code` and `state` are read. `iss` is RFC 9207's and is compared by the handler.
 /// `scope` and `session_state` are parameters IdPs add to a successful response; they are
 /// read and discarded, because refusing them would refuse a login an IdP completed.
-pub const FEDERATION_CALLBACK_PARAMETERS: &[&str] =
-    &["code", "state", "iss", "scope", "session_state"];
+/// `error`, `error_description` and `error_uri` are an error response's (OIDC Core 3.1.2.6):
+/// the presence of `error` is read, and none of the three values is.
+pub const FEDERATION_CALLBACK_PARAMETERS: &[&str] = &[
+    "code",
+    "state",
+    "iss",
+    "scope",
+    "session_state",
+    "error",
+    "error_description",
+    "error_uri",
+];
+
+/// The members the handoff body admits, and nothing else.
+pub const HANDOFF_MEMBERS: &[&str] = &["handoff"];
 
 /// Decode the relying-party authorize step from its query string.
 ///
@@ -550,34 +583,93 @@ pub fn begin_federation(request: &Request) -> Result<BeginFederation, Refusal> {
     })
 }
 
-/// Decode the relying-party callback from the query the IdP redirected with.
+/// Decode the relying-party callback from the query the IdP redirected with and the
+/// browser-binding cookie.
 ///
-/// An IdP's error response (`error=…`) carries no `code` and is refused like any other
-/// callback without one.
+/// An error response decodes — carrying its `state` and nothing of its text — so the
+/// handler can take that state once and refuse. A callback carrying neither `code` nor
+/// `error` is refused here.
 ///
 /// # Errors
 ///
 /// Returns [`Refusal`] for another method, an oversized query, a presented body or caller
-/// credential, a malformed, repeated, undeclared or missing parameter, or a free-text value
-/// that is too long or carries a control character.
+/// credential, a repeated `Cookie` header, a malformed, repeated, undeclared or missing
+/// parameter, or a free-text value that is too long or carries a control character.
 pub fn complete_federation(request: &Request) -> Result<CompleteFederation, Refusal> {
     entry(request, "GET", Reads::Query)?;
     no_presented_credential(request)?;
     let form = oauth::decode_form(request.query())?;
     closed(&form, FEDERATION_CALLBACK_PARAMETERS)?;
-    let code = free_text(&form, "code")?;
-    if code.is_empty() {
-        return Err(Refusal::MalformedField);
-    }
+    let error = form.get("error").is_some();
+    let code = match form.get("code") {
+        Some(_) => {
+            let code = free_text(&form, "code")?;
+            if code.is_empty() {
+                return Err(Refusal::MalformedField);
+            }
+            Some(CredentialProof::from_bytes(code.into_bytes()))
+        }
+        None if error => None,
+        None => return Err(Refusal::MissingField),
+    };
     let issuer = match form.get("iss") {
         Some(_) => Some(free_text(&form, "iss")?),
         None => None,
     };
+    let binding = request
+        .single_header("Cookie")?
+        .and_then(|cookies| cookie(cookies, FEDERATION_BINDING_COOKIE));
     Ok(CompleteFederation {
-        code: CredentialProof::from_bytes(code.into_bytes()),
+        code,
         state: free_text(&form, "state")?,
         issuer,
+        error,
+        binding,
     })
+}
+
+/// Decode `POST /v1/federation/handoff` from its JSON body.
+///
+/// # Errors
+///
+/// Returns [`Refusal`] for another method or media type, an oversized or non-UTF-8 body, a
+/// presented caller credential, a body that is not a flat JSON object of strings, an
+/// undeclared or missing member, or a value that is too long or carries a control character.
+pub fn redeem_handoff(request: &Request) -> Result<RedeemHandoff, Refusal> {
+    entry(request, "POST", Reads::Body)?;
+    let body = require_body(request, JSON_MEDIA_TYPE)?;
+    no_presented_credential(request)?;
+    let members = oauth::flat_object(body).map_err(|_| Refusal::MalformedBody)?;
+    for (name, _) in &members {
+        if !HANDOFF_MEMBERS.contains(&name.as_str()) {
+            return Err(Refusal::UndeclaredField);
+        }
+    }
+    let handoff = member(&members, "handoff")?;
+    if handoff.is_empty() {
+        return Err(Refusal::MalformedField);
+    }
+    if handoff.len() > MAX_TEXT_BYTES {
+        return Err(Refusal::TextTooLong);
+    }
+    if handoff.chars().any(char::is_control) {
+        return Err(Refusal::ControlCharacter);
+    }
+    Ok(RedeemHandoff {
+        handoff: handoff.to_owned(),
+    })
+}
+
+/// The value of the cookie `name` in a `Cookie` header, when the header names it exactly
+/// once. Named twice is answered as not presented: a rule for picking one of two values is a
+/// rule an attacker can aim at a reader that picked the other.
+fn cookie(header: &str, name: &str) -> Option<String> {
+    let mut found = header.split(';').filter_map(|pair| {
+        let (key, value) = pair.trim().split_once('=')?;
+        (key == name).then(|| value.to_owned())
+    });
+    let first = found.next()?;
+    found.next().is_none().then_some(first)
 }
 
 /// Decode `mandate.federation.AuthorizePublicClient` from its query string and its bearer

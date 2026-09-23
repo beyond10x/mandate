@@ -139,15 +139,37 @@ impl Response {
 }
 
 fn get(address: SocketAddr, target: &str) -> Response {
+    send(address, "GET", target, &[], None)
+}
+
+/// One request: the method, the target, extra header lines, and an optional JSON body.
+fn send(
+    address: SocketAddr,
+    method: &str,
+    target: &str,
+    headers: &[(&str, &str)],
+    json: Option<&str>,
+) -> Response {
     let mut stream = TcpStream::connect(address).expect("the listener accepts");
     stream
         .set_read_timeout(Some(Duration::from_secs(20)))
         .expect("a read timeout");
-    write!(
-        stream,
-        "GET {target} HTTP/1.1\r\nHost: {address}\r\nConnection: close\r\n\r\n"
-    )
-    .expect("the request is written");
+    let mut head =
+        format!("{method} {target} HTTP/1.1\r\nHost: {address}\r\nConnection: close\r\n");
+    for (name, value) in headers {
+        head.push_str(&format!("{name}: {value}\r\n"));
+    }
+    if let Some(body) = json {
+        head.push_str(&format!(
+            "Content-Type: application/json\r\nContent-Length: {}\r\n",
+            body.len()
+        ));
+    }
+    head.push_str("\r\n");
+    head.push_str(json.unwrap_or_default());
+    stream
+        .write_all(head.as_bytes())
+        .expect("the request is written");
     let mut raw = String::new();
     stream
         .read_to_string(&mut raw)
@@ -188,6 +210,8 @@ enum Tamper {
     /// The authorization endpoint records a challenge the request never sent, so the
     /// verifier the relying party presents does not redeem it.
     Challenge,
+    /// The discovery document advertises `iss` in the authorization response (RFC 9207).
+    AdvertiseIss,
 }
 
 struct Grant {
@@ -204,6 +228,9 @@ struct IdpState {
     token_calls: usize,
     basic_refused: usize,
     pkce_refused: usize,
+    /// The last ID token the token endpoint answered, for the case that presents it
+    /// elsewhere.
+    last_id_token: Option<String>,
 }
 
 struct TestIdp {
@@ -224,6 +251,7 @@ impl TestIdp {
             token_calls: 0,
             basic_refused: 0,
             pkce_refused: 0,
+            last_id_token: None,
         }));
         let serving = Arc::clone(&state);
         std::thread::spawn(move || {
@@ -295,6 +323,8 @@ fn answer(
                 "token_endpoint_auth_methods_supported": ["client_secret_basic"],
                 "code_challenge_methods_supported": ["S256"],
                 "id_token_signing_alg_values_supported": ["RS256"],
+                "authorization_response_iss_parameter_supported":
+                    held.tamper == Tamper::AdvertiseIss,
             })
             .to_string(),
         ),
@@ -385,6 +415,7 @@ fn answer(
                                 grant.nonce
                             };
                             let token = id_token(key, &issuer, &nonce);
+                            held.last_id_token = Some(token.clone());
                             (
                                 200,
                                 "Cache-Control: no-store\r\n".to_owned(),
@@ -591,6 +622,10 @@ struct Stood {
     _scratch: Scratch,
 }
 
+/// Where the callback sends the browser once a session is open: the embedding
+/// application's page.
+const RETURN_URI: &str = "https://app.example/signed-in";
+
 fn stand(case: &str, tamper: Tamper, secret_in_file: &str) -> Stood {
     let idp = TestIdp::start(tamper);
     let scratch = Scratch::new(case);
@@ -600,7 +635,8 @@ fn stand(case: &str, tamper: Tamper, secret_in_file: &str) -> Stood {
           "tenant_resolution":{{"configured_organization":"{organization}",
             "verified_claim_name":"{TENANT_CLAIM}","verified_claim_value":"{TENANT_VALUE}"}},
           "jit_provisioning":true,
-          "relying_party":{{"redirect_uri":"{CALLBACK}","client_secret":"{SECRET_REFERENCE}"}}}}"#,
+          "relying_party":{{"redirect_uri":"{CALLBACK}","client_secret":"{SECRET_REFERENCE}",
+            "return_uri":"{RETURN_URI}"}}}}"#,
         connection = connection(),
         organization = organization(),
         issuer = idp.issuer(),
@@ -634,9 +670,24 @@ fn stand(case: &str, tamper: Tamper, secret_in_file: &str) -> Stood {
     }
 }
 
-/// The browser's walk: Mandate's authorize, the IdP's authorize, and back to Mandate's
-/// callback. Answers the callback's query as the IdP wrote it, and the callback's response.
-fn walk(stood: &Stood) -> (String, Response) {
+/// The browser-binding cookie's name.
+const BINDING_COOKIE: &str = "__Host-mandate-rp";
+
+/// What a browser holds after the IdP has sent it back: the callback query the IdP wrote
+/// and the binding cookie the authorize step set.
+struct Returned {
+    query: String,
+    cookie: String,
+}
+
+impl Returned {
+    fn parameters(&self) -> BTreeMap<String, String> {
+        form(&self.query)
+    }
+}
+
+/// Mandate's authorize and the IdP's authorize, as a browser follows them.
+fn to_the_idp_and_back(stood: &Stood) -> Returned {
     let started = get(
         stood.address,
         &format!("/v1/federation/authorize?connection_id={}", connection()),
@@ -646,6 +697,23 @@ fn walk(stood: &Stood) -> (String, Response) {
         "the browser is sent to the IdP: {}",
         started.body
     );
+    let set_cookie = started
+        .header("Set-Cookie")
+        .expect("the authorize step binds the browser")
+        .to_owned();
+    let attributes: Vec<&str> = set_cookie.split(';').map(str::trim).collect();
+    for required in ["Path=/", "Secure", "HttpOnly", "SameSite=Lax"] {
+        assert!(attributes.contains(&required), "{required} in {set_cookie}");
+    }
+    assert!(
+        !attributes.iter().any(|a| a.starts_with("Domain")),
+        "a __Host- cookie names no Domain: {set_cookie}"
+    );
+    let cookie = attributes[0].to_owned();
+    let (name, value) = cookie.split_once('=').expect("name=value");
+    assert_eq!(name, BINDING_COOKIE);
+    assert!(value.len() >= 22, "an unguessable binding");
+
     let location = started.header("Location").expect("a Location").to_owned();
     let authorization_endpoint = format!("{}/authorize?", stood.idp.issuer());
     let query = location
@@ -665,6 +733,7 @@ fn walk(stood: &Stood) -> (String, Response) {
     assert!(parameters["state"].len() >= 22, "an unguessable state");
     assert!(parameters["nonce"].len() >= 22, "an unguessable nonce");
     assert_ne!(parameters["state"], parameters["nonce"]);
+    assert_ne!(parameters["state"], value, "the binding is not the state");
     assert!(
         !location.contains(IDP_SECRET) && !location.contains(&percent_encode(IDP_SECRET)),
         "the client secret never reaches the browser"
@@ -673,22 +742,61 @@ fn walk(stood: &Stood) -> (String, Response) {
     let at_idp = get(stood.idp.address, &target_of(&location));
     assert_eq!(at_idp.status, 302);
     let back = at_idp.header("Location").expect("a Location").to_owned();
-    let callback_query = back
-        .strip_prefix(&format!("{CALLBACK}?"))
-        .expect("the IdP returns to the registered redirect URI")
-        .to_owned();
-    let completed = get(
+    Returned {
+        query: back
+            .strip_prefix(&format!("{CALLBACK}?"))
+            .expect("the IdP returns to the registered redirect URI")
+            .to_owned(),
+        cookie,
+    }
+}
+
+/// The callback, as the browser that holds `cookie` reaches it with `query`.
+fn callback(stood: &Stood, query: &str, cookie: Option<&str>) -> Response {
+    let headers: Vec<(&str, &str)> = cookie.map(|c| ("Cookie", c)).into_iter().collect();
+    send(
         stood.address,
-        &format!("/v1/federation/callback?{callback_query}"),
-    );
-    (callback_query, completed)
+        "GET",
+        &format!("/v1/federation/callback?{query}"),
+        &headers,
+        None,
+    )
 }
 
+/// The whole walk: out to the IdP and back to the callback, as one browser.
+fn walk(stood: &Stood) -> (Returned, Response) {
+    let returned = to_the_idp_and_back(stood);
+    let completed = callback(stood, &returned.query, Some(&returned.cookie));
+    (returned, completed)
+}
+
+/// The handoff code a completed callback sent the browser to the return URI with, if it did.
+fn handoff_of(response: &Response) -> Option<String> {
+    if response.status != 302 {
+        return None;
+    }
+    let location = response.header("Location")?;
+    let query = location.strip_prefix(&format!("{RETURN_URI}?"))?;
+    form(query).get("handoff").cloned()
+}
+
+/// The embedding application's server-to-server exchange of a handoff code.
+fn exchange(stood: &Stood, code: &str) -> Response {
+    send(
+        stood.address,
+        "POST",
+        "/v1/federation/handoff",
+        &[],
+        Some(&serde_json::json!({ "handoff": code }).to_string()),
+    )
+}
+
+/// Whether a callback opened a session: it sent the browser on with a handoff code.
 fn opened_a_session(response: &Response) -> bool {
-    response.status == 200 && response.body.contains("session_id")
+    handoff_of(response).is_some()
 }
 
-/// The clause the child recorded for the callback it refused, off its own stderr.
+/// The clauses the child recorded for the callbacks it refused, off its own stderr.
 fn refused_for(stood: &mut Stood) -> String {
     let (_, err) = stood.served.output();
     err.lines()
@@ -704,10 +812,33 @@ fn refused_for(stood: &mut Stood) -> String {
 #[test]
 fn a_browser_signs_in_through_the_code_flow_and_a_replayed_state_opens_nothing() {
     let mut stood = stand("signs-in", Tamper::None, IDP_SECRET);
-    let (callback_query, completed) = walk(&stood);
-    assert_eq!(completed.status, 200, "{}", completed.body);
+    let (returned, completed) = walk(&stood);
+    let code = handoff_of(&completed)
+        .unwrap_or_else(|| panic!("a handoff: {} {}", completed.status, completed.body));
+    assert!(code.len() >= 22, "an unguessable handoff code");
+    assert_eq!(completed.header("Cache-Control"), Some("no-store"));
+    assert!(
+        !completed.body.contains("session_proof")
+            && !completed
+                .header("Location")
+                .unwrap_or_default()
+                .contains("session"),
+        "the session proof never rides the browser's navigation"
+    );
+    let cleared = completed
+        .header("Set-Cookie")
+        .expect("the binding is cleared");
+    assert!(
+        cleared.starts_with(&format!("{BINDING_COOKIE}=;")) && cleared.contains("Max-Age=0"),
+        "{cleared}"
+    );
+    assert_eq!(stood.idp.held().token_calls, 1);
+
+    let exchanged = exchange(&stood, &code);
+    assert_eq!(exchanged.status, 200, "{}", exchanged.body);
+    assert_eq!(exchanged.header("Cache-Control"), Some("no-store"));
     let login: serde_json::Value =
-        serde_json::from_str(&completed.body).expect("a JSON login response");
+        serde_json::from_str(&exchanged.body).expect("a JSON login response");
     assert_eq!(login["organization_id"], organization().as_str());
     assert!(
         login["session_id"]
@@ -719,14 +850,9 @@ fn a_browser_signs_in_through_the_code_flow_and_a_replayed_state_opens_nothing()
             .as_str()
             .is_some_and(|proof| !proof.is_empty())
     );
-    assert_eq!(completed.header("Cache-Control"), Some("no-store"));
-    assert_eq!(stood.idp.held().token_calls, 1);
 
-    // The same state again: single-use, so nothing is redeemed and nothing opens.
-    let replayed = get(
-        stood.address,
-        &format!("/v1/federation/callback?{callback_query}"),
-    );
+    // The same state again, from the same browser: single-use, so nothing is redeemed.
+    let replayed = callback(&stood, &returned.query, Some(&returned.cookie));
     assert!(!opened_a_session(&replayed), "{}", replayed.body);
     assert_eq!(
         stood.idp.held().token_calls,
@@ -746,23 +872,35 @@ fn a_browser_signs_in_through_the_code_flow_and_a_replayed_state_opens_nothing()
 }
 
 #[test]
+fn a_handoff_code_is_exchanged_once_and_an_unknown_one_never() {
+    let mut stood = stand("handoff-once", Tamper::None, IDP_SECRET);
+    let (_, completed) = walk(&stood);
+    let code = handoff_of(&completed).expect("a handoff code");
+    assert_eq!(exchange(&stood, &code).status, 200);
+    let again = exchange(&stood, &code);
+    assert_ne!(again.status, 200, "{}", again.body);
+    assert!(!again.body.contains("session_proof"), "{}", again.body);
+    let unknown = exchange(&stood, "a-handoff-code-nobody-was-given");
+    assert_ne!(unknown.status, 200, "{}", unknown.body);
+    let (_, err) = stood.served.output();
+    assert_eq!(
+        err.matches("refused relying-party handoff SessionUnknown")
+            .count(),
+        2,
+        "{err}"
+    );
+}
+
+#[test]
 fn a_wrong_state_opens_nothing_and_redeems_nothing() {
     let mut stood = stand("wrong-state", Tamper::None, IDP_SECRET);
-    let started = get(
-        stood.address,
-        &format!("/v1/federation/authorize?connection_id={}", connection()),
-    );
-    assert_eq!(started.status, 302, "{}", started.body);
-    let location = started.header("Location").expect("a Location").to_owned();
-    let at_idp = get(stood.idp.address, &target_of(&location));
-    let back = at_idp.header("Location").expect("a Location").to_owned();
-    let parameters = form(back.split_once('?').expect("a query").1);
+    let returned = to_the_idp_and_back(&stood);
     let forged = format!(
-        "/v1/federation/callback?code={}&state={}",
-        percent_encode(&parameters["code"]),
+        "code={}&state={}",
+        percent_encode(&returned.parameters()["code"]),
         percent_encode("a-state-this-deployment-never-issued"),
     );
-    let completed = get(stood.address, &forged);
+    let completed = callback(&stood, &forged, Some(&returned.cookie));
     assert!(!opened_a_session(&completed), "{}", completed.body);
     assert_eq!(
         stood.idp.held().token_calls,
@@ -770,6 +908,125 @@ fn a_wrong_state_opens_nothing_and_redeems_nothing() {
         "an unknown state reaches no IdP"
     );
     assert_eq!(refused_for(&mut stood), "StateMismatch");
+}
+
+/// F5: login CSRF. A callback URL completed by a client that is not the browser that
+/// started the sign-in — no binding cookie, or another browser's — opens nothing, reaches
+/// no IdP, and uses the state up.
+#[test]
+fn a_callback_from_another_browser_opens_nothing_and_uses_the_state_up() {
+    let mut stood = stand("browser-binding", Tamper::None, IDP_SECRET);
+    let first = to_the_idp_and_back(&stood);
+    let without = callback(&stood, &first.query, None);
+    assert!(!opened_a_session(&without), "{}", without.body);
+    let later = callback(&stood, &first.query, Some(&first.cookie));
+    assert!(
+        !opened_a_session(&later),
+        "a state an unbound callback named was used again"
+    );
+
+    let second = to_the_idp_and_back(&stood);
+    let other = to_the_idp_and_back(&stood);
+    let crossed = callback(&stood, &second.query, Some(&other.cookie));
+    assert!(!opened_a_session(&crossed), "{}", crossed.body);
+    let doubled = format!("{}; {}", other.cookie, other.cookie);
+    let ambiguous = callback(&stood, &other.query, Some(&doubled));
+    assert!(!opened_a_session(&ambiguous), "{}", ambiguous.body);
+
+    assert_eq!(stood.idp.held().token_calls, 0, "no code was redeemed");
+    assert_eq!(
+        refused_for(&mut stood),
+        "StateMismatch,StateMismatch,StateMismatch,StateMismatch"
+    );
+}
+
+/// F3: an IdP error response names the state, is refused, and uses it up — the same
+/// browser cannot complete that sign-in afterwards — and nothing of the IdP's text is
+/// echoed.
+#[test]
+fn an_idp_error_response_uses_the_state_up_and_echoes_nothing() {
+    let mut stood = stand("idp-error", Tamper::None, IDP_SECRET);
+    let returned = to_the_idp_and_back(&stood);
+    let state = returned.parameters()["state"].clone();
+    let errored = callback(
+        &stood,
+        &format!(
+            "error=access_denied&error_description={}&error_uri={}&state={}",
+            percent_encode("<script>marker-from-the-idp</script>"),
+            percent_encode("https://idp.example/why"),
+            percent_encode(&state)
+        ),
+        Some(&returned.cookie),
+    );
+    assert!(!opened_a_session(&errored), "{}", errored.body);
+    assert!(
+        !errored.body.contains("marker-from-the-idp") && !errored.body.contains("idp.example/why"),
+        "{}",
+        errored.body
+    );
+    let later = callback(&stood, &returned.query, Some(&returned.cookie));
+    assert!(!opened_a_session(&later), "{}", later.body);
+    assert_eq!(stood.idp.held().token_calls, 0, "no code was redeemed");
+    assert_eq!(refused_for(&mut stood), "ProofInvalid,StateMismatch");
+}
+
+/// F2: RFC 9207 section 2.4. The IdP advertises `iss` in its authorization response, so a
+/// callback that carries none is refused before any code is redeemed — and one that carries
+/// it signs in.
+#[test]
+fn a_callback_without_the_iss_its_idp_advertises_opens_nothing() {
+    let mut stood = stand("iss-advertised", Tamper::AdvertiseIss, IDP_SECRET);
+    let returned = to_the_idp_and_back(&stood);
+    let parameters = returned.parameters();
+    assert!(parameters.contains_key("iss"), "the IdP sent iss");
+    let stripped = format!(
+        "code={}&state={}",
+        percent_encode(&parameters["code"]),
+        percent_encode(&parameters["state"])
+    );
+    let completed = callback(&stood, &stripped, Some(&returned.cookie));
+    assert!(!opened_a_session(&completed), "{}", completed.body);
+    assert_eq!(stood.idp.held().token_calls, 0, "no code was redeemed");
+
+    let (_, carried) = walk(&stood);
+    assert!(opened_a_session(&carried), "{}", carried.body);
+    assert_eq!(refused_for(&mut stood), "IssuerMismatch");
+}
+
+/// F10: a connection that signs browsers in through its IdP admits no ID token presented at
+/// `/v1/federation/login` — not even a valid one this IdP signed for this client — because
+/// that route has no nonce to bind it to.
+#[test]
+fn a_relying_party_connection_admits_no_proof_at_the_login_route() {
+    let mut stood = stand("login-refused", Tamper::None, IDP_SECRET);
+    let (_, completed) = walk(&stood);
+    assert!(opened_a_session(&completed), "{}", completed.body);
+    let token = stood
+        .idp
+        .held()
+        .last_id_token
+        .clone()
+        .expect("the IdP issued an ID token");
+    let presented = send(
+        stood.address,
+        "POST",
+        "/v1/federation/login",
+        &[],
+        Some(
+            &serde_json::json!({
+                "connection_id": connection(),
+                "proof": encode_base64(token.as_bytes()),
+            })
+            .to_string(),
+        ),
+    );
+    assert_ne!(presented.status, 200, "{}", presented.body);
+    assert!(!presented.body.contains("session_id"), "{}", presented.body);
+    let (_, err) = stood.served.output();
+    assert!(
+        err.contains("refused mandate.federation.AuthenticateFederation NonceMismatch"),
+        "{err}"
+    );
 }
 
 #[test]
@@ -814,8 +1071,113 @@ fn every_redemption_authenticates_with_http_basic_and_no_secret_in_the_body() {
     // This pins the count that makes that true.
     let stood = stand("basic-only", Tamper::None, IDP_SECRET);
     let (_, completed) = walk(&stood);
-    assert_eq!(completed.status, 200, "{}", completed.body);
+    assert!(opened_a_session(&completed), "{}", completed.body);
     let held = stood.idp.held();
     assert_eq!((held.token_calls, held.basic_refused), (1, 0));
     assert_eq!(held.issued, 1);
+}
+
+// ------------------------------------------------------- in process: the two stores
+
+use mandate_control_plane::adapters::{
+    ConnectionSeed, HANDOFF_CAPACITY, HANDOFF_LIFETIME, OnceStore, PENDING_CAPACITY,
+    PENDING_LIFETIME, SeedRefused, relying_party_connection,
+};
+
+/// F4 and F6: a value is answered once, never after its lifetime, and a full store evicts
+/// its oldest value rather than refusing the next one.
+#[test]
+fn a_once_store_answers_once_expires_and_evicts_the_oldest_when_full() {
+    let mut store = OnceStore::new(60, 3);
+    store.insert("a".to_owned(), 1, 100);
+    assert_eq!(store.take("a", 159), Some(1));
+    assert_eq!(store.take("a", 159), None, "taken once");
+
+    store.insert("b".to_owned(), 2, 100);
+    assert_eq!(store.take("b", 160), None, "expired at its lifetime");
+
+    for (key, at) in [("c", 200), ("d", 201), ("e", 202), ("f", 203)] {
+        store.insert(key.to_owned(), at, at);
+    }
+    assert_eq!(store.len(), 3, "bounded by its capacity");
+    assert_eq!(store.take("c", 203), None, "the oldest was evicted");
+    assert_eq!(store.take("d", 203), Some(201));
+    assert_eq!(store.take("f", 203), Some(203));
+
+    // Taking out of the middle and inserting again, many times, stays bounded.
+    let mut churned = OnceStore::new(600, 4);
+    for round in 0..10_000_u64 {
+        churned.insert(format!("k{round}"), round, round / 100);
+        if round % 2 == 0 {
+            churned.take(&format!("k{round}"), round / 100);
+        }
+    }
+    assert!(churned.len() <= 4);
+}
+
+#[test]
+fn the_shipped_bounds_are_the_ones_the_findings_named() {
+    assert_eq!((PENDING_LIFETIME, PENDING_CAPACITY), (600, 4096));
+    assert_eq!(HANDOFF_CAPACITY, PENDING_CAPACITY);
+    assert_eq!(HANDOFF_LIFETIME, 60, "a handoff code is short-lived");
+}
+
+/// F9: the token endpoint receives the client secret, so the hosts it may be on are the
+/// relying party's own list, and a host listed for fetching keys is not on it.
+#[test]
+fn the_endpoint_hosts_are_the_relying_partys_own_and_never_the_key_hosts() {
+    let scratch = Scratch::new("endpoint-hosts");
+    let secret = scratch.write("secret", "s\n");
+    let secrets: BTreeMap<String, PathBuf> = [(SECRET_REFERENCE.to_owned(), secret)]
+        .into_iter()
+        .collect();
+    let seed = |relying_party: &str| -> ConnectionSeed {
+        serde_json::from_str(&format!(
+            r#"{{"organization":"{organization}","issuer":"https://idp.example",
+              "client_id":"{IDP_CLIENT}","jwks_hosts":["keys.idp.example"],
+              "tenant_resolution":{{"configured_organization":"{organization}"}},
+              "jit_provisioning":false,"relying_party":{relying_party}}}"#,
+            organization = organization(),
+        ))
+        .expect("a connection document")
+    };
+    let path = Path::new("connection.json");
+    let keys_only = seed(&format!(
+        r#"{{"redirect_uri":"{CALLBACK}","client_secret":"{SECRET_REFERENCE}"}}"#
+    ));
+    let configured = relying_party_connection(path, &keys_only, &secrets)
+        .expect("admitted")
+        .expect("a relying party");
+    assert!(configured.allowed_hosts.is_empty(), "{configured:?}");
+
+    let listed = seed(&format!(
+        r#"{{"redirect_uri":"{CALLBACK}","client_secret":"{SECRET_REFERENCE}",
+            "endpoint_hosts":["login.idp.example"]}}"#
+    ));
+    let configured = relying_party_connection(path, &listed, &secrets)
+        .expect("admitted")
+        .expect("a relying party");
+    assert_eq!(
+        configured.allowed_hosts,
+        vec!["login.idp.example".to_owned()]
+    );
+
+    for unusable in [
+        "https://app.example/signed-in#fragment",
+        "https://app.example/signed-in?handoff=x",
+        "http://app.example/signed-in",
+        "https://app.example/signed in",
+    ] {
+        let document = seed(&format!(
+            r#"{{"redirect_uri":"{CALLBACK}","client_secret":"{SECRET_REFERENCE}",
+                "return_uri":"{unusable}"}}"#
+        ));
+        assert!(
+            matches!(
+                relying_party_connection(path, &document, &secrets),
+                Err(SeedRefused::ReturnUriUnusable { .. })
+            ),
+            "{unusable}"
+        );
+    }
 }

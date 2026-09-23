@@ -73,7 +73,7 @@
 //!   `--connection` document has no creating event for its principal, so that principal has
 //!   no record here: see [`PrincipalLinkSeed::principal_id`].
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -873,6 +873,22 @@ pub struct RelyingPartySeed {
     /// The name a `--client-secret-file NAME=PATH` flag gives the file the IdP's client
     /// secret is read from. A reference, never the secret.
     pub client_secret: String,
+    /// Where the callback sends the browser once a session is open: the embedding
+    /// application's own page, which receives a single-use `handoff` code and exchanges it
+    /// server-to-server at `POST /v1/federation/handoff`.
+    ///
+    /// Absent, the callback answers the handoff code as a JSON body instead. Either way the
+    /// session proof never reaches the browser's navigation.
+    #[serde(default, deserialize_with = "mandate_types::value::present")]
+    pub return_uri: Option<String>,
+    /// The hosts beside the issuer's own origin the IdP's authorization and token endpoints
+    /// may be on.
+    ///
+    /// Separate from `jwks_hosts` on purpose: the token endpoint receives the client secret,
+    /// and a host the deployment listed for fetching keys is not thereby a host it trusts with
+    /// a credential.
+    #[serde(default)]
+    pub endpoint_hosts: Vec<String>,
 }
 
 /// What the relying party holds for one connection.
@@ -882,9 +898,11 @@ pub struct RelyingPartyConnection {
     pub redirect_uri: String,
     /// The client secret the token endpoint is authenticated to with HTTP Basic.
     pub client_secret: ClientSecret,
-    /// The hosts beside the issuer's origin an endpoint may be on: the connection's
-    /// `jwks_hosts`, which are the hosts the deployment listed for this IdP.
+    /// The hosts beside the issuer's origin an endpoint may be on: the document's
+    /// `relying_party.endpoint_hosts`, and never its `jwks_hosts`.
     pub allowed_hosts: Vec<String>,
+    /// Where the callback sends the browser with its handoff code, when one is configured.
+    pub return_uri: Option<String>,
 }
 
 /// The relying-party configuration one `--connection` document states, with its secret
@@ -895,8 +913,10 @@ pub struct RelyingPartyConnection {
 /// # Errors
 ///
 /// [`SeedRefused::ClientSecretUnresolved`] naming the connection document when no flag
-/// gives its reference a file, and [`SeedRefused::Unreadable`] naming the secret file when
-/// it cannot be read or is empty. Neither carries a byte of the secret.
+/// gives its reference a file, [`SeedRefused::ReturnUriUnusable`] when the `return_uri`
+/// could not carry a handoff code in a `Location` header, and [`SeedRefused::Unreadable`]
+/// naming the secret file when it cannot be read or is empty. None carries a byte of the
+/// secret.
 pub fn relying_party_connection(
     path: &Path,
     seed: &ConnectionSeed,
@@ -905,6 +925,13 @@ pub fn relying_party_connection(
     let Some(relying_party) = &seed.relying_party else {
         return Ok(None);
     };
+    if let Some(return_uri) = &relying_party.return_uri
+        && !return_uri_is_usable(return_uri)
+    {
+        return Err(SeedRefused::ReturnUriUnusable {
+            path: path.to_path_buf(),
+        });
+    }
     let secret_path = secrets.get(&relying_party.client_secret).ok_or_else(|| {
         SeedRefused::ClientSecretUnresolved {
             path: path.to_path_buf(),
@@ -919,39 +946,168 @@ pub fn relying_party_connection(
     Ok(Some(RelyingPartyConnection {
         redirect_uri: relying_party.redirect_uri.clone(),
         client_secret,
-        allowed_hosts: seed.jwks_hosts.clone(),
+        allowed_hosts: relying_party.endpoint_hosts.clone(),
+        return_uri: relying_party.return_uri.clone(),
     }))
 }
 
+/// Whether a `return_uri` can carry a `handoff` parameter in a `Location` header: absolute
+/// `https` (or `http` on the loopback interface), no fragment, no control or whitespace
+/// byte, and no `handoff` already in its query.
+fn return_uri_is_usable(uri: &str) -> bool {
+    let absolute = uri.starts_with("https://")
+        || uri.starts_with("http://127.0.0.1")
+        || uri.starts_with("http://localhost")
+        || uri.starts_with("http://[::1]");
+    let names_handoff = uri.split_once('?').is_some_and(|(_, query)| {
+        query
+            .split('&')
+            .any(|pair| pair.split('=').next() == Some("handoff"))
+    });
+    absolute
+        && !uri.contains('#')
+        && !uri.chars().any(|c| c.is_control() || c.is_whitespace())
+        && !names_handoff
+}
+
 /// How long a pending sign-in waits for its callback, in seconds.
-const PENDING_LIFETIME: u64 = 600;
+pub const PENDING_LIFETIME: u64 = 600;
 
 /// How many sign-ins may wait for a callback at once.
-const PENDING_CAPACITY: usize = 4096;
+pub const PENDING_CAPACITY: usize = 4096;
+
+/// How long a handoff code waits to be exchanged, in seconds.
+///
+/// Short, because the embedding application exchanges it as soon as the browser arrives,
+/// and a bearer code that outlives that is exposure for nothing.
+pub const HANDOFF_LIFETIME: u64 = 60;
+
+/// How many handoff codes may wait to be exchanged at once: the pending store's bound.
+pub const HANDOFF_CAPACITY: usize = PENDING_CAPACITY;
+
+/// A bounded, in-memory store of values each taken at most once.
+///
+/// Every value carries the instant it was put in. It is answered by [`OnceStore::take`] at
+/// most once, and never once `lifetime` seconds have passed. When `capacity` values are
+/// already held, putting one more **evicts the oldest** rather than refusing the new one:
+/// a store that refuses when full is one an anonymous caller fills and every other caller
+/// is then refused by, and a store that evicts costs the flooder's victims only the sign-ins
+/// the flood outran. Pressure that remains — a flood fast enough to evict a real browser's
+/// sign-in before its callback returns — is the ingress's to shed with a rate limit; this
+/// store's part is that memory stays bounded and nobody is locked out.
+#[derive(Debug)]
+pub struct OnceStore<T> {
+    held: BTreeMap<String, (u64, T)>,
+    order: VecDeque<String>,
+    lifetime: u64,
+    capacity: usize,
+}
+
+impl<T> OnceStore<T> {
+    /// An empty store over this lifetime and capacity. A capacity of zero holds one.
+    #[must_use]
+    pub fn new(lifetime: u64, capacity: usize) -> Self {
+        Self {
+            held: BTreeMap::new(),
+            order: VecDeque::new(),
+            lifetime,
+            capacity: capacity.max(1),
+        }
+    }
+
+    /// How many values are held, expired ones not yet dropped included.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.held.len()
+    }
+
+    /// Whether nothing is held.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.held.is_empty()
+    }
+
+    /// Put `value` in under `key` at `now`, dropping what has expired and evicting the
+    /// oldest while the store is full.
+    pub fn insert(&mut self, key: String, value: T, now: u64) {
+        while let Some(oldest) = self.order.front() {
+            match self.held.get(oldest) {
+                // Taken already: the order entry is stale.
+                None => {}
+                Some((at, _)) if !self.expired(*at, now) && self.held.len() < self.capacity => {
+                    break;
+                }
+                Some(_) => {
+                    self.held.remove(oldest);
+                }
+            }
+            self.order.pop_front();
+        }
+        // Order entries for values taken out of the middle are compacted before they can
+        // outgrow the store they index.
+        if self.order.len() > self.capacity.saturating_mul(2) {
+            let held = &self.held;
+            self.order.retain(|key| held.contains_key(key));
+        }
+        self.held.insert(key.clone(), (now, value));
+        self.order.push_back(key);
+    }
+
+    /// Take the value under `key` out, answering it only while it has not expired. The
+    /// value is gone afterwards either way.
+    pub fn take(&mut self, key: &str, now: u64) -> Option<T> {
+        let (at, value) = self.held.remove(key)?;
+        (!self.expired(at, now)).then_some(value)
+    }
+
+    fn expired(&self, at: u64, now: u64) -> bool {
+        now.saturating_sub(at) >= self.lifetime
+    }
+}
 
 /// One sign-in sent to an IdP and not yet returned: held in memory, taken once.
 struct PendingLogin {
     connection_id: FederationConnectionId,
     nonce: String,
     verifier: CredentialProof,
-    started_at: u64,
+    /// The random value the `__Host-` cookie set on the authorize response carries, which
+    /// binds this sign-in to the browser that started it.
+    binding: String,
+}
+
+/// What a completed callback hands the browser: where to go, and the code to go with.
+#[derive(Debug, Clone)]
+pub struct Handoff {
+    /// The connection's `return_uri`, when one is configured.
+    pub return_uri: Option<String>,
+    /// The single-use code `POST /v1/federation/handoff` exchanges for the session.
+    pub code: String,
+}
+
+/// What an accepted authorize step answers: the IdP URL and the browser binding.
+#[derive(Debug, Clone)]
+pub struct Started {
+    /// The IdP authorization URL the browser is sent to.
+    pub location: String,
+    /// The value the browser-binding cookie is set to.
+    pub binding: String,
 }
 
 /// The relying party toward external OIDC IdPs: the token-endpoint port, what each
-/// connection holds, and the sign-ins waiting for a callback.
+/// connection holds, the sign-ins waiting for a callback, and the sessions waiting for
+/// their handoff.
 ///
-/// **The pending sign-ins are not durable, and that is deliberate.** Each is a `state`, a
-/// `nonce` and a PKCE verifier for one browser's round trip, bounded by
-/// [`PENDING_LIFETIME`] and [`PENDING_CAPACITY`], taken out on the first callback that names
-/// it whatever that callback's outcome, and never recorded: a verifier is a secret, and an
-/// event log is the one place it must not reach. A process that restarts forgets them, and
-/// the browser starts again.
+/// **Neither store is durable, and that is deliberate.** A pending sign-in is a `state`, a
+/// `nonce`, a PKCE verifier and a browser binding for one round trip; a handoff is a session
+/// waiting for the embedding application to collect it. Both are [`OnceStore`]s — bounded,
+/// taken at most once, oldest evicted first — and neither is recorded: a verifier and a
+/// session proof are secrets, and an event log is the one place they must not reach. A
+/// process that restarts forgets them, and the browser starts again.
 pub struct RelyingParty {
     endpoint: Box<dyn IdpTokenEndpoint + Send>,
     connections: BTreeMap<FederationConnectionId, RelyingPartyConnection>,
-    pending: BTreeMap<String, PendingLogin>,
-    lifetime: u64,
-    capacity: usize,
+    pending: OnceStore<PendingLogin>,
+    handoffs: OnceStore<Login>,
 }
 
 impl RelyingParty {
@@ -961,9 +1117,8 @@ impl RelyingParty {
         Self {
             endpoint,
             connections: BTreeMap::new(),
-            pending: BTreeMap::new(),
-            lifetime: PENDING_LIFETIME,
-            capacity: PENDING_CAPACITY,
+            pending: OnceStore::new(PENDING_LIFETIME, PENDING_CAPACITY),
+            handoffs: OnceStore::new(HANDOFF_LIFETIME, HANDOFF_CAPACITY),
         }
     }
 
@@ -978,18 +1133,11 @@ impl RelyingParty {
         self
     }
 
-    /// Wait at most `seconds` for a callback.
+    /// Whether this connection signs browsers in through its IdP — and so admits no proof
+    /// presented directly at `/v1/federation/login`.
     #[must_use]
-    pub fn with_pending_lifetime(mut self, seconds: u64) -> Self {
-        self.lifetime = seconds;
-        self
-    }
-
-    /// Hold at most `capacity` sign-ins waiting for a callback.
-    #[must_use]
-    pub fn with_pending_capacity(mut self, capacity: usize) -> Self {
-        self.capacity = capacity;
-        self
+    pub fn relies_on(&self, connection_id: &FederationConnectionId) -> bool {
+        self.connections.contains_key(connection_id)
     }
 
     /// How many sign-ins are waiting for a callback.
@@ -998,18 +1146,33 @@ impl RelyingParty {
         self.pending.len()
     }
 
-    /// The connection's IdP endpoints, from its discovery document.
-    fn endpoints_of(
-        &self,
-        issuer: &Issuer,
-        connection: &RelyingPartyConnection,
-    ) -> Result<IdpEndpoints, TokenRefusal> {
-        let document = self
-            .endpoint
-            .discovery(issuer)
-            .ok_or(TokenRefusal::DiscoveryUnavailable)?;
-        endpoints(issuer, &document, &connection.allowed_hosts)
+    /// How many sessions are waiting for their handoff.
+    #[must_use]
+    pub fn handoffs(&self) -> usize {
+        self.handoffs.len()
     }
+}
+
+/// The connection's IdP endpoints, from its discovery document.
+fn endpoints_of(
+    endpoint: &(dyn IdpTokenEndpoint + Send),
+    issuer: &Issuer,
+    connection: &RelyingPartyConnection,
+) -> Result<IdpEndpoints, TokenRefusal> {
+    let document = endpoint
+        .discovery(issuer)
+        .ok_or(TokenRefusal::DiscoveryUnavailable)?;
+    endpoints(issuer, &document, &connection.allowed_hosts)
+}
+
+/// Whether two texts are equal, without stopping at the first byte that differs.
+fn same_text(one: &str, other: &str) -> bool {
+    one.len() == other.len()
+        && one
+            .bytes()
+            .zip(other.bytes())
+            .fold(0_u8, |difference, (a, b)| difference | (a ^ b))
+            == 0
 }
 
 /// The refusal a relying-party step answers with.
@@ -2172,6 +2335,13 @@ pub enum SeedRefused {
         /// The reference it names. A name, never the secret.
         reference: String,
     },
+    /// A `--connection` document's `relying_party.return_uri` cannot carry a handoff code:
+    /// not absolute `https` (or loopback `http`), a fragment, a control or whitespace byte,
+    /// or a query already naming `handoff`.
+    ReturnUriUnusable {
+        /// The connection document that was read.
+        path: PathBuf,
+    },
 }
 
 impl SeedRefused {
@@ -2194,7 +2364,8 @@ impl SeedRefused {
             | Self::RepeatedResourceServerId { path, .. }
             | Self::RepeatedClientId { path, .. }
             | Self::AudienceConflicted { path, .. }
-            | Self::ClientSecretUnresolved { path, .. } => path,
+            | Self::ClientSecretUnresolved { path, .. }
+            | Self::ReturnUriUnusable { path } => path,
         }
     }
 
@@ -2312,6 +2483,10 @@ impl core::fmt::Display for SeedRefused {
             Self::ClientSecretUnresolved { reference, .. } => write!(
                 formatter,
                 "{path}: the client secret `{reference}` is named by no --client-secret-file"
+            ),
+            Self::ReturnUriUnusable { .. } => write!(
+                formatter,
+                "{path}: relying_party.return_uri cannot carry a handoff code in a redirect"
             ),
         }
     }
@@ -2664,8 +2839,35 @@ where
     ///
     /// Returns the declared refusal when the connection is unresolved or disabled, the proof
     /// is refused, its issuer or audience is not the connection's, tenant resolution has zero
-    /// or multiple matches, or the link is absent or the principal disabled.
+    /// or multiple matches, or the link is absent or the principal disabled — and, on this
+    /// route alone, when the connection signs browsers in through its IdP's code flow.
+    ///
+    /// **A relying-party connection admits no proof presented here.** Its ID tokens are
+    /// nonce-bound to a sign-in this deployment started, and this route has no nonce to bind
+    /// them to: an ID token lifted from one browser's flow would open a session here with
+    /// no check that anybody started one. So the callback
+    /// ([`Deployment::complete_federation`]) is that connection's only way in, and it reaches
+    /// the command without this refusal.
     pub fn authenticate(
+        &mut self,
+        input: &decode::AuthenticateFederation,
+    ) -> Result<Login, Refusal> {
+        if self
+            .relying_party
+            .as_ref()
+            .is_some_and(|relying_party| relying_party.relies_on(&input.connection_id))
+        {
+            return Err(relying_refusal(
+                DenialReason::InvalidCredential,
+                FederationClause::NonceMismatch,
+            ));
+        }
+        self.authenticate_admitted(input)
+    }
+
+    /// [`Deployment::authenticate`] without the relying-party refusal: the three-step
+    /// sequence itself, for the login route and the callback both.
+    fn authenticate_admitted(
         &mut self,
         input: &decode::AuthenticateFederation,
     ) -> Result<Login, Refusal> {
@@ -3199,19 +3401,27 @@ where
         })
     }
 
-    /// Start a sign-in through the connection's IdP: mint a `state`, a `nonce` and a PKCE
-    /// verifier, hold them, and answer the IdP authorization URL the browser is sent to.
+    /// Start a sign-in through the connection's IdP: mint a `state`, a `nonce`, a PKCE
+    /// verifier and a browser binding, hold them, and answer the IdP authorization URL the
+    /// browser is sent to with the binding its cookie carries.
     ///
-    /// The three values are drawn from this deployment's secret source, 32 bytes each, and
-    /// rendered in unpadded base64url — so the verifier is 43 characters of RFC 7636's
-    /// unreserved set and its S256 challenge is sent in its place.
+    /// Each value is one draw of this deployment's secret source — the 44-character base64
+    /// text of 32 random bytes — re-rendered in unpadded base64url, so each is 59 characters
+    /// and the verifier is inside RFC 7636's 43 to 128 of its unreserved set. Its S256
+    /// challenge is sent in its place.
+    ///
+    /// A full pending store evicts its oldest sign-in rather than refusing this one
+    /// ([`OnceStore`]).
     ///
     /// # Errors
     ///
     /// Returns the declared refusal when the deployment has no relying party, the
-    /// connection is unknown, disabled or not configured for one, its IdP's endpoints cannot
-    /// be read or are not admitted, or too many sign-ins are already waiting.
-    pub fn begin_federation(&mut self, input: &decode::BeginFederation) -> Result<String, Refusal> {
+    /// connection is unknown, disabled or not configured for one, or its IdP's endpoints
+    /// cannot be read, are not admitted, or are not a URI.
+    pub fn begin_federation(
+        &mut self,
+        input: &decode::BeginFederation,
+    ) -> Result<Started, Refusal> {
         let now = self.clock.unix_seconds();
         let connection = self
             .federation
@@ -3228,6 +3438,7 @@ where
         let state = base64url(self.secrets.next_secret().expose_bytes());
         let nonce = base64url(self.secrets.next_secret().expose_bytes());
         let verifier = base64url(self.secrets.next_secret().expose_bytes());
+        let binding = base64url(self.secrets.next_secret().expose_bytes());
         let relying_party = self.relying_party.as_mut().ok_or_else(|| {
             relying_refusal(DenialReason::Denied, FederationClause::ConnectionUnknown)
         })?;
@@ -3237,9 +3448,12 @@ where
             .ok_or_else(|| {
                 relying_refusal(DenialReason::Denied, FederationClause::ConnectionUnknown)
             })?;
-        let found = relying_party
-            .endpoints_of(&connection.issuer, configured)
-            .map_err(token_refused)?;
+        let found = endpoints_of(
+            relying_party.endpoint.as_ref(),
+            &connection.issuer,
+            configured,
+        )
+        .map_err(token_refused)?;
         let challenge = s256_challenge(&CredentialProof::from_bytes(verifier.as_bytes().to_vec()));
         let location = authorization_request(
             &found.authorization_endpoint,
@@ -3249,63 +3463,80 @@ where
             &nonce,
             challenge.as_str(),
         );
-        let lifetime = relying_party.lifetime;
-        relying_party
-            .pending
-            .retain(|_, held| now.saturating_sub(held.started_at) < lifetime);
-        if relying_party.pending.len() >= relying_party.capacity {
-            return Err(relying_refusal(
-                DenialReason::Unavailable,
-                FederationClause::StateMismatch,
-            ));
-        }
         relying_party.pending.insert(
             state,
             PendingLogin {
                 connection_id: input.connection_id,
                 nonce,
                 verifier: CredentialProof::from_bytes(verifier.into_bytes()),
-                started_at: now,
+                binding: binding.clone(),
             },
+            now,
         );
-        Ok(location)
+        Ok(Started { location, binding })
     }
 
-    /// Finish a sign-in: take the pending `state` once, redeem the code at the IdP's token
-    /// endpoint with HTTP Basic client authentication and the PKCE verifier, verify the
-    /// returned ID token with the deployment's verifier, check its `nonce`, and realize
-    /// `mandate.federation.AuthenticateFederation` over it — [`Deployment::authenticate`],
-    /// just-in-time branch included.
+    /// Finish a sign-in: take the pending `state` once, require the browser binding the
+    /// authorize step set, redeem the code at the IdP's token endpoint with HTTP Basic client
+    /// authentication and the PKCE verifier, verify the returned ID token with the
+    /// deployment's verifier, check its `nonce`, realize
+    /// `mandate.federation.AuthenticateFederation` over it — just-in-time branch included —
+    /// and hold the session for a single-use handoff.
     ///
     /// **The state is taken before anything is decided.** A callback naming it is its only
-    /// use, whatever that callback answers, so a replayed or a second callback finds
-    /// nothing and reaches no IdP.
+    /// use, whatever that callback answers — a missing or wrong binding, an IdP error
+    /// response, a refused code — so a replayed or a second callback finds nothing and
+    /// reaches no IdP.
+    ///
+    /// **The session proof is not answered here.** The callback is a browser navigation, and
+    /// a bearer credential in its response is one in the browser's history and every
+    /// extension that reads it. A single-use code is answered instead, and the embedding
+    /// application exchanges it server-to-server ([`Deployment::redeem_handoff`]).
     ///
     /// # Errors
     ///
-    /// Returns the declared refusal when the state is unknown, used or expired, the
-    /// callback's `iss` is not the connection's issuer, the code is not redeemed, the ID
-    /// token is refused, its nonce is not the one sent, or the login itself is refused.
+    /// Returns the declared refusal when the state is unknown, used or expired, the binding
+    /// is absent or another browser's, the IdP answered an error, the callback's `iss` is not
+    /// the connection's issuer or is absent where the IdP advertises it, the code is not
+    /// redeemed, the ID token is refused, its nonce is not the one sent, or the login itself
+    /// is refused.
     pub fn complete_federation(
         &mut self,
         input: &decode::CompleteFederation,
-    ) -> Result<Login, Refusal> {
+    ) -> Result<Handoff, Refusal> {
         let now = self.clock.unix_seconds();
         let relying_party = self.relying_party.as_mut().ok_or_else(|| {
             relying_refusal(DenialReason::Denied, FederationClause::ConnectionUnknown)
         })?;
-        let pending = relying_party.pending.remove(&input.state).ok_or_else(|| {
-            relying_refusal(
-                DenialReason::InvalidCredential,
-                FederationClause::StateMismatch,
-            )
-        })?;
-        if now.saturating_sub(pending.started_at) >= relying_party.lifetime {
+        let pending = relying_party
+            .pending
+            .take(&input.state, now)
+            .ok_or_else(|| {
+                relying_refusal(
+                    DenialReason::InvalidCredential,
+                    FederationClause::StateMismatch,
+                )
+            })?;
+        // Login CSRF: a callback URL completed by any client but the browser that started
+        // the sign-in opens nothing.
+        if !input
+            .binding
+            .as_deref()
+            .is_some_and(|presented| same_text(presented, &pending.binding))
+        {
             return Err(relying_refusal(
                 DenialReason::InvalidCredential,
                 FederationClause::StateMismatch,
             ));
         }
+        // OIDC Core 3.1.2.6: the IdP refused. Its text is not read and never echoed.
+        let Some(code) = input.code.as_ref().filter(|_| !input.error) else {
+            eprintln!("mandate-control-plane: relying party refused IdpError");
+            return Err(relying_refusal(
+                DenialReason::Denied,
+                FederationClause::ProofInvalid,
+            ));
+        };
         let connection = self
             .federation
             .connection(&pending.connection_id)
@@ -3328,9 +3559,21 @@ where
             .ok_or_else(|| {
                 relying_refusal(DenialReason::Denied, FederationClause::ConnectionUnknown)
             })?;
-        let found = relying_party
-            .endpoints_of(&connection.issuer, configured)
-            .map_err(token_refused)?;
+        let found = endpoints_of(
+            relying_party.endpoint.as_ref(),
+            &connection.issuer,
+            configured,
+        )
+        .map_err(token_refused)?;
+        // RFC 9207 section 2.4: an IdP whose metadata advertises `iss` in the authorization
+        // response obliges the client to reject a response without it.
+        if found.issuer_in_response && input.issuer.is_none() {
+            return Err(relying_refusal(
+                DenialReason::InvalidCredential,
+                FederationClause::IssuerMismatch,
+            ));
+        }
+        let return_uri = configured.return_uri.clone();
         let proof = relying_party
             .endpoint
             .redeem(&CodeRedemption {
@@ -3339,7 +3582,7 @@ where
                 allowed_hosts: &configured.allowed_hosts,
                 client_id: &connection.client_id,
                 client_secret: &configured.client_secret,
-                code: &input.code,
+                code,
                 redirect_uri: &configured.redirect_uri,
                 code_verifier: &pending.verifier,
             })
@@ -3354,10 +3597,35 @@ where
                 FederationClause::NonceMismatch,
             ));
         }
-        self.authenticate(&decode::AuthenticateFederation {
+        let login = self.authenticate_admitted(&decode::AuthenticateFederation {
             connection_id: pending.connection_id,
             proof,
-        })
+        })?;
+        let code = base64url(self.secrets.next_secret().expose_bytes());
+        if let Some(relying_party) = self.relying_party.as_mut() {
+            relying_party.handoffs.insert(code.clone(), login, now);
+        }
+        Ok(Handoff { return_uri, code })
+    }
+
+    /// Exchange a handoff code for the session a callback opened: once, and only within
+    /// [`HANDOFF_LIFETIME`].
+    ///
+    /// # Errors
+    ///
+    /// Returns the declared refusal when the deployment has no relying party, or the code
+    /// is unknown, already exchanged or expired.
+    pub fn redeem_handoff(&mut self, input: &decode::RedeemHandoff) -> Result<Login, Refusal> {
+        let now = self.clock.unix_seconds();
+        self.relying_party
+            .as_mut()
+            .and_then(|relying_party| relying_party.handoffs.take(&input.handoff, now))
+            .ok_or_else(|| {
+                relying_refusal(
+                    DenialReason::InvalidCredential,
+                    FederationClause::SessionUnknown,
+                )
+            })
     }
 }
 
