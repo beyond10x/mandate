@@ -24,7 +24,18 @@ Implement stories/features in managed unit worktrees based on the active `integr
 
 This repository's delivery boundary overrides the generic Wave skill's automatic merge to `main`: a completed wave stops at the gated integration branch. Publishing that branch supplies recovery proof and does not approve a PR merge or a release. When the operator selects the accumulated batch, open one PR from the integration branch to `main`, validate the exact candidate and required checks, and merge through the bot-authorized PR workflow. Keep the primary checkout clean.
 
-Tag only the resulting merged `main` commit, after the requested version, repository release requirements and exact-commit checks are satisfied. PR merge and release are separate decisions; no tag is cut from an integration or feature branch. See `docs/adr/0008-integration-batches.md` for the complete flow and recovery rules.
+Tag only the resulting merged `main` commit, after the requested version, repository release requirements and exact-commit checks are satisfied. PR merge and release are separate decisions unless the standing cadence below is in force; no tag is cut from an integration or feature branch. See `docs/adr/0008-integration-batches.md` for the complete flow and recovery rules.
+
+### Standing cadence
+
+Since 2026-09-23 the operator has asked for integration, release and cleanup to happen after every closed batch, not on request. When a batch of up to three waves closes green, the coordinator, without asking again:
+
+1. opens one PR from the integration branch to `main` through the bot, waits for every required check on its exact head, and merges it through the bot;
+2. advances `repositories."beyond10x/mandate".baseline` in `gates-policy/policy.json` to that merge commit — the merge is committed by `GitHub`, and until the baseline moves the push guard refuses every branch cut from `main` and every tag;
+3. cuts a release from a `release/X.Y.Z` branch: minor when the batch's changelog has a **Breaking** entry, patch otherwise; version in every manifest and `Cargo.lock`, the `[Unreleased]` section headed with the version and date, the full gate, PR, bot merge, an annotated tag on the resulting `main` merge commit and a GitHub Release from the changelog section; reported as released only after the tag, the checks on that commit and the Release are verified;
+4. deletes every remote branch that is an ancestor of `main` and removes its own managed trees through `worktree finish` and reviewed `worktree gc`.
+
+The cadence does not cover a wave's own approval, a deployment, or anything outside this repository beyond the baseline advance.
 
 ## Milestone boundary
 
