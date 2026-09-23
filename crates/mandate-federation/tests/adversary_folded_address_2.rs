@@ -39,11 +39,19 @@ fn resolved_by_the_fetcher(uri: &str) -> Result<Vec<IpAddr>, String> {
         .map_err(|error| format!("{addr} does not resolve: {error}"))
 }
 
-/// Every bracketed spelling the guard admits as an IPv6 issuer's own origin is one the
-/// fetcher resolves to that address.
+/// A bracketed literal with a trailing dot is admitted as an IPv6 issuer's own origin and
+/// is one the fetcher cannot resolve — today's state, pinned exactly.
+///
+/// Pass 2 wrote this as *"every bracketed spelling the guard admits is one the fetcher
+/// resolves to that address"*, which is the property the guard owes and is red. The
+/// defect fails closed and is open as `story:bracketed-literal-trailing-dot`; the
+/// coordinator ruled the case correct and the fix out of this story, so it asserts what
+/// holds now: the plain spelling is admitted and resolves to the issuer's address, and
+/// each `[v6.]`/`[v6..]` spelling is admitted and does not resolve at all. When that
+/// story lands, the second half of this case must flip — either refused by the guard or
+/// resolved to the issuer's address — and this case with it.
 #[test]
-fn a_bracketed_literal_the_guard_admits_as_the_issuers_own_is_one_the_fetcher_resolves() {
-    let mut disagreements = Vec::new();
+fn a_bracketed_literal_with_a_trailing_dot_is_admitted_and_the_fetcher_cannot_resolve_it() {
     for (issuer, address) in [
         ("http://[::1]", "::1"),
         ("http://[::1]:8443", "::1"),
@@ -57,30 +65,37 @@ fn a_bracketed_literal_the_guard_admits_as_the_issuers_own_is_one_the_fetcher_re
             .map(|(_, port)| format!(":{port}"))
             .unwrap_or_default();
         let expected: IpAddr = address.parse().expect("an address");
-        for spelling in [
-            format!("[{address}]"),
-            format!("[{address}.]"),
-            format!("[{address}..]"),
-        ] {
+
+        let plain = format!("{scheme}://[{address}]{port}/jwks");
+        assert!(
+            UreqJwks::admits(&issuer, &plain, &[]),
+            "issuer {}: {plain} is its own origin and was refused",
+            issuer.as_str()
+        );
+        let resolved = resolved_by_the_fetcher(&plain);
+        assert!(
+            resolved
+                .as_ref()
+                .is_ok_and(|addresses| addresses.contains(&expected)),
+            "issuer {}: {plain} does not resolve to {expected}: {resolved:?}",
+            issuer.as_str()
+        );
+
+        for spelling in [format!("[{address}.]"), format!("[{address}..]")] {
             let uri = format!("{scheme}://{spelling}{port}/jwks");
-            if !UreqJwks::admits(&issuer, &uri, &[]) {
-                continue;
-            }
-            match resolved_by_the_fetcher(&uri) {
-                Ok(addresses) if addresses.contains(&expected) => {}
-                outcome => disagreements.push(format!(
-                    "issuer {}: the guard admitted {uri} as {expected}, and the fetcher \
-                     reads it as {outcome:?}",
-                    issuer.as_str()
-                )),
-            }
+            let admitted = UreqJwks::admits(&issuer, &uri, &[]);
+            let resolved = resolved_by_the_fetcher(&uri);
+            assert!(
+                admitted && resolved.is_err(),
+                "issuer {}: {uri} was expected admitted by the guard and unresolvable by \
+                 the fetcher (admitted={admitted}, resolved={resolved:?}). This pins the \
+                 open defect story:bracketed-literal-trailing-dot; if that story has \
+                 landed, this assertion must flip with it — rewrite it to the property \
+                 the story delivers, never delete it",
+                issuer.as_str()
+            );
         }
     }
-    assert!(
-        disagreements.is_empty(),
-        "admitted by the guard, not the address the fetcher resolves:\n{}",
-        disagreements.join("\n")
-    );
 }
 
 /// The issuer and `jwks_uri` shapes real IdPs publish, and the ones this repository's

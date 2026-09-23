@@ -100,9 +100,15 @@
 //! | `http://127.0.0.1../` | refused | admitted |
 //! | `http://127.0.0.2./` | refused | admitted |
 //! | `http://127.255.255.254./` | refused | admitted |
-//! | `http://[::1.]/` | refused | admitted |
-//! | `http://[0:0:0:0:0:0:0:1.]/` | refused | admitted |
+//! | `http://[::1.]/` | refused | admitted, and unfetchable¹ |
+//! | `http://[0:0:0:0:0:0:0:1.]/` | refused | admitted, and unfetchable¹ |
 //! | `http://127.0.0.1.:443/` | refused | admitted |
+//!
+//! ¹ The guard admits these, and the fetcher cannot open them: `ureq`'s resolver hands
+//! `[::1.]:80` to `ToSocketAddrs`, which neither parses it as a socket address nor
+//! resolves it as a name, so the fetch fails closed. No key set is ever read from one.
+//! Open as `story:bracketed-literal-trailing-dot`, pinned by
+//! `tests/adversary_folded_address_2.rs`.
 //!
 //! The rest are pairs whose two spellings differ, which is the case a discovery document
 //! produces: it writes `jwks_uri` and it does not have to spell the host the way the

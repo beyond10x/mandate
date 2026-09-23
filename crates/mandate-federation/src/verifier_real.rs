@@ -467,9 +467,13 @@ fn origin(uri: &str) -> Option<Uri> {
     };
     // An IPv6 literal outside brackets is not an authority RFC 3986 defines, and `ureq`
     // refuses to parse one, so a `:` left in an unbracketed host is refused with it.
-    // Inside brackets there is an IPv6 address and nothing else — a zone (`[::1%25eth0]`)
-    // or an IPvFuture (`[v1.x]`) is a literal `IpAddr` does not read, so it would be an
-    // ordinary name to `literal_address` and `loopback` and reach `allowed_hosts`.
+    // Inside brackets there is an IPv6 address once trailing dots are folded ([`folded`]),
+    // and nothing else — a zone (`[::1%25eth0]`) or an IPvFuture (`[v1.x]`) is a literal
+    // `IpAddr` does not read, so it would be an ordinary name to `literal_address` and
+    // `loopback` and reach `allowed_hosts`. The fold means `[::1.]` and `[::1..]` are
+    // accepted here and can be admitted as the issuer's own origin, and the fetcher
+    // cannot resolve them: `ureq` hands `[::1.]:80` to `ToSocketAddrs`, which refuses
+    // it, so the fetch fails closed. Open as `story:bracketed-literal-trailing-dot`.
     // Outside them every byte is one `http::Uri` accepts in a host: unreserved and the
     // sub-delimiters. It refuses `%` there, so a percent-encoded host is one the fetcher
     // could never have fetched, and a space or a control byte never names a host here.
