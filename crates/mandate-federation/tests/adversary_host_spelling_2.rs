@@ -164,10 +164,12 @@ fn the_corpus_the_reworked_property_iterates_asserts_something_at_both_sites() {
         let elsewhere = Issuer::new(format!("{scheme}://third-party.example"));
 
         for destination in [host.to_owned(), dotted(host)] {
-            // An address has no absolute form: for a bracketed row the dotted spelling is
-            // no host at all and is refused (`story:bracketed-literal-trailing-dot`), as
-            // the case under attack now declares.
-            let owed = is_own_origin && !(host.starts_with('[') && destination != host);
+            // An address has no absolute form: for an address row, bracketed or not, the
+            // dotted spelling is no host at all and is refused
+            // (`story:bracketed-literal-trailing-dot`, `story:federation-guard-trailing-dots`),
+            // as the case under attack now declares.
+            let address = host.starts_with('[') || host.parse::<std::net::IpAddr>().is_ok();
+            let owed = is_own_origin && !(address && destination != host);
             let own = UreqJwks::admits(
                 &Issuer::new(format!("{scheme}://{host}")),
                 &format!("{scheme}://{destination}/jwks"),

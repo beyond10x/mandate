@@ -22,11 +22,11 @@
 //! | spelling | host after `origin` | `literal_address` | `loopback` | reaches the list |
 //! |---|---|---|---|---|
 //! | `127.0.0.1` | `127.0.0.1` | true | true | no |
-//! | `127.0.0.1.` | `127.0.0.1.` | false → **true** | false → **true** | **yes → no** |
+//! | `127.0.0.1.`² | `127.0.0.1.` | false → **true** | false → **true** | **yes → no** |
 //! | `127.0.0.1..`² | `127.0.0.1..` | false → **true** | false → **true** | **yes → no** |
 //! | `127.0.0.2` | `127.0.0.2` | true | true | no |
-//! | `127.0.0.2.` | `127.0.0.2.` | false → **true** | false → **true** | **yes → no** |
-//! | `127.255.255.254.` | `127.255.255.254.` | false → **true** | false → **true** | **yes → no** |
+//! | `127.0.0.2.`² | `127.0.0.2.` | false → **true** | false → **true** | **yes → no** |
+//! | `127.255.255.254.`² | `127.255.255.254.` | false → **true** | false → **true** | **yes → no** |
 //! | `localhost` | `localhost` | false | true | no |
 //! | `localhost.` | `localhost.` | false | true | no |
 //! | `localhost..`² | `localhost..` | false | true | no |
@@ -96,13 +96,13 @@
 //!
 //! | issuer and `jwks_uri` | base | head |
 //! |---|---|---|
-//! | `http://127.0.0.1./` | refused | admitted |
+//! | `http://127.0.0.1./` | refused | admitted, refused again² |
 //! | `http://127.0.0.1../` | refused | admitted, refused again² |
-//! | `http://127.0.0.2./` | refused | admitted |
-//! | `http://127.255.255.254./` | refused | admitted |
+//! | `http://127.0.0.2./` | refused | admitted, refused again² |
+//! | `http://127.255.255.254./` | refused | admitted, refused again² |
 //! | `http://[::1.]/` | refused | admitted, and unfetchable¹; refused again² |
 //! | `http://[0:0:0:0:0:0:0:1.]/` | refused | admitted, and unfetchable¹; refused again² |
-//! | `http://127.0.0.1.:443/` | refused | admitted |
+//! | `http://127.0.0.1.:443/` | refused | admitted, refused again² |
 //!
 //! ¹ The guard admits these, and the fetcher cannot open them: `ureq`'s resolver hands
 //! `[::1.]:80` to `ToSocketAddrs`, which neither parses it as a socket address nor
@@ -195,9 +195,32 @@
 //! now because that issuer no longer parses. No discovery document of such an issuer
 //! could be fetched either.
 //!
+//! Adversary pass 1 found the same class in two more places, and both are refused now:
+//! `127.0.0.1.` was folded and admitted, and the resolver cannot look it up (an address
+//! has no absolute form); and `loopback`'s `.localdomain` suffix test admitted
+//! `.localdomain`, `..localdomain` and `keys..localdomain`, which carry an empty label the
+//! resolver refuses. `origin` now refuses a host that reads as an address only once its
+//! trailing dot is folded, and every empty label but one trailing dot on a name — which
+//! also refuses `.`, the last row of the residue table below. Here the two guards part:
+//! the control-plane's `is_loopback` still folds `127.0.0.1.` to the loopback.
+//!
+//! Measured `4f268d7` → head, the same sweep:
+//!
+//! | direction | decisions | what they are |
+//! |---|---|---|
+//! | refused → admitted | **0** | — |
+//! | admitted → refused | **282** | every one names `.` or a dotted IPv4 literal as issuer or destination |
+//!
+//! 137 are `127.0.0.1.`, `127.0.0.2.` or `127.255.255.254.` refused at the issuer's own
+//! origin or as an issuer that no longer parses. 145 name `.`: 117 are the destination
+//! `.` refused through a list that names it — the containment guard's one movement, and a
+//! narrowing — of which 90 also moved at the issuer asked, and 28 are the issuer `.`
+//! naming a listed plain host. From `bde627b` the two rounds together move **685**
+//! decisions, all admitted → refused.
+//!
 //! ## What still reaches the list, and why it is not fixed here
 //!
-//! These are spellings a C resolver folds and `std::net::IpAddr` does not. The six rows
+//! These are spellings a C resolver folds and `std::net::IpAddr` does not. The five rows
 //! that are not percent-encoded reached the list before the trailing-dot fold and reach
 //! it after it, because refusing them widens what the guard refuses rather than agreeing
 //! on which host it is asked about, and `story:host-spelling-folded` puts that out of
@@ -215,7 +238,7 @@
 //! | `localhost%2e` | none | — | — | **no: `origin` refuses it** |
 //! | `%6cocalhost` | none | — | — | **no: `origin` refuses it** |
 //! | `%31%32%37.0.0.1` | none | — | — | **no: `origin` refuses it** |
-//! | `.` | `.` | false | false | yes |
+//! | `.` | none | — | — | **no: `origin` refuses it**² |
 //!
 //! `inet_aton` reads all five of the first rows as an address and `IpAddr::from_str`
 //! reads none of them: `0` is `0.0.0.0`, `127.1` and `2130706433` are `127.0.0.1`,
@@ -2534,10 +2557,12 @@ fn a_trailing_dot_does_not_change_what_the_jwks_destination_guard_answers() {
     ] {
         // The absolute form. For an IPv6 literal the dot goes inside the brackets: the
         // brackets belong to the URI's authority and not to the host. An address has no
-        // absolute form, so for a bracketed row the dotted spelling is not a second
-        // spelling of the host but no host at all (`story:bracketed-literal-trailing-dot`):
-        // brackets hold an address and nothing else, and every site refuses it.
-        let bracketed = host.starts_with('[');
+        // absolute form, so for an address row — bracketed or not — the dotted spelling is
+        // not a second spelling of the host but no host at all: brackets hold an address
+        // and nothing else (`story:bracketed-literal-trailing-dot`), and the resolver cannot
+        // look up `127.0.0.1.` (`story:federation-guard-trailing-dots`). Every site
+        // refuses it.
+        let address = host.starts_with('[') || host.parse::<std::net::IpAddr>().is_ok();
         let dotted = match host.strip_suffix(']') {
             Some(inside) => format!("{inside}.]"),
             None => format!("{host}."),
@@ -2549,7 +2574,7 @@ fn a_trailing_dot_does_not_change_what_the_jwks_destination_guard_answers() {
             let issuer = Issuer::new(format!("{scheme}://{issuer_spelling}"));
             for destination in [host, dotted.as_str()] {
                 let owed = is_own_origin
-                    && !(bracketed && (issuer_spelling == dotted || destination == dotted));
+                    && !(address && (issuer_spelling == dotted || destination == dotted));
                 assert_eq!(
                     UreqJwks::admits(
                         &issuer,
@@ -2592,13 +2617,13 @@ fn a_trailing_dot_does_not_change_what_the_jwks_destination_guard_answers() {
     // well. A test's own listener is the only plaintext issuer there is, and the absolute
     // spelling of that listener is the same listener — crossed here, because the
     // discovery document writes `jwks_uri` and does not have to spell the host the way
-    // the deployment spelled the issuer. `[::1]` has no absolute spelling — `[::1.]` is no
-    // address, and is refused above and by
-    // `a_bracketed_literal_with_a_trailing_dot_is_not_an_address_and_is_refused`.
+    // the deployment spelled the issuer. An address has no absolute spelling — `[::1.]`
+    // and `127.0.0.1.` are no address, and are refused above and by
+    // `a_bracketed_literal_with_a_trailing_dot_is_not_an_address_and_is_refused` and
+    // `tests/adversary_trailing_dots_1.rs`.
     for family in [
         ["localhost", "localhost."],
         ["localhost.localdomain", "localhost.localdomain."],
-        ["127.0.0.1", "127.0.0.1."],
     ] {
         for issuer_spelling in family {
             for target_spelling in family {
@@ -2969,7 +2994,9 @@ fn every_authority_the_guard_admits_is_the_port_and_address_the_fetcher_reads() 
                             // The host `ureq` reads, and not a folded one: a bracketed host
                             // is compared as the fetcher hands it to its resolver, so
                             // `[::1.]` is `::1.` here and no address. An unbracketed name
-                            // loses one trailing dot, its absolute form, and no more.
+                            // loses one trailing dot, its absolute form, and no more; an
+                            // unbracketed literal keeps its dot, so `127.0.0.1.` is no
+                            // address here, as it is none to the resolver.
                             let read = fetched
                                 .host()
                                 .expect("an admitted URI has a host")
@@ -2979,7 +3006,12 @@ fn every_authority_the_guard_admits_is_the_port_and_address_the_fetcher_reads() 
                                     bracketed.strip_suffix(']').unwrap_or(bracketed).to_owned()
                                 }
                                 None => match read.strip_suffix('.') {
-                                    Some(name) if !name.is_empty() => name.to_owned(),
+                                    Some(name)
+                                        if !name.is_empty()
+                                            && name.parse::<std::net::IpAddr>().is_err() =>
+                                    {
+                                        name.to_owned()
+                                    }
                                     _ => read.clone(),
                                 },
                             };

@@ -62,11 +62,11 @@ fn control_plane_is_loopback(authority: &str) -> bool {
     if host.contains(':') {
         return false;
     }
-    let host = match host.strip_suffix('.') {
+    let name = match host.strip_suffix('.') {
         Some(name) if !name.is_empty() => name,
         _ => host,
     };
-    host.eq_ignore_ascii_case("localhost")
+    name.eq_ignore_ascii_case("localhost")
         || host
             .parse::<std::net::Ipv4Addr>()
             .is_ok_and(|address| address.is_loopback())
@@ -210,10 +210,17 @@ fn the_two_guards_agree_on_every_dot_spelling_of_the_loopback() {
     assert!(disagreements.is_empty(), "{disagreements:#?}");
 }
 
-/// The same agreement over the `localdomain` class, which the federation guard's `loopback`
-/// counts as the loopback interface and the control-plane guard does not.
+/// The two guards diverge over the `localdomain` class, and exactly there: the federation
+/// guard's `loopback` counts `localhost.localdomain` and `keys.localdomain` as the loopback
+/// interface, and the control-plane guard does not.
+///
+/// Decided, not a defect: wave J ruled that the control plane does not widen plaintext
+/// issuer admission to the `localdomain` class (coordinator decision, correction round 1
+/// of wave L unit L1). Opened as `the_two_guards_agree_on_the_localdomain_class`, which
+/// asserted agreement; it now asserts the decided divergence, so either guard moving
+/// turns it red.
 #[test]
-fn the_two_guards_agree_on_the_localdomain_class() {
+fn the_two_guards_diverge_on_the_localdomain_class_as_decided() {
     let no_hosts_listed: [String; 0] = [];
     let mut disagreements = Vec::new();
     for host in [
@@ -227,9 +234,10 @@ fn the_two_guards_agree_on_the_localdomain_class() {
             &no_hosts_listed,
         );
         let control_plane = control_plane_is_loopback(host);
-        if federation != control_plane {
+        if !federation || control_plane {
             disagreements.push(format!(
-                "{host}: federation {federation}, control-plane {control_plane}"
+                "{host}: federation {federation}, control-plane {control_plane}; decided: \
+                 federation true, control-plane false"
             ));
         }
     }
