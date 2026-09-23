@@ -719,40 +719,65 @@ fn a_double_only_clause_deferred_to_the_crates_binding_story_is_refused() {
     );
 }
 
-/// The clauses `mandate-federation` publishes and `mandate-sts` decides carry `decided_in`,
-/// and the same-crate rule then holds each of them to `mandate-sts` — which is what lets a
-/// `mandate-sts` test cover them on the real path rather than defer them for ever.
+/// The one clause the registry decides in another crate: `mandate-federation`'s
+/// `AuthorizePublicClient` clause "STS code issuance", decided in `mandate-sts` and covered on
+/// the real path by a `mandate-sts` test. Exactly one — a second `decided_in` row anywhere in
+/// the directory is a new cross-crate claim, and this case is where it has to be argued for.
 #[test]
-fn the_federation_clauses_mandate_sts_decides_are_covered_on_the_real_path_by_its_tests() {
+fn the_one_clause_decided_in_another_crate_is_sts_code_issuance_and_is_covered_by_its_tests() {
     let root = fixture("decided-in-committed");
-    let document = document(&root, "federation");
-    let decided: Vec<&Value> = document["commands"]
-        .as_array()
-        .expect("commands")
+    let decided: Vec<(String, String, Value)> = obligations_registry::CRATES
         .iter()
-        .flat_map(|entry| entry["clauses"].as_array().map_or(&[][..], Vec::as_slice))
-        .filter(|clause| !clause["decided_in"].is_null())
+        .map(|crate_name| document(&root, crate_name.trim_start_matches("mandate-")))
+        .flat_map(|document| {
+            document["commands"]
+                .as_array()
+                .map_or(&[][..], Vec::as_slice)
+                .iter()
+                .flat_map(|entry| {
+                    entry["clauses"]
+                        .as_array()
+                        .map_or(&[][..], Vec::as_slice)
+                        .iter()
+                        .filter(|clause| !clause["decided_in"].is_null())
+                        .map(|clause| {
+                            (
+                                entry["command"].as_str().unwrap_or_default().to_owned(),
+                                clause["clause"].as_str().unwrap_or_default().to_owned(),
+                                clause.clone(),
+                            )
+                        })
+                })
+                .collect::<Vec<_>>()
+        })
         .collect();
-    assert!(
-        !decided.is_empty(),
-        "the STS-decided clause of mandate-federation's AuthorizePublicClient carries decided_in: {decided:?}"
+    assert_eq!(
+        decided
+            .iter()
+            .map(|(command, clause, row)| (command.as_str(), clause.as_str(), &row["decided_in"]))
+            .collect::<Vec<_>>(),
+        vec![(
+            "mandate.federation.AuthorizePublicClient",
+            "STS code issuance",
+            &Value::String("mandate-sts".to_owned())
+        )],
+        "exactly one clause row in the directory carries decided_in"
     );
-    for clause in &decided {
-        assert_eq!(clause["decided_in"], "mandate-sts", "{clause}");
-        assert!(
-            clause["blocked_on"].is_null(),
-            "covered, not deferred: {clause}"
-        );
-        let rows = clause["tests"].as_array().expect("tests");
-        assert!(
-            rows.iter().any(|row| row["path"] == "real"
+    let clause = &decided[0].2;
+    assert!(
+        clause["blocked_on"].is_null(),
+        "covered, not deferred: {clause}"
+    );
+    let rows = clause["tests"].as_array().expect("tests");
+    assert!(
+        !rows.is_empty()
+            && rows.iter().all(|row| row["path"] == "real"
                 && row["kind"] == "denial"
                 && row["id"]
                     .as_str()
                     .is_some_and(|id| id.starts_with("mandate-sts::"))),
-            "a real-path mandate-sts denial row decides it: {clause}"
-        );
-    }
+        "every row is a real-path mandate-sts denial: {clause}"
+    );
     run(&root).expect("the committed registry is decided");
 }
 

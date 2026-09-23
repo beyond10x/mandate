@@ -306,13 +306,8 @@
         },
         {
           "clause": "disablement cannot stop the issuance of new authorization codes to it",
-          "tests": [
-            {
-              "id": "mandate-federation::adversary_writers_1::probe_a_disabled_registered_client_is_refused_at_authorization",
-              "kind": "denial",
-              "path": "real"
-            }
-          ]
+          "tests": [],
+          "blocked_on": "decision-blocker:epoch-atomicity"
         }
       ],
       "no_state_change": [

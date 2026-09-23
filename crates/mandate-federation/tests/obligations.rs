@@ -57,7 +57,9 @@
 //! for at all, which is `story:federation-admission-port`; `register_client.rs:93` is where
 //! that port exists, and it decides nothing itself — the answer is the implementation's, and
 //! today the only one is the fixture [`ConfiguredAdmission`] (above). The durable-commit and
-//! invalidation clauses name the adapter's transaction. "STS code issuance" is decided by
+//! invalidation clauses name the adapter's transaction, and so does "disablement cannot stop
+//! the issuance of new authorization codes to it", which `decision-blocker:epoch-atomicity`
+//! holds: no case here sees `DisableOAuthClient` refused on it. "STS code issuance" is decided by
 //! `mandate-sts` code no case in this crate reaches, and its row says so with `decided_in`;
 //! "narrowing is refused" is an authority narrowing nothing in the workspace performs yet.
 //! `contracts/obligations/federation.json` records which story, blocker or crate owns each of

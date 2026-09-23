@@ -339,7 +339,7 @@ fn the_report_does_not_count_a_double_backed_clause_in_real_covered() {
             federation["double_only"].as_u64(),
             federation["deferred"].as_u64(),
         ),
-        (Some(30), Some(3), Some(8)),
+        (Some(29), Some(3), Some(9)),
         "the three `mandate.federation.RegisterOAuthClient` clauses are decided by this \
          crate's standing double for `ClientRegistrationAdmission` and belong in \
          `double_only`; published `real_covered` they make the crate's row, and the \
