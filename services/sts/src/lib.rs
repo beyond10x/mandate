@@ -201,11 +201,16 @@ pub trait IdentityAllocator {
     /// has to exist before the signer can refuse; this is how it exists without having been
     /// drawn. Every reservation ends in exactly one of
     /// [`IdentityAllocator::commit_credential_id`], once the transaction can no longer
-    /// refuse, or [`IdentityAllocator::release_credential_id`], when it refused — which
-    /// leaves the allocator where it was before the reservation.
+    /// refuse, or [`IdentityAllocator::release_credential_id`], when it refused.
     ///
     /// Required, with no default: a default could only reserve by drawing, and an allocator
     /// that counts what it handed out would then draw on the refusal this pair exists for.
+    ///
+    /// **An unwind ends a reservation in neither.** A signer that panics out of
+    /// `issue_self_contained_credential` leaves the identity held. No guard is taken, by
+    /// decision: nothing in this tree catches an unwind out of an issuance and reuses the
+    /// allocator, and the deployment's allocator keeps no state for a held reservation to
+    /// occupy. [`SequentialAllocator`] refuses the next reservation after one.
     fn reserve_credential_id(&mut self) -> CredentialId;
 
     /// Hand out the identity [`IdentityAllocator::reserve_credential_id`] held.
@@ -215,8 +220,13 @@ pub trait IdentityAllocator {
     /// something else.
     fn commit_credential_id(&mut self, reserved: CredentialId);
 
-    /// Give back the identity [`IdentityAllocator::reserve_credential_id`] held, as if it
-    /// had never been reserved.
+    /// Give back the identity [`IdentityAllocator::reserve_credential_id`] held.
+    ///
+    /// When nothing was handed out while it was held, the allocator is left where it was
+    /// before the reservation. When a draw overtook it, it cannot be: that draw has been
+    /// handed out, and no allocator can both keep the held identity from it and give it the
+    /// identity it would have had. What an overtaken release does is the allocator's; it
+    /// must not hand out any identity twice.
     fn release_credential_id(&mut self, reserved: CredentialId);
 }
 
@@ -288,40 +298,48 @@ impl IdentityAllocator for SequentialAllocator {
 
     fn next_credential_id(&mut self) -> CredentialId {
         self.credentials += 1;
-        // A held reservation is skipped, so no draw hands it out a second time.
-        if self.reserved == Some(self.credentials) {
-            self.credentials += 1;
-        }
         CredentialId::new(minted(0xcd, self.credentials))
     }
 
+    /// The next ordinal, taken the way a draw takes it: a draw that follows goes past it
+    /// without a skip, and the fixture's identities run out at exactly the count a draw
+    /// alone runs them out at.
+    ///
     /// # Panics
     ///
     /// Panics when a reservation is already held: this fixture holds one at a time, and a
-    /// second would be a caller that never ended the first.
+    /// second would be a caller that never ended the first — which is what a signer that
+    /// unwinds out of `issue_self_contained_credential` leaves behind.
     fn reserve_credential_id(&mut self) -> CredentialId {
         assert!(
             self.reserved.is_none(),
             "a credential identity is already reserved"
         );
-        let ordinal = self.credentials + 1;
-        self.reserved = Some(ordinal);
-        CredentialId::new(minted(0xcd, ordinal))
+        self.credentials += 1;
+        self.reserved = Some(self.credentials);
+        CredentialId::new(minted(0xcd, self.credentials))
     }
 
     /// # Panics
     ///
     /// Panics when `reserved` is not the identity this fixture holds.
     fn commit_credential_id(&mut self, reserved: CredentialId) {
-        let ordinal = self.held(reserved);
-        self.credentials = self.credentials.max(ordinal);
+        self.held(reserved);
     }
 
+    /// Back where the fixture was before the reservation, when no draw overtook it. When
+    /// one did, the draws after it have been handed out and cannot be taken back, so the
+    /// released ordinal stays a gap: it is never handed out, and nothing is handed out
+    /// twice.
+    ///
     /// # Panics
     ///
     /// Panics when `reserved` is not the identity this fixture holds.
     fn release_credential_id(&mut self, reserved: CredentialId) {
-        self.held(reserved);
+        let ordinal = self.held(reserved);
+        if self.credentials == ordinal {
+            self.credentials -= 1;
+        }
     }
 
     fn next_signing_key_id(&mut self) -> SigningKeyId {

@@ -400,7 +400,14 @@ where
 /// Returns [`Denied`] through the declared `denied` outcome when the target is unregistered,
 /// disabled or outside the caller's verified organization, when its registered profile does
 /// not issue this family, when the signer's lifetime is not inside the profile's bound, or
-/// when the signer refuses.
+/// when the signer refuses. A refusal draws no identity: the identity is reserved, and the
+/// reservation is released on the refusal and committed only once the signer has signed.
+///
+/// # Panics
+///
+/// A signer that panics unwinds through here with the identity still reserved — ended by
+/// neither the commit nor the release. That is decided, not missed: see
+/// [`IdentityAllocator::reserve_credential_id`].
 pub fn issue_self_contained_credential<D, A, K>(
     input: &IssueSelfContainedCredential,
     request: &RequestContext,
