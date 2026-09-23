@@ -658,7 +658,9 @@ fn is_loopback(authority: &str) -> bool {
         },
     };
     if let Some(spelled) = port.filter(|port| !port.is_empty())
-        && spelled.parse::<u16>().is_err()
+        // RFC 3986 section 3.2.3: `port = *DIGIT`. `u16::from_str` also takes a leading `+`,
+        // so it bounds the range and does not decide the spelling.
+        && (!spelled.bytes().all(|byte| byte.is_ascii_digit()) || spelled.parse::<u16>().is_err())
     {
         return false;
     }

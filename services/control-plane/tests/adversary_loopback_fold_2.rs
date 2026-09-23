@@ -73,5 +73,8 @@ fn every_loopback_issuer_the_repository_uses_is_still_admitted() {
     .into_iter()
     .filter(|issuer| configured(issuer).checked().is_err())
     .collect();
-    assert!(refused_legit.is_empty(), "loopback issuers refused: {refused_legit:?}");
+    assert!(
+        refused_legit.is_empty(),
+        "loopback issuers refused: {refused_legit:?}"
+    );
 }
