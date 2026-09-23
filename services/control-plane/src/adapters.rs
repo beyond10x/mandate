@@ -1027,14 +1027,22 @@ impl ConnectionSeeding {
             });
         }
 
+        // Every event decides before any is kept: they are applied to a copy, and the copy
+        // replaces the fold only once the last is accepted — the copy-then-swap
+        // `Deployment::provisioned` uses. A link the fold refuses would otherwise leave its
+        // connection applied behind a refused document, and the corrected document stating
+        // the same `connection_id` would be refused as a repeat of a connection no admitted
+        // document seeded (`story:control-plane-multi-fold-writes`).
+        let mut projection = self.projection.clone();
         for event in &events {
-            self.projection
+            projection
                 .apply(event)
                 .map_err(|error| SeedRefused::Unseedable {
                     path: path.to_path_buf(),
                     error,
                 })?;
         }
+        self.projection = projection;
         self.admitted.push((path.to_path_buf(), connection_id));
         if let Some(link) = &seed.link {
             self.linked
@@ -1168,14 +1176,19 @@ impl ClientSeeding {
             });
         }
         let client = seed.events(allocate);
+        // One event today, applied to a copy anyway: the loop admits more, and a document
+        // the fold refuses part of must leave nothing behind, as at
+        // `ConnectionSeeding::admit`.
+        let mut projection = self.projection.clone();
         for event in &client.events {
-            self.projection
+            projection
                 .apply(event)
                 .map_err(|error| SeedRefused::Unseedable {
                     path: path.to_path_buf(),
                     error,
                 })?;
         }
+        self.projection = projection;
         self.admitted.push((path.to_path_buf(), client.client_id));
         Ok(client)
     }
