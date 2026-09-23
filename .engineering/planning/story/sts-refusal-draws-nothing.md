@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:sts-refusal-draws-nothing
 kind: story
-status: draft
+status: active
 title: STS handlers draw from the secret source and allocator only after every refusal
 relations:
 - decomposes: epic:foundations
@@ -19,7 +19,7 @@ scope:
   path: services/sts/src/store.rs
 - confidence: cited
   path: services/sts/tests/adversary_obligations_sts_2.rs
-revision: 4
+revision: 6
 ---
 ## Why
 

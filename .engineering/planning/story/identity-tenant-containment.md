@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:identity-tenant-containment
 kind: story
-status: draft
+status: active
 title: IncrementSecurityEpoch refuses a target outside the caller's organization
 relations:
 - decomposes: epic:foundations
@@ -17,7 +17,7 @@ scope:
   path: crates/mandate-identity/src/port.rs
 - confidence: cited
   path: crates/mandate-identity/tests/adversary_obligations_identity_1.rs
-revision: 3
+revision: 5
 ---
 ## Why
 

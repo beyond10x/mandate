@@ -4,6 +4,62 @@ All notable changes to Mandate are recorded here. The format follows [Keep a Cha
 
 ## [Unreleased]
 
+Waves I, J and K: nine stories, each attacked twice. The clause count moves for the first time since
+wave D: 191 clauses (one split in two), 85 decided on the real path.
+
+### Changed
+
+- **Breaking.** `mandate_sts::IdentityAllocator` requires `reserve_credential_id`,
+  `commit_credential_id` and `release_credential_id`; there are no defaults. A reservation holds —
+  the next draw skips it — and a released identity an overtaking draw passed stays a gap
+  (`story:sts-refusal-draws-nothing`).
+- **Breaking.** `IncrementSecurityEpoch` needs the new `TargetTenancy` port beside
+  `SecurityEpochWrite` (`story:identity-tenant-containment`).
+- The event log is pinned at `0.3.0` (`eventlog-core`, `eventlog-sqlite`); nothing calls it yet
+  (`story:eventlog-repin-0-3-0`).
+- An obligation clause row may carry `decided_in: <workspace member>` naming the crate whose test
+  decides it. The registry refuses the entry's own crate, a non-member, `decided_in` off a clause
+  row, an empty or joiner-only clause, one test id under two kinds, paths or doubles, and a double
+  whose module path is not public. `AuthorizePublicClient`'s "STS code issuance/narrowing" is split:
+  issuance is decided in `mandate-sts`; narrowing is deferred to `story:agent-authority-kernel`
+  (`story:cross-crate-clauses`).
+
+### Fixed
+
+- A just-in-time login records the `mandate.identity.Principal` its provisioning event declares, and
+  a provisioning either fold refuses keeps neither (`story:jit-principal-record`).
+- An issuer's own origin compares two address literals as addresses (`[::1]` and
+  `[0:0:0:0:0:0:0:1]` are one origin), and `origin` reads an authority the way the fetcher does:
+  nothing but `:` after `]`, only an IPv6 address inside brackets, digits-only ports. A JWKS
+  destination `[addr]x:P` is no longer admitted at the default port and fetched on `P`
+  (`story:folded-is-not-an-address-fold`).
+- `register_resource_server` refuses a profile whose `max_ttl`, added to `3000-01-01T00:00:00Z`,
+  leaves the four-digit year, as `ProfileUnadmitted`; both issuance commands and the
+  authorization-code redemption refuse, as `ExpiryUnbounded`, any expiry `instant::at` would render
+  in a form the crate cannot read back — past `9999-12-31T23:59:59Z` or before
+  `0000-01-01T00:00:00Z` (`story:sts-lifetime-bounds`).
+- A plaintext issuer's loopback check reads each host form by its own parser: userinfo is refused,
+  a bracketed host must be IPv6, an unbracketed host may not contain `:`, at most one trailing dot is
+  folded, and a spelled port is digits only. `http://localhost:80@evil.example` is refused
+  (`story:control-plane-loopback-fold`).
+- `IncrementSecurityEpoch` refuses `TenantMismatch` for a target any record places in another
+  organization. The check is a read before the compare-and-set and not atomic with it; that is
+  `decision-blocker:epoch-atomicity`'s (`story:identity-tenant-containment`).
+- Registration refuses a second organization's tenant rule on one issuer when one proof could
+  satisfy both — a rule on a different claim name — as `TenantResolutionUnadmitted`
+  (`story:federation-rule-disjointness`).
+- A refused STS redemption or self-contained issuance draws nothing from the secret source or the
+  identity allocator; a redemption decides every refusal before it mints (`story:sts-refusal-draws-nothing`).
+- The login-road test lane takes its child's address from the child's own `listening on` line, and
+  its concurrent copies no longer start copies of their own (`story:road-lane-child-prints-address`).
+
+### Known
+
+- A bracketed issuer literal with a trailing dot (`[::1.]`) is admitted as the issuer's own origin
+  and cannot be fetched; it fails closed (`story:bracketed-literal-trailing-dot`).
+- `DisableOAuthClient`'s "disablement cannot stop the issuance of new authorization codes to it" is
+  decided by nothing and deferred to `decision-blocker:epoch-atomicity`.
+
 ## [0.4.0] - 2026-09-22
 
 Three defects the previous release's own adversary passes measured and filed, fixed and gated. The

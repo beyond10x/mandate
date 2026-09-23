@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:federation-rule-disjointness
 kind: story
-status: draft
+status: active
 title: Registration refuses two tenant rules one proof could satisfy
 relations:
 - decomposes: epic:foundations
@@ -17,7 +17,7 @@ scope:
   path: crates/mandate-federation/tests/adversary_obligations_federation_1.rs
 - confidence: inferred
   path: crates/mandate-federation/tests/obligations.rs
-revision: 4
+revision: 6
 ---
 ## Why
 

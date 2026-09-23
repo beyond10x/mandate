@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:cross-crate-clauses
 kind: story
-status: draft
+status: active
 title: A clause decided in another crate names that crate
 relations:
 - decomposes: epic:foundations
@@ -29,7 +29,7 @@ scope:
   path: xtask/src/obligations_registry.rs
 - confidence: cited
   path: xtask/tests/obligations_registry.rs
-revision: 11
+revision: 14
 ---
 ## Why
 
@@ -42,6 +42,24 @@ A clause row may carry `decided_in: <crate>`; the same-crate rule then holds tha
 ## Acceptance
 
 The two federation rows name `mandate-sts` tests under `decided_in` and `cargo xtask obligations-registry` counts both in `real_covered`; `cargo test -p xtask --locked --test obligations_registry` carries a case refusing `decided_in` equal to the entry's crate and one refusing a crate that is not a workspace member.
+
+### Amended 2026-09-23, wave K
+
+The two adversary passes on unit K1 (`review-result:wijk-k1-cross-crate-adversary-1`, `-2`) showed
+that neither row, read closely, is decided by a `mandate-sts` test in full:
+
+- `mandate.federation.AuthorizePublicClient`'s "STS code issuance/narrowing is refused" names two
+  conditions. Nothing in `mandate-sts` narrows (`services/sts/src/code.rs:39-42`). The row is split:
+  **"STS code issuance"** is decided in `mandate-sts` under `decided_in` and counted in
+  `real_covered`; **"narrowing is refused"** is deferred to `story:agent-authority-kernel`, the story
+  `contracts/obligations/sts.json` already defers authority narrowing to.
+- `mandate.federation.DisableOAuthClient`'s "disablement cannot stop the issuance of new
+  authorization codes to it" is a condition under which `DisableOAuthClient` itself is refused;
+  `disable_oauth_client` (`crates/mandate-federation/src/disable.rs:197-226`) has no such refusal and
+  no test decides it. It is deferred to `decision-blocker:epoch-atomicity`.
+
+The step's refusals stand as first stated: `decided_in` equal to the entry's crate, and a crate that
+is not a workspace member, are refused by cases in `xtask/tests/obligations_registry.rs`.
 
 ## Also in scope: one test id, one kind
 
