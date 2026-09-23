@@ -107,6 +107,11 @@ impl IncrementSecurityEpoch {
     /// the declared refusal when the generation is at its maximum — which fails closed, with
     /// no wrap and no reuse — and when another writer advanced the same target since
     /// `expected` was read.
+    ///
+    /// The tenancy check is not atomic with the write: it is a read before the
+    /// compare-and-set, whose token is the target's stream version, so a placement that
+    /// commits between the two is advanced past — the transactional behaviour
+    /// `decision-blocker:epoch-atomicity` owns.
     pub fn execute<W>(
         &self,
         epochs: &mut W,

@@ -19,8 +19,8 @@ use mandate_identity::{
     StreamVersion, TargetTenancy,
 };
 use mandate_types::{
-    Audience, CorrelationId, CredentialId, DenialReason, EpochSnapshotRef, OrganizationId,
-    PrincipalId, SecurityEpochTarget, SessionId, Timestamp, Uuid, VerifiedContext,
+    Audience, CorrelationId, CredentialId, EpochSnapshotRef, OrganizationId, PrincipalId,
+    SecurityEpochTarget, SessionId, Timestamp, Uuid, VerifiedContext,
 };
 
 fn uuid(tag: u8) -> Uuid {
@@ -86,8 +86,14 @@ impl SecurityEpochWrite for Interleaved {
     }
 }
 
+/// Pinned by the coordinator (correction round 1, F1) to the shipped behaviour: the tenancy read
+/// and the compare-and-set are two port calls with no shared token, so the interleaved increment
+/// is accepted and the generation moves 0 → 1. Making the check atomic with the write is the
+/// transactional behaviour `decision-blocker:epoch-atomicity` owns; this case flips to a
+/// `TenantMismatch` refusal with an unmoved generation when that blocker is answered.
 #[test]
-fn a_placement_committing_between_the_tenancy_read_and_the_compare_and_set_is_not_advanced_past() {
+fn a_placement_committing_between_the_tenancy_read_and_the_compare_and_set_is_advanced_past_until_epoch_atomicity()
+ {
     let target = SecurityEpochTarget::Principal(principal());
     let mut log = IdentityLog::new().with_as_of(Timestamp::new("2026-09-18T00:00:00Z"));
     for stated in [
@@ -127,8 +133,9 @@ fn a_placement_committing_between_the_tenancy_read_and_the_compare_and_set_is_no
     ];
     let mut port = Interleaved { log, landing };
 
-    let decided =
-        IncrementSecurityEpoch::new(context(), target.clone()).execute(&mut port, expected);
+    let decided = IncrementSecurityEpoch::new(context(), target.clone())
+        .execute(&mut port, expected)
+        .map_err(|denial| denial.reason());
 
     assert_eq!(
         port.log.organizations_of(&target),
@@ -142,16 +149,21 @@ fn a_placement_committing_between_the_tenancy_read_and_the_compare_and_set_is_no
         .recorded(&target)
         .expect("the snapshot names the principal");
     assert_eq!(
-        port.log.current(&target).generation(),
         bound,
-        "a caller verified in {:?} advanced a generation the other organization's fresh \
-         session is bound to (execute returned {decided:?}); the tenancy read is not covered \
-         by the compare-and-set token",
-        caller_organization(),
+        Generation::ZERO,
+        "the fresh session is bound to generation 0"
+    );
+    assert!(
+        decided.is_ok(),
+        "the interleaved increment was refused ({decided:?}); the tenancy read is now covered \
+         by the write's token, so decision-blocker:epoch-atomicity has been answered and this \
+         pin must flip to a TenantMismatch refusal with an unmoved generation"
     );
     assert_eq!(
-        decided.map_err(|denial| denial.reason()).err(),
-        Some(DenialReason::TenantMismatch),
-        "the increment was not refused for tenancy"
+        port.log.current(&target).generation(),
+        Generation::new(1).expect("a non-negative generation"),
+        "the interleaved increment advanced the generation 0 -> 1 past the other organization's \
+         fresh session; this is the unatomic check decision-blocker:epoch-atomicity owns, and the \
+         assertion flips when that blocker is answered"
     );
 }

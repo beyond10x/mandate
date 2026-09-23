@@ -940,6 +940,11 @@ impl crate::TargetTenancy for IdentityLog {
     /// snapshot recording, the two openings and the provisioning. Each is read through the
     /// same seam the fold reads it through, so a payload the fold materializes nothing from
     /// places nothing either.
+    ///
+    /// Only this log is read. A federation connection is owned by `mandate.federation`, and one
+    /// that no snapshot, login or provisioning here names is placed in no organization, so any
+    /// caller's increment of it is accepted; no session is bound to its generation until a
+    /// record here names it.
     fn organizations_of(&self, target: &SecurityEpochTarget) -> Vec<OrganizationId> {
         if let SecurityEpochTarget::Organization(id) = target {
             return vec![*id];
