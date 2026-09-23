@@ -15,18 +15,18 @@
 use std::collections::BTreeSet;
 use std::fs;
 
-use mandate_server::routes::{self, Binding, Document, Method, ROUTES};
+use mandate_server::routes::{self, Binding, Document, Method, ROUTES, RelyingPartyStep};
 
 const OPENAPI: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../generated/openapi");
 
 #[test]
-fn the_table_carries_the_four_road_routes_and_the_two_documents() {
-    assert_eq!(ROUTES.len(), 6);
+fn the_table_carries_the_four_road_routes_the_two_documents_and_the_three_relying_party_steps() {
+    assert_eq!(ROUTES.len(), 9);
     let commands: Vec<&str> = ROUTES
         .iter()
         .filter_map(|route| match route.binds {
             Binding::Command(command) => Some(command),
-            Binding::Document(_) => None,
+            Binding::Document(_) | Binding::RelyingParty(_) => None,
         })
         .collect();
     assert_eq!(
@@ -42,12 +42,39 @@ fn the_table_carries_the_four_road_routes_and_the_two_documents() {
         .iter()
         .filter_map(|route| match route.binds {
             Binding::Document(document) => Some(document),
-            Binding::Command(_) => None,
+            Binding::Command(_) | Binding::RelyingParty(_) => None,
         })
         .collect();
     assert_eq!(
         documents,
         vec![Document::AuthorizationServerMetadata, Document::Jwks]
+    );
+    let steps: Vec<(Method, &str, RelyingPartyStep)> = ROUTES
+        .iter()
+        .filter_map(|route| match route.binds {
+            Binding::RelyingParty(step) => Some((route.method, route.path, step)),
+            Binding::Command(_) | Binding::Document(_) => None,
+        })
+        .collect();
+    assert_eq!(
+        steps,
+        vec![
+            (
+                Method::Get,
+                "/v1/federation/authorize",
+                RelyingPartyStep::Authorize
+            ),
+            (
+                Method::Get,
+                "/v1/federation/callback",
+                RelyingPartyStep::Callback
+            ),
+            (
+                Method::Post,
+                "/v1/federation/handoff",
+                RelyingPartyStep::Handoff
+            ),
+        ]
     );
 }
 
