@@ -3,5 +3,5 @@
   "test_target": "adversary_transaction_1",
   "test": "the_command_path_presents_the_version_it_read_and_the_append_compares_it_both_ways",
   "kill": "test-fails",
-  "anchor": "services/sts/src/store.rs:602"
+  "anchor": "services/sts/src/store.rs:670"
 }

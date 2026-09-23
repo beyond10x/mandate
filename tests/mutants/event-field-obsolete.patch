@@ -1,7 +1,7 @@
 diff --git a/services/sts/src/issue.rs b/services/sts/src/issue.rs
 --- a/services/sts/src/issue.rs
 +++ b/services/sts/src/issue.rs
-@@ -376,7 +376,7 @@ where
+@@ -378,7 +378,7 @@ where
              context: input.context.clone(),
              credential_id,
              reference_verifier: Some(reference_verifier),
