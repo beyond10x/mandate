@@ -75,6 +75,7 @@ use mandate_types::{
 };
 
 use crate::record::FederationConnection;
+pub use crate::verifier::ClaimType;
 use crate::verifier::VerifiedProof;
 use crate::{DenialClause, Denied, FederationVerifier};
 
@@ -870,6 +871,26 @@ pub enum RefusalReason {
     SubjectAbsent,
     /// The `sub` claim is longer than OIDC admits.
     SubjectTooLong,
+    /// The claim the connection's tenant rule names arrived as a JSON value that is not a
+    /// string, and tenant resolution found no match for it and no other refusal owed first.
+    ///
+    /// Recorded when [`crate::authenticate`] reports it through
+    /// [`FederationVerifier::tenant_claim_refused`], never at verification: the verifier
+    /// only carries the type on the [`VerifiedProof`], so the subject checks and the
+    /// unverified-fallback analysis keep their answers.
+    TenantClaimNotText(ClaimType),
+}
+
+/// The type of `value`, or `None` when it is a string.
+fn claim_type_of(value: &serde_json::Value) -> Option<ClaimType> {
+    match value {
+        serde_json::Value::String(_) => None,
+        serde_json::Value::Number(_) => Some(ClaimType::Number),
+        serde_json::Value::Array(_) => Some(ClaimType::Array),
+        serde_json::Value::Object(_) => Some(ClaimType::Object),
+        serde_json::Value::Bool(_) => Some(ClaimType::Boolean),
+        serde_json::Value::Null => Some(ClaimType::Null),
+    }
 }
 
 impl fmt::Display for RefusalReason {
@@ -1330,8 +1351,18 @@ impl<S: JwksSource, C: Clock> RealVerifier<S, C> {
             ExternalSubject::new(subject),
             ClientId::new(audience),
         );
+        let tenant_claim = connection.tenant_resolution.verified_claim_name.as_deref();
         for (name, value) in claims {
             let serde_json::Value::String(carried) = value else {
+                // Only the claim this connection's tenant rule reads has its type carried:
+                // `iat`, `auth_time` and every other non-string claim are ordinary, and
+                // resolution never reads them. Carried, not refused — whether it refuses
+                // is step 6's, after the subject checks and the fallback analysis.
+                if tenant_claim == Some(name.as_str())
+                    && let Some(kind) = claim_type_of(value)
+                {
+                    verified = verified.with_claim_type(name, kind);
+                }
                 continue;
             };
             verified = if issuer_verified(claims, name) {
@@ -1358,6 +1389,10 @@ impl<S: JwksSource, C: Clock> FederationVerifier for RealVerifier<S, C> {
             self.record(reason);
             refused(reason)
         })
+    }
+
+    fn tenant_claim_refused(&self, kind: ClaimType) {
+        self.record(RefusalReason::TenantClaimNotText(kind));
     }
 }
 
@@ -1387,6 +1422,13 @@ fn refused(reason: RefusalReason) -> Denied {
             DenialReason::AudienceMismatch,
             DenialClause::AudienceBinding,
         ),
+        // Never produced by `validate`: the reason is recorded by `tenant_claim_refused`,
+        // which `resolve_tenant` calls only on the path where it answers `TenantZero` for
+        // the selected connection. The arm is here because the match is exhaustive, and
+        // it names the denial that path returns.
+        RefusalReason::TenantClaimNotText(_) => {
+            Denied::new(DenialReason::TenantMismatch, DenialClause::TenantZero)
+        }
         RefusalReason::MalformedToken
         | RefusalReason::UnexpectedTokenType
         | RefusalReason::CriticalHeaderUnread

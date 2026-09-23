@@ -25,6 +25,7 @@ use mandate_sts::binding::{RecordedSessions, SessionBinding};
 use mandate_sts::code::{
     AuthorizationCodeParts, CodeIssuance, CodeLifetime, IssueAuthorizationCode, RecordedClients,
 };
+use mandate_sts::exchange::{ExchangeCredential, ExchangeParts, exchange_credential};
 use mandate_sts::issue::{
     IssueReferenceCredential, IssueSelfContainedCredential, ReferenceParts, SelfContainedParts,
     Sha256Digest, StaticSigner, issue_reference_credential, issue_self_contained_credential,
@@ -67,6 +68,7 @@ use serde_json::{Value, json};
 const REGISTER_SERVER: &str = "mandate.credential.RegisterResourceServer";
 const DISABLE_SERVER: &str = "mandate.credential.DisableResourceServer";
 const ISSUE_REFERENCE: &str = "mandate.credential.IssueReferenceCredential";
+const EXCHANGE: &str = "mandate.credential.ExchangeCredential";
 const ISSUE_SELF_CONTAINED: &str = "mandate.credential.IssueSelfContainedCredential";
 const INTROSPECT: &str = "mandate.credential.IntrospectCredential";
 const REVOKE_CREDENTIAL: &str = "mandate.credential.RevokeAccessCredential";
@@ -1320,4 +1322,135 @@ fn every_refused_redemption_emits_nothing_through_the_outcome_it_names() {
         CodeProjection::fold(&code_log).expect("the same log"),
         consumed
     );
+}
+
+// --- ExchangeCredential ------------------------------------------------------------------
+
+/// A source `S`, a target `T` admitting it, and one reference credential for `S`, through
+/// the real handlers: the log, the fold, the subject credential and the target.
+fn exchangeable() -> (
+    Projection,
+    Vec<CredentialEvent>,
+    mandate_types::CredentialSecret,
+    ResourceServerId,
+    SequentialAllocator,
+) {
+    let mut allocator = SequentialAllocator::new();
+    let mut held = Projection::default();
+    let mut log = Vec::new();
+    let source = register_resource_server(
+        &registration(organization(10), "api-s", reference_profile()),
+        &held,
+        &mut allocator,
+    )
+    .expect("a free audience");
+    held.apply(&source.event).expect("a readable registration");
+    log.push(source.event);
+    let target = register_resource_server(
+        &RegisterResourceServer {
+            allowed_exchange_sources: vec![source.resource_server_id],
+            ..registration(organization(10), "platform-api", reference_profile())
+        },
+        &held,
+        &mut allocator,
+    )
+    .expect("a free audience admitting an enabled source");
+    held.apply(&target.event).expect("a readable registration");
+    log.push(target.event);
+    let issued = issue_reference_credential(
+        &IssueReferenceCredential {
+            context: context(organization(10)),
+            target: source.resource_server_id,
+            requested_scope: scope(),
+        },
+        &request(),
+        &held,
+        ReferenceParts {
+            digest: &Sha256Digest,
+            secrets: &mut CountingSecrets::new(),
+            allocator: &mut allocator,
+        },
+    )
+    .expect("an issuance for the source");
+    held.apply(&issued.event).expect("a readable issuance");
+    log.push(issued.event);
+    (
+        held,
+        log,
+        issued.credential,
+        target.resource_server_id,
+        allocator,
+    )
+}
+
+#[test]
+fn exchange_credential_emits_exactly_the_declared_event() {
+    let (held, _, subject, target, mut allocator) = exchangeable();
+    let input = ExchangeCredential {
+        subject_proof: CredentialProof::from_bytes(subject.expose_bytes().to_vec()),
+        actor_proof: None,
+        target,
+        requested_scope: scope(),
+        delegation_id: None,
+    };
+    let outcome = exchange_credential(
+        &input,
+        &request(),
+        &held,
+        ExchangeParts {
+            digest: &Sha256Digest,
+            resolution: &held,
+            secrets: &mut CountingSecrets::new(),
+            allocator: &mut allocator,
+        },
+    )
+    .expect("the target admits the source");
+    assert!(
+        outcome.epochs.is_some(),
+        "the subject credential's snapshot travels"
+    );
+    accepted(
+        EXCHANGE,
+        &encoded(&input),
+        Some(&json!({
+            "credential_id": encoded(&outcome.credential_id),
+            "descriptor": encoded(&outcome.descriptor),
+            "epochs": encoded(&outcome.epochs),
+        })),
+        &outcome.event,
+    );
+}
+
+/// The declared `denied` outcome emits nothing. What the refusal carries beside it is the
+/// `TokenExchangeDenied` record, which no outcome emits and which is decided against its
+/// own generated payload here.
+#[test]
+fn a_refused_exchange_emits_nothing_through_its_outcome_and_its_record_conforms() {
+    let (held, log, subject, _, mut allocator) = exchangeable();
+    let refused_exchange = exchange_credential(
+        &ExchangeCredential {
+            subject_proof: CredentialProof::from_bytes(subject.expose_bytes().to_vec()),
+            actor_proof: None,
+            target: ResourceServerId::new(uuid(0x99)),
+            requested_scope: scope(),
+            delegation_id: None,
+        },
+        &request(),
+        &held,
+        ExchangeParts {
+            digest: &Sha256Digest,
+            resolution: &held,
+            secrets: &mut CountingSecrets::new(),
+            allocator: &mut allocator,
+        },
+    )
+    .expect_err("no event registered that target");
+    refused(EXCHANGE, &refused_exchange.denied);
+    let record = encoded(&refused_exchange.event);
+    assert_eq!(
+        refused_exchange.event.ess_name(),
+        "mandate.credential.TokenExchangeDenied"
+    );
+    assert_event_conforms(refused_exchange.event.ess_name(), &record);
+    assert_eq!(Projection::fold(&log).expect("the same log"), held);
 }

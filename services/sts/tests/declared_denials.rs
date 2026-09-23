@@ -42,6 +42,7 @@ use mandate_sts::binding::{RecordedSessions, SessionBinding, fresh_session};
 use mandate_sts::code::{
     AuthorizationCodeParts, CodeIssuance, CodeLifetime, IssueAuthorizationCode, RecordedClients,
 };
+use mandate_sts::exchange::{ExchangeCredential, ExchangeParts, exchange_credential};
 use mandate_sts::issue::{
     IssuanceSigner, IssueReferenceCredential, IssueSelfContainedCredential, ReferenceParts,
     SelfContainedParts, Sha256Digest, StaticSigner, issue_reference_credential,
@@ -243,6 +244,67 @@ const ROWS: &[(&str, DenialClause, Source)] = &[
         "mandate.credential.IntrospectCredential",
         DenialClause::OrganizationMismatch,
         Source::DenialPhrase("for the registered server/tenant"),
+    ),
+    // --- ExchangeCredential, subject-only (`story:federated-token-exchange`)
+    (
+        "mandate.credential.ExchangeCredential",
+        DenialClause::ProofMalformed,
+        Source::DenialPhrase("proof is invalid"),
+    ),
+    (
+        "mandate.credential.ExchangeCredential",
+        DenialClause::SubjectTokenInvalid,
+        Source::DenialPhrase("invalid/revoked/expired/stale"),
+    ),
+    // The subject proof could not be validated at all: the declared denial's first clause is
+    // an "independently validated proof", and one the resolution cannot reach is not one.
+    (
+        "mandate.credential.ExchangeCredential",
+        DenialClause::ResolutionUnavailable,
+        Source::DenialPhrase("independently validated proof"),
+    ),
+    // Subject-only refuses every delegation, so it refuses the transitive one the contract
+    // names; the actor half of the same refusal falls under "actor, tenant", which the
+    // tenant row below already quotes.
+    (
+        "mandate.credential.ExchangeCredential",
+        DenialClause::ExchangeNotSubjectOnly,
+        Source::DenialPhrase("transitive delegation is requested"),
+    ),
+    (
+        "mandate.credential.ExchangeCredential",
+        DenialClause::TargetUnregistered,
+        Source::DenialPhrase("registered target/source"),
+    ),
+    (
+        "mandate.credential.ExchangeCredential",
+        DenialClause::TargetDisabled,
+        Source::DenialPhrase("registered target/source"),
+    ),
+    (
+        "mandate.credential.ExchangeCredential",
+        DenialClause::OrganizationMismatch,
+        Source::DenialPhrase("actor, tenant"),
+    ),
+    (
+        "mandate.credential.ExchangeCredential",
+        DenialClause::ProfileUnadmitted,
+        Source::DenialPhrase("registered target/source"),
+    ),
+    (
+        "mandate.credential.ExchangeCredential",
+        DenialClause::SourceUnadmitted,
+        Source::DenialPhrase("registered target/source"),
+    ),
+    (
+        "mandate.credential.ExchangeCredential",
+        DenialClause::ScopeNotNarrowed,
+        Source::DenialPhrase("scope, space"),
+    ),
+    (
+        "mandate.credential.ExchangeCredential",
+        DenialClause::ExpiryUnbounded,
+        Source::DenialPhrase("authority/expiry narrowing"),
     ),
     // --- RevokeAccessCredential
     (
@@ -2101,4 +2163,173 @@ fn every_refusal_the_three_key_commands_produce_has_a_row() {
             revoke(SigningKeyId::new(uuid(0x71))),
         ],
     );
+}
+
+// --- ExchangeCredential, driven through the real handler ---------------------------------
+
+fn exchange_registration(
+    id: u8,
+    organization_id: OrganizationId,
+    audience: &str,
+    profile: CredentialProfile,
+    sources: Vec<ResourceServerId>,
+) -> CredentialEvent {
+    CredentialEvent::ResourceServerRegistered {
+        context: context(organization_id),
+        id: ResourceServerId::new(uuid(id)),
+        audience: Audience::new(audience),
+        credential_profile: profile,
+        allowed_exchange_sources: sources,
+    }
+}
+
+#[test]
+fn every_refusal_exchange_credential_produces_has_a_row() {
+    let source = ResourceServerId::new(uuid(0x50));
+    let subject_proof = CredentialProof::from_bytes(b"subject".to_vec());
+    let held = Projection::fold(&[
+        exchange_registration(
+            0x50,
+            organization(10),
+            "api-s",
+            reference_profile(),
+            Vec::new(),
+        ),
+        exchange_registration(
+            0x51,
+            organization(10),
+            "platform-api",
+            reference_profile(),
+            vec![source],
+        ),
+        exchange_registration(
+            0x52,
+            organization(10),
+            "disabled-api",
+            reference_profile(),
+            vec![source],
+        ),
+        exchange_registration(
+            0x53,
+            organization(11),
+            "other-api",
+            reference_profile(),
+            Vec::new(),
+        ),
+        exchange_registration(
+            0x54,
+            organization(10),
+            "signed-api",
+            self_contained_profile(),
+            vec![source],
+        ),
+        exchange_registration(
+            0x55,
+            organization(10),
+            "closed-api",
+            reference_profile(),
+            Vec::new(),
+        ),
+        CredentialEvent::ResourceServerDisabled {
+            context: context(organization(10)),
+            id: ResourceServerId::new(uuid(0x52)),
+        },
+        issuance_event(
+            CredentialId::new(uuid(0xc1)),
+            source,
+            organization(10),
+            "api-s",
+            verifier_for(&Sha256Digest, &subject_proof),
+        ),
+    ])
+    .expect("a readable history");
+    let input = |target: u8| ExchangeCredential {
+        subject_proof: subject_proof.clone(),
+        actor_proof: None,
+        target: ResourceServerId::new(uuid(target)),
+        requested_scope: scope(),
+        delegation_id: None,
+    };
+    let over_fold = |input: &ExchangeCredential, request: &RequestContext| {
+        exchange_credential(
+            input,
+            request,
+            &held,
+            ExchangeParts {
+                digest: &Sha256Digest,
+                resolution: &held,
+                secrets: &mut CountingSecrets::new(),
+                allocator: &mut SequentialAllocator::new(),
+            },
+        )
+        .expect_err("the exchange is refused")
+        .denied
+    };
+    let unreachable = |input: &ExchangeCredential, request: &RequestContext| {
+        exchange_credential(
+            input,
+            request,
+            &held,
+            ExchangeParts {
+                digest: &Sha256Digest,
+                resolution: &Unreachable,
+                secrets: &mut CountingSecrets::new(),
+                allocator: &mut SequentialAllocator::new(),
+            },
+        )
+        .expect_err("the exchange is refused")
+        .denied
+    };
+
+    let mut malformed = input(0x51);
+    malformed.subject_proof = CredentialProof::from_bytes(Vec::new());
+    let mut unknown = input(0x51);
+    unknown.subject_proof = CredentialProof::from_bytes(b"nothing-issued-this".to_vec());
+    let mut with_actor = input(0x51);
+    with_actor.actor_proof = Some(subject_proof.clone());
+    let mut wider = input(0x51);
+    wider.requested_scope = AuthorityScope {
+        actions: vec![mandate_types::Action::new("admin")],
+        resources: Vec::new(),
+        space: None,
+    };
+    let undated = RequestContext {
+        correlation: CorrelationId::new("declared-denials"),
+        at: Timestamp::new("not-a-date-time"),
+        epochs: None,
+    };
+
+    let observed = [
+        over_fold(&malformed, &request()),
+        over_fold(&unknown, &request()),
+        unreachable(&input(0x51), &request()),
+        over_fold(&with_actor, &request()),
+        over_fold(&input(0x99), &request()),
+        over_fold(&input(0x52), &request()),
+        over_fold(&input(0x53), &request()),
+        over_fold(&input(0x54), &request()),
+        over_fold(&input(0x55), &request()),
+        over_fold(&wider, &request()),
+        over_fold(&input(0x51), &undated),
+    ];
+    assert_eq!(
+        observed
+            .iter()
+            .map(|denied| denied.clause)
+            .collect::<Vec<_>>(),
+        vec![
+            DenialClause::ProofMalformed,
+            DenialClause::SubjectTokenInvalid,
+            DenialClause::ResolutionUnavailable,
+            DenialClause::ExchangeNotSubjectOnly,
+            DenialClause::TargetUnregistered,
+            DenialClause::TargetDisabled,
+            DenialClause::OrganizationMismatch,
+            DenialClause::ProfileUnadmitted,
+            DenialClause::SourceUnadmitted,
+            DenialClause::ScopeNotNarrowed,
+            DenialClause::ExpiryUnbounded,
+        ]
+    );
+    assert_clauses_match_rows("mandate.credential.ExchangeCredential", &observed);
 }

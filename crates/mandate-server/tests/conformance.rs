@@ -28,6 +28,7 @@ use mandate_server::decode::{self, Request};
 use mandate_server::metadata;
 use mandate_server::obligations::{self, ROAD_COMMANDS, Wire};
 use mandate_server::routes::{self, Binding, Document, ROUTES};
+use mandate_types::CredentialProof;
 
 const OPENAPI: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../generated/openapi");
 
@@ -157,6 +158,34 @@ fn every_route_of_the_table_is_a_command_the_registry_serves_or_a_document_this_
             }
             Binding::Document(Document::Jwks) => {
                 assert_eq!(metadata::Jwks::empty().to_json(), r#"{"keys":[]}"#);
+            }
+            Binding::RelyingParty(routes::RelyingPartyStep::Authorize) => {
+                let request = Request::new("GET", &format!("{}?connection_id={UUID}", route.path));
+                assert_eq!(request.route_path(), route.path);
+                let input = decode::begin_federation(&request).unwrap();
+                assert_eq!(input.connection_id.to_string(), UUID);
+                assert_eq!(input.app_state, None);
+                assert!(input.bindings.is_empty());
+            }
+            Binding::RelyingParty(routes::RelyingPartyStep::Callback) => {
+                let request = Request::new("GET", &format!("{}?code=Zm9v&state=xyz", route.path));
+                assert_eq!(request.route_path(), route.path);
+                let input = decode::complete_federation(&request).unwrap();
+                assert_eq!(
+                    input.code.as_ref().map(CredentialProof::expose_bytes),
+                    Some(&b"Zm9v"[..])
+                );
+                assert_eq!(input.state, "xyz");
+                assert!(!input.error);
+                assert!(input.bindings.is_empty());
+            }
+            Binding::RelyingParty(routes::RelyingPartyStep::Handoff) => {
+                let request = Request::new("POST", route.path)
+                    .with_header("Content-Type", "application/json")
+                    .with_body(br#"{"handoff":"abc"}"#.to_vec());
+                assert_eq!(request.route_path(), route.path);
+                let input = decode::redeem_handoff(&request).unwrap();
+                assert_eq!(input.handoff, "abc");
             }
         }
     }

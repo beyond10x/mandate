@@ -12,6 +12,8 @@ Use Connectors for integrations; report a missing operation before an alternativ
 
 AEP 0.55.0 is the sole writer of `.engineering/planning`. ESS 0.26.0 `ess/4` in `systems/mandate` owns contracts; only ESS writes generated projections; ESS 0.26.0 refuses to overwrite output it does not own, so in a fresh checkout run `cargo xtask adopt` once before `cargo xtask generate`. Addendum refinements take precedence. See `docs/requirements.md` and `docs/architecture/unmapped.md`.
 
+No customer name and no name of the operator's employer enters this repository in any form — code, tests, fixtures, documents, planning-store artifacts, commit messages, pull requests, tags or release notes; use neutral terms such as "an external OIDC IdP" and "the downstream platform". The Gates private-identifiers check enforces it.
+
 Run `task check` before publication. Repository checkers and production executables are Rust. Preserve dependency direction. Authentication context comes from credential validation, never independent organization/audience selectors. Raw credentials must never enter logs, audit records, fixtures or persistent domain records.
 
 Python, shell and other scripting languages are for quick tests, probes and reviews only, and stay outside the repository: never commit a script as a persistent check, gate or tool. A check that is worth keeping is written in Rust — as an `xtask` step, a test, or a workspace binary.

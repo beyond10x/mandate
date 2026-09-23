@@ -31,6 +31,7 @@
 pub mod authenticate;
 pub mod authorize;
 pub mod disable;
+pub mod idp_token;
 pub mod link;
 pub mod pkce;
 pub mod publicclient;
@@ -411,6 +412,16 @@ pub trait FederationVerifier {
         connection: &FederationConnection,
         proof: &CredentialProof,
     ) -> Result<VerifiedProof, Denied>;
+
+    /// Told that tenant resolution refused a proof this verifier admitted because the
+    /// selected connection's rule names a claim that arrived as a non-string of type
+    /// `kind` — and only where no other refusal was owed first.
+    ///
+    /// Defaulted to nothing: an implementation that keeps no refusal log has nothing to
+    /// record, and the refusal itself is the command's either way.
+    fn tenant_claim_refused(&self, kind: verifier::ClaimType) {
+        let _ = kind;
+    }
 }
 
 /// What issuing a session produced.

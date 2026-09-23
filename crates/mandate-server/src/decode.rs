@@ -46,8 +46,9 @@
 
 use mandate_proto::oauth::{self, ErrorBody, ErrorCode, Form, FormError};
 use mandate_types::{
-    Action, AuthorityScope, AuthorizationCodeId, CredentialProof, FederationConnectionId,
-    OAuthClientId, PkceChallenge, PkceMethod, RedirectUri, ResourceServerId,
+    Action, Audience, AuthorityScope, AuthorizationCodeId, CredentialProof, DelegationId,
+    FederationConnectionId, OAuthClientId, PkceChallenge, PkceMethod, RedirectUri,
+    ResourceServerId,
 };
 
 /// The largest request body, and the largest query string, this module reads.
@@ -63,8 +64,25 @@ pub const FORM_MEDIA_TYPE: &str = "application/x-www-form-urlencoded";
 /// The media type of the federation login request.
 pub const JSON_MEDIA_TYPE: &str = "application/json";
 
-/// The only `grant_type` the token endpoint serves.
+/// The authorization-code `grant_type` (RFC 6749 section 4.1.3).
 pub const AUTHORIZATION_CODE_GRANT: &str = "authorization_code";
+
+/// The token-exchange `grant_type` (RFC 8693 section 2.1).
+pub const TOKEN_EXCHANGE_GRANT: &str = "urn:ietf:params:oauth:grant-type:token-exchange";
+
+/// The two `grant_type` values the token endpoint serves, in the order the metadata document
+/// advertises them.
+pub const TOKEN_GRANTS: &[&str] = &[AUTHORIZATION_CODE_GRANT, TOKEN_EXCHANGE_GRANT];
+
+/// The only token type a token exchange admits, as `subject_token_type` and as
+/// `requested_token_type` (RFC 8693 section 3): a Mandate access credential.
+pub const ACCESS_TOKEN_TYPE: &str = "urn:ietf:params:oauth:token-type:access_token";
+
+/// The URN prefix a `resource` names a registration by (RFC 4122 section 3, RFC 8707).
+///
+/// RFC 8707 requires `resource` to be an absolute URI; a registration identity is a UUID, and
+/// `urn:uuid:<uuid>` is the absolute URI of one.
+pub const RESOURCE_URN_PREFIX: &str = "urn:uuid:";
 
 /// The only `response_type` the authorization endpoint serves.
 pub const CODE_RESPONSE_TYPE: &str = "code";
@@ -192,8 +210,13 @@ pub enum Refusal {
     MissingField,
     /// A value was not the lexical form its declared type admits.
     MalformedField,
-    /// The `grant_type` is not [`AUTHORIZATION_CODE_GRANT`].
+    /// The `grant_type` is not one of [`TOKEN_GRANTS`].
     UnsupportedGrantType,
+    /// A token exchange named a `subject_token_type` or a `requested_token_type` other than
+    /// [`ACCESS_TOKEN_TYPE`].
+    UnsupportedTokenType,
+    /// A token exchange named its target twice: by `audience` and by `resource`.
+    TargetAmbiguous,
     /// The `response_type` is not [`CODE_RESPONSE_TYPE`].
     UnsupportedResponseType,
     /// No session proof was presented to the authorization endpoint.
@@ -246,6 +269,8 @@ impl Refusal {
         Self::MissingField,
         Self::MalformedField,
         Self::UnsupportedGrantType,
+        Self::UnsupportedTokenType,
+        Self::TargetAmbiguous,
         Self::UnsupportedResponseType,
         Self::MissingSessionProof,
         Self::MalformedSessionProof,
@@ -301,7 +326,13 @@ impl Refusal {
             Self::MissingField => "the request is missing a required parameter",
             Self::MalformedField => "a parameter is not in the form its declared type admits",
             Self::UnsupportedGrantType => {
-                "the token endpoint serves the authorization_code grant and no other"
+                "the token endpoint serves the authorization_code and token-exchange grants and no other"
+            }
+            Self::UnsupportedTokenType => {
+                "a token exchange admits the access_token token type and no other"
+            }
+            Self::TargetAmbiguous => {
+                "a token exchange names one target, by audience or by resource"
             }
             Self::UnsupportedResponseType => {
                 "the authorization endpoint serves the code response type and no other"
@@ -428,6 +459,65 @@ impl RedeemAuthorizationCode {
     ];
 }
 
+/// `mandate.credential.ExchangeCredential`, as RFC 8693's request presents it, subject-only.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExchangeCredential {
+    /// The declared `subject_proof`, from `subject_token`.
+    pub subject_proof: CredentialProof,
+    /// The declared `actor_proof`, from `actor_token`: `Some` whenever the request presents
+    /// an `actor_token` or an `actor_token_type`, so that the handler — which exchanges
+    /// subject-only (`story:federated-token-exchange`) — refuses it and records the refusal
+    /// (correction round 1, F3). A decoder refusal would record nothing.
+    ///
+    /// The material is carried as the bytes presented and never decoded or read: a proof
+    /// whose only use is to be refused has no form worth checking, and a check here would put
+    /// a decoder refusal back in front of the recorded one.
+    pub actor_proof: Option<CredentialProof>,
+    /// The declared `target`, from `audience` or `resource`: a registration identity, or the
+    /// audience name one holds.
+    pub target: ExchangeTarget,
+    /// The declared `requested_scope`, from `scope`.
+    pub requested_scope: AuthorityScope,
+    /// The declared `delegation_id`, which RFC 8693 has no parameter for. `None` on every
+    /// value this module produces.
+    pub delegation_id: Option<DelegationId>,
+}
+
+impl ExchangeCredential {
+    /// The declared input names this value carries, in contract order.
+    pub const DECLARED_INPUTS: &'static [&'static str] = &[
+        "subject_proof",
+        "actor_proof",
+        "target",
+        "requested_scope",
+        "delegation_id",
+    ];
+}
+
+/// How an exchange request names its target (RFC 8693 section 2.1, RFC 8707).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ExchangeTarget {
+    /// A registration identity, named as one: `resource=urn:uuid:<uuid>`.
+    Registration(ResourceServerId),
+    /// Every `audience`, and every `resource` that is not a `urn:uuid:` URI: RFC 8693's
+    /// "logical name of the target service" or RFC 8707's URI of it, carried as presented.
+    ///
+    /// The handler reads the text as a registration identity when a registration has that
+    /// identity, and otherwise resolves it as a name among the subject's organization's
+    /// registrations (final correction, F3 and F5). This module decides neither: it cannot
+    /// see a registration.
+    Audience(Audience),
+}
+
+/// What the token endpoint was asked for, by `grant_type`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TokenRequest {
+    /// `grant_type=authorization_code`: `mandate.credential.RedeemAuthorizationCode`.
+    AuthorizationCode(RedeemAuthorizationCode),
+    /// RFC 8693's grant: `mandate.credential.ExchangeCredential`.
+    TokenExchange(ExchangeCredential),
+}
+
 /// `mandate.credential.IntrospectCredential`, as the wire form presents it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IntrospectCredential {
@@ -455,13 +545,34 @@ pub const AUTHORIZE_PARAMETERS: &[&str] = &[
     "scope",
 ];
 
-/// The parameters the token endpoint admits, and nothing else.
+/// The parameters the token endpoint admits on the authorization-code grant, and nothing
+/// else.
 pub const TOKEN_PARAMETERS: &[&str] = &[
     "grant_type",
     "client_id",
     "code",
     "code_verifier",
     "redirect_uri",
+];
+
+/// The parameters the token endpoint admits on the token-exchange grant, and nothing else.
+///
+/// RFC 8693 section 2.1's request, less client authentication, because this is the
+/// public-client road (`token_endpoint_auth_methods_supported: ["none"]`). `actor_token` and
+/// `actor_token_type` are admitted so that an actor reaches the handler and is refused there,
+/// recorded (see [`ExchangeCredential::actor_proof`]). `scope` is required rather than
+/// optional: the declared `requested_scope` is not optional, and an absent one has no
+/// reading this module could supply without inventing authority.
+pub const EXCHANGE_PARAMETERS: &[&str] = &[
+    "grant_type",
+    "subject_token",
+    "subject_token_type",
+    "audience",
+    "resource",
+    "scope",
+    "requested_token_type",
+    "actor_token",
+    "actor_token_type",
 ];
 
 /// The parameters the introspection endpoint admits, and nothing else.
@@ -501,6 +612,242 @@ pub fn authenticate_federation(request: &Request) -> Result<AuthenticateFederati
         connection_id,
         proof,
     })
+}
+
+/// The relying-party authorize step, as the wire form presents it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BeginFederation {
+    /// The connection whose IdP the browser is sent to.
+    pub connection_id: FederationConnectionId,
+    /// The embedding application's own value, bound to the handoff this sign-in ends in and
+    /// presented again at `POST /v1/federation/handoff`.
+    pub app_state: Option<String>,
+    /// The bindings of the sign-ins this browser already holds, off its binding cookie.
+    pub bindings: Vec<String>,
+}
+
+/// The relying-party callback, as the IdP's redirect presents it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CompleteFederation {
+    /// The code the IdP issued, absent from an error response. A credential, and carried as
+    /// one.
+    pub code: Option<CredentialProof>,
+    /// The exact state the IdP returned.
+    pub state: String,
+    /// RFC 9207's `iss`, when the IdP sends one.
+    pub issuer: Option<String>,
+    /// Whether the IdP answered an error response (OIDC Core 3.1.2.6). Its text is not
+    /// carried: nothing an IdP writes there is rendered back.
+    pub error: bool,
+    /// The bindings the browser's [`FEDERATION_BINDING_COOKIE`] carries — one per sign-in it
+    /// holds — when it presented that cookie exactly once.
+    pub bindings: Vec<String>,
+}
+
+/// `POST /v1/federation/handoff`, as the embedding application presents it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RedeemHandoff {
+    /// The single-use code the callback sent the browser back with.
+    pub handoff: String,
+    /// The `app_state` the application started the sign-in with, when it started it with one.
+    pub app_state: Option<String>,
+}
+
+/// The cookie that binds relying-party sign-ins to the browser that started them.
+///
+/// `__Host-` (RFC 6265bis section 4.1.3.2): set only with `Secure`, `Path=/` and no
+/// `Domain`, so no other host and no plaintext response can set or shadow it.
+///
+/// **One cookie, one binding per sign-in the browser holds**, separated by
+/// [`FEDERATION_BINDING_SEPARATOR`], so two tabs signing in at once each keep theirs: an
+/// authorize step adds its binding to the ones the browser presented, and a callback removes
+/// the one it used up and leaves the others.
+pub const FEDERATION_BINDING_COOKIE: &str = "__Host-mandate-rp";
+
+/// What separates two bindings in the [`FEDERATION_BINDING_COOKIE`]'s value. Outside the
+/// base64url alphabet a binding is written in.
+pub const FEDERATION_BINDING_SEPARATOR: char = '.';
+
+/// The longest `app_state` the authorize step admits, in bytes.
+pub const MAX_APP_STATE_BYTES: usize = 256;
+
+/// The parameters the relying-party authorize step admits, and nothing else.
+pub const FEDERATION_AUTHORIZE_PARAMETERS: &[&str] = &["connection_id", "app_state"];
+
+/// The parameters the relying-party callback admits, and nothing else.
+///
+/// `code` and `state` are read. `iss` is RFC 9207's and is compared by the handler.
+/// `scope` and `session_state` are parameters IdPs add to a successful response; they are
+/// read and discarded, because refusing them would refuse a login an IdP completed.
+/// `error`, `error_description` and `error_uri` are an error response's (OIDC Core 3.1.2.6):
+/// the presence of `error` is read, and none of the three values is.
+pub const FEDERATION_CALLBACK_PARAMETERS: &[&str] = &[
+    "code",
+    "state",
+    "iss",
+    "scope",
+    "session_state",
+    "error",
+    "error_description",
+    "error_uri",
+];
+
+/// The members the handoff body admits, and nothing else.
+pub const HANDOFF_MEMBERS: &[&str] = &["handoff", "app_state"];
+
+/// Decode the relying-party authorize step from its query string and the binding cookie.
+///
+/// # Errors
+///
+/// Returns [`Refusal`] for another method, an oversized query, a presented body or caller
+/// credential, a repeated `Cookie` header, a malformed, repeated, undeclared or missing
+/// parameter, a `connection_id` that is not one, or an `app_state` that is empty, longer
+/// than [`MAX_APP_STATE_BYTES`] or outside RFC 3986's unreserved set.
+pub fn begin_federation(request: &Request) -> Result<BeginFederation, Refusal> {
+    entry(request, "GET", Reads::Query)?;
+    no_presented_credential(request)?;
+    let form = oauth::decode_form(request.query())?;
+    closed(&form, FEDERATION_AUTHORIZE_PARAMETERS)?;
+    let app_state = form.get("app_state").map(app_state).transpose()?;
+    Ok(BeginFederation {
+        connection_id: FederationConnectionId::parse(field(&form, "connection_id")?)
+            .map_err(|_| Refusal::MalformedField)?,
+        app_state,
+        bindings: bindings(request)?,
+    })
+}
+
+/// Decode the relying-party callback from the query the IdP redirected with and the
+/// browser-binding cookie.
+///
+/// An error response decodes — carrying its `state` and nothing of its text — so the
+/// handler can take that state once and refuse. A callback carrying neither `code` nor
+/// `error` is refused here.
+///
+/// # Errors
+///
+/// Returns [`Refusal`] for another method, an oversized query, a presented body or caller
+/// credential, a repeated `Cookie` header, a malformed, repeated, undeclared or missing
+/// parameter, or a free-text value that is too long or carries a control character.
+pub fn complete_federation(request: &Request) -> Result<CompleteFederation, Refusal> {
+    entry(request, "GET", Reads::Query)?;
+    no_presented_credential(request)?;
+    let form = oauth::decode_form(request.query())?;
+    closed(&form, FEDERATION_CALLBACK_PARAMETERS)?;
+    let error = form.get("error").is_some();
+    let code = match form.get("code") {
+        Some(_) => {
+            let code = free_text(&form, "code")?;
+            if code.is_empty() {
+                return Err(Refusal::MalformedField);
+            }
+            Some(CredentialProof::from_bytes(code.into_bytes()))
+        }
+        None if error => None,
+        None => return Err(Refusal::MissingField),
+    };
+    let issuer = match form.get("iss") {
+        Some(_) => Some(free_text(&form, "iss")?),
+        None => None,
+    };
+    Ok(CompleteFederation {
+        code,
+        state: free_text(&form, "state")?,
+        issuer,
+        error,
+        bindings: bindings(request)?,
+    })
+}
+
+/// Decode `POST /v1/federation/handoff` from its JSON body.
+///
+/// # Errors
+///
+/// Returns [`Refusal`] for another method or media type, an oversized or non-UTF-8 body, a
+/// presented caller credential, a body that is not a flat JSON object of strings, an
+/// undeclared or missing member, a value that is too long or carries a control character, or
+/// an `app_state` outside the form the authorize step admits.
+pub fn redeem_handoff(request: &Request) -> Result<RedeemHandoff, Refusal> {
+    entry(request, "POST", Reads::Body)?;
+    let body = require_body(request, JSON_MEDIA_TYPE)?;
+    no_presented_credential(request)?;
+    let members = oauth::flat_object(body).map_err(|_| Refusal::MalformedBody)?;
+    for (name, _) in &members {
+        if !HANDOFF_MEMBERS.contains(&name.as_str()) {
+            return Err(Refusal::UndeclaredField);
+        }
+    }
+    let handoff = member(&members, "handoff")?;
+    if handoff.is_empty() {
+        return Err(Refusal::MalformedField);
+    }
+    if handoff.len() > MAX_TEXT_BYTES {
+        return Err(Refusal::TextTooLong);
+    }
+    if handoff.chars().any(char::is_control) {
+        return Err(Refusal::ControlCharacter);
+    }
+    let app_state = match member(&members, "app_state") {
+        Ok(value) => Some(app_state(value)?),
+        Err(_) => None,
+    };
+    Ok(RedeemHandoff {
+        handoff: handoff.to_owned(),
+        app_state,
+    })
+}
+
+/// An `app_state`, in the form the authorize step admits: non-empty, at most
+/// [`MAX_APP_STATE_BYTES`], and RFC 3986's unreserved set alone, so it is written into a
+/// `Location` query as it stands.
+fn app_state(value: &str) -> Result<String, Refusal> {
+    if value.is_empty() {
+        return Err(Refusal::MalformedField);
+    }
+    if value.len() > MAX_APP_STATE_BYTES {
+        return Err(Refusal::TextTooLong);
+    }
+    if !value
+        .bytes()
+        .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~'))
+    {
+        return Err(Refusal::MalformedField);
+    }
+    Ok(value.to_owned())
+}
+
+/// The bindings the request's [`FEDERATION_BINDING_COOKIE`] carries: none when the cookie is
+/// absent or named twice, and only the members in the base64url alphabet a binding is
+/// written in.
+fn bindings(request: &Request) -> Result<Vec<String>, Refusal> {
+    Ok(request
+        .single_header("Cookie")?
+        .and_then(|cookies| cookie(cookies, FEDERATION_BINDING_COOKIE))
+        .map(|value| {
+            value
+                .split(FEDERATION_BINDING_SEPARATOR)
+                .filter(|binding| {
+                    !binding.is_empty()
+                        && binding
+                            .bytes()
+                            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+                })
+                .map(ToOwned::to_owned)
+                .collect()
+        })
+        .unwrap_or_default())
+}
+
+/// The value of the cookie `name` in a `Cookie` header, when the header names it exactly
+/// once. Named twice is answered as not presented: a rule for picking one of two values is a
+/// rule an attacker can aim at a reader that picked the other.
+fn cookie(header: &str, name: &str) -> Option<String> {
+    let mut found = header.split(';').filter_map(|pair| {
+        let (key, value) = pair.trim().split_once('=')?;
+        (key == name).then(|| value.to_owned())
+    });
+    let first = found.next()?;
+    found.next().is_none().then_some(first)
 }
 
 /// Decode `mandate.federation.AuthorizePublicClient` from its query string and its bearer
@@ -585,6 +932,93 @@ pub fn redeem_authorization_code(request: &Request) -> Result<RedeemAuthorizatio
         code: credential(field(&form, "code")?)?,
         pkce_verifier: CredentialProof::from_bytes(verifier.as_bytes().to_vec()),
         redirect_uri: RedirectUri::new(free_text(&form, "redirect_uri")?),
+    })
+}
+
+/// Decode the token endpoint's request, dispatching on its `grant_type`.
+///
+/// The grant is read first and each grant's own decoder decides the rest, so each grant's
+/// parameter set is closed on its own: a code-grant parameter on an exchange, and an exchange
+/// parameter on a code grant, are both undeclared.
+///
+/// # Errors
+///
+/// Returns [`Refusal`] for anything [`entry`] refuses, a missing media type or an oversized
+/// or non-UTF-8 body, a malformed or repeated parameter, a missing `grant_type`, a
+/// `grant_type` outside [`TOKEN_GRANTS`], and whatever the grant's own decoder refuses.
+pub fn token_request(request: &Request) -> Result<TokenRequest, Refusal> {
+    entry(request, "POST", Reads::Body)?;
+    let body = require_body(request, FORM_MEDIA_TYPE)?;
+    let form = oauth::decode_form(body)?;
+    match field(&form, "grant_type")? {
+        AUTHORIZATION_CODE_GRANT => {
+            redeem_authorization_code(request).map(TokenRequest::AuthorizationCode)
+        }
+        TOKEN_EXCHANGE_GRANT => exchange_credential(request).map(TokenRequest::TokenExchange),
+        _ => Err(Refusal::UnsupportedGrantType),
+    }
+}
+
+/// Decode `mandate.credential.ExchangeCredential` from RFC 8693 section 2.1's request.
+///
+/// The subject token is a Mandate access credential in its declared base64 form, typed
+/// [`ACCESS_TOKEN_TYPE`]. The target is named by `audience` — a registration identity, or the
+/// audience name a registration holds — or by `resource` as a registration identity's
+/// `urn:uuid:` URI: exactly one of the two, because a request naming two targets is not a
+/// request for one credential. The audience the issued credential carries is the
+/// registration's own, never this parameter's text.
+///
+/// # Errors
+///
+/// Returns [`Refusal`] for another method or media type, an oversized or non-UTF-8 body, a
+/// presented client credential, a malformed, repeated or undeclared parameter, a missing
+/// parameter, a `grant_type` other than [`TOKEN_EXCHANGE_GRANT`], a token type other than
+/// [`ACCESS_TOKEN_TYPE`], a target named twice or in neither form, a `urn:uuid:` resource that
+/// names no UUID, an audience or resource that is too long or carries a control character, and a value outside the lexical form its declared type admits. An actor is not
+/// among them: it reaches the handler.
+pub fn exchange_credential(request: &Request) -> Result<ExchangeCredential, Refusal> {
+    entry(request, "POST", Reads::Body)?;
+    let body = require_body(request, FORM_MEDIA_TYPE)?;
+    no_presented_credential(request)?;
+    let form = oauth::decode_form(body)?;
+    closed(&form, EXCHANGE_PARAMETERS)?;
+    if field(&form, "grant_type")? != TOKEN_EXCHANGE_GRANT {
+        return Err(Refusal::UnsupportedGrantType);
+    }
+    if field(&form, "subject_token_type")? != ACCESS_TOKEN_TYPE {
+        return Err(Refusal::UnsupportedTokenType);
+    }
+    if form
+        .get("requested_token_type")
+        .is_some_and(|requested| requested != ACCESS_TOKEN_TYPE)
+    {
+        return Err(Refusal::UnsupportedTokenType);
+    }
+    let target = match (form.get("audience"), form.get("resource")) {
+        (Some(_), Some(_)) => return Err(Refusal::TargetAmbiguous),
+        (None, None) => return Err(Refusal::MissingField),
+        (Some(_), None) => ExchangeTarget::Audience(Audience::new(free_text(&form, "audience")?)),
+        (None, Some(resource)) => match resource.strip_prefix(RESOURCE_URN_PREFIX) {
+            // A `urn:uuid:` names an identity, and one that names no UUID is a malformed
+            // target: still this module's refusal.
+            Some(id) => ExchangeTarget::Registration(
+                ResourceServerId::parse(id).map_err(|_| Refusal::MalformedField)?,
+            ),
+            None => ExchangeTarget::Audience(Audience::new(free_text(&form, "resource")?)),
+        },
+    };
+    let actor_proof = match (form.get("actor_token"), form.get("actor_token_type")) {
+        (None, None) => None,
+        (token, _) => Some(CredentialProof::from_bytes(
+            token.unwrap_or_default().as_bytes().to_vec(),
+        )),
+    };
+    Ok(ExchangeCredential {
+        subject_proof: credential(field(&form, "subject_token")?)?,
+        actor_proof,
+        target,
+        requested_scope: requested_scope(&free_text(&form, "scope")?),
+        delegation_id: None,
     })
 }
 

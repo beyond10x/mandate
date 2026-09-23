@@ -899,6 +899,16 @@ fn every_port_method_the_substituted_reader_implements_counts_its_read() {
             }),
         ),
         (
+            "ResourceServerReads::registrations_holding",
+            Box::new(|r: &Substituted| {
+                let _ = ResourceServerReads::registrations_holding(
+                    r,
+                    &OrganizationId::new(identity(0x32)),
+                    &Audience::new("audience".to_owned()),
+                );
+            }),
+        ),
+        (
             "ResourceServerReads::admits_audience",
             Box::new(|r: &Substituted| {
                 let _ = ResourceServerReads::admits_audience(

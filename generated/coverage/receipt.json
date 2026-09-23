@@ -3,8 +3,8 @@
   "counts": {
     "command": {
       "declared": 2,
-      "deferred": 18,
-      "implemented": 41
+      "deferred": 17,
+      "implemented": 42
     },
     "entity": {
       "declared": 10,
@@ -17,8 +17,8 @@
     },
     "event": {
       "declared": 3,
-      "deferred": 34,
-      "implemented": 37
+      "deferred": 32,
+      "implemented": 39
     },
     "type": {
       "declared": 14,
@@ -29,6 +29,6 @@
   "ess_version": "ess 0.26.0",
   "format": "mandate-coverage-receipt/1",
   "ir_digest": "cfceb89e729c771fe35b39f5270ab9ff874a878ae7a9cc17cbe6b88ccb1da2cf",
-  "manifest_digest": "972368bd6e45c438fe2547821934154df4a1d411db61d39cab1a80c779164670",
+  "manifest_digest": "7137d06813d3a15f9a5220bc99caa3e1e518754ed92ad9c7ff8e06624a49d474",
   "source_digest": "d9508499168fb0dca863950a1496e0edc658e8403870238e8de4ac92210e7de9"
 }

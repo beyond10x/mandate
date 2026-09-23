@@ -33,8 +33,9 @@ This is a development milestone, not a deployable service. The
 [use-case registry](https://github.com/beyond10x/mandate/blob/main/contracts/use-cases/federated-login.json)
 records each gap with what it costs; in short:
 
-- **No transport security.** Every proof, session identifier, authorization code and credential on
-  this road crosses the network in the clear. No customer may be put on it.
+- **No TLS in the process.** The listener speaks plain HTTP. Behind an ingress that terminates TLS
+  the external leg is encrypted and the hop from the ingress to the process is not; without one,
+  every proof, session identifier, authorization code and credential crosses the network in the clear.
 - **No persistence.** A restart loses every session, every unredeemed authorization code, every
   credential and every link a first login provisioned. The deployment is configured per process and
   remembers nothing across one.

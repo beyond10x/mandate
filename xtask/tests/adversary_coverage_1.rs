@@ -63,24 +63,36 @@ fn entries() -> BTreeMap<String, Value> {
         .collect()
 }
 
-/// Every crate that keeps an `ESS_UNREALIZED` registry, and where it keeps it.
-const REGISTRARS: [(&str, &str); 6] = [
-    ("mandate-authz", "crates/mandate-authz/src/lib.rs"),
-    ("mandate-federation", "crates/mandate-federation/src/lib.rs"),
-    ("mandate-graph", "crates/mandate-graph/src/lib.rs"),
-    ("mandate-identity", "crates/mandate-identity/src/lib.rs"),
-    ("mandate-policy", "crates/mandate-policy/src/lib.rs"),
-    ("mandate-sts", "services/sts/src/lib.rs"),
+/// Every crate that keeps an `ESS_UNREALIZED` registry, where it keeps it, and how many
+/// entries it holds.
+///
+/// `mandate-sts` holds none since `story:federated-token-exchange` realized token exchange.
+/// It stays listed: an empty registry is still a registry, and a crate that later names an
+/// element there must be read by these cases rather than fall outside them.
+const REGISTRARS: [(&str, &str, usize); 6] = [
+    ("mandate-authz", "crates/mandate-authz/src/lib.rs", 1),
+    (
+        "mandate-federation",
+        "crates/mandate-federation/src/lib.rs",
+        1,
+    ),
+    ("mandate-graph", "crates/mandate-graph/src/lib.rs", 7),
+    ("mandate-identity", "crates/mandate-identity/src/lib.rs", 10),
+    ("mandate-policy", "crates/mandate-policy/src/lib.rs", 2),
+    ("mandate-sts", "services/sts/src/lib.rs", 0),
 ];
 
 /// `(registrar, element, reason)` for every entry of every `ESS_UNREALIZED` registry.
 ///
 /// Read as source text for the same reason the step reads the manifest as lines: `xtask`
 /// depends on no crate of this workspace, and `dependency-boundaries.json` would refuse the
-/// edge. The total is asserted so that a parser which selected nothing cannot pass.
+/// edge. Each registrar's count is asserted, and one expected to be empty must declare the
+/// literal empty slice, so that a parser which selected nothing from a registry that holds
+/// entries cannot pass; the union is asserted non-empty so that the cases below read
+/// something.
 fn unrealized() -> Vec<(&'static str, String, String)> {
     let mut all = Vec::new();
-    for (registrar, path) in REGISTRARS {
+    for (registrar, path, expected) in REGISTRARS {
         let text =
             fs::read_to_string(repo().join(path)).unwrap_or_else(|error| panic!("{path}: {error}"));
         let start = text
@@ -95,10 +107,18 @@ fn unrealized() -> Vec<(&'static str, String, String)> {
             .match_indices("\"mandate.")
             .map(|(at, _)| at)
             .collect();
-        assert!(
-            !marks.is_empty(),
-            "{path}: ESS_UNREALIZED names no element, so this case reads nothing"
+        assert_eq!(
+            marks.len(),
+            expected,
+            "{path}: the number of elements ESS_UNREALIZED names"
         );
+        if expected == 0 {
+            assert!(
+                block.trim_end().ends_with("= &["),
+                "{path}: ESS_UNREALIZED is expected empty and is not the literal `&[]`, so \
+                 this parser is not reading what it holds"
+            );
+        }
         for (index, at) in marks.iter().enumerate() {
             let rest = &block[at + 1..];
             let element = rest
@@ -113,9 +133,13 @@ fn unrealized() -> Vec<(&'static str, String, String)> {
     }
     assert_eq!(
         all.len(),
-        24,
+        21,
         "every ESS_UNREALIZED entry of the workspace: authz 1, federation 1, graph 7, \
-         identity 10, policy 2, sts 3"
+         identity 10, policy 2, sts 0"
+    );
+    assert!(
+        !all.is_empty(),
+        "no ESS_UNREALIZED registry names an element, so these cases read nothing"
     );
     all
 }

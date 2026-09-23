@@ -1480,7 +1480,7 @@
   "not_yet_true": [
     {
       "gap": "no transport security",
-      "costs": "Every proof, session identifier, authorization code and credential on this road crosses the network in the clear. No customer may be put on it.",
+      "costs": "The process terminates no TLS. Deployed behind an ingress that terminates TLS, the external leg is encrypted and the hop from the ingress to the process is not; run without such an ingress, every proof, session identifier, authorization code and credential on this road crosses the network in the clear.",
       "today": "`mandate-control-plane serve --listen` binds a plaintext HTTP listener and terminates nothing. The one end-to-end case that drives a really-signed proof stands its issuer on loopback `http`, which the key-set fetcher admits only because the host is loopback.",
       "steps": [
         6,

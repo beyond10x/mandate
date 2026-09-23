@@ -49,6 +49,7 @@
 
 pub mod binding;
 pub mod code;
+pub mod exchange;
 pub mod issue;
 pub mod keys;
 pub mod redemption;
@@ -100,6 +101,7 @@ mandate_types::realizes! {
     "mandate.credential.RevokeSigningKey" => crate::keys::revoke_signing_key,
     "mandate.credential.IssueAuthorizationCode" => crate::code::CodeIssuance,
     "mandate.credential.RedeemAuthorizationCode" => crate::redemption::redeem_authorization_code,
+    "mandate.credential.ExchangeCredential" => crate::exchange::exchange_credential,
     "mandate.credential.ResourceServerRegistered" => mandate_token::projection::CredentialEvent,
     "mandate.credential.ResourceServerDisabled" => mandate_token::projection::CredentialEvent,
     "mandate.credential.CredentialReferenceIssued" => mandate_token::projection::CredentialEvent,
@@ -111,6 +113,8 @@ mandate_types::realizes! {
     "mandate.credential.SigningKeyRevoked" => mandate_token::projection::CredentialEvent,
     "mandate.credential.AuthorizationCodeIssued" => crate::store::AuthorizationCodeEvent,
     "mandate.credential.AuthorizationCodeRedeemed" => crate::store::AuthorizationCodeEvent,
+    "mandate.credential.TokenExchangeAllowed" => mandate_token::projection::CredentialEvent,
+    "mandate.credential.TokenExchangeDenied" => mandate_token::projection::CredentialEvent,
     "mandate.credential.ResourceServer" => mandate_token::projection::ResourceServer,
     "mandate.credential.AccessCredential" => mandate_token::projection::AccessCredential,
     "mandate.credential.SigningKey" => mandate_token::projection::SigningKey,
@@ -130,26 +134,13 @@ mandate_types::realizes! {
 /// list names and the registry also realizes is a contradiction, and an element neither one
 /// names is an element nobody accounted for.
 ///
-/// One group, and it is not an oversight: token exchange — `ExchangeCredential` and the two
-/// events it emits — which `story:constrained-exchange` owns.
-///
-/// The authorization-code road left this list when `story:oauth-transaction` landed it:
-/// `IssueAuthorizationCode`, `RedeemAuthorizationCode`, the `AuthorizationCode` record, its
-/// `.State` and the two events that write it are all realized above, in this crate.
-pub const ESS_UNREALIZED: &[(&str, &str)] = &[
-    (
-        "mandate.credential.ExchangeCredential",
-        "story:constrained-exchange owns token exchange",
-    ),
-    (
-        "mandate.credential.TokenExchangeAllowed",
-        "story:constrained-exchange owns token exchange",
-    ),
-    (
-        "mandate.credential.TokenExchangeDenied",
-        "story:constrained-exchange owns token exchange",
-    ),
-];
+/// Empty. Token exchange — `ExchangeCredential` and the two events it records — left this
+/// list when `story:federated-token-exchange` realized it subject-only
+/// (`crate::exchange`); the actor and delegation exchange `story:constrained-exchange` owns
+/// is refused by that handler rather than left unrealized, because the command it would
+/// extend is the same one. The authorization-code road left it when `story:oauth-transaction`
+/// landed it.
+pub const ESS_UNREALIZED: &[(&str, &str)] = &[];
 
 /// What the adapter carries that neither a command input nor the read model supplies.
 ///

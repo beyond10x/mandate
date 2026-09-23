@@ -54,6 +54,7 @@
 //! the folds seeded from an event log (ruling D4, `story:declared-writers`), and that is
 //! what would close it. There is deliberately no `--principal` flag.
 
+use std::collections::BTreeMap;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -61,13 +62,14 @@ use std::process::ExitCode;
 use clap::{Parser, Subcommand};
 use mandate_control_plane::adapters::{
     ClientSeed, ClientSeeding, Configuration, ConfigurationRefused, ConnectionSeed,
-    ConnectionSeeding, Deployment, ResourceServerSeed, SeedRefused, SystemAllocator, SystemSecrets,
-    TargetSeeding, configure_verifier, key_set, read_client_seed, read_connection_seed, read_key,
-    read_resource_server_seed,
+    ConnectionSeeding, Deployment, RelyingParty, ResourceServerSeed, SeedRefused, SystemAllocator,
+    SystemSecrets, TargetSeeding, configure_verifier, key_set, read_client_seed,
+    read_connection_seed, read_key, read_resource_server_seed, relying_party_connection,
 };
 use mandate_control_plane::serve::{Limits, Listener};
+use mandate_federation::idp_token::UreqIdpToken;
 use mandate_federation::record::FederationConnection;
-use mandate_federation::verifier::VerifiedProof;
+use mandate_federation::verifier::{ClaimType, VerifiedProof};
 use mandate_federation::verifier_real::{AllowedAlgorithms, RealVerifier, SystemClock, UreqJwks};
 use mandate_federation::{Denied, FederationVerifier};
 use mandate_sts::code::CodeLifetime;
@@ -116,6 +118,12 @@ enum Action {
         /// names the target by it.
         #[arg(long = "resource-server", value_name = "PATH")]
         resource_servers: Vec<PathBuf>,
+        /// A file holding an IdP client secret, named for the `--connection` documents whose
+        /// `relying_party.client_secret` refers to it. Repeatable.
+        ///
+        /// The value is `NAME=PATH`: the flag carries where the secret is, never the secret.
+        #[arg(long = "client-secret-file", value_name = "NAME=PATH", value_parser = secret_file)]
+        client_secret_files: Vec<(String, PathBuf)>,
     },
 }
 
@@ -131,6 +139,8 @@ enum Refused {
     /// A `--connection` or `--key` document that configures no deployment. The same **2** as
     /// [`Refused::Configuration`], and separate only because it names the file it read.
     Seed(SeedRefused),
+    /// Two `--client-secret-file` flags give one name. The same **2**.
+    RepeatedSecretName(String),
     Start(Box<dyn std::error::Error>),
 }
 
@@ -146,6 +156,7 @@ fn main() -> ExitCode {
             keys,
             clients,
             resource_servers,
+            client_secret_files,
         } => match serve(&Serving {
             listen,
             issuer,
@@ -155,6 +166,7 @@ fn main() -> ExitCode {
             keys,
             clients,
             resource_servers,
+            client_secret_files,
         }) {
             Ok(()) => ExitCode::SUCCESS,
             Err(Refused::Configuration(refusal)) => {
@@ -163,6 +175,13 @@ fn main() -> ExitCode {
             }
             Err(Refused::Seed(refusal)) => {
                 eprintln!("mandate-control-plane: {refusal}");
+                ExitCode::from(2)
+            }
+            Err(Refused::RepeatedSecretName(name)) => {
+                eprintln!(
+                    "mandate-control-plane: the client secret name `{name}` is given by more \
+                     than one --client-secret-file"
+                );
                 ExitCode::from(2)
             }
             Err(Refused::Start(error)) => {
@@ -187,6 +206,7 @@ struct Serving {
     keys: Vec<PathBuf>,
     clients: Vec<PathBuf>,
     resource_servers: Vec<PathBuf>,
+    client_secret_files: Vec<(String, PathBuf)>,
 }
 
 fn serve(serving: &Serving) -> Result<(), Refused> {
@@ -291,6 +311,26 @@ fn serve(serving: &Serving) -> Result<(), Refused> {
             .map_err(Refused::Seed)?;
     }
 
+    // The relying party: every connection whose document names one, with its client secret
+    // read now from the file its reference names, before a socket is bound. A reference no
+    // flag resolves, and a name two flags give, are the operator's to correct.
+    let mut secret_files = BTreeMap::new();
+    for (name, path) in &serving.client_secret_files {
+        if secret_files.insert(name.clone(), path.clone()).is_some() {
+            return Err(Refused::RepeatedSecretName(name.clone()));
+        }
+    }
+    let mut relying_party = RelyingParty::new(Box::new(UreqIdpToken::new()));
+    let mut relies = false;
+    for (path, seed, connection) in &seeded {
+        if let Some(configured) =
+            relying_party_connection(path, seed, &secret_files).map_err(Refused::Seed)?
+        {
+            relying_party = relying_party.with_connection(connection.connection_id, configured);
+            relies = true;
+        }
+    }
+
     let mut deployment = Deployment::new(
         configuration,
         RecordingVerifier(verifier),
@@ -299,6 +339,9 @@ fn serve(serving: &Serving) -> Result<(), Refused> {
         allocator,
     )
     .map_err(Refused::Configuration)?;
+    if relies {
+        deployment = deployment.with_relying_party(relying_party);
+    }
     for (path, _, connection) in seeded {
         for event in &connection.events {
             deployment
@@ -373,6 +416,16 @@ fn serve(serving: &Serving) -> Result<(), Refused> {
     Ok(())
 }
 
+/// A `--client-secret-file` value: `NAME=PATH`, both halves present.
+fn secret_file(value: &str) -> Result<(String, PathBuf), String> {
+    match value.split_once('=') {
+        Some((name, path)) if !name.is_empty() && !path.is_empty() => {
+            Ok((name.to_owned(), PathBuf::from(path)))
+        }
+        _ => Err("expected NAME=PATH".to_owned()),
+    }
+}
+
 /// The real verifier, recording **the reason it refused for** on stderr.
 ///
 /// # Why the clause the listener records is not enough
@@ -418,5 +471,10 @@ impl FederationVerifier for RecordingVerifier {
             eprintln!("mandate-control-plane: verification refused {reason:?}");
         }
         verified
+    }
+
+    fn tenant_claim_refused(&self, kind: ClaimType) {
+        self.0.tenant_claim_refused(kind);
+        eprintln!("mandate-control-plane: tenant resolution refused TenantClaimNotText({kind:?})");
     }
 }
