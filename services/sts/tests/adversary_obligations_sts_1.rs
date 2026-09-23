@@ -435,13 +435,17 @@ fn a_profile_bound_past_the_readable_year_is_refused_or_renders_readably() {
     }
 }
 
-/// **A record carrying a profile bound past the readable year issues nothing: both issuance
-/// commands refuse with `ExpiryUnbounded` and mint no secret.**
+/// **A record carrying `PT99999999H` issues nothing: the reference issuance refuses with
+/// `ExpiryUnbounded` and mints no secret.**
 ///
 /// The registration handler refuses the profile, so a record carrying it is one another
 /// writer put in the log. The issuance handlers re-read the registration, and they are the
 /// last point at which an expiry the crate cannot read back can be refused rather than
-/// handed to a holder as a credential `resolve` answers not-live for.
+/// handed to a holder as a credential `resolve` answers not-live for. `PT99999999H` is
+/// longer than the whole readable range, `0000-01-01` to `9999-12-31T23:59:59Z`, so no
+/// readable request instant issues under it; a refused bound shorter than that range still
+/// issues from an early enough request, which
+/// `services/sts/tests/adversary_lifetime_bounds_1.rs` pins.
 #[test]
 fn a_recorded_profile_bound_past_the_readable_year_issues_nothing() {
     let (servers, target) = recorded(reference_profile("PT99999999H"));
@@ -459,9 +463,9 @@ fn a_recorded_profile_bound_past_the_readable_year_issues_nothing() {
 /// admits.**
 ///
 /// The registration bound is decided from a stated request instant, because the handler has
-/// no clock. A request after that instant, under an admitted `PT24H`, still reaches an
+/// no clock. A request late enough after that instant, under an admitted `PT24H`, reaches an
 /// expiry past the four-digit year, and `instant::at` renders it with `{year:04}` — a
-/// minimum width — into `+10000-…`, which `instant::seconds_of` answers `None` for. The
+/// minimum width — into `10000-…`, which `instant::seconds_of` answers `None` for. The
 /// refusal is the issuance's.
 #[test]
 fn an_issuance_whose_expiry_would_pass_the_readable_year_is_refused() {

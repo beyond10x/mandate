@@ -135,9 +135,12 @@ pub struct DisableResourceServer {
 /// - `max_ttl` names a positive span. A lifetime that names none is no bound, and a
 ///   lifetime of nothing issues a credential that has already expired.
 /// - `max_ttl`, added to [`instant::LATEST_CHECKED_REQUEST_INSTANT`], lands on an instant
-///   [`instant::at`] renders readably. A bound past the last four-digit year promises an
-///   expiry this crate cannot write in a form it reads back, so every issuance under it
-///   would be refused as `ExpiryUnbounded`.
+///   [`instant::at`] renders readably. The handler has no clock, so this is a promise about
+///   request instants up to that one and no further: a profile admitted here issues a
+///   readable expiry for every request before `3000-01-01`. It is not a statement about what
+///   a refused bound would issue — the issuance decides that per request, and refuses as
+///   `ExpiryUnbounded` exactly the request instants after `9999-12-31T23:59:59Z` minus
+///   `max_ttl`, under this profile or under a record carrying one this handler refused.
 /// - `positive_cache_ttl` names a non-negative span no longer than `max_ttl`. A cache that
 ///   outlives the credential authorizes after the credential has expired.
 /// - `ImmediateOnline` requires online authorization. The guarantee is that a revocation is
