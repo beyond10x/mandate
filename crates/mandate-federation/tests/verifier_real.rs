@@ -100,9 +100,15 @@
 //! | `http://127.0.0.1../` | refused | admitted |
 //! | `http://127.0.0.2./` | refused | admitted |
 //! | `http://127.255.255.254./` | refused | admitted |
-//! | `http://[::1.]/` | refused | admitted |
-//! | `http://[0:0:0:0:0:0:0:1.]/` | refused | admitted |
+//! | `http://[::1.]/` | refused | admitted, and unfetchable¹ |
+//! | `http://[0:0:0:0:0:0:0:1.]/` | refused | admitted, and unfetchable¹ |
 //! | `http://127.0.0.1.:443/` | refused | admitted |
+//!
+//! ¹ The guard admits these, and the fetcher cannot open them: `ureq`'s resolver hands
+//! `[::1.]:80` to `ToSocketAddrs`, which neither parses it as a socket address nor
+//! resolves it as a name, so the fetch fails closed. No key set is ever read from one.
+//! Open as `story:bracketed-literal-trailing-dot`, pinned by
+//! `tests/adversary_folded_address_2.rs`.
 //!
 //! The rest are pairs whose two spellings differ, which is the case a discovery document
 //! produces: it writes `jwks_uri` and it does not have to spell the host the way the
@@ -110,23 +116,62 @@
 //! loopback issuer, and an absolute spelling of the loopback is the loopback; refusing
 //! these was the same fold disagreement pointing the other way.
 //!
-//! ## What the fold still does not fold
+//! ## What the fold does not fold, and the comparison that does
 //!
 //! `folded` strips trailing dots and nothing else. `literal_address` and `loopback` read
 //! the host through `IpAddr::from_str`, which collapses every spelling of one address,
-//! while the issuer's own-origin comparison is string equality, which collapses none — so
-//! `[::1]`, `[0:0:0:0:0:0:0:1]` and `[0:0::0:1]` are one host to the first two and three
-//! strangers to the third. A loopback issuer whose discovery document spells its own
-//! address a second valid way is refused. It fails closed, it reproduces at `06c6747`,
-//! and `tests/adversary_host_spelling_2.rs` holds the case that reports it; closing it
-//! means comparing parsed addresses rather than names, which is a different story.
+//! and the issuer's own-origin comparison used to be string equality, which collapsed
+//! none — so `[::1]`, `[0:0:0:0:0:0:0:1]` and `[0:0::0:1]` were one host to the first two
+//! and three strangers to the third. `story:folded-is-not-an-address-fold` resolved that
+//! by **widening**: the own-origin comparison now asks `one_host`, which compares two
+//! address literals as `IpAddr`s and anything else as the name it folded to.
+//!
+//! Narrowing — refusing every literal own-origin — was measured first and refused:
+//! `the_corpus_the_reworked_property_iterates_asserts_something_at_both_sites` went red
+//! (`https://127.0.0.1` is its own origin by that corpus's declaration), and the loopback
+//! `ureq` cases in `tests/adversary_verifier_1.rs` hung, because their `127.0.0.1`
+//! listener waited for a key-set request the guard no longer let through. The plaintext
+//! loopback listener is this module's contract and `end_to_end.rs`'s shape; narrowing
+//! removes it.
+//!
+//! Measured `86a32ae` → head with the sweep described above — every ordered (issuer, destination)
+//! pair of 39 spellings (the 25 rows of the first table, the 10 of the residue table
+//! below, and `idp.example`/`keys.idp.example` with and without a trailing dot), both
+//! schemes, four host lists each, **12 168 decisions**:
+//!
+//! | direction | decisions | what they are |
+//! |---|---|---|
+//! | refused → admitted | **160** | the issuer's own origin, all of them; the containment answer moved for none |
+//! | admitted → refused | **592** | every one names a percent-encoded spelling as issuer or destination |
+//!
+//! Each branch is attributed by asking the same destination and list against a
+//! third-party issuer, which leaves only through the containment guard. Of the 592
+//! narrowed, 468 moved there too — a listed percent-encoded destination — and 124 moved
+//! only at the issuer: 4 are a percent-encoded issuer's own spelling under the empty
+//! list, and 120 are a percent-encoded issuer whose document names a listed plain host,
+//! refused now because the issuer itself no longer parses. All 592 are the correction's authority
+//! grammar (below), and none is a fetch `ureq` could have made: `http::Uri` refuses a
+//! `%` in a host outside brackets, so neither the discovery document of such an issuer
+//! nor such a key set was ever fetchable. The corpus holds none of the shapes the
+//! correction was opened for (`[::1]x:22`); those are asked by
+//! `every_authority_the_guard_admits_is_the_port_and_address_the_fetcher_reads` and
+//! `tests/adversary_folded_address_1.rs`. The 160 are 40 (issuer, destination) pairs under each of the
+//! four lists — the 32 cross-spellings of `[::1]`, `[::1.]`, `[0:0:0:0:0:0:0:1]`,
+//! `[0:0:0:0:0:0:0:1.]` and `[0:0::0:1]` under both schemes, and the 8 `https`
+//! cross-spellings of `[::ffff:127.0.0.1]`/`[::ffff:127.0.0.1.]` with
+//! `[::ffff:7f00:1]`/`[::FFFF:7F00:1]`, which are one mapped address. The mapped pairs
+//! stay refused under `http`, because `Ipv6Addr::is_loopback` is false for a mapped
+//! address, and `[::ffff:127.0.0.1]` stays a stranger to `127.0.0.1`: the families are
+//! not canonicalised across each other.
 //!
 //! ## What still reaches the list, and why it is not fixed here
 //!
-//! These are spellings a C resolver folds and `std::net::IpAddr` does not. They reached
-//! the list before this fold and they reach it after it, because refusing them widens
-//! what the guard refuses rather than agreeing on which host it is asked about, and
-//! `story:host-spelling-folded` puts that out of scope.
+//! These are spellings a C resolver folds and `std::net::IpAddr` does not. The six rows
+//! that are not percent-encoded reached the list before the trailing-dot fold and reach
+//! it after it, because refusing them widens what the guard refuses rather than agreeing
+//! on which host it is asked about, and `story:host-spelling-folded` puts that out of
+//! scope. The four percent-encoded rows are refused now, for the reason given under the
+//! table.
 //!
 //! | spelling | host after `origin` | `literal_address` | `loopback` | reaches the list |
 //! |---|---|---|---|---|
@@ -135,18 +180,21 @@
 //! | `0177.0.0.1` | `0177.0.0.1` | false | false | yes |
 //! | `0` | `0` | false | false | yes |
 //! | `127.0.0.001` | `127.0.0.001` | false | false | yes |
-//! | `127.0.0.1%2e` | `127.0.0.1%2e` | false | false | yes |
-//! | `localhost%2e` | `localhost%2e` | false | false | yes |
-//! | `%6cocalhost` | `%6cocalhost` | false | false | yes |
-//! | `%31%32%37.0.0.1` | `%31%32%37.0.0.1` | false | false | yes |
+//! | `127.0.0.1%2e` | none | — | — | **no: `origin` refuses it** |
+//! | `localhost%2e` | none | — | — | **no: `origin` refuses it** |
+//! | `%6cocalhost` | none | — | — | **no: `origin` refuses it** |
+//! | `%31%32%37.0.0.1` | none | — | — | **no: `origin` refuses it** |
 //! | `.` | `.` | false | false | yes |
 //!
 //! `inet_aton` reads all five of the first rows as an address and `IpAddr::from_str`
 //! reads none of them: `0` is `0.0.0.0`, `127.1` and `2130706433` are `127.0.0.1`,
 //! `0177.0.0.1` is octal for the same, and `127.0.0.001` is rejected by Rust only for its
-//! leading zeros. `origin` percent-decodes nothing, so a percent-encoded authority is
-//! compared as the literal bytes it was written as — which is also what `listed` compares, so such a host
-//! is admitted only when the deployment listed that exact encoded string. Whether a
+//! leading zeros. The four percent-encoded rows reached the list until
+//! `story:folded-is-not-an-address-fold`'s correction; `origin` now refuses them,
+//! because `ureq`'s own parser (`http::Uri`) refuses a `%` in a host outside brackets
+//! (`InvalidAuthority`, measured 2026-09-23), so an admission of one was a decision
+//! about a destination the fetcher could never open. That agrees with the fetcher; it
+//! is not a percent-decoding, and `origin` still decodes nothing. Whether a
 //! *name* resolves to the loopback interface at fetch time remains the resolution-order
 //! residue recorded with DNS rebinding in `verifier_real.rs`'s own module documentation.
 //!
@@ -2541,6 +2589,294 @@ fn a_trailing_dot_does_not_change_what_the_jwks_destination_guard_answers() {
             &["keys.idp.example".to_owned()]
         ),
         "a listed host was widened to a spelling the deployment did not write"
+    );
+}
+
+/// `folded` is not total: the guard still folds different spellings at different sites.
+///
+/// Kept verbatim from `story:folded-is-not-an-address-fold`, where adversary pass 2 of
+/// `story:host-spelling-folded` left it. `literal_address` and `loopback` read the host
+/// through `IpAddr::from_str`, which collapses every spelling of one address, while the
+/// issuer's own-origin comparison was string equality, which collapsed none of them — so
+/// `[::1]`, `[0:0:0:0:0:0:0:1]` and `[0:0::0:1]` were one host to the first two and three
+/// strangers to the third, and a loopback issuer whose discovery document spelled its own
+/// address a second valid way got two answers for one host.
+///
+/// Asserted as an equality rather than as an admission, because which way it is resolved
+/// is the unit's call and not this case's. It was resolved by widening — see
+/// [`an_address_literal_is_the_issuers_own_origin_under_every_spelling_of_that_address`],
+/// which asks the admission positively, because two refusals satisfy an equality.
+#[test]
+fn one_host_gets_one_answer_at_the_issuers_own_origin_however_the_literal_is_spelled() {
+    let no_hosts_listed: [String; 0] = [];
+
+    for (canonical, second_spelling) in [
+        ("[::1]", "[0:0:0:0:0:0:0:1]"),
+        ("[::1]", "[0:0::0:1]"),
+        ("[0:0:0:0:0:0:0:1]", "[::1]"),
+    ] {
+        for scheme in ["http", "https"] {
+            let issuer = Issuer::new(format!("{scheme}://{canonical}:8443"));
+
+            let spelled_alike = UreqJwks::admits(
+                &issuer,
+                &format!("{scheme}://{canonical}:8443/jwks"),
+                &no_hosts_listed,
+            );
+            let spelled_otherwise = UreqJwks::admits(
+                &issuer,
+                &format!("{scheme}://{second_spelling}:8443/jwks"),
+                &no_hosts_listed,
+            );
+
+            assert_eq!(
+                spelled_alike, spelled_otherwise,
+                "issuer {scheme}://{canonical}:8443: {canonical} and {second_spelling} \
+                 are one address and the guard gave them two answers: \
+                 alike={spelled_alike}, otherwise={spelled_otherwise}"
+            );
+        }
+    }
+}
+
+/// The issuer's own-origin comparison asks the question the containment halves ask:
+/// whether two hosts are one host. For an address literal that is whether they are one
+/// address, so every spelling `IpAddr` reads as the issuer's address is the issuer's
+/// origin — and nothing else becomes one.
+///
+/// Resolved by widening rather than by refusing every literal own-origin. Refusing them
+/// would refuse the plaintext loopback listener `verifier_real.rs`'s contract admits and
+/// that this file's own `ureq` cases and `services/control-plane/tests/end_to_end.rs`
+/// bind on `127.0.0.1`. Widening admits nothing the containment guard decides: the
+/// destination is the address the deployment already named as its issuer.
+///
+/// The bounds are asserted beside the admissions, because the widening is only as narrow
+/// as its comparison:
+///
+/// - the IPv4-mapped `::ffff:127.0.0.1` is a different `IpAddr` from `127.0.0.1` and stays
+///   a stranger to it — `Ipv6Addr::is_loopback` is false for a mapped address, and the
+///   comparison does not canonicalise across families;
+/// - a name is never an address: `localhost` is not the issuer `127.0.0.1`'s origin;
+/// - a different port is a different origin, however the address is spelled;
+/// - a listed host stays exact: `allowed_hosts` is not read on this arm.
+#[test]
+fn an_address_literal_is_the_issuers_own_origin_under_every_spelling_of_that_address() {
+    let no_hosts_listed: [String; 0] = [];
+
+    for (scheme, family) in [
+        (
+            "http",
+            &["[::1]", "[0:0:0:0:0:0:0:1]", "[0:0::0:1]", "[::0:1]"][..],
+        ),
+        (
+            "https",
+            &["[::1]", "[0:0:0:0:0:0:0:1]", "[0:0::0:1]", "[::1.]"][..],
+        ),
+        (
+            "https",
+            &[
+                "[2001:db8::7]",
+                "[2001:0db8:0:0:0:0:0:7]",
+                "[2001:DB8::0:7]",
+            ][..],
+        ),
+    ] {
+        for issuer_spelling in family {
+            for target_spelling in family {
+                assert!(
+                    UreqJwks::admits(
+                        &Issuer::new(format!("{scheme}://{issuer_spelling}:8443")),
+                        &format!("{scheme}://{target_spelling}:8443/jwks"),
+                        &no_hosts_listed
+                    ),
+                    "{scheme}://{issuer_spelling}:8443 and {scheme}://{target_spelling}:8443 \
+                     are one address and one port, so one origin"
+                );
+            }
+        }
+    }
+
+    for (issuer, destination, why) in [
+        (
+            "http://127.0.0.1:8443",
+            "http://[::ffff:127.0.0.1]:8443/jwks",
+            "an IPv4-mapped address is not the IPv4 address it maps",
+        ),
+        (
+            "https://127.0.0.1:8443",
+            "https://[::ffff:127.0.0.1]:8443/jwks",
+            "an IPv4-mapped address is not the IPv4 address it maps",
+        ),
+        (
+            "https://[::ffff:127.0.0.1]:8443",
+            "https://127.0.0.1:8443/jwks",
+            "an IPv4 address is not the IPv4-mapped address that maps it",
+        ),
+        (
+            "http://127.0.0.1:8443",
+            "http://localhost:8443/jwks",
+            "a name is not an address, even one it resolves to",
+        ),
+        (
+            "http://[::1]:8443",
+            "http://[0:0::0:1]:8444/jwks",
+            "one address on another port is another origin",
+        ),
+        (
+            "https://[2001:db8::7]",
+            "https://[2001:db8::8]/jwks",
+            "two addresses are two hosts",
+        ),
+    ] {
+        assert!(
+            !UreqJwks::admits(&Issuer::new(issuer), destination, &no_hosts_listed),
+            "issuer {issuer}, destination {destination}: {why}"
+        );
+    }
+}
+
+/// The guard and the fetcher read one authority: whatever `admits` admits, `ureq`'s own
+/// parser reads as the same port on the same address.
+///
+/// `origin` is a second parser of the authority `ureq` connects to, so every shape the two
+/// read differently is a destination the guard decided about and the fetcher did not go
+/// to. `tests/adversary_folded_address_1.rs` found one — `[::1]x:9999` was port 80 to
+/// `origin` and port 9999 to `http::Authority::port`. This case is the class: every
+/// authority below is asked of the guard at the issuer's own origin and through a listed
+/// host, and each admission is checked against `ureq::http::Uri` rather than against a
+/// list of the forms someone thought of.
+///
+/// It also pins the grammar: the four shapes `origin` accepts — `host`, `host:port`,
+/// `[v6]`, `[v6]:port` — are each admitted at least once, so the agreement is not a
+/// property of a guard that admits nothing.
+#[test]
+fn every_authority_the_guard_admits_is_the_port_and_address_the_fetcher_reads() {
+    let malformed_tails = [
+        "", ":", ":8443", "x", "x:22", "]", "]:22", "]x:22", "[", ":22]", ":8443:22", ":+22",
+        ":022", ":65536", ":0x16", " :22", ":22 ", "%20:22", "%3a22",
+    ];
+    let mut admitted_shapes = std::collections::BTreeSet::new();
+
+    for scheme in ["http", "https"] {
+        let default = if scheme == "https" { 443 } else { 80 };
+        for (issuer_host, spellings) in [
+            (
+                "[::1]",
+                &[
+                    "[::1]",
+                    "[0:0::0:1]",
+                    "::1",
+                    "[::1",
+                    "::1]",
+                    "[::1%25eth0]",
+                    "[v1.x]",
+                ][..],
+            ),
+            (
+                "[2001:db8::7]",
+                &["[2001:db8::7]", "[2001:0db8:0:0:0:0:0:7]", "2001:db8::7"][..],
+            ),
+            ("127.0.0.1", &["127.0.0.1", "[127.0.0.1]", "127.0.0.1."][..]),
+            (
+                "idp.example",
+                &["idp.example", "[idp.example]", "idp.example."][..],
+            ),
+        ] {
+            for issuer_port in ["", ":8443"] {
+                let issuer = Issuer::new(format!("{scheme}://{issuer_host}{issuer_port}"));
+                for spelling in spellings {
+                    for tail in malformed_tails {
+                        let authority = format!("{spelling}{tail}");
+                        let uri = format!("{scheme}://{authority}/jwks");
+                        let listed = [
+                            authority.clone(),
+                            format!("{}:{default}", spelling.trim_matches(['[', ']'])),
+                            format!("{}:22", spelling.trim_matches(['[', ']'])),
+                            format!("{}:8443", spelling.trim_matches(['[', ']'])),
+                        ];
+                        let third = Issuer::new(format!("{scheme}://third-party.example"));
+                        for (asked, hosts) in [(&issuer, &[][..]), (&third, &listed[..])] {
+                            if !UreqJwks::admits(asked, &uri, hosts) {
+                                continue;
+                            }
+                            let fetched = uri.parse::<ureq::http::Uri>().unwrap_or_else(|_| {
+                                panic!("{uri} was admitted and `ureq` cannot parse it")
+                            });
+                            let port = fetched.port_u16().unwrap_or(default);
+                            let host = fetched
+                                .host()
+                                .expect("an admitted URI has a host")
+                                .trim_matches(['[', ']'])
+                                .trim_end_matches('.')
+                                .to_ascii_lowercase();
+                            let asked_host = asked
+                                .as_str()
+                                .split_once("://")
+                                .map(|(_, rest)| rest)
+                                .unwrap_or_default();
+                            let (expected_host, expected_port) = if std::ptr::eq(asked, &issuer) {
+                                (
+                                    issuer_host.trim_matches(['[', ']']).to_owned(),
+                                    if issuer_port.is_empty() {
+                                        default
+                                    } else {
+                                        8443
+                                    },
+                                )
+                            } else {
+                                (host.clone(), port)
+                            };
+                            let same_address = match (
+                                host.parse::<std::net::IpAddr>(),
+                                expected_host.parse::<std::net::IpAddr>(),
+                            ) {
+                                (Ok(one), Ok(other)) => one == other,
+                                _ => host == expected_host,
+                            };
+                            assert!(
+                                same_address && port == expected_port,
+                                "issuer {asked_host}: {uri} was admitted, and `ureq` reads \
+                                 it as {host} port {port} where the guard decided about \
+                                 {expected_host} port {expected_port}"
+                            );
+                            if !hosts.is_empty() {
+                                // Brackets hold an address literal and nothing else, and a
+                                // listed host is never an address literal — so a
+                                // bracketed host the fetcher reads here is a literal
+                                // `IpAddr` did not recognise.
+                                assert!(
+                                    !fetched.host().is_some_and(|h| h.starts_with('[')),
+                                    "{uri}: admitted through a listed host, and `ureq` \
+                                     reads a bracketed literal"
+                                );
+                                let listed_port = listed[1..]
+                                    .iter()
+                                    .filter_map(|entry| entry.rsplit_once(':'))
+                                    .any(|(_, p)| p.parse::<u16>() == Ok(port));
+                                assert!(
+                                    listed_port,
+                                    "{uri}: admitted through a listed host on port {port}, \
+                                     which no entry names"
+                                );
+                            }
+                            admitted_shapes.insert(match (spelling.starts_with('['), tail) {
+                                (true, "") => "[v6]",
+                                (true, _) => "[v6]:port",
+                                (false, "") => "host",
+                                (false, _) => "host:port",
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    assert_eq!(
+        admitted_shapes.into_iter().collect::<Vec<_>>(),
+        ["[v6]", "[v6]:port", "host", "host:port"],
+        "every shape the grammar accepts is admitted somewhere, or the agreement above is \
+         the agreement of a guard that admits nothing"
     );
 }
 

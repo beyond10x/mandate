@@ -311,8 +311,11 @@ impl UreqJwks {
     /// spellings disagree and the disagreement is what gets through. The issuer's own
     /// (host, port) is one of those two: an absolute spelling of the issuer's host **is**
     /// the issuer's host, and a discovery document does not have to spell it the way the
-    /// deployment spelled the issuer. The third is `allowed_hosts`, which is deliberately
-    /// exact — see [`folded`].
+    /// deployment spelled the issuer. For an address literal the own-origin comparison
+    /// asks what the containment half asks — whether the two are one address
+    /// ([`one_host`]) — so `[::1]` and `[0:0::0:1]` are one origin to it as they are one
+    /// literal to [`literal_address`]. The third is `allowed_hosts`, which is
+    /// deliberately exact — see [`folded`].
     ///
     /// Both comparisons normalize the port: RFC 3986 6.2.3 makes the scheme's default port
     /// equivalent to an elided one, so `https://idp.example` and `https://idp.example:443`
@@ -342,7 +345,7 @@ impl UreqJwks {
         // folding it would admit `keys.idp.example.` on an entry naming
         // `keys.idp.example`. That boundary is pinned in `tests/verifier_real.rs`.
         let host = folded(&target.host);
-        if (host, target.port) == (folded(&source.host), source.port) {
+        if target.port == source.port && one_host(host, folded(&source.host)) {
             return target.scheme == "https" || loopback(host);
         }
         target.scheme == "https"
@@ -444,22 +447,55 @@ fn origin(uri: &str) -> Option<Uri> {
     if authority.contains('@') {
         return None;
     }
+    // Four shapes and no others: `host`, `host:port`, `[v6]` and `[v6]:port`. `ureq`
+    // reads the authority with a second parser, and a shape this one accepted loosely is
+    // a destination the guard decided about and the fetcher did not go to —
+    // `[::1]x:9999` was port 80 here and port 9999 to `http::Authority::port`. So after
+    // `]` comes nothing or `:`, and a bracket anywhere else is refused.
     let (host, port) = match authority.split_once(']') {
-        // An IPv6 literal: `[::1]` or `[::1]:8443`.
-        Some((bracketed, after)) => (bracketed.strip_prefix('[')?, after.strip_prefix(':')),
+        Some((bracketed, after)) => {
+            let port = match after {
+                "" => None,
+                after => Some(after.strip_prefix(':')?),
+            };
+            (bracketed.strip_prefix('[')?, port)
+        }
         None => match authority.rsplit_once(':') {
             Some((host, port)) => (host, Some(port)),
             None => (authority, None),
         },
     };
-    if host.is_empty() {
+    // An IPv6 literal outside brackets is not an authority RFC 3986 defines, and `ureq`
+    // refuses to parse one, so a `:` left in an unbracketed host is refused with it.
+    // Inside brackets there is an IPv6 address once trailing dots are folded ([`folded`]),
+    // and nothing else — a zone (`[::1%25eth0]`) or an IPvFuture (`[v1.x]`) is a literal
+    // `IpAddr` does not read, so it would be an ordinary name to `literal_address` and
+    // `loopback` and reach `allowed_hosts`. The fold means `[::1.]` and `[::1..]` are
+    // accepted here and can be admitted as the issuer's own origin, and the fetcher
+    // cannot resolve them: `ureq` hands `[::1.]:80` to `ToSocketAddrs`, which refuses
+    // it, so the fetch fails closed. Open as `story:bracketed-literal-trailing-dot`.
+    // Outside them every byte is one `http::Uri` accepts in a host: unreserved and the
+    // sub-delimiters. It refuses `%` there, so a percent-encoded host is one the fetcher
+    // could never have fetched, and a space or a control byte never names a host here.
+    let bracketed = authority.starts_with('[');
+    let well_formed = if bracketed {
+        folded(host).parse::<std::net::Ipv6Addr>().is_ok()
+    } else {
+        host.bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"-._~!$&'()*+,;=".contains(&byte))
+    };
+    if host.is_empty() || !well_formed {
         return None;
     }
-    // A port that is spelled must parse. Anything else is a host this parser would be
-    // guessing about, and guessing is what the whole guard exists not to do.
+    // A port that is spelled must be digits and must fit. Anything else is a host this
+    // parser would be guessing about, and guessing is what the whole guard exists not to
+    // do. `u16::from_str` alone reads `+22` as 22.
     let port = match port {
         None | Some("") => default_port(&scheme)?,
-        Some(spelled) => spelled.parse::<u16>().ok()?,
+        Some(spelled) if spelled.bytes().all(|byte| byte.is_ascii_digit()) => {
+            spelled.parse::<u16>().ok()?
+        }
+        Some(_) => return None,
     };
     Some(Uri {
         scheme,
@@ -513,14 +549,10 @@ fn listed(entry: &str, target: &Uri) -> bool {
 ///
 /// # What it does not fold
 ///
-/// It is not a general spelling-equivalence. [`literal_address`] and [`loopback`] read
-/// the host through `IpAddr::from_str`, which collapses every spelling of one address;
-/// the issuer's own-origin comparison is string equality, which collapses none of them.
-/// So `[::1]`, `[0:0:0:0:0:0:0:1]` and `[0:0::0:1]` are one host to the first two and
-/// three strangers to the third, and a loopback issuer whose discovery document spells
-/// its own address a second valid way is refused. That fails closed, it is recorded
-/// rather than fixed, and closing it means comparing parsed addresses rather than names —
-/// a different decision from this one, taken in a different story.
+/// It is not a general spelling-equivalence. Two spellings of one address — `[::1]`,
+/// `[0:0:0:0:0:0:0:1]`, `[0:0::0:1]` — fold to three names. Every comparison over the
+/// host reads those through `IpAddr::from_str` instead: [`literal_address`] and
+/// [`loopback`] by parsing, and the issuer's own origin through [`one_host`].
 ///
 /// A host of nothing but dots is returned unfolded. Stripping them yields the empty host
 /// [`origin`] refuses outright, and putting it back would make `.`, `..` and `...` one
@@ -534,6 +566,27 @@ fn listed(entry: &str, target: &Uri) -> bool {
 fn folded(host: &str) -> &str {
     let trimmed = host.trim_end_matches('.');
     if trimmed.is_empty() { host } else { trimmed }
+}
+
+/// Whether two folded host names ([`folded`]) are one host, asked the way the
+/// containment halves ask it.
+///
+/// [`literal_address`] and [`loopback`] read a host through `IpAddr::from_str`, which
+/// collapses every spelling of one address, so the issuer's own-origin comparison does
+/// too: two address literals are one host when they are one `IpAddr`. Anything else is a
+/// name and compares as the name it folded to. A name is never an address, however it
+/// resolves, and the families are not canonicalised across each other: the IPv4-mapped
+/// `::ffff:127.0.0.1` is a different `IpAddr` from `127.0.0.1`, as it is to
+/// [`loopback`].
+fn one_host(one: &str, other: &str) -> bool {
+    match (
+        one.parse::<std::net::IpAddr>(),
+        other.parse::<std::net::IpAddr>(),
+    ) {
+        (Ok(one), Ok(other)) => one == other,
+        (Err(_), Err(_)) => one == other,
+        _ => false,
+    }
 }
 
 /// Whether the folded host name ([`folded`]) is an address literal rather than a name.
