@@ -4,6 +4,47 @@ All notable changes to Mandate are recorded here. The format follows [Keep a Cha
 
 ## [Unreleased]
 
+Wave M: a browser signs in through an external OIDC IdP, and a credential is exchanged for one
+another platform accepts. Three stories, each attacked twice.
+
+### Added
+
+- **OIDC relying-party flow.**
+  - `GET /v1/federation/authorize` redirects to the IdP's discovered `authorization_endpoint`
+    with a single-use `state`, a `nonce` and an S256 PKCE challenge, bound to the browser by a
+    `__Host-` cookie.
+  - `GET /v1/federation/callback` redeems the code at the discovered `token_endpoint` with HTTP
+    Basic client authentication. It requires RFC 9207 `iss` when the IdP advertises it, verifies
+    the ID token and its `nonce`, and opens a session.
+  - The session reaches the embedding application only through a single-use handoff code sent to
+    the connection's `return_uri` and redeemed once at `POST /v1/federation/handoff`, together with
+    the `app_state` the application supplied.
+  - The client secret is read from `--client-secret-file NAME=PATH`.
+  - A relying-party connection refuses direct `/v1/federation/login`.
+  - (`story:relying-party-code-flow`)
+- **RFC 8693 token exchange at `/oauth/token`.**
+  - A Mandate access credential is exchanged for a credential for a resource server whose
+    `allowed_exchange_sources` lists the subject's.
+  - The target is named by id, by registered audience or by `resource`.
+  - Refusals answer `invalid_target` or `invalid_grant` from one table, are recorded as
+    `TokenExchangeDenied` and draw nothing. The metadata document advertises the grant.
+  - (`story:federated-token-exchange`)
+
+### Changed
+
+- A tenant claim the connection's rule names that is not a JSON string is refused as
+  `TenantClaimNotText(<type>)`, where before it resolved silently to no tenant
+  (`story:federation-fixtures-rs256`).
+- The transport gap and the roadmap state that TLS is terminated at the ingress and the hop from the
+  ingress to the process is plain HTTP.
+
+### Known
+
+- An anonymous flood of authorize requests can evict a waiting browser's sign-in; rate limiting is
+  the ingress's (`story:authorize-flood-eviction`).
+- A slow IdP stalls every route on the single-threaded listener (`story:listener-outbound-stall`).
+- Nothing persists: a restart loses sessions, pending sign-ins, handoff codes and credentials.
+
 ## [0.5.1] - 2026-09-23
 
 Wave L: four stories in three units, each attacked twice.
