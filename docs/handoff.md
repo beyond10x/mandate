@@ -14,13 +14,13 @@ release, after waves I, J and K.
 
 ## Where it stands
 
-`v0.5.0` is the latest release. Eleven waves have run — 1 to 3, then A to K. The federated-login road runs end
+`v0.5.1` is the latest release. Twelve waves have run — 1 to 3, then A to L. The federated-login road runs end
 to end against the shipped binary: `mandate-control-plane serve` serves `/v1/federation/login`,
 `/oauth/authorize`, `/oauth/token`, `/oauth/introspect`, `/oauth/jwks` and
 `/.well-known/oauth-authorization-server`, a first login provisions a user just in time where the
 connection admits it, and a revoked link is not provisioned around.
 
-Measured at `0.5.0`: `task check` exit 0, 267 suites, 1,991 tests, 0 failed; 11 named mutants each
+Measured at `0.5.1`: `task check` exit 0, 274 suites, 2,016 tests, 0 failed; 11 named mutants each
 killed; 292 contract elements with 201 implemented; 166 conformance scenarios with 44 passed and 0
 error; 191 denial clauses with 85 decided on the real path.
 
@@ -29,11 +29,11 @@ clause was split). The account is `docs/plans/2026-09-23-waves-i-j-k-execution.m
 
 ## In flight right now
 
-Nothing. `main` holds 0.5.0; no integration branch is open. The next batch is wave L, not yet
-proposed. Candidates with no blocker and typed scope: `federation-guard-trailing-dots` and
-`bracketed-literal-trailing-dot` (one file, one unit or sequenced), `control-plane-readable-instant`,
-`enabled-for-issuer-filters-in-the-implementor`, `provisioning-replay-principal` and
-`control-plane-multi-fold-writes` (both `adapters.rs`, different waves).
+Nothing. `main` holds 0.5.1; no integration branch is open. Wave L closed with its account in
+`docs/plans/2026-09-23-wave-l-execution.md`. The next batch is wave M, not yet proposed. Candidates
+with no blocker and typed scope: `control-plane-readable-instant`, `provisioning-replay-principal`
+(both `adapters.rs`, so sequenced), `seeding-repeated-external-principal-id` (also `adapters.rs`) and
+`numeric-shorthand-trailing-dot` (`verifier_real.rs`).
 
 Left out of waves I–K and still undecided: `linked-event-method-unenforced` (its premise is
 contradicted by the connection seeding at `services/control-plane/src/adapters.rs:962-970`) and
