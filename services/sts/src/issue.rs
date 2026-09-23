@@ -288,7 +288,8 @@ fn admitted_target(
 /// The instant a credential issued now stops being valid, or the declared refusal.
 ///
 /// "Expiry cannot be bounded" is every way this can fail: a request that names no instant,
-/// a profile whose `max_ttl` names no span, and a lifetime longer than the profile's bound.
+/// a profile whose `max_ttl` names no span, a lifetime longer than the profile's bound, and
+/// an expiry [`instant::at`] cannot render as one this crate reads back.
 fn bounded_expiry(
     request: &RequestContext,
     profile: &CredentialProfile,
@@ -300,9 +301,10 @@ fn bounded_expiry(
     if lifetime <= 0 || lifetime > bound {
         return Err(unbounded());
     }
-    Ok(instant::at(
-        issued_at.checked_add(lifetime).ok_or_else(unbounded)?,
-    ))
+    issued_at
+        .checked_add(lifetime)
+        .and_then(instant::at)
+        .ok_or_else(unbounded)
 }
 
 /// The descriptor an issuance responds with and records.
