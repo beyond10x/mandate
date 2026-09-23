@@ -465,7 +465,13 @@ impl Projection {
 
     /// Apply one event.
     ///
-    /// No event is silently discarded. An event naming an instance no event created —
+    /// One kind of event is applied as a no-op, and nothing else is discarded: a repeated
+    /// creation of an identity this projection already holds —
+    /// `FederationConnectionCreated`, `OAuthClientRegistered`, and the
+    /// `ExternalPrincipalLinked` and `ExternalPrincipalProvisioned` arms through
+    /// `record_link` — writes nothing. That is the redelivery the kit's at-least-once
+    /// delivery admits, and applying it is idempotent: the first record stands, in
+    /// whatever state it has since moved to. An event naming an instance no event created —
     /// a creation-linked one or a lifecycle move — is a log this fold cannot read, and
     /// saying so is the only way a lost record is ever noticed.
     ///

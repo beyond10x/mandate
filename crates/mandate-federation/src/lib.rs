@@ -633,12 +633,19 @@ fn on_key<T: LinkStore + ?Sized>(store: &T, key: &ExternalKey) -> Vec<ExternalPr
 /// for the reason [`LinkResolution`] is blanket: a defaulted method is one an implementor
 /// may write, and an implementor that writes this one decides a command's outcome.
 ///
-/// The enumeration contributes **identities and nothing else**. Each identity is read
-/// once, through [`ConnectionStore::connection`] — the one answer the selected connection
-/// is also decided on in step 1 — and its state and issuer are taken from that answer, so
-/// a stale or duplicated copy in the enumeration decides nothing: an identity the store
-/// answers `Disabled` by identity takes no part however the enumeration presents it, and
-/// an identity answered twice counts once.
+/// The enumeration contributes **identities**, and a record only where the store cannot
+/// answer one by identity (below). Each identity is read once, through
+/// [`ConnectionStore::connection`] — the one answer the selected connection is also
+/// decided on in step 1 — and its state and issuer are taken from that answer, so a stale
+/// or duplicated copy in the enumeration decides nothing: an identity the store answers
+/// `Disabled` by identity takes no part however the enumeration presents it, and an
+/// identity answered twice counts once.
+///
+/// **An identity the store lists but cannot answer by identity fails closed.** It is
+/// read as the enumeration listed it, state and issuer included, rather than dropped:
+/// every candidate here can only add a match, so dropping one can only turn a refusal
+/// (`TenantAmbiguous`, `TenantResolutionUnadmitted`) into an admission, and a read the
+/// store cannot complete is not evidence that the connection is absent.
 ///
 /// This narrows, never widens: a store that answers only `Enabled` connections on the
 /// issuer it was asked about, once each and as it answers them by identity —
@@ -647,15 +654,15 @@ fn enabled_on_issuer<T: ConnectionStore + ?Sized>(
     store: &T,
     issuer: &Issuer,
 ) -> Vec<FederationConnection> {
-    let mut identities: Vec<FederationConnectionId> = Vec::new();
+    let mut listed: Vec<FederationConnection> = Vec::new();
     for answered in store.enabled_for_issuer(issuer) {
-        if !identities.contains(&answered.id) {
-            identities.push(answered.id);
+        if !listed.iter().any(|held| held.id == answered.id) {
+            listed.push(answered);
         }
     }
-    identities
-        .iter()
-        .filter_map(|id| store.connection(id))
+    listed
+        .into_iter()
+        .map(|as_listed| store.connection(&as_listed.id).unwrap_or(as_listed))
         .filter(|connection| {
             connection.state == record::ConnectionState::Enabled && connection.issuer == *issuer
         })
