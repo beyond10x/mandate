@@ -253,6 +253,12 @@
           "kind": "test",
           "id": "mandate-federation::record::a_connection_is_unadmitted_where_another_organization_resolves_the_issuer_unconditionally",
           "statement": "Another customer cannot register a connection that would make this administrator's issuer resolve ambiguously; the registration is refused rather than their logins breaking later."
+        },
+        {
+          "kind": "scenario",
+          "id": "mandate.federation/authored/federation-ambiguous-tenant",
+          "outcome": "passed",
+          "statement": "Another customer's rule on a different claim of the same issuer, which one proof could satisfy beside this administrator's, is refused at registration, so one proof never reaches two tenants."
         }
       ]
     },
@@ -687,11 +693,6 @@
         },
         {
           "kind": "scenario",
-          "id": "mandate.federation/authored/federation-ambiguous-tenant",
-          "outcome": "passed"
-        },
-        {
-          "kind": "scenario",
           "id": "mandate.federation/authored/federation-resolution-precedence",
           "outcome": "passed"
         },
@@ -716,6 +717,10 @@
         {
           "kind": "test",
           "id": "mandate-federation::authenticate::tenant_ambiguous"
+        },
+        {
+          "kind": "test",
+          "id": "mandate-federation::obligations::a_proof_matching_two_configured_tenants_is_refused_at_provisioning"
         },
         {
           "kind": "test",

@@ -696,8 +696,54 @@ fn a_conditional_rule_another_organization_already_holds_is_unadmitted() {
     assert_eq!(denied.clause, DenialClause::TenantResolutionUnadmitted);
 }
 
-/// The boundary of R1: a different claim value on a shared issuer cannot match the same
-/// proof, so it is admitted. The guard refuses collisions, not sharing.
+/// R1 for rules on different claims: `{dept: acme}` beside `{org: acme}`, and whatever the
+/// values, a proof carrying both claims matches both rules. That is a collision whether or
+/// not the values agree, so each is refused.
+#[test]
+fn a_rule_on_a_different_claim_name_on_a_shared_issuer_is_unadmitted() {
+    let log = vec![FederationEvent::FederationConnectionCreated {
+        context: context(organization(10)),
+        connection_id: connection(1),
+        issuer: Issuer::new("https://idp.example/one"),
+        client_id: ClientId::new("configured-client"),
+        tenant_resolution: TenantResolutionRule {
+            configured_organization: organization(10),
+            verified_claim_name: Some(String::from("org")),
+            verified_claim_value: Some(String::from("acme")),
+        },
+        jit_provisioning: false,
+    }];
+    let existing = Projection::fold(&log).expect("one connection");
+    let mut allocator = SequentialAllocator::new();
+
+    for (name, value) in [("dept", "acme"), ("dept", "eng"), ("Org", "acme")] {
+        let input = RegisterFederationConnection {
+            context: context(organization(11)),
+            issuer: Issuer::new("https://idp.example/one"),
+            client_id: ClientId::new("configured-client"),
+            tenant_resolution: TenantResolutionRule {
+                configured_organization: organization(11),
+                verified_claim_name: Some(String::from(name)),
+                verified_claim_value: Some(String::from(value)),
+            },
+            jit_provisioning: false,
+        };
+
+        let denied = register_federation_connection(&input, &existing, &mut allocator)
+            .expect_err("a proof carrying both claims matches both rules");
+
+        assert_eq!(denied.reason, DenialReason::Denied, "{name}={value}");
+        assert_eq!(
+            denied.clause,
+            DenialClause::TenantResolutionUnadmitted,
+            "{name}={value}"
+        );
+    }
+}
+
+/// The boundary of R1: a different value of the same claim on a shared issuer cannot match
+/// the same proof — one claim carries one value — so it is admitted. The guard refuses
+/// collisions, not sharing.
 #[test]
 fn a_different_claim_value_on_a_shared_issuer_is_admitted() {
     let log = vec![FederationEvent::FederationConnectionCreated {
@@ -723,8 +769,8 @@ fn a_different_claim_value_on_a_shared_issuer_is_admitted() {
         },
         TenantResolutionRule {
             configured_organization: organization(11),
-            verified_claim_name: Some(String::from("dept")),
-            verified_claim_value: Some(String::from("acme")),
+            verified_claim_name: Some(String::from("org")),
+            verified_claim_value: Some(String::from("ACME")),
         },
     ] {
         let input = RegisterFederationConnection {
