@@ -16,10 +16,12 @@
 //!   — the trait default reserves by drawing (`lib.rs:210-212`). An allocator that counts and
 //!   implements the four required methods, the shape `tests/adversary_profiles_2.rs`'s
 //!   `ChosenServers` already has, compiles and draws on the refusal the story is about.
-//! - [`a_log_that_refuses_after_the_build_as_its_contract_allows_has_drawn`] — the trait
+//! - [`a_log_that_refuses_after_the_build_has_drawn_pending_epoch_atomicity`] — the trait
 //!   contract of `append_built` names `AppendRefused::Unreadable` as a refusal decided
 //!   *after* `build` runs (`services/sts/src/store.rs:545-548`); `redeem_and_consume` then
-//!   returns a refusal having drawn.
+//!   returns a refusal having drawn. Ruled outside the story's guarantee by the coordinator
+//!   (correction round 1, F3): it needs the kit's transaction, which is
+//!   `decision-blocker:epoch-atomicity`'s. Pins today's behaviour.
 //! - [`a_redemption_behind_a_genuinely_stale_version_draws_nothing`] — the lost
 //!   compare-and-set without the injection: a version that is really stale. Green.
 
@@ -295,6 +297,18 @@ impl IdentityAllocator for DelegatingCounter {
     fn next_authorization_code_id(&mut self) -> AuthorizationCodeId {
         self.inner.next_authorization_code_id()
     }
+
+    fn reserve_credential_id(&mut self) -> CredentialId {
+        self.inner.reserve_credential_id()
+    }
+
+    fn commit_credential_id(&mut self, reserved: CredentialId) {
+        self.inner.commit_credential_id(reserved);
+    }
+
+    fn release_credential_id(&mut self, reserved: CredentialId) {
+        self.inner.release_credential_id(reserved);
+    }
 }
 
 /// **A self-contained issuance the signer refuses draws nothing, whatever allocator it is
@@ -385,8 +399,8 @@ impl AuthorizationCodeLog for RefusesAfterTheBuild {
     }
 }
 
-/// **A redemption refused by the append draws nothing — including the refusal the append
-/// decides after the build.**
+/// **A redemption the log refuses after the build has drawn a secret and an identity — the
+/// residue `decision-blocker:epoch-atomicity` holds.**
 ///
 /// The story's Outcome: "every refusal a handler can still make precedes any draw".
 /// `redeem_and_consume` returns `RedemptionRefused::Append` for both `AppendRefused`
@@ -396,8 +410,13 @@ impl AuthorizationCodeLog for RefusesAfterTheBuild {
 ///
 /// Built: `InMemoryCodeLog`, the only implementor any caller uses (control-plane and
 /// conformance both hold one), cannot fail the fold of a redemption `decide` accepted.
+///
+/// Pinned by the coordinator to the shipped behaviour (correction round 1, F3): a refusal
+/// decided after the build is outside `story:sts-refusal-draws-nothing`'s guarantee, and
+/// both `append_built` and `redeem_and_consume` say so. The assertion flips when the kit's
+/// transaction spans the draw and the commit.
 #[test]
-fn a_log_that_refuses_after_the_build_as_its_contract_allows_has_drawn() {
+fn a_log_that_refuses_after_the_build_has_drawn_pending_epoch_atomicity() {
     let (inner, servers, code_id, proof) = log_with_code();
     let mut log = RefusesAfterTheBuild { inner };
     let mut secrets = CountingSecrets::new();
@@ -427,13 +446,14 @@ fn a_log_that_refuses_after_the_build_as_its_contract_allows_has_drawn() {
         "{refused:?}"
     );
 
+    let mut fresh = SequentialAllocator::new();
+    fresh.next_credential_id();
     assert_eq!(
-        (
-            secrets.minted(),
-            allocator.next_credential_id() == SequentialAllocator::new().next_credential_id()
-        ),
-        (0, true),
-        "a redemption refused by its append drew a secret and an identity"
+        (secrets.minted(), allocator.next_credential_id()),
+        (1, fresh.next_credential_id()),
+        "a refusal the log decides after the build has drawn exactly one secret and one \
+         identity; that residue is decision-blocker:epoch-atomicity's, and this pin is stale \
+         once the kit's transaction spans the draw and the commit"
     );
 }
 

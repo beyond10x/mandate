@@ -427,18 +427,21 @@ where
     // reserved, not drawn. It is handed out only once the signer has signed: nothing below
     // the commit refuses, so a refusal leaves the deployment exactly as it was.
     let credential_id = parts.allocator.reserve_credential_id();
-    let signed = parts
-        .signer
-        .sign_credential(
-            &descriptor,
-            &StandardClaims {
-                issuer: parts.issuer.clone(),
-                subject: input.context.subject,
-                audience: server.audience.clone(),
-                token_id: credential_id.to_string(),
-            },
-        )
-        .map_err(|_| Denied::new(DenialReason::Denied, DenialClause::SigningRefused))?;
+    let Ok(signed) = parts.signer.sign_credential(
+        &descriptor,
+        &StandardClaims {
+            issuer: parts.issuer.clone(),
+            subject: input.context.subject,
+            audience: server.audience.clone(),
+            token_id: credential_id.to_string(),
+        },
+    ) else {
+        parts.allocator.release_credential_id(credential_id);
+        return Err(Denied::new(
+            DenialReason::Denied,
+            DenialClause::SigningRefused,
+        ));
+    };
     parts.allocator.commit_credential_id(credential_id);
     let credential = CredentialSecret::from_bytes(signed.token.into_bytes());
     // The token's own domain: a token and a reference secret never share a verifier space.

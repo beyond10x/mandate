@@ -469,12 +469,20 @@ where
 /// else in this crate's log; the credential the same event seeds is the credential log's,
 /// through [`crate::store::AuthorizationCodeEvent::credential_event`].
 ///
+/// Every refusal that draws nothing is decided before the draw: the decision's, and a lost
+/// compare-and-set. A refusal the log decides **after** the draw — an
+/// [`AppendRefused::Unreadable`] group, or a commit the store fails — is outside that
+/// guarantee: the secret and the identity have been drawn when it returns. Closing it needs
+/// the kit's transaction to span the draw and the commit, which is
+/// `decision-blocker:epoch-atomicity`'s ([`AuthorizationCodeLog::append_built`]).
+///
 /// # Errors
 ///
 /// Returns [`RedemptionRefused::Denied`] with whatever [`redeem_authorization_code`]
 /// refused, and [`RedemptionRefused::Append`] when the append did not commit — a stream
 /// another writer moved first, which is the losing half of two concurrent redemptions and
-/// writes nothing.
+/// writes and draws nothing, or a group the log refused after the draw, which writes
+/// nothing and has drawn.
 pub fn redeem_and_consume<L, R, O, S, D, X, A>(
     input: &RedeemAuthorizationCode,
     request: &RequestContext,

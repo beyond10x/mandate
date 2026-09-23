@@ -1400,6 +1400,17 @@ impl<F: FnMut() -> Uuid> IdentityAllocator for StatedResourceServerIdentity<'_, 
     fn next_authorization_code_id(&mut self) -> AuthorizationCodeId {
         AuthorizationCodeId::new((self.allocate)())
     }
+
+    /// Minted from the same source, for the reason the other three are: registration
+    /// reserves no credential identity, so this is reached by no handler it is handed to,
+    /// and a source of fresh identities holds a reservation by never answering it again.
+    fn reserve_credential_id(&mut self) -> CredentialId {
+        CredentialId::new((self.allocate)())
+    }
+
+    fn commit_credential_id(&mut self, _reserved: CredentialId) {}
+
+    fn release_credential_id(&mut self, _reserved: CredentialId) {}
 }
 
 /// Install one document's **deployment** configuration on the verifier: the algorithm this
@@ -3220,6 +3231,21 @@ impl IdentityAllocator for SystemAllocator {
     fn next_authorization_code_id(&mut self) -> AuthorizationCodeId {
         AuthorizationCodeId::new(self.next_uuid())
     }
+
+    /// 16 fresh bytes from the host CSPRNG. This allocator keeps no state, so a reservation
+    /// is held by the source never answering those bytes again, and a released one leaves
+    /// nothing behind: an identity never handed on is indistinguishable from one never read.
+    ///
+    /// # Panics
+    ///
+    /// Panics when the opened CSPRNG cannot be read; see [`SystemSecrets::next_secret`].
+    fn reserve_credential_id(&mut self) -> CredentialId {
+        CredentialId::new(self.next_uuid())
+    }
+
+    fn commit_credential_id(&mut self, _reserved: CredentialId) {}
+
+    fn release_credential_id(&mut self, _reserved: CredentialId) {}
 }
 
 /// Reading the declared `date-time` and `duration` forms as spans on a timeline.

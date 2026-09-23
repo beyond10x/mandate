@@ -540,6 +540,13 @@ pub trait AuthorizationCodeLog {
     ///
     /// What `build` returns beside the event comes back to the caller on a commit.
     ///
+    /// **A refusal decided after `build` has run is outside what this method guarantees.**
+    /// It promises that the compare-and-set is decided before the draw, and nothing about
+    /// the set: a group the fold cannot read, or a commit the store fails, refuses a
+    /// transaction that has already drawn. Closing that needs the kit's transaction to span
+    /// the draw and the commit together, which is `decision-blocker:epoch-atomicity`'s and
+    /// not decidable in this crate.
+    ///
     /// # Errors
     ///
     /// Returns [`AppendRefused::Conflict`] without running `build` when the stream has moved

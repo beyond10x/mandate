@@ -194,29 +194,30 @@ pub trait IdentityAllocator {
     /// key's `id`.
     fn next_authorization_code_id(&mut self) -> AuthorizationCodeId;
 
-    /// The credential identity the next draw would hand out, held for a transaction that
-    /// can still refuse — and not handed out.
+    /// A credential identity held for a transaction that can still refuse — not handed out,
+    /// and not handed out by any draw while it is held.
     ///
     /// A self-contained issuance signs its identity into the token (`jti`), so the identity
     /// has to exist before the signer can refuse; this is how it exists without having been
-    /// drawn. [`IdentityAllocator::commit_credential_id`] hands it out once the transaction
-    /// can no longer refuse, and a reservation never committed leaves the allocator where it
-    /// was.
+    /// drawn. Every reservation ends in exactly one of
+    /// [`IdentityAllocator::commit_credential_id`], once the transaction can no longer
+    /// refuse, or [`IdentityAllocator::release_credential_id`], when it refused — which
+    /// leaves the allocator where it was before the reservation.
     ///
-    /// The default reserves by drawing, which is right for an allocator whose draws leave
-    /// nothing behind — one over a CSPRNG, where an identity never handed on is
-    /// indistinguishable from one never drawn. An allocator that counts what it handed out
-    /// must override both methods.
-    fn reserve_credential_id(&mut self) -> CredentialId {
-        self.next_credential_id()
-    }
+    /// Required, with no default: a default could only reserve by drawing, and an allocator
+    /// that counts what it handed out would then draw on the refusal this pair exists for.
+    fn reserve_credential_id(&mut self) -> CredentialId;
 
     /// Hand out the identity [`IdentityAllocator::reserve_credential_id`] held.
     ///
-    /// The default does nothing, matching the default reservation.
-    fn commit_credential_id(&mut self, reserved: CredentialId) {
-        let _ = reserved;
-    }
+    /// Presenting an identity that is not the one held is a caller defect, not a runtime
+    /// outcome; an allocator that can tell refuses it loudly rather than handing out
+    /// something else.
+    fn commit_credential_id(&mut self, reserved: CredentialId);
+
+    /// Give back the identity [`IdentityAllocator::reserve_credential_id`] held, as if it
+    /// had never been reserved.
+    fn release_credential_id(&mut self, reserved: CredentialId);
 }
 
 /// The transient secret a reference issuance returns once, behind a port.
@@ -241,6 +242,7 @@ pub struct SequentialAllocator {
     credentials: u8,
     signing_keys: u8,
     authorization_codes: u8,
+    reserved: Option<u8>,
 }
 
 impl SequentialAllocator {
@@ -248,6 +250,26 @@ impl SequentialAllocator {
     #[must_use]
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// End the held reservation, answering its ordinal.
+    ///
+    /// # Panics
+    ///
+    /// Panics when `reserved` is not the identity this fixture holds: a commit or release
+    /// of anything else is a caller defect, and answering it silently is how a reservation
+    /// ends up signed into two credentials.
+    fn held(&mut self, reserved: CredentialId) -> u8 {
+        let ordinal = self
+            .reserved
+            .take()
+            .expect("no credential identity is reserved");
+        assert_eq!(
+            reserved,
+            CredentialId::new(minted(0xcd, ordinal)),
+            "the identity presented is not the one reserved"
+        );
+        ordinal
     }
 }
 
@@ -266,17 +288,40 @@ impl IdentityAllocator for SequentialAllocator {
 
     fn next_credential_id(&mut self) -> CredentialId {
         self.credentials += 1;
+        // A held reservation is skipped, so no draw hands it out a second time.
+        if self.reserved == Some(self.credentials) {
+            self.credentials += 1;
+        }
         CredentialId::new(minted(0xcd, self.credentials))
     }
 
+    /// # Panics
+    ///
+    /// Panics when a reservation is already held: this fixture holds one at a time, and a
+    /// second would be a caller that never ended the first.
     fn reserve_credential_id(&mut self) -> CredentialId {
-        CredentialId::new(minted(0xcd, self.credentials + 1))
+        assert!(
+            self.reserved.is_none(),
+            "a credential identity is already reserved"
+        );
+        let ordinal = self.credentials + 1;
+        self.reserved = Some(ordinal);
+        CredentialId::new(minted(0xcd, ordinal))
     }
 
+    /// # Panics
+    ///
+    /// Panics when `reserved` is not the identity this fixture holds.
     fn commit_credential_id(&mut self, reserved: CredentialId) {
-        if reserved == CredentialId::new(minted(0xcd, self.credentials + 1)) {
-            self.credentials += 1;
-        }
+        let ordinal = self.held(reserved);
+        self.credentials = self.credentials.max(ordinal);
+    }
+
+    /// # Panics
+    ///
+    /// Panics when `reserved` is not the identity this fixture holds.
+    fn release_credential_id(&mut self, reserved: CredentialId) {
+        self.held(reserved);
     }
 
     fn next_signing_key_id(&mut self) -> SigningKeyId {
