@@ -312,7 +312,9 @@ fn resolve_tenant(
     connection: &FederationConnection,
     verified: &VerifiedProof,
 ) -> Result<OrganizationId, Denied> {
-    let candidates = connections.enabled_for_issuer(verified.issuer());
+    // The command decides which connections take part, not the store: a `Disabled`
+    // connection, or one on another issuer, is dropped whatever a store answered.
+    let candidates = crate::enabled_on_issuer(connections, verified.issuer());
     // Step 6 validates the tenant binding *of the trust relationship step 1 selected*.
     // The selected connection's own rule is the binding; another connection's rule
     // cannot stand in for it, or the configured rule would be advisory.

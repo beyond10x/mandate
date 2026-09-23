@@ -3,9 +3,9 @@
 //! The correction's comment in `origin` says "Inside brackets there is an IPv6 address and
 //! nothing else", and the class case it added is named
 //! `every_authority_the_guard_admits_is_the_port_and_address_the_fetcher_reads`. The code
-//! checks `folded(host).parse::<Ipv6Addr>()`, so `[::1.]` and `[::1..]` pass the grammar,
-//! and the class case strips trailing dots from the host `ureq` reads before comparing,
-//! so it cannot see what the fetcher does with them.
+//! checked `folded(host).parse::<Ipv6Addr>()`, so `[::1.]` and `[::1..]` passed the grammar,
+//! and the class case stripped trailing dots from the host `ureq` reads before comparing,
+//! so it could not see what the fetcher does with them.
 //!
 //! What the fetcher does is `ureq`'s `DefaultResolver`: it formats
 //! `"{authority.host()}:{port}"` and hands that to `std::net::ToSocketAddrs`. For a
@@ -39,19 +39,18 @@ fn resolved_by_the_fetcher(uri: &str) -> Result<Vec<IpAddr>, String> {
         .map_err(|error| format!("{addr} does not resolve: {error}"))
 }
 
-/// A bracketed literal with a trailing dot is admitted as an IPv6 issuer's own origin and
-/// is one the fetcher cannot resolve — today's state, pinned exactly.
+/// A bracketed literal with a trailing dot is one the fetcher cannot resolve, and the
+/// guard refuses it.
 ///
 /// Pass 2 wrote this as *"every bracketed spelling the guard admits is one the fetcher
-/// resolves to that address"*, which is the property the guard owes and is red. The
-/// defect fails closed and is open as `story:bracketed-literal-trailing-dot`; the
-/// coordinator ruled the case correct and the fix out of this story, so it asserts what
-/// holds now: the plain spelling is admitted and resolves to the issuer's address, and
-/// each `[v6.]`/`[v6..]` spelling is admitted and does not resolve at all. When that
-/// story lands, the second half of this case must flip — either refused by the guard or
-/// resolved to the issuer's address — and this case with it.
+/// resolves to that address"*, which is the property the guard owes. It was pinned at the
+/// admission while `story:bracketed-literal-trailing-dot` was open; that story decided
+/// the guard refuses the spelling — brackets hold an address and nothing else — so the
+/// second half now asserts the property itself, and the refusal that satisfies it: the
+/// plain spelling is admitted and resolves to the issuer's address, and each
+/// `[v6.]`/`[v6..]` spelling is refused by the guard and, as before, does not resolve.
 #[test]
-fn a_bracketed_literal_with_a_trailing_dot_is_admitted_and_the_fetcher_cannot_resolve_it() {
+fn a_bracketed_literal_with_a_trailing_dot_is_refused_and_the_fetcher_cannot_resolve_it() {
     for (issuer, address) in [
         ("http://[::1]", "::1"),
         ("http://[::1]:8443", "::1"),
@@ -86,12 +85,19 @@ fn a_bracketed_literal_with_a_trailing_dot_is_admitted_and_the_fetcher_cannot_re
             let admitted = UreqJwks::admits(&issuer, &uri, &[]);
             let resolved = resolved_by_the_fetcher(&uri);
             assert!(
-                admitted && resolved.is_err(),
-                "issuer {}: {uri} was expected admitted by the guard and unresolvable by \
-                 the fetcher (admitted={admitted}, resolved={resolved:?}). This pins the \
-                 open defect story:bracketed-literal-trailing-dot; if that story has \
-                 landed, this assertion must flip with it — rewrite it to the property \
-                 the story delivers, never delete it",
+                !admitted
+                    || resolved
+                        .as_ref()
+                        .is_ok_and(|addresses| addresses.contains(&expected)),
+                "issuer {}: {uri} was admitted by the guard and the fetcher does not \
+                 resolve it to {expected} (resolved={resolved:?})",
+                issuer.as_str()
+            );
+            assert!(
+                !admitted && resolved.is_err(),
+                "issuer {}: {uri} was expected refused by the guard and unresolvable by \
+                 the fetcher (admitted={admitted}, resolved={resolved:?}), the answer \
+                 story:bracketed-literal-trailing-dot decided",
                 issuer.as_str()
             );
         }

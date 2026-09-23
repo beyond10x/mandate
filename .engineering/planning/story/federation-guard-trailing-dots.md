@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:federation-guard-trailing-dots
 kind: story
-status: draft
+status: implemented
 title: The federation guard folds every trailing dot of a host
 relations:
 - decomposes: epic:authentication
@@ -10,7 +10,7 @@ relations:
 scope:
 - confidence: cited
   path: crates/mandate-federation/src/verifier_real.rs
-revision: 2
+revision: 5
 ---
 # The federation guard folds every trailing dot of a host
 

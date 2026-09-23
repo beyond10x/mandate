@@ -465,7 +465,13 @@ impl Projection {
 
     /// Apply one event.
     ///
-    /// No event is silently discarded. An event naming an instance no event created —
+    /// One kind of event is applied as a no-op, and nothing else is discarded: a repeated
+    /// creation of an identity this projection already holds —
+    /// `FederationConnectionCreated`, `OAuthClientRegistered`, and the
+    /// `ExternalPrincipalLinked` and `ExternalPrincipalProvisioned` arms through
+    /// `record_link` — writes nothing. That is the redelivery the kit's at-least-once
+    /// delivery admits, and applying it is idempotent: the first record stands, in
+    /// whatever state it has since moved to. An event naming an instance no event created —
     /// a creation-linked one or a lifecycle move — is a log this fold cannot read, and
     /// saying so is the only way a lost record is ever noticed.
     ///
@@ -491,6 +497,17 @@ impl Projection {
                 tenant_resolution,
                 jit_provisioning,
             } => {
+                // Insert-if-absent at the record's own identity, the rule the
+                // `OAuthClientRegistered` arm below and `record_link` keep: a redelivered
+                // creation writes nothing, rather than leaving an `Enabled` copy beside a
+                // record the terminal `Disabled` state already holds.
+                if self
+                    .connections
+                    .iter()
+                    .any(|connection| connection.id == *connection_id)
+                {
+                    return Ok(());
+                }
                 self.connections.push(FederationConnection {
                     id: *connection_id,
                     // The payload declares no organization; the registering caller's
@@ -971,8 +988,10 @@ pub fn register_federation_connection(
     // This is a read-then-write guard. Storage must enforce the same rule atomically, as
     // it must the external key; `federation.yaml:2` names only the external key, which is
     // a contract gap the coordinator records against this story.
-    let foreign: Vec<FederationConnection> = connections
-        .enabled_for_issuer(&input.issuer)
+    //
+    // Only an `Enabled` connection on this issuer can make a login ambiguous, and the
+    // command decides which those are, not the store.
+    let foreign: Vec<FederationConnection> = crate::enabled_on_issuer(connections, &input.issuer)
         .into_iter()
         .filter(|held| held.organization_id != input.context.organization)
         .collect();

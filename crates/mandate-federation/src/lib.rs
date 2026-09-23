@@ -479,12 +479,21 @@ pub trait IdentityAllocator {
 pub trait ConnectionStore {
     /// The connection with this identity, whatever its lifecycle state.
     fn connection(&self, id: &FederationConnectionId) -> Option<FederationConnection>;
-    /// Every `Enabled` connection configured for this issuer.
+    /// The connections configured for this issuer. An implementation may answer them in
+    /// any lifecycle state.
     ///
     /// Tenant resolution runs over this set rather than over the selected connection
     /// alone: a single connection carries one `TenantResolutionRule` and so could only
     /// ever yield zero or one match, while `federation.yaml:210` declares a denial for
     /// "zero or multiple matches".
+    ///
+    /// **The filter is the command's, not the implementor's.** A command reads
+    /// [`record::FederationConnection::state`] and `issuer` itself on what it is handed,
+    /// through this crate's own `enabled_on_issuer`, so a store that answers a `Disabled`
+    /// connection, or one on another issuer, changes no decision: which connections take
+    /// part in a tenant resolution is part of the admission rule, and a port cannot make
+    /// that a property of the command. [`record::Projection`] answers `Enabled` connections only, which is one
+    /// admissible answer.
     fn enabled_for_issuer(&self, issuer: &Issuer) -> Vec<FederationConnection>;
 }
 
@@ -613,6 +622,49 @@ fn on_key<T: LinkStore + ?Sized>(store: &T, key: &ExternalKey) -> Vec<ExternalPr
         .into_iter()
         .filter(|record| {
             record.organization_id == key.organization_id && record.subject == key.subject
+        })
+        .collect()
+}
+
+/// The connections a command resolves a tenant over: those a store answered for this
+/// issuer that are `Enabled` and configured for this exact issuer.
+///
+/// A free function private to this crate rather than a method on [`ConnectionStore`],
+/// for the reason [`LinkResolution`] is blanket: a defaulted method is one an implementor
+/// may write, and an implementor that writes this one decides a command's outcome.
+///
+/// The enumeration contributes **identities**, and a record only where the store cannot
+/// answer one by identity (below). Each identity is read once, through
+/// [`ConnectionStore::connection`] — the one answer the selected connection is also
+/// decided on in step 1 — and its state and issuer are taken from that answer, so a stale
+/// or duplicated copy in the enumeration decides nothing: an identity the store answers
+/// `Disabled` by identity takes no part however the enumeration presents it, and an
+/// identity answered twice counts once.
+///
+/// **An identity the store lists but cannot answer by identity fails closed.** It is
+/// read as the enumeration listed it, state and issuer included, rather than dropped:
+/// every candidate here can only add a match, so dropping one can only turn a refusal
+/// (`TenantAmbiguous`, `TenantResolutionUnadmitted`) into an admission, and a read the
+/// store cannot complete is not evidence that the connection is absent.
+///
+/// This narrows, never widens: a store that answers only `Enabled` connections on the
+/// issuer it was asked about, once each and as it answers them by identity —
+/// [`record::Projection`] included — is unaffected.
+fn enabled_on_issuer<T: ConnectionStore + ?Sized>(
+    store: &T,
+    issuer: &Issuer,
+) -> Vec<FederationConnection> {
+    let mut listed: Vec<FederationConnection> = Vec::new();
+    for answered in store.enabled_for_issuer(issuer) {
+        if !listed.iter().any(|held| held.id == answered.id) {
+            listed.push(answered);
+        }
+    }
+    listed
+        .into_iter()
+        .map(|as_listed| store.connection(&as_listed.id).unwrap_or(as_listed))
+        .filter(|connection| {
+            connection.state == record::ConnectionState::Enabled && connection.issuer == *issuer
         })
         .collect()
 }

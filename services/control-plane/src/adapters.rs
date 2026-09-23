@@ -624,7 +624,9 @@ fn normalised_issuer(configured: &str) -> Result<String, IssuerRefused> {
 ///
 /// It asks the question `mandate-federation`'s destination guard asks of the same kind of
 /// authority (`origin` and `loopback` in `crates/mandate-federation/src/verifier_real.rs`),
-/// so the two cannot disagree about one host:
+/// and answers it the same way for every spelling but one, decided: the federation guard
+/// also counts names ending in `.localdomain` as the loopback, and this one does not, because a
+/// plaintext issuer is admitted here only where it cannot widen who may speak in the clear:
 ///
 /// * An authority carrying `@` is refused outright. Userinfo exists here only to make an
 ///   authority look like it names one host while naming another — `localhost:80@evil.example`
@@ -635,8 +637,10 @@ fn normalised_issuer(configured: &str) -> Result<String, IssuerRefused> {
 ///   other: a bracketed host is an `IP-literal` and must parse as `Ipv6Addr`; an unbracketed
 ///   host is an `IPv4address` or a `reg-name`, neither of which carries a `:`, so one that
 ///   does is refused rather than read as an address.
-/// * One trailing dot is folded on an unbracketed host, because it is the absolute form of
-///   the same name. A second is a name with an empty label, which is no spelling of anything.
+/// * One trailing dot is folded on an unbracketed name, because it is the absolute form of
+///   the same name. A second is a name with an empty label, which is no spelling of anything,
+///   and an address has no absolute form: `127.0.0.1.` is not an address, and the resolver
+///   cannot look it up.
 fn is_loopback(authority: &str) -> bool {
     if authority.contains('@') {
         return false;
@@ -670,11 +674,11 @@ fn is_loopback(authority: &str) -> bool {
             .is_ok_and(|address| address.is_loopback()),
         Host::Unbracketed(host) if host.contains(':') => false,
         Host::Unbracketed(host) => {
-            let host = match host.strip_suffix('.') {
+            let name = match host.strip_suffix('.') {
                 Some(name) if !name.is_empty() => name,
                 _ => host,
             };
-            host.eq_ignore_ascii_case("localhost")
+            name.eq_ignore_ascii_case("localhost")
                 || host
                     .parse::<std::net::Ipv4Addr>()
                     .is_ok_and(|address| address.is_loopback())
@@ -1027,14 +1031,22 @@ impl ConnectionSeeding {
             });
         }
 
+        // Every event decides before any is kept: they are applied to a copy, and the copy
+        // replaces the fold only once the last is accepted — the copy-then-swap
+        // `Deployment::provisioned` uses. A link the fold refuses would otherwise leave its
+        // connection applied behind a refused document, and the corrected document stating
+        // the same `connection_id` would be refused as a repeat of a connection no admitted
+        // document seeded (`story:control-plane-multi-fold-writes`).
+        let mut projection = self.projection.clone();
         for event in &events {
-            self.projection
+            projection
                 .apply(event)
                 .map_err(|error| SeedRefused::Unseedable {
                     path: path.to_path_buf(),
                     error,
                 })?;
         }
+        self.projection = projection;
         self.admitted.push((path.to_path_buf(), connection_id));
         if let Some(link) = &seed.link {
             self.linked
@@ -1168,14 +1180,19 @@ impl ClientSeeding {
             });
         }
         let client = seed.events(allocate);
+        // One event today, applied to a copy anyway: the loop admits more, and a document
+        // the fold refuses part of must leave nothing behind, as at
+        // `ConnectionSeeding::admit`.
+        let mut projection = self.projection.clone();
         for event in &client.events {
-            self.projection
+            projection
                 .apply(event)
                 .map_err(|error| SeedRefused::Unseedable {
                     path: path.to_path_buf(),
                     error,
                 })?;
         }
+        self.projection = projection;
         self.admitted.push((path.to_path_buf(), client.client_id));
         Ok(client)
     }
@@ -2581,6 +2598,17 @@ where
             &mut issuer,
         )?;
         // The event is the record: the federation fold reads the authentication too.
+        //
+        // **Unreachable refusal, which is why it is discarded rather than surfaced after the
+        // session above has been opened.** The fold's one refusal of a
+        // `FederationAuthenticated` is `FoldError::UnknownConnection`
+        // (`crates/mandate-federation/src/record.rs`), and the event's `connection_id` is
+        // `resolved.connection.id`: the record `authenticate_federation` found in this same
+        // fold, through `ConnectionStore::connection`, while this `&mut self` held it. Nothing
+        // between that read and this apply writes the fold, and no event removes a
+        // connection from it. The arm mutates nothing either, so a refusal would lose no
+        // record. A change that gives this arm a second refusal must decide it before the
+        // issuer opens the session (`story:control-plane-multi-fold-writes`).
         let _ = self.federation.apply(&authenticated.event);
 
         let session_proof = self.secrets.next_secret();
@@ -2892,6 +2920,17 @@ where
         )?;
         // The same event seeds the `mandate.credential.AccessCredential` the outcome issues;
         // nothing in `mandate-sts` holds that log, so the composition routes it.
+        //
+        // **Unreachable refusal, which is why it is discarded rather than surfaced after the
+        // code has been consumed.** The fold's one refusal of an `AuthorizationCodeRedeemed`
+        // is `FoldError::UnknownIssuingTarget` (`crates/mandate-token/src/projection.rs`,
+        // `record_credential`), for a `target` no event registered. The event's `target` is
+        // the code's own, and `redeem_and_consume` decided it through `target_in_tenant`
+        // against this same fold (`bound.servers` above), refusing `TargetUnregistered` before
+        // the consume; nothing between that read and this apply writes the fold, and no event
+        // removes a registration. A repeated `credential_id` is insert-if-absent, not a
+        // refusal. A change that gives this arm a second refusal must decide it before the
+        // consume (`story:control-plane-multi-fold-writes`).
         if let Some(event) = redeemed.event.credential_event() {
             let _ = self.credentials.apply(&event);
         }
@@ -3080,15 +3119,24 @@ impl SessionIssuer for OpeningSessionIssuer<'_> {
         // increment has touched states its first generation here, at zero. Every recording
         // is checked: a refused append would leave a login answered and no session behind
         // it, so the refusal is the login's.
+        //
+        // Every recording decides before any is kept: they are recorded into a copy, and the
+        // copy replaces the fold only once the session has been accepted — the copy-then-swap
+        // `Deployment::provisioned` uses. Each recording must go to the copy rather than be
+        // pre-checked against the fold, because each is decided against the ones before it:
+        // the snapshot needs its dimensions stated and the session needs its snapshot. A
+        // refusal at any step leaves the fold as the login found it, rather than holding
+        // generations stated for a session that was never opened.
         let unavailable =
             || FederationDenied::new(DenialReason::Unavailable, FederationClause::SessionUnknown);
+        let mut identity = self.identity.clone();
         for target in [
             SecurityEpochTarget::Principal(principal_id),
             SecurityEpochTarget::Organization(organization_id),
             SecurityEpochTarget::Federation(connection_id),
         ] {
-            if self.identity.current(&target).version() == StreamVersion::INITIAL {
-                self.identity
+            if identity.current(&target).version() == StreamVersion::INITIAL {
+                identity
                     .try_record(IdentityEvent::SecurityEpochRecorded(
                         SecurityEpochRecorded {
                             target,
@@ -3098,7 +3146,7 @@ impl SessionIssuer for OpeningSessionIssuer<'_> {
                     .map_err(|_| unavailable())?;
             }
         }
-        self.identity
+        identity
             .try_record(IdentityEvent::EpochSnapshotRecorded(
                 EpochSnapshotRecorded {
                     id: self.epochs,
@@ -3108,7 +3156,7 @@ impl SessionIssuer for OpeningSessionIssuer<'_> {
                 },
             ))
             .map_err(|_| unavailable())?;
-        self.identity
+        identity
             .try_record(IdentityEvent::SessionOpened(SessionOpened {
                 id: self.session_id,
                 principal_id,
@@ -3118,6 +3166,7 @@ impl SessionIssuer for OpeningSessionIssuer<'_> {
                 expires_at: self.expires_at.clone(),
             }))
             .map_err(|_| unavailable())?;
+        *self.identity = identity;
         Ok(IssuedSession {
             session_id: self.session_id,
             // A login mints no credential; see `Deployment::authenticate`.

@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:bracketed-literal-trailing-dot
 kind: story
-status: draft
+status: implemented
 title: A bracketed issuer literal with a trailing dot is admitted and cannot be fetched
 relations:
 - decomposes: epic:authentication
@@ -14,7 +14,7 @@ scope:
   path: crates/mandate-federation/tests/adversary_host_spelling_2.rs
 - confidence: cited
   path: crates/mandate-federation/tests/verifier_real.rs
-revision: 2
+revision: 5
 ---
 # A bracketed issuer literal with a trailing dot is admitted and cannot be fetched
 
