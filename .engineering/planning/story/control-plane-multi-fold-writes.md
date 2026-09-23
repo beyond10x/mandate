@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:control-plane-multi-fold-writes
 kind: story
-status: draft
+status: active
 title: A control-plane command that writes several folds keeps the earlier writes when a later one is refused
 relations:
 - decomposes: epic:authentication
@@ -10,7 +10,7 @@ relations:
 scope:
 - confidence: cited
   path: services/control-plane/src/adapters.rs
-revision: 2
+revision: 4
 ---
 # A control-plane command that writes several folds keeps the earlier writes when a later one is refused
 

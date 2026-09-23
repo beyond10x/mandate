@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:enabled-for-issuer-filters-in-the-implementor
 kind: story
-status: draft
+status: active
 title: enabled_for_issuer leaves its filter to the implementor
 relations:
 - decomposes: epic:hardening
@@ -20,7 +20,7 @@ scope:
   path: crates/mandate-federation/src/lib.rs
 - confidence: inferred
   path: crates/mandate-federation/src/record.rs
-revision: 4
+revision: 6
 ---
 # `enabled_for_issuer` leaves its filter to the implementor
 
