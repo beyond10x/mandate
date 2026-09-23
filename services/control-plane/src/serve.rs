@@ -49,7 +49,7 @@ use mandate_federation::FederationVerifier;
 use mandate_federation::verifier_real::Clock;
 use mandate_proto::oauth::{self, ErrorBody, ErrorCode};
 use mandate_server::decode::{self, Refusal as DecodeRefusal, Request};
-use mandate_server::routes::{self, Binding, Document, Method, Route};
+use mandate_server::routes::{self, Binding, Document, Method, RelyingPartyStep, Route};
 use mandate_sts::redemption::RedemptionRefused;
 use mandate_sts::{IdentityAllocator, SecretSource};
 use mandate_types::value::encode_base64;
@@ -693,6 +693,36 @@ where
                                 .no_store()
                         }
                     }
+                },
+            }
+        }
+        Binding::RelyingParty(RelyingPartyStep::Authorize) => {
+            match decode::begin_federation(request) {
+                Err(refused) => Response::refused(&refused),
+                Ok(input) => match deployment.begin_federation(&input) {
+                    Ok(location) => Response::redirect(&location),
+                    Err(refusal) => Response::denied("relying-party authorize", &refusal),
+                },
+            }
+        }
+        Binding::RelyingParty(RelyingPartyStep::Callback) => {
+            match decode::complete_federation(request) {
+                Err(refused) => Response::refused(&refused).no_store(),
+                Ok(input) => match deployment.complete_federation(&input) {
+                    Ok(login) => Response::json(
+                        200,
+                        serde_json::json!({
+                            "session_id": login.session_id.to_string(),
+                            "principal_id": login.principal_id.to_string(),
+                            "organization_id": login.organization_id.to_string(),
+                            "epochs": login.epochs.to_string(),
+                            "expires_at": login.expires_at.to_string(),
+                            "session_proof": encode_base64(login.session_proof.expose_bytes()),
+                        })
+                        .to_string(),
+                    )
+                    .no_store(),
+                    Err(refusal) => Response::denied("relying-party callback", &refusal).no_store(),
                 },
             }
         }

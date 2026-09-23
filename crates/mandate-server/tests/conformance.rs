@@ -158,6 +158,19 @@ fn every_route_of_the_table_is_a_command_the_registry_serves_or_a_document_this_
             Binding::Document(Document::Jwks) => {
                 assert_eq!(metadata::Jwks::empty().to_json(), r#"{"keys":[]}"#);
             }
+            Binding::RelyingParty(routes::RelyingPartyStep::Authorize) => {
+                let request = Request::new("GET", &format!("{}?connection_id={UUID}", route.path));
+                assert_eq!(request.route_path(), route.path);
+                let input = decode::begin_federation(&request).unwrap();
+                assert_eq!(input.connection_id.to_string(), UUID);
+            }
+            Binding::RelyingParty(routes::RelyingPartyStep::Callback) => {
+                let request = Request::new("GET", &format!("{}?code=Zm9v&state=xyz", route.path));
+                assert_eq!(request.route_path(), route.path);
+                let input = decode::complete_federation(&request).unwrap();
+                assert_eq!(input.code.expose_bytes(), b"Zm9v");
+                assert_eq!(input.state, "xyz");
+            }
         }
     }
 }

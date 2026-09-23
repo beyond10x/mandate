@@ -503,6 +503,83 @@ pub fn authenticate_federation(request: &Request) -> Result<AuthenticateFederati
     })
 }
 
+/// The relying-party authorize step, as the wire form presents it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BeginFederation {
+    /// The connection whose IdP the browser is sent to.
+    pub connection_id: FederationConnectionId,
+}
+
+/// The relying-party callback, as the IdP's redirect presents it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CompleteFederation {
+    /// The code the IdP issued. A credential, and carried as one.
+    pub code: CredentialProof,
+    /// The exact state the IdP returned.
+    pub state: String,
+    /// RFC 9207's `iss`, when the IdP sends one.
+    pub issuer: Option<String>,
+}
+
+/// The parameters the relying-party authorize step admits, and nothing else.
+pub const FEDERATION_AUTHORIZE_PARAMETERS: &[&str] = &["connection_id"];
+
+/// The parameters the relying-party callback admits, and nothing else.
+///
+/// `code` and `state` are read. `iss` is RFC 9207's and is compared by the handler.
+/// `scope` and `session_state` are parameters IdPs add to a successful response; they are
+/// read and discarded, because refusing them would refuse a login an IdP completed.
+pub const FEDERATION_CALLBACK_PARAMETERS: &[&str] =
+    &["code", "state", "iss", "scope", "session_state"];
+
+/// Decode the relying-party authorize step from its query string.
+///
+/// # Errors
+///
+/// Returns [`Refusal`] for another method, an oversized query, a presented body or caller
+/// credential, a malformed, repeated, undeclared or missing parameter, or a `connection_id`
+/// that is not one.
+pub fn begin_federation(request: &Request) -> Result<BeginFederation, Refusal> {
+    entry(request, "GET", Reads::Query)?;
+    no_presented_credential(request)?;
+    let form = oauth::decode_form(request.query())?;
+    closed(&form, FEDERATION_AUTHORIZE_PARAMETERS)?;
+    Ok(BeginFederation {
+        connection_id: FederationConnectionId::parse(field(&form, "connection_id")?)
+            .map_err(|_| Refusal::MalformedField)?,
+    })
+}
+
+/// Decode the relying-party callback from the query the IdP redirected with.
+///
+/// An IdP's error response (`error=…`) carries no `code` and is refused like any other
+/// callback without one.
+///
+/// # Errors
+///
+/// Returns [`Refusal`] for another method, an oversized query, a presented body or caller
+/// credential, a malformed, repeated, undeclared or missing parameter, or a free-text value
+/// that is too long or carries a control character.
+pub fn complete_federation(request: &Request) -> Result<CompleteFederation, Refusal> {
+    entry(request, "GET", Reads::Query)?;
+    no_presented_credential(request)?;
+    let form = oauth::decode_form(request.query())?;
+    closed(&form, FEDERATION_CALLBACK_PARAMETERS)?;
+    let code = free_text(&form, "code")?;
+    if code.is_empty() {
+        return Err(Refusal::MalformedField);
+    }
+    let issuer = match form.get("iss") {
+        Some(_) => Some(free_text(&form, "iss")?),
+        None => None,
+    };
+    Ok(CompleteFederation {
+        code: CredentialProof::from_bytes(code.into_bytes()),
+        state: free_text(&form, "state")?,
+        issuer,
+    })
+}
+
 /// Decode `mandate.federation.AuthorizePublicClient` from its query string and its bearer
 /// session proof.
 ///

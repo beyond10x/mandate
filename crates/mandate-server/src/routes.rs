@@ -1,7 +1,8 @@
 //! The product route table, as data.
 //!
-//! Six routes: the four the customer login road needs, and the two documents RFC 8414 puts a
-//! client's discovery on. `story:product-listener` dispatches this table and hardcodes no
+//! Eight routes: the four the customer login road needs, the two documents RFC 8414 puts a
+//! client's discovery on, and the two steps of the relying-party flow toward an external IdP.
+//! `story:product-listener` dispatches this table and hardcodes no
 //! path, so a path that is not here is a path nothing serves.
 //!
 //! # The paths, and why these
@@ -19,6 +20,8 @@
 //! | `POST` | `/oauth/introspect` | `mandate.credential.IntrospectCredential` | `original-design.md:1860`, verbatim ("where supported/needed" — this deployment supports it; the command is declared and realized). RFC 7662 section 2 requires `POST`. |
 //! | `GET` | `/.well-known/oauth-authorization-server` | the RFC 8414 metadata document | `original-design.md:1855`, verbatim, and RFC 8414 section 3 fixes it at the host root. |
 //! | `GET` | `/oauth/jwks` | the JWKS document | `original-design.md:1862`, verbatim. |
+//! | `GET` | `/v1/federation/authorize` | [`RelyingPartyStep::Authorize`] | The relying-party half of an external IdP's code flow (`story:relying-party-code-flow`): a browser is sent to the IdP from here. Beside `/v1/federation/login` for the reason that route is under `/v1/`; `GET` because a browser follows it. |
+//! | `GET` | `/v1/federation/callback` | [`RelyingPartyStep::Callback`] | Where the IdP returns the browser with its code (OIDC Core 3.1.2.5 puts the response in the query of a `GET`). The code is redeemed server-side and the ID token goes through `AuthenticateFederation`. |
 //!
 //! Three paths `original-design.md:1855-1862` lists are deliberately **not** here:
 //! `/.well-known/openid-configuration` (no OpenID Connect command is declared),
@@ -36,7 +39,7 @@
 
 /// The methods this table declares.
 ///
-/// Two, because six routes need two. A method a route does not declare is a route a listener
+/// Two, because eight routes need two. A method a route does not declare is a route a listener
 /// does not answer, which is what `crates/mandate-server/tests/routes.rs` decides.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Method {
@@ -72,6 +75,20 @@ pub enum Document {
     Jwks,
 }
 
+/// A step of the relying-party flow toward an external OIDC IdP.
+///
+/// Neither step is a command of the contract. The callback ends in
+/// `mandate.federation.AuthenticateFederation`, over the ID token the IdP's token endpoint
+/// answered, and `/v1/federation/login` stays that command's route; the authorize step
+/// records nothing durable at all (`story:relying-party-code-flow`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum RelyingPartyStep {
+    /// Send the browser to the IdP's authorization endpoint.
+    Authorize,
+    /// Receive the IdP's code, redeem it, and open a session.
+    Callback,
+}
+
 /// What a route binds to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Binding {
@@ -80,6 +97,8 @@ pub enum Binding {
     Command(&'static str),
     /// A document built by `crates/mandate-server/src/metadata.rs`.
     Document(Document),
+    /// A step of the relying-party flow, decoded by `crates/mandate-server/src/decode.rs`.
+    RelyingParty(RelyingPartyStep),
 }
 
 /// One product route.
@@ -124,6 +143,16 @@ pub const ROUTES: &[Route] = &[
         method: Method::Get,
         path: "/oauth/jwks",
         binds: Binding::Document(Document::Jwks),
+    },
+    Route {
+        method: Method::Get,
+        path: "/v1/federation/authorize",
+        binds: Binding::RelyingParty(RelyingPartyStep::Authorize),
+    },
+    Route {
+        method: Method::Get,
+        path: "/v1/federation/callback",
+        binds: Binding::RelyingParty(RelyingPartyStep::Callback),
     },
 ];
 

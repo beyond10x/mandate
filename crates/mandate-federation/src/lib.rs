@@ -31,6 +31,7 @@
 pub mod authenticate;
 pub mod authorize;
 pub mod disable;
+pub mod idp_token;
 pub mod link;
 pub mod pkce;
 pub mod publicclient;
