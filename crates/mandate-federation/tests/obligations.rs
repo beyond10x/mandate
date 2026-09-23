@@ -732,12 +732,19 @@ fn a_proof_matching_no_configured_tenant_is_refused_at_provisioning() {
 /// "tenant resolution has zero or multiple matches": multiple. Two configured tenants stand
 /// behind one issuer and the proof matches both, so the first login resolves neither.
 ///
-/// The two connections are built by `register_federation_connection` rather than folded by
-/// hand. The writer refuses a second organization's rule a proof could satisfy alongside a
-/// held one, so the pair is only reachable the way the guard's own comment says it is: the
-/// guard is read-then-write, and two registrations that each read the issuer before the
-/// other's event is folded are both admitted. Each organization keys on the claim it uses —
-/// `{org: acme}` and `{dept: eng}` — and one proof carrying both claims matches both rules.
+/// The writer refuses a second organization's rule a proof could satisfy alongside a held
+/// one, so no single registration against a current fold reaches this pair. Two routes
+/// still do, and the fold does not re-decide the guard on either. A replayed history: an
+/// event log written before the guard refused different-claim rules folds through
+/// `Projection::apply` as it was accepted (`Deployment::record_federation` in
+/// `services/control-plane` is that raw fold; its
+/// `serve.rs::two_connections_on_one_issuer_from_a_log_are_still_refused_as_ambiguous` holds
+/// the pair that way). And the race the guard's own comment names: the guard is
+/// read-then-write, so two registrations that each read the issuer before the other's event
+/// is folded are both admitted. This case takes the second route, so both connections come
+/// out of `register_federation_connection` rather than being folded by hand. Each
+/// organization keys on the claim it uses — `{org: acme}` and `{dept: eng}` — and one proof
+/// carrying both claims matches both rules.
 #[test]
 fn a_proof_matching_two_configured_tenants_is_refused_at_provisioning() {
     let mut allocator = SequentialAllocator::new();

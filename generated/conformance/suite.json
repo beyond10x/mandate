@@ -34,7 +34,7 @@
         "scenario": "mandate.credential/authored/credential-revoked-twice"
       },
       "scenarios/federation-ambiguous-tenant.yaml": {
-        "digest": "sha256:3822b850b7cece64f7d307c8b92df38c0d5e123d53e21983a44b639c55bca20b",
+        "digest": "sha256:a8f922e588ae9cbbfd4dd3853bfc75e0856ebb55870576737444d3ed4bb04f43",
         "disposition": "accepted",
         "scenario": "mandate.federation/authored/federation-ambiguous-tenant"
       },
@@ -74390,7 +74390,7 @@
       ]
     },
     "mandate.federation/authored/federation-ambiguous-tenant": {
-      "purpose": "`tenant resolution has zero or multiple matches`, multiple: two rules on one issuer read different validated claims, both match; authenticate.rs:348-349; corpus tenant-ambiguous.",
+      "purpose": "`tenant resolution has zero or multiple matches`, multiple: a foreign rule on another claim of one issuer is refused at registration; record.rs collides; corpus tenant-ambiguous.",
       "source": [
         {
           "kind": "domain",
@@ -74476,6 +74476,13 @@
           "name": {
             "command": "mandate.federation.RegisterFederationConnection",
             "outcome": "accepted"
+          }
+        },
+        {
+          "kind": "outcome",
+          "name": {
+            "command": "mandate.federation.RegisterFederationConnection",
+            "outcome": "denied"
           }
         },
         {
@@ -74655,83 +74662,20 @@
         {
           "outcome": {
             "command": "mandate.federation.RegisterFederationConnection",
-            "outcome": "accepted"
+            "outcome": "denied"
           },
           "step": "expect_outcome"
         },
         {
+          "error": "mandate.federation.Denied",
+          "fields": {
+            "reason": "Denied"
+          },
+          "step": "expect_error"
+        },
+        {
           "event": "mandate.federation.FederationConnectionCreated",
-          "payload": {
-            "issuer": "https://idp.example.test"
-          },
-          "shape": {
-            "client_id": {
-              "holds": "primitive",
-              "kind": "string"
-            },
-            "connection_id": {
-              "holds": "primitive",
-              "kind": "uuid"
-            },
-            "context.actor": {
-              "holds": "primitive",
-              "kind": "uuid",
-              "optional": true
-            },
-            "context.audience": {
-              "holds": "primitive",
-              "kind": "string"
-            },
-            "context.correlation": {
-              "holds": "primitive",
-              "kind": "string"
-            },
-            "context.credential": {
-              "holds": "primitive",
-              "kind": "uuid"
-            },
-            "context.delegation": {
-              "holds": "primitive",
-              "kind": "uuid",
-              "optional": true
-            },
-            "context.execution": {
-              "holds": "primitive",
-              "kind": "uuid",
-              "optional": true
-            },
-            "context.organization": {
-              "holds": "primitive",
-              "kind": "uuid"
-            },
-            "context.subject": {
-              "holds": "primitive",
-              "kind": "uuid"
-            },
-            "issuer": {
-              "holds": "primitive",
-              "kind": "string"
-            },
-            "jit_provisioning": {
-              "holds": "primitive",
-              "kind": "boolean"
-            },
-            "tenant_resolution.configured_organization": {
-              "holds": "primitive",
-              "kind": "uuid"
-            },
-            "tenant_resolution.verified_claim_name": {
-              "holds": "primitive",
-              "kind": "string",
-              "optional": true
-            },
-            "tenant_resolution.verified_claim_value": {
-              "holds": "primitive",
-              "kind": "string",
-              "optional": true
-            }
-          },
-          "step": "expect_event"
+          "step": "expect_no_event"
         },
         {
           "command": "mandate.federation.AuthenticateFederation",
@@ -74757,7 +74701,7 @@
         {
           "error": "mandate.federation.Denied",
           "fields": {
-            "reason": "TenantMismatch"
+            "reason": "Denied"
           },
           "step": "expect_error"
         },

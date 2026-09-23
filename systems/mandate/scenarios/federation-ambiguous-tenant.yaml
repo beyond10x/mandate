@@ -1,7 +1,7 @@
 type: ess-scenario/2
 domain: mandate.federation
 scenario: federation-ambiguous-tenant
-summary: '`tenant resolution has zero or multiple matches`, multiple: two rules on one issuer read different validated claims, both match; authenticate.rs:348-349; corpus tenant-ambiguous.'
+summary: '`tenant resolution has zero or multiple matches`, multiple: a foreign rule on another claim of one issuer is refused at registration; record.rs collides; corpus tenant-ambiguous.'
 arrange:
 - instance: conn
   entity: mandate.federation.FederationConnection
@@ -47,11 +47,13 @@ timeline:
       verified_claim_name: dept
       verified_claim_value: acme
     jit_provisioning: false
-  outcome: accepted
-  events:
-  - event: mandate.federation.FederationConnectionCreated
-    payload:
-      issuer: https://idp.example.test
+  outcome: denied
+  error:
+    name: mandate.federation.Denied
+    fields:
+      reason: Denied
+  no_events:
+  - mandate.federation.FederationConnectionCreated
 - at: '2026-01-05T09:00:02Z'
   command: mandate.federation.AuthenticateFederation
   input:
@@ -62,6 +64,6 @@ timeline:
   error:
     name: mandate.federation.Denied
     fields:
-      reason: TenantMismatch
+      reason: Denied
   no_events:
   - mandate.federation.FederationAuthenticated
