@@ -19,8 +19,8 @@ sha2 = "0.10"
 httparse = "=1.10.1"
 aws-lc-rs = "=1.18.1"
 ureq = { version = "=3.4.2", default-features = false, features = ["native-tls"] }
-eventlog-core = { version = "0.2.1", git = "https://github.com/beyond10x/eventlog.git", tag = "0.2.1" }
-eventlog-sqlite = { version = "0.2.1", git = "https://github.com/beyond10x/eventlog.git", tag = "0.2.1" }
+eventlog-core = { version = "0.3.0", git = "https://github.com/beyond10x/eventlog.git", tag = "0.3.0" }
+eventlog-sqlite = { version = "0.3.0", git = "https://github.com/beyond10x/eventlog.git", tag = "0.3.0" }
 ess-conformance = { version = "0.26.0", git = "https://github.com/beyond10x/ess.git", tag = "0.26.0" }
 ess-primitives = { version = "0.26.0", git = "https://github.com/beyond10x/ess.git", tag = "0.26.0" }
 ess-domain = { version = "0.26.0", git = "https://github.com/beyond10x/ess.git", tag = "0.26.0" }
