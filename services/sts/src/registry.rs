@@ -134,6 +134,10 @@ pub struct DisableResourceServer {
 ///
 /// - `max_ttl` names a positive span. A lifetime that names none is no bound, and a
 ///   lifetime of nothing issues a credential that has already expired.
+/// - `max_ttl`, added to [`instant::LATEST_CHECKED_REQUEST_INSTANT`], lands on an instant
+///   [`instant::at`] renders readably. A bound past the last four-digit year promises an
+///   expiry this crate cannot write in a form it reads back, so every issuance under it
+///   would be refused as `ExpiryUnbounded`.
 /// - `positive_cache_ttl` names a non-negative span no longer than `max_ttl`. A cache that
 ///   outlives the credential authorizes after the credential has expired.
 /// - `ImmediateOnline` requires online authorization. The guarantee is that a revocation is
@@ -146,6 +150,10 @@ fn admits_profile(profile: &CredentialProfile) -> Result<(), Denied> {
     if max_ttl <= 0 || cache < 0 || cache > max_ttl {
         return Err(unadmitted());
     }
+    instant::LATEST_CHECKED_REQUEST_INSTANT
+        .checked_add(max_ttl)
+        .and_then(instant::at)
+        .ok_or_else(unadmitted)?;
     if profile.revocation == RevocationGuarantee::ImmediateOnline
         && !profile.requires_online_authorization
     {

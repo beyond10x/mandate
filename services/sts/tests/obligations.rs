@@ -45,17 +45,16 @@
 //!
 //! # The state each case is arranged from
 //!
-//! Through the real handlers, never by folding an invented event: the target is registered by
-//! `register_resource_server`, the code is minted by `CodeIssuance::issue`, and the profile
-//! the refusal turns on is one the **registration handler admits** — `admits_profile` asks
-//! that `max_ttl` names a positive span and nothing more, so a span of `i64::MAX` seconds is
-//! registered, and `issued_at.checked_add(span)` — the narrowing's own profile bound —
-//! overflows `i64` and answers `None`. That overflow is what refuses, and not the end of the
-//! timeline this crate can render: `instant::at` writes the year with `{year:04}`, a minimum
-//! width and not a maximum, so an expiry past the last four-digit year is rendered and
-//! refused by nothing (`story:sts-lifetime-bounds` owns that one). The refusal is therefore
-//! reachable from a registration this deployment would accept, which is the whole difference
-//! between a decided clause and an arranged one.
+//! The code is minted by `CodeIssuance::issue` and the redemption is the shipped handler. The
+//! profile the refusal turns on — a span of `i64::MAX` seconds, whose
+//! `issued_at.checked_add(span)` overflows and answers `None` — is one `admits_profile`
+//! refuses, because its bound lands past the last four-digit year
+//! (`story:sts-lifetime-bounds`), so its registration record is constructed, as the
+//! zero-span case's is: a record another writer put in the log, which the redemption's re-read
+//! of the registration exists for. The same clause is reached from a registration this
+//! deployment **does** admit by
+//! `services/sts/tests/adversary_obligations_sts_1.rs::a_redemption_whose_narrowed_expiry_would_fall_before_the_year_zero_is_refused`,
+//! where `instant::at` refuses to render a narrowed expiry its own reader cannot read back.
 
 use mandate_sts::binding::{RecordedSessions, SessionBinding};
 use mandate_sts::code::{
@@ -194,15 +193,15 @@ fn reference_profile() -> CredentialProfile {
     }
 }
 
-/// A reference profile whose `max_ttl` the registration handler admits and whose implied
-/// credential expiry overflows the arithmetic the redemption narrows with.
+/// A reference profile whose implied credential expiry overflows the arithmetic the
+/// redemption narrows with.
 ///
-/// `crate::registry::admits_profile` asks three things of a profile: that `max_ttl` names a
-/// positive span, that `positive_cache_ttl` names a span between zero and that bound, and
-/// that an `ImmediateOnline` guarantee comes with online authorization. A span of `i64::MAX`
-/// seconds answers all three — and the narrowing's profile bound is
+/// A span of `i64::MAX` seconds, and the narrowing's profile bound is
 /// `issued_at.checked_add(span)`, which overflows `i64` for every request after the epoch
-/// and answers `None`.
+/// and answers `None`. `crate::registry::admits_profile` refuses it — its bound lands past
+/// the last four-digit year (`story:sts-lifetime-bounds`) — so the record carrying it is
+/// [`recorded`], not registered: one another writer put in the log, which the redemption's
+/// re-read of the registration exists for.
 fn boundless_profile() -> CredentialProfile {
     CredentialProfile {
         name: "reference-past-the-i64-bound".to_owned(),
@@ -234,6 +233,21 @@ fn registered(profile: CredentialProfile) -> (Projection, Vec<CredentialEvent>, 
         log,
         outcome.resource_server_id,
     )
+}
+
+/// One target whose registration record carries `profile` without the registration handler
+/// having admitted it, constructed as
+/// [`narrowing_refuses_a_zero_span_profile_bound_and_moves_nothing`] constructs its own.
+fn recorded(profile: CredentialProfile) -> (Projection, Vec<CredentialEvent>, ResourceServerId) {
+    let id = SequentialAllocator::new().next_resource_server_id();
+    let log = vec![CredentialEvent::ResourceServerRegistered {
+        context: context(organization(10)),
+        id,
+        audience: Audience::new("api-a"),
+        credential_profile: profile,
+        allowed_exchange_sources: Vec::new(),
+    }];
+    (Projection::fold(&log).expect("one creation"), log, id)
 }
 
 fn clients() -> RecordedClients {
@@ -316,7 +330,7 @@ fn redemption(code_id: AuthorizationCodeId, proof: &CredentialProof) -> RedeemAu
 #[test]
 fn narrowing_refuses_a_credential_whose_expiry_cannot_be_bounded() {
     assert_clause_is_declared(REDEEM_CODE, NARROWING);
-    let (servers, _, target) = registered(boundless_profile());
+    let (servers, _, target) = recorded(boundless_profile());
     let (issued, code_id, proof) = issued_code(&servers, target);
     let codes = CodeProjection::fold(std::slice::from_ref(&issued)).expect("one creation");
     let mut secrets = CountingSecrets::new();
@@ -337,7 +351,7 @@ fn narrowing_refuses_a_credential_whose_expiry_cannot_be_bounded() {
             allocator: &mut allocator,
         },
     )
-    .expect_err("the admitted profile overflows the narrowing's `issued_at + max_ttl`");
+    .expect_err("the recorded profile overflows the narrowing's `issued_at + max_ttl`");
 
     assert_eq!(
         denied,
@@ -362,7 +376,7 @@ fn narrowing_refuses_a_credential_whose_expiry_cannot_be_bounded() {
 /// shipped handler's.
 #[test]
 fn a_redemption_refused_on_the_narrowing_clause_moves_neither_log_nor_fold() {
-    let (servers, credential_log, target) = registered(boundless_profile());
+    let (servers, credential_log, target) = recorded(boundless_profile());
     let (issued, code_id, proof) = issued_code(&servers, target);
     let mut log = InMemoryCodeLog::new();
     log.append(
@@ -400,7 +414,7 @@ fn a_redemption_refused_on_the_narrowing_clause_moves_neither_log_nor_fold() {
             allocator: &mut allocator,
         },
     )
-    .expect_err("the admitted profile overflows the narrowing's `issued_at + max_ttl`");
+    .expect_err("the recorded profile overflows the narrowing's `issued_at + max_ttl`");
 
     assert_eq!(
         refused,

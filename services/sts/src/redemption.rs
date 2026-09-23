@@ -347,7 +347,7 @@ where
         .and_then(|span| issued_at.checked_add(span))
         .ok_or_else(unbounded)?;
     let code_bound = instant::seconds_of(&code.expires_at).ok_or_else(unbounded)?;
-    let expires_at = instant::at(profile_bound.min(code_bound));
+    let expires_at = instant::at(profile_bound.min(code_bound)).ok_or_else(unbounded)?;
 
     // Nothing above this line mints anything: a refusal leaves the deployment exactly as it
     // was.

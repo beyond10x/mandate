@@ -15,23 +15,36 @@
 //! - [`a_profile_bound_past_the_readable_year_is_refused_or_renders_readably`] asserts the
 //!   sentence `services/sts/src/lib.rs` writes over `instant::at`: "The one rendering this
 //!   crate performs, so an expiry it decides is written the way the contract's schema reads
-//!   it back." The registration handler admits a profile whose `max_ttl` puts the expiry
-//!   past the last four-digit year, which is the bound
-//!   `services/control-plane/src/adapters.rs` refuses a *code* lifetime for
-//!   (`instant::renders_readably`) and which `admits_profile` does not apply.
+//!   it back." A profile whose `max_ttl` puts the expiry past the last four-digit year is
+//!   refused at registration, which is the bound `services/control-plane/src/adapters.rs`
+//!   refuses a *code* lifetime for (`instant::renders_readably`); the cases after it decide
+//!   the same sentence at every site that renders an issued expiry — both issuance commands
+//!   and the redemption — for a request instant the registration bound cannot see.
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use mandate_sts::binding::{RecordedSessions, SessionBinding};
+use mandate_sts::code::{
+    AuthorizationCodeParts, CodeIssuance, CodeLifetime, IssueAuthorizationCode, RecordedClients,
+};
 use mandate_sts::issue::{
-    IssueReferenceCredential, ReferenceParts, Sha256Digest, issue_reference_credential,
+    CredentialIssued, IssueReferenceCredential, IssueSelfContainedCredential, ReferenceParts,
+    SelfContainedParts, Sha256Digest, StaticSigner, issue_reference_credential,
+    issue_self_contained_credential,
+};
+use mandate_sts::redemption::{
+    BoundReads, RedeemAuthorizationCode, RedemptionParts, redeem_authorization_code,
 };
 use mandate_sts::registry::{RegisterResourceServer, register_resource_server};
+use mandate_sts::store::CodeProjection;
 use mandate_sts::{CountingSecrets, RequestContext, SequentialAllocator};
 use mandate_token::CredentialProfile;
-use mandate_token::projection::Projection;
+use mandate_token::projection::{CredentialEvent, DenialClause, Denied, Projection};
 use mandate_types::{
-    Audience, AuthorityScope, CorrelationId, CredentialId, CredentialKind, Duration,
-    OrganizationId, PrincipalId, RevocationGuarantee, Timestamp, Uuid, VerifiedContext,
+    Audience, AuthorityScope, CorrelationId, CredentialId, CredentialKind, CredentialProof,
+    DenialReason, Duration, EpochSnapshotRef, Issuer, OAuthClientId, OrganizationId, PkceChallenge,
+    PkceMethod, PrincipalId, RedirectUri, ResourceServerId, RevocationGuarantee, SessionId,
+    Timestamp, Transient, Uuid, VerifiedContext,
 };
 use serde_json::Value;
 
@@ -260,14 +273,6 @@ fn context(organization_id: OrganizationId) -> VerifiedContext {
     }
 }
 
-fn request() -> RequestContext {
-    RequestContext {
-        correlation: CorrelationId::new("adversary-obligations-sts-1"),
-        at: Timestamp::new("2026-09-19T00:00:00Z"),
-        epochs: None,
-    }
-}
-
 fn scope() -> AuthorityScope {
     AuthorityScope {
         actions: Vec::new(),
@@ -276,92 +281,338 @@ fn scope() -> AuthorityScope {
     }
 }
 
-/// Whether the instant carries the layout `services/sts/src/lib.rs:312-320` reads back: the
-/// four-digit year RFC 3339 declares, and the separators at the offsets that reader checks.
-fn renders_readably(at: &Timestamp) -> bool {
-    let text = at.as_str().as_bytes();
-    text.len() >= 20
-        && text[4] == b'-'
-        && text[7] == b'-'
-        && text[10] == b'T'
-        && text[13] == b':'
-        && text[16] == b':'
+fn oauth_client() -> OAuthClientId {
+    OAuthClientId::new(uuid(0x0c))
 }
 
-/// **A registration this handler admits issues a credential whose expiry this crate cannot
-/// read back, and refuses nothing.**
-///
-/// `PT99999999H` is a well-formed duration `instant::span_of` reads, and
-/// `crate::registry::admits_profile` admits it: it asks that `max_ttl` names a positive span
-/// and that the cache is inside it, and nothing about the instant the span lands on. The
-/// expiry `bounded_expiry` then computes is past the year 9999, and `instant::at` renders
-/// the year with `{year:04}` — a minimum width and not a maximum — so the timestamp on the
-/// issued credential is one `instant::seconds_of` answers `None` for.
-///
-/// `services/control-plane/src/adapters.rs` already refuses exactly this span for the code
-/// and session lifetimes, at construction, through `instant::renders_readably`, and says
-/// why: the handler would otherwise answer `ExpiryUnbounded` per request "with exit status 0
-/// and nothing said at startup". The profile's `max_ttl` reaches the same renderer with no
-/// such bound at either end of the road, and the issuance does not refuse — it succeeds.
-///
-/// The contract publishes the clause for it: `IssueReferenceCredential`'s declared denial
-/// names "expiry cannot be bounded", and `services/sts/src/issue.rs` enumerates "every way
-/// this can fail" as three ways that do not include this one.
-///
-/// Pinned by the coordinator to the shipped behaviour on 2026-09-21
-/// (`review-result:wave-d-obligations-sts-adversary-1` F2): the registration is admitted, the
-/// issuance succeeds, and the expiry it issued is one this crate cannot read back.
-/// `story:sts-lifetime-bounds` turns this into a refusal; the assertion flips there.
-#[test]
-fn a_profile_bound_past_the_readable_year_is_admitted_and_issues_an_unreadable_expiry() {
+fn oauth_session() -> SessionId {
+    SessionId::new(uuid(0x5e))
+}
+
+fn snapshot() -> EpochSnapshotRef {
+    EpochSnapshotRef::new(uuid(0x60))
+}
+
+fn issuer() -> Issuer {
+    Issuer::new("https://sts.example")
+}
+
+/// A profile of the reference family whose `max_ttl` is `max_ttl`.
+fn reference_profile(max_ttl: &str) -> CredentialProfile {
+    CredentialProfile {
+        name: "reference".to_owned(),
+        kind: CredentialKind::Reference,
+        revocation: RevocationGuarantee::BoundedOffline,
+        max_ttl: Duration::new(max_ttl),
+        positive_cache_ttl: Duration::new("PT0S"),
+        requires_online_authorization: false,
+    }
+}
+
+/// One target registered through the real handler, folded.
+fn registered(profile: CredentialProfile) -> (Projection, ResourceServerId) {
     let mut allocator = SequentialAllocator::new();
-    let registered = register_resource_server(
+    let outcome = register_resource_server(
         &RegisterResourceServer {
             context: context(organization(10)),
             audience: Audience::new("api-a"),
-            profile: CredentialProfile {
-                name: "reference-past-the-readable-year".to_owned(),
-                kind: CredentialKind::Reference,
-                revocation: RevocationGuarantee::BoundedOffline,
-                // The span `services/control-plane/tests/adapters.rs` names as the one a
-                // deployment is refused at startup for.
-                max_ttl: Duration::new("PT99999999H"),
-                positive_cache_ttl: Duration::new("PT0S"),
-                requires_online_authorization: false,
-            },
+            profile,
             allowed_exchange_sources: Vec::new(),
         },
         &Projection::default(),
         &mut allocator,
     )
-    .expect("the registration handler admits this profile");
+    .expect("a free audience and an admitted profile");
+    (
+        Projection::fold(std::slice::from_ref(&outcome.event)).expect("one creation"),
+        outcome.resource_server_id,
+    )
+}
 
-    let servers = Projection::fold(std::slice::from_ref(&registered.event)).expect("one creation");
+/// A target whose registration record carries `profile` without the registration handler
+/// having admitted it: a record another writer put in the log, or one written before this
+/// handler refused the profile. Constructed, as
+/// `services/sts/tests/obligations.rs::narrowing_refuses_a_zero_span_profile_bound_and_moves_nothing`
+/// constructs its zero-span record, and for the same reason: an issuance re-reads the
+/// registration, and that re-read is what decides a record no handler here would write.
+fn recorded(profile: CredentialProfile) -> (Projection, ResourceServerId) {
+    let id = ResourceServerId::new(uuid(0x40));
+    let log = vec![CredentialEvent::ResourceServerRegistered {
+        context: context(organization(10)),
+        id,
+        audience: Audience::new("api-a"),
+        credential_profile: profile,
+        allowed_exchange_sources: Vec::new(),
+    }];
+    (Projection::fold(&log).expect("one creation"), id)
+}
+
+fn request_at(at: &str) -> RequestContext {
+    RequestContext {
+        correlation: CorrelationId::new("adversary-obligations-sts-1"),
+        at: Timestamp::new(at),
+        epochs: Some(snapshot()),
+    }
+}
+
+fn expiry_unbounded() -> Denied {
+    Denied::new(DenialReason::Denied, DenialClause::ExpiryUnbounded)
+}
+
+/// A reference issuance against `target`, and how many secrets it minted.
+fn issue_reference(
+    servers: &Projection,
+    target: ResourceServerId,
+    request: &RequestContext,
+) -> (Result<CredentialIssued, Denied>, u32) {
     let mut secrets = CountingSecrets::new();
     let mut allocator = SequentialAllocator::new();
-
     let issued = issue_reference_credential(
         &IssueReferenceCredential {
             context: context(organization(10)),
-            target: registered.resource_server_id,
+            target,
             requested_scope: scope(),
         },
-        &request(),
-        &servers,
+        request,
+        servers,
         ReferenceParts {
             digest: &Sha256Digest,
             secrets: &mut secrets,
             allocator: &mut allocator,
         },
     );
+    (issued, secrets.minted())
+}
 
-    let outcome =
-        issued.expect("the shipped issuance accepts a profile bound past the readable year");
-    assert!(
-        !renders_readably(&outcome.descriptor.expires_at),
-        "`expires_at` = {:?} renders readably, so the premise story:sts-lifetime-bounds rests \
-         on no longer holds; {} secret(s) minted",
-        outcome.descriptor.expires_at.as_str(),
-        secrets.minted()
+/// **A profile whose `max_ttl` puts an expiry past the last four-digit year is refused at
+/// registration as `ProfileUnadmitted`.**
+///
+/// `PT99999999H` is a well-formed duration `instant::span_of` reads — about 11 400 years —
+/// and the span `services/control-plane/tests/adapters.rs` names as the one a deployment is
+/// refused at startup for as a code or session lifetime. `admits_profile` is the one place a
+/// deployment can say, before anything is issued under the profile, that the bound it
+/// promises lands on an instant `instant::at` cannot render readably
+/// (`review-result:wave-d-obligations-sts-adversary-1` F2, flipped by
+/// `story:sts-lifetime-bounds`).
+///
+/// The profiles on either side of the bound are shown admitted, so the refusal is the bound
+/// and not a malformed duration.
+#[test]
+fn a_profile_bound_past_the_readable_year_is_refused_or_renders_readably() {
+    let register = |max_ttl: &str| {
+        let mut allocator = SequentialAllocator::new();
+        register_resource_server(
+            &RegisterResourceServer {
+                context: context(organization(10)),
+                audience: Audience::new("api-a"),
+                profile: CredentialProfile {
+                    name: "reference-past-the-readable-year".to_owned(),
+                    ..reference_profile(max_ttl)
+                },
+                allowed_exchange_sources: Vec::new(),
+            },
+            &Projection::default(),
+            &mut allocator,
+        )
+    };
+
+    for admitted in ["PT1H", "P36500D"] {
+        assert!(
+            register(admitted).is_ok(),
+            "a `max_ttl` of {admitted} lands inside the four-digit year and is admitted"
+        );
+    }
+    for refused in ["PT99999999H", "P3650000D", "PT9223372036854775807S"] {
+        let denied = register(refused).expect_err(
+            "a profile whose bound lands past the last four-digit year promises an expiry \
+             this crate cannot render readably",
+        );
+        assert_eq!(
+            denied,
+            Denied::new(DenialReason::Denied, DenialClause::ProfileUnadmitted),
+            "{refused}: the declared clause is `ProfileUnadmitted`"
+        );
+    }
+}
+
+/// **A record carrying a profile bound past the readable year issues nothing: both issuance
+/// commands refuse with `ExpiryUnbounded` and mint no secret.**
+///
+/// The registration handler refuses the profile, so a record carrying it is one another
+/// writer put in the log. The issuance handlers re-read the registration, and they are the
+/// last point at which an expiry the crate cannot read back can be refused rather than
+/// handed to a holder as a credential `resolve` answers not-live for.
+#[test]
+fn a_recorded_profile_bound_past_the_readable_year_issues_nothing() {
+    let (servers, target) = recorded(reference_profile("PT99999999H"));
+    let (issued, minted) = issue_reference(&servers, target, &request_at("2026-09-19T00:00:00Z"));
+    assert_eq!(
+        issued.map(|outcome| outcome.descriptor.expires_at),
+        Err(expiry_unbounded()),
+        "an expiry past the four-digit year is one this crate cannot read back"
     );
+    assert_eq!(minted, 0, "a refusal mints no secret");
+}
+
+/// **An issuance whose expiry would land past `9999-12-31T23:59:59Z` is refused with
+/// `ExpiryUnbounded`, on both issuance commands, under a profile the registration handler
+/// admits.**
+///
+/// The registration bound is decided from a stated request instant, because the handler has
+/// no clock. A request after that instant, under an admitted `PT24H`, still reaches an
+/// expiry past the four-digit year, and `instant::at` renders it with `{year:04}` — a
+/// minimum width — into `+10000-…`, which `instant::seconds_of` answers `None` for. The
+/// refusal is the issuance's.
+#[test]
+fn an_issuance_whose_expiry_would_pass_the_readable_year_is_refused() {
+    let (servers, target) = registered(reference_profile("PT24H"));
+    let late = request_at("9999-12-31T12:00:00Z");
+
+    let (issued, minted) = issue_reference(&servers, target, &late);
+    assert_eq!(
+        issued.map(|outcome| outcome.descriptor.expires_at),
+        Err(expiry_unbounded()),
+        "IssueReferenceCredential: the expiry lands in the year 10000"
+    );
+    assert_eq!(minted, 0, "a refusal mints no secret");
+
+    let (servers, target) = registered(CredentialProfile {
+        kind: CredentialKind::SelfContained,
+        ..reference_profile("PT24H")
+    });
+    let signer = StaticSigner::new("kid-one", 86_400);
+    let mut allocator = SequentialAllocator::new();
+    let issued = issue_self_contained_credential(
+        &IssueSelfContainedCredential {
+            context: context(organization(10)),
+            target,
+            requested_scope: scope(),
+        },
+        &late,
+        &servers,
+        SelfContainedParts {
+            digest: &Sha256Digest,
+            allocator: &mut allocator,
+            signer: &signer,
+            issuer: &issuer(),
+        },
+    );
+    assert_eq!(
+        issued.map(|outcome| outcome.descriptor.expires_at),
+        Err(expiry_unbounded()),
+        "IssueSelfContainedCredential: the expiry lands in the year 10000"
+    );
+}
+
+/// **An issuance whose expiry would land before `0000-01-01T00:00:00Z` is refused with
+/// `ExpiryUnbounded`.**
+///
+/// The other end of the same rendering. `0000-01-01T00:00:00+01:00` is a request instant
+/// `instant::seconds_of` reads — an hour before the year 0 begins in UTC — and one second
+/// later is still in the year -1, which `instant::at` renders as `-001-12-31T23:00:01Z`. That
+/// text has a `-` at offset 4 and passes the layout check a separator-only reader applies,
+/// and `instant::seconds_of` still answers `None` for it: `-001` is not four digits. So the
+/// bound is whether the crate's own reader reads the rendering back, not where its
+/// separators fall.
+#[test]
+fn an_issuance_whose_expiry_would_fall_before_the_year_zero_is_refused() {
+    let (servers, target) = registered(reference_profile("PT1S"));
+    let (issued, minted) =
+        issue_reference(&servers, target, &request_at("0000-01-01T00:00:00+01:00"));
+    assert_eq!(
+        issued.map(|outcome| outcome.descriptor.expires_at),
+        Err(expiry_unbounded()),
+        "the expiry lands in the year -1"
+    );
+    assert_eq!(minted, 0, "a refusal mints no secret");
+}
+
+/// **A redemption whose narrowed expiry would land before the year 0 is refused with
+/// `ExpiryUnbounded` and mints nothing.**
+///
+/// The third site `instant::at` renders an issued expiry at
+/// (`services/sts/src/redemption.rs`): the earlier of `issued_at + max_ttl` and the code's
+/// own `expires_at`. The code's expiry is one the reader read, so the narrowed instant can
+/// pass neither end of the readable range from above; from below it can, because the
+/// request instant is read with its offset and `issued_at + max_ttl` is then earlier than
+/// the year 0 in UTC. Every earlier guard is satisfied: the code was minted by the real
+/// issuance handler, the session is fresh, the client is bound and the target is the
+/// session's own.
+#[test]
+fn a_redemption_whose_narrowed_expiry_would_fall_before_the_year_zero_is_refused() {
+    const VERIFIER: &str = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
+    const CHALLENGE: &str = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM";
+    const REDIRECT: &str = "https://client.example/callback";
+    let early = request_at("0000-01-01T00:00:00+01:00");
+    let (servers, target) = registered(reference_profile("PT1S"));
+    let clients = RecordedClients::new()
+        .enabled(oauth_client(), organization(10))
+        .redirect(oauth_client(), RedirectUri::new(REDIRECT));
+    let sessions = RecordedSessions::new()
+        .session(SessionBinding {
+            id: oauth_session(),
+            subject: PrincipalId::new(uuid(0x51)),
+            organization: organization(10),
+            epochs: Some(snapshot()),
+            expires_at: Timestamp::new("0000-01-01T12:00:00Z"),
+            revoked: false,
+        })
+        .current(snapshot());
+
+    let mut secrets = CountingSecrets::new();
+    let mut allocator = SequentialAllocator::new();
+    let code = CodeIssuance::new(CodeLifetime::new(Duration::new("PT5M")))
+        .issue(
+            &IssueAuthorizationCode {
+                context: context(organization(10)),
+                client_id: oauth_client(),
+                session_id: oauth_session(),
+                target,
+                requested_scope: scope(),
+                challenge: PkceChallenge::new(CHALLENGE),
+                method: PkceMethod::S256,
+                redirect_uri: RedirectUri::new(REDIRECT),
+                expires_at: Timestamp::new("0000-01-01T00:05:00+01:00"),
+            },
+            &early,
+            &servers,
+            &clients,
+            AuthorizationCodeParts {
+                digest: &Sha256Digest,
+                secrets: &mut secrets,
+                allocator: &mut allocator,
+            },
+        )
+        .expect("a readable code expiry inside the deployment's ceiling");
+    let codes = CodeProjection::fold(std::slice::from_ref(&code.event)).expect("one creation");
+
+    let mut secrets = CountingSecrets::new();
+    let mut allocator = SequentialAllocator::new();
+    let redeemed = redeem_authorization_code(
+        &RedeemAuthorizationCode {
+            code_id: code.code_id,
+            client_id: oauth_client(),
+            code: CredentialProof::from_bytes(code.code.expose_material().to_vec()),
+            pkce_verifier: CredentialProof::from_bytes(VERIFIER.as_bytes().to_vec()),
+            redirect_uri: RedirectUri::new(REDIRECT),
+        },
+        &early,
+        &codes,
+        BoundReads {
+            servers: &servers,
+            clients: &clients,
+            sessions: &sessions,
+        },
+        RedemptionParts {
+            digest: &Sha256Digest,
+            secrets: &mut secrets,
+            allocator: &mut allocator,
+        },
+    );
+    assert_eq!(
+        redeemed.map(|outcome| outcome.descriptor.expires_at),
+        Err(expiry_unbounded()),
+        "the narrowed expiry lands in the year -1"
+    );
+    assert_eq!(secrets.minted(), 0, "a refusal mints no secret");
 }

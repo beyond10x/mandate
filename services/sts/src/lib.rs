@@ -426,20 +426,36 @@ pub(crate) mod instant {
         Some(seconds)
     }
 
-    /// The declared `date-time` form of an instant, in UTC.
+    /// The last request instant a profile's `max_ttl` is checked from at registration:
+    /// `3000-01-01T00:00:00Z`.
+    ///
+    /// The registration handler has no clock, so the bound it applies to a profile is decided
+    /// from a stated instant rather than from "now" — the same instant
+    /// `services/control-plane/src/adapters.rs` checks the code and session lifetimes from.
+    /// A request after it can still reach an expiry [`at`] refuses, and the issuance refuses
+    /// that one itself.
+    pub(crate) const LATEST_CHECKED_REQUEST_INSTANT: i64 = 32_503_680_000;
+
+    /// The declared `date-time` form of an instant, in UTC, or `None` when the rendering is
+    /// not one [`seconds_of`] reads back as that same instant.
     ///
     /// The one rendering this crate performs, so an expiry it decides is written the way
-    /// the contract's schema reads it back.
-    pub(crate) fn at(seconds: i64) -> Timestamp {
+    /// the contract's schema reads it back. The year is rendered `{year:04}`, a minimum width
+    /// and not a maximum: past `9999-12-31T23:59:59Z` it has five digits, and before
+    /// `0000-01-01T00:00:00Z` it carries a sign, and the reader refuses both. Deciding it by
+    /// reading the rendering back, rather than by arithmetic on the seconds, makes "rendered"
+    /// and "readable" one set by construction.
+    pub(crate) fn at(seconds: i64) -> Option<Timestamp> {
         let days = seconds.div_euclid(86_400);
         let rest = seconds.rem_euclid(86_400);
         let (year, month, day) = civil_from_days(days);
-        Timestamp::new(format!(
+        let rendered = Timestamp::new(format!(
             "{year:04}-{month:02}-{day:02}T{:02}:{:02}:{:02}Z",
             rest / 3600,
             (rest % 3600) / 60,
             rest % 60
-        ))
+        ));
+        (seconds_of(&rendered) == Some(seconds)).then_some(rendered)
     }
 
     /// The value of a run of ASCII digits, or `None` when it is not one.

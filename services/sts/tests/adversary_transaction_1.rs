@@ -32,7 +32,7 @@ use mandate_sts::store::{
     AppendRefused, AuthorizationCodeEvent, AuthorizationCodeLog, AuthorizationCodeState,
     CodeProjection, InMemoryCodeLog, StreamVersion,
 };
-use mandate_sts::{CountingSecrets, RequestContext, SequentialAllocator};
+use mandate_sts::{CountingSecrets, IdentityAllocator, RequestContext, SequentialAllocator};
 use mandate_token::CredentialProfile;
 use mandate_token::projection::{
     AccessCredentialState, CredentialEvent, DenialClause, Denied, Projection, RefusedOutcome,
@@ -1066,33 +1066,55 @@ fn the_decided_credential_expiry_is_always_a_readable_bounded_instant() {
             "9999-12-31T23:59:59Z",
         ] {
             let mut allocator = SequentialAllocator::new();
-            let registration = register_resource_server(
+            let profile = CredentialProfile {
+                max_ttl: Duration::new(max_ttl),
+                // `PT0S`: `admits_profile` refuses a positive-cache window wider than the
+                // profile's own `max_ttl`, and `PT1S` is one of the bounds this case walks.
+                positive_cache_ttl: Duration::new("PT0S"),
+                ..reference_profile()
+            };
+            let (event, target) = match register_resource_server(
                 &RegisterResourceServer {
                     context: context(organization(10)),
                     audience: Audience::new("api-a"),
-                    profile: CredentialProfile {
-                        max_ttl: Duration::new(max_ttl),
-                        // `PT0S`: `admits_profile` refuses a positive-cache window wider
-                        // than the profile's own `max_ttl`, and `PT1S` is one of the bounds
-                        // this case walks.
-                        positive_cache_ttl: Duration::new("PT0S"),
-                        ..reference_profile()
-                    },
+                    profile: profile.clone(),
                     allowed_exchange_sources: Vec::new(),
                 },
                 &Projection::default(),
                 &mut allocator,
-            )
-            .expect("a free audience");
-            let servers =
-                Projection::fold(std::slice::from_ref(&registration.event)).expect("one creation");
+            ) {
+                Ok(registration) => (registration.event, registration.resource_server_id),
+                // `admits_profile` refuses a bound that lands past the last four-digit year
+                // from `3000-01-01` (`story:sts-lifetime-bounds`), so a record carrying one is
+                // another writer's — constructed, as `obligations.rs` constructs its
+                // zero-span record — and the redemption still re-reads it.
+                Err(denied) => {
+                    assert!(
+                        matches!(max_ttl, "P3650000D" | "P999999999D"),
+                        "{max_ttl}: refused at registration as {denied}"
+                    );
+                    assert_eq!(denied.clause, DenialClause::ProfileUnadmitted, "{max_ttl}");
+                    let id = allocator.next_resource_server_id();
+                    (
+                        CredentialEvent::ResourceServerRegistered {
+                            context: context(organization(10)),
+                            id,
+                            audience: Audience::new("api-a"),
+                            credential_profile: profile,
+                            allowed_exchange_sources: Vec::new(),
+                        },
+                        id,
+                    )
+                }
+            };
+            let servers = Projection::fold(std::slice::from_ref(&event)).expect("one creation");
             let mut deployment = Deployment {
                 servers,
-                target: registration.resource_server_id,
+                target,
                 codes: InMemoryCodeLog::new(),
                 secrets: CountingSecrets::new(),
                 allocator,
-                credentials: vec![registration.event],
+                credentials: vec![event],
             };
             // The deployment's code-lifetime ceiling (wave C correction 1) admits each
             // arrangement this case walks; the property under test is the decided
