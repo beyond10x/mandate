@@ -870,6 +870,41 @@ pub enum RefusalReason {
     SubjectAbsent,
     /// The `sub` claim is longer than OIDC admits.
     SubjectTooLong,
+    /// The claim the connection's tenant rule names arrived as a JSON value that is not a
+    /// string, so no configured value can be compared with it. Refused by its type rather
+    /// than skipped: a skipped claim resolves nothing and records nothing about why.
+    TenantClaimNotText(ClaimType),
+}
+
+/// The JSON type a claim arrived as, when it is not the string a rule compares against.
+///
+/// A bare name, so a refusal naming it stays log-safe: the value is never carried.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum ClaimType {
+    /// A JSON number.
+    Number,
+    /// A JSON array, whatever its members.
+    Array,
+    /// A JSON object.
+    Object,
+    /// `true` or `false`.
+    Boolean,
+    /// `null`.
+    Null,
+}
+
+impl ClaimType {
+    /// The type of `value`, or `None` when it is a string.
+    fn of(value: &serde_json::Value) -> Option<Self> {
+        match value {
+            serde_json::Value::String(_) => None,
+            serde_json::Value::Number(_) => Some(Self::Number),
+            serde_json::Value::Array(_) => Some(Self::Array),
+            serde_json::Value::Object(_) => Some(Self::Object),
+            serde_json::Value::Bool(_) => Some(Self::Boolean),
+            serde_json::Value::Null => Some(Self::Null),
+        }
+    }
 }
 
 impl fmt::Display for RefusalReason {
@@ -1330,8 +1365,17 @@ impl<S: JwksSource, C: Clock> RealVerifier<S, C> {
             ExternalSubject::new(subject),
             ClientId::new(audience),
         );
+        let tenant_claim = connection.tenant_resolution.verified_claim_name.as_deref();
         for (name, value) in claims {
             let serde_json::Value::String(carried) = value else {
+                // Only the claim this connection's tenant rule reads is refused for its
+                // type: `iat`, `auth_time` and every other non-string claim are ordinary,
+                // and resolution never reads them.
+                if tenant_claim == Some(name.as_str())
+                    && let Some(kind) = ClaimType::of(value)
+                {
+                    return Err(RefusalReason::TenantClaimNotText(kind));
+                }
                 continue;
             };
             verified = if issuer_verified(claims, name) {
@@ -1387,6 +1431,12 @@ fn refused(reason: RefusalReason) -> Denied {
             DenialReason::AudienceMismatch,
             DenialClause::AudienceBinding,
         ),
+        // The rule names a claim whose value cannot equal any configured value: tenant
+        // resolution has zero matches, which is what `authenticate_federation` would have
+        // answered had the claim been skipped — now with the type recorded.
+        RefusalReason::TenantClaimNotText(_) => {
+            Denied::new(DenialReason::TenantMismatch, DenialClause::TenantZero)
+        }
         RefusalReason::MalformedToken
         | RefusalReason::UnexpectedTokenType
         | RefusalReason::CriticalHeaderUnread
