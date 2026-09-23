@@ -624,7 +624,9 @@ fn normalised_issuer(configured: &str) -> Result<String, IssuerRefused> {
 ///
 /// It asks the question `mandate-federation`'s destination guard asks of the same kind of
 /// authority (`origin` and `loopback` in `crates/mandate-federation/src/verifier_real.rs`),
-/// so the two cannot disagree about one host:
+/// and answers it the same way for every spelling but one, decided: the federation guard
+/// also counts names ending in `.localdomain` as the loopback, and this one does not, because a
+/// plaintext issuer is admitted here only where it cannot widen who may speak in the clear:
 ///
 /// * An authority carrying `@` is refused outright. Userinfo exists here only to make an
 ///   authority look like it names one host while naming another — `localhost:80@evil.example`
