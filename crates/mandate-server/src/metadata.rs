@@ -19,8 +19,10 @@
 //! exactly one variant and `crate::decode::authorize_public_client` refuses every other
 //! `code_challenge_method`. `token_endpoint_auth_methods_supported` is `["none"]` because the
 //! login road is the public-client road and `crate::decode::redeem_authorization_code` refuses
-//! `client_secret` as an undeclared parameter. `response_types_supported` and
-//! `grant_types_supported` are the single values those two decoders admit. A metadata document
+//! `client_secret` as an undeclared parameter. `response_types_supported` is the single value
+//! the authorization decoder admits, and `grant_types_supported` is
+//! `crate::decode::TOKEN_GRANTS`, the list `crate::decode::token_request` dispatches on — the
+//! authorization code and RFC 8693 token exchange. A metadata document
 //! advertising a method no decoder admits is a document that lies to every client that reads
 //! it, which is the failure RFC 8414 exists to prevent.
 
@@ -113,7 +115,10 @@ pub fn authorization_server_metadata(issuer: &str) -> AuthorizationServerMetadat
         ),
         issuer,
         response_types_supported: vec![crate::decode::CODE_RESPONSE_TYPE.to_owned()],
-        grant_types_supported: vec![crate::decode::AUTHORIZATION_CODE_GRANT.to_owned()],
+        grant_types_supported: crate::decode::TOKEN_GRANTS
+            .iter()
+            .map(|grant| (*grant).to_owned())
+            .collect(),
         code_challenge_methods_supported: vec![mandate_proto::oauth::S256_METHOD.to_owned()],
         token_endpoint_auth_methods_supported: vec!["none".to_owned()],
     }

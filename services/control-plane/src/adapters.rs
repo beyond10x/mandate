@@ -114,6 +114,9 @@ use mandate_sts::code::{
     AuthorizationCodeParts, CodeIssuance, CodeLifetime, IssueAuthorizationCode, OAuthClientReads,
     s256_challenge,
 };
+use mandate_sts::exchange::{
+    ExchangeParts, ExchangeRequest, ExchangeTarget, exchange_request, seconds_between,
+};
 use mandate_sts::issue::Sha256Digest;
 use mandate_sts::redemption::{
     BoundReads, RedeemAuthorizationCode, RedemptionParts, RedemptionRefused, redeem_and_consume,
@@ -486,6 +489,45 @@ pub struct Token {
     pub descriptor: CredentialDescriptor,
     /// The instant the request was served at, which `expires_in` is measured from.
     pub issued_at: Timestamp,
+}
+
+/// How many exchange decisions of **each kind** [`Deployment::exchanges`] holds: 1024 admitted
+/// and 1024 refused.
+///
+/// The token endpoint authenticates no client, so an unbounded record is memory any caller
+/// can grow by being refused in a loop (correction round 1, F2). Past this many of a kind the
+/// oldest of that kind is evicted, and only of that kind: refusals, which any caller can
+/// produce, never evict the record of an admitted exchange (final correction, F6). The number is a bound, not a retention policy: the record is the
+/// in-memory stand-in for durable delivery, which is `decision-blocker:audit-routing`'s, and
+/// at the size of one `TokenExchangeDenied` it holds well under a megabyte.
+pub const EXCHANGE_RECORD_CAPACITY: usize = 1024;
+
+/// A refused `mandate.credential.ExchangeCredential`: the declared refusal, and the cause the
+/// operator is told.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ExchangeDenied {
+    /// The refusing clause, which decides the wire answer.
+    pub clause: CredentialClause,
+    /// The declared `mandate.core.DenialReason`.
+    pub reason: DenialReason,
+    /// Why the subject token was unusable, when that is what refused. The operator's line
+    /// carries it and the wire never does (final correction, F7).
+    pub cause: Option<mandate_sts::exchange::SubjectTokenCause>,
+}
+
+/// The accepted outcome of `mandate.credential.ExchangeCredential`, as RFC 8693 section
+/// 2.2.1 renders it.
+#[derive(Debug, Clone)]
+pub struct Exchanged {
+    /// The declared `credential` response: the material, returned once.
+    pub credential: CredentialSecret,
+    /// The declared `credential_id` response.
+    pub credential_id: CredentialId,
+    /// The declared `descriptor` response.
+    pub descriptor: CredentialDescriptor,
+    /// Seconds from the instant the request was served at to the descriptor's `expires_at`:
+    /// RFC 8693's `expires_in`.
+    pub expires_in: i64,
 }
 
 /// The accepted outcome of `mandate.credential.IntrospectCredential`.
@@ -2702,6 +2744,10 @@ pub struct Deployment<V, C, X, A> {
     credentials: CredentialProjection,
     codes: InMemoryCodeLog,
     proofs: SessionProofs,
+    /// The last [`EXCHANGE_RECORD_CAPACITY`] `TokenExchangeAllowed` and, bounded apart, the last as many `TokenExchangeDenied`
+    /// this deployment recorded, oldest first: the in-memory record of each exchange
+    /// decision. Durable delivery is `decision-blocker:audit-routing`'s.
+    exchanges: Vec<CredentialEvent>,
     /// The authority decision taken before a handler is dispatched, when the deployment is
     /// configured with one.
     ///
@@ -2767,6 +2813,7 @@ where
             credentials: CredentialProjection::default(),
             codes: InMemoryCodeLog::new(),
             proofs: SessionProofs::new(),
+            exchanges: Vec::new(),
             authority: None,
             relying_party: None,
         })
@@ -2869,6 +2916,25 @@ where
         event: &CredentialEvent,
     ) -> Result<(), CredentialFoldError> {
         self.credentials.apply(event)
+    }
+
+    /// The `mandate.credential` read model this deployment folds.
+    ///
+    /// The read half of [`Deployment::record_credential`], public for the reason
+    /// [`Deployment::federation`] is: an exchange creates its credential here and nowhere a
+    /// status code can be read off.
+    #[must_use]
+    pub fn credentials(&self) -> &CredentialProjection {
+        &self.credentials
+    }
+
+    /// The exchange decisions this deployment still holds, oldest first: the last
+    /// [`EXCHANGE_RECORD_CAPACITY`] `mandate.credential.TokenExchangeAllowed`, one per admitted
+    /// exchange, and, bounded separately, the last as many `TokenExchangeDenied`, one per
+    /// refused one.
+    #[must_use]
+    pub fn exchanges(&self) -> &[CredentialEvent] {
+        &self.exchanges
     }
 
     /// The RFC 8414 metadata document, with every endpoint read from the route table.
@@ -3794,6 +3860,120 @@ where
             ));
         }
         Ok(login)
+    }
+}
+
+impl<V, C, X, A> Deployment<V, C, X, A>
+where
+    V: FederationVerifier,
+    C: Clock,
+    X: SecretSource,
+    A: IdentityAllocator,
+{
+    /// Realize `mandate.credential.ExchangeCredential`, subject-only, and record the decision.
+    ///
+    /// The subject proof is resolved against the credential fold, authoritatively; the source
+    /// is the registration the subject credential was issued for, and the target's
+    /// registration must list it (`mandate_sts::exchange`). An admitted exchange folds the
+    /// credential it issued and records `TokenExchangeAllowed`; a refused one records
+    /// `TokenExchangeDenied`, folds nothing and draws nothing from this deployment's secret
+    /// source or allocator.
+    ///
+    /// No authority decision is asked here, and that is a gap rather than a ruling: the
+    /// decision point ([`Deployment::with_authority`]) is asked about a context the adapter
+    /// already holds, and an exchange's context is the one the STS validates the subject
+    /// proof to. `None` is what the shipped binary configures (`crate::authority`).
+    ///
+    /// # Errors
+    ///
+    /// Returns the declared refusal the exchange was refused with; see
+    /// [`mandate_sts::exchange::exchange_credential`].
+    pub fn exchange(
+        &mut self,
+        input: &decode::ExchangeCredential,
+    ) -> Result<Exchanged, ExchangeDenied> {
+        let at = self.now();
+        let request = StsRequest {
+            correlation: CorrelationId::new("exchange"),
+            at: at.clone(),
+            epochs: None,
+        };
+        let outcome = exchange_request(
+            &ExchangeRequest {
+                subject_proof: input.subject_proof.clone(),
+                actor_proof: input.actor_proof.clone(),
+                target: match &input.target {
+                    decode::ExchangeTarget::Registration(id) => ExchangeTarget::Registration(*id),
+                    decode::ExchangeTarget::Audience(audience) => {
+                        ExchangeTarget::Audience(audience.clone())
+                    }
+                },
+                requested_scope: input.requested_scope.clone(),
+                delegation_id: input.delegation_id,
+            },
+            &request,
+            &self.credentials,
+            ExchangeParts {
+                digest: &self.digest,
+                resolution: &self.credentials,
+                secrets: &mut self.secrets,
+                allocator: &mut self.allocator,
+            },
+        );
+        match outcome {
+            Err(refused) => {
+                self.record_exchange(refused.event);
+                Err(ExchangeDenied {
+                    clause: refused.denied.clause,
+                    reason: refused.denied.reason,
+                    cause: refused.cause,
+                })
+            }
+            Ok(issued) => {
+                // **Unreachable refusal, discarded for the reason `redeem` gives for its own.**
+                // The fold's one refusal of a creating event is `UnknownIssuingTarget`, and
+                // the exchange decided its target through `admitted_target` against this same
+                // fold a moment ago; nothing between that read and this apply writes it.
+                let _ = self.credentials.apply(&issued.event);
+                self.record_exchange(issued.event);
+                let expires_in =
+                    seconds_between(&at, &issued.descriptor.expires_at).unwrap_or_default();
+                Ok(Exchanged {
+                    credential: issued.credential,
+                    credential_id: issued.credential_id,
+                    descriptor: issued.descriptor,
+                    expires_in,
+                })
+            }
+        }
+    }
+}
+
+impl<V, C, X, A> Deployment<V, C, X, A> {
+    /// Record one exchange decision, evicting the oldest past [`EXCHANGE_RECORD_CAPACITY`].
+    ///
+    /// One ordered record, so [`Deployment::exchanges`] reads the decisions as they were
+    /// taken, and two bounds over it: the oldest record **of the arriving kind** is what is
+    /// evicted, so a flood of refusals leaves every admitted record where it was.
+    fn record_exchange(&mut self, event: CredentialEvent) {
+        let allowed = |record: &CredentialEvent| {
+            matches!(record, CredentialEvent::TokenExchangeAllowed { .. })
+        };
+        let arriving = allowed(&event);
+        let same_kind = self
+            .exchanges
+            .iter()
+            .filter(|record| allowed(record) == arriving)
+            .count();
+        if same_kind >= EXCHANGE_RECORD_CAPACITY
+            && let Some(oldest) = self
+                .exchanges
+                .iter()
+                .position(|record| allowed(record) == arriving)
+        {
+            self.exchanges.remove(oldest);
+        }
+        self.exchanges.push(event);
     }
 }
 

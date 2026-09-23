@@ -44,6 +44,23 @@ pub trait ResourceServerReads {
         audience: &Audience,
     ) -> Option<ResourceServer>;
 
+    /// Every enabled registration of an organization that records this audience.
+    ///
+    /// [`ResourceServerReads::registered`] answers the one that *holds* the key, and a
+    /// registration race leaves more than one recording it (`mandate_token::projection`'s
+    /// `audience_conflicts`); an exchange that names its target by audience must see that
+    /// there are two rather than be handed one. The default answers the holder alone, which
+    /// is exact for a reader that can record no race; the fold, which can, overrides it.
+    fn registrations_holding(
+        &self,
+        organization_id: &OrganizationId,
+        audience: &Audience,
+    ) -> Vec<ResourceServer> {
+        self.registered(organization_id, audience)
+            .into_iter()
+            .collect()
+    }
+
     /// Whether that key is free to register.
     ///
     /// # Errors
@@ -85,6 +102,22 @@ impl ResourceServerReads for Projection {
         audience: &Audience,
     ) -> Option<ResourceServer> {
         Self::registered(self, organization_id, audience)
+    }
+
+    fn registrations_holding(
+        &self,
+        organization_id: &OrganizationId,
+        audience: &Audience,
+    ) -> Vec<ResourceServer> {
+        self.resource_servers()
+            .iter()
+            .filter(|server| {
+                server.state == ResourceServerState::Enabled
+                    && server.organization_id == *organization_id
+                    && server.audience == *audience
+            })
+            .cloned()
+            .collect()
     }
 
     fn admits_audience(

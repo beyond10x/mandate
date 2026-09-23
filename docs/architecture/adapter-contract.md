@@ -349,8 +349,10 @@ MUST accurately advertise it" — is a property rather than a promise.
 What is advertised is what is enforced: `code_challenge_methods_supported` is `["S256"]`
 because `mandate.core.PkceMethod` declares one variant and the decoder refuses every other
 method; `token_endpoint_auth_methods_supported` is `["none"]` because the token endpoint
-refuses `client_secret`; `response_types_supported` and `grant_types_supported` are the single
-values the two decoders admit. RFC 8414's optional
+refuses `client_secret`; `response_types_supported` is the single value the authorization
+decoder admits, and `grant_types_supported` is the two grants the token endpoint dispatches on —
+`authorization_code` and RFC 8693's `urn:ietf:params:oauth:grant-type:token-exchange`
+(`decode::TOKEN_GRANTS`). RFC 8414's optional
 `introspection_endpoint_auth_methods_supported` is **absent** for the same reason, read the
 other way: the introspection endpoint requires a bearer caller proof (RFC 7662 section 2.1),
 and no value in IANA's OAuth Token Endpoint Authentication Methods registry names one — so any

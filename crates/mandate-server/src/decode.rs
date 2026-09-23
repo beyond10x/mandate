@@ -46,8 +46,9 @@
 
 use mandate_proto::oauth::{self, ErrorBody, ErrorCode, Form, FormError};
 use mandate_types::{
-    Action, AuthorityScope, AuthorizationCodeId, CredentialProof, FederationConnectionId,
-    OAuthClientId, PkceChallenge, PkceMethod, RedirectUri, ResourceServerId,
+    Action, Audience, AuthorityScope, AuthorizationCodeId, CredentialProof, DelegationId,
+    FederationConnectionId, OAuthClientId, PkceChallenge, PkceMethod, RedirectUri,
+    ResourceServerId,
 };
 
 /// The largest request body, and the largest query string, this module reads.
@@ -63,8 +64,25 @@ pub const FORM_MEDIA_TYPE: &str = "application/x-www-form-urlencoded";
 /// The media type of the federation login request.
 pub const JSON_MEDIA_TYPE: &str = "application/json";
 
-/// The only `grant_type` the token endpoint serves.
+/// The authorization-code `grant_type` (RFC 6749 section 4.1.3).
 pub const AUTHORIZATION_CODE_GRANT: &str = "authorization_code";
+
+/// The token-exchange `grant_type` (RFC 8693 section 2.1).
+pub const TOKEN_EXCHANGE_GRANT: &str = "urn:ietf:params:oauth:grant-type:token-exchange";
+
+/// The two `grant_type` values the token endpoint serves, in the order the metadata document
+/// advertises them.
+pub const TOKEN_GRANTS: &[&str] = &[AUTHORIZATION_CODE_GRANT, TOKEN_EXCHANGE_GRANT];
+
+/// The only token type a token exchange admits, as `subject_token_type` and as
+/// `requested_token_type` (RFC 8693 section 3): a Mandate access credential.
+pub const ACCESS_TOKEN_TYPE: &str = "urn:ietf:params:oauth:token-type:access_token";
+
+/// The URN prefix a `resource` names a registration by (RFC 4122 section 3, RFC 8707).
+///
+/// RFC 8707 requires `resource` to be an absolute URI; a registration identity is a UUID, and
+/// `urn:uuid:<uuid>` is the absolute URI of one.
+pub const RESOURCE_URN_PREFIX: &str = "urn:uuid:";
 
 /// The only `response_type` the authorization endpoint serves.
 pub const CODE_RESPONSE_TYPE: &str = "code";
@@ -192,8 +210,13 @@ pub enum Refusal {
     MissingField,
     /// A value was not the lexical form its declared type admits.
     MalformedField,
-    /// The `grant_type` is not [`AUTHORIZATION_CODE_GRANT`].
+    /// The `grant_type` is not one of [`TOKEN_GRANTS`].
     UnsupportedGrantType,
+    /// A token exchange named a `subject_token_type` or a `requested_token_type` other than
+    /// [`ACCESS_TOKEN_TYPE`].
+    UnsupportedTokenType,
+    /// A token exchange named its target twice: by `audience` and by `resource`.
+    TargetAmbiguous,
     /// The `response_type` is not [`CODE_RESPONSE_TYPE`].
     UnsupportedResponseType,
     /// No session proof was presented to the authorization endpoint.
@@ -246,6 +269,8 @@ impl Refusal {
         Self::MissingField,
         Self::MalformedField,
         Self::UnsupportedGrantType,
+        Self::UnsupportedTokenType,
+        Self::TargetAmbiguous,
         Self::UnsupportedResponseType,
         Self::MissingSessionProof,
         Self::MalformedSessionProof,
@@ -301,7 +326,13 @@ impl Refusal {
             Self::MissingField => "the request is missing a required parameter",
             Self::MalformedField => "a parameter is not in the form its declared type admits",
             Self::UnsupportedGrantType => {
-                "the token endpoint serves the authorization_code grant and no other"
+                "the token endpoint serves the authorization_code and token-exchange grants and no other"
+            }
+            Self::UnsupportedTokenType => {
+                "a token exchange admits the access_token token type and no other"
+            }
+            Self::TargetAmbiguous => {
+                "a token exchange names one target, by audience or by resource"
             }
             Self::UnsupportedResponseType => {
                 "the authorization endpoint serves the code response type and no other"
@@ -428,6 +459,65 @@ impl RedeemAuthorizationCode {
     ];
 }
 
+/// `mandate.credential.ExchangeCredential`, as RFC 8693's request presents it, subject-only.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExchangeCredential {
+    /// The declared `subject_proof`, from `subject_token`.
+    pub subject_proof: CredentialProof,
+    /// The declared `actor_proof`, from `actor_token`: `Some` whenever the request presents
+    /// an `actor_token` or an `actor_token_type`, so that the handler — which exchanges
+    /// subject-only (`story:federated-token-exchange`) — refuses it and records the refusal
+    /// (correction round 1, F3). A decoder refusal would record nothing.
+    ///
+    /// The material is carried as the bytes presented and never decoded or read: a proof
+    /// whose only use is to be refused has no form worth checking, and a check here would put
+    /// a decoder refusal back in front of the recorded one.
+    pub actor_proof: Option<CredentialProof>,
+    /// The declared `target`, from `audience` or `resource`: a registration identity, or the
+    /// audience name one holds.
+    pub target: ExchangeTarget,
+    /// The declared `requested_scope`, from `scope`.
+    pub requested_scope: AuthorityScope,
+    /// The declared `delegation_id`, which RFC 8693 has no parameter for. `None` on every
+    /// value this module produces.
+    pub delegation_id: Option<DelegationId>,
+}
+
+impl ExchangeCredential {
+    /// The declared input names this value carries, in contract order.
+    pub const DECLARED_INPUTS: &'static [&'static str] = &[
+        "subject_proof",
+        "actor_proof",
+        "target",
+        "requested_scope",
+        "delegation_id",
+    ];
+}
+
+/// How an exchange request names its target (RFC 8693 section 2.1, RFC 8707).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ExchangeTarget {
+    /// A registration identity, named as one: `resource=urn:uuid:<uuid>`.
+    Registration(ResourceServerId),
+    /// Every `audience`, and every `resource` that is not a `urn:uuid:` URI: RFC 8693's
+    /// "logical name of the target service" or RFC 8707's URI of it, carried as presented.
+    ///
+    /// The handler reads the text as a registration identity when a registration has that
+    /// identity, and otherwise resolves it as a name among the subject's organization's
+    /// registrations (final correction, F3 and F5). This module decides neither: it cannot
+    /// see a registration.
+    Audience(Audience),
+}
+
+/// What the token endpoint was asked for, by `grant_type`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TokenRequest {
+    /// `grant_type=authorization_code`: `mandate.credential.RedeemAuthorizationCode`.
+    AuthorizationCode(RedeemAuthorizationCode),
+    /// RFC 8693's grant: `mandate.credential.ExchangeCredential`.
+    TokenExchange(ExchangeCredential),
+}
+
 /// `mandate.credential.IntrospectCredential`, as the wire form presents it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IntrospectCredential {
@@ -455,13 +545,34 @@ pub const AUTHORIZE_PARAMETERS: &[&str] = &[
     "scope",
 ];
 
-/// The parameters the token endpoint admits, and nothing else.
+/// The parameters the token endpoint admits on the authorization-code grant, and nothing
+/// else.
 pub const TOKEN_PARAMETERS: &[&str] = &[
     "grant_type",
     "client_id",
     "code",
     "code_verifier",
     "redirect_uri",
+];
+
+/// The parameters the token endpoint admits on the token-exchange grant, and nothing else.
+///
+/// RFC 8693 section 2.1's request, less client authentication, because this is the
+/// public-client road (`token_endpoint_auth_methods_supported: ["none"]`). `actor_token` and
+/// `actor_token_type` are admitted so that an actor reaches the handler and is refused there,
+/// recorded (see [`ExchangeCredential::actor_proof`]). `scope` is required rather than
+/// optional: the declared `requested_scope` is not optional, and an absent one has no
+/// reading this module could supply without inventing authority.
+pub const EXCHANGE_PARAMETERS: &[&str] = &[
+    "grant_type",
+    "subject_token",
+    "subject_token_type",
+    "audience",
+    "resource",
+    "scope",
+    "requested_token_type",
+    "actor_token",
+    "actor_token_type",
 ];
 
 /// The parameters the introspection endpoint admits, and nothing else.
@@ -821,6 +932,93 @@ pub fn redeem_authorization_code(request: &Request) -> Result<RedeemAuthorizatio
         code: credential(field(&form, "code")?)?,
         pkce_verifier: CredentialProof::from_bytes(verifier.as_bytes().to_vec()),
         redirect_uri: RedirectUri::new(free_text(&form, "redirect_uri")?),
+    })
+}
+
+/// Decode the token endpoint's request, dispatching on its `grant_type`.
+///
+/// The grant is read first and each grant's own decoder decides the rest, so each grant's
+/// parameter set is closed on its own: a code-grant parameter on an exchange, and an exchange
+/// parameter on a code grant, are both undeclared.
+///
+/// # Errors
+///
+/// Returns [`Refusal`] for anything [`entry`] refuses, a missing media type or an oversized
+/// or non-UTF-8 body, a malformed or repeated parameter, a missing `grant_type`, a
+/// `grant_type` outside [`TOKEN_GRANTS`], and whatever the grant's own decoder refuses.
+pub fn token_request(request: &Request) -> Result<TokenRequest, Refusal> {
+    entry(request, "POST", Reads::Body)?;
+    let body = require_body(request, FORM_MEDIA_TYPE)?;
+    let form = oauth::decode_form(body)?;
+    match field(&form, "grant_type")? {
+        AUTHORIZATION_CODE_GRANT => {
+            redeem_authorization_code(request).map(TokenRequest::AuthorizationCode)
+        }
+        TOKEN_EXCHANGE_GRANT => exchange_credential(request).map(TokenRequest::TokenExchange),
+        _ => Err(Refusal::UnsupportedGrantType),
+    }
+}
+
+/// Decode `mandate.credential.ExchangeCredential` from RFC 8693 section 2.1's request.
+///
+/// The subject token is a Mandate access credential in its declared base64 form, typed
+/// [`ACCESS_TOKEN_TYPE`]. The target is named by `audience` — a registration identity, or the
+/// audience name a registration holds — or by `resource` as a registration identity's
+/// `urn:uuid:` URI: exactly one of the two, because a request naming two targets is not a
+/// request for one credential. The audience the issued credential carries is the
+/// registration's own, never this parameter's text.
+///
+/// # Errors
+///
+/// Returns [`Refusal`] for another method or media type, an oversized or non-UTF-8 body, a
+/// presented client credential, a malformed, repeated or undeclared parameter, a missing
+/// parameter, a `grant_type` other than [`TOKEN_EXCHANGE_GRANT`], a token type other than
+/// [`ACCESS_TOKEN_TYPE`], a target named twice or in neither form, a `urn:uuid:` resource that
+/// names no UUID, an audience or resource that is too long or carries a control character, and a value outside the lexical form its declared type admits. An actor is not
+/// among them: it reaches the handler.
+pub fn exchange_credential(request: &Request) -> Result<ExchangeCredential, Refusal> {
+    entry(request, "POST", Reads::Body)?;
+    let body = require_body(request, FORM_MEDIA_TYPE)?;
+    no_presented_credential(request)?;
+    let form = oauth::decode_form(body)?;
+    closed(&form, EXCHANGE_PARAMETERS)?;
+    if field(&form, "grant_type")? != TOKEN_EXCHANGE_GRANT {
+        return Err(Refusal::UnsupportedGrantType);
+    }
+    if field(&form, "subject_token_type")? != ACCESS_TOKEN_TYPE {
+        return Err(Refusal::UnsupportedTokenType);
+    }
+    if form
+        .get("requested_token_type")
+        .is_some_and(|requested| requested != ACCESS_TOKEN_TYPE)
+    {
+        return Err(Refusal::UnsupportedTokenType);
+    }
+    let target = match (form.get("audience"), form.get("resource")) {
+        (Some(_), Some(_)) => return Err(Refusal::TargetAmbiguous),
+        (None, None) => return Err(Refusal::MissingField),
+        (Some(_), None) => ExchangeTarget::Audience(Audience::new(free_text(&form, "audience")?)),
+        (None, Some(resource)) => match resource.strip_prefix(RESOURCE_URN_PREFIX) {
+            // A `urn:uuid:` names an identity, and one that names no UUID is a malformed
+            // target: still this module's refusal.
+            Some(id) => ExchangeTarget::Registration(
+                ResourceServerId::parse(id).map_err(|_| Refusal::MalformedField)?,
+            ),
+            None => ExchangeTarget::Audience(Audience::new(free_text(&form, "resource")?)),
+        },
+    };
+    let actor_proof = match (form.get("actor_token"), form.get("actor_token_type")) {
+        (None, None) => None,
+        (token, _) => Some(CredentialProof::from_bytes(
+            token.unwrap_or_default().as_bytes().to_vec(),
+        )),
+    };
+    Ok(ExchangeCredential {
+        subject_proof: credential(field(&form, "subject_token")?)?,
+        actor_proof,
+        target,
+        requested_scope: requested_scope(&free_text(&form, "scope")?),
+        delegation_id: None,
     })
 }
 
