@@ -2454,11 +2454,23 @@ where
         // The identity fold reads it in its generated shape, and the encoding is the one
         // `crates/mandate-federation/tests/contract_agreement.rs` proves round-trips through
         // that shape; one it cannot read is decided before either fold is touched.
+        //
+        // Both folds decide before either is written: the federation fold is folded into a
+        // copy, the identity fold appends only what it accepts, and the copy replaces the
+        // federation fold only once the identity fold has accepted. A refusal by either
+        // leaves both as they were, which is what `false` promises the caller.
         let Some(principal) = identity_event_of(&provisioned.event) else {
             return false;
         };
-        self.federation.apply(&provisioned.event).is_ok()
-            && self.identity.try_record(principal).is_ok()
+        let mut federation = self.federation.clone();
+        if federation.apply(&provisioned.event).is_err() {
+            return false;
+        }
+        if self.identity.try_record(principal).is_err() {
+            return false;
+        }
+        self.federation = federation;
+        true
     }
 
     /// One `mandate.federation.AuthenticateFederation`, with its own session identity.
