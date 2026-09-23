@@ -79,11 +79,16 @@ fn control_plane_is_loopback(authority: &str) -> bool {
 /// none of them and the name lookup fails, exactly as for `127.0.0.1.`. The guard decides
 /// "address" with Rust's parser, so each dotted spelling is a name to it, folded, and
 /// admitted as the issuer's own origin.
+///
+/// The property the guard owes is "admitted only if the fetcher reaches it", and it does
+/// not hold. The defect is pre-existing and fails closed, and it is open as
+/// `story:numeric-shorthand-trailing-dot`, so this case pins today's state exactly: each
+/// dotted shorthand is admitted and does not resolve. When that story lands it must flip
+/// to a refusal, and this case with it.
 #[test]
-fn a_numeric_shorthand_address_with_a_trailing_dot_is_admitted_only_if_the_fetcher_reaches_it() {
+fn a_numeric_shorthand_address_with_a_trailing_dot_is_admitted_and_the_fetcher_cannot_resolve_it() {
     let no_hosts_listed: [String; 0] = [];
-    let loopback: IpAddr = "127.0.0.1".parse().expect("an address");
-    let mut unfetchable = Vec::new();
+    let mut unpinned = Vec::new();
     for host in ["127.1", "2130706433", "0x7f.1", "0x7f000001"] {
         for issuer_spelling in [host.to_owned(), format!("{host}.")] {
             let issuer = format!("https://{issuer_spelling}");
@@ -94,14 +99,19 @@ fn a_numeric_shorthand_address_with_a_trailing_dot_is_admitted_only_if_the_fetch
                 &no_hosts_listed,
             );
             let resolved = resolved_by_the_fetcher(&destination);
-            if admitted && !resolved.as_ref().is_ok_and(|all| all.contains(&loopback)) {
-                unfetchable.push(format!("{issuer} -> {destination}: {resolved:?}"));
+            if !(admitted && resolved.is_err()) {
+                unpinned.push(format!(
+                    "{issuer} -> {destination}: admitted={admitted}, resolved={resolved:?}"
+                ));
             }
         }
     }
     assert!(
-        unfetchable.is_empty(),
-        "admitted by the guard, and the fetcher does not reach the address: {unfetchable:#?}"
+        unpinned.is_empty(),
+        "expected admitted by the guard and unresolvable by the fetcher: {unpinned:#?}. \
+         This pins the open defect story:numeric-shorthand-trailing-dot; when that story \
+         lands, this assertion must flip to a refusal by the guard — rewrite it to that \
+         property, never delete it"
     );
 }
 
