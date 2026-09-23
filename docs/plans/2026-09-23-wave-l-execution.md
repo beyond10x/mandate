@@ -56,3 +56,14 @@ merge, the Gates baseline advance, the release commit, tag and Release, and bran
 - L3 adversary 2: red, 2 notes (introduced: a listed id the store cannot answer by id is dropped and the decision widens; the `apply` doc overstates), recorded `review-result:wl-l3-enabled-for-issuer-adversary-2`; cases `ae5722a`. Findings trend 2 → 2, carried 0. Decision: fail closed on an unanswerable id; doc corrected. Final correction to the same implementor.
 - L1 correction 1: one case red because the control-plane guard still admitted `127.0.0.1.`. Coordinator decision: apply the implementor's control-plane patch (names-only fold); federation 335, control-plane 165, clippy and fmt 0. Committed; outcomes `fixed` ×3. Adversary pass 2 dispatched. Sweep since `bde627b`: 685 decisions moved, all admitted → refused.
 - L3 final correction: coordinator verified — `src/` only, no test file changed; federation 339, conformance 41, clippy and fmt 0. Outcomes `fixed` ×2. **L3 merged.**
+- L1 final: case re-pinned (exact, names `story:numeric-shorthand-trailing-dot`); federation 337 passed. Outcome `no-op` (filed). **L1 merged** as `6013fbd`.
+
+## Close
+
+Closing gate on `14316f9`, one exit status per step: fmt 0, clippy 0, test 0 (274 suites, 2,016 passed, 0 failed), build 0, boundaries 0, corpus 0, contracts 0, deny 0, licenses 0, validate 0, documents 0, coverage 0, obligations-registry 0 (191 clauses, 85 real), conform 0 (166 scenarios, 44 passed), `cargo xtask check` 0 with 11 named mutants killed.
+
+Four stories moved to implemented on a `test_result` against `14316f9`. Filed: `story:seeding-repeated-external-principal-id`, `story:numeric-shorthand-trailing-dot`. Coordinator commit `d58750d` corrected the control-plane loopback doc.
+
+Rulings a reviewer should read: bracketed trailing-dot literals refused; dotted IP literals and empty labels refused; the control-plane guard's names-only fold applied from L1's patch; L3 fails closed on an id the store cannot answer; L2 and L3 fixed two sites beyond their story's list (connection seeding, the redelivered-creation fold arm).
+
+Next under the standing cadence: PR to `main`, bot merge, baseline advance, release 0.5.1 (no **Breaking** entry), cleanup.
