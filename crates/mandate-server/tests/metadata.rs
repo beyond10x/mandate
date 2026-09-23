@@ -59,9 +59,14 @@ fn an_advertised_endpoint_is_the_route_table_s_own_path_and_not_a_second_copy() 
 fn the_metadata_declares_the_policy_this_deployment_actually_enforces() {
     let document = metadata::authorization_server_metadata(ISSUER);
     assert_eq!(document.response_types_supported, vec!["code".to_owned()]);
+    // The two grants `decode::token_request` dispatches: the authorization code, and RFC 8693
+    // token exchange (`story:federated-token-exchange`).
     assert_eq!(
         document.grant_types_supported,
-        vec!["authorization_code".to_owned()]
+        vec![
+            "authorization_code".to_owned(),
+            "urn:ietf:params:oauth:grant-type:token-exchange".to_owned()
+        ]
     );
     // `mandate.core.PkceMethod` declares exactly one variant.
     assert_eq!(
@@ -94,7 +99,7 @@ fn the_metadata_renders_the_nine_declared_members_and_no_more() {
         concat!(
             r#"{"authorization_endpoint":"https://mandate.example/oauth/authorize","#,
             r#""code_challenge_methods_supported":["S256"],"#,
-            r#""grant_types_supported":["authorization_code"],"#,
+            r#""grant_types_supported":["authorization_code","urn:ietf:params:oauth:grant-type:token-exchange"],"#,
             r#""introspection_endpoint":"https://mandate.example/oauth/introspect","#,
             r#""issuer":"https://mandate.example","#,
             r#""jwks_uri":"https://mandate.example/oauth/jwks","#,
@@ -311,5 +316,36 @@ fn a_key_set_refuses_two_keys_that_carry_the_same_kid() {
     assert_eq!(
         Jwks::new(vec![one, repeat]).unwrap_err(),
         JwkRefusal::RepeatedKeyId
+    );
+}
+
+/// **Every grant the document advertises is one the token endpoint dispatches**, and a grant
+/// it does not advertise is refused there.
+///
+/// The class, not the two instances: an advertised grant the decoder refused would be a
+/// document lying to every client that read it, which is the failure RFC 8414 exists to
+/// prevent. Each advertised value is put through `decode::token_request` and must be refused,
+/// if at all, for something other than its grant type.
+#[test]
+fn every_advertised_grant_is_one_the_token_endpoint_dispatches() {
+    use mandate_server::decode::{self, Refusal, Request};
+
+    let document = metadata::authorization_server_metadata(ISSUER);
+    let token = |grant: &str| {
+        Request::new("POST", "/oauth/token")
+            .with_header("Content-Type", "application/x-www-form-urlencoded")
+            .with_body(format!("grant_type={}", grant.replace(':', "%3A")).into_bytes())
+    };
+    for grant in &document.grant_types_supported {
+        let decoded = decode::token_request(&token(grant));
+        assert_ne!(
+            decoded.err(),
+            Some(Refusal::UnsupportedGrantType),
+            "{grant} is advertised and refused as unsupported"
+        );
+    }
+    assert_eq!(
+        decode::token_request(&token("password")).err(),
+        Some(Refusal::UnsupportedGrantType)
     );
 }

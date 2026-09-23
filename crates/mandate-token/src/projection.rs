@@ -210,11 +210,9 @@ pub struct SigningKey {
 /// string for the `id`. Reading an event back needs a tagged envelope carrying the ESS name
 /// beside the payload, which belongs to the persistence story.
 ///
-/// Three declared events of this domain have no variant here, and none is an oversight:
+/// One declared event of this domain has no variant here, and it is not an oversight:
 /// `AuthorizationCodeIssued` writes the code record alone and is folded where that record
-/// lives (`services/sts/src/store.rs`), and `TokenExchangeAllowed` and `TokenExchangeDenied`
-/// belong to `story:constrained-exchange`, which `services/sts/src/lib.rs` names as
-/// unrealized with its owning story.
+/// lives (`services/sts/src/store.rs`).
 ///
 /// [`CredentialEvent::AuthorizationCodeRedeemed`] is the one payload of this domain **two**
 /// folds read, because it writes two records; see the module documentation.
@@ -370,6 +368,46 @@ pub enum CredentialEvent {
         /// carries.
         target: ResourceServerId,
     },
+    /// `mandate.credential.TokenExchangeAllowed`.
+    ///
+    /// The fourth creator of an `AccessCredential`, carrying the same record fields the two
+    /// issuance events carry: `ExchangeCredential`'s accepted outcome `creates` the credential
+    /// it issues for the exchange target (`credential.yaml`).
+    TokenExchangeAllowed {
+        /// The declared `context`: the one the subject credential validated to.
+        context: VerifiedContext,
+        /// The declared `credential_id`: the command's response identity.
+        credential_id: CredentialId,
+        /// The declared `reference_verifier`: non-reversible, never the credential.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        reference_verifier: Option<CredentialVerifier>,
+        /// The declared `epochs`.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        epochs: Option<EpochSnapshotRef>,
+        /// The declared `issued_at`.
+        issued_at: Timestamp,
+        /// The declared `descriptor`.
+        descriptor: CredentialDescriptor,
+        /// The declared `target`: the registration the credential is issued for.
+        target: ResourceServerId,
+        /// The declared `requested_scope`.
+        requested_scope: AuthorityScope,
+    },
+    /// `mandate.credential.TokenExchangeDenied`.
+    ///
+    /// Folds into no record, like [`CredentialEvent::CredentialIntrospected`]: a refused
+    /// exchange creates, moves and updates nothing, and this is the record that it was
+    /// refused. `context` is absent when the subject proof resolved to nothing, because no
+    /// context was validated to carry.
+    TokenExchangeDenied {
+        /// The declared `context`, when the subject proof resolved to one.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        context: Option<VerifiedContext>,
+        /// The declared `requested_target`.
+        requested_target: ResourceServerId,
+        /// The declared `requested_scope`.
+        requested_scope: AuthorityScope,
+    },
 }
 
 impl CredentialEvent {
@@ -396,6 +434,8 @@ impl CredentialEvent {
             Self::AuthorizationCodeRedeemed { .. } => {
                 "mandate.credential.AuthorizationCodeRedeemed"
             }
+            Self::TokenExchangeAllowed { .. } => "mandate.credential.TokenExchangeAllowed",
+            Self::TokenExchangeDenied { .. } => "mandate.credential.TokenExchangeDenied",
         }
     }
 }
@@ -658,6 +698,18 @@ pub enum DenialClause {
     /// `services/sts/tests/declared_denials.rs`, rather than papered over with a clause that
     /// quotes nothing.
     SessionUnusable,
+    /// `ExchangeCredential`: "registered target/source ... binding fails" — the target's
+    /// registration does not list, among its `allowed_exchange_sources`, the registration the
+    /// subject credential was issued for. An empty list admits none.
+    SourceUnadmitted,
+    /// `ExchangeCredential`: "scope ... binding fails" — the requested scope is not inside the
+    /// subject credential's own, so the exchange would widen authority rather than narrow it.
+    ScopeNotNarrowed,
+    /// `ExchangeCredential`: "actor ... or delegation ... binding fails" — an actor proof or a
+    /// delegation was presented to an exchange this deployment realizes subject-only
+    /// (`story:federated-token-exchange`; the actor and delegation exchange is
+    /// `story:constrained-exchange`'s).
+    ExchangeNotSubjectOnly,
 }
 
 /// `mandate.credential.Denied`: fail closed; no credential, authority or lifecycle mutation
@@ -805,6 +857,18 @@ impl Projection {
                 descriptor,
                 target,
                 requested_scope: _,
+            }
+            // The fourth creator: an admitted exchange issues its credential for the target
+            // the event names, from the same record fields.
+            | CredentialEvent::TokenExchangeAllowed {
+                context: _,
+                credential_id,
+                reference_verifier,
+                epochs,
+                issued_at,
+                descriptor,
+                target,
+                requested_scope: _,
             } => {
                 self.record_credential(
                     credential_id,
@@ -854,6 +918,9 @@ impl Projection {
             // deployment this log never saw, which is why the field is optional rather than
             // the event's subject.
             CredentialEvent::CredentialIntrospected { .. } => {}
+            // A refused exchange creates, moves and updates nothing; the record is that it
+            // was refused.
+            CredentialEvent::TokenExchangeDenied { .. } => {}
             CredentialEvent::SigningKeyRegistered {
                 context: _,
                 id,
@@ -1231,6 +1298,16 @@ const _: () = {
                 descriptor,
                 target,
                 requested_scope,
+            }
+            | CredentialEvent::TokenExchangeAllowed {
+                context,
+                credential_id,
+                reference_verifier,
+                epochs,
+                issued_at,
+                descriptor,
+                target,
+                requested_scope,
             } => {
                 persistable(context);
                 persistable(credential_id);
@@ -1296,6 +1373,15 @@ const _: () = {
                 persistable(issued_at);
                 persistable(descriptor);
                 persistable(target);
+            }
+            CredentialEvent::TokenExchangeDenied {
+                context,
+                requested_target,
+                requested_scope,
+            } => {
+                persistable(context);
+                persistable(requested_target);
+                persistable(requested_scope);
             }
         }
     }

@@ -502,6 +502,12 @@ pub const CLAUSE_CODES: &[(DenialClause, ErrorCode)] = &[
     (DenialClause::RedirectMismatch, ErrorCode::InvalidGrant),
     (DenialClause::SessionEpochStale, ErrorCode::InvalidGrant),
     (DenialClause::SessionUnusable, ErrorCode::InvalidGrant),
+    (DenialClause::SourceUnadmitted, ErrorCode::InvalidGrant),
+    (DenialClause::ScopeNotNarrowed, ErrorCode::InvalidScope),
+    (
+        DenialClause::ExchangeNotSubjectOnly,
+        ErrorCode::InvalidRequest,
+    ),
 ];
 
 /// The standard error code a refusal carrying this clause is answered with.

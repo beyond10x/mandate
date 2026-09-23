@@ -255,7 +255,7 @@ pub struct CredentialIssued {
 /// "Target/profile is unregistered/disabled/outside tenant", one clause at a time, plus the
 /// family: a registration names which family its holders get, and a command that asked for
 /// the other is refused rather than served the profile's.
-fn admitted_target(
+pub(crate) fn admitted_target(
     context: &VerifiedContext,
     target: &ResourceServerId,
     servers: &impl ResourceServerReads,
@@ -290,7 +290,7 @@ fn admitted_target(
 /// "Expiry cannot be bounded" is every way this can fail: a request that names no instant,
 /// a profile whose `max_ttl` names no span, a lifetime longer than the profile's bound, and
 /// an expiry [`instant::at`] cannot render as one this crate reads back.
-fn bounded_expiry(
+pub(crate) fn bounded_expiry(
     request: &RequestContext,
     profile: &CredentialProfile,
     lifetime: i64,
@@ -308,7 +308,7 @@ fn bounded_expiry(
 }
 
 /// The descriptor an issuance responds with and records.
-fn descriptor_for(
+pub(crate) fn descriptor_for(
     context: &VerifiedContext,
     server: &ResourceServer,
     requested_scope: &AuthorityScope,

@@ -21,6 +21,7 @@
 use mandate_contract::commands;
 use mandate_contract::entities;
 use mandate_sts::code::IssueAuthorizationCode;
+use mandate_sts::exchange::ExchangeCredential;
 use mandate_sts::issue::{IssueReferenceCredential, IssueSelfContainedCredential};
 use mandate_sts::keys::{RegisterSigningKey, RetireSigningKey, RevokeSigningKey};
 use mandate_sts::redemption::RedeemAuthorizationCode;
@@ -231,6 +232,22 @@ fn each_input_agrees(context: &VerifiedContext) -> Vec<Value> {
             },
             "mandate.credential.RedeemAuthorizationCode",
         ),
+        // No `context` input either: the context the emitted event carries is the one the
+        // subject proof validates to. The two optional inputs subject-only exchange refuses
+        // are carried exactly when the populated context carries an actor and a delegation,
+        // so both halves of the round trip cover them.
+        agrees::<_, commands::MandateCredentialExchangeCredentialInput>(
+            &ExchangeCredential {
+                subject_proof: CredentialProof::from_bytes(b"subject".to_vec()),
+                actor_proof: context
+                    .actor
+                    .map(|_| CredentialProof::from_bytes(b"actor".to_vec())),
+                target: ResourceServerId::new(uuid(0x30)),
+                requested_scope: scope(),
+                delegation_id: context.delegation,
+            },
+            "mandate.credential.ExchangeCredential",
+        ),
     ]
 }
 
@@ -280,7 +297,7 @@ fn the_authorization_code_record_round_trips_in_every_declared_state() {
 fn every_command_input_round_trips_with_every_optional_carried() {
     assert_eq!(
         each_input_agrees(&populated_context()).len(),
-        11,
+        12,
         "one input per command this crate realizes"
     );
 }
@@ -394,9 +411,9 @@ fn every_unrealized_element_names_an_owner() {
 }
 
 /// Every command of this domain is realized here or named as unrealized, and the ones this
-/// crate realizes are the eleven its handlers decide.
+/// crate realizes are the twelve its handlers decide.
 #[test]
-fn the_commands_this_crate_realizes_are_the_eleven_its_handlers_decide() {
+fn the_commands_this_crate_realizes_are_the_twelve_its_handlers_decide() {
     let ir = system_ir();
     let realized: BTreeSet<&str> = ESS_REALIZATIONS
         .iter()
@@ -408,6 +425,7 @@ fn the_commands_this_crate_realizes_are_the_eleven_its_handlers_decide() {
         realized,
         BTreeSet::from([
             "mandate.credential.DisableResourceServer",
+            "mandate.credential.ExchangeCredential",
             "mandate.credential.IntrospectCredential",
             "mandate.credential.IssueAuthorizationCode",
             "mandate.credential.IssueReferenceCredential",
@@ -571,11 +589,39 @@ fn absolute(holder: &str, symbol: &str) -> String {
 /// the refusal — the manifest has to report the element implemented by exactly that symbol.
 /// One declared element still has one realizer; this says the two documents agree on which.
 fn no_unrealized_element_contradicts_the_coverage_manifest(unrealized: &[(&str, &str)]) {
-    assert!(
-        !unrealized.is_empty(),
-        "this crate registers no unrealized element, so this check reads nothing"
-    );
     let claims = coverage_manifest_claims();
+    // An empty registry is this crate saying it realizes every element of its domain, and a
+    // loop over it reads nothing. So the empty case is decided against the manifest as a
+    // whole instead: no element of `mandate.credential` may be reported anything but
+    // implemented. It is the same question asked from the other document — the guard this
+    // replaces refused to ask it at all once the answer became "nothing is unrealized"
+    // (`story:federated-token-exchange` emptied the list).
+    if unrealized.is_empty() {
+        let domain: Vec<&String> = claims
+            .keys()
+            .filter(|element| element.starts_with("mandate.credential."))
+            .collect();
+        assert!(
+            domain.len() > 30,
+            "read {} mandate.credential entries from the coverage manifest",
+            domain.len()
+        );
+        let unimplemented: Vec<String> = claims
+            .iter()
+            .filter(|(element, (status, _, _))| {
+                element.starts_with("mandate.credential.") && status != "implemented"
+            })
+            .map(|(element, (status, _, _))| format!("  {element}: {status}"))
+            .collect();
+        assert!(
+            unimplemented.is_empty(),
+            "this crate registers no unrealized element, and the coverage manifest reports \
+             {} of its domain's elements as not implemented:\n{}",
+            unimplemented.len(),
+            unimplemented.join("\n")
+        );
+        return;
+    }
     let mut contradictions = Vec::new();
     for (element, reason) in unrealized {
         let (status, holder, symbol) = claims

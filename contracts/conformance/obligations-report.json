@@ -7,7 +7,7 @@
     "mandate-identity": {"clauses": 12, "real_covered": 5, "double_only": 2, "deferred": 5},
     "mandate-model": {"clauses": 42, "real_covered": 12, "double_only": 0, "deferred": 30},
     "mandate-policy": {"clauses": 10, "real_covered": 0, "double_only": 6, "deferred": 4},
-    "mandate-sts": {"clauses": 52, "real_covered": 32, "double_only": 0, "deferred": 20}
+    "mandate-sts": {"clauses": 59, "real_covered": 36, "double_only": 0, "deferred": 23}
   },
-  "totals": {"clauses": 191, "real_covered": 85, "double_only": 21, "deferred": 85}
+  "totals": {"clauses": 198, "real_covered": 89, "double_only": 21, "deferred": 88}
 }

@@ -358,7 +358,7 @@ fn a_token_request_refuses_a_grant_type_this_endpoint_does_not_serve() {
     assert_eq!(refused.error_code(), ErrorCode::UnsupportedGrantType);
     assert_eq!(
         refused.body().to_json(),
-        r#"{"error":"unsupported_grant_type","error_description":"the token endpoint serves the authorization_code grant and no other"}"#
+        r#"{"error":"unsupported_grant_type","error_description":"the token endpoint serves the authorization_code and token-exchange grants and no other"}"#
     );
 }
 
@@ -899,5 +899,193 @@ fn every_declared_refusal_is_named_in_the_list_the_cases_read() {
     assert_eq!(
         declared, enumerated,
         "a declared refusal that `Refusal::ALL` does not name"
+    );
+}
+
+// --------------------------------- ExchangeCredential, RFC 8693 at the token endpoint
+
+const EXCHANGE_GRANT: &str = "urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Atoken-exchange";
+const ACCESS_TOKEN: &str = "urn%3Aietf%3Aparams%3Aoauth%3Atoken-type%3Aaccess_token";
+
+fn exchange_form() -> String {
+    format!(
+        "grant_type={EXCHANGE_GRANT}&subject_token=Zm9v&subject_token_type={ACCESS_TOKEN}\
+         &audience={UUID}&scope=read"
+    )
+}
+
+#[test]
+fn a_token_exchange_decodes_the_declared_input_subject_only() {
+    let input = decode::exchange_credential(&token(&exchange_form())).unwrap();
+    assert_eq!(input.subject_proof.expose_bytes(), b"foo");
+    assert_eq!(input.target.to_string(), UUID);
+    assert_eq!(
+        input
+            .requested_scope
+            .actions
+            .iter()
+            .map(|action| action.as_str().to_owned())
+            .collect::<Vec<_>>(),
+        vec!["read".to_owned()]
+    );
+    // Subject-only (`story:federated-token-exchange`): the wire carries no actor and no
+    // delegation, and the two declared inputs that would bind them are absent.
+    assert!(input.actor_proof.is_none());
+    assert!(input.delegation_id.is_none());
+    assert_eq!(
+        decode::ExchangeCredential::DECLARED_INPUTS,
+        &[
+            "subject_proof",
+            "actor_proof",
+            "target",
+            "requested_scope",
+            "delegation_id"
+        ]
+    );
+}
+
+#[test]
+fn a_token_exchange_names_its_target_by_audience_or_by_a_uuid_resource() {
+    let by_resource = exchange_form().replace(
+        &format!("audience={UUID}"),
+        &format!("resource=urn%3Auuid%3A{UUID}"),
+    );
+    let input = decode::exchange_credential(&token(&by_resource)).unwrap();
+    assert_eq!(input.target.to_string(), UUID);
+
+    // Both, or neither, is not one target.
+    let both = format!("{}&resource=urn%3Auuid%3A{UUID}", exchange_form());
+    assert_eq!(
+        decode::exchange_credential(&token(&both)).unwrap_err(),
+        Refusal::TargetAmbiguous
+    );
+    let neither = exchange_form().replace(&format!("&audience={UUID}"), "");
+    assert_eq!(
+        decode::exchange_credential(&token(&neither)).unwrap_err(),
+        Refusal::MissingField
+    );
+    // A resource that is not the URN of a registration identity, and an audience that is not
+    // one, are not the declared `ResourceServerId` form.
+    for malformed in [
+        exchange_form().replace(
+            &format!("audience={UUID}"),
+            "resource=https%3A%2F%2Fapi.example",
+        ),
+        exchange_form().replace(&format!("audience={UUID}"), "audience=platform-api"),
+    ] {
+        assert_eq!(
+            decode::exchange_credential(&token(&malformed)).unwrap_err(),
+            Refusal::MalformedField,
+            "{malformed}"
+        );
+    }
+}
+
+#[test]
+fn a_token_exchange_admits_only_the_access_token_type() {
+    let refresh = exchange_form().replace(
+        ACCESS_TOKEN,
+        "urn%3Aietf%3Aparams%3Aoauth%3Atoken-type%3Arefresh_token",
+    );
+    let refused = decode::exchange_credential(&token(&refresh)).unwrap_err();
+    assert_eq!(refused, Refusal::UnsupportedTokenType);
+    assert_eq!(refused.error_code(), ErrorCode::InvalidRequest);
+
+    let missing = exchange_form().replace(&format!("&subject_token_type={ACCESS_TOKEN}"), "");
+    assert_eq!(
+        decode::exchange_credential(&token(&missing)).unwrap_err(),
+        Refusal::MissingField
+    );
+
+    let requested = format!("{}&requested_token_type={ACCESS_TOKEN}", exchange_form());
+    assert!(decode::exchange_credential(&token(&requested)).is_ok());
+    let requested_other = format!(
+        "{}&requested_token_type=urn%3Aietf%3Aparams%3Aoauth%3Atoken-type%3Aid_token",
+        exchange_form()
+    );
+    assert_eq!(
+        decode::exchange_credential(&token(&requested_other)).unwrap_err(),
+        Refusal::UnsupportedTokenType
+    );
+}
+
+#[test]
+fn a_token_exchange_refuses_an_actor_and_every_undeclared_parameter() {
+    for extra in [
+        "actor_token=YmFy",
+        &format!("actor_token_type={ACCESS_TOKEN}"),
+        "client_secret=s",
+        "organization_id=x",
+        "code=Zm9v",
+    ] {
+        let form = format!("{}&{extra}", exchange_form());
+        assert_eq!(
+            decode::exchange_credential(&token(&form)).unwrap_err(),
+            Refusal::UndeclaredField,
+            "{extra}"
+        );
+    }
+    // A presented client credential is authority the command has no input for.
+    let authenticated = token(&exchange_form()).with_header("Authorization", "Basic Zm9vOmJhcg==");
+    assert_eq!(
+        decode::exchange_credential(&authenticated).unwrap_err(),
+        Refusal::UndeclaredField
+    );
+}
+
+#[test]
+fn a_token_exchange_refuses_a_missing_or_empty_subject_token_and_a_missing_scope() {
+    let missing = exchange_form().replace("&subject_token=Zm9v", "");
+    assert_eq!(
+        decode::exchange_credential(&token(&missing)).unwrap_err(),
+        Refusal::MissingField
+    );
+    let empty = exchange_form().replace("subject_token=Zm9v", "subject_token=");
+    assert_eq!(
+        decode::exchange_credential(&token(&empty)).unwrap_err(),
+        Refusal::MalformedField
+    );
+    let unscoped = exchange_form().replace("&scope=read", "");
+    assert_eq!(
+        decode::exchange_credential(&token(&unscoped)).unwrap_err(),
+        Refusal::MissingField
+    );
+}
+
+#[test]
+fn the_token_endpoint_dispatches_on_the_grant_type() {
+    assert!(matches!(
+        decode::token_request(&token(&token_form())).unwrap(),
+        decode::TokenRequest::AuthorizationCode(_)
+    ));
+    assert!(matches!(
+        decode::token_request(&token(&exchange_form())).unwrap(),
+        decode::TokenRequest::TokenExchange(_)
+    ));
+    // Each grant's own parameter set is closed: a code-grant parameter on an exchange, and an
+    // exchange parameter on a code grant, are both undeclared.
+    let crossed = format!("{}&subject_token=Zm9v", token_form());
+    assert_eq!(
+        decode::token_request(&token(&crossed)).unwrap_err(),
+        Refusal::UndeclaredField
+    );
+    let refused = decode::token_request(&token(
+        &token_form().replace("authorization_code", "password"),
+    ))
+    .unwrap_err();
+    assert_eq!(refused, Refusal::UnsupportedGrantType);
+    assert_eq!(
+        refused.body().to_json(),
+        r#"{"error":"unsupported_grant_type","error_description":"the token endpoint serves the authorization_code and token-exchange grants and no other"}"#
+    );
+    let ungranted = token_form().replace("grant_type=authorization_code&", "");
+    assert_eq!(
+        decode::token_request(&token(&ungranted)).unwrap_err(),
+        Refusal::MissingField
+    );
+    // The entry gate runs before the grant is read.
+    assert_eq!(
+        decode::token_request(&Request::new("POST", "/oauth/token?grant_type=x")).unwrap_err(),
+        Refusal::QueryNotAdmitted
     );
 }

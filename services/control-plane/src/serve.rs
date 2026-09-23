@@ -52,6 +52,7 @@ use mandate_server::decode::{self, Refusal as DecodeRefusal, Request};
 use mandate_server::routes::{self, Binding, Document, Method, Route};
 use mandate_sts::redemption::RedemptionRefused;
 use mandate_sts::{IdentityAllocator, SecretSource};
+use mandate_token::projection::DenialClause as ExchangeClause;
 use mandate_types::value::encode_base64;
 
 use crate::adapters::{AuthorizationRefusal, Deployment, Refusal};
@@ -610,53 +611,13 @@ where
                 },
             }
         }
+        // One endpoint, two grants (RFC 6749 section 3.2, RFC 8693 section 2.1): the grant type
+        // is read first, and each grant is decoded against its own closed parameter set.
         Binding::Command("mandate.credential.RedeemAuthorizationCode") => {
-            match decode::redeem_authorization_code(request) {
+            match decode::token_request(request) {
                 Err(refused) => Response::refused(&refused).no_store(),
-                Ok(input) => match deployment.redeem(&input) {
-                    Ok(token) => {
-                        // `expires_in` is RECOMMENDED (RFC 6749 section 5.1) and not declared by
-                        // the contract's response; the descriptor's own `expires_at` is the
-                        // instant the credential states, and introspection answers it. Omitted
-                        // rather than derived from a clock the response does not carry.
-                        let body = serde_json::json!({
-                            "access_token": encode_base64(token.credential.expose_bytes()),
-                            "token_type": "Bearer",
-                            "credential_id": token.credential_id.to_string(),
-                        });
-                        Response::json(200, body.to_string()).no_store()
-                    }
-                    Err(RedemptionRefused::Denied(denied)) => {
-                        record_refusal(
-                            "mandate.credential.RedeemAuthorizationCode",
-                            &format!("{:?}", denied.clause),
-                        );
-                        let code = oauth::code_for_clause(denied.clause);
-                        Response::error(
-                            status_for(code),
-                            ErrorBody::new(code, "the grant was refused"),
-                        )
-                        .no_store()
-                    }
-                    Err(RedemptionRefused::Append(_)) => Response::error(
-                        503,
-                        ErrorBody::new(
-                            ErrorCode::TemporarilyUnavailable,
-                            "the redemption could not be recorded",
-                        ),
-                    )
-                    .no_store(),
-                    // `RedemptionRefused` is non-exhaustive: a refusal this listener does
-                    // not know is answered as unavailable, never as a grant that worked.
-                    Err(_) => Response::error(
-                        503,
-                        ErrorBody::new(
-                            ErrorCode::TemporarilyUnavailable,
-                            "the redemption could not be decided",
-                        ),
-                    )
-                    .no_store(),
-                },
+                Ok(decode::TokenRequest::AuthorizationCode(input)) => redeemed(deployment, &input),
+                Ok(decode::TokenRequest::TokenExchange(input)) => exchanged(deployment, &input),
             }
         }
         Binding::Command("mandate.credential.IntrospectCredential") => {
@@ -703,6 +664,109 @@ where
                 "no product route serves this path",
             ),
         ),
+    }
+}
+
+/// The authorization-code grant's answer: `mandate.credential.RedeemAuthorizationCode`.
+fn redeemed<V, C, X, A>(
+    deployment: &mut Deployment<V, C, X, A>,
+    input: &decode::RedeemAuthorizationCode,
+) -> Response
+where
+    V: FederationVerifier,
+    C: Clock,
+    X: SecretSource,
+    A: IdentityAllocator,
+{
+    match deployment.redeem(input) {
+        Ok(token) => {
+            // `expires_in` is RECOMMENDED (RFC 6749 section 5.1) and not declared by
+            // the contract's response; the descriptor's own `expires_at` is the
+            // instant the credential states, and introspection answers it. Omitted
+            // rather than derived from a clock the response does not carry.
+            let body = serde_json::json!({
+                "access_token": encode_base64(token.credential.expose_bytes()),
+                "token_type": "Bearer",
+                "credential_id": token.credential_id.to_string(),
+            });
+            Response::json(200, body.to_string()).no_store()
+        }
+        Err(RedemptionRefused::Denied(denied)) => {
+            record_refusal(
+                "mandate.credential.RedeemAuthorizationCode",
+                &format!("{:?}", denied.clause),
+            );
+            let code = oauth::code_for_clause(denied.clause);
+            Response::error(
+                status_for(code),
+                ErrorBody::new(code, "the grant was refused"),
+            )
+            .no_store()
+        }
+        Err(RedemptionRefused::Append(_)) => Response::error(
+            503,
+            ErrorBody::new(
+                ErrorCode::TemporarilyUnavailable,
+                "the redemption could not be recorded",
+            ),
+        )
+        .no_store(),
+        // `RedemptionRefused` is non-exhaustive: a refusal this listener does
+        // not know is answered as unavailable, never as a grant that worked.
+        Err(_) => Response::error(
+            503,
+            ErrorBody::new(
+                ErrorCode::TemporarilyUnavailable,
+                "the redemption could not be decided",
+            ),
+        )
+        .no_store(),
+    }
+}
+
+/// The token-exchange grant's answer: `mandate.credential.ExchangeCredential`, rendered as
+/// RFC 8693 section 2.2.1's response.
+///
+/// A refusal is RFC 8693 section 2.2.2's: `invalid_request` when the subject token or the
+/// target is unacceptable — the section's own words for both — and `invalid_scope` for a scope
+/// wider than the subject credential's. Section 2.2.2's `invalid_target` would be the sharper
+/// code for a target refusal, and `mandate_proto::oauth::ErrorCode` does not declare it; the
+/// section makes it a SHOULD, and `invalid_request` is what it falls back to. An unreachable
+/// resolution is not a refusal of the request at all and is answered as unavailable.
+fn exchanged<V, C, X, A>(
+    deployment: &mut Deployment<V, C, X, A>,
+    input: &decode::ExchangeCredential,
+) -> Response
+where
+    V: FederationVerifier,
+    C: Clock,
+    X: SecretSource,
+    A: IdentityAllocator,
+{
+    match deployment.exchange(input) {
+        Ok(exchanged) => Response::json(
+            200,
+            serde_json::json!({
+                "access_token": encode_base64(exchanged.credential.expose_bytes()),
+                "issued_token_type": decode::ACCESS_TOKEN_TYPE,
+                "token_type": "Bearer",
+                "expires_in": exchanged.expires_in,
+            })
+            .to_string(),
+        )
+        .no_store(),
+        Err(denied) => {
+            record_refusal(
+                "mandate.credential.ExchangeCredential",
+                &format!("{:?}", denied.clause),
+            );
+            let (status, code) = match denied.clause {
+                ExchangeClause::ScopeNotNarrowed => (400, ErrorCode::InvalidScope),
+                ExchangeClause::ResolutionUnavailable => (503, ErrorCode::TemporarilyUnavailable),
+                _ => (400, ErrorCode::InvalidRequest),
+            };
+            Response::error(status, ErrorBody::new(code, "the exchange was refused")).no_store()
+        }
     }
 }
 

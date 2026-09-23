@@ -108,6 +108,9 @@ use mandate_sts::binding::{EpochStanding, SessionBinding, SessionReads};
 use mandate_sts::code::{
     AuthorizationCodeParts, CodeIssuance, CodeLifetime, IssueAuthorizationCode, OAuthClientReads,
 };
+use mandate_sts::exchange::{
+    ExchangeCredential, ExchangeParts, exchange_credential, seconds_between,
+};
 use mandate_sts::issue::Sha256Digest;
 use mandate_sts::redemption::{
     BoundReads, RedeemAuthorizationCode, RedemptionParts, RedemptionRefused, redeem_and_consume,
@@ -480,6 +483,21 @@ pub struct Token {
     pub descriptor: CredentialDescriptor,
     /// The instant the request was served at, which `expires_in` is measured from.
     pub issued_at: Timestamp,
+}
+
+/// The accepted outcome of `mandate.credential.ExchangeCredential`, as RFC 8693 section
+/// 2.2.1 renders it.
+#[derive(Debug, Clone)]
+pub struct Exchanged {
+    /// The declared `credential` response: the material, returned once.
+    pub credential: CredentialSecret,
+    /// The declared `credential_id` response.
+    pub credential_id: CredentialId,
+    /// The declared `descriptor` response.
+    pub descriptor: CredentialDescriptor,
+    /// Seconds from the instant the request was served at to the descriptor's `expires_at`:
+    /// RFC 8693's `expires_in`.
+    pub expires_in: i64,
 }
 
 /// The accepted outcome of `mandate.credential.IntrospectCredential`.
@@ -2211,6 +2229,10 @@ pub struct Deployment<V, C, X, A> {
     credentials: CredentialProjection,
     codes: InMemoryCodeLog,
     proofs: SessionProofs,
+    /// Every `TokenExchangeAllowed` and `TokenExchangeDenied` this deployment recorded, in
+    /// order: the in-memory record of each exchange decision. Durable delivery is
+    /// `decision-blocker:audit-routing`'s.
+    exchanges: Vec<CredentialEvent>,
     /// The authority decision taken before a handler is dispatched, when the deployment is
     /// configured with one.
     ///
@@ -2273,6 +2295,7 @@ where
             credentials: CredentialProjection::default(),
             codes: InMemoryCodeLog::new(),
             proofs: SessionProofs::new(),
+            exchanges: Vec::new(),
             authority: None,
         })
     }
@@ -2361,6 +2384,24 @@ where
         event: &CredentialEvent,
     ) -> Result<(), CredentialFoldError> {
         self.credentials.apply(event)
+    }
+
+    /// The `mandate.credential` read model this deployment folds.
+    ///
+    /// The read half of [`Deployment::record_credential`], public for the reason
+    /// [`Deployment::federation`] is: an exchange creates its credential here and nowhere a
+    /// status code can be read off.
+    #[must_use]
+    pub fn credentials(&self) -> &CredentialProjection {
+        &self.credentials
+    }
+
+    /// Every exchange decision this deployment recorded, in order: one
+    /// `mandate.credential.TokenExchangeAllowed` per admitted exchange and one
+    /// `mandate.credential.TokenExchangeDenied` per refused one.
+    #[must_use]
+    pub fn exchanges(&self) -> &[CredentialEvent] {
+        &self.exchanges
     }
 
     /// The RFC 8414 metadata document, with every endpoint read from the route table.
@@ -2979,6 +3020,83 @@ where
             descriptor: introspected.descriptor,
             credential_id: introspected.credential_id,
         })
+    }
+}
+
+impl<V, C, X, A> Deployment<V, C, X, A>
+where
+    V: FederationVerifier,
+    C: Clock,
+    X: SecretSource,
+    A: IdentityAllocator,
+{
+    /// Realize `mandate.credential.ExchangeCredential`, subject-only, and record the decision.
+    ///
+    /// The subject proof is resolved against the credential fold, authoritatively; the source
+    /// is the registration the subject credential was issued for, and the target's
+    /// registration must list it (`mandate_sts::exchange`). An admitted exchange folds the
+    /// credential it issued and records `TokenExchangeAllowed`; a refused one records
+    /// `TokenExchangeDenied`, folds nothing and draws nothing from this deployment's secret
+    /// source or allocator.
+    ///
+    /// No authority decision is asked here, and that is a gap rather than a ruling: the
+    /// decision point ([`Deployment::with_authority`]) is asked about a context the adapter
+    /// already holds, and an exchange's context is the one the STS validates the subject
+    /// proof to. `None` is what the shipped binary configures (`crate::authority`).
+    ///
+    /// # Errors
+    ///
+    /// Returns the declared refusal the exchange was refused with; see
+    /// [`mandate_sts::exchange::exchange_credential`].
+    pub fn exchange(
+        &mut self,
+        input: &decode::ExchangeCredential,
+    ) -> Result<Exchanged, CredentialDenied> {
+        let at = self.now();
+        let request = StsRequest {
+            correlation: CorrelationId::new("exchange"),
+            at: at.clone(),
+            epochs: None,
+        };
+        let outcome = exchange_credential(
+            &ExchangeCredential {
+                subject_proof: input.subject_proof.clone(),
+                actor_proof: input.actor_proof.clone(),
+                target: input.target,
+                requested_scope: input.requested_scope.clone(),
+                delegation_id: input.delegation_id,
+            },
+            &request,
+            &self.credentials,
+            ExchangeParts {
+                digest: &self.digest,
+                resolution: &self.credentials,
+                secrets: &mut self.secrets,
+                allocator: &mut self.allocator,
+            },
+        );
+        match outcome {
+            Err(refused) => {
+                self.exchanges.push(refused.event);
+                Err(refused.denied)
+            }
+            Ok(issued) => {
+                // **Unreachable refusal, discarded for the reason `redeem` gives for its own.**
+                // The fold's one refusal of a creating event is `UnknownIssuingTarget`, and
+                // the exchange decided its target through `admitted_target` against this same
+                // fold a moment ago; nothing between that read and this apply writes it.
+                let _ = self.credentials.apply(&issued.event);
+                self.exchanges.push(issued.event);
+                let expires_in =
+                    seconds_between(&at, &issued.descriptor.expires_at).unwrap_or_default();
+                Ok(Exchanged {
+                    credential: issued.credential,
+                    credential_id: issued.credential_id,
+                    descriptor: issued.descriptor,
+                    expires_in,
+                })
+            }
+        }
     }
 }
 

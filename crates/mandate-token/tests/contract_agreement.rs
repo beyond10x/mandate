@@ -235,7 +235,7 @@ fn folded_events(carried: bool) -> Vec<CredentialEvent> {
             issued_at: Timestamp::new("2026-09-19T00:00:00Z"),
             descriptor: descriptor.clone(),
             target: target(),
-            requested_scope: scope,
+            requested_scope: scope.clone(),
         },
         CredentialEvent::AccessCredentialRevoked {
             context: context.clone(),
@@ -266,14 +266,29 @@ fn folded_events(carried: bool) -> Vec<CredentialEvent> {
         },
         // The one payload of this domain two folds read; see the module documentation.
         CredentialEvent::AuthorizationCodeRedeemed {
-            context,
+            context: context.clone(),
             code_id: AuthorizationCodeId::new(uuid(0xac)),
+            credential_id: credential_id(),
+            reference_verifier: carried.then(|| CredentialVerifier::new("digest")),
+            epochs: carried.then(|| EpochSnapshotRef::new(uuid(0x60))),
+            issued_at: Timestamp::new("2026-09-19T00:00:00Z"),
+            descriptor: descriptor.clone(),
+            target: target(),
+        },
+        CredentialEvent::TokenExchangeAllowed {
+            context: context.clone(),
             credential_id: credential_id(),
             reference_verifier: carried.then(|| CredentialVerifier::new("digest")),
             epochs: carried.then(|| EpochSnapshotRef::new(uuid(0x60))),
             issued_at: Timestamp::new("2026-09-19T00:00:00Z"),
             descriptor,
             target: target(),
+            requested_scope: scope.clone(),
+        },
+        CredentialEvent::TokenExchangeDenied {
+            context: carried.then_some(context),
+            requested_target: target(),
+            requested_scope: scope,
         },
     ]
 }
@@ -316,12 +331,18 @@ fn each_event_agrees(carried: bool) -> Vec<Value> {
             CredentialEvent::AuthorizationCodeRedeemed { .. } => {
                 agrees::<_, events::MandateCredentialAuthorizationCodeRedeemed>(event, element)
             }
+            CredentialEvent::TokenExchangeAllowed { .. } => {
+                agrees::<_, events::MandateCredentialTokenExchangeAllowed>(event, element)
+            }
+            CredentialEvent::TokenExchangeDenied { .. } => {
+                agrees::<_, events::MandateCredentialTokenExchangeDenied>(event, element)
+            }
         };
         encoded.push(document);
     }
     assert_eq!(
         encoded.len(),
-        10,
+        12,
         "every event payload this crate declares is round-tripped"
     );
     encoded

@@ -45,11 +45,91 @@
     },
     {
       "command": "mandate.credential.ExchangeCredential",
-      "status": "deferred",
-      "story": "story:constrained-exchange",
-      "blocker": "decision-blocker:audit-routing",
-      "clauses": [],
-      "no_state_change": []
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Either independently validated proof is invalid/revoked/expired/stale",
+          "tests": [
+            {
+              "id": "mandate-sts::declared_denials::every_refusal_exchange_credential_produces_has_a_row",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "actor, tenant, registered target/source, scope, space, delegation",
+          "tests": [
+            {
+              "id": "mandate-sts::declared_denials::every_refusal_exchange_credential_produces_has_a_row",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-sts::exchange::an_actor_or_a_delegation_is_refused_because_the_exchange_is_subject_only",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-sts::exchange::a_scope_in_another_space_than_the_subject_credential_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "ceiling binding fails",
+          "tests": [],
+          "blocked_on": "story:constrained-exchange"
+        },
+        {
+          "clause": "transitive delegation is requested",
+          "tests": [
+            {
+              "id": "mandate-sts::declared_denials::every_refusal_exchange_credential_produces_has_a_row",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-sts::exchange::an_actor_or_a_delegation_is_refused_because_the_exchange_is_subject_only",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "approval is required",
+          "tests": [],
+          "blocked_on": "story:constrained-exchange"
+        },
+        {
+          "clause": "authority/expiry narrowing",
+          "tests": [
+            {
+              "id": "mandate-sts::declared_denials::every_refusal_exchange_credential_produces_has_a_row",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "durable audit fail",
+          "tests": [],
+          "blocked_on": "decision-blocker:audit-routing"
+        }
+      ],
+      "no_state_change": [
+        {
+          "id": "mandate-sts::emitted_events::a_refused_exchange_emits_nothing_through_its_outcome_and_its_record_conforms",
+          "kind": "no-state-change",
+          "path": "real"
+        }
+      ],
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
     },
     {
       "command": "mandate.credential.IntrospectCredential",
