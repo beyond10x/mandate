@@ -3,5 +3,5 @@
   "test_target": "emitted_events",
   "test": "issue_reference_credential_emits_exactly_the_declared_event",
   "kill": "test-fails",
-  "anchor": "services/sts/src/issue.rs:379"
+  "anchor": "services/sts/src/issue.rs:381"
 }

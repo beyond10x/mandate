@@ -23,8 +23,23 @@
         },
         {
           "clause": "tenant containment fails",
-          "tests": [],
-          "blocked_on": "story:identity-tenant-containment"
+          "tests": [
+            {
+              "id": "mandate-identity::adversary_obligations_identity_1::an_increment_naming_another_organizations_target_fails_tenant_containment",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-identity::increment::tenant_containment_a_principal_a_snapshot_places_in_another_organization_is_refused",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-identity::increment::tenant_containment_a_connection_a_snapshot_places_in_another_organization_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
         },
         {
           "clause": "the exact unsigned generation is at its maximum",
@@ -266,7 +281,8 @@
         {
           "id": "mandate-identity::increment::epoch_overflow_an_increment_at_the_maximum_is_denied_and_the_generation_does_not_move",
           "kind": "denial",
-          "path": "real"
+          "path": "double",
+          "double": "mandate_identity::IdentityLog"
         },
         {
           "id": "mandate-identity::generation::epoch_overflow_the_maximum_generation_does_not_advance",

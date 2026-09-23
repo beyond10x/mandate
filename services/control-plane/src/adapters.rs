@@ -53,11 +53,12 @@
 //! * **The identity fold is seeded with `mandate.identity.SessionOpened`**, which
 //!   `identity.yaml` reserves for "the control-plane component that publishes it" — this
 //!   one. The federated login's own creating event is
-//!   `mandate.federation.FederationAuthenticated`, and
-//!   `mandate_identity::IdentityEvent::FederationAuthenticated` carries
-//!   `mandate_contract::events::MandateFederationFederationAuthenticated`, a type this
-//!   package cannot name: `mandate-contract` is a dev-dependency here. The record the two
-//!   events materialize is the same `mandate.identity.Session`, field for field.
+//!   `mandate.federation.FederationAuthenticated`, which
+//!   `mandate_identity::IdentityEvent::FederationAuthenticated` carries in its generated
+//!   shape. Since `story:jit-principal-record` promoted `mandate-contract` to a dependency
+//!   this package can name that shape; moving the opening onto it is not that story's. The
+//!   record the two events materialize is the same `mandate.identity.Session`, field for
+//!   field.
 //! * **The reading of the declared `date-time` and `duration` forms is copied a fourth
 //!   time** ([`instant`]). `services/sts/src/lib.rs` and
 //!   `crates/mandate-federation/src/authorize.rs` each hold a private copy and say the same
@@ -65,15 +66,12 @@
 //! * **No denial-audit path.** `decision-blocker:audit-routing` holds the vocabulary, and
 //!   `mandate-audit` is outside this package's ceiling. A refusal is answered and recorded
 //!   nowhere.
-//! * **The just-in-time branch seeds no `mandate.identity.Principal`.**
+//! * **Only the just-in-time branch seeds a `mandate.identity.Principal`.**
 //!   `mandate.federation.ExternalPrincipalProvisioned` is that record's declared writer
-//!   (`identity.yaml`'s header) and `mandate_identity::IdentityRead::principal` folds it, but
-//!   `IdentityEvent::ExternalPrincipalProvisioned` carries
-//!   `mandate_contract::events::MandateFederationExternalPrincipalProvisioned` — a type this
-//!   package cannot name, for the same reason the login's own event is named above:
-//!   `mandate-contract` is a dev-dependency here. No route this composition serves reads that
-//!   record, so nothing served is short of it; a composition that did would need the
-//!   dependency, which is `story:domain-runtime`'s to weigh.
+//!   (`identity.yaml`'s header), and [`Deployment::authenticate`] folds it into both the
+//!   federation and the identity read models (`identity_event_of`). A link seeded from a
+//!   `--connection` document has no creating event for its principal, so that principal has
+//!   no record here: see [`PrincipalLinkSeed::principal_id`].
 
 use std::collections::BTreeMap;
 use std::fs::File;
@@ -623,17 +621,73 @@ fn normalised_issuer(configured: &str) -> Result<String, IssuerRefused> {
 
 /// Whether an authority names this host: RFC 6761's `localhost`, the IPv4 loopback block, or
 /// the IPv6 loopback address.
+///
+/// It asks the question `mandate-federation`'s destination guard asks of the same kind of
+/// authority (`origin` and `loopback` in `crates/mandate-federation/src/verifier_real.rs`),
+/// so the two cannot disagree about one host:
+///
+/// * An authority carrying `@` is refused outright. Userinfo exists here only to make an
+///   authority look like it names one host while naming another — `localhost:80@evil.example`
+///   names `evil.example`.
+/// * A port that is spelled must parse. Anything else is a host this guard would be guessing
+///   about.
+/// * Each of RFC 3986 section 3.2.2's host forms is read by the parser for that form and no
+///   other: a bracketed host is an `IP-literal` and must parse as `Ipv6Addr`; an unbracketed
+///   host is an `IPv4address` or a `reg-name`, neither of which carries a `:`, so one that
+///   does is refused rather than read as an address.
+/// * One trailing dot is folded on an unbracketed host, because it is the absolute form of
+///   the same name. A second is a name with an empty label, which is no spelling of anything.
 fn is_loopback(authority: &str) -> bool {
-    let host = match authority.rsplit_once(':') {
+    if authority.contains('@') {
+        return false;
+    }
+    let (host, port) = match authority.split_once(']') {
         // An IPv6 literal carries colons of its own and is bracketed.
-        Some((host, _)) if !authority.ends_with(']') => host,
-        _ => authority,
+        // Anything after it but a port is not an authority.
+        Some((bracketed, after)) => match (bracketed.strip_prefix('['), after) {
+            (Some(host), "") => (Host::Literal(host), None),
+            (Some(host), _) => match after.strip_prefix(':') {
+                Some(port) => (Host::Literal(host), Some(port)),
+                None => return false,
+            },
+            (None, _) => return false,
+        },
+        None => match authority.rsplit_once(':') {
+            Some((host, port)) => (Host::Unbracketed(host), Some(port)),
+            None => (Host::Unbracketed(authority), None),
+        },
     };
-    host.eq_ignore_ascii_case("localhost")
-        || host == "[::1]"
-        || host
-            .parse::<std::net::Ipv4Addr>()
-            .is_ok_and(|address| address.is_loopback())
+    if let Some(spelled) = port.filter(|port| !port.is_empty())
+        // RFC 3986 section 3.2.3: `port = *DIGIT`. `u16::from_str` also takes a leading `+`,
+        // so it bounds the range and does not decide the spelling.
+        && (!spelled.bytes().all(|byte| byte.is_ascii_digit()) || spelled.parse::<u16>().is_err())
+    {
+        return false;
+    }
+    match host {
+        Host::Literal(host) => host
+            .parse::<std::net::Ipv6Addr>()
+            .is_ok_and(|address| address.is_loopback()),
+        Host::Unbracketed(host) if host.contains(':') => false,
+        Host::Unbracketed(host) => {
+            let host = match host.strip_suffix('.') {
+                Some(name) if !name.is_empty() => name,
+                _ => host,
+            };
+            host.eq_ignore_ascii_case("localhost")
+                || host
+                    .parse::<std::net::Ipv4Addr>()
+                    .is_ok_and(|address| address.is_loopback())
+        }
+    }
+}
+
+/// Which of RFC 3986 section 3.2.2's host forms an authority's host was spelled in.
+enum Host<'a> {
+    /// Between `[` and `]`: an `IP-literal`.
+    Literal(&'a str),
+    /// Anything else: an `IPv4address` or a `reg-name`.
+    Unbracketed(&'a str),
 }
 
 /// Why a deployment could not be built.
@@ -806,8 +860,9 @@ pub struct PrincipalLinkSeed {
     /// another organization — `links.organization_of(&principal_id) != connection.organization_id`
     /// is `PrincipalMismatch`, and an unanswered principal is refused too because "this path
     /// fails closed" (`crates/mandate-federation/src/link.rs:71-79`). That guard cannot be
-    /// run here: this composition writes no `mandate.identity` principal and seeds no
-    /// principal record, so `organization_of` answers `None` for **every** first link and
+    /// run here: this composition writes a `mandate.identity` principal only for a
+    /// just-in-time login, never for a seeded link, so `organization_of` answers `None` for
+    /// **every** first link and
     /// the command would refuse every document — and `link_external_principal` refuses
     /// `ExternalLinkMethod::ConfiguredFederation` outright (`LinkingAuthority`), which is
     /// the method a configured link is.
@@ -1345,6 +1400,17 @@ impl<F: FnMut() -> Uuid> IdentityAllocator for StatedResourceServerIdentity<'_, 
     fn next_authorization_code_id(&mut self) -> AuthorizationCodeId {
         AuthorizationCodeId::new((self.allocate)())
     }
+
+    /// Minted from the same source, for the reason the other three are: registration
+    /// reserves no credential identity, so this is reached by no handler it is handed to,
+    /// and a source of fresh identities holds a reservation by never answering it again.
+    fn reserve_credential_id(&mut self) -> CredentialId {
+        CredentialId::new((self.allocate)())
+    }
+
+    fn commit_credential_id(&mut self, _reserved: CredentialId) {}
+
+    fn release_credential_id(&mut self, _reserved: CredentialId) {}
 }
 
 /// Install one document's **deployment** configuration on the verifier: the algorithm this
@@ -1780,8 +1846,8 @@ pub enum SeedRefused {
     ///
     /// `link_external_principal` refuses a principal the records place in another
     /// organization (`crates/mandate-federation/src/link.rs:71-79`) and fails closed. This
-    /// composition records no `mandate.identity` principal, so that guard cannot be
-    /// satisfied by any document here — see [`PrincipalLinkSeed::principal_id`] for what is
+    /// composition records no `mandate.identity` principal for a seeded link, so that guard
+    /// cannot be satisfied by any document here — see [`PrincipalLinkSeed::principal_id`] for what is
     /// therefore trusted. What **is** decidable is the contradiction between two documents,
     /// and it is refused: a principal that logs into two tenants is the cross-tenant hole
     /// the guard exists to close.
@@ -2253,6 +2319,16 @@ where
         &self.federation
     }
 
+    /// The `mandate.identity` read model this deployment folds.
+    ///
+    /// The read half of [`Deployment::record_identity`], public for the reason
+    /// [`Deployment::federation`] is: a just-in-time login creates its principal here and
+    /// nowhere a status code can be read off.
+    #[must_use]
+    pub fn identity(&self) -> &IdentityLog {
+        &self.identity
+    }
+
     /// Seed one `mandate.identity` event into the session and epoch fold.
     pub fn record_identity(&mut self, event: IdentityEvent) {
         self.identity.record(event);
@@ -2441,9 +2517,27 @@ where
             return false;
         };
         // The event is the record. It is also the creation record of the
-        // `mandate.identity.Principal` (`identity.yaml`'s header), which this composition
-        // does not seed: see the module header.
-        self.federation.apply(&provisioned.event).is_ok()
+        // `mandate.identity.Principal` (`identity.yaml`'s header), so both folds read it.
+        // The identity fold reads it in its generated shape, and the encoding is the one
+        // `crates/mandate-federation/tests/contract_agreement.rs` proves round-trips through
+        // that shape; one it cannot read is decided before either fold is touched.
+        //
+        // Both folds decide before either is written: the federation fold is folded into a
+        // copy, the identity fold appends only what it accepts, and the copy replaces the
+        // federation fold only once the identity fold has accepted. A refusal by either
+        // leaves both as they were, which is what `false` promises the caller.
+        let Some(principal) = identity_event_of(&provisioned.event) else {
+            return false;
+        };
+        let mut federation = self.federation.clone();
+        if federation.apply(&provisioned.event).is_err() {
+            return false;
+        }
+        if self.identity.try_record(principal).is_err() {
+            return false;
+        }
+        self.federation = federation;
+        true
     }
 
     /// One `mandate.federation.AuthenticateFederation`, with its own session identity.
@@ -2849,6 +2943,25 @@ where
     }
 }
 
+/// `mandate.federation.ExternalPrincipalProvisioned`, as the identity fold reads it.
+///
+/// `mandate-identity` reads the event in its generated shape because the dependency runs
+/// `mandate-federation → mandate-identity` and never back (`crates/mandate-identity/src/port.rs`,
+/// `IdentityEvent::ExternalPrincipalProvisioned`). The federation crate's encoding of the event
+/// *is* that shape — `crates/mandate-federation/tests/contract_agreement.rs` round-trips every
+/// event through its generated type and requires the identity — so it is carried across by
+/// that encoding rather than by a field-for-field copy that could drift from it. Answers `None`
+/// for any other event, and for an encoding the generated shape refuses.
+fn identity_event_of(event: &FederationEvent) -> Option<IdentityEvent> {
+    let FederationEvent::ExternalPrincipalProvisioned { .. } = event else {
+        return None;
+    };
+    let encoded = serde_json::to_value(event).ok()?;
+    serde_json::from_value(encoded)
+        .ok()
+        .map(IdentityEvent::ExternalPrincipalProvisioned)
+}
+
 /// The value `mandate.federation.AuthorizePublicClient` stops at, as
 /// `mandate.credential.IssueAuthorizationCode`'s declared input.
 ///
@@ -3118,6 +3231,21 @@ impl IdentityAllocator for SystemAllocator {
     fn next_authorization_code_id(&mut self) -> AuthorizationCodeId {
         AuthorizationCodeId::new(self.next_uuid())
     }
+
+    /// 16 fresh bytes from the host CSPRNG. This allocator keeps no state, so a reservation
+    /// is held by the source never answering those bytes again, and a released one leaves
+    /// nothing behind: an identity never handed on is indistinguishable from one never read.
+    ///
+    /// # Panics
+    ///
+    /// Panics when the opened CSPRNG cannot be read; see [`SystemSecrets::next_secret`].
+    fn reserve_credential_id(&mut self) -> CredentialId {
+        CredentialId::new(self.next_uuid())
+    }
+
+    fn commit_credential_id(&mut self, _reserved: CredentialId) {}
+
+    fn release_credential_id(&mut self, _reserved: CredentialId) {}
 }
 
 /// Reading the declared `date-time` and `duration` forms as spans on a timeline.

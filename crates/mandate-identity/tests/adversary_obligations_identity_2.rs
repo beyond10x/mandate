@@ -31,6 +31,7 @@ use std::path::{Path, PathBuf};
 
 use mandate_identity::{
     Denial, EpochState, Generation, IncrementSecurityEpoch, SecurityEpochWrite, StreamVersion,
+    TargetTenancy,
 };
 use mandate_types::{
     Audience, CorrelationId, CredentialId, DenialReason, OrganizationId, PrincipalId,
@@ -119,6 +120,13 @@ impl SecurityEpochWrite for AdapterWithoutTheOverflowGuard {
         }
         self.version = self.version.advance();
         Ok(EpochState::new(self.generation, self.version))
+    }
+}
+
+/// The stand-in holds no records, so it places no target in any organization.
+impl TargetTenancy for AdapterWithoutTheOverflowGuard {
+    fn organizations_of(&self, _target: &SecurityEpochTarget) -> Vec<OrganizationId> {
+        Vec::new()
     }
 }
 

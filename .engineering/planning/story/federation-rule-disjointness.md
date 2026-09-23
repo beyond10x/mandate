@@ -2,13 +2,28 @@
 format: aep.planning-md/1
 id: story:federation-rule-disjointness
 kind: story
-status: draft
+status: implemented
 title: Registration refuses two tenant rules one proof could satisfy
 relations:
 - decomposes: epic:foundations
 - informed_by: initiative:drift-enforcement
 - serves: vision:mandate
-revision: 1
+scope:
+- confidence: cited
+  path: contracts/obligations/federation.json
+- confidence: cited
+  path: contracts/use-cases/federated-login.json
+- confidence: cited
+  path: crates/mandate-federation/src/record.rs
+- confidence: cited
+  path: crates/mandate-federation/tests/adversary_obligations_federation_1.rs
+- confidence: inferred
+  path: crates/mandate-federation/tests/obligations.rs
+- confidence: cited
+  path: generated/conformance/suite.json
+- confidence: cited
+  path: systems/mandate/scenarios/federation-ambiguous-tenant.yaml
+revision: 9
 ---
 ## Why
 
@@ -21,3 +36,24 @@ revision: 1
 ## Acceptance
 
 `crates/mandate-federation/tests/adversary_obligations_federation_1.rs` cases `a_second_organizations_rule_one_proof_also_satisfies_is_refused_at_registration` and `the_admitted_pair_ends_the_incumbents_logins_on_that_issuer` assert refusal at registration and an incumbent login that keeps resolving, and are green; `cargo xtask obligations-registry` still counts the multiple-match clause on the real path or defers it to the story that owns the path.
+
+## Scope
+
+Derived 2026-09-23 by `aep-drive:story-scoper` at `92fc026`. Every line is **cited** or **inferred**.
+
+- **Primary surface:** `crates/mandate-federation` registration guard — cited
+- **Files:** `crates/mandate-federation/src/record.rs:935` (`collides`; the body's `:917` has drifted) — cited
+- **Files:** `crates/mandate-federation/tests/adversary_obligations_federation_1.rs:197,226` (pin today's behaviour as `..._is_admitted_at_registration`; inverted and renamed) — cited
+- **Also likely:** `contracts/obligations/federation.json:453` (multiple-match row) — cited; `crates/mandate-federation/tests/obligations.rs` — inferred
+- **Confidence:** high
+- **Not established:** whether a seeded `--connection` document in control-plane tests puts two different-claim rules from different organizations on one issuer; if so it starts being refused
+
+## Scope — confirmed at close
+
+From the implementor's confirmation table, wave I–K (`docs/plans/2026-09-23-waves-i-j-k-execution.md`). Corrections to the `## Scope` above are kept visible here, not deleted there.
+
+federation-rule-disjointness
+- `record.rs` `collides` — confirmed
+- `tests/adversary_obligations_federation_1.rs`, `tests/obligations.rs` — confirmed
+- `contracts/obligations/federation.json:453` — not needed
+- not in scope but needed: `systems/mandate/scenarios/federation-ambiguous-tenant.yaml`, `generated/conformance/suite.json` and coverage receipt (regenerated), `contracts/use-cases/federated-login.json`

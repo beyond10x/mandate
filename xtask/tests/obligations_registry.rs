@@ -230,16 +230,15 @@ fn a_test_no_compiled_binary_lists_is_refused() {
 #[test]
 fn a_denial_test_of_another_crate_is_refused() {
     let root = fixture("test-of-another-crate");
+    let foreign = first_test_id(&document(&root, "federation"));
     let mut document = document(&root, "sts");
     let at = command_at(&document, "mandate.credential.RegisterResourceServer");
     let clause = bound_clause(&document, at);
-    document["commands"][at]["clauses"][clause]["tests"][0]["id"] =
-        Value::String("mandate-federation::authenticate::a_disabled_connection_denies".to_owned());
+    document["commands"][at]["clauses"][clause]["tests"][0]["id"] = Value::String(foreign.clone());
     write_document(&root, "sts", &document);
     let error = failure(&root);
     assert!(
-        error.contains("mandate-federation::authenticate::a_disabled_connection_denies")
-            && error.contains("mandate-sts"),
+        error.contains(&foreign) && error.contains("mandate-sts"),
         "the refusal names the id and the crate that must run it:\n{error}"
     );
 }
@@ -492,11 +491,15 @@ fn a_case_the_security_corpus_does_not_hold_is_refused() {
 fn a_case_the_registry_does_not_bind_is_refused() {
     let root = fixture("case-missing");
     let mut document = document(&root, "graph");
+    let case = document["cases"][0]["case"]
+        .as_str()
+        .expect("graph binds a case")
+        .to_owned();
     document["cases"].as_array_mut().expect("cases").clear();
     write_document(&root, "graph", &document);
     let error = failure(&root);
     assert!(
-        error.contains("graph-revocation"),
+        error.contains(&case),
         "the refusal names the case nothing binds:\n{error}"
     );
 }
@@ -508,11 +511,17 @@ fn a_resolution_step_no_document_names_is_refused() {
     let root = fixture("addendum-missing");
     let mut document = document(&root, "federation");
     let rows = document["addendum"].as_array_mut().expect("addendum");
+    let requirement = rows
+        .iter()
+        .find(|row| row["step"] == 3)
+        .and_then(|row| row["requirement"].as_str())
+        .expect("step three states its line")
+        .to_owned();
     rows.retain(|row| row["step"] != 3);
     write_document(&root, "federation", &document);
     let error = failure(&root);
     assert!(
-        error.contains("validate signature"),
+        error.contains(&requirement),
         "the refusal names the step:\n{error}"
     );
 }
@@ -575,21 +584,18 @@ fn an_implemented_command_with_neither_a_no_state_change_case_nor_a_deferral_is_
 #[test]
 fn an_addendum_row_naming_a_test_of_another_crate_is_refused() {
     let root = fixture("addendum-of-another-crate");
+    let foreign = first_test_id(&document(&root, "sts"));
     let mut document = document(&root, "federation");
     let rows = document["addendum"].as_array_mut().expect("addendum");
     let at = rows
         .iter()
         .position(|row| row["step"] == 2)
         .expect("step two");
-    rows[at]["tests"][0]["id"] = Value::String(
-        "mandate-sts::declared_denials::every_refusal_register_resource_server_produces_has_a_row"
-            .to_owned(),
-    );
+    rows[at]["tests"][0]["id"] = Value::String(foreign.clone());
     write_document(&root, "federation", &document);
     let error = failure(&root);
     assert!(
-        error.contains("every_refusal_register_resource_server_produces_has_a_row")
-            && error.contains("mandate-federation"),
+        error.contains(&foreign) && error.contains("mandate-federation"),
         "the refusal names the id and the crate that must run it:\n{error}"
     );
 }
@@ -599,18 +605,18 @@ fn an_addendum_row_naming_a_test_of_another_crate_is_refused() {
 #[test]
 fn a_case_row_naming_a_package_that_is_neither_the_entry_crate_nor_the_wire_is_refused() {
     let root = fixture("case-of-a-third-package");
+    let foreign = first_test_id(&document(&root, "federation"));
     let mut document = document(&root, "sts");
     let rows = document["cases"].as_array_mut().expect("cases");
     let at = rows
         .iter()
         .position(|row| row["case"] == "reference-revoked")
         .expect("reference-revoked has a row");
-    rows[at]["tests"][0]["id"] =
-        Value::String("mandate-federation::authenticate::a_disabled_connection_denies".to_owned());
+    rows[at]["tests"][0]["id"] = Value::String(foreign.clone());
     write_document(&root, "sts", &document);
     let error = failure(&root);
     assert!(
-        error.contains("mandate-federation::authenticate::a_disabled_connection_denies"),
+        error.contains(&foreign),
         "the refusal names the id:\n{error}"
     );
 }
@@ -620,15 +626,14 @@ fn a_case_row_naming_a_package_that_is_neither_the_entry_crate_nor_the_wire_is_r
 #[test]
 fn a_case_row_naming_a_wire_package_is_admitted() {
     let root = fixture("case-at-the-wire");
+    let wire = wire_test_id(&root);
     let mut document = document(&root, "model");
     let rows = document["cases"].as_array_mut().expect("cases");
     let at = rows
         .iter()
         .position(|row| row["case"] == "cross-tenant-resource")
         .expect("cross-tenant-resource has a row");
-    rows[at]["tests"][0]["id"] = Value::String(
-        "mandate-server::decode::pkce_plain_is_refused_at_the_authorization_endpoint".to_owned(),
-    );
+    rows[at]["tests"][0]["id"] = Value::String(wire);
     write_document(&root, "model", &document);
     run(&root).expect("a case decided at the wire names the wire package's test");
 }
@@ -645,11 +650,17 @@ fn a_clause_stated_before_the_clause_it_follows_in_the_cause_is_refused() {
         .as_array_mut()
         .expect("clauses");
     let last = clauses.len() - 1;
+    let swapped = [1, last].map(|at| {
+        clauses[at]["clause"]
+            .as_str()
+            .expect("a clause states its text")
+            .to_owned()
+    });
     clauses.swap(1, last);
     write_document(&root, "graph", &document);
     let error = failure(&root);
     assert!(
-        error.contains("hierarchy admission fails") || error.contains("parent is unresolved"),
+        swapped.iter().any(|text| error.contains(text.as_str())),
         "the refusal names a clause the walk could not place:\n{error}"
     );
 }
@@ -665,11 +676,14 @@ fn a_clause_list_that_leaves_the_tail_of_the_cause_unaccounted_is_refused() {
     let clauses = document["commands"][at]["clauses"]
         .as_array_mut()
         .expect("clauses");
-    clauses.pop();
+    let tail = clauses
+        .pop()
+        .and_then(|clause| clause["clause"].as_str().map(str::to_owned))
+        .expect("the last clause states its text");
     write_document(&root, "graph", &document);
     let error = failure(&root);
     assert!(
-        error.contains("hierarchy admission fails"),
+        error.contains(&tail),
         "the refusal quotes the unaccounted tail:\n{error}"
     );
 }
@@ -703,4 +717,336 @@ fn a_double_only_clause_deferred_to_the_crates_binding_story_is_refused() {
         error.contains("story:obligations-policy"),
         "the refusal names the story that cannot discharge it:\n{error}"
     );
+}
+
+/// The one clause the registry decides in another crate: `mandate-federation`'s
+/// `AuthorizePublicClient` clause "STS code issuance", decided in `mandate-sts` and covered on
+/// the real path by a `mandate-sts` test. Exactly one — a second `decided_in` row anywhere in
+/// the directory is a new cross-crate claim, and this case is where it has to be argued for.
+#[test]
+fn the_one_clause_decided_in_another_crate_is_sts_code_issuance_and_is_covered_by_its_tests() {
+    let root = fixture("decided-in-committed");
+    let decided: Vec<(String, String, Value)> = obligations_registry::CRATES
+        .iter()
+        .map(|crate_name| document(&root, crate_name.trim_start_matches("mandate-")))
+        .flat_map(|document| {
+            document["commands"]
+                .as_array()
+                .map_or(&[][..], Vec::as_slice)
+                .iter()
+                .flat_map(|entry| {
+                    entry["clauses"]
+                        .as_array()
+                        .map_or(&[][..], Vec::as_slice)
+                        .iter()
+                        .filter(|clause| !clause["decided_in"].is_null())
+                        .map(|clause| {
+                            (
+                                entry["command"].as_str().unwrap_or_default().to_owned(),
+                                clause["clause"].as_str().unwrap_or_default().to_owned(),
+                                clause.clone(),
+                            )
+                        })
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    assert_eq!(
+        decided
+            .iter()
+            .map(|(command, clause, row)| (command.as_str(), clause.as_str(), &row["decided_in"]))
+            .collect::<Vec<_>>(),
+        vec![(
+            "mandate.federation.AuthorizePublicClient",
+            "STS code issuance",
+            &Value::String("mandate-sts".to_owned())
+        )],
+        "exactly one clause row in the directory carries decided_in"
+    );
+    let clause = &decided[0].2;
+    assert!(
+        clause["blocked_on"].is_null(),
+        "covered, not deferred: {clause}"
+    );
+    let rows = clause["tests"].as_array().expect("tests");
+    assert!(
+        !rows.is_empty()
+            && rows.iter().all(|row| row["path"] == "real"
+                && row["kind"] == "denial"
+                && row["id"]
+                    .as_str()
+                    .is_some_and(|id| id.starts_with("mandate-sts::"))),
+        "every row is a real-path mandate-sts denial: {clause}"
+    );
+    run(&root).expect("the committed registry is decided");
+}
+
+/// The field is held to the crate it names: a `decided_in` clause naming a test of the entry's
+/// own crate is refused exactly as any clause naming a test of the wrong crate is.
+#[test]
+fn a_decided_in_clause_naming_a_test_of_the_entrys_crate_is_refused() {
+    let root = fixture("decided-in-held-to-its-crate");
+    let mut document = document(&root, "federation");
+    let own = first_test_id(&document);
+    let (at, clause) = decided_clause(&document);
+    document["commands"][at]["clauses"][clause]["decided_in"] =
+        Value::String("mandate-sts".to_owned());
+    document["commands"][at]["clauses"][clause]["tests"] =
+        serde_json::json!([{"id": own, "kind": "denial", "path": "real"}]);
+    document["commands"][at]["clauses"][clause]
+        .as_object_mut()
+        .expect("a clause")
+        .remove("blocked_on");
+    write_document(&root, "federation", &document);
+    let error = failure(&root);
+    assert!(
+        error.contains(&own) && error.contains("mandate-sts"),
+        "the refusal names the id and the crate decided_in holds it to:\n{error}"
+    );
+}
+
+/// `decided_in` equal to the entry's own crate says nothing the same-crate rule does not
+/// already say, and a document that states it has misread the field.
+#[test]
+fn a_decided_in_naming_the_entrys_own_crate_is_refused() {
+    let root = fixture("decided-in-own-crate");
+    let mut document = document(&root, "federation");
+    let (at, clause) = decided_clause(&document);
+    document["commands"][at]["clauses"][clause]["decided_in"] =
+        Value::String("mandate-federation".to_owned());
+    write_document(&root, "federation", &document);
+    let error = failure(&root);
+    assert!(
+        error.contains("decided_in") && error.contains("mandate-federation"),
+        "the refusal names the field and the entry's own crate:\n{error}"
+    );
+}
+
+/// A crate that is not a workspace member decides nothing any compiled binary runs.
+#[test]
+fn a_decided_in_naming_a_crate_outside_the_workspace_is_refused() {
+    let root = fixture("decided-in-not-a-member");
+    let mut document = document(&root, "federation");
+    let (at, clause) = decided_clause(&document);
+    document["commands"][at]["clauses"][clause]["decided_in"] =
+        Value::String("mandate-elsewhere".to_owned());
+    write_document(&root, "federation", &document);
+    let error = failure(&root);
+    assert!(
+        error.contains("decided_in") && error.contains("mandate-elsewhere"),
+        "the refusal names the field and the crate that is no member:\n{error}"
+    );
+}
+
+/// One case discharging a clause's `denial` row and a command's `no-state-change` row is two
+/// claims about what one test decides, and at most one of them is true.
+#[test]
+fn one_test_id_named_under_two_kinds_is_refused() {
+    let root = fixture("one-id-two-kinds");
+    let mut document = document(&root, "sts");
+    let at = command_at(&document, "mandate.credential.RegisterResourceServer");
+    let clause = bound_clause(&document, at);
+    let id = document["commands"][at]["clauses"][clause]["tests"][0]["id"]
+        .as_str()
+        .expect("an id")
+        .to_owned();
+    document["commands"][at]["no_state_change"]
+        .as_array_mut()
+        .expect("no_state_change")
+        .push(serde_json::json!({"id": id, "kind": "no-state-change", "path": "real"}));
+    write_document(&root, "sts", &document);
+    let error = failure(&root);
+    assert!(
+        error.contains(&id) && error.contains("no-state-change") && error.contains("denial"),
+        "the refusal names the id and both kinds:\n{error}"
+    );
+}
+
+/// A test id is labelled with one path across the registry. A `cases` row is counted in no
+/// column, so it may hold a double row beside a real one; what it may not do is call the test
+/// a clause row calls `double` real.
+#[test]
+fn one_test_id_labelled_on_two_paths_is_refused() {
+    let root = fixture("one-id-two-paths");
+    let mut document = document(&root, "identity");
+    let (case, row) = double_row_in_a_case(&document);
+    let id = document["cases"][case]["tests"][row]["id"]
+        .as_str()
+        .expect("an id")
+        .to_owned();
+    document["cases"][case]["tests"][row]["path"] = Value::String("real".to_owned());
+    document["cases"][case]["tests"][row]
+        .as_object_mut()
+        .expect("a row")
+        .remove("double");
+    write_document(&root, "identity", &document);
+    let error = failure(&root);
+    assert!(
+        error.contains(&id) && error.contains("double") && error.contains("real"),
+        "the refusal names the id and both paths:\n{error}"
+    );
+}
+
+/// A `double` value is a `::`-separated Rust path, and a crate name with a hyphen is not one.
+#[test]
+fn a_double_that_is_no_rust_path_is_refused() {
+    let root = fixture("double-not-a-path");
+    let mut document = document(&root, "graph");
+    let (at, clause, row) = double_row(&document);
+    document["commands"][at]["clauses"][clause]["tests"][row]["double"] =
+        Value::String("mandate-graph::relationship::Members".to_owned());
+    write_document(&root, "graph", &document);
+    let error = failure(&root);
+    assert!(
+        error.contains("mandate-graph::relationship::Members"),
+        "the refusal names the value:\n{error}"
+    );
+}
+
+/// A stand-in defined inside one test binary is one no later reader can name, so the path
+/// must resolve into a library target of a workspace member.
+#[test]
+fn a_double_no_library_target_declares_is_refused() {
+    let root = fixture("double-not-in-a-library");
+    let mut document = document(&root, "graph");
+    let (at, clause, row) = double_row(&document);
+    document["commands"][at]["clauses"][clause]["tests"][row]["double"] =
+        Value::String("mandate_graph::relationship::Members".to_owned());
+    write_document(&root, "graph", &document);
+    let error = failure(&root);
+    assert!(
+        error.contains("mandate_graph::relationship::Members"),
+        "the refusal names the value:\n{error}"
+    );
+}
+
+/// A double-backed clause defers to the story that owns the port's real implementation, and a
+/// story whose body never names the double is not that story.
+#[test]
+fn a_double_only_clause_deferred_to_a_story_that_does_not_name_its_double_is_refused() {
+    let root = fixture("double-deferred-to-a-stranger");
+    let mut document = document(&root, "policy");
+    let (at, clause, _) = double_row(&document);
+    document["commands"][at]["clauses"][clause]["blocked_on"] =
+        Value::String("story:declared-writers".to_owned());
+    write_document(&root, "policy", &document);
+    let error = failure(&root);
+    assert!(
+        error.contains("story:declared-writers"),
+        "the refusal names the story that does not name the double:\n{error}"
+    );
+}
+
+/// The substring rule is about position in the cause, which the tiling walk computes: a clause
+/// whose text also lies inside a sibling, and which the walk places at a position of its own,
+/// is the honest name of a condition and is admitted.
+#[test]
+fn a_clause_whose_text_lies_inside_a_sibling_at_its_own_position_is_admitted() {
+    let root = fixture("clause-text-inside-a-sibling");
+    let mut document = document(&root, "model");
+    let at = command_at(&document, "mandate.tenancy.AddTeamMembership");
+    document["commands"][at]["clauses"][1]["clause"] = Value::String("team".to_owned());
+    write_document(&root, "model", &document);
+    run(&root).expect("a clause at its own position of the cause is admitted");
+}
+
+/// A test id of `document`'s own crate, read out of it.
+fn first_test_id(document: &Value) -> String {
+    document["commands"]
+        .as_array()
+        .expect("commands")
+        .iter()
+        .flat_map(|entry| entry["clauses"].as_array().map_or(&[][..], Vec::as_slice))
+        .flat_map(|clause| clause["tests"].as_array().map_or(&[][..], Vec::as_slice))
+        .find_map(|row| row["id"].as_str().map(str::to_owned))
+        .expect("one bound clause")
+}
+
+/// The first clause carrying `decided_in`, by command index and clause index.
+fn decided_clause(document: &Value) -> (usize, usize) {
+    for (at, entry) in document["commands"]
+        .as_array()
+        .expect("commands")
+        .iter()
+        .enumerate()
+    {
+        if let Some(clause) = entry["clauses"].as_array().and_then(|clauses| {
+            clauses
+                .iter()
+                .position(|clause| !clause["decided_in"].is_null())
+        }) {
+            return (at, clause);
+        }
+    }
+    panic!("one clause carries decided_in")
+}
+
+/// The first `path: double` clause row, by command, clause and row index.
+fn double_row(document: &Value) -> (usize, usize, usize) {
+    for (at, entry) in document["commands"]
+        .as_array()
+        .expect("commands")
+        .iter()
+        .enumerate()
+    {
+        for (clause, stated) in entry["clauses"]
+            .as_array()
+            .map_or(&[][..], Vec::as_slice)
+            .iter()
+            .enumerate()
+        {
+            if let Some(row) = stated["tests"]
+                .as_array()
+                .and_then(|rows| rows.iter().position(|row| row["path"] == "double"))
+            {
+                return (at, clause, row);
+            }
+        }
+    }
+    panic!("one double-backed clause")
+}
+
+/// A case row naming a test some clause row of the same document labels `double`.
+fn double_row_in_a_case(document: &Value) -> (usize, usize) {
+    let doubles: Vec<&str> = document["commands"]
+        .as_array()
+        .expect("commands")
+        .iter()
+        .flat_map(|entry| entry["clauses"].as_array().map_or(&[][..], Vec::as_slice))
+        .flat_map(|clause| clause["tests"].as_array().map_or(&[][..], Vec::as_slice))
+        .filter(|row| row["path"] == "double")
+        .filter_map(|row| row["id"].as_str())
+        .collect();
+    for (case, entry) in document["cases"]
+        .as_array()
+        .expect("cases")
+        .iter()
+        .enumerate()
+    {
+        if let Some(row) = entry["tests"].as_array().and_then(|rows| {
+            rows.iter()
+                .position(|row| row["id"].as_str().is_some_and(|id| doubles.contains(&id)))
+        }) {
+            return (case, row);
+        }
+    }
+    panic!("one case row names a test a clause row labels double")
+}
+
+/// A `cases` row test of one of the two wire packages, read out of whichever document names one.
+fn wire_test_id(root: &Path) -> String {
+    obligations_registry::CRATES
+        .iter()
+        .map(|crate_name| document(root, crate_name.trim_start_matches("mandate-")))
+        .flat_map(|document| {
+            document["cases"]
+                .as_array()
+                .map_or(&[][..], Vec::as_slice)
+                .iter()
+                .flat_map(|case| case["tests"].as_array().map_or(&[][..], Vec::as_slice))
+                .filter_map(|row| row["id"].as_str().map(str::to_owned))
+                .collect::<Vec<_>>()
+        })
+        .find(|id| id.starts_with("mandate-server::") || id.starts_with("mandate-proto::"))
+        .expect("a case row names a wire package's test")
 }

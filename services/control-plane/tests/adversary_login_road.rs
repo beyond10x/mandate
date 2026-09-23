@@ -18,16 +18,16 @@
 //! - **The evidence the four byte-identical `access_denied` cases collect.**
 //!   `tests/end_to_end.rs`'s `seeded_connections` calls itself "the discriminator the body
 //!   does not carry". This file measures whether it discriminates.
-//! - **The readiness probe.** `Served::listening` promises "a child that never binds fails the
-//!   case with its own stderr"; it reads a `connect` on the address and not the child.
 //! - **The loopback issuer's shape.** It publishes `jwks_uri` on its own origin, which is the
 //!   only shape `UreqJwks::admits` lets a `--connection` document reach.
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
-use std::process::{Child, ChildStderr, ChildStdout, Command, Stdio};
-use std::sync::{Mutex, OnceLock};
+use std::process::{Child, ChildStderr, Command, Stdio};
+use std::sync::mpsc::{Receiver, RecvTimeoutError, channel};
+use std::sync::{Arc, Mutex, OnceLock};
+use std::thread::JoinHandle;
 use std::time::{Duration as HostDuration, Instant, SystemTime, UNIX_EPOCH};
 
 use aws_lc_rs::rand::SystemRandom;
@@ -425,24 +425,38 @@ fn resource_server_document() -> String {
 
 // --------------------------------------------------------------------- the child process
 
+/// `--listen` as every child here is told it: the loopback, and the port the kernel chooses.
+/// The child prints what it bound, and [`Served::address`] reads it, so no case names a port.
+const EPHEMERAL: &str = "127.0.0.1:0";
+
+/// The prefix every line the binary prints carries.
+const CHILD: &str = "mandate-control-plane";
+
+/// What the binary calls the line naming the address it bound (`src/main.rs`).
+const LISTENING: &str = "listening on";
+
+/// The spawned binary, and the thread draining its stdout.
+///
+/// Stdout is read by a thread for the reason `tests/end_to_end.rs`'s `Served` gives: a case
+/// needs one line of it while the child is alive — the address it bound — and all of it once
+/// the child is dead, and a read on the case's own thread would hang on a silent child.
 struct Served {
     child: Option<Child>,
-    stdout: Option<ChildStdout>,
     stderr: Option<ChildStderr>,
+    /// Every line the child has written to stdout so far, newlines kept.
+    printed: Arc<Mutex<String>>,
+    /// The same lines, as they arrive, for a reader that waits with a deadline.
+    lines: Receiver<String>,
+    /// The thread draining stdout, joined by `output` so nothing it read is lost.
+    draining: Option<JoinHandle<()>>,
 }
 
 impl Served {
-    fn spawn(
-        address: SocketAddr,
-        connections: &[PathBuf],
-        key: &Path,
-        client_path: &Path,
-        target: &Path,
-    ) -> Self {
+    fn spawn(connections: &[PathBuf], key: &Path, client_path: &Path, target: &Path) -> Self {
         let mut arguments = vec![
             "serve".to_owned(),
             "--listen".to_owned(),
-            address.to_string(),
+            EPHEMERAL.to_owned(),
             "--issuer".to_owned(),
             AS_ISSUER.to_owned(),
         ];
@@ -464,12 +478,33 @@ impl Served {
             .stderr(Stdio::piped())
             .spawn()
             .expect("the composition binary runs");
-        let stdout = child.stdout.take();
+        let stdout = child.stdout.take().expect("a piped stdout");
         let stderr = child.stderr.take();
+        let printed = Arc::new(Mutex::new(String::new()));
+        let accumulating = Arc::clone(&printed);
+        let (sending, lines) = channel();
+        let draining = std::thread::spawn(move || {
+            let mut reader = BufReader::new(stdout);
+            let mut line = String::new();
+            loop {
+                line.clear();
+                match reader.read_line(&mut line) {
+                    Ok(0) | Err(_) => break,
+                    Ok(_) => {}
+                }
+                accumulating
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .push_str(&line);
+                let _ = sending.send(line.clone());
+            }
+        });
         Self {
             child: Some(child),
-            stdout,
             stderr,
+            printed,
+            lines,
+            draining: Some(draining),
         }
     }
 
@@ -488,10 +523,14 @@ impl Served {
 
     fn output(&mut self) -> (String, String) {
         self.kill_and_reap();
-        let mut out = String::new();
-        if let Some(mut handle) = self.stdout.take() {
-            let _ = handle.read_to_string(&mut out);
+        if let Some(draining) = self.draining.take() {
+            let _ = draining.join();
         }
+        let out = self
+            .printed
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone();
         let mut err = String::new();
         if let Some(mut handle) = self.stderr.take() {
             let _ = handle.read_to_string(&mut err);
@@ -499,21 +538,30 @@ impl Served {
         (out, err)
     }
 
-    /// Wait until the child accepts on `address`, bounded. Answers the child's own output
-    /// instead of panicking, so a case can say in its own words what it expected.
-    fn listening(&mut self, address: SocketAddr) -> Result<(), (String, String)> {
+    /// The address the child really bound, read off its own stdout, bounded. Answers the
+    /// child's own output instead of panicking, so a case can say in its own words what it
+    /// expected.
+    ///
+    /// Nothing is probed: the child binds port `0` and prints what the kernel gave it after
+    /// the bind succeeded, so the address exists nowhere before the child holds it.
+    fn address(&mut self) -> Result<SocketAddr, (String, String)> {
         let deadline = Instant::now() + LISTEN_DEADLINE;
         loop {
-            if TcpStream::connect_timeout(&address, HostDuration::from_millis(200)).is_ok() {
-                return Ok(());
-            }
             if self.exited() {
                 return Err(self.output());
+            }
+            match self.lines.recv_timeout(HostDuration::from_millis(25)) {
+                Ok(line) => {
+                    if let Some(address) = bound_address(&line) {
+                        return Ok(address);
+                    }
+                }
+                Err(RecvTimeoutError::Timeout) => {}
+                Err(RecvTimeoutError::Disconnected) => return Err(self.output()),
             }
             if Instant::now() >= deadline {
                 return Err(self.output());
             }
-            std::thread::sleep(HostDuration::from_millis(25));
         }
     }
 }
@@ -521,7 +569,18 @@ impl Served {
 impl Drop for Served {
     fn drop(&mut self) {
         self.kill_and_reap();
+        if let Some(draining) = self.draining.take() {
+            let _ = draining.join();
+        }
     }
+}
+
+/// The address a `listening on` line names, or `None` for any other line the child prints.
+fn bound_address(line: &str) -> Option<SocketAddr> {
+    line.trim()
+        .strip_prefix(&format!("{CHILD}: {LISTENING} "))?
+        .parse()
+        .ok()
 }
 
 // ------------------------------------------------------------------------ the HTTP calls
@@ -618,27 +677,6 @@ fn member(body: &str, name: &str) -> String {
 
 // ------------------------------------------------------- standing one case's child up
 
-/// Serializes port selection and the child's bind against the other threads of **this**
-/// process, and against nothing else.
-///
-/// It used to say it was here "for the reason `tests/end_to_end.rs`'s own `PORT` does".
-/// That reason no longer exists: `tests/end_to_end.rs` **deleted** its `PORT`, and its own
-/// note beside `EPHEMERAL` records why — "a lock in this process cannot exclude the rest of
-/// the machine, so it narrowed that window and never closed it", with one CI `check` job
-/// green and the other failing at `exchange` with `ConnectionRefused` on the same commit.
-/// That file closed the window instead of locking it: the child binds `0` and prints the
-/// address it got, and nothing there guesses a port.
-///
-/// This file has not, and the lock is what is left. [`stand_up`] binds an ephemeral port,
-/// reads `local_addr` and **drops** the listener before handing the number to the child, so
-/// the window is open to every other process on the machine — including a second copy of
-/// this binary, which is how an adversary pass measured 12 refusals in 192 copies at 16-way
-/// concurrency, and 1 in 192 when the same case ran again, against 0 in 40 sequential runs.
-/// The lock stays until this file's
-/// [`Served::spawn`] stops taking an address, which is `story:road-lane-child-prints-address`
-/// and not this file's to do here.
-static PORT: Mutex<()> = Mutex::new(());
-
 /// Stand a child up and wait for it to bind, answering its output if it never does.
 fn stand_up(case: &str, connections: &[String]) -> Result<(SocketAddr, Served), (String, String)> {
     let connection_paths: Vec<PathBuf> = connections
@@ -650,23 +688,8 @@ fn stand_up(case: &str, connections: &[String]) -> Result<(SocketAddr, Served), 
     let client_path = document(case, "client.json", &client_document());
     let target_path = document(case, "resource-server.json", &resource_server_document());
 
-    let holding = PORT
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    let address = {
-        let probe = TcpListener::bind("127.0.0.1:0").expect("an ephemeral port on the loopback");
-        probe.local_addr().expect("the bound address")
-    };
-    let mut served = Served::spawn(
-        address,
-        &connection_paths,
-        &key_path,
-        &client_path,
-        &target_path,
-    );
-    let bound = served.listening(address);
-    drop(holding);
-    bound.map(|()| (address, served))
+    let mut served = Served::spawn(&connection_paths, &key_path, &client_path, &target_path);
+    served.address().map(|address| (address, served))
 }
 
 /// The same, failing the case with the child's own stderr when it never binds.
@@ -1096,7 +1119,7 @@ fn a_second_copy_of_this_binary_does_not_write_this_runs_documents() {
     }
 
     let mine = document(CASE, "connection.json", MINE);
-    let second = Command::new(std::env::current_exe().expect("this test binary's own path"))
+    let second = this_binary()
         .args([
             "--exact",
             "a_second_copy_of_this_binary_does_not_write_this_runs_documents",
@@ -1159,7 +1182,7 @@ fn the_run_root_clears_what_is_finished_and_keeps_what_is_running() {
     let parent = run_root().join("sweep-fixture");
     let mine = std::process::id();
 
-    let copy = Command::new(std::env::current_exe().expect("this test binary's own path"))
+    let copy = this_binary()
         .args([
             "--exact",
             "a_second_copy_of_this_binary_does_not_write_this_runs_documents",
@@ -1266,4 +1289,137 @@ fn the_run_root_clears_what_is_finished_and_keeps_what_is_running() {
             if refuses { "does" } else { "does not" }
         );
     }
+}
+
+// ---------------------------------------- adversary pass 1, `story:per-run-test-scratch`
+
+/// What tells a copy of this binary that it is one of the concurrent copies below.
+const CONCURRENT_COPY: &str = "MANDATE_ADVERSARY_CONCURRENT_COPY";
+
+/// The cases a copy started by [`copies_of_this_lane_run_at_once_and_all_pass`] is told
+/// **not** to run: every case that starts a copy of this binary through [`this_binary`].
+///
+/// The one place the names are written, as `tests/end_to_end.rs`'s `CASES_A_COPY_SKIPS` is.
+/// A self-starting case missing from it fails inside the copy, because [`this_binary`]
+/// refuses a concurrent copy; a name here that matches no case is refused by
+/// [`cases_a_copy_runs`].
+const CASES_A_COPY_SKIPS: [&str; 3] = [
+    "a_second_copy_of_this_binary_does_not_write_this_runs_documents",
+    "the_run_root_clears_what_is_finished_and_keeps_what_is_running",
+    "copies_of_this_lane_run_at_once_and_all_pass",
+];
+
+/// The arguments every concurrent copy of this lane is started with.
+fn copy_arguments() -> Vec<String> {
+    CASES_A_COPY_SKIPS
+        .iter()
+        .flat_map(|skipped| ["--skip".to_owned(), (*skipped).to_owned()])
+        .collect()
+}
+
+/// A command running this very test binary — the only way any case here starts a copy of it.
+///
+/// **A concurrent copy is refused one.** Each copy started by
+/// [`copies_of_this_lane_run_at_once_and_all_pass`] is one of sixteen at once; a case in it
+/// that started copies of its own would multiply them. Refusing here, rather than trusting a
+/// hand-kept list of names, makes a self-starting case that the copies were not told to skip
+/// fail inside the copy, which the acceptance case reports as a refused copy.
+fn this_binary() -> Command {
+    assert!(
+        std::env::var_os(CONCURRENT_COPY).is_none(),
+        "a concurrent copy of this lane ran a case that starts a copy of this binary; \
+         name that case in the copies' skip list"
+    );
+    Command::new(std::env::current_exe().expect("this test binary's own path"))
+}
+
+/// How many cases a copy runs: every case libtest lists for this binary, less
+/// [`CASES_A_COPY_SKIPS`]. Read from `--list` rather than written down, so a case added later
+/// cannot make the count silently wrong.
+fn cases_a_copy_runs() -> usize {
+    let listed = this_binary()
+        .args(["--list", "--format", "terse"])
+        .output()
+        .expect("libtest lists this binary's cases");
+    let printed = String::from_utf8_lossy(&listed.stdout);
+    let names: Vec<&str> = printed
+        .lines()
+        .filter_map(|line| line.strip_suffix(": test"))
+        .collect();
+    for skipped in CASES_A_COPY_SKIPS {
+        assert!(
+            names.contains(&skipped),
+            "{skipped} is a case this binary has. A copy is told to skip it by name, and a \
+             name that matches nothing skips nothing; the listing was {names:?}"
+        );
+    }
+    names.len() - CASES_A_COPY_SKIPS.len()
+}
+
+/// Copies of this lane, run at once, all pass.
+///
+/// `story:road-lane-child-prints-address`. This file's `stand_up` used to choose the
+/// child's port by binding an ephemeral port, reading `local_addr` and **dropping the
+/// listener** before the child bound it, under a `PORT` lock that serialized the window
+/// against this process's own threads and nothing else. Two copies of this binary could
+/// hand their children the same port, and a case then found `Address already in use` or
+/// talked to the other copy's child. The adversary measured 12 of 192 copies failing at
+/// 16-way concurrency against that design.
+///
+/// Each copy skips [`CASES_A_COPY_SKIPS`] — this case and the two that start copies of
+/// their own — and is held to the number of cases its arguments select as well as to its
+/// exit status: `0 passed; 0 failed` exits 0 too, and a copy that ran nothing has not
+/// passed the lane.
+#[test]
+fn copies_of_this_lane_run_at_once_and_all_pass() {
+    // No early return on the copy variables: a copy never selects this case, and with either
+    // variable exported by hand `this_binary()` refuses loudly instead of this case passing
+    // without starting a copy.
+    const ROUNDS: usize = 12;
+    const COPIES: usize = 16;
+    let expected = cases_a_copy_runs();
+    let passed = format!("test result: ok. {expected} passed; 0 failed;");
+
+    let mut refused: Vec<String> = Vec::new();
+    for round in 0..ROUNDS {
+        let running: Vec<Child> = (0..COPIES)
+            .map(|_| {
+                this_binary()
+                    .args(copy_arguments())
+                    .env(CONCURRENT_COPY, "1")
+                    .stdout(Stdio::piped())
+                    .stderr(Stdio::piped())
+                    .spawn()
+                    .expect("a copy of this lane runs")
+            })
+            .collect();
+
+        for (copy, child) in running.into_iter().enumerate() {
+            let finished = child
+                .wait_with_output()
+                .expect("a copy of this lane is waited on");
+            let printed = String::from_utf8_lossy(&finished.stdout);
+            if finished.status.success() && printed.lines().any(|line| line.starts_with(&passed)) {
+                continue;
+            }
+            let why = printed
+                .lines()
+                .find(|line| line.contains("panicked at"))
+                .or_else(|| {
+                    printed
+                        .lines()
+                        .find(|line| line.starts_with("test result:"))
+                })
+                .unwrap_or("<nothing was printed>");
+            refused.push(format!("round {round}, copy {copy}: {why}"));
+        }
+    }
+
+    assert!(
+        refused.is_empty(),
+        "{} of {} copies of this lane refused while other copies of it ran:\n{}",
+        refused.len(),
+        ROUNDS * COPIES,
+        refused.join("\n")
+    );
 }

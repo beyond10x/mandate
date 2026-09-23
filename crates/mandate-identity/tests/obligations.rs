@@ -33,31 +33,28 @@
 //!   `generation::epoch_overflow_the_maximum_generation_does_not_advance` was withdrawn from it
 //!   because it constructs no [`IdentityLog`] and survives every mutation of the refusal it was
 //!   rowed for — it is evidence of the domain type's invariant, not of the command refusing.
-//! * `IncrementSecurityEpoch`'s `no_state_change` obligation follows those two. `execute`
-//!   decides nothing itself — it delegates to the port — and the command's other two clauses are
-//!   deferred to `decision-blocker:guards` and `story:identity-tenant-containment`, so every
-//!   refusal the command can reach on the shipped path is one of the write port's two.
-//!   `emitted_events::a_refused_increment_emits_nothing_and_leaves_the_log_unchanged` drives
-//!   exactly those two, so what it measures is [`IdentityLog`]'s own behaviour: the row is
-//!   `path: double` and the command carries the deferral at command level, to
-//!   `decision-blocker:epoch-atomicity`.
+//! * `IncrementSecurityEpoch`, "tenant containment fails" — the **real** path.
+//!   `IncrementSecurityEpoch::execute` compares the target's organization with the caller's
+//!   verified one before it reaches the write port — the comparison `RevokeSession` makes at
+//!   `src/session.rs:369` — and refuses with `TenantMismatch`. The port only supplies which
+//!   organizations its records place the target in (`TargetTenancy`), so the row is `real`:
+//!   what is classified is the code that decides, not the code that holds the data.
+//! * `IncrementSecurityEpoch`'s `no_state_change` obligation follows the two double-backed
+//!   clauses. `emitted_events::a_refused_increment_emits_nothing_and_leaves_the_log_unchanged`
+//!   drives exactly the write port's two refusals, so what it measures is [`IdentityLog`]'s own
+//!   behaviour: the row is `path: double` and the command carries the deferral at command level,
+//!   to `decision-blocker:epoch-atomicity`. The one refusal `execute` makes itself, tenancy,
+//!   is asserted to leave the log unchanged by the cases bound to that clause.
 //!
 //! # What is not here, and why no case could bind it
 //!
-//! Six clauses stay deferred, none for want of a case:
+//! Five clauses stay deferred, none for want of a case:
 //!
 //! * "Caller lacks authority for the explicitly selected principal/organization/federation
 //!   target" and "Caller lacks authority over this session" — `src/increment.rs:9-11` and
 //!   `src/session.rs:351-352` both state that the caller's authority is the authorization
 //!   domain's decision and is not made here; the verified context is carried through to the
 //!   event unexamined.
-//! * "tenant containment fails" (`IncrementSecurityEpoch`) — the crate makes no such
-//!   comparison on the increment path: `execute` passes the context through and the port
-//!   checks the version and the generation only, so a caller verified in one organization
-//!   advances another organization's generation. The same crate does make the comparison for
-//!   `RevokeSession`, at `src/session.rs:369`, which is why this is a clause to be decided
-//!   here and not one the guards blocker holds. `story:identity-tenant-containment` adds it to
-//!   the increment path and binds the clause.
 //! * "Refresh verifier is absent/incorrect" — the declared input is a `CredentialProof`, and
 //!   `src/session.rs:267` states that credential proof verification is the credential
 //!   domain's. The refresh is reached with a session identity that verification already

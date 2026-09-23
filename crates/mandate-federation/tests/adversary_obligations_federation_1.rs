@@ -26,6 +26,10 @@
 //! claim rules — the pair `register_federation_connection` refuses to create. These two
 //! cases build the ambiguity out of registrations the shipped writer accepts, and the
 //! writer accepting them is the defect.
+//!
+//! `story:federation-rule-disjointness` closed it: `collides` now holds two claim rules
+//! disjoint only when they name the same claim with different values, and both cases assert
+//! the refusal and the incumbent's login that keeps resolving.
 
 use aws_lc_rs::rand::SystemRandom;
 use aws_lc_rs::signature::{ECDSA_P256_SHA256_FIXED_SIGNING, EcdsaKeyPair};
@@ -34,7 +38,8 @@ use jsonwebtoken::{Algorithm, EncodingKey, Header, encode};
 
 use mandate_federation::authenticate::{ProvisionExternalPrincipal, provision_external_principal};
 use mandate_federation::record::{
-    ConnectionRegistered, Projection, RegisterFederationConnection, register_federation_connection,
+    ConnectionRegistered, FederationEvent, Projection, RegisterFederationConnection,
+    register_federation_connection,
 };
 use mandate_federation::verifier_real::{
     AllowedAlgorithms, FixedClock, InMemoryJwks, RealVerifier,
@@ -43,8 +48,9 @@ use mandate_federation::{DenialClause, RequestContext, SequentialAllocator};
 use mandate_model::TenantResolutionRule;
 use mandate_types::value::Uuid;
 use mandate_types::{
-    Audience, ClientId, CorrelationId, CredentialId, CredentialProof, FederationConnectionId,
-    Issuer, OrganizationId, PrincipalId, SigningAlgorithm, Timestamp, VerifiedContext,
+    Audience, ClientId, CorrelationId, CredentialId, CredentialProof, DenialReason,
+    FederationConnectionId, Issuer, OrganizationId, PrincipalId, SigningAlgorithm, Timestamp,
+    VerifiedContext,
 };
 
 const ISSUER: &str = "https://idp.example/one";
@@ -182,52 +188,46 @@ fn incumbent(allocator: &mut SequentialAllocator) -> ConnectionRegistered {
 // ==================================================================================
 
 /// `register_federation_connection` refuses a second organization's rule on one issuer
-/// that one proof could satisfy alongside the incumbent's — `record.rs:946-953`, "a rule
-/// another organization's connection on this issuer could match for the same proof …
-/// Refuse the configuration rather than the logins."
+/// that one proof could satisfy alongside the incumbent's — "a rule another organization's
+/// connection on this issuer could match for the same proof … Refuse the configuration
+/// rather than the logins."
 ///
-/// The two rules name different claims, so `collides` compares `"org"` with `"dept"`,
-/// finds them unequal and answers `false`. A proof carrying both claims satisfies both
-/// rules, which is the question `collides` documents itself as deciding.
-///
-/// Pinned by the coordinator to the shipped behaviour on 2026-09-21
-/// (`review-result:wave-d-obligations-federation-adversary-1` F1): the pair is admitted.
-/// `story:federation-rule-disjointness` turns this into a refusal; the assertion flips there.
+/// The two rules name different claims, `{org: acme}` and `{dept: eng}`. A proof carrying
+/// both claims satisfies both rules, so `collides` answers that they collide and the
+/// registration is refused on the unadmitted-configuration clause
+/// (`review-result:wave-d-obligations-federation-adversary-1` F1, closed by
+/// `story:federation-rule-disjointness`).
 #[test]
-fn a_second_organizations_rule_one_proof_also_satisfies_is_admitted_at_registration() {
+fn a_second_organizations_rule_one_proof_also_satisfies_is_refused_at_registration() {
     let mut allocator = SequentialAllocator::new();
     let held = incumbent(&mut allocator);
     let before = Projection::fold(&[held.event]).expect("one connection");
 
-    let intruder = register_federation_connection(
+    let denied = register_federation_connection(
         &registration(organization(11), "dept", "eng"),
         &before,
         &mut allocator,
+    )
+    .expect_err(
+        "a rule on a different claim name is one a proof carrying both claims also \
+         satisfies; the guard must refuse it",
     );
 
-    assert!(
-        intruder.is_ok(),
-        "the shipped guard admits a rule on a different claim name; a refusal here means \
-         story:federation-rule-disjointness landed and this pin is stale: {:?}",
-        intruder.err()
-    );
+    assert_eq!(denied.reason, DenialReason::Denied);
+    assert_eq!(denied.clause, DenialClause::TenantResolutionUnadmitted);
 }
 
 /// The consequence, end to end through shipped handlers and the shipped verifier: the
-/// incumbent's first login resolves, a second organization registers a rule on a different
-/// claim, and the same login stops resolving. No command un-registers a connection, so
-/// organization 10 cannot undo it.
-///
-/// Pinned by the coordinator to the shipped behaviour on 2026-09-21
-/// (`review-result:wave-d-obligations-federation-adversary-1` F1): the login answers
-/// `TenantAmbiguous`. `story:federation-rule-disjointness` keeps it resolving; the assertion
-/// flips there.
+/// incumbent's first login resolves, a second organization tries to register a rule on a
+/// different claim, is refused, and the same login keeps resolving to the incumbent. No
+/// command un-registers a connection, so the refusal at registration is the only place the
+/// incumbent's logins can be protected.
 #[test]
 fn the_admitted_pair_ends_the_incumbents_logins_on_that_issuer() {
     let mut allocator = SequentialAllocator::new();
     let signing = keys("2026-09");
     let held = incumbent(&mut allocator);
-    let before = Projection::fold(std::slice::from_ref(&held.event)).expect("one connection");
+    let mut log = vec![held.event.clone()];
     let login = |fold: &Projection, verifier: &RealVerifier<InMemoryJwks, FixedClock>| {
         provision_external_principal(
             &ProvisionExternalPrincipal {
@@ -241,6 +241,7 @@ fn the_admitted_pair_ends_the_incumbents_logins_on_that_issuer() {
             &mut SequentialAllocator::new(),
         )
     };
+    let before = Projection::fold(&log).expect("one connection");
 
     login(&before, &verifier(&signing, &[held.connection_id]))
         .expect("organization 10's first login resolves before any second connection exists");
@@ -249,23 +250,30 @@ fn the_admitted_pair_ends_the_incumbents_logins_on_that_issuer() {
         &registration(organization(11), "dept", "eng"),
         &before,
         &mut allocator,
-    )
-    .expect("the guard admits the pair; case one is where that is asserted");
-    let after =
-        Projection::fold(&[held.event, intruder.event]).expect("two connections on one issuer");
-
-    let again = login(
-        &after,
-        &verifier(&signing, &[held.connection_id, intruder.connection_id]),
     );
+    let mut configured = vec![held.connection_id];
+    if let Ok(admitted) = &intruder {
+        log.push(admitted.event.clone());
+        configured.push(admitted.connection_id);
+    }
+    let after = Projection::fold(&log).expect("the connections the writer admitted");
 
-    let denied = again.expect_err(
-        "the incumbent's login still resolves, so story:federation-rule-disjointness' premise \
-         no longer holds and this pin is stale",
+    let again = login(&after, &verifier(&signing, &configured));
+
+    assert!(
+        intruder.is_err(),
+        "the second organization's rule is refused at registration"
     );
-    assert_eq!(
-        denied.clause,
-        DenialClause::TenantAmbiguous,
-        "the admitted pair ends the incumbent's logins on the ambiguity clause"
+    let provisioned = again.unwrap_or_else(|denied| {
+        panic!("the incumbent's login keeps resolving after the refused registration: {denied:?}")
+    });
+    assert!(
+        matches!(
+            provisioned.event,
+            FederationEvent::ExternalPrincipalProvisioned { organization_id, .. }
+                if organization_id == organization(10)
+        ),
+        "the login resolves to the incumbent: {:?}",
+        provisioned.event
     );
 }

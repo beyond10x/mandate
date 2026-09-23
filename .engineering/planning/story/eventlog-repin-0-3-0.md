@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:eventlog-repin-0-3-0
 kind: story
-status: draft
+status: implemented
 title: Repin the event log from 0.2.1 to 0.3.0
 relations:
 - decomposes: epic:foundations
@@ -14,7 +14,7 @@ scope:
   path: Cargo.toml
 - confidence: cited
   path: deny.toml
-revision: 4
+revision: 7
 ---
 # Repin the event log from 0.2.1 to 0.3.0
 

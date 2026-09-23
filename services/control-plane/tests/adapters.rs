@@ -25,8 +25,8 @@ use mandate_federation::record::{FederationEvent, OAuthClientState, Projection};
 use mandate_federation::verifier::{ConstructedVerifier, VerifiedProof};
 use mandate_federation::verifier_real::FixedClock;
 use mandate_identity::{
-    EpochSnapshotRecorded, Generation, IdentityEvent, IdentityLog, SecurityEpochRecorded,
-    SessionOpened, SessionRevoked,
+    EpochSnapshotRecorded, Generation, IdentityEvent, IdentityLog, IdentityRead,
+    SecurityEpochRecorded, SessionOpened, SessionRevoked,
 };
 use mandate_sts::binding::{EpochStanding, SessionReads};
 use mandate_sts::code::{
@@ -735,5 +735,63 @@ fn a_lifetime_whose_expiry_this_deployment_cannot_render_is_refused_at_startup()
         .err(),
         Some(ConfigurationRefused::CodeLifetimeUnbounded),
         "one second past it is not"
+    );
+}
+
+// ---------------------------------------------------------------------------------------
+// The principal a just-in-time login mints (`story:jit-principal-record`)
+// ---------------------------------------------------------------------------------------
+
+/// A just-in-time login leaves a `mandate.identity.Principal` for the principal it minted.
+///
+/// `mandate.federation.ExternalPrincipalProvisioned` is that record's declared writer
+/// (`identity.yaml`'s header), and the login's accepted outcome names the `PrincipalId` the
+/// provisioning minted. The identity fold must hold the record under that identity: a road
+/// that carries a principal through login and token issuance with no record of it trusts a
+/// principal it never wrote down.
+#[test]
+fn a_just_in_time_login_records_the_principal_its_event_declares() {
+    let mut deployment = built(configuration("https://mandate.example", "PT5M", "PT8H"))
+        .expect("a configuration this deployment serves");
+    let connection_id = mandate_types::FederationConnectionId::new(uuid(0xc0));
+    deployment
+        .record_federation(&FederationEvent::FederationConnectionCreated {
+            context: context(),
+            connection_id,
+            issuer: mandate_types::Issuer::new("https://idp.example"),
+            client_id: mandate_types::ClientId::new("mandate-at-idp"),
+            tenant_resolution: mandate_model::TenantResolutionRule {
+                configured_organization: organization(),
+                verified_claim_name: None,
+                verified_claim_value: None,
+            },
+            jit_provisioning: true,
+        })
+        .expect("a readable federation history");
+    assert!(
+        deployment.federation().links().is_empty(),
+        "nothing is linked before the first login"
+    );
+
+    let login = deployment
+        .authenticate(&mandate_server::decode::AuthenticateFederation {
+            connection_id,
+            proof: CredentialProof::from_bytes(b"an idp proof".to_vec()),
+        })
+        .expect("a connection admitting provisioning opens the first login a session");
+
+    let recorded = deployment.identity().principal(&login.principal_id);
+    let principal = recorded.unwrap_or_else(|| {
+        panic!(
+            "the identity fold holds no mandate.identity.Principal for the minted principal {:?}",
+            login.principal_id
+        )
+    });
+    assert_eq!(principal.id(), &login.principal_id);
+    assert_eq!(principal.kind(), mandate_types::PrincipalKind::User);
+    assert_eq!(
+        principal.state(),
+        mandate_identity::PrincipalState::Active,
+        "a provisioned principal is created active"
     );
 }

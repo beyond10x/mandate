@@ -7,7 +7,26 @@ title: The fold admits a link method no command can emit
 relations:
 - decomposes: epic:hardening
 - serves: vision:mandate
-revision: 1
+scope:
+- confidence: cited
+  path: crates/mandate-federation/src/record.rs
+- confidence: inferred
+  path: crates/mandate-federation/tests/record.rs
+- confidence: inferred
+  path: services/control-plane/src/adapters.rs
+- confidence: inferred
+  path: services/control-plane/tests/adversary_jit_login.rs
+- confidence: inferred
+  path: services/control-plane/tests/adversary_listener_1.rs
+- confidence: inferred
+  path: services/control-plane/tests/adversary_listener_2.rs
+- confidence: inferred
+  path: services/control-plane/tests/adversary_login_pass2.rs
+- confidence: inferred
+  path: services/control-plane/tests/authority.rs
+- confidence: cited
+  path: services/control-plane/tests/serve.rs
+revision: 4
 ---
 # The fold admits a link method no command can emit
 
@@ -51,3 +70,16 @@ today.
 ## Out of scope
 
 What `LinkExternalPrincipal` itself admits. Any other fold arm's literals.
+
+## Scope
+
+Derived 2026-09-23 by `aep-drive:story-scoper` at `92fc026`. Every line is **cited** or **inferred**.
+
+- **Primary surface:** `crates/mandate-federation` fold — cited
+- **Files:** `crates/mandate-federation/src/record.rs:515` (`ExternalPrincipalLinked` arm of `apply`; the body's `:513` has drifted) — cited
+- **Files:** `services/control-plane/tests/serve.rs:190`, `:2416` — cited
+- **Also likely:** `services/control-plane/src/adapters.rs:962-970` — inferred (found by grep, not named by the story)
+- **Also likely:** `services/control-plane/tests/{adversary_jit_login.rs:239,adversary_listener_1.rs:165,adversary_listener_2.rs:177,adversary_login_pass2.rs:582,authority.rs:309}` — inferred, same fixture shape
+- **Confidence:** high on the site, **low on the premise**
+
+**The premise does not hold at `92fc026`.** The body says no other command emits the event. The production connection seeding at `services/control-plane/src/adapters.rs:962-970` emits `ExternalPrincipalLinked { link_method: ConfiguredFederation }`, and `:793-797` documents why ("A seeded link is `ConfiguredFederation`, which is what it is"). A fold that refuses the method breaks every seeded `--connection` link. What method a seeded link carries has to be decided before this story is implementable; it was left out of waves I–K for that reason.

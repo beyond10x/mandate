@@ -2,13 +2,40 @@
 format: aep.planning-md/1
 id: story:cross-crate-clauses
 kind: story
-status: draft
+status: implemented
 title: A clause decided in another crate names that crate
 relations:
 - decomposes: epic:foundations
 - informed_by: initiative:drift-enforcement
 - serves: vision:mandate
-revision: 8
+scope:
+- confidence: inferred
+  path: contracts/conformance/obligations-report.json
+- confidence: cited
+  path: contracts/obligations/README.md
+- confidence: inferred
+  path: contracts/obligations/authz.json
+- confidence: cited
+  path: contracts/obligations/federation.json
+- confidence: inferred
+  path: contracts/obligations/graph.json
+- confidence: inferred
+  path: contracts/obligations/identity.json
+- confidence: inferred
+  path: contracts/obligations/model.json
+- confidence: cited
+  path: crates/mandate-federation/tests/adversary_obligations_federation_2.rs
+- confidence: cited
+  path: crates/mandate-model/tests/obligations.rs
+- confidence: inferred
+  path: services/sts/tests
+- confidence: cited
+  path: xtask/src/obligations_registry.rs
+- confidence: cited
+  path: xtask/tests/adversary_obligations_1.rs
+- confidence: cited
+  path: xtask/tests/obligations_registry.rs
+revision: 17
 ---
 ## Why
 
@@ -21,6 +48,24 @@ A clause row may carry `decided_in: <crate>`; the same-crate rule then holds tha
 ## Acceptance
 
 The two federation rows name `mandate-sts` tests under `decided_in` and `cargo xtask obligations-registry` counts both in `real_covered`; `cargo test -p xtask --locked --test obligations_registry` carries a case refusing `decided_in` equal to the entry's crate and one refusing a crate that is not a workspace member.
+
+### Amended 2026-09-23, wave K
+
+The two adversary passes on unit K1 (`review-result:wijk-k1-cross-crate-adversary-1`, `-2`) showed
+that neither row, read closely, is decided by a `mandate-sts` test in full:
+
+- `mandate.federation.AuthorizePublicClient`'s "STS code issuance/narrowing is refused" names two
+  conditions. Nothing in `mandate-sts` narrows (`services/sts/src/code.rs:39-42`). The row is split:
+  **"STS code issuance"** is decided in `mandate-sts` under `decided_in` and counted in
+  `real_covered`; **"narrowing is refused"** is deferred to `story:agent-authority-kernel`, the story
+  `contracts/obligations/sts.json` already defers authority narrowing to.
+- `mandate.federation.DisableOAuthClient`'s "disablement cannot stop the issuance of new
+  authorization codes to it" is a condition under which `DisableOAuthClient` itself is refused;
+  `disable_oauth_client` (`crates/mandate-federation/src/disable.rs:197-226`) has no such refusal and
+  no test decides it. It is deferred to `decision-blocker:epoch-atomicity`.
+
+The step's refusals stand as first stated: `decided_in` equal to the entry's crate, and a crate that
+is not a workspace member, are refused by cases in `xtask/tests/obligations_registry.rs`.
 
 ## Also in scope: one test id, one kind
 
@@ -41,3 +86,22 @@ The two federation rows name `mandate-sts` tests under `decided_in` and `cargo x
 
 - 2026-09-21, from `review-result:wave-d-obligations-authz-adversary-2` F5 — the granularity conflict recorded above, now with a count and a worked instance. Nine of `contracts/obligations/authz.json`'s fifteen clause texts are **bare nouns whose predicate lives in a sibling clause**: `revoked`, `expired`, `stale`, `tenant`, `audience`, `resource`, `relationships`, `policy`, `graph`. That is what the positional tiling rule at `xtask/src/obligations_registry.rs:795-829` produces from a declared cause written as a slash-list, and the tiling itself re-derives clean — every character accounted for exactly once, no clause nested in a sibling. It is the same shape `mandate-model` had to publish as `"team or"`, at nine instances rather than one.
 - The instance that shows the cost: a later binder reading the clause `revoked` cannot tell **credential** revocation, which this document defers to `decision-blocker:guards` because `VerifiedContext` carries no field for a guard to read, from **grant** revocation, which `mandate_graph::record::GrantState::Revoked` decides today and which this same document rows under `relationships`. The step compares clause text and nothing else, so both readings satisfy it. The fix is the one already named above — the substring check wants to be about position in the cause, which the tiling walk already computes — and until it is, a clause name is not a condition name.
+
+## Scope
+
+Derived 2026-09-23 by `aep-drive:story-scoper` at `92fc026`. Every line is **cited** or **inferred**.
+
+- **Primary surface:** `xtask` obligations-registry step — cited
+- **Files:** `xtask/src/obligations_registry.rs` (the body's line numbers have drifted about 5; `fn obligation` is now `:842`); `xtask/tests/obligations_registry.rs` (`:349,:508,:526,:584,:645,:665`); `contracts/obligations/README.md`; `contracts/obligations/federation.json:221,:297` (the two `blocked_on: story:cross-crate-clauses` rows) — cited
+- **Also likely:** `contracts/obligations/{model,authz,graph,identity}.json`; `services/sts/tests/*.rs` if no existing test decides the two clauses (candidates `issue.rs:279`, `code.rs:517`, `obligations.rs:317`); `contracts/conformance/obligations-report.json` — inferred
+- **Symbols:** `decided_in` (not in the tree), `PATHS`, `obligation` — cited
+- **Confidence:** high for the xtask step; medium for which contract files change
+
+## Scope — confirmed at close
+
+From the implementor's confirmation table, wave I–K (`docs/plans/2026-09-23-waves-i-j-k-execution.md`). Corrections to the `## Scope` above are kept visible here, not deleted there.
+
+cross-crate-clauses
+- `xtask/src/obligations_registry.rs`, `xtask/tests/obligations_registry.rs`, `contracts/obligations/README.md`, `federation.json` (rows now at :223/:299), `model.json`, `identity.json`, the report — confirmed
+- `authz.json`, `graph.json`, `services/sts/tests` (inferred) — not needed; the deciding test is `code::each_declared_refusal_names_its_clause_and_mints_nothing`
+- not in scope but needed: `xtask/tests/adversary_obligations_1.rs`, `crates/mandate-federation/tests/{adversary_obligations_federation_2,obligations}.rs`, `crates/mandate-model/tests/obligations.rs`

@@ -36,8 +36,9 @@
 //! A third case, `one_host_gets_one_answer_at_the_issuers_own_origin_however_the_literal_is_spelled`,
 //! left this file. `folded` is not total — `::1`, `0:0:0:0:0:0:0:1` and `0:0::0:1` are one
 //! host to `literal_address`/`loopback` and three strangers to the issuer's own-origin
-//! equality — and that is pre-existing, reproduces at the wave base, fails closed, and is
-//! closed only by the guard resolving rather than parsing. It is filed as its own story.
+//! equality — and that is pre-existing, reproduces at the wave base and fails closed. It
+//! was filed as `story:folded-is-not-an-address-fold`, which closed it by comparing parsed
+//! addresses at the own-origin arm; the case now lives in `tests/verifier_real.rs`.
 
 use mandate_federation::verifier_real::UreqJwks;
 use mandate_types::Issuer;

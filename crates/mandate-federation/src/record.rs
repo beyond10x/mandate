@@ -931,13 +931,15 @@ fn shape(rule: &TenantResolutionRule) -> Shape<'_> {
 /// Whether two rules on one issuer could both match one proof.
 ///
 /// Decidable for the rule shapes `mandate.core.TenantResolutionRule` has, which is why
-/// the registration guard can be a refusal rather than a warning.
+/// the registration guard can be a refusal rather than a warning. Two claim rules are
+/// disjoint only when they name the same claim with different values: one claim carries
+/// one value. Rules on different claims are satisfied together by any proof carrying both.
 fn collides(one: &TenantResolutionRule, other: &TenantResolutionRule) -> bool {
     match (shape(one), shape(other)) {
         (Shape::Nothing, _) | (_, Shape::Nothing) => false,
         (Shape::Any, _) | (_, Shape::Any) => true,
         (Shape::Claim(name, value), Shape::Claim(held_name, held_value)) => {
-            name == held_name && value == held_value
+            name != held_name || value == held_value
         }
     }
 }

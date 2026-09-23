@@ -1,8 +1,8 @@
 diff --git a/services/sts/src/store.rs b/services/sts/src/store.rs
-index 1c77694..6fab3bb 100644
+index c95e3d0..8e7ccd7 100644
 --- a/services/sts/src/store.rs
 +++ b/services/sts/src/store.rs
-@@ -599,7 +599,7 @@ impl InMemoryCodeLog {
+@@ -667,7 +667,7 @@ impl InMemoryCodeLog {
                  actual: actual.advance(),
              });
          }
@@ -10,4 +10,4 @@ index 1c77694..6fab3bb 100644
 +        if expected < actual {
              return Err(AppendRefused::Conflict { expected, actual });
          }
-         // The projection commits inside the group or rolls back with it: it is folded on a
+         Ok(())

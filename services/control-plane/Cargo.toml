@@ -32,9 +32,9 @@ mandate-federation = { version = "0.4.0", path = "../../crates/mandate-federatio
 mandate-server = { version = "0.4.0", path = "../../crates/mandate-server" }
 mandate-proto = { version = "0.4.0", path = "../../crates/mandate-proto" }
 mandate-sts = { version = "0.4.0", path = "../sts" }
+mandate-contract = { version = "0.4.0", path = "../../crates/mandate-contract" }
 
 [dev-dependencies]
-mandate-contract = { version = "0.4.0", path = "../../crates/mandate-contract" }
 mandate-testkit = { version = "0.4.0", path = "../../crates/mandate-testkit" }
 aws-lc-rs = { workspace = true }
 rand = { workspace = true }
