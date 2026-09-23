@@ -281,7 +281,8 @@
         {
           "id": "mandate-identity::increment::epoch_overflow_an_increment_at_the_maximum_is_denied_and_the_generation_does_not_move",
           "kind": "denial",
-          "path": "real"
+          "path": "double",
+          "double": "mandate_identity::IdentityLog"
         },
         {
           "id": "mandate-identity::generation::epoch_overflow_the_maximum_generation_does_not_advance",

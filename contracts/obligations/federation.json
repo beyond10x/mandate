@@ -218,9 +218,20 @@
           ]
         },
         {
-          "clause": "STS code issuance/narrowing is refused",
+          "clause": "STS code issuance",
+          "decided_in": "mandate-sts",
+          "tests": [
+            {
+              "id": "mandate-sts::code::each_declared_refusal_names_its_clause_and_mints_nothing",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "narrowing is refused",
           "tests": [],
-          "blocked_on": "story:cross-crate-clauses"
+          "blocked_on": "story:agent-authority-kernel"
         }
       ],
       "no_state_change": [
@@ -296,7 +307,7 @@
         {
           "clause": "disablement cannot stop the issuance of new authorization codes to it",
           "tests": [],
-          "blocked_on": "story:cross-crate-clauses"
+          "blocked_on": "decision-blocker:epoch-atomicity"
         }
       ],
       "no_state_change": [
@@ -793,7 +804,7 @@
         },
         {
           "id": "mandate-federation::authenticate::jit_first_login",
-          "kind": "denial",
+          "kind": "accepted",
           "path": "real"
         }
       ]
