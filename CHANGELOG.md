@@ -4,6 +4,35 @@ All notable changes to Mandate are recorded here. The format follows [Keep a Cha
 
 ## [Unreleased]
 
+Wave L: four stories in three units, each attacked twice.
+
+### Changed
+
+- `ConnectionStore::enabled_for_issuer` may answer connections in any lifecycle state; the crate
+  decides which are enabled on an issuer, reading each listed id through `connection(id)` and
+  falling back to the listed record, so an implementor cannot widen a decision
+  (`story:enabled-for-issuer-filters-in-the-implementor`).
+
+### Fixed
+
+- The federation destination guard folds at most one trailing dot, and only on a name: `localhost..`,
+  `127.0.0.1.`, `[::1.]` and any host with an empty label (`.localdomain`, `keys..localdomain`) are
+  refused. The control-plane loopback guard folds a trailing dot on names only too, so both refuse
+  `127.0.0.1.`. A 12,168-decision sweep moved 685 decisions, all from admitted to refused
+  (`story:federation-guard-trailing-dots`, `story:bracketed-literal-trailing-dot`).
+- A login whose session opening is refused keeps no security-epoch record it wrote on the way, and a
+  refused `--connection` or `--client` document seeds nothing (`story:control-plane-multi-fold-writes`).
+- A redelivered `FederationConnectionCreated` for a held connection is an idempotent no-op, so a
+  disabled connection can no longer come back `Enabled` beside its own record and refuse another
+  organization's logins and registrations (`story:enabled-for-issuer-filters-in-the-implementor`).
+
+### Known
+
+- Two connection documents may state one `external_principal_id`; the second link is dropped
+  (`story:seeding-repeated-external-principal-id`).
+- A numeric IPv4 shorthand with a trailing dot (`127.1.`) is admitted and cannot be fetched; it fails
+  closed (`story:numeric-shorthand-trailing-dot`).
+
 ## [0.5.0] - 2026-09-23
 
 Waves I, J and K: nine stories, each attacked twice. The clause count moves for the first time since
