@@ -55,8 +55,8 @@ use mandate_token::projection::{AccessCredential, AccessCredentialState, Credent
 use mandate_token::projection::{DenialClause, Denied};
 use mandate_token::verifier::{CredentialDigest, CredentialDomain, verifier_in};
 use mandate_types::{
-    AuthorityScope, CredentialKind, CredentialProof, DelegationId, DenialReason, ResourceServerId,
-    Transient, VerifiedContext,
+    Audience, AuthorityScope, CredentialKind, CredentialProof, DelegationId, DenialReason,
+    ResourceServerId, Transient, Uuid, VerifiedContext,
 };
 use serde::Serialize;
 
@@ -81,6 +81,62 @@ pub struct ExchangeCredential {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub delegation_id: Option<DelegationId>,
 }
+
+/// How a request names the registration the issued credential is for.
+///
+/// RFC 8693 section 2.1 lets `audience` be "the logical name of the target service", and a
+/// client of a downstream platform knows the platform by the audience it registered under,
+/// not by a registration identity it was never shown. So the name is admitted beside the
+/// identity (correction round 1, F4) — and only ever resolved **within the subject
+/// credential's own organization**, after the subject has validated, so a name selects among
+/// that organization's registrations and cannot select an organization.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ExchangeTarget {
+    /// The registration identity: the declared `target` input, as it is.
+    Registration(ResourceServerId),
+    /// The audience a registration of the subject's organization holds.
+    Audience(Audience),
+}
+
+/// An exchange as the adapter presents it: [`ExchangeCredential`], with the target named
+/// either way [`ExchangeTarget`] admits.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExchangeRequest {
+    /// The declared `subject_proof`.
+    pub subject_proof: CredentialProof,
+    /// The declared `actor_proof`. Refused when present.
+    pub actor_proof: Option<CredentialProof>,
+    /// The target, by identity or by audience.
+    pub target: ExchangeTarget,
+    /// The declared `requested_scope`.
+    pub requested_scope: AuthorityScope,
+    /// The declared `delegation_id`. Refused when present.
+    pub delegation_id: Option<DelegationId>,
+}
+
+impl From<&ExchangeCredential> for ExchangeRequest {
+    fn from(input: &ExchangeCredential) -> Self {
+        Self {
+            subject_proof: input.subject_proof.clone(),
+            actor_proof: input.actor_proof.clone(),
+            target: ExchangeTarget::Registration(input.target),
+            requested_scope: input.requested_scope.clone(),
+            delegation_id: input.delegation_id,
+        }
+    }
+}
+
+/// The `requested_target` a `TokenExchangeDenied` records for a target named by an audience
+/// that resolved to no single registration: the nil identity.
+///
+/// The event declares `requested_target` a required `ResourceServerId`, and a name no
+/// registration answers — or one the refusal was decided before it could be resolved, because
+/// the subject that scopes it did not validate — has no identity to record. The nil UUID is
+/// the one value no allocator in this tree mints: the host allocator mints version-4
+/// identities, whose version bits are never all zero. The requested name is not recorded: it
+/// is caller text, and the record's fields are the contract's. Named here as residue — a
+/// `requested_audience` field is a contract change.
+pub const UNRESOLVED_TARGET: ResourceServerId = ResourceServerId::new(Uuid::from_bytes([0; 16]));
 
 /// The deployment's ports for an exchange.
 pub struct ExchangeParts<'a, D, R, X, A>
@@ -143,7 +199,36 @@ where
     X: SecretSource,
     A: IdentityAllocator,
 {
+    exchange_request(&ExchangeRequest::from(input), request, servers, parts)
+}
+
+/// [`exchange_credential`], for a request naming its target either way [`ExchangeTarget`]
+/// admits.
+///
+/// # Errors
+///
+/// Every refusal [`exchange_credential`] returns, and one more: a target named by an audience
+/// that no enabled registration of the subject's organization holds, or that more than one
+/// holds, is refused as `TargetUnregistered` — not resolved to either of two, because whichever
+/// one a rule picked, the caller may have meant the other. Its record names
+/// [`UNRESOLVED_TARGET`].
+pub fn exchange_request<D, R, X, A>(
+    input: &ExchangeRequest,
+    request: &RequestContext,
+    servers: &impl ResourceServerReads,
+    parts: ExchangeParts<'_, D, R, X, A>,
+) -> Result<CredentialIssued, Box<ExchangeRefused>>
+where
+    D: CredentialDigest,
+    R: CredentialResolution,
+    X: SecretSource,
+    A: IdentityAllocator,
+{
     let mut validated: Option<VerifiedContext> = None;
+    let mut resolved_target = match &input.target {
+        ExchangeTarget::Registration(id) => *id,
+        ExchangeTarget::Audience(_) => UNRESOLVED_TARGET,
+    };
     let decided = decide(
         input,
         request,
@@ -151,13 +236,14 @@ where
         parts.digest,
         parts.resolution,
         &mut validated,
+        &mut resolved_target,
     )
     .map_err(|denied| {
         Box::new(ExchangeRefused {
             denied,
             event: CredentialEvent::TokenExchangeDenied {
                 context: validated.clone(),
-                requested_target: input.target,
+                requested_target: resolved_target,
                 requested_scope: input.requested_scope.clone(),
             },
         })
@@ -188,7 +274,7 @@ where
             epochs: subject.epochs,
             issued_at: request.at.clone(),
             descriptor,
-            target: input.target,
+            target: server.id,
             requested_scope: input.requested_scope.clone(),
         },
         kid: None,
@@ -198,12 +284,13 @@ where
 /// Every refusal, in the order a caller earns the right to learn it: possession of a usable
 /// subject credential first, then everything about the target.
 fn decide<D, R>(
-    input: &ExchangeCredential,
+    input: &ExchangeRequest,
     request: &RequestContext,
     servers: &impl ResourceServerReads,
     digest: &D,
     resolution: &R,
     validated: &mut Option<VerifiedContext>,
+    resolved_target: &mut ResourceServerId,
 ) -> Result<Decided, Denied>
 where
     D: CredentialDigest,
@@ -212,7 +299,7 @@ where
     let invalid = || {
         Denied::new(
             DenialReason::InvalidCredential,
-            DenialClause::CallerProofInvalid,
+            DenialClause::SubjectTokenInvalid,
         )
     };
     let unbounded = || Denied::new(DenialReason::Denied, DenialClause::ExpiryUnbounded);
@@ -275,9 +362,25 @@ where
         ));
     }
 
-    // The target: registered, enabled, the subject's own organization's, issuing the family
-    // this deployment mints without a signer.
-    let server = admitted_target(&context, &input.target, servers, CredentialKind::Reference)?;
+    // The target, by identity or by a name resolved among the subject's organization's
+    // enabled registrations: exactly one, or none at all.
+    let target = match &input.target {
+        ExchangeTarget::Registration(id) => *id,
+        ExchangeTarget::Audience(audience) => {
+            let holders = servers.registrations_holding(&context.organization, audience);
+            let [holder] = holders.as_slice() else {
+                return Err(Denied::new(
+                    DenialReason::Denied,
+                    DenialClause::TargetUnregistered,
+                ));
+            };
+            holder.id
+        }
+    };
+    *resolved_target = target;
+    // Registered, enabled, the subject's own organization's, issuing the family this
+    // deployment mints without a signer.
+    let server = admitted_target(&context, &target, servers, CredentialKind::Reference)?;
     // The source: listed by the target's registration, by identity.
     if !server.allowed_exchange_sources.contains(&subject.target) {
         return Err(Denied::new(

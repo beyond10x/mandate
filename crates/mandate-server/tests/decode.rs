@@ -904,6 +904,10 @@ fn every_declared_refusal_is_named_in_the_list_the_cases_read() {
 
 // --------------------------------- ExchangeCredential, RFC 8693 at the token endpoint
 
+fn registration(id: &str) -> decode::ExchangeTarget {
+    decode::ExchangeTarget::Registration(mandate_types::ResourceServerId::parse(id).unwrap())
+}
+
 const EXCHANGE_GRANT: &str = "urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Atoken-exchange";
 const ACCESS_TOKEN: &str = "urn%3Aietf%3Aparams%3Aoauth%3Atoken-type%3Aaccess_token";
 
@@ -918,7 +922,7 @@ fn exchange_form() -> String {
 fn a_token_exchange_decodes_the_declared_input_subject_only() {
     let input = decode::exchange_credential(&token(&exchange_form())).unwrap();
     assert_eq!(input.subject_proof.expose_bytes(), b"foo");
-    assert_eq!(input.target.to_string(), UUID);
+    assert_eq!(input.target, registration(UUID));
     assert_eq!(
         input
             .requested_scope
@@ -951,7 +955,27 @@ fn a_token_exchange_names_its_target_by_audience_or_by_a_uuid_resource() {
         &format!("resource=urn%3Auuid%3A{UUID}"),
     );
     let input = decode::exchange_credential(&token(&by_resource)).unwrap();
-    assert_eq!(input.target.to_string(), UUID);
+    assert_eq!(input.target, registration(UUID));
+
+    // Correction round 1, F4: an audience that is not a registration identity is the name of
+    // one, RFC 8693 section 2.1's "logical name of the target service", and is carried to the
+    // handler as a name; the handler resolves it within the subject's organization.
+    let by_name = exchange_form().replace(&format!("audience={UUID}"), "audience=platform-api");
+    assert_eq!(
+        decode::exchange_credential(&token(&by_name))
+            .unwrap()
+            .target,
+        decode::ExchangeTarget::Audience(mandate_types::Audience::new("platform-api"))
+    );
+    // A name is free text on the wire, and bounded like every other.
+    let long = exchange_form().replace(
+        &format!("audience={UUID}"),
+        &format!("audience={}", "a".repeat(MAX_TEXT_BYTES + 1)),
+    );
+    assert_eq!(
+        decode::exchange_credential(&token(&long)).unwrap_err(),
+        Refusal::TextTooLong
+    );
 
     // Both, or neither, is not one target.
     let both = format!("{}&resource=urn%3Auuid%3A{UUID}", exchange_form());
@@ -964,14 +988,17 @@ fn a_token_exchange_names_its_target_by_audience_or_by_a_uuid_resource() {
         decode::exchange_credential(&token(&neither)).unwrap_err(),
         Refusal::MissingField
     );
-    // A resource that is not the URN of a registration identity, and an audience that is not
-    // one, are not the declared `ResourceServerId` form.
+    // A resource that is not the URN of a registration identity is a malformed target, and is
+    // still the decoder's refusal.
     for malformed in [
         exchange_form().replace(
             &format!("audience={UUID}"),
             "resource=https%3A%2F%2Fapi.example",
         ),
-        exchange_form().replace(&format!("audience={UUID}"), "audience=platform-api"),
+        exchange_form().replace(
+            &format!("audience={UUID}"),
+            "resource=urn%3Auuid%3Anot-a-uuid",
+        ),
     ] {
         assert_eq!(
             decode::exchange_credential(&token(&malformed)).unwrap_err(),
@@ -1010,14 +1037,24 @@ fn a_token_exchange_admits_only_the_access_token_type() {
 }
 
 #[test]
-fn a_token_exchange_refuses_an_actor_and_every_undeclared_parameter() {
+fn a_token_exchange_carries_an_actor_to_the_handler_and_refuses_every_undeclared_parameter() {
+    // Correction round 1, F3: an actor is not refused here. It reaches the handler, which
+    // refuses it as `ExchangeNotSubjectOnly` and records the refusal; a decoder refusal
+    // would record nothing.
     for extra in [
-        "actor_token=YmFy",
-        &format!("actor_token_type={ACCESS_TOKEN}"),
-        "client_secret=s",
-        "organization_id=x",
-        "code=Zm9v",
+        "actor_token=YmFy".to_owned(),
+        format!("actor_token_type={ACCESS_TOKEN}"),
+        format!("actor_token=YmFy&actor_token_type={ACCESS_TOKEN}"),
+        "actor_token=not%20base64".to_owned(),
     ] {
+        let form = format!("{}&{extra}", exchange_form());
+        let input = decode::exchange_credential(&token(&form)).unwrap();
+        assert!(
+            input.actor_proof.is_some(),
+            "{extra}: the actor reaches the handler"
+        );
+    }
+    for extra in ["client_secret=s", "organization_id=x", "code=Zm9v"] {
         let form = format!("{}&{extra}", exchange_form());
         assert_eq!(
             decode::exchange_credential(&token(&form)).unwrap_err(),

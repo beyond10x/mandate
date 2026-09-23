@@ -52,7 +52,6 @@ use mandate_server::decode::{self, Refusal as DecodeRefusal, Request};
 use mandate_server::routes::{self, Binding, Document, Method, Route};
 use mandate_sts::redemption::RedemptionRefused;
 use mandate_sts::{IdentityAllocator, SecretSource};
-use mandate_token::projection::DenialClause as ExchangeClause;
 use mandate_types::value::encode_base64;
 
 use crate::adapters::{AuthorizationRefusal, Deployment, Refusal};
@@ -727,12 +726,10 @@ where
 /// The token-exchange grant's answer: `mandate.credential.ExchangeCredential`, rendered as
 /// RFC 8693 section 2.2.1's response.
 ///
-/// A refusal is RFC 8693 section 2.2.2's: `invalid_request` when the subject token or the
-/// target is unacceptable — the section's own words for both — and `invalid_scope` for a scope
-/// wider than the subject credential's. Section 2.2.2's `invalid_target` would be the sharper
-/// code for a target refusal, and `mandate_proto::oauth::ErrorCode` does not declare it; the
-/// section makes it a SHOULD, and `invalid_request` is what it falls back to. An unreachable
-/// resolution is not a refusal of the request at all and is answered as unavailable.
+/// A refusal is answered from `mandate_proto::oauth::CLAUSE_CODES`, the one table of this
+/// domain's clauses, exactly as the redemption and introspection arms answer theirs
+/// (correction round 1, F1): a second mapping here is a second answer to one question, and
+/// the two had already disagreed. RFC 6749 section 5.2's 401 for `invalid_client` follows.
 fn exchanged<V, C, X, A>(
     deployment: &mut Deployment<V, C, X, A>,
     input: &decode::ExchangeCredential,
@@ -760,12 +757,12 @@ where
                 "mandate.credential.ExchangeCredential",
                 &format!("{:?}", denied.clause),
             );
-            let (status, code) = match denied.clause {
-                ExchangeClause::ScopeNotNarrowed => (400, ErrorCode::InvalidScope),
-                ExchangeClause::ResolutionUnavailable => (503, ErrorCode::TemporarilyUnavailable),
-                _ => (400, ErrorCode::InvalidRequest),
-            };
-            Response::error(status, ErrorBody::new(code, "the exchange was refused")).no_store()
+            let code = oauth::code_for_clause(denied.clause);
+            Response::error(
+                status_for(code),
+                ErrorBody::new(code, "the exchange was refused"),
+            )
+            .no_store()
         }
     }
 }

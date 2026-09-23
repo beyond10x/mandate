@@ -710,6 +710,15 @@ pub enum DenialClause {
     /// (`story:federated-token-exchange`; the actor and delegation exchange is
     /// `story:constrained-exchange`'s).
     ExchangeNotSubjectOnly,
+    /// `ExchangeCredential`: "independently validated proof is invalid/revoked/expired/stale"
+    /// — the subject token resolves to no credential, or to one that is revoked, expired, or
+    /// issued by a registration that is disabled. One clause for all of them, so a caller
+    /// holding a well-formed token learns only that it is unusable.
+    ///
+    /// Its own clause, not [`DenialClause::CallerProofInvalid`]: that one is the introspection
+    /// caller's failed authentication and answers `invalid_client`, and the subject token of
+    /// an exchange is the grant presented, not a client credential (correction round 2).
+    SubjectTokenInvalid,
 }
 
 /// `mandate.credential.Denied`: fail closed; no credential, authority or lifecycle mutation

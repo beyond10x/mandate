@@ -386,7 +386,7 @@ fn an_expired_subject_credential_is_refused_and_draws_nothing() {
         &mut world,
         &request,
         "2026-09-19T01:00:00Z",
-        DenialClause::CallerProofInvalid,
+        DenialClause::SubjectTokenInvalid,
     );
 }
 
@@ -404,7 +404,7 @@ fn a_revoked_subject_credential_is_refused_and_draws_nothing() {
         &mut world,
         &request,
         "2026-09-19T00:10:00Z",
-        DenialClause::CallerProofInvalid,
+        DenialClause::SubjectTokenInvalid,
     );
 }
 
@@ -417,7 +417,7 @@ fn an_unknown_subject_credential_is_refused_and_draws_nothing() {
         &mut world,
         &request,
         "2026-09-19T00:10:00Z",
-        DenialClause::CallerProofInvalid,
+        DenialClause::SubjectTokenInvalid,
     );
 }
 
@@ -506,4 +506,134 @@ fn a_scope_in_another_space_than_the_subject_credential_is_refused() {
         "2026-09-19T00:10:00Z",
         DenialClause::ScopeNotNarrowed,
     );
+}
+
+// ------------------------------------------- correction round 1, F4: a target named by audience
+
+/// The same request, naming its target by the audience a registration holds.
+fn by_audience(world: &World, audience: &str) -> mandate_sts::exchange::ExchangeRequest {
+    mandate_sts::exchange::ExchangeRequest {
+        subject_proof: proof_of(&world.subject_credential),
+        actor_proof: None,
+        target: mandate_sts::exchange::ExchangeTarget::Audience(Audience::new(audience)),
+        requested_scope: scope(&["read"]),
+        delegation_id: None,
+    }
+}
+
+fn exchange_by_audience(
+    world: &mut World,
+    request: &mandate_sts::exchange::ExchangeRequest,
+) -> (
+    Result<mandate_sts::issue::CredentialIssued, Box<ExchangeRefused>>,
+    u32,
+    bool,
+) {
+    let minted_before = world.secrets.minted();
+    let mut untouched = world.allocator.clone();
+    let outcome = mandate_sts::exchange::exchange_request(
+        request,
+        &at("2026-09-19T00:10:00Z"),
+        &world.held,
+        ExchangeParts {
+            digest: &Sha256Digest,
+            resolution: &world.held,
+            secrets: &mut world.secrets,
+            allocator: &mut world.allocator,
+        },
+    );
+    let drew = world.allocator.next_credential_id() != untouched.next_credential_id();
+    (outcome, world.secrets.minted() - minted_before, drew)
+}
+
+#[test]
+fn a_target_named_by_its_registered_audience_is_resolved_in_the_subjects_organization() {
+    let mut world = world();
+    let request = by_audience(&world, "platform-api");
+    let (outcome, minted, drew) = exchange_by_audience(&mut world, &request);
+    let issued = outcome.expect("one enabled registration holds the name");
+    assert_eq!((minted, drew), (1, true));
+    let CredentialEvent::TokenExchangeAllowed { target, .. } = &issued.event else {
+        panic!("TokenExchangeAllowed, got {:?}", issued.event);
+    };
+    assert_eq!(
+        *target, world.target,
+        "the name resolved to T's own identity"
+    );
+    assert_eq!(issued.descriptor.audience, Audience::new("platform-api"));
+}
+
+/// No registration of the subject's organization holds the name: refused, recorded, nothing
+/// drawn. The name another organization holds is not looked at.
+#[test]
+fn an_audience_no_registration_of_the_subjects_organization_holds_is_refused_and_recorded() {
+    let mut world = world();
+    let foreign = register_resource_server(
+        &RegisterResourceServer {
+            context: VerifiedContext {
+                organization: OrganizationId::new(uuid(0x0b)),
+                ..context()
+            },
+            audience: Audience::new("foreign-api"),
+            profile: reference_profile("PT1H"),
+            allowed_exchange_sources: Vec::new(),
+        },
+        &world.held,
+        &mut world.allocator.clone(),
+    )
+    .expect("a free audience in another organization");
+    world
+        .held
+        .apply(&foreign.event)
+        .expect("a readable registration");
+    for name in ["nothing-holds-this", "foreign-api"] {
+        let request = by_audience(&world, name);
+        let (outcome, minted, drew) = exchange_by_audience(&mut world, &request);
+        let refused = outcome.expect_err("no registration of the organization holds it");
+        assert_eq!(
+            refused.denied.clause,
+            DenialClause::TargetUnregistered,
+            "{name}"
+        );
+        assert!(
+            matches!(
+                refused.event,
+                CredentialEvent::TokenExchangeDenied {
+                    requested_target: mandate_sts::exchange::UNRESOLVED_TARGET,
+                    context: Some(_),
+                    ..
+                }
+            ),
+            "{name}: recorded against the unresolved target, with the subject's context"
+        );
+        assert_eq!((minted, drew), (0, false), "{name}: nothing drawn");
+    }
+}
+
+/// Two enabled registrations of the organization hold one name — the race
+/// `mandate_token::projection` records as ordinary — so the name is not one target, and it is
+/// refused rather than resolved to either.
+#[test]
+fn an_audience_two_registrations_hold_is_refused_rather_than_resolved_to_either() {
+    let mut world = world();
+    let twin = CredentialEvent::ResourceServerRegistered {
+        context: context(),
+        id: ResourceServerId::new(uuid(0x77)),
+        audience: Audience::new("platform-api"),
+        credential_profile: reference_profile("PT2H"),
+        allowed_exchange_sources: vec![world.source],
+    };
+    world
+        .held
+        .apply(&twin)
+        .expect("the log records both registrations");
+    let request = by_audience(&world, "platform-api");
+    let (outcome, minted, drew) = exchange_by_audience(&mut world, &request);
+    let refused = outcome.expect_err("two registrations answer the name");
+    assert_eq!(refused.denied.clause, DenialClause::TargetUnregistered);
+    assert!(matches!(
+        refused.event,
+        CredentialEvent::TokenExchangeDenied { .. }
+    ));
+    assert_eq!((minted, drew), (0, false));
 }

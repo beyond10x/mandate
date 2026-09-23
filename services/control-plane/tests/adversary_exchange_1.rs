@@ -425,7 +425,12 @@ fn a_session_proof_presented_as_the_subject_token_is_refused_and_recorded() {
             "read",
         )))
         .expect_err("a session proof is not an access credential");
-    assert_eq!(refused.clause, DenialClause::CallerProofInvalid);
+    // Re-pinned by coordinator ruling (M2 correction 2): SubjectTokenInvalid, answered 400 invalid_grant.
+    assert_eq!(refused.clause, DenialClause::SubjectTokenInvalid);
+    assert_eq!(
+        mandate_proto::oauth::code_for_clause(refused.clause),
+        mandate_proto::oauth::ErrorCode::InvalidGrant
+    );
     assert!(matches!(
         deployment.exchanges(),
         [CredentialEvent::TokenExchangeDenied { context: None, .. }]

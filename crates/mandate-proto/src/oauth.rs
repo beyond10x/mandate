@@ -508,6 +508,7 @@ pub const CLAUSE_CODES: &[(DenialClause, ErrorCode)] = &[
         DenialClause::ExchangeNotSubjectOnly,
         ErrorCode::InvalidRequest,
     ),
+    (DenialClause::SubjectTokenInvalid, ErrorCode::InvalidGrant),
 ];
 
 /// The standard error code a refusal carrying this clause is answered with.

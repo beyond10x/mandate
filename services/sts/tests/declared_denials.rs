@@ -253,7 +253,7 @@ const ROWS: &[(&str, DenialClause, Source)] = &[
     ),
     (
         "mandate.credential.ExchangeCredential",
-        DenialClause::CallerProofInvalid,
+        DenialClause::SubjectTokenInvalid,
         Source::DenialPhrase("invalid/revoked/expired/stale"),
     ),
     // The subject proof could not be validated at all: the declared denial's first clause is
@@ -2319,7 +2319,7 @@ fn every_refusal_exchange_credential_produces_has_a_row() {
             .collect::<Vec<_>>(),
         vec![
             DenialClause::ProofMalformed,
-            DenialClause::CallerProofInvalid,
+            DenialClause::SubjectTokenInvalid,
             DenialClause::ResolutionUnavailable,
             DenialClause::ExchangeNotSubjectOnly,
             DenialClause::TargetUnregistered,

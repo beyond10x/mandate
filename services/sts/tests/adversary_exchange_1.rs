@@ -315,7 +315,8 @@ fn a_subject_credential_of_a_disabled_source_is_refused_and_draws_nothing() {
         &subject,
         world.target,
         "2026-09-19T00:10:00Z",
-        DenialClause::CallerProofInvalid,
+        // Re-pinned by coordinator ruling (M2 correction 2): an unusable subject token is SubjectTokenInvalid.
+        DenialClause::SubjectTokenInvalid,
     );
 }
 
@@ -354,7 +355,8 @@ fn a_subject_credential_is_not_exchangeable_at_its_own_expiry_instant() {
         &subject,
         world.target,
         &expiry,
-        DenialClause::CallerProofInvalid,
+        // Re-pinned by coordinator ruling (M2 correction 2): an unusable subject token is SubjectTokenInvalid.
+        DenialClause::SubjectTokenInvalid,
     );
 }
 

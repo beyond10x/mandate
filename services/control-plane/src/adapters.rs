@@ -109,7 +109,7 @@ use mandate_sts::code::{
     AuthorizationCodeParts, CodeIssuance, CodeLifetime, IssueAuthorizationCode, OAuthClientReads,
 };
 use mandate_sts::exchange::{
-    ExchangeCredential, ExchangeParts, exchange_credential, seconds_between,
+    ExchangeParts, ExchangeRequest, ExchangeTarget, exchange_request, seconds_between,
 };
 use mandate_sts::issue::Sha256Digest;
 use mandate_sts::redemption::{
@@ -484,6 +484,15 @@ pub struct Token {
     /// The instant the request was served at, which `expires_in` is measured from.
     pub issued_at: Timestamp,
 }
+
+/// How many exchange decisions [`Deployment::exchanges`] holds: 1024.
+///
+/// The token endpoint authenticates no client, so an unbounded record is memory any caller
+/// can grow by being refused in a loop (correction round 1, F2). Past this many the oldest
+/// decision is evicted. The number is a bound, not a retention policy: the record is the
+/// in-memory stand-in for durable delivery, which is `decision-blocker:audit-routing`'s, and
+/// at the size of one `TokenExchangeDenied` it holds well under a megabyte.
+pub const EXCHANGE_RECORD_CAPACITY: usize = 1024;
 
 /// The accepted outcome of `mandate.credential.ExchangeCredential`, as RFC 8693 section
 /// 2.2.1 renders it.
@@ -2229,9 +2238,9 @@ pub struct Deployment<V, C, X, A> {
     credentials: CredentialProjection,
     codes: InMemoryCodeLog,
     proofs: SessionProofs,
-    /// Every `TokenExchangeAllowed` and `TokenExchangeDenied` this deployment recorded, in
-    /// order: the in-memory record of each exchange decision. Durable delivery is
-    /// `decision-blocker:audit-routing`'s.
+    /// The last [`EXCHANGE_RECORD_CAPACITY`] `TokenExchangeAllowed` and `TokenExchangeDenied`
+    /// this deployment recorded, oldest first: the in-memory record of each exchange
+    /// decision. Durable delivery is `decision-blocker:audit-routing`'s.
     exchanges: Vec<CredentialEvent>,
     /// The authority decision taken before a handler is dispatched, when the deployment is
     /// configured with one.
@@ -2396,9 +2405,9 @@ where
         &self.credentials
     }
 
-    /// Every exchange decision this deployment recorded, in order: one
-    /// `mandate.credential.TokenExchangeAllowed` per admitted exchange and one
-    /// `mandate.credential.TokenExchangeDenied` per refused one.
+    /// The last [`EXCHANGE_RECORD_CAPACITY`] exchange decisions this deployment recorded,
+    /// oldest first: one `mandate.credential.TokenExchangeAllowed` per admitted exchange and
+    /// one `mandate.credential.TokenExchangeDenied` per refused one.
     #[must_use]
     pub fn exchanges(&self) -> &[CredentialEvent] {
         &self.exchanges
@@ -3058,11 +3067,16 @@ where
             at: at.clone(),
             epochs: None,
         };
-        let outcome = exchange_credential(
-            &ExchangeCredential {
+        let outcome = exchange_request(
+            &ExchangeRequest {
                 subject_proof: input.subject_proof.clone(),
                 actor_proof: input.actor_proof.clone(),
-                target: input.target,
+                target: match &input.target {
+                    decode::ExchangeTarget::Registration(id) => ExchangeTarget::Registration(*id),
+                    decode::ExchangeTarget::Audience(audience) => {
+                        ExchangeTarget::Audience(audience.clone())
+                    }
+                },
                 requested_scope: input.requested_scope.clone(),
                 delegation_id: input.delegation_id,
             },
@@ -3077,7 +3091,7 @@ where
         );
         match outcome {
             Err(refused) => {
-                self.exchanges.push(refused.event);
+                self.record_exchange(refused.event);
                 Err(refused.denied)
             }
             Ok(issued) => {
@@ -3086,7 +3100,7 @@ where
                 // the exchange decided its target through `admitted_target` against this same
                 // fold a moment ago; nothing between that read and this apply writes it.
                 let _ = self.credentials.apply(&issued.event);
-                self.exchanges.push(issued.event);
+                self.record_exchange(issued.event);
                 let expires_in =
                     seconds_between(&at, &issued.descriptor.expires_at).unwrap_or_default();
                 Ok(Exchanged {
@@ -3097,6 +3111,17 @@ where
                 })
             }
         }
+    }
+}
+
+impl<V, C, X, A> Deployment<V, C, X, A> {
+    /// Record one exchange decision, evicting the oldest past [`EXCHANGE_RECORD_CAPACITY`].
+    fn record_exchange(&mut self, event: CredentialEvent) {
+        if self.exchanges.len() >= EXCHANGE_RECORD_CAPACITY {
+            let excess = self.exchanges.len() + 1 - EXCHANGE_RECORD_CAPACITY;
+            self.exchanges.drain(..excess);
+        }
+        self.exchanges.push(event);
     }
 }
 

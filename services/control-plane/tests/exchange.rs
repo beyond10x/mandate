@@ -366,7 +366,7 @@ fn a_refused_exchange_records_token_exchange_denied_and_folds_nothing() {
                 targets.target,
                 "read",
             ),
-            DenialClause::CallerProofInvalid,
+            DenialClause::SubjectTokenInvalid,
         ),
         (
             exchange_body(&subject_token, targets.target, "read admin"),
@@ -407,7 +407,7 @@ fn an_expired_subject_credential_is_refused_and_recorded() {
             "read",
         )))
         .expect_err("an expired subject credential");
-    assert_eq!(refused.clause, DenialClause::CallerProofInvalid);
+    assert_eq!(refused.clause, DenialClause::SubjectTokenInvalid);
     assert!(matches!(
         deployment.exchanges(),
         [CredentialEvent::TokenExchangeDenied { .. }]
@@ -544,33 +544,157 @@ fn the_exchange_is_served_over_http_and_introspection_answers_its_credential_act
     assert_eq!(answer["sub"], principal().to_string());
 }
 
+/// **Every refusal the exchange arm answers is answered from `CLAUSE_CODES`**, the one table
+/// of `mandate.credential` clauses (correction round 1, F1).
+///
+/// The class, not the instance: each request below is refused in process and over the wire
+/// against the same world, and the wire's code is the table's code for the clause the process
+/// refused with — so a hard-coded answer for any clause the fixture reaches is red here.
 #[test]
-fn a_refused_exchange_is_answered_invalid_request_and_issues_nothing() {
+fn every_exchange_refusal_on_the_wire_is_the_code_clause_codes_declares() {
     let (address, targets, subject_token) = serving();
-    for body in [
-        exchange_body(&subject_token, targets.closed, "read"),
-        exchange_body(&subject_token, ResourceServerId::new(uuid(0x99)), "read"),
-        exchange_body(
-            &encode_base64(b"no such credential"),
-            targets.target,
-            "read",
-        ),
-    ] {
-        let refused = post(address, "/oauth/token", &body, &[]);
-        assert_eq!(refused.status, 400, "{body}: {}", refused.body);
-        // RFC 8693 section 2.2.2: the subject token or the target is unacceptable.
-        assert_eq!(refused.json()["error"], "invalid_request", "{body}");
+    let (mut local, local_targets) = deployment(FixedClock::at(NOW));
+    let local_token = code_flow_credential(&mut local, local_targets.source);
+    let bodies = |token: &str, targets: Targets| {
+        vec![
+            exchange_body(token, targets.closed, "read"),
+            exchange_body(token, ResourceServerId::new(uuid(0x99)), "read"),
+            exchange_body(
+                &encode_base64(b"no such credential"),
+                targets.target,
+                "read",
+            ),
+            exchange_body(token, targets.target, "read admin"),
+            format!(
+                "{}&actor_token={}&actor_token_type={}",
+                exchange_body(token, targets.target, "read"),
+                encoded(token),
+                encoded(ACCESS_TOKEN_TYPE)
+            ),
+            exchange_body(token, targets.target, "read").replace(
+                &format!("audience={}", targets.target),
+                "audience=nothing-holds-this",
+            ),
+        ]
+    };
+    let mut seen = std::collections::BTreeSet::new();
+    for (wire, local_body) in bodies(&subject_token, targets)
+        .into_iter()
+        .zip(bodies(&local_token, local_targets))
+    {
+        let clause = local
+            .exchange(&decoded_exchange(&local_body))
+            .expect_err("the exchange is refused")
+            .clause;
+        seen.insert(format!("{clause:?}"));
+        let code = mandate_proto::oauth::code_for_clause(clause);
+        let refused = post(address, "/oauth/token", &wire, &[]);
+        assert_eq!(
+            refused.json()["error"],
+            code.as_str(),
+            "{clause:?}: {}",
+            refused.body
+        );
+        let status = if code == mandate_proto::oauth::ErrorCode::InvalidClient {
+            401
+        } else {
+            400
+        };
+        assert_eq!(refused.status, status, "{clause:?}");
         assert_eq!(refused.header("Cache-Control"), Some("no-store"));
         assert!(refused.json().get("access_token").is_none());
     }
-    let scoped = post(
-        address,
-        "/oauth/token",
-        &exchange_body(&subject_token, targets.target, "read admin"),
-        &[],
+    assert_eq!(seen.len(), 5, "five distinct clauses driven: {seen:?}");
+}
+
+/// Correction round 1, F3: an actor presented on the wire reaches the handler, is refused as
+/// `ExchangeNotSubjectOnly`, and is recorded.
+#[test]
+fn an_actor_token_is_refused_by_the_handler_and_recorded() {
+    let (mut deployment, targets) = deployment(FixedClock::at(NOW));
+    let subject_token = code_flow_credential(&mut deployment, targets.source);
+    let refused = deployment
+        .exchange(&decoded_exchange(&format!(
+            "{}&actor_token={}&actor_token_type={}",
+            exchange_body(&subject_token, targets.target, "read"),
+            encoded(&subject_token),
+            encoded(ACCESS_TOKEN_TYPE)
+        )))
+        .expect_err("subject-only");
+    assert_eq!(refused.clause, DenialClause::ExchangeNotSubjectOnly);
+    assert!(matches!(
+        deployment.exchanges(),
+        [CredentialEvent::TokenExchangeDenied {
+            context: Some(_),
+            ..
+        }]
+    ));
+}
+
+/// Correction round 1, F4: `audience=platform-api`, the name `T` is registered under, is
+/// exchanged for a credential for `T` over the wire.
+#[test]
+fn a_target_named_by_its_registered_audience_is_exchanged_over_http() {
+    let (address, targets, subject_token) = serving();
+    let named = exchange_body(&subject_token, targets.target, "read").replace(
+        &format!("audience={}", targets.target),
+        "audience=platform-api",
     );
-    assert_eq!(scoped.status, 400);
-    assert_eq!(scoped.json()["error"], "invalid_scope");
+    let exchanged = post(address, "/oauth/token", &named, &[]);
+    assert_eq!(exchanged.status, 200, "{}", exchanged.body);
+    let credential = exchanged.json()["access_token"]
+        .as_str()
+        .expect("an access_token")
+        .to_owned();
+    let introspected = post(
+        address,
+        "/oauth/introspect",
+        &format!("token={}", encoded(&credential)),
+        &[("Authorization", &format!("Bearer {credential}"))],
+    );
+    assert_eq!(introspected.json()["active"], true, "{}", introspected.body);
+    assert_eq!(introspected.json()["aud"], "platform-api");
+}
+
+/// Correction round 1, F2: the in-memory record is bounded. Past
+/// `EXCHANGE_RECORD_CAPACITY` decisions the oldest is evicted, so an unauthenticated caller
+/// refusing itself in a loop holds a fixed amount of memory, not an unbounded one.
+#[test]
+fn the_exchange_record_holds_at_most_its_capacity_and_evicts_the_oldest() {
+    use mandate_control_plane::adapters::EXCHANGE_RECORD_CAPACITY;
+
+    let (mut deployment, targets) = deployment(FixedClock::at(NOW));
+    let subject_token = code_flow_credential(&mut deployment, targets.source);
+    // The first decision is the one admitted exchange; every later one is refused.
+    deployment
+        .exchange(&decoded_exchange(&exchange_body(
+            &subject_token,
+            targets.target,
+            "read",
+        )))
+        .expect("T admits S");
+    let refused = decoded_exchange(&exchange_body(&subject_token, targets.closed, "read"));
+    for _ in 0..EXCHANGE_RECORD_CAPACITY {
+        let _ = deployment.exchange(&refused);
+    }
+    let recorded = deployment.exchanges();
+    assert_eq!(recorded.len(), EXCHANGE_RECORD_CAPACITY);
+    assert!(
+        recorded
+            .iter()
+            .all(|record| matches!(record, CredentialEvent::TokenExchangeDenied { .. })),
+        "the oldest decision, the admitted one, was evicted first"
+    );
+    // The record is not the fold: the credential it issued is still folded.
+    assert_eq!(
+        deployment
+            .credentials()
+            .credentials()
+            .iter()
+            .filter(|record| record.target == targets.target)
+            .count(),
+        1
+    );
 }
 
 #[test]
@@ -594,4 +718,25 @@ fn the_metadata_document_advertises_the_exchange_grant() {
         .collect();
     assert!(grants.contains(&EXCHANGE_GRANT), "{grants:?}");
     assert!(grants.contains(&"authorization_code"), "{grants:?}");
+}
+
+/// Correction round 2: an unknown, revoked or expired subject token is the grant being
+/// invalid — 400 `invalid_grant` — and never 401 `invalid_client`, which would tell an RFC 8693
+/// client that its own credentials are wrong on a road where no client authenticates.
+#[test]
+fn an_unusable_subject_token_is_answered_400_invalid_grant() {
+    let (address, targets, _) = serving();
+    let refused = post(
+        address,
+        "/oauth/token",
+        &exchange_body(
+            &encode_base64(b"no such credential"),
+            targets.target,
+            "read",
+        ),
+        &[],
+    );
+    assert_eq!(refused.status, 400, "{}", refused.body);
+    assert_eq!(refused.json()["error"], "invalid_grant");
+    assert!(refused.header("WWW-Authenticate").is_none());
 }
