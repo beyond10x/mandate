@@ -330,6 +330,18 @@ impl IdentityAllocator for ChosenServers {
     fn next_authorization_code_id(&mut self) -> AuthorizationCodeId {
         self.rest.next_authorization_code_id()
     }
+
+    fn reserve_credential_id(&mut self) -> CredentialId {
+        self.rest.reserve_credential_id()
+    }
+
+    fn commit_credential_id(&mut self, reserved: CredentialId) {
+        self.rest.commit_credential_id(reserved);
+    }
+
+    fn release_credential_id(&mut self, reserved: CredentialId) {
+        self.rest.release_credential_id(reserved);
+    }
 }
 
 /// **Issuance accepts for a registration whose credentials introspect inactive at once.**

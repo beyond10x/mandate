@@ -254,9 +254,10 @@ fn redemption(code_id: AuthorizationCodeId, proof: &CredentialProof) -> RedeemAu
 /// writes". That function has two refusals; the row's case decides one of them.
 ///
 /// Pinned by the coordinator to the shipped behaviour on 2026-09-21 (`review-result:wave-d-obligations-sts-adversary-2` F1): the
-/// losing half has already drawn a secret and an identity when the append refuses.
-/// `story:sts-refusal-draws-nothing` moves the draw after the commit; the assertion flips
-/// there.
+/// losing half had already drawn a secret and an identity when the append refused.
+/// `story:sts-refusal-draws-nothing` flipped it: the compare-and-set is decided before the
+/// draw, and the losing half draws nothing. The name is the one the story's acceptance
+/// cites, kept so the citation resolves; it records the finding, not the behaviour.
 #[test]
 fn a_redemption_that_loses_its_compare_and_set_has_already_drawn_credential_material() {
     let (servers, target) = registered(reference_profile());
@@ -319,9 +320,13 @@ fn a_redemption_that_loses_its_compare_and_set_has_already_drawn_credential_mate
         ));
     }
     assert!(
-        !moved.is_empty(),
-        "the losing half drew nothing; story:sts-refusal-draws-nothing landed and this pin \
-         is stale"
+        moved.is_empty(),
+        "the losing half of the compare-and-set drew from the deployment: {moved:?}"
+    );
+    assert_eq!(
+        log.events(&code_id),
+        vec![issued],
+        "the losing half appended nothing"
     );
 }
 
@@ -364,8 +369,9 @@ impl IssuanceSigner for NoKeySigner {
 /// column carries no statement about this path.
 ///
 /// Pinned by the coordinator to the shipped behaviour on 2026-09-21 (`review-result:wave-d-obligations-sts-adversary-2` F2): the
-/// identity is drawn before the signer refuses. `story:sts-refusal-draws-nothing` moves the
-/// draw after the signature; the assertion flips there.
+/// identity was drawn before the signer refused. `story:sts-refusal-draws-nothing` flipped
+/// it: the identity is reserved for the signature and handed out only when the signer
+/// signs. The name is the one the story's acceptance cites, kept so the citation resolves.
 #[test]
 fn a_self_contained_issuance_refused_by_the_signer_has_already_drawn_a_credential_identity() {
     let (servers, target) = registered(self_contained_profile());
@@ -396,10 +402,9 @@ fn a_self_contained_issuance_refused_by_the_signer_has_already_drawn_a_credentia
 
     let untouched = SequentialAllocator::new().next_credential_id();
     let next = allocator.next_credential_id();
-    assert_ne!(
+    assert_eq!(
         next, untouched,
-        "the refused issuance drew no identity; story:sts-refusal-draws-nothing landed and \
-         this pin is stale"
+        "the issuance the signer refused drew a credential identity from the allocator"
     );
 }
 

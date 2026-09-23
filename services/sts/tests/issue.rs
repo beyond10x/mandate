@@ -15,7 +15,7 @@ use mandate_sts::issue::{
     issue_self_contained_credential,
 };
 use mandate_sts::registry::{RegisterResourceServer, register_resource_server};
-use mandate_sts::{CountingSecrets, RequestContext, SequentialAllocator};
+use mandate_sts::{CountingSecrets, IdentityAllocator, RequestContext, SequentialAllocator};
 use mandate_token::CredentialProfile;
 use mandate_token::projection::{
     AccessCredentialState, CredentialEvent, DenialClause, Projection, RefusedOutcome,
@@ -536,6 +536,65 @@ fn a_signer_that_refuses_is_a_denial_and_no_credential() {
 
     assert_eq!(denied.clause, DenialClause::SigningRefused);
     assert_eq!(denied.outcome, RefusedOutcome::Denied);
+}
+
+/// **A signed issuance hands out the identity it reserved, and a refused one does not.**
+///
+/// The self-contained family reserves the credential identity before the signer can refuse
+/// and commits it only once the token is signed. The refusal half is
+/// `adversary_obligations_sts_2`'s; this is the other half: without the commit, two signed
+/// issuances would carry one identity, and the second record would be a duplicate.
+#[test]
+fn a_signed_self_contained_issuance_hands_out_the_identity_it_reserved() {
+    fn issued<K: IssuanceSigner>(
+        held: &Projection,
+        target: ResourceServerId,
+        signer: &K,
+        allocator: &mut SequentialAllocator,
+    ) -> Option<CredentialId> {
+        issue_self_contained_credential(
+            &IssueSelfContainedCredential {
+                context: context(organization(10)),
+                target,
+                requested_scope: scope(),
+            },
+            &request(),
+            held,
+            SelfContainedParts {
+                digest: &Sha256Digest,
+                allocator,
+                signer,
+                issuer: &issuer(),
+            },
+        )
+        .map(|issued| issued.credential_id)
+        .ok()
+    }
+    let (held, id) = target(organization(10), "api-b", self_contained_profile());
+    let signing = StaticSigner::new("kid-one", 900);
+    let mut allocator = SequentialAllocator::new();
+
+    let refused = issued(&held, id, &RefusingSigner, &mut allocator);
+    let first = issued(&held, id, &signing, &mut allocator);
+    let second = issued(&held, id, &signing, &mut allocator);
+
+    let mut fresh = SequentialAllocator::new();
+    assert_eq!(refused, None, "the refusing signer issued nothing");
+    assert_eq!(
+        first,
+        Some(fresh.next_credential_id()),
+        "the refusal before it handed out no identity"
+    );
+    assert_eq!(
+        second,
+        Some(fresh.next_credential_id()),
+        "two signed issuances carry two identities"
+    );
+    assert_eq!(
+        allocator.next_credential_id(),
+        fresh.next_credential_id(),
+        "each signed issuance handed out exactly the identity it reserved"
+    );
 }
 
 /// A signer with nothing to sign under, which is [`SigningError::NoActiveKey`]'s own

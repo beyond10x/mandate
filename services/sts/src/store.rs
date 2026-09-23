@@ -524,6 +524,42 @@ pub trait AuthorizationCodeLog {
         expected: StreamVersion,
         group: &[AuthorizationCodeEvent],
     ) -> Result<StreamVersion, AppendRefused>;
+
+    /// Append the event `build` produces, if the stream is still at `expected` — and decide
+    /// that **before** `build` runs.
+    ///
+    /// The reservation a command path needs when the event it appends carries what it drew
+    /// from the deployment: a redemption's event records the verifier of the secret it mints
+    /// and the identity it allocates, so the draw cannot follow the append, and a draw ahead
+    /// of the compare-and-set is a draw the losing writer has already made when the append
+    /// refuses. Here the stream is held at `expected` from the compare until the group
+    /// commits or rolls back: `build` runs only once the compare-and-set is won, and at most
+    /// once. A deployment's kit holds the stream for that span inside the append group's own
+    /// transaction; a read of the version before the draw is not the same thing, because a
+    /// writer that commits between that read and the append is not seen by it.
+    ///
+    /// What `build` returns beside the event comes back to the caller on a commit.
+    ///
+    /// **A refusal decided after `build` has run is outside what this method guarantees.**
+    /// It promises that the compare-and-set is decided before the draw, and nothing about
+    /// the set: a group the fold cannot read, or a commit the store fails, refuses a
+    /// transaction that has already drawn. Closing that needs the kit's transaction to span
+    /// the draw and the commit together, which is `decision-blocker:epoch-atomicity`'s and
+    /// not decidable in this crate.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`AppendRefused::Conflict`] without running `build` when the stream has moved
+    /// since `expected` was read, and [`AppendRefused::Unreadable`] when the built event is
+    /// not a history the fold can read.
+    fn append_built<T>(
+        &mut self,
+        stream: &AuthorizationCodeId,
+        expected: StreamVersion,
+        build: impl FnOnce() -> (AuthorizationCodeEvent, T),
+    ) -> Result<T, AppendRefused>
+    where
+        Self: Sized;
 }
 
 /// An [`AuthorizationCodeLog`] that holds its streams in memory.
@@ -591,6 +627,38 @@ impl InMemoryCodeLog {
         expected: StreamVersion,
         group: &[AuthorizationCodeEvent],
     ) -> Result<StreamVersion, AppendRefused> {
+        self.compare(stream, expected)?;
+        self.commit(stream, group)
+    }
+
+    /// Append the event `build` produces, deciding the compare-and-set before it runs.
+    ///
+    /// The double holds the stream for the span by holding `&mut self`: nothing else can
+    /// append between the compare and the commit. [`Self::lose_the_next_append`] is spent by
+    /// the compare, so an injected loss refuses before `build` runs, exactly as a real one
+    /// does.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`AppendRefused`]; see [`AuthorizationCodeLog::append_built`].
+    pub fn append_built<T>(
+        &mut self,
+        stream: &AuthorizationCodeId,
+        expected: StreamVersion,
+        build: impl FnOnce() -> (AuthorizationCodeEvent, T),
+    ) -> Result<T, AppendRefused> {
+        self.compare(stream, expected)?;
+        let (event, built) = build();
+        self.commit(stream, std::slice::from_ref(&event))?;
+        Ok(built)
+    }
+
+    /// The compare half of the compare-and-set, spending an injected loss.
+    fn compare(
+        &mut self,
+        stream: &AuthorizationCodeId,
+        expected: StreamVersion,
+    ) -> Result<(), AppendRefused> {
         let actual = self.version(stream);
         if self.lose_next_append {
             self.lose_next_append = false;
@@ -602,6 +670,15 @@ impl InMemoryCodeLog {
         if expected != actual {
             return Err(AppendRefused::Conflict { expected, actual });
         }
+        Ok(())
+    }
+
+    /// The set half: fold the group and commit it, or roll the whole of it back.
+    fn commit(
+        &mut self,
+        stream: &AuthorizationCodeId,
+        group: &[AuthorizationCodeEvent],
+    ) -> Result<StreamVersion, AppendRefused> {
         // The projection commits inside the group or rolls back with it: it is folded on a
         // copy, and the copy replaces the committed one only once the whole group has been
         // read.
@@ -634,6 +711,15 @@ impl AuthorizationCodeLog for InMemoryCodeLog {
         group: &[AuthorizationCodeEvent],
     ) -> Result<StreamVersion, AppendRefused> {
         Self::append(self, stream, expected, group)
+    }
+
+    fn append_built<T>(
+        &mut self,
+        stream: &AuthorizationCodeId,
+        expected: StreamVersion,
+        build: impl FnOnce() -> (AuthorizationCodeEvent, T),
+    ) -> Result<T, AppendRefused> {
+        Self::append_built(self, stream, expected, build)
     }
 }
 
