@@ -104,10 +104,10 @@ fn issue_at(
     )
 }
 
-/// Corrected by I3 correction round 1 (coordinator ruling on F1): the registry doc now says
-/// the issuance refuses exactly the request instants after `9999-12-31T23:59:59Z` minus
-/// `max_ttl`, under a refused bound as under an admitted one — so a refused bound still
-/// issues a readable expiry from an early enough request, and is refused from a late one.
+/// Corrected by I3 correction round 1 (coordinator ruling on F1) and restated after round 2:
+/// reference issuance, which this case drives, refuses exactly the request instants after
+/// `9999-12-31T23:59:59Z` minus `max_ttl`, under a refused bound as under an admitted one — so
+/// a refused bound still issues a readable expiry from an early enough request.
 #[test]
 fn a_profile_the_registration_refuses_issues_readably_until_9999_minus_its_bound() {
     // About 7 118 years: past the year 9999 from 3000-01-01, inside it from 2026.

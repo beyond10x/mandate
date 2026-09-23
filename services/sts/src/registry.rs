@@ -135,12 +135,19 @@ pub struct DisableResourceServer {
 /// - `max_ttl` names a positive span. A lifetime that names none is no bound, and a
 ///   lifetime of nothing issues a credential that has already expired.
 /// - `max_ttl`, added to [`instant::LATEST_CHECKED_REQUEST_INSTANT`], lands on an instant
-///   [`instant::at`] renders readably. The handler has no clock, so this is a promise about
-///   request instants up to that one and no further: a profile admitted here issues a
-///   readable expiry for every request before `3000-01-01`. It is not a statement about what
-///   a refused bound would issue — the issuance decides that per request, and refuses as
-///   `ExpiryUnbounded` exactly the request instants after `9999-12-31T23:59:59Z` minus
-///   `max_ttl`, under this profile or under a record carrying one this handler refused.
+///   [`instant::at`] renders readably. The handler has no clock, so this is a promise about a
+///   stated range of request instants and no other: under a profile admitted here, no
+///   issuing path refuses for want of a readable expiry at any request instant from
+///   `0000-01-01T00:00:00Z` through `3000-01-01T00:00:00Z`, both in UTC. It is not a
+///   statement about what a refused bound would issue. Each path decides that per request,
+///   and refuses as `ExpiryUnbounded` exactly when the request instant plus the lifetime
+///   that path actually issues falls outside `0000-01-01T00:00:00Z` to
+///   `9999-12-31T23:59:59Z` — under this profile or under a record carrying one this
+///   handler refused. The lifetime is `max_ttl` for `IssueReferenceCredential`, the
+///   signer's TTL for `IssueSelfContainedCredential` (`crate::issue`), and for
+///   `RedeemAuthorizationCode` the earlier of `max_ttl` and the code's own `expires_at`
+///   (`crate::redemption`), which the reader has already read and so never passes the upper
+///   end.
 /// - `positive_cache_ttl` names a non-negative span no longer than `max_ttl`. A cache that
 ///   outlives the credential authorizes after the credential has expired.
 /// - `ImmediateOnline` requires online authorization. The guarantee is that a revocation is
