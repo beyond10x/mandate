@@ -1372,9 +1372,9 @@ fn cases_a_copy_runs() -> usize {
 /// passed the lane.
 #[test]
 fn copies_of_this_lane_run_at_once_and_all_pass() {
-    if std::env::var_os(CONCURRENT_COPY).is_some() || std::env::var_os(SECOND_COPY).is_some() {
-        return;
-    }
+    // No early return on the copy variables: a copy never selects this case, and with either
+    // variable exported by hand `this_binary()` refuses loudly instead of this case passing
+    // without starting a copy.
     const ROUNDS: usize = 12;
     const COPIES: usize = 16;
     let expected = cases_a_copy_runs();
