@@ -177,11 +177,20 @@ fn is_ident(byte: u8) -> bool {
 }
 
 /// Every call `name(` through an import, or `<module>::name(` by path, that lands in a
-/// sibling module of the STS crate.
+/// sibling module of the STS crate, and every bare `name(` of a free function declared in
+/// `module` itself.
+///
+/// Integration amendment (waves I–K, 2026-09-23): `story:sts-refusal-draws-nothing` split
+/// `redeem_authorization_code` into a private `decide` and `mint` in the same module, so a
+/// traversal that followed only sibling modules stopped at the handler and lost every clause
+/// `decide` reaches. The shipped check in `tests/oauth.rs` already follows same-module calls;
+/// this control now does too.
 fn calls_in(
     body: &str,
     imports: &BTreeMap<String, String>,
     modules: &BTreeSet<String>,
+    module: &str,
+    text: &str,
 ) -> Vec<(String, String)> {
     let bytes = body.as_bytes();
     let mut calls = Vec::new();
@@ -207,10 +216,12 @@ fn calls_in(
             i = k;
             continue;
         }
-        if body[j..].starts_with('(')
-            && let Some(module) = imports.get(ident)
-        {
-            calls.push((module.clone(), ident.to_owned()));
+        if body[j..].starts_with('(') {
+            if let Some(imported) = imports.get(ident) {
+                calls.push((imported.clone(), ident.to_owned()));
+            } else if body_of(text, ident).is_some() {
+                calls.push((module.to_owned(), ident.to_owned()));
+            }
         }
         i = j;
     }
@@ -241,7 +252,13 @@ fn clauses_reachable_from(module: &str, function: &str) -> BTreeSet<String> {
             clauses.insert(tail[..end].to_owned());
             rest = &tail[end..];
         }
-        queue.extend(calls_in(&body, &imports_of(&text, &modules), &modules));
+        queue.extend(calls_in(
+            &body,
+            &imports_of(&text, &modules),
+            &modules,
+            &module,
+            &text,
+        ));
     }
     clauses
 }
