@@ -621,17 +621,73 @@ fn normalised_issuer(configured: &str) -> Result<String, IssuerRefused> {
 
 /// Whether an authority names this host: RFC 6761's `localhost`, the IPv4 loopback block, or
 /// the IPv6 loopback address.
+///
+/// It asks the question `mandate-federation`'s destination guard asks of the same kind of
+/// authority (`origin` and `loopback` in `crates/mandate-federation/src/verifier_real.rs`),
+/// so the two cannot disagree about one host:
+///
+/// * An authority carrying `@` is refused outright. Userinfo exists here only to make an
+///   authority look like it names one host while naming another — `localhost:80@evil.example`
+///   names `evil.example`.
+/// * A port that is spelled must parse. Anything else is a host this guard would be guessing
+///   about.
+/// * Each of RFC 3986 section 3.2.2's host forms is read by the parser for that form and no
+///   other: a bracketed host is an `IP-literal` and must parse as `Ipv6Addr`; an unbracketed
+///   host is an `IPv4address` or a `reg-name`, neither of which carries a `:`, so one that
+///   does is refused rather than read as an address.
+/// * One trailing dot is folded on an unbracketed host, because it is the absolute form of
+///   the same name. A second is a name with an empty label, which is no spelling of anything.
 fn is_loopback(authority: &str) -> bool {
-    let host = match authority.rsplit_once(':') {
+    if authority.contains('@') {
+        return false;
+    }
+    let (host, port) = match authority.split_once(']') {
         // An IPv6 literal carries colons of its own and is bracketed.
-        Some((host, _)) if !authority.ends_with(']') => host,
-        _ => authority,
+        // Anything after it but a port is not an authority.
+        Some((bracketed, after)) => match (bracketed.strip_prefix('['), after) {
+            (Some(host), "") => (Host::Literal(host), None),
+            (Some(host), _) => match after.strip_prefix(':') {
+                Some(port) => (Host::Literal(host), Some(port)),
+                None => return false,
+            },
+            (None, _) => return false,
+        },
+        None => match authority.rsplit_once(':') {
+            Some((host, port)) => (Host::Unbracketed(host), Some(port)),
+            None => (Host::Unbracketed(authority), None),
+        },
     };
-    host.eq_ignore_ascii_case("localhost")
-        || host == "[::1]"
-        || host
-            .parse::<std::net::Ipv4Addr>()
-            .is_ok_and(|address| address.is_loopback())
+    if let Some(spelled) = port.filter(|port| !port.is_empty())
+        // RFC 3986 section 3.2.3: `port = *DIGIT`. `u16::from_str` also takes a leading `+`,
+        // so it bounds the range and does not decide the spelling.
+        && (!spelled.bytes().all(|byte| byte.is_ascii_digit()) || spelled.parse::<u16>().is_err())
+    {
+        return false;
+    }
+    match host {
+        Host::Literal(host) => host
+            .parse::<std::net::Ipv6Addr>()
+            .is_ok_and(|address| address.is_loopback()),
+        Host::Unbracketed(host) if host.contains(':') => false,
+        Host::Unbracketed(host) => {
+            let host = match host.strip_suffix('.') {
+                Some(name) if !name.is_empty() => name,
+                _ => host,
+            };
+            host.eq_ignore_ascii_case("localhost")
+                || host
+                    .parse::<std::net::Ipv4Addr>()
+                    .is_ok_and(|address| address.is_loopback())
+        }
+    }
+}
+
+/// Which of RFC 3986 section 3.2.2's host forms an authority's host was spelled in.
+enum Host<'a> {
+    /// Between `[` and `]`: an `IP-literal`.
+    Literal(&'a str),
+    /// Anything else: an `IPv4address` or a `reg-name`.
+    Unbracketed(&'a str),
 }
 
 /// Why a deployment could not be built.
