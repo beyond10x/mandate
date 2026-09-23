@@ -2074,11 +2074,10 @@ fn login_input(connection_id: FederationConnectionId) -> decode::AuthenticateFed
 /// `ProvisionExternalPrincipal`.
 ///
 /// It is carried through all four routes rather than stopped at the session, because that is
-/// the measurement of what the provisioned principal needs to be *usable*: the composition
-/// seeds no `mandate.identity.Principal` for it — the event that would is
-/// `mandate.federation.ExternalPrincipalProvisioned` in its generated shape, which the
-/// library cannot name (see `adapters.rs`'s header) — and a road that completes without one
-/// is a road that reads none.
+/// the measurement of what the provisioned principal needs to be *usable*. The road reads no
+/// `mandate.identity.Principal`; that the composition records one for the provisioned
+/// principal is decided in-process by `tests/adapters.rs`
+/// (`a_just_in_time_login_records_the_principal_its_event_declares`).
 #[test]
 fn a_first_login_on_a_connection_that_admits_provisioning_completes_the_whole_road() {
     let stated = FederationConnectionId::new(uuid(0xc3));

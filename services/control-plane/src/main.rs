@@ -46,8 +46,8 @@
 //! header says what that leaves.
 //!
 //! **What is trusted, and what would stop it being trusted.** A seeded link's
-//! `principal_id` is taken as written: this process records no `mandate.identity` principal,
-//! so `LinkExternalPrincipal`'s own guard — the principal must be recorded, and recorded in
+//! `principal_id` is taken as written: this process records no `mandate.identity` principal
+//! for it, so `LinkExternalPrincipal`'s own guard — the principal must be recorded, and recorded in
 //! this connection's organization — has nothing to read and would refuse every first link.
 //! Two documents placing one principal in two organizations *is* decidable and is refused;
 //! one document placing it anywhere is not. A principal record in this process arrives with
