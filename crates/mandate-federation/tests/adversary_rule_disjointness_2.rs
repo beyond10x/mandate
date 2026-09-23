@@ -1,12 +1,13 @@
 //! Adversary pass 2 on `story:federation-rule-disjointness`.
 //!
-//! `generated/conformance/suite.json` carries `federation-ambiguous-tenant`, whose purpose
-//! opens "`tenant resolution has zero or multiple matches`, multiple", and
-//! `contracts/use-cases/federated-login.json` step 6 lists it as evidence that "a tenant that
-//! resolves to zero or to more than one organization is denied". These cases drive the
-//! shipped writer and authenticator from that document and ask whether the scenario still
-//! reaches the multiple-match refusal it is named for.
+//! The pass found `federation-ambiguous-tenant` named and cited (`federated-login.json`
+//! step 6) for the multiple-match refusal it can no longer reach: the story refuses the
+//! overlapping registration that would arrange it. Rewritten on the coordinator's ruling
+//! (correction round 2) to assert what the scenario now proves, and to pin the guard over
+//! every authored scenario. Both drive the shipped writer and authenticator from
+//! `generated/conformance/suite.json`.
 
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 
 use serde_json::Value;
@@ -108,13 +109,24 @@ fn verified_from(proof_literal: &str) -> Option<VerifiedProof> {
     Some(proof)
 }
 
+/// What replaying one scenario through the shipped writer and authenticator answered.
+struct Replayed {
+    /// Each registration step in order: admitted, or refused on this clause.
+    registrations: Vec<Result<(), DenialClause>>,
+    /// The login step's answer, when the scenario logs in with a JWT proof.
+    login: Option<Result<(), DenialClause>>,
+    /// The connections the writer admitted.
+    standing: Vec<FederationEvent>,
+}
+
 /// Replay the scenario: registrations the writer accepts are folded, the first accepted
 /// registration is the captured `conn`, and the login step is answered by the shipped
-/// authenticator. Returns the login's clause and the number of connections standing.
-fn replay(steps: &[Value]) -> (Option<Result<(), DenialClause>>, usize) {
+/// authenticator.
+fn replay(steps: &[Value]) -> Replayed {
     let mut log = Vec::new();
     let mut allocator = SequentialAllocator::new();
     let mut captured: Option<FederationConnectionId> = None;
+    let mut registrations = Vec::new();
     let mut login = None;
     for step in steps {
         if step.get("step").and_then(Value::as_str) != Some("execute_command") {
@@ -124,15 +136,18 @@ fn replay(steps: &[Value]) -> (Option<Result<(), DenialClause>>, usize) {
         match step.get("command").and_then(Value::as_str) {
             Some(REGISTER) => {
                 let held = Projection::fold(&log).unwrap();
-                if let Ok(registered) =
-                    register_federation_connection(&registration(input), &held, &mut allocator)
-                {
-                    if let FederationEvent::FederationConnectionCreated { connection_id, .. } =
-                        &registered.event
-                    {
-                        captured.get_or_insert(*connection_id);
+                match register_federation_connection(&registration(input), &held, &mut allocator) {
+                    Ok(registered) => {
+                        if let FederationEvent::FederationConnectionCreated {
+                            connection_id, ..
+                        } = &registered.event
+                        {
+                            captured.get_or_insert(*connection_id);
+                        }
+                        log.push(registered.event);
+                        registrations.push(Ok(()));
                     }
-                    log.push(registered.event);
+                    Err(denied) => registrations.push(Err(denied.clause)),
                 }
             }
             Some(AUTHENTICATE) => {
@@ -168,7 +183,11 @@ fn replay(steps: &[Value]) -> (Option<Result<(), DenialClause>>, usize) {
             _ => {}
         }
     }
-    (login, log.len())
+    Replayed {
+        registrations,
+        login,
+        standing: log,
+    }
 }
 
 fn scenario_steps(suite: &Value, id: &str) -> Vec<Value> {
@@ -181,82 +200,86 @@ fn scenario_steps(suite: &Value, id: &str) -> Vec<Value> {
         .clone()
 }
 
-/// The acceptance-level question: does the scenario named for the multiple-match clause
-/// reach it? Driven from the committed suite with every claim of its proof admitted as
-/// validated, the login must be refused `TenantAmbiguous`.
+/// What `federation-ambiguous-tenant` proves now that the overlapping rule is refused:
+/// organization `a2`'s `{dept: acme}` beside organization `a1`'s `{tid: acme}` is refused at
+/// registration on the unadmitted-configuration clause, one connection stands, and the
+/// incumbent's login — its proof carries both claims — passes tenant resolution and is
+/// refused only for want of a link. Driven from the committed suite with every claim of the
+/// proof admitted as validated, so the refusal is the link's and never the signature's.
 #[test]
-fn the_ambiguous_tenant_scenario_is_refused_as_ambiguous() {
+fn the_ambiguous_tenant_scenario_refuses_the_overlapping_registration_and_the_login_for_want_of_a_link()
+ {
     let suite = read("generated/conformance/suite.json");
-    let (login, standing) = replay(&scenario_steps(&suite, SCENARIO));
-    let login = login.expect("the scenario logs in with a JWT proof");
+    let replayed = replay(&scenario_steps(&suite, SCENARIO));
 
     assert_eq!(
-        login,
-        Err(DenialClause::TenantAmbiguous),
-        "{SCENARIO} is named for the multiple-match refusal; with {standing} connection(s) \
-         standing its login is refused for another reason"
+        replayed.registrations,
+        vec![Ok(()), Err(DenialClause::TenantResolutionUnadmitted)],
+        "{SCENARIO}: the incumbent registers and the overlapping second organization is refused"
+    );
+    assert_eq!(
+        replayed.standing.len(),
+        1,
+        "{SCENARIO}: exactly one connection stands"
+    );
+    assert_eq!(
+        replayed
+            .login
+            .expect("the scenario logs in with a JWT proof"),
+        Err(DenialClause::LinkAbsent),
+        "{SCENARIO}: the login resolves one tenant and is refused for want of a link"
     );
 }
 
-/// The contract drift: `federated-login.json` step 6 says a tenant resolving to more than
-/// one organization is denied, and cites authored scenarios as `passed` evidence. At least
-/// one of those scenarios must be one in which more than one organization could resolve —
-/// two connections of different organizations standing on the issuer the login presents.
+/// The guard, pinned over every authored scenario: none can stand two connections of
+/// different organizations on one issuer, because the writer refuses the second. Every
+/// authored scenario that registers a connection is replayed, and every one of them must be
+/// replayable, so a scenario the replay cannot read fails here rather than being skipped.
 #[test]
-fn some_scenario_cited_for_more_than_one_organization_stands_two_organizations() {
-    let use_case = read("contracts/use-cases/federated-login.json");
+fn no_authored_scenario_stands_two_organizations_connections_on_one_issuer() {
     let suite = read("generated/conformance/suite.json");
-    let mut cited = Vec::new();
-    let mut steps_found = Vec::new();
-    let mut stack = vec![&use_case];
-    while let Some(node) = stack.pop() {
-        match node {
-            Value::Object(map) => {
-                if map.get("command").and_then(Value::as_str) == Some(AUTHENTICATE)
-                    && map
-                        .get("statement")
-                        .and_then(Value::as_str)
-                        .is_some_and(|s| s.contains("more than one organization"))
-                {
-                    steps_found.push(map.get("step").cloned());
-                    for evidence in map.get("evidence").and_then(Value::as_array).unwrap() {
-                        let id = evidence["id"].as_str().unwrap();
-                        if evidence["kind"] == "scenario" && id.contains("/authored/") {
-                            cited.push(id.to_owned());
-                        }
-                    }
-                }
-                stack.extend(map.values());
+    let scenarios = suite
+        .get("scenarios")
+        .and_then(Value::as_object)
+        .expect("the suite has scenarios");
+    let mut decided = 0;
+    let mut shared = Vec::new();
+    for (id, scenario) in scenarios {
+        if !id.contains("/authored/") {
+            continue;
+        }
+        let steps = scenario.get("steps").and_then(Value::as_array).unwrap();
+        if !steps
+            .iter()
+            .any(|step| step.get("command").and_then(Value::as_str) == Some(REGISTER))
+        {
+            continue;
+        }
+        decided += 1;
+        let mut organizations: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+        for event in replay(steps).standing {
+            if let FederationEvent::FederationConnectionCreated {
+                issuer, context, ..
+            } = event
+            {
+                organizations
+                    .entry(issuer.as_str().to_owned())
+                    .or_default()
+                    .insert(format!("{:?}", context.organization));
             }
-            Value::Array(items) => stack.extend(items.iter()),
-            _ => {}
+        }
+        for (issuer, held) in organizations {
+            if held.len() > 1 {
+                shared.push((id.clone(), issuer, held));
+            }
         }
     }
-    assert!(!steps_found.is_empty(), "the use case makes the claim");
 
-    let standing: Vec<(String, usize, Option<Result<(), DenialClause>>)> = cited
-        .iter()
-        .filter(|id| {
-            scenario_steps(&suite, id)
-                .iter()
-                .any(|step| step.get("command").and_then(Value::as_str) == Some(REGISTER))
-                && !scenario_steps(&suite, id).iter().any(|step| {
-                    matches!(
-                        step.get("step").and_then(Value::as_str),
-                        Some("configure_external_outcome" | "establish_entity")
-                    )
-                })
-        })
-        .map(|id| {
-            let (login, standing) = replay(&scenario_steps(&suite, id));
-            (id.clone(), standing, login)
-        })
-        .collect();
-
+    assert!(decided > 0, "the replay decided no scenario at all");
     assert!(
-        standing.iter().any(|(_, n, _)| *n >= 2),
-        "step {steps_found:?} cites {} authored scenarios for 'more than one organization is \
-         denied'; replayed, none stands two connections: {standing:?}",
-        cited.len()
+        shared.is_empty(),
+        "{} of {decided} authored scenarios stand two organizations' connections on one \
+         issuer: {shared:?}",
+        shared.len()
     );
 }

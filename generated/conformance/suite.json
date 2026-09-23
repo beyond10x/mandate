@@ -34,7 +34,7 @@
         "scenario": "mandate.credential/authored/credential-revoked-twice"
       },
       "scenarios/federation-ambiguous-tenant.yaml": {
-        "digest": "sha256:a8f922e588ae9cbbfd4dd3853bfc75e0856ebb55870576737444d3ed4bb04f43",
+        "digest": "sha256:96c99bf6a1a82210d5b8fd456c70ab3fabc41981a6374d7e7677a4d0ebbe4cff",
         "disposition": "accepted",
         "scenario": "mandate.federation/authored/federation-ambiguous-tenant"
       },
@@ -74390,7 +74390,7 @@
       ]
     },
     "mandate.federation/authored/federation-ambiguous-tenant": {
-      "purpose": "`tenant resolution has zero or multiple matches`, multiple: a foreign rule on another claim of one issuer is refused at registration; record.rs collides; corpus tenant-ambiguous.",
+      "purpose": "An overlapping second-organization rule on one issuer is refused at registration, so one proof cannot reach two tenants; the login is refused for want of a link. record.rs collides.",
       "source": [
         {
           "kind": "domain",
