@@ -77,16 +77,15 @@ fn a_plaintext_issuer_naming_another_host_behind_userinfo_is_not_the_loopback() 
 
 /// The loopback spellings the federation guard folds are the loopback here too.
 ///
-/// `folded` (`crates/mandate-federation/src/verifier_real.rs`) strips trailing dots, and
-/// `loopback` reads the host through `IpAddr::from_str`, so `localhost.`, `127.0.0.1.` and
-/// every spelling of `::1` are one interface to it. This guard compared `[::1]` as a string
+/// `folded` (`crates/mandate-federation/src/verifier_real.rs`) strips one trailing dot from
+/// a name, and `loopback` reads the host through `IpAddr::from_str`, so `localhost.` and
+/// every spelling of `::1` are one interface to it. `127.0.0.1.` is none: an address has no
+/// absolute form, and both guards refuse it. This guard compared `[::1]` as a string
 /// and parsed only IPv4, so it answered a different question about the same host.
 #[test]
 fn a_plaintext_issuer_spelling_the_loopback_another_way_is_the_loopback() {
     for admitted in [
         "http://localhost.:8080",
-        "http://127.0.0.1.:8080",
-        "http://127.0.0.1.",
         "http://[0:0:0:0:0:0:0:1]:8080",
         "http://[0::1]",
     ] {
@@ -109,6 +108,8 @@ fn a_plaintext_issuer_this_guard_would_have_to_guess_about_is_refused() {
         "http://[::1]x",
         "http://[::2]:8080",
         "http://.",
+        "http://127.0.0.1.:8080",
+        "http://127.0.0.1.",
         "http://localhost.evil.example",
         "http://127.0.0.1.evil.example",
     ] {

@@ -467,22 +467,32 @@ fn origin(uri: &str) -> Option<Uri> {
     };
     // An IPv6 literal outside brackets is not an authority RFC 3986 defines, and `ureq`
     // refuses to parse one, so a `:` left in an unbracketed host is refused with it.
-    // Inside brackets there is an IPv6 address once trailing dots are folded ([`folded`]),
-    // and nothing else — a zone (`[::1%25eth0]`) or an IPvFuture (`[v1.x]`) is a literal
-    // `IpAddr` does not read, so it would be an ordinary name to `literal_address` and
-    // `loopback` and reach `allowed_hosts`. The fold means `[::1.]` and `[::1..]` are
-    // accepted here and can be admitted as the issuer's own origin, and the fetcher
-    // cannot resolve them: `ureq` hands `[::1.]:80` to `ToSocketAddrs`, which refuses
-    // it, so the fetch fails closed. Open as `story:bracketed-literal-trailing-dot`.
+    // Inside brackets there is an IPv6 address and nothing else, read as written and never
+    // folded — a zone (`[::1%25eth0]`) or an IPvFuture (`[v1.x]`) is a literal `IpAddr`
+    // does not read, so it would be an ordinary name to `literal_address` and `loopback`
+    // and reach `allowed_hosts`, and an address has no absolute form: `[::1.]` is no
+    // address, and `ureq` hands `[::1.]:80` to `ToSocketAddrs`, which cannot resolve it
+    // (`story:bracketed-literal-trailing-dot`).
     // Outside them every byte is one `http::Uri` accepts in a host: unreserved and the
     // sub-delimiters. It refuses `%` there, so a percent-encoded host is one the fetcher
     // could never have fetched, and a space or a control byte never names a host here.
+    // One trailing dot is a name's absolute form ([`folded`]). Any other empty label —
+    // leading (`.localdomain`), inner (`keys..localdomain`) or a second trailing one
+    // (`localhost..`) — is no spelling of anything, and the resolver refuses it, so it is
+    // refused here (`story:federation-guard-trailing-dots`). An address has no absolute
+    // form either: `127.0.0.1.` is not `127.0.0.1` to the resolver, which cannot look it
+    // up, so a host that reads as an address only once its dot is folded is refused, and
+    // [`folded`] only ever folds a name.
     let bracketed = authority.starts_with('[');
     let well_formed = if bracketed {
-        folded(host).parse::<std::net::Ipv6Addr>().is_ok()
+        host.parse::<std::net::Ipv6Addr>().is_ok()
     } else {
-        host.bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || b"-._~!$&'()*+,;=".contains(&byte))
+        let name = host.strip_suffix('.').unwrap_or(host);
+        name.split('.').all(|label| !label.is_empty())
+            && (name == host || name.parse::<std::net::IpAddr>().is_err())
+            && host
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || b"-._~!$&'()*+,;=".contains(&byte))
     };
     if host.is_empty() || !well_formed {
         return None;
@@ -538,10 +548,12 @@ fn listed(entry: &str, target: &Uri) -> bool {
 
 /// The one spelling of a host that every containment check is asked about.
 ///
-/// It strips trailing dots, and that is the whole of what it does. A trailing dot is the
-/// absolute form of a name and carries no other meaning, so `127.0.0.1.` and `127.0.0.1`
-/// are one destination and `localhost.` and `localhost` are one name. Case is already
-/// folded by [`origin`], which lowercases the host.
+/// It strips one trailing dot, and that is the whole of what it does. A trailing dot is
+/// the absolute form of a name and carries no other meaning, so `localhost.` and
+/// `localhost` are one name. Only a name reaches it with one: [`origin`] refuses every
+/// other empty label, a host that reads as an address only once its dot is stripped
+/// (`127.0.0.1.`, which the resolver cannot look up) and a bracketed host that is not an
+/// address as written. Case is already folded by [`origin`], which lowercases the host.
 ///
 /// Both of [`UreqJwks::admits`]'s decisions about the destination host are made about
 /// this name: whether it is the issuer's own, and whether it is an address literal or a
@@ -554,18 +566,16 @@ fn listed(entry: &str, target: &Uri) -> bool {
 /// host reads those through `IpAddr::from_str` instead: [`literal_address`] and
 /// [`loopback`] by parsing, and the issuer's own origin through [`one_host`].
 ///
-/// A host of nothing but dots is returned unfolded. Stripping them yields the empty host
-/// [`origin`] refuses outright, and putting it back would make `.`, `..` and `...` one
-/// origin — a name with an empty label is not a spelling of anything.
-///
 /// The fold belongs there and never to [`origin`] itself, because [`listed`] compares the
 /// host a discovery document spelled against the host a deployment wrote down. That
 /// comparison stays exact: widening it is a different decision from agreeing on which
 /// host the guard is asked about, and it is pinned by its own case in
 /// `tests/verifier_real.rs`.
 fn folded(host: &str) -> &str {
-    let trimmed = host.trim_end_matches('.');
-    if trimmed.is_empty() { host } else { trimmed }
+    match host.strip_suffix('.') {
+        Some(name) if !name.is_empty() => name,
+        _ => host,
+    }
 }
 
 /// Whether two folded host names ([`folded`]) are one host, asked the way the
@@ -606,7 +616,9 @@ fn literal_address(host: &str) -> bool {
 /// name the two name comparisons are. This function used to fold for those and parse the
 /// unfolded host for this, so `localhost.` was the loopback interface and `127.0.0.1.`
 /// was not — and a host that is neither an address literal nor a spelling of the loopback
-/// is exactly a host that reaches `allowed_hosts`.
+/// is exactly a host that reaches `allowed_hosts`. `127.0.0.1.` no longer reaches here:
+/// [`origin`] refuses it. Neither does `.localdomain` or `keys..localdomain`, which the
+/// suffix test below would otherwise count.
 ///
 /// Whether a *name* resolves to the loopback interface at fetch time is a resolution-order
 /// question this function cannot answer; the residue is recorded with DNS rebinding in the

@@ -637,8 +637,10 @@ fn normalised_issuer(configured: &str) -> Result<String, IssuerRefused> {
 ///   other: a bracketed host is an `IP-literal` and must parse as `Ipv6Addr`; an unbracketed
 ///   host is an `IPv4address` or a `reg-name`, neither of which carries a `:`, so one that
 ///   does is refused rather than read as an address.
-/// * One trailing dot is folded on an unbracketed host, because it is the absolute form of
-///   the same name. A second is a name with an empty label, which is no spelling of anything.
+/// * One trailing dot is folded on an unbracketed name, because it is the absolute form of
+///   the same name. A second is a name with an empty label, which is no spelling of anything,
+///   and an address has no absolute form: `127.0.0.1.` is not an address, and the resolver
+///   cannot look it up.
 fn is_loopback(authority: &str) -> bool {
     if authority.contains('@') {
         return false;
@@ -672,11 +674,11 @@ fn is_loopback(authority: &str) -> bool {
             .is_ok_and(|address| address.is_loopback()),
         Host::Unbracketed(host) if host.contains(':') => false,
         Host::Unbracketed(host) => {
-            let host = match host.strip_suffix('.') {
+            let name = match host.strip_suffix('.') {
                 Some(name) if !name.is_empty() => name,
                 _ => host,
             };
-            host.eq_ignore_ascii_case("localhost")
+            name.eq_ignore_ascii_case("localhost")
                 || host
                     .parse::<std::net::Ipv4Addr>()
                     .is_ok_and(|address| address.is_loopback())
