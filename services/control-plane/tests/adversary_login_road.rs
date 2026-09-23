@@ -1119,7 +1119,7 @@ fn a_second_copy_of_this_binary_does_not_write_this_runs_documents() {
     }
 
     let mine = document(CASE, "connection.json", MINE);
-    let second = Command::new(std::env::current_exe().expect("this test binary's own path"))
+    let second = this_binary()
         .args([
             "--exact",
             "a_second_copy_of_this_binary_does_not_write_this_runs_documents",
@@ -1182,7 +1182,7 @@ fn the_run_root_clears_what_is_finished_and_keeps_what_is_running() {
     let parent = run_root().join("sweep-fixture");
     let mine = std::process::id();
 
-    let copy = Command::new(std::env::current_exe().expect("this test binary's own path"))
+    let copy = this_binary()
         .args([
             "--exact",
             "a_second_copy_of_this_binary_does_not_write_this_runs_documents",
@@ -1296,14 +1296,48 @@ fn the_run_root_clears_what_is_finished_and_keeps_what_is_running() {
 /// What tells a copy of this binary that it is one of the concurrent copies below.
 const CONCURRENT_COPY: &str = "MANDATE_ADVERSARY_CONCURRENT_COPY";
 
-/// The one case a copy started by [`copies_of_this_lane_run_at_once_and_all_pass`] skips.
-const ACCEPTANCE_CASE: &str = "copies_of_this_lane_run_at_once_and_all_pass";
+/// The cases a copy started by [`copies_of_this_lane_run_at_once_and_all_pass`] is told
+/// **not** to run: every case that starts a copy of this binary through [`this_binary`].
+///
+/// The one place the names are written, as `tests/end_to_end.rs`'s `CASES_A_COPY_SKIPS` is.
+/// A self-starting case missing from it fails inside the copy, because [`this_binary`]
+/// refuses a concurrent copy; a name here that matches no case is refused by
+/// [`cases_a_copy_runs`].
+const CASES_A_COPY_SKIPS: [&str; 3] = [
+    "a_second_copy_of_this_binary_does_not_write_this_runs_documents",
+    "the_run_root_clears_what_is_finished_and_keeps_what_is_running",
+    "copies_of_this_lane_run_at_once_and_all_pass",
+];
+
+/// The arguments every concurrent copy of this lane is started with.
+fn copy_arguments() -> Vec<String> {
+    CASES_A_COPY_SKIPS
+        .iter()
+        .flat_map(|skipped| ["--skip".to_owned(), (*skipped).to_owned()])
+        .collect()
+}
+
+/// A command running this very test binary — the only way any case here starts a copy of it.
+///
+/// **A concurrent copy is refused one.** Each copy started by
+/// [`copies_of_this_lane_run_at_once_and_all_pass`] is one of sixteen at once; a case in it
+/// that started copies of its own would multiply them. Refusing here, rather than trusting a
+/// hand-kept list of names, makes a self-starting case that the copies were not told to skip
+/// fail inside the copy, which the acceptance case reports as a refused copy.
+fn this_binary() -> Command {
+    assert!(
+        std::env::var_os(CONCURRENT_COPY).is_none(),
+        "a concurrent copy of this lane ran a case that starts a copy of this binary; \
+         name that case in the copies' skip list"
+    );
+    Command::new(std::env::current_exe().expect("this test binary's own path"))
+}
 
 /// How many cases a copy runs: every case libtest lists for this binary, less
-/// [`ACCEPTANCE_CASE`]. Read from `--list` rather than written down, so a case added later
+/// [`CASES_A_COPY_SKIPS`]. Read from `--list` rather than written down, so a case added later
 /// cannot make the count silently wrong.
 fn cases_a_copy_runs() -> usize {
-    let listed = Command::new(std::env::current_exe().expect("this test binary's own path"))
+    let listed = this_binary()
         .args(["--list", "--format", "terse"])
         .output()
         .expect("libtest lists this binary's cases");
@@ -1312,12 +1346,14 @@ fn cases_a_copy_runs() -> usize {
         .lines()
         .filter_map(|line| line.strip_suffix(": test"))
         .collect();
-    assert!(
-        names.contains(&ACCEPTANCE_CASE),
-        "{ACCEPTANCE_CASE} is a case this binary has, so skipping it by name skips it; \
-         the listing was {names:?}"
-    );
-    names.len() - 1
+    for skipped in CASES_A_COPY_SKIPS {
+        assert!(
+            names.contains(&skipped),
+            "{skipped} is a case this binary has. A copy is told to skip it by name, and a \
+             name that matches nothing skips nothing; the listing was {names:?}"
+        );
+    }
+    names.len() - CASES_A_COPY_SKIPS.len()
 }
 
 /// Copies of this lane, run at once, all pass.
@@ -1330,9 +1366,10 @@ fn cases_a_copy_runs() -> usize {
 /// talked to the other copy's child. The adversary measured 12 of 192 copies failing at
 /// 16-way concurrency against that design.
 ///
-/// Each copy skips this case, and is held to the number of cases its arguments select as
-/// well as to its exit status: `0 passed; 0 failed` exits 0 too, and a copy that ran
-/// nothing has not passed the lane.
+/// Each copy skips [`CASES_A_COPY_SKIPS`] — this case and the two that start copies of
+/// their own — and is held to the number of cases its arguments select as well as to its
+/// exit status: `0 passed; 0 failed` exits 0 too, and a copy that ran nothing has not
+/// passed the lane.
 #[test]
 fn copies_of_this_lane_run_at_once_and_all_pass() {
     if std::env::var_os(CONCURRENT_COPY).is_some() || std::env::var_os(SECOND_COPY).is_some() {
@@ -1347,8 +1384,8 @@ fn copies_of_this_lane_run_at_once_and_all_pass() {
     for round in 0..ROUNDS {
         let running: Vec<Child> = (0..COPIES)
             .map(|_| {
-                Command::new(std::env::current_exe().expect("this test binary's own path"))
-                    .args(["--skip", ACCEPTANCE_CASE])
+                this_binary()
+                    .args(copy_arguments())
                     .env(CONCURRENT_COPY, "1")
                     .stdout(Stdio::piped())
                     .stderr(Stdio::piped())
