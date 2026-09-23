@@ -133,8 +133,10 @@ impl IncrementSecurityEpoch {
     /// Whether the target lies inside the caller's verified organization.
     ///
     /// An organization target by identity. A principal or connection by every organization
-    /// the records place it in: its generation gates its sessions in each of them, so one
-    /// record elsewhere is enough to refuse.
+    /// the records place it in, and one placement elsewhere refuses, whether or not any
+    /// session there is still live. The rule fails closed because the port has no
+    /// session-liveness read: forgetting a placement on a wrong "not live" answer would hand
+    /// one organization another's lever.
     fn contained<W>(&self, epochs: &W) -> bool
     where
         W: TargetTenancy + ?Sized,

@@ -10,6 +10,10 @@
 //! The consequence is on the revocation lever itself: the caller's own organization can no
 //! longer advance the generation its own live session is bound to, so that session keeps
 //! refreshing.
+//!
+//! Ruled by the coordinator (correction round 2): the fail-closed rule stands, and `contained`
+//! now states it as a rule rather than as a claim about the other organization's sessions. The
+//! case below pins that rule.
 
 use mandate_identity::{
     EpochSnapshotRecorded, Generation, IdentityEvent, IdentityLog, IdentityRead,
@@ -71,10 +75,16 @@ fn open(log: &mut IdentityLog, snapshot: u8, session: u8, organization: Organiza
 }
 
 /// The principal's one session in organization B was revoked by B. Its only live session is in
-/// organization A, and A's caller advances the principal's generation to end it.
+/// organization A, and A's caller asks to advance the principal's generation.
+///
+/// **A decided rule, pinned by the coordinator (correction round 2):** containment fails closed
+/// on any recorded placement outside the caller's organization, live or not. Forgetting a
+/// placement would need a session-liveness read the port does not have, and a wrong "not live"
+/// answer would hand one organization another's lever. So A is refused `TenantMismatch`, the
+/// generation does not move, and A's session keeps refreshing. Changing this is a deliberate
+/// decision, not a fix.
 #[test]
-fn a_principal_whose_only_other_organization_session_is_revoked_can_be_advanced_by_its_own_organization()
- {
+fn a_principal_with_a_revoked_session_in_another_organization_is_refused_to_its_own_organization() {
     let target = SecurityEpochTarget::Principal(principal());
     let mut log = IdentityLog::new().with_as_of(Timestamp::new("2026-09-18T00:00:00Z"));
     for stated in [
@@ -110,22 +120,25 @@ fn a_principal_whose_only_other_organization_session_is_revoked_can_be_advanced_
     );
 
     let expected = log.current(&target).version();
+    let before = log.current(&target);
     let decided = IncrementSecurityEpoch::new(context_in(organization_a()), target.clone())
         .execute(&mut log, expected)
         .map_err(|denial| denial.reason());
 
     assert_eq!(
         decided.as_ref().map(|_| ()),
-        Ok(()),
-        "organization A was refused the increment of a principal whose generation gates no live \
-         session outside A: a revoked session in B still places the principal there \
-         (TargetTenancy::organizations_of never forgets a placement)"
+        Err(&DenialReason::TenantMismatch),
+        "organization A advanced a principal the log still places in B through a revoked \
+         session; the decided rule fails closed on any recorded placement, and changing it is a \
+         deliberate decision, not a fix"
     );
     assert_eq!(
-        refresh_session(&log, &in_a)
-            .map_err(|denial| denial.reason())
-            .err(),
-        Some(DenialReason::StaleEpoch),
-        "A's own session outlives the increment A asked for"
+        log.current(&target),
+        before,
+        "the refused increment moved the generation"
+    );
+    assert!(
+        refresh_session(&log, &in_a).is_ok(),
+        "A's session stopped refreshing although the increment was refused"
     );
 }
