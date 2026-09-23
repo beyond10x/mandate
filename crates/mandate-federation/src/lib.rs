@@ -479,12 +479,21 @@ pub trait IdentityAllocator {
 pub trait ConnectionStore {
     /// The connection with this identity, whatever its lifecycle state.
     fn connection(&self, id: &FederationConnectionId) -> Option<FederationConnection>;
-    /// Every `Enabled` connection configured for this issuer.
+    /// The connections configured for this issuer. An implementation may answer them in
+    /// any lifecycle state.
     ///
     /// Tenant resolution runs over this set rather than over the selected connection
     /// alone: a single connection carries one `TenantResolutionRule` and so could only
     /// ever yield zero or one match, while `federation.yaml:210` declares a denial for
     /// "zero or multiple matches".
+    ///
+    /// **The filter is the command's, not the implementor's.** A command reads
+    /// [`record::FederationConnection::state`] and `issuer` itself on what it is handed,
+    /// through this crate's own `enabled_on_issuer`, so a store that answers a `Disabled`
+    /// connection, or one on another issuer, changes no decision: which connections take
+    /// part in a tenant resolution is part of the admission rule, and a port cannot make
+    /// that a property of the command. [`record::Projection`] answers `Enabled` connections only, which is one
+    /// admissible answer.
     fn enabled_for_issuer(&self, issuer: &Issuer) -> Vec<FederationConnection>;
 }
 
@@ -613,6 +622,28 @@ fn on_key<T: LinkStore + ?Sized>(store: &T, key: &ExternalKey) -> Vec<ExternalPr
         .into_iter()
         .filter(|record| {
             record.organization_id == key.organization_id && record.subject == key.subject
+        })
+        .collect()
+}
+
+/// The connections a command resolves a tenant over: those a store answered for this
+/// issuer that are `Enabled` and configured for this exact issuer.
+///
+/// A free function private to this crate rather than a method on [`ConnectionStore`],
+/// for the reason [`LinkResolution`] is blanket: a defaulted method is one an implementor
+/// may write, and an implementor that writes this one decides a command's outcome.
+///
+/// This narrows, never widens: a store that answers only `Enabled` connections on the
+/// issuer it was asked about — [`record::Projection`] included — is unaffected.
+fn enabled_on_issuer<T: ConnectionStore + ?Sized>(
+    store: &T,
+    issuer: &Issuer,
+) -> Vec<FederationConnection> {
+    store
+        .enabled_for_issuer(issuer)
+        .into_iter()
+        .filter(|connection| {
+            connection.state == record::ConnectionState::Enabled && connection.issuer == *issuer
         })
         .collect()
 }

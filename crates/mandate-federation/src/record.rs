@@ -971,8 +971,10 @@ pub fn register_federation_connection(
     // This is a read-then-write guard. Storage must enforce the same rule atomically, as
     // it must the external key; `federation.yaml:2` names only the external key, which is
     // a contract gap the coordinator records against this story.
-    let foreign: Vec<FederationConnection> = connections
-        .enabled_for_issuer(&input.issuer)
+    //
+    // Only an `Enabled` connection on this issuer can make a login ambiguous, and the
+    // command decides which those are, not the store.
+    let foreign: Vec<FederationConnection> = crate::enabled_on_issuer(connections, &input.issuer)
         .into_iter()
         .filter(|held| held.organization_id != input.context.organization)
         .collect();
