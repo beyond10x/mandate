@@ -69,7 +69,7 @@ use mandate_control_plane::adapters::{
 use mandate_control_plane::serve::{Limits, Listener};
 use mandate_federation::idp_token::UreqIdpToken;
 use mandate_federation::record::FederationConnection;
-use mandate_federation::verifier::VerifiedProof;
+use mandate_federation::verifier::{ClaimType, VerifiedProof};
 use mandate_federation::verifier_real::{AllowedAlgorithms, RealVerifier, SystemClock, UreqJwks};
 use mandate_federation::{Denied, FederationVerifier};
 use mandate_sts::code::CodeLifetime;
@@ -471,5 +471,10 @@ impl FederationVerifier for RecordingVerifier {
             eprintln!("mandate-control-plane: verification refused {reason:?}");
         }
         verified
+    }
+
+    fn tenant_claim_refused(&self, kind: ClaimType) {
+        self.0.tenant_claim_refused(kind);
+        eprintln!("mandate-control-plane: tenant resolution refused TenantClaimNotText({kind:?})");
     }
 }
