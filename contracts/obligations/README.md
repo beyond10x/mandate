@@ -72,7 +72,11 @@ carry is refused; so is a clause list that has lost one, which would otherwise s
 that condition and take `clauses` and `deferred` down with it, and so is a clause nested inside
 another, which claims one position of the cause twice and can raise `real_covered` with nothing
 new decided. The weaker rule — each clause is *a* substring — admits both, which is why the
-step walks the cause rather than searching it. The granularity is the one
+step walks the cause rather than searching it. Nesting is a question of **position**, and the
+walk is what answers it: a clause whose text also occurs inside a sibling is not nested when the
+walk places it at a position of its own. `team` in `mandate.tenancy.AddTeamMembership` is such
+a clause — the word lies inside "Caller lacks team-administration authority", and the condition
+it names is the team half of "team or principal is unresolved". The granularity is the one
 `services/sts/tests/declared_denials.rs` established by hand for the eleven STS commands —
 one clause per condition the cause enumerates, so several of that file's discriminators may
 answer to one clause.
@@ -92,17 +96,27 @@ a gap in this crate's work.
 
 `id` is one `cargo test -- --list` lists **and runs**: an `#[ignore]`d case is subtracted, so
 a clause whose only named check is ignored names a check that decides nothing. It names a test
-of the entry's own crate — for a `cases` row, of that crate or of one of the two wire packages
-above. `kind` is one of `denial`, `accepted`, `no-state-change`, `precedence`, `denial-audit`. A row inside
+of the entry's own crate — for a clause carrying `decided_in`, of the crate that field names;
+for a `cases` row, of that crate or of one of the two wire packages above. `kind` is one of `denial`, `accepted`, `no-state-change`, `precedence`, `denial-audit`. A row inside
 `clauses` is a `denial`, `accepted` or `precedence`; a row inside `no_state_change` is a
-`no-state-change`; a row inside `denial_audit` is a `denial-audit`.
+`no-state-change`; a row inside `denial_audit` is a `denial-audit`. **One test id is one `kind`
+wherever the directory names it**: a kind is a claim about what the test decides, not about the
+row it sits in, so one case discharging a clause's `denial` row and a command's
+`no-state-change` row is two claims of which at most one is true.
 
 `path` says what decided the clause. `real` is the crate's own shipped decision path — a
 handler, a fold, a validator — reached with a mismatched or malformed input. `double` is a
 stand-in **for the deciding code itself**, such as `mandate_graph::double::GraphDouble`,
 whose refusals are the double's own and not the adapter's. An in-memory port that merely
 *supplies* input to a real handler leaves the row `real`: what is classified is the code that
-makes the decision, not the code that holds the data.
+makes the decision, not the code that holds the data. **One test id is on one `path`, naming one
+`double`, wherever the directory names it**, for the reason one id is one kind.
+
+A `double` value is a `::`-separated Rust path into a **library target**: its root is a
+workspace member with a library, and its last segment is declared `pub` — or re-exported by a
+`pub use` — in the module the path names. A stand-in defined inside one test binary is one
+nothing outside that binary can name, so no later reader can check the row's classification
+against it; and `mandate-graph::…` is not a Rust path at all.
 
 **A `double` row never covers a clause, and a clause carries rows of one path only.** A
 double-backed clause is counted in its own column of the report and still carries `blocked_on`.
@@ -120,7 +134,10 @@ compare-and-set no shipped store performs, for which `mandate_identity::Identity
 until it is answered. This file states no count of the double-backed clauses, no closed list of
 what they defer to, and no claim that a port has only one implementor: all three move on a merge
 that adds a document or a substitute, and `contracts/conformance/obligations-report.json` is what
-counts them. **Which implementors a port has is a question for a command, not a sentence here** —
+counts them. A double-backed clause deferred to a story is deferred to one whose body names the
+double it stands behind: a story that owns the port's real implementation names the stand-in it
+replaces, and a story that does not is a hypothesis about ownership nothing measured.
+**Which implementors a port has is a question for a command, not a sentence here** —
 `grep 'impl .*<Port> for'` over the library targets answers it at the moment it is asked, and an
 answer written down here is one nobody rechecks. The step refuses a double-backed clause that
 defers to its crate's binding story.
@@ -133,6 +150,23 @@ those conditions**, each still a verbatim substring and the set still tiling the
 `mandate.graph.RegisterResource` is the worked example: "parent is unresolved" and "belongs to
 another organization" are two clauses, because the shipped registry answers `Unavailable` for a
 parent that does not resolve and only the tenant half produces the declared denial.
+
+### `decided_in`
+
+```json
+{"clause": "STS code issuance/narrowing is refused", "decided_in": "mandate-sts",
+ "tests": [{"id": "mandate-sts::code::…", "kind": "denial", "path": "real"}]}
+```
+
+A clause a command of one crate publishes may be answered by another crate's code, reached
+through a composition: `mandate.federation.AuthorizePublicClient` is refused when the
+`mandate-sts` code issuance it hands its validated input to refuses. No test the entry's crate
+can write binds such a clause, so the row names the deciding crate in `decided_in` and the
+same-crate rule holds that row to the named crate instead of the entry's. The field sits on a
+clause and on nothing else; it names a workspace member, never the entry's own crate — which
+would say nothing the rule does not already say — and a clause carrying it names at least one
+test. It is a claim about where a decision is made, so it follows a measurement of that code
+and not a module doc naming another crate.
 
 ### `blocked_on`
 
@@ -182,11 +216,16 @@ once and no row names an id that file does not carry.
 ```
 
 A case row's tests may name the entry's own crate **or `mandate-proto` or `mandate-server`, and
-no other package**. A security case is a scenario decided end to end, and `pkce-missing` and
+no other package**. A case row may carry a `double` row beside a `real` one, each labelled with
+the path that decided it: a case is counted in no column, so the double is absorbed into no
+count, and a case is one id bound exactly once, so the remedy a clause has — splitting it — does
+not exist. `epoch-overflow` is the instance: the generation's own arithmetic decides one half on
+the real path, and `mandate_identity::IdentityLog` the other. A security case is a scenario decided end to end, and `pkce-missing` and
 `pkce-plain` are decided at the wire — the request never reaches a handler. The allowance is
 those two packages and is bounded in the step; it is not the exemption it was, which let a case
 row of any document name a test of any package. Clause, `no_state_change` and `addendum` rows
-are held to the entry's crate alone.
+are held to the entry's crate alone, or — for a clause carrying `decided_in` — to the crate it
+names.
 
 ## The report
 

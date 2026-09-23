@@ -34,7 +34,7 @@
 //! |---|---|---|
 //! | `AddOrganizationMembership` | organization_id differs from the verified organization | `src/tenancy.rs:751-755` |
 //! | `AddOrganizationMembership` | the principal is already a member of that organization | `src/tenancy.rs:756-758`, `is_member` |
-//! | `AddTeamMembership` | team or … (the team half of the unresolved/outside clause) | `src/tenancy.rs:986-989` |
+//! | `AddTeamMembership` | team (the team half of the unresolved/outside clause) | `src/tenancy.rs:986-989` |
 //! | `AddTeamMembership` | the team is retired | `src/tenancy.rs:987-988`, `TeamState::Recorded` |
 //! | `AddTeamMembership` | the principal is already a member of that team | `src/tenancy.rs:992`, `holds_team_membership` |
 //! | `CloseOrganization` | the organization is unresolved | `src/tenancy.rs:703-709` |
@@ -330,15 +330,14 @@ fn a_second_active_membership_of_one_organization_for_one_principal_is_refused()
 // mandate.tenancy.AddTeamMembership
 // ==================================================================================
 
-/// "team or": the declared cause reads "team or principal is unresolved or outside the
+/// "team": the declared cause reads "team or principal is unresolved or outside the
 /// verified organization", and `contracts/obligations/model.json` tiles that condition into
-/// two clauses — "team or", which this case backs, and "principal is unresolved or outside
+/// two clauses — "team", which this case backs, and "principal is unresolved or outside
 /// the verified organization", which carries no test and defers to `story:declared-writers`.
-/// The team half is stated as "team or" rather than "team" because a clause may not be a
-/// substring of a sibling (`xtask/src/obligations_registry.rs:674-680`) and "team" lies
-/// inside "the team is retired", "the principal is already a member of that team" and
-/// "Caller lacks team-administration authority"; "team or" is the smallest text the step
-/// admits for it.
+/// "team" lies inside "the team is retired", "the principal is already a member of that
+/// team" and "Caller lacks team-administration authority", and the registry step admits it
+/// anyway: nesting is a question of position in the cause, which the step's tiling walk
+/// answers, and this "team" sits at a position of its own.
 ///
 /// Both halves of the team condition the fold can observe are driven — a team identity it
 /// holds nothing at, and a team it holds in another organization. The second is the one
@@ -702,10 +701,6 @@ const CITED: &[(&str, &[&str])] = &[
         "crates/mandate-conformance/src/commands/mod.rs:194",
         &["mandate.identity.PrincipalDisabled is folded nowhere"],
     ),
-    (
-        "xtask/src/obligations_registry.rs:674-680",
-        &["lies inside its own clause"],
-    ),
 ];
 
 /// Every file this documentation names **without** a line number: where it is written from the
@@ -721,7 +716,7 @@ const NAMED: &[(&str, &str, &[&str])] = &[
         "contracts/obligations/model.json",
         "contracts/obligations/model.json",
         &[
-            "\"team or\"",
+            "\"team\"",
             "principal is unresolved or outside the verified organization",
             "organization_id differs from the verified organization",
             "the caller lacks platform organization-administration authority",

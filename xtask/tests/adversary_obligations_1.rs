@@ -268,11 +268,13 @@ fn every_test_the_registry_names_belongs_to_the_entry_crate() {
     for (crate_name, document) in registry() {
         // Coordinator amendment (Acceptance amended 2026-09-21): a `cases` row may name a test
         // of the two packages that decide a security case at the wire, and no other.
-        let mut check = |what: String, tests: &Value, wire: bool| {
+        // story:cross-crate-clauses: a clause carrying `decided_in` is held to the crate that
+        // field names instead of the entry's own.
+        let mut check = |what: String, tests: &Value, owner: &str, wire: bool| {
             for row in rows(tests) {
                 let id = row["id"].as_str().unwrap_or_default();
                 let package = id.split("::").next().unwrap_or_default();
-                let admitted = package == crate_name
+                let admitted = package == owner
                     || (wire && (package == "mandate-proto" || package == "mandate-server"));
                 if !admitted {
                     elsewhere.push(format!("{what}: {id}"));
@@ -285,12 +287,14 @@ fn every_test_the_registry_names_belongs_to_the_entry_crate() {
                 check(
                     format!("{crate_name} / {command} / clause"),
                     &clause["tests"],
+                    clause["decided_in"].as_str().unwrap_or(&crate_name),
                     false,
                 );
             }
             check(
                 format!("{crate_name} / {command} / no_state_change"),
                 &entry["no_state_change"],
+                &crate_name,
                 false,
             );
         }
@@ -298,6 +302,7 @@ fn every_test_the_registry_names_belongs_to_the_entry_crate() {
             check(
                 format!("{crate_name} / addendum step {}", entry["step"]),
                 &entry["tests"],
+                &crate_name,
                 false,
             );
         }
@@ -308,6 +313,7 @@ fn every_test_the_registry_names_belongs_to_the_entry_crate() {
                     entry["case"].as_str().unwrap_or_default()
                 ),
                 &entry["tests"],
+                &crate_name,
                 true,
             );
         }

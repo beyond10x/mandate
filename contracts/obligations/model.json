@@ -166,7 +166,7 @@
           "blocked_on": "decision-blocker:guards"
         },
         {
-          "clause": "team or",
+          "clause": "team",
           "tests": [
             {
               "id": "mandate-model::obligations::a_team_membership_of_an_unresolved_team_or_of_a_team_in_another_organization_is_refused",

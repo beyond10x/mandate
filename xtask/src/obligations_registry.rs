@@ -8,7 +8,7 @@
 //! on. Splitting the declared cause into its clauses is what makes the unrefused ones
 //! countable, and a count is the only thing that can fall.
 //!
-//! Eleven things are decided here, and deliberately no more:
+//! Thirteen things are decided here, and deliberately no more:
 //!
 //! 1. the directory holds one document per crate in [`CRATES`] and nothing else, each naming
 //!    its own crate and [`FORMAT`];
@@ -20,13 +20,16 @@
 //! 4. a command's status may not disagree with that manifest, and a command the manifest does
 //!    not call `implemented` is `deferred` here on the manifest's own story and blocker, with
 //!    no clause: there is no implementation for a clause to be a claim about;
-//! 5. every clause is a **verbatim substring** of its command's declared `condition.cause`;
+//! 5. every clause is a **verbatim substring** of its command's declared `condition.cause`, and
+//!    the clauses tile that cause **by position**: a clause nested in a sibling is one the walk
+//!    cannot place, and a clause whose text merely also lies inside a sibling is not nested;
 //! 6. every test id is one a compiled binary **lists and runs** — an `#[ignore]`d case is
 //!    subtracted by [`crate::coverage::compiled`] — and a clause, `no-state-change` or
 //!    `addendum` row names a test of the document's own crate, because existence alone would
-//!    let any id in the workspace satisfy any obligation. A `cases` row may name a test of that
-//!    crate or of one of the two packages in [`WIRE`], which decide a security case at the
-//!    wire, and of no other;
+//!    let any id in the workspace satisfy any obligation. A clause row carrying `decided_in`
+//!    names a test of that crate instead, which is another workspace member than the entry's
+//!    own. A `cases` row may name a test of that crate or of one of the two packages in
+//!    [`WIRE`], which decide a security case at the wire, and of no other;
 //! 7. every clause of an `implemented` command carries at least one `denial` row on the **real**
 //!    path, or `blocked_on` a live story — never both, so the report's columns partition;
 //! 8. a `path: double` row **never covers**, and one obligation carries rows of **one path
@@ -34,14 +37,18 @@
 //!    evidence is a double has no evidence that the shipped path refuses at all; it is counted
 //!    in its own column and still carries `blocked_on`. A double row beside a real row would be
 //!    counted in neither column, so where two conditions of one clause have different deciders
-//!    the clause is split into them;
+//!    the clause is split into them. A `cases` row, counted in no column and not splittable, is
+//!    the exception. A `double` value is a `::`-separated Rust path into a library target;
 //! 9. every `blocked_on` names a story the planning store holds whose frontmatter `status:` is
 //!    not a terminal rung, or an open blocker. That is the rule the registry's acceptance turns
-//!    on: once a binding story is `implemented`, every clause still deferred to it fails;
+//!    on: once a binding story is `implemented`, every clause still deferred to it fails. A
+//!    double-backed clause deferred to a story is deferred to one whose body names the double;
 //! 10. every step of the addendum's resolution order (§5.2, steps 1–9) is named by at least one
 //!     document, with the step's own line verbatim, and never twice in one document;
 //! 11. every id in `tests/security/cases.json` is bound or deferred exactly once across the
-//!     directory, and no row names an id that file does not carry.
+//!     directory, and no row names an id that file does not carry;
+//! 12. one test id carries one `kind` wherever the directory names it;
+//! 13. one test id carries one `path`, and one `double`, wherever the directory names it.
 //!
 //! A `denial_audit` obligation is `deferred` for every implemented command while
 //! `decision-blocker:audit-routing` is open, and is counted in neither the numerator nor the
@@ -180,6 +187,7 @@ pub fn decide(
     let mut named: BTreeMap<String, usize> = BTreeMap::new();
     let mut steps: BTreeMap<u64, BTreeSet<&str>> = BTreeMap::new();
     let mut bound: BTreeMap<String, usize> = BTreeMap::new();
+    let mut labels = Labels::default();
 
     for (crate_name, document) in &documents {
         let row = counts.entry(crate_name.as_str()).or_default();
@@ -215,6 +223,7 @@ pub fn decide(
                 compiled,
                 &live,
                 row,
+                &mut labels,
                 &mut problems,
             );
         }
@@ -247,14 +256,18 @@ pub fn decide(
                 ));
             }
             steps.entry(step).or_default().insert(crate_name.as_str());
+            let what = format!("{crate_name}: addendum step {step}");
+            clause_only(&what, entry, &mut problems);
             obligation(
-                &format!("{crate_name}: addendum step {step}"),
+                &what,
                 entry,
                 &CLAUSE_KINDS,
                 &CLAUSE_KINDS,
                 &[crate_name.as_str()],
+                Paths::One,
                 compiled,
                 &live,
+                &mut labels,
                 &mut problems,
             );
         }
@@ -273,14 +286,18 @@ pub fn decide(
             // A security case is decided end to end, and `pkce-missing` and `pkce-plain` are
             // decided at the wire, so a case row may name a test of the entry's crate or of
             // one of the two wire packages — and of no other.
+            let what = format!("case {case}");
+            clause_only(&what, entry, &mut problems);
             obligation(
-                &format!("case {case}"),
+                &what,
                 entry,
                 &CLAUSE_KINDS,
                 &CLAUSE_KINDS,
                 &[crate_name.as_str(), WIRE[0], WIRE[1]],
+                Paths::Mixed,
                 compiled,
                 &live,
+                &mut labels,
                 &mut problems,
             );
         }
@@ -322,6 +339,7 @@ pub fn decide(
             ));
         }
     }
+    labels.conflicts(&mut problems);
 
     let rendered = report(&counts);
     let path = root.join(REPORT);
@@ -372,6 +390,176 @@ impl Live<'_> {
         }
         Some(format!("{id}, which is no story id and no blocker id"))
     }
+
+    /// The text of the story `id` names, when the store holds it.
+    fn body(&self, id: &str) -> Option<String> {
+        let name = id.strip_prefix("story:")?;
+        fs::read_to_string(self.stories.join(format!("{name}.md"))).ok()
+    }
+}
+
+/// What every row across the directory says one test id is, by id.
+///
+/// A row's `kind` and `path` are claims about the test, not about the obligation it sits in,
+/// so one id carries one of each wherever it is named. One case discharging a clause's `denial`
+/// row and a command's `no-state-change` row is two claims about what one test decides, and a
+/// test a clause row calls `double` is not `real` in a case row beside it: at most one label of
+/// each pair is true, and the document cannot say which.
+#[derive(Default)]
+struct Labels {
+    kinds: BTreeMap<String, BTreeSet<String>>,
+    paths: BTreeMap<String, BTreeSet<String>>,
+}
+
+impl Labels {
+    fn record(&mut self, id: &str, kind: &str, path: &str, double: Option<&str>) {
+        self.kinds
+            .entry(id.to_owned())
+            .or_default()
+            .insert(kind.to_owned());
+        let path = match (path, double) {
+            ("double", Some(double)) => format!("double via {double}"),
+            _ => path.to_owned(),
+        };
+        self.paths.entry(id.to_owned()).or_default().insert(path);
+    }
+
+    fn conflicts(&self, problems: &mut Vec<String>) {
+        for (id, kinds) in &self.kinds {
+            if kinds.len() > 1 {
+                problems.push(format!(
+                    "{id}: named under the kinds {}; one test id is one kind wherever it is \
+                     named, because what a test decides does not change with the row it sits in",
+                    kinds.iter().cloned().collect::<Vec<_>>().join(" and ")
+                ));
+            }
+        }
+        for (id, paths) in &self.paths {
+            if paths.len() > 1 {
+                problems.push(format!(
+                    "{id}: labelled on the paths {}; one test id is on one path wherever it is \
+                     named, because what decided it does not change with the row it sits in",
+                    paths.iter().cloned().collect::<Vec<_>>().join(" and ")
+                ));
+            }
+        }
+    }
+}
+
+/// Whether one obligation may carry rows of both paths.
+///
+/// A clause, a no-state-change and an addendum step may not: a double row beside a real one is
+/// counted in no column and publishes the condition it stands in for as decided on the real
+/// path, and the remedy is to split the clause. A case has no such remedy — it is one id of
+/// `tests/security/cases.json`, bound exactly once — and is counted in no column at all, so a
+/// case row may name the double that drives one half of its scenario beside the real test that
+/// decides the other, each labelled with the path that decided it.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Paths {
+    One,
+    Mixed,
+}
+
+/// `decided_in` belongs on a clause row and on nothing else.
+fn clause_only(what: &str, entry: &Value, problems: &mut Vec<String>) {
+    if !entry["decided_in"].is_null() {
+        problems.push(format!(
+            "{what}: states decided_in {}; only a clause row names another crate as its \
+             decider, and this row is held to its own",
+            entry["decided_in"]
+        ));
+    }
+}
+
+/// Why a `double` value is not a stand-in a later reader can check, or `None` when it is one.
+///
+/// The value is a `::`-separated Rust path whose root is a workspace member with a library
+/// target and whose last segment that member's library declares `pub` — in the module the path
+/// names, or re-exported by a `pub use` there. A stand-in defined inside one test binary is one
+/// nothing outside that binary can name, so the row's classification cannot be checked against
+/// it; and a crate name with a hyphen is not a Rust path at all.
+fn unresolved_double(double: &str, compiled: &Compiled) -> Option<String> {
+    let segments: Vec<&str> = double.split("::").collect();
+    let identifier = |segment: &&str| {
+        let mut characters = segment.chars();
+        characters
+            .next()
+            .is_some_and(|first| first.is_ascii_alphabetic() || first == '_')
+            && characters.all(|character| character.is_ascii_alphanumeric() || character == '_')
+    };
+    if segments.len() < 2 || !segments.iter().all(identifier) {
+        return Some("is no `::`-separated Rust path".to_owned());
+    }
+    let Some(directory) = compiled
+        .packages
+        .iter()
+        .find(|(name, _)| name.replace('-', "_") == segments[0])
+        .map(|(_, directory)| directory)
+    else {
+        return Some(format!(
+            "is rooted in {}, which is no workspace member",
+            segments[0]
+        ));
+    };
+    let source = directory.join("src");
+    if !source.join("lib.rs").is_file() {
+        return Some(format!(
+            "is rooted in {}, which has no library target",
+            segments[0]
+        ));
+    }
+    let modules = &segments[1..segments.len() - 1];
+    let item = segments[segments.len() - 1];
+    let file = if modules.is_empty() {
+        source.join("lib.rs")
+    } else {
+        let stem = modules.join("/");
+        let flat = source.join(format!("{stem}.rs"));
+        if flat.is_file() {
+            flat
+        } else {
+            source.join(stem).join("mod.rs")
+        }
+    };
+    let Ok(text) = fs::read_to_string(&file) else {
+        return Some(format!(
+            "names the module {}, which the library of {} does not hold",
+            modules.join("::"),
+            segments[0]
+        ));
+    };
+    (!declares(&text, item)).then(|| {
+        format!(
+            "names {item}, which {} neither declares `pub` nor re-exports",
+            file.strip_prefix(directory).unwrap_or(&file).display()
+        )
+    })
+}
+
+/// Whether `text` declares `item` public, or re-exports it with a `pub use`.
+fn declares(text: &str, item: &str) -> bool {
+    let bounded = |rest: &str| {
+        !rest
+            .chars()
+            .next()
+            .is_some_and(|character| character.is_ascii_alphanumeric() || character == '_')
+    };
+    let declared = [
+        "struct", "enum", "trait", "type", "fn", "const", "static", "union", "mod",
+    ]
+    .iter()
+    .any(|keyword| {
+        let head = format!("pub {keyword} {item}");
+        text.match_indices(&head)
+            .any(|(at, _)| bounded(&text[at + head.len()..]))
+    });
+    declared
+        || text.match_indices("pub use ").any(|(at, _)| {
+            let statement = text[at..].split(';').next().unwrap_or_default();
+            statement
+                .split(|character: char| !(character.is_ascii_alphanumeric() || character == '_'))
+                .any(|word| word == item)
+        })
 }
 
 /// Every document the registry directory holds, by crate.
@@ -588,6 +776,7 @@ fn command_entry(
     compiled: &Compiled,
     live: &Live,
     counts: &mut [usize; 4],
+    labels: &mut Labels,
     problems: &mut Vec<String>,
 ) {
     let status = entry["status"].as_str().unwrap_or_default();
@@ -671,25 +860,22 @@ fn command_entry(
         if !seen.insert(text) {
             problems.push(format!("{command}: the clause {text:?} is stated twice"));
         }
-        for other in &stated {
-            if *other != text && other.contains(text) {
-                problems.push(format!(
-                    "{command}: the clause {text:?} lies inside its own clause {other:?}; a \
-                     tiling has one clause per position of the cause, and two claim that \
-                     position twice — the overlap is counted again in `clauses` and can be \
-                     counted again in `real_covered` with no new condition decided"
-                ));
-            }
-        }
+        // Nesting is a question about position, and [`tiles`] answers it: a clause lying
+        // inside its predecessor's span has no occurrence after it. Text containment is not
+        // the same question — `team` lies inside "Caller lacks team-administration
+        // authority" and still names a condition at a position of its own.
         counts[0] += 1;
+        let decider = decided_in(command, text, crate_name, clause, compiled, problems);
         let covered = obligation(
             &format!("{command}: {text:?}"),
             clause,
             &CLAUSE_KINDS,
             &["denial"],
-            &[crate_name],
+            &[decider],
+            Paths::One,
             compiled,
             live,
+            labels,
             problems,
         );
         match covered {
@@ -709,6 +895,28 @@ fn command_entry(
                          port's real implementation"
                     ));
                 }
+                // A story that owns the port's real implementation names the stand-in it
+                // replaces. One whose body never names the double is a hypothesis about
+                // ownership nothing measured — which is how a module doc naming another crate
+                // routed a clause to a story that could not discharge it, twice.
+                if let Some(story) = clause["blocked_on"].as_str()
+                    && story.starts_with("story:")
+                    && let Some(body) = live.body(story)
+                {
+                    for double in doubles(clause) {
+                        let item = double.rsplit("::").next().unwrap_or_default();
+                        if !body.contains(item) {
+                            problems.push(format!(
+                                "{command}: the clause {text:?} is reached only by the double \
+                                 {double} and defers to {story}, whose body never names \
+                                 {item}; a double-backed clause defers to the story that owns \
+                                 the port's real implementation, and that story names the \
+                                 stand-in it replaces",
+                                text = clause["clause"].as_str().unwrap_or_default()
+                            ));
+                        }
+                    }
+                }
             }
             Covered::Neither => counts[3] += 1,
         }
@@ -720,8 +928,10 @@ fn command_entry(
         &[STATE_KIND],
         &[STATE_KIND],
         &[crate_name],
+        Paths::One,
         compiled,
         live,
+        labels,
         problems,
     );
 
@@ -753,11 +963,71 @@ fn command_entry(
             &[AUDIT_KIND],
             &[AUDIT_KIND],
             &[crate_name],
+            Paths::One,
             compiled,
             live,
+            labels,
             problems,
         );
     }
+}
+
+/// The crate a clause row is held to: the entry's own, or the one its `decided_in` names.
+///
+/// A clause a command of one crate publishes can be answered by another crate's code, reached
+/// through a composition — `mandate-federation`'s `AuthorizePublicClient` is refused when
+/// `mandate-sts` refuses the code. No test the entry's crate can write binds such a clause, so
+/// the row names the deciding crate and the same-crate rule holds it there instead. The field
+/// names a workspace member other than the entry's own crate, and nothing else: naming the
+/// entry's crate says nothing the rule does not already say, and a crate outside the workspace
+/// runs no test any compiled binary lists.
+fn decided_in<'a>(
+    command: &str,
+    text: &str,
+    crate_name: &'a str,
+    clause: &'a Value,
+    compiled: &Compiled,
+    problems: &mut Vec<String>,
+) -> &'a str {
+    let field = &clause["decided_in"];
+    if field.is_null() {
+        return crate_name;
+    }
+    let Some(name) = field.as_str() else {
+        problems.push(format!(
+            "{command}: the clause {text:?} states decided_in {field}, which names no crate"
+        ));
+        return crate_name;
+    };
+    if name == crate_name {
+        problems.push(format!(
+            "{command}: the clause {text:?} states decided_in {name}, which is the entry's own \
+             crate; decided_in names the other crate whose code decides the clause"
+        ));
+    } else if !compiled.packages.contains_key(name) {
+        problems.push(format!(
+            "{command}: the clause {text:?} states decided_in {name}, which is not a member of \
+             this workspace, so no test it could name is one a compiled binary runs"
+        ));
+    }
+    if clause["tests"].as_array().is_none_or(Vec::is_empty) {
+        problems.push(format!(
+            "{command}: the clause {text:?} states decided_in {name} and names no test; the \
+             field says which crate's test decides the clause, and there is none"
+        ));
+    }
+    name
+}
+
+/// Every `double` value a clause's rows name.
+fn doubles(clause: &Value) -> Vec<&str> {
+    clause["tests"]
+        .as_array()
+        .map_or(&[][..], Vec::as_slice)
+        .iter()
+        .filter(|row| row["path"] == "double")
+        .filter_map(|row| row["double"].as_str())
+        .collect()
 }
 
 /// The command's `no_state_change` rows in the shape [`obligation`] reads, with the
@@ -845,8 +1115,10 @@ fn obligation(
     kinds: &[&str],
     covers: &[&str],
     owners: &[&str],
+    admitted: Paths,
     compiled: &Compiled,
     live: &Live,
+    labels: &mut Labels,
     problems: &mut Vec<String>,
 ) -> Covered {
     let rows = entry["tests"].as_array().map_or(&[][..], Vec::as_slice);
@@ -881,11 +1153,21 @@ fn obligation(
             ("double", None | Some("")) => problems.push(format!(
                 "{what}: the row {id} is on the double path and names no double"
             )),
+            ("double", Some(double)) => {
+                if let Some(reason) = unresolved_double(double, compiled) {
+                    problems.push(format!(
+                        "{what}: the row {id} names the double {double}, which {reason}; a \
+                         double is a `::`-separated Rust path into a library target, so a \
+                         later reader can check the classification against the stand-in"
+                    ));
+                }
+            }
             ("real", Some(double)) => problems.push(format!(
                 "{what}: the row {id} is on the real path and names the double {double}"
             )),
             _ => {}
         }
+        labels.record(id, kind, path, row["double"].as_str());
         if PATHS.contains(&path) {
             paths.insert(path);
         }
@@ -904,7 +1186,7 @@ fn obligation(
     // published as decided on the real path. That is the shape this step exists to refuse: a
     // green exit from a check that counted nothing. One obligation therefore carries rows of
     // one path only.
-    if paths.len() > 1 {
+    if paths.len() > 1 && admitted == Paths::One {
         let doubles: Vec<&str> = rows
             .iter()
             .filter(|row| row["path"] == "double")
