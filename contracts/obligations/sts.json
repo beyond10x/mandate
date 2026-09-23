@@ -300,6 +300,11 @@
           "id": "mandate-sts::emitted_events::a_refused_self_contained_issuance_emits_nothing_and_leaves_the_fold_unchanged",
           "kind": "no-state-change",
           "path": "real"
+        },
+        {
+          "id": "mandate-sts::adversary_obligations_sts_2::a_self_contained_issuance_refused_by_the_signer_has_already_drawn_a_credential_identity",
+          "kind": "no-state-change",
+          "path": "real"
         }
       ],
       "denial_audit": {
@@ -401,6 +406,11 @@
         },
         {
           "id": "mandate-sts::obligations::a_redemption_refused_on_the_narrowing_clause_moves_neither_log_nor_fold",
+          "kind": "no-state-change",
+          "path": "real"
+        },
+        {
+          "id": "mandate-sts::adversary_obligations_sts_2::a_redemption_that_loses_its_compare_and_set_has_already_drawn_credential_material",
           "kind": "no-state-change",
           "path": "real"
         }

@@ -16,8 +16,10 @@
 //! compare-and-set on the expected stream version, one append group per boundary, with
 //! projections committing inside the group or rolling back with it. Two redemptions that
 //! each read a fresh code therefore each decide `accepted`, and exactly one append lands;
-//! the other presents a version the stream has left and writes nothing. No lock is taken and
-//! no second mechanism is introduced.
+//! the other presents a version the stream has left and writes nothing — and draws nothing:
+//! the secret and the identity are minted inside the append, once the compare-and-set is won
+//! ([`crate::store::AuthorizationCodeLog::append_built`]), so the only span the stream is
+//! held for is the append group's own. No second mechanism is introduced.
 //!
 //! # What this crate's log carries, and what it does not
 //!
@@ -66,26 +68,27 @@
 use core::fmt;
 
 use mandate_token::CredentialDescriptor;
-use mandate_token::projection::{DenialClause, Denied};
+use mandate_token::projection::{DenialClause, Denied, ResourceServer};
 use mandate_token::verifier::{
     CredentialDigest, CredentialDomain, constant_time_eq, presents_in, verifier_in,
 };
 use mandate_types::{
     AuthorizationCodeId, CredentialId, CredentialProof, CredentialSecret, DenialReason,
-    EpochSnapshotRef, OAuthClientId, RedirectUri, ResourceServerId, VerifiedContext,
+    EpochSnapshotRef, OAuthClientId, RedirectUri, ResourceServerId, Timestamp, VerifiedContext,
 };
 use serde::Serialize;
 
 use crate::binding::{
-    SessionReads, authorized_redirect, bound_client, fresh_session, target_in_tenant,
+    SessionBinding, SessionReads, authorized_redirect, bound_client, fresh_session,
+    target_in_tenant,
 };
 use crate::code::{
     OAuthClientReads, challenge_is_well_formed, s256_challenge, verifier_is_well_formed,
 };
 use crate::registry::ResourceServerReads;
 use crate::store::{
-    AppendRefused, AuthorizationCodeEvent, AuthorizationCodeLog, AuthorizationCodeReads,
-    AuthorizationCodeState,
+    AppendRefused, AuthorizationCode, AuthorizationCodeEvent, AuthorizationCodeLog,
+    AuthorizationCodeReads, AuthorizationCodeState,
 };
 use crate::{IdentityAllocator, RequestContext, SecretSource, instant};
 
@@ -275,6 +278,38 @@ where
     X: SecretSource,
     A: IdentityAllocator,
 {
+    let decided = decide(input, request, codes, bound, parts.digest)?;
+    Ok(mint(decided, request, parts))
+}
+
+/// What a redemption decided to issue, before anything is drawn for it.
+///
+/// The seam between the two halves: [`decide`] makes every declared refusal and draws
+/// nothing, and [`mint`] draws and refuses nothing. [`redeem_and_consume`] puts the
+/// compare-and-set between them, so the losing half of two concurrent redemptions never
+/// reaches the draw.
+struct Decided {
+    code: AuthorizationCode,
+    session: SessionBinding,
+    server: ResourceServer,
+    expires_at: Timestamp,
+}
+
+/// Every refusal [`redeem_authorization_code`] declares, and no draw.
+fn decide<C, R, O, S, D>(
+    input: &RedeemAuthorizationCode,
+    request: &RequestContext,
+    codes: &C,
+    bound: BoundReads<'_, R, O, S>,
+    digest: &D,
+) -> Result<Decided, Denied>
+where
+    C: AuthorizationCodeReads + ?Sized,
+    R: ResourceServerReads,
+    O: OAuthClientReads,
+    S: SessionReads,
+    D: CredentialDigest,
+{
     // A `code_id` that resolves to nothing refuses exactly as a proof that does not match
     // one does, reason and all: the contract's error carries `DenialReason` and nothing
     // else, and a caller that could tell the two apart would hold an oracle over which code
@@ -297,7 +332,7 @@ where
     // difference between a refusal and a read. Both comparisons are constant-time
     // ([`mandate_token::verifier::presents_in`], [`redeems_the_challenge`]).
     if !presents_in(
-        parts.digest,
+        digest,
         CredentialDomain::AuthorizationCodeVerifier,
         &code.verifier,
         &input.code,
@@ -348,9 +383,34 @@ where
         .ok_or_else(unbounded)?;
     let code_bound = instant::seconds_of(&code.expires_at).ok_or_else(unbounded)?;
     let expires_at = instant::at(profile_bound.min(code_bound)).ok_or_else(unbounded)?;
+    Ok(Decided {
+        code,
+        session,
+        server,
+        expires_at,
+    })
+}
 
-    // Nothing above this line mints anything: a refusal leaves the deployment exactly as it
-    // was.
+/// The draw, and no refusal: the secret, its verifier, the identity, and the event that
+/// records them.
+fn mint<D, X, A>(
+    decided: Decided,
+    request: &RequestContext,
+    parts: RedemptionParts<'_, D, X, A>,
+) -> AuthorizationCodeRedemption
+where
+    D: CredentialDigest,
+    X: SecretSource,
+    A: IdentityAllocator,
+{
+    let Decided {
+        code,
+        session,
+        server,
+        expires_at,
+    } = decided;
+    // Nothing reaches this function but a decision [`decide`] accepted: a refusal leaves the
+    // deployment exactly as it was.
     let credential = parts.secrets.next_secret();
     let reference_verifier =
         verifier_in(parts.digest, CredentialDomain::ReferenceSecret, &credential);
@@ -371,7 +431,7 @@ where
         execution: None,
         expires_at,
     };
-    Ok(AuthorizationCodeRedemption {
+    AuthorizationCodeRedemption {
         credential,
         credential_id,
         epochs: session.epochs,
@@ -399,7 +459,7 @@ where
             descriptor,
             target: code.target,
         },
-    })
+    }
 }
 
 /// The command path: decide against the code stream as it stands, and commit the decision as
@@ -423,7 +483,7 @@ pub fn redeem_and_consume<L, R, O, S, D, X, A>(
     parts: RedemptionParts<'_, D, X, A>,
 ) -> Result<AuthorizationCodeRedemption, RedemptionRefused>
 where
-    L: AuthorizationCodeLog + ?Sized,
+    L: AuthorizationCodeLog,
     R: ResourceServerReads,
     O: OAuthClientReads,
     S: SessionReads,
@@ -434,11 +494,16 @@ where
     // Read the version first, then decide against the projection at that version: a decision
     // read from a state that has since moved must fail the append rather than overwrite it.
     let expected = log.version(&input.code_id);
-    let outcome = redeem_authorization_code(input, request, log.projection(), bound, parts)?;
-    log.append(
-        &input.code_id,
-        expected,
-        std::slice::from_ref(&outcome.event),
-    )?;
+    let decided = decide(input, request, log.projection(), bound, parts.digest)?;
+    // The draw runs inside the append, once the compare-and-set is won: the event records
+    // the verifier of the secret and the identity the draw mints, so it cannot follow the
+    // commit, and a draw ahead of the compare is one the losing half of two concurrent
+    // redemptions has already made when its append refuses. A read of the version here
+    // instead would not close that: a writer committing between the read and the append is
+    // not seen by it.
+    let outcome = log.append_built(&input.code_id, expected, || {
+        let outcome = mint(decided, request, parts);
+        (outcome.event.clone(), outcome)
+    })?;
     Ok(outcome)
 }

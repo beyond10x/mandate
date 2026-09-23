@@ -193,6 +193,30 @@ pub trait IdentityAllocator {
     /// caller, exactly as it binds `resource_server_id`, `credential_id` and the signing
     /// key's `id`.
     fn next_authorization_code_id(&mut self) -> AuthorizationCodeId;
+
+    /// The credential identity the next draw would hand out, held for a transaction that
+    /// can still refuse — and not handed out.
+    ///
+    /// A self-contained issuance signs its identity into the token (`jti`), so the identity
+    /// has to exist before the signer can refuse; this is how it exists without having been
+    /// drawn. [`IdentityAllocator::commit_credential_id`] hands it out once the transaction
+    /// can no longer refuse, and a reservation never committed leaves the allocator where it
+    /// was.
+    ///
+    /// The default reserves by drawing, which is right for an allocator whose draws leave
+    /// nothing behind — one over a CSPRNG, where an identity never handed on is
+    /// indistinguishable from one never drawn. An allocator that counts what it handed out
+    /// must override both methods.
+    fn reserve_credential_id(&mut self) -> CredentialId {
+        self.next_credential_id()
+    }
+
+    /// Hand out the identity [`IdentityAllocator::reserve_credential_id`] held.
+    ///
+    /// The default does nothing, matching the default reservation.
+    fn commit_credential_id(&mut self, reserved: CredentialId) {
+        let _ = reserved;
+    }
 }
 
 /// The transient secret a reference issuance returns once, behind a port.
@@ -243,6 +267,16 @@ impl IdentityAllocator for SequentialAllocator {
     fn next_credential_id(&mut self) -> CredentialId {
         self.credentials += 1;
         CredentialId::new(minted(0xcd, self.credentials))
+    }
+
+    fn reserve_credential_id(&mut self) -> CredentialId {
+        CredentialId::new(minted(0xcd, self.credentials + 1))
+    }
+
+    fn commit_credential_id(&mut self, reserved: CredentialId) {
+        if reserved == CredentialId::new(minted(0xcd, self.credentials + 1)) {
+            self.credentials += 1;
+        }
     }
 
     fn next_signing_key_id(&mut self) -> SigningKeyId {

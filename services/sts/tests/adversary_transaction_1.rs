@@ -813,6 +813,16 @@ impl AuthorizationCodeLog for VersionProbe {
         self.presented.set(Some(expected));
         self.inner.append(stream, expected, group)
     }
+
+    fn append_built<T>(
+        &mut self,
+        stream: &AuthorizationCodeId,
+        expected: StreamVersion,
+        build: impl FnOnce() -> (AuthorizationCodeEvent, T),
+    ) -> Result<T, AppendRefused> {
+        self.presented.set(Some(expected));
+        self.inner.append_built(stream, expected, build)
+    }
 }
 
 /// **The command path presents the version it read before deciding, and the append consults

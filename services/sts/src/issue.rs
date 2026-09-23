@@ -423,7 +423,10 @@ where
     let expires_at = bounded_expiry(request, &server.credential_profile, lifetime)?;
     let descriptor = descriptor_for(&input.context, &server, &input.requested_scope, expires_at);
 
-    let credential_id = parts.allocator.next_credential_id();
+    // The identity is signed into the token, so it exists before the signer can refuse —
+    // reserved, not drawn. It is handed out only once the signer has signed: nothing below
+    // the commit refuses, so a refusal leaves the deployment exactly as it was.
+    let credential_id = parts.allocator.reserve_credential_id();
     let signed = parts
         .signer
         .sign_credential(
@@ -436,6 +439,7 @@ where
             },
         )
         .map_err(|_| Denied::new(DenialReason::Denied, DenialClause::SigningRefused))?;
+    parts.allocator.commit_credential_id(credential_id);
     let credential = CredentialSecret::from_bytes(signed.token.into_bytes());
     // The token's own domain: a token and a reference secret never share a verifier space.
     let reference_verifier = verifier_in(
