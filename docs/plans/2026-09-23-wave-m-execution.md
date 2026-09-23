@@ -68,3 +68,14 @@ merge, Gates baseline advance, release, branch and tree cleanup.
 - M2 final correction green (control-plane 190, sts 252, server 111, token 122, proto 53; all xtask steps 0); accepted F4 alternative (an unresolved name records the lowest id no registration holds). Committed `dc90201`; outcomes F1 `no-op` (stale), F2–F7 `fixed`. **M2 merged** as `2de3925`.
 - Alignment commit `d482cfc`: `RecordingVerifier` forwards `tenant_claim_refused` (M3's held patch was corrupt; applied by hand; clippy 0).
 - Gate run 1 on `cb1cadb`, per step: fmt 0, clippy 0, test **101** (286 suites, 2,115 passed, 4 failed), build 0, boundaries 0, corpus 0, contracts **1** (projection drift), deny 0, licenses 0, validate 0, documents 0, coverage 0, obligations-registry 0 (198 clauses, 89 real), conform 0, check 1. The four failures are integration fallout: conformance's `Substituted` does not count M2's `registrations_holding`; two xtask cases assume the STS unrealized list is non-empty; a coverage-receipt digest. An integration implementor dispatched on the coordinator tree.
+- Integration fixes `79ee7b4` (conformance reader, coverage case counts, receipt regenerated). Gate run 2: every step 0 but `check`, which refused `aep` 0.57.0 — another session upgraded the global binary at 22:36. The coordinator built `aep` 0.55.0 into `~/.cache/mandate-tools/aep-0.55.0` and put it first on PATH for this gate; the global binary was not touched. Then `check` refused the `lifecycle-transition-wrong` anchor (moved to `projection.rs:1054`), re-anchored in `e8ae0a4`.
+
+## Close
+
+Closing gate on `e8ae0a4`: every step exit 0 — fmt, clippy, test (286 suites, 2,119 passed, 0 failed), build, boundaries, corpus, contracts, deny, licenses, validate, documents, coverage (292 elements, 204 implemented), obligations-registry (198 clauses, 89 real, 21 double, 88 deferred), conform (166 scenarios, 44 passed), and `cargo xtask check` with 11 named mutants killed.
+
+Three stories implemented. Filed: `story:listener-outbound-stall`, `story:authorize-flood-eviction`.
+
+Rulings a reviewer should read: M2's source is option A (an access credential for a source resource server); `invalid_target` added; a dedicated `SubjectTokenInvalid` clause; M1's handoff code bound to an app-supplied `app_state`; one cookie holding up to four bindings; an M1 adversary case re-pinned when two cases were mutually unsatisfiable; M3's type refusal answers only where the tenant would be zero.
+
+Naming: the batch diff and every commit message carry 0 hits for the customer's or the operator's employer's name (`git diff d55a951 HEAD`, `git log --format=%B`).

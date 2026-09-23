@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:federation-fixtures-rs256
 kind: story
-status: active
+status: implemented
 title: A recorded-shape RS256 ID token from an external IdP is admitted
 relations:
 - decomposes: epic:authentication
@@ -12,7 +12,7 @@ scope:
   path: crates/mandate-federation/src/verifier_real.rs
 - confidence: inferred
   path: crates/mandate-federation/tests
-revision: 4
+revision: 5
 ---
 # A recorded-shape RS256 ID token from an external IdP is admitted
 

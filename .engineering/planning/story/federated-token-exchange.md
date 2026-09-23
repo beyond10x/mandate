@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:federated-token-exchange
 kind: story
-status: active
+status: implemented
 title: A session is exchanged for a credential another platform accepts
 relations:
 - decomposes: epic:sts-credentials
@@ -22,7 +22,7 @@ scope:
   path: services/sts/src/issue.rs
 - confidence: inferred
   path: services/sts/src/lib.rs
-revision: 5
+revision: 6
 ---
 # A session is exchanged for a credential another platform accepts
 

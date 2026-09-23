@@ -2,7 +2,7 @@
 format: aep.planning-md/1
 id: story:relying-party-code-flow
 kind: story
-status: active
+status: implemented
 title: A browser signs in through an external OIDC IdP's authorization-code flow
 relations:
 - decomposes: epic:authentication
@@ -22,7 +22,7 @@ scope:
   path: services/control-plane/src/serve.rs
 - confidence: inferred
   path: systems/mandate/domains/federation.yaml
-revision: 6
+revision: 7
 ---
 # A browser signs in through an external OIDC IdP's authorization-code flow
 
