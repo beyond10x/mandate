@@ -869,7 +869,7 @@ checksum = "f9f8bd3e56ce4dfc153cf470fffbfa98c7620958b312ca5c3a4b8d5181fd13c6"
 
 [[package]]
 name = "mandate"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "clap",
  "sha2 0.10.9",
@@ -877,21 +877,21 @@ dependencies = [
 
 [[package]]
 name = "mandate-audit"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "mandate-types",
 ]
 
 [[package]]
 name = "mandate-authorization"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "clap",
 ]
 
 [[package]]
 name = "mandate-authz"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "mandate-graph",
  "mandate-model",
@@ -901,7 +901,7 @@ dependencies = [
 
 [[package]]
 name = "mandate-client"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "mandate-proto",
  "mandate-types",
@@ -909,7 +909,7 @@ dependencies = [
 
 [[package]]
 name = "mandate-conformance"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "clap",
  "ess-conformance",
@@ -931,7 +931,7 @@ dependencies = [
 
 [[package]]
 name = "mandate-contract"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -939,7 +939,7 @@ dependencies = [
 
 [[package]]
 name = "mandate-control-plane"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "aws-lc-rs",
  "clap",
@@ -964,7 +964,7 @@ dependencies = [
 
 [[package]]
 name = "mandate-federation"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "aws-lc-rs",
  "jsonwebtoken",
@@ -982,7 +982,7 @@ dependencies = [
 
 [[package]]
 name = "mandate-graph"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "mandate-model",
  "mandate-types",
@@ -990,7 +990,7 @@ dependencies = [
 
 [[package]]
 name = "mandate-identity"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "mandate-contract",
  "mandate-model",
@@ -1002,7 +1002,7 @@ dependencies = [
 
 [[package]]
 name = "mandate-model"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "mandate-contract",
  "mandate-testkit",
@@ -1013,7 +1013,7 @@ dependencies = [
 
 [[package]]
 name = "mandate-policy"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "mandate-model",
  "mandate-types",
@@ -1021,7 +1021,7 @@ dependencies = [
 
 [[package]]
 name = "mandate-proto"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "mandate-model",
  "mandate-token",
@@ -1032,7 +1032,7 @@ dependencies = [
 
 [[package]]
 name = "mandate-provisioning"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "eventlog-core",
  "mandate-identity",
@@ -1042,7 +1042,7 @@ dependencies = [
 
 [[package]]
 name = "mandate-server"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "mandate-proto",
  "mandate-types",
@@ -1050,7 +1050,7 @@ dependencies = [
 
 [[package]]
 name = "mandate-sts"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "aws-lc-rs",
  "clap",
@@ -1067,7 +1067,7 @@ dependencies = [
 
 [[package]]
 name = "mandate-testkit"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "jsonschema",
  "mandate-authz",
@@ -1079,7 +1079,7 @@ dependencies = [
 
 [[package]]
 name = "mandate-token"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "aws-lc-rs",
  "jsonwebtoken",
@@ -1093,7 +1093,7 @@ dependencies = [
 
 [[package]]
 name = "mandate-types"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "mandate-contract",
  "serde",
@@ -1102,7 +1102,7 @@ dependencies = [
 
 [[package]]
 name = "mandate-worker"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "clap",
  "eventlog-core",
@@ -2091,7 +2091,7 @@ checksum = "1ebf944e87a7c253233ad6766e082e3cd714b5d03812acc24c318f549614536e"
 
 [[package]]
 name = "xtask"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "clap",
  "serde_json",

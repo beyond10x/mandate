@@ -14,13 +14,13 @@ release, after waves I, J and K.
 
 ## Where it stands
 
-`v0.5.1` is the latest release. Twelve waves have run — 1 to 3, then A to L. The federated-login road runs end
+`v0.6.0` is the latest release. Thirteen waves have run — 1 to 3, then A to M. The federated-login road runs end
 to end against the shipped binary: `mandate-control-plane serve` serves `/v1/federation/login`,
 `/oauth/authorize`, `/oauth/token`, `/oauth/introspect`, `/oauth/jwks` and
 `/.well-known/oauth-authorization-server`, a first login provisions a user just in time where the
 connection admits it, and a revoked link is not provisioned around.
 
-Measured at `0.5.1`: `task check` exit 0, 274 suites, 2,016 tests, 0 failed; 11 named mutants each
+Measured at `0.6.0`: `task check` exit 0, 286 suites, 2,119 tests, 0 failed; 11 named mutants each
 killed; 292 contract elements with 201 implemented; 166 conformance scenarios with 44 passed and 0
 error; 191 denial clauses with 85 decided on the real path.
 
@@ -29,11 +29,14 @@ clause was split). The account is `docs/plans/2026-09-23-waves-i-j-k-execution.m
 
 ## In flight right now
 
-Nothing. `main` holds 0.5.1; no integration branch is open. Wave L closed with its account in
-`docs/plans/2026-09-23-wave-l-execution.md`. The next batch is wave M, not yet proposed. Candidates
-with no blocker and typed scope: `control-plane-readable-instant`, `provisioning-replay-principal`
-(both `adapters.rs`, so sequenced), `seeding-repeated-external-principal-id` (also `adapters.rs`) and
-`numeric-shorthand-trailing-dot` (`verifier_real.rs`).
+Nothing. `main` holds 0.6.0; no integration branch is open. Wave M added an OIDC relying-party
+flow (`/v1/federation/authorize`, `/v1/federation/callback`, `/v1/federation/handoff`) and an RFC 8693
+token exchange at `/oauth/token`; its account is `docs/plans/2026-09-23-wave-m-execution.md`.
+Candidates for wave N with no blocker and typed scope: `control-plane-readable-instant`,
+`provisioning-replay-principal`, `seeding-repeated-external-principal-id` (all three on `adapters.rs`,
+so sequenced), `numeric-shorthand-trailing-dot`, `authorize-flood-eviction`, `listener-outbound-stall`.
+The gate pins `aep` 0.55.0; when the global binary is newer, build 0.55.0 into a private root and put
+it first on PATH for the gate.
 
 Left out of waves I–K and still undecided: `linked-event-method-unenforced` (its premise is
 contradicted by the connection seeding at `services/control-plane/src/adapters.rs:962-970`) and
