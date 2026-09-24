@@ -21,20 +21,20 @@ clap.workspace = true
 serde = { workspace = true }
 serde_json = { workspace = true }
 httparse = { workspace = true }
-mandate-types = { version = "0.5.1", path = "../../crates/mandate-types" }
-mandate-model = { version = "0.5.1", path = "../../crates/mandate-model" }
-mandate-authz = { version = "0.5.1", path = "../../crates/mandate-authz" }
-mandate-graph = { version = "0.5.1", path = "../../crates/mandate-graph" }
-mandate-policy = { version = "0.5.1", path = "../../crates/mandate-policy" }
-mandate-token = { version = "0.5.1", path = "../../crates/mandate-token" }
-mandate-identity = { version = "0.5.1", path = "../../crates/mandate-identity" }
-mandate-federation = { version = "0.5.1", path = "../../crates/mandate-federation" }
-mandate-server = { version = "0.5.1", path = "../../crates/mandate-server" }
-mandate-proto = { version = "0.5.1", path = "../../crates/mandate-proto" }
-mandate-sts = { version = "0.5.1", path = "../sts" }
-mandate-contract = { version = "0.5.1", path = "../../crates/mandate-contract" }
+mandate-types = { version = "0.6.0", path = "../../crates/mandate-types" }
+mandate-model = { version = "0.6.0", path = "../../crates/mandate-model" }
+mandate-authz = { version = "0.6.0", path = "../../crates/mandate-authz" }
+mandate-graph = { version = "0.6.0", path = "../../crates/mandate-graph" }
+mandate-policy = { version = "0.6.0", path = "../../crates/mandate-policy" }
+mandate-token = { version = "0.6.0", path = "../../crates/mandate-token" }
+mandate-identity = { version = "0.6.0", path = "../../crates/mandate-identity" }
+mandate-federation = { version = "0.6.0", path = "../../crates/mandate-federation" }
+mandate-server = { version = "0.6.0", path = "../../crates/mandate-server" }
+mandate-proto = { version = "0.6.0", path = "../../crates/mandate-proto" }
+mandate-sts = { version = "0.6.0", path = "../sts" }
+mandate-contract = { version = "0.6.0", path = "../../crates/mandate-contract" }
 
 [dev-dependencies]
-mandate-testkit = { version = "0.5.1", path = "../../crates/mandate-testkit" }
+mandate-testkit = { version = "0.6.0", path = "../../crates/mandate-testkit" }
 aws-lc-rs = { workspace = true }
 rand = { workspace = true }
