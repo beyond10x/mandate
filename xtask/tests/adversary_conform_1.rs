@@ -102,14 +102,15 @@ fn refusal(root: &Path, release: bool) -> String {
     }
 }
 
-/// The artifact and the journal as an AEP store really holds them.
+/// The artifact and its evidence as an AEP store really holds them.
 ///
-/// Measured, not invented. In every planning store on this machine that has recorded evidence
-/// about an `executable-system-specification`, the record is an `aep.evidence.record/v1` line
-/// in `journal.jsonl` carrying `{kind, reference, source}`, and the artifact markdown carries
-/// no evidence section at all — only a `model_digest:` key in its frontmatter, which is what
+/// Measured, not invented. `aep plan artifact evidence` (aep 0.69.1, `aep.project/5`) writes
+/// each record about an `executable-system-specification` as one file under
+/// `.engineering/evidence/executable-system-specification/<slug>/` carrying
+/// `change.{kind, source, reference}`, and the artifact markdown carries no evidence section at
+/// all — only a `model_digest:` key in its frontmatter, which is what
 /// `aep plan artifact set --model-digest` writes and the only digest the document holds. The
-/// string `spec_digest` appears in no store's journal and in no store's artifact.
+/// string `spec_digest` appears in no store's evidence and in no store's artifact.
 fn store_shaped_evidence(root: &Path, model_digest: &str) {
     // Coordinator amendment (ruling F1): the reference the record carries is what `--release`
     // decides the implementation has not moved since, so it names a commit this checkout holds
@@ -135,23 +136,18 @@ fn store_shaped_evidence(root: &Path, model_digest: &str) {
         ),
     )
     .expect("write the fixture artifact");
+    let evidence = root.join(".engineering/evidence/executable-system-specification/mandate");
+    fs::create_dir_all(&evidence).expect("the fixture evidence directory");
     fs::write(
-        planning.join("journal.jsonl"),
-        "{\"entity\":\"executable-system-specification\",\"version\":1,\"id\":\"mandate\",\
-         \"revision\":2,\"type\":\"aep.evidence.record/v1\",\"from_state\":\"validated\",\
-         \"to_state\":\"validated\",\"changed\":{},\"args\":{\"command\":\"record-evidence\",\
-         \"kind\":\"ess_conformance\",\"reference\":\"git:HEAD_SHA\",\
-         \"source\":\"cargo xtask conform\",\"target\":\"01MEM0000000000000001\"},\
-         \"payload\":{\"actor\":\"agent:wave-d\",\"at\":1789000000000,\
-         \"causation\":\"cmd-evidence-executable-system-specification-mandate-ess_conformance\",\
-         \"change\":{\"change\":\"evidence\",\"kind\":\"ess_conformance\",\
-         \"reference\":\"git:HEAD_SHA\",\"source\":\"cargo xtask conform\"},\
-         \"correlation\":\"protocol-artifact-evidence\",\
-         \"event_id\":\"executable-system-specification:mandate@2#0~0123456789abcdef\",\
-         \"executor\":null,\"recorded_at\":\"2026-09-21T00:00:00Z\"}}\n"
+        evidence.join("20260917T111320Z-000-0123456789ab.json"),
+        "{\n  \"at\": \"2026-09-17T11:13:20Z\",\n  \"actor\": \"agent:wave-d\",\n  \
+         \"artifact\": \"executable-system-specification:mandate\",\n  \
+         \"kind\": \"executable-system-specification\",\n  \"revision\": 2,\n  \
+         \"change\": {\n    \"change\": \"evidence\",\n    \"kind\": \"ess_conformance\",\n    \
+         \"source\": \"cargo xtask conform\",\n    \"reference\": \"git:HEAD_SHA\"\n  }\n}\n"
             .replace("HEAD_SHA", &head),
     )
-    .expect("write the fixture journal");
+    .expect("write the fixture evidence record");
 }
 
 /// `--release` reads the evidence the planning store writes, not a shape invented beside it.
@@ -170,7 +166,7 @@ fn release_reads_the_evidence_the_planning_store_actually_writes() {
     assert!(
         refusal.is_empty(),
         "the coordinator recorded this wave's conformance evidence exactly as ruling 3 says \
-         (`model_digest` on the artifact, an `aep.evidence.record/v1` line in the journal) and \
+         (`model_digest` on the artifact, a record file under `.engineering/evidence/`) and \
          `--release` refuses the tree it was taken against: {refusal}"
     );
 }

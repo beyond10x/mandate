@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:contract-shapes
 kind: story
 status: implemented
@@ -23,6 +23,10 @@ scope:
 - confidence: inferred
   path: xtask/tests/emit.rs
 revision: 14
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-19T00:37:11Z", actor: "human:timo", revision: 10, decided_on: {"recorded":{"review_outcome":3}}, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-19T00:37:12Z", actor: "human:timo", revision: 11, decided_on: {"recorded":{"review_outcome":3}}, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-19T02:18:18Z", actor: "human:timo", revision: 14, decided_on: {"recorded":{"test_result":1,"review_outcome":5}}, imported: true}
 ---
 ## Acceptance
 

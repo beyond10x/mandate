@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:check-api
 kind: story
 status: implemented
@@ -32,6 +32,10 @@ scope:
 - confidence: inferred
   path: crates/mandate-authz/tests/evaluate.rs
 revision: 21
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-18T21:19:29Z", actor: "human:timo", revision: 15, decided_on: {"recorded":{"review_outcome":2}}, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-18T21:19:30Z", actor: "human:timo", revision: 16, decided_on: {"recorded":{"review_outcome":2}}, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-18T22:52:04Z", actor: "human:timo", revision: 21, decided_on: {"recorded":{"test_result":1,"review_outcome":12}}, imported: true}
 ---
 # Implement stable PEP check semantics
 

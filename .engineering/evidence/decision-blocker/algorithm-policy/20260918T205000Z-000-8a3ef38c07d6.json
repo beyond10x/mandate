@@ -1,0 +1,13 @@
+{
+  "at": "2026-09-18T20:50:00Z",
+  "actor": "human:timo",
+  "artifact": "decision-blocker:algorithm-policy",
+  "kind": "decision-blocker",
+  "revision": 2,
+  "change": {
+    "change": "evidence",
+    "kind": "approval",
+    "source": "operator",
+    "reference": "decision-blocker:algorithm-policy#operator-decision-on-the-allowlist-2026-09-18"
+  }
+}

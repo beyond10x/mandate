@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:control-plane-loopback-fold
 kind: story
 status: implemented
@@ -15,6 +15,10 @@ scope:
 - confidence: cited
   path: services/control-plane/tests/adversary_host_spelling_1.rs
 revision: 8
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-23T00:39:29Z", actor: "human:timo", revision: 6, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-23T00:39:31Z", actor: "human:timo", revision: 7, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-23T07:31:47Z", actor: "human:timo", revision: 8, decided_on: {"recorded":{"test_result":1,"review_outcome":3}}, imported: true}
 ---
 # The control-plane's own loopback fold asks a different question from the one beside it
 

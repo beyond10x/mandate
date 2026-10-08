@@ -1,0 +1,14 @@
+{
+  "at": "2026-09-19T13:40:00Z",
+  "actor": "human:timo",
+  "artifact": "story:declared-writers",
+  "kind": "story",
+  "revision": 13,
+  "change": {
+    "change": "evidence",
+    "kind": "review_outcome",
+    "source": "review-result:wave-b-writers-realization-adversary-2",
+    "review": "review-result:wave-b-writers-realization-adversary-2",
+    "outcome": "fixed"
+  }
+}

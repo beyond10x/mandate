@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:folded-is-not-an-address-fold
 kind: story
 status: implemented
@@ -15,6 +15,10 @@ scope:
 - confidence: inferred
   path: crates/mandate-federation/tests/verifier_real.rs
 revision: 8
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-23T00:21:33Z", actor: "human:timo", revision: 5, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-23T00:21:35Z", actor: "human:timo", revision: 6, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-23T07:31:44Z", actor: "human:timo", revision: 8, decided_on: {"recorded":{"test_result":1,"review_outcome":4}}, imported: true}
 ---
 # `folded` agrees on names, and the two halves of the guard disagree on addresses
 

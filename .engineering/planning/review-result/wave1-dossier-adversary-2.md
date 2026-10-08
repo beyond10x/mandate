@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: review-result:wave1-dossier-adversary-2
 kind: review-result
 status: active

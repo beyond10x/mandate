@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:eventlog-repin-0-3-0
 kind: story
 status: implemented
@@ -15,6 +15,10 @@ scope:
 - confidence: cited
   path: deny.toml
 revision: 7
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-23T07:31:40Z", actor: "human:timo", revision: 5, decided_on: {"recorded":{"test_result":1}}, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-23T07:31:41Z", actor: "human:timo", revision: 6, decided_on: {"recorded":{"test_result":1}}, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-23T07:31:55Z", actor: "human:timo", revision: 7, decided_on: {"recorded":{"test_result":1}}, imported: true}
 ---
 # Repin the event log from 0.2.1 to 0.3.0
 

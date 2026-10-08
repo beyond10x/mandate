@@ -10,7 +10,7 @@ Use the Worktree skill and CLI; change source only in a managed checkout with an
 
 Use Connectors for integrations; report a missing operation before an alternative client. Organization commits and pushes use the existing Atlas bot publication path. Never bypass hooks or publish private policy, credentials or operator provenance.
 
-AEP 0.55.0 is the sole writer of `.engineering/planning`. ESS 0.26.0 `ess/4` in `systems/mandate` owns contracts; only ESS writes generated projections; ESS 0.26.0 refuses to overwrite output it does not own, so in a fresh checkout run `cargo xtask adopt` once before `cargo xtask generate`. Addendum refinements take precedence. See `docs/requirements.md` and `docs/architecture/unmapped.md`.
+AEP 0.69.1 (`aep.project/5`) is the sole writer of `.engineering/planning` and `.engineering/evidence`. ESS 0.26.0 `ess/4` in `systems/mandate` owns contracts; only ESS writes generated projections; ESS 0.26.0 refuses to overwrite output it does not own, so in a fresh checkout run `cargo xtask adopt` once before `cargo xtask generate`. Addendum refinements take precedence. See `docs/requirements.md` and `docs/architecture/unmapped.md`.
 
 No customer name and no name of the operator's employer enters this repository in any form — code, tests, fixtures, documents, planning-store artifacts, commit messages, pull requests, tags or release notes; use neutral terms such as "an external OIDC IdP" and "the downstream platform". The Gates private-identifiers check enforces it.
 

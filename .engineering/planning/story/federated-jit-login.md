@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:federated-jit-login
 kind: story
 status: implemented
@@ -13,6 +13,10 @@ scope:
 - confidence: cited
   path: services/control-plane/tests/serve.rs
 revision: 6
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-21T18:02:06Z", actor: "human:timo", revision: 4, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-21T18:02:07Z", actor: "human:timo", revision: 5, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-21T23:17:52Z", actor: "human:timo", revision: 6, decided_on: {"recorded":{"test_result":1}}, imported: true}
 ---
 # A user with no link logs in, and the link is made during that login
 

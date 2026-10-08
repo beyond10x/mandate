@@ -1,0 +1,13 @@
+{
+  "at": "2026-09-19T03:05:00Z",
+  "actor": "human:timo",
+  "artifact": "story:contract-shapes",
+  "kind": "story",
+  "revision": 13,
+  "change": {
+    "change": "evidence",
+    "kind": "test_result",
+    "source": "task check",
+    "reference": "git:67399bb42416e4b093c1ff81e44fa790ac912509"
+  }
+}

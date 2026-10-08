@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:contract-creates
 kind: story
 status: implemented
@@ -37,6 +37,10 @@ scope:
 - confidence: cited
   path: systems/mandate/domains/workload.yaml
 revision: 11
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-19T00:37:13Z", actor: "human:timo", revision: 4, decided_on: {"recorded":{"review_outcome":7}}, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-19T00:37:13Z", actor: "human:timo", revision: 5, decided_on: {"recorded":{"review_outcome":7}}, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-19T02:18:19Z", actor: "human:timo", revision: 11, decided_on: {"recorded":{"test_result":1,"review_outcome":9}}, imported: true}
 ---
 ## Acceptance
 

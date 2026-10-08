@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:credential-profiles
 kind: story
 status: implemented
@@ -56,6 +56,10 @@ scope:
 - confidence: inferred
   path: services/sts/tests/resolve.rs
 revision: 20
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-19T05:42:34Z", actor: "human:timo", revision: 14, decided_on: {"recorded":{"review_outcome":3}}, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-19T05:42:35Z", actor: "human:timo", revision: 15, decided_on: {"recorded":{"review_outcome":3}}, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-19T08:37:35Z", actor: "human:timo", revision: 18, decided_on: {"recorded":{"test_result":1,"review_outcome":7}}, imported: true}
 ---
 # Implement audience registry and both credential families
 

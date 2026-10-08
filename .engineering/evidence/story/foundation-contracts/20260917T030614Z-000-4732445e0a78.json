@@ -1,0 +1,13 @@
+{
+  "at": "2026-09-17T03:06:14Z",
+  "actor": "human:timo",
+  "artifact": "story:foundation-contracts",
+  "kind": "story",
+  "revision": 8,
+  "change": {
+    "change": "evidence",
+    "kind": "test_result",
+    "source": "task check with docs-ir; Docs System manifest validation and 26-file collection",
+    "reference": "docs/verification.md"
+  }
+}

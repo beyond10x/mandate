@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:road-lane-child-prints-address
 kind: story
 status: implemented
@@ -11,6 +11,10 @@ scope:
 - confidence: cited
   path: services/control-plane/tests/adversary_login_road.rs
 revision: 6
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-23T06:43:56Z", actor: "human:timo", revision: 4, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-23T06:43:57Z", actor: "human:timo", revision: 5, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-23T07:31:53Z", actor: "human:timo", revision: 6, decided_on: {"recorded":{"test_result":1,"review_outcome":3}}, imported: true}
 ---
 # The login-road lane still picks its child's port by dropping a listener
 

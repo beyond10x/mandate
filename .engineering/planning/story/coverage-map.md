@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:coverage-map
 kind: story
 status: implemented
@@ -49,6 +49,10 @@ scope:
 - confidence: cited
   path: xtask/tests/coverage.rs
 revision: 20
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-19T12:23:47Z", actor: "human:timo", revision: 12, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-19T12:23:48Z", actor: "human:timo", revision: 13, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-19T14:27:10Z", actor: "human:timo", revision: 20, decided_on: {"recorded":{"test_result":1,"review_outcome":4}}, imported: true}
 ---
 ## Acceptance
 

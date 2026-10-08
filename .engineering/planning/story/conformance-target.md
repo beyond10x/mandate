@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:conformance-target
 kind: story
 status: implemented
@@ -28,6 +28,10 @@ scope:
 - confidence: inferred
   path: crates/mandate-conformance/tests/target.rs
 revision: 27
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-19T12:23:51Z", actor: "human:timo", revision: 14, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-19T12:23:51Z", actor: "human:timo", revision: 15, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-19T21:50:33Z", actor: "human:timo", revision: 27, decided_on: {"recorded":{"test_result":1,"review_outcome":4}}, imported: true}
 ---
 ## Acceptance
 

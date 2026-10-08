@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:canonical-types
 kind: story
 status: implemented
@@ -25,6 +25,10 @@ scope:
 - confidence: cited
   path: dependency-boundaries.json
 revision: 13
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-17T00:56:47Z", actor: "human:timo", revision: 7, decided_on: {"recorded":{"review_outcome":2}}, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-18T01:59:19Z", actor: "human:timo", revision: 12, decided_on: {"recorded":{"review_outcome":3}}, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-18T06:32:02Z", actor: "human:timo", revision: 13, decided_on: {"recorded":{"test_result":2,"review_outcome":16}}, imported: true}
 ---
 # Realize accepted canonical Rust types
 

@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: architecture-design:foundations
 kind: architecture-design
 status: draft

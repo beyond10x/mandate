@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:tenancy-authority
 kind: story
 status: implemented
@@ -19,6 +19,10 @@ scope:
 - confidence: cited
   path: services/control-plane/tests/authority.rs
 revision: 18
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-22T06:31:22Z", actor: "human:timo", revision: 16, decided_on: {"recorded":{"test_result":1}}, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-22T06:31:23Z", actor: "human:timo", revision: 17, decided_on: {"recorded":{"test_result":1}}, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-22T06:31:24Z", actor: "human:timo", revision: 18, decided_on: {"recorded":{"test_result":1}}, imported: true}
 ---
 # An authority decision is composed above the domain crates
 

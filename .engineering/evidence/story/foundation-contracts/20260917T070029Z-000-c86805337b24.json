@@ -1,0 +1,13 @@
+{
+  "at": "2026-09-17T07:00:29Z",
+  "actor": "human:timo",
+  "artifact": "story:foundation-contracts",
+  "kind": "story",
+  "revision": 10,
+  "change": {
+    "change": "evidence",
+    "kind": "test_result",
+    "source": "task check in CI at c18586fe8273e40ba5fa22f42d398e86d4254c8e",
+    "reference": "https://github.com/beyond10x/mandate/actions/runs/35192209829"
+  }
+}

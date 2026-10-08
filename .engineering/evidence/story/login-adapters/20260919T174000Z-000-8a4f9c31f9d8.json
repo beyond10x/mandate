@@ -1,0 +1,13 @@
+{
+  "at": "2026-09-19T17:40:00Z",
+  "actor": "human:timo",
+  "artifact": "story:login-adapters",
+  "kind": "story",
+  "revision": 15,
+  "change": {
+    "change": "evidence",
+    "kind": "test_result",
+    "source": "task check",
+    "reference": "git:1d2c70d"
+  }
+}

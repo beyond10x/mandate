@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:enabled-for-issuer-filters-in-the-implementor
 kind: story
 status: implemented
@@ -21,6 +21,10 @@ scope:
 - confidence: inferred
   path: crates/mandate-federation/src/record.rs
 revision: 7
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-23T11:18:30Z", actor: "human:timo", revision: 5, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-23T11:18:32Z", actor: "human:timo", revision: 6, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-23T12:35:54Z", actor: "human:timo", revision: 7, decided_on: {"recorded":{"test_result":1,"review_outcome":4}}, imported: true}
 ---
 # `enabled_for_issuer` leaves its filter to the implementor
 

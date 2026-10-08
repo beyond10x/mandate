@@ -6,7 +6,7 @@
 //!
 //! The two subjects are the rules correction round 1 introduced: the `ess-inputs.yaml`
 //! `scenarios:` reader that decides whether `--scenarios` is passed, and the `--release`
-//! evidence rule that decides a tree on the store's journal and `git diff`.
+//! evidence rule that decides a tree on the store's evidence records and `git diff`.
 #![allow(dead_code)] // the binary target uses the whole of each module; a case here uses part.
 #[path = "../src/emit.rs"]
 mod emit;
@@ -643,11 +643,13 @@ fn the_release_rule_holds_the_tree_to_more_than_the_implementation_it_digests() 
     );
 }
 
-/// The artifact and the journal as an AEP store holds them, with one line per record.
+/// The artifact and its evidence as an AEP store holds them, with one file per record.
 ///
 /// The shape is the store's own: `aep plan artifact set --model-digest` writes `model_digest:`
-/// into the frontmatter, and `aep plan artifact evidence` appends an `aep.evidence.record/v1`
-/// line carrying `{kind, reference, source}` under `args`.
+/// into the frontmatter, and `aep plan artifact evidence` writes one
+/// `<instant>-<sequence>-<digest>.json` file per record under
+/// `.engineering/evidence/executable-system-specification/mandate/`, carrying
+/// `{kind, reference, source}` under `change`.
 fn write_store(root: &Path, model_digest: &str, records: &[(&str, String)]) {
     let planning = root.join(".engineering/planning");
     let directory = planning.join("executable-system-specification");
@@ -663,25 +665,30 @@ fn write_store(root: &Path, model_digest: &str, records: &[(&str, String)]) {
         ),
     )
     .expect("write the fixture artifact");
-    let mut journal = String::new();
+    let evidence = root.join(".engineering/evidence/executable-system-specification/mandate");
+    fs::create_dir_all(&evidence).expect("the fixture evidence directory");
     for (revision, (kind, reference)) in records.iter().enumerate() {
-        journal.push_str(&format!(
-            "{{\"entity\":\"executable-system-specification\",\"id\":\"mandate\",\
-             \"revision\":{},\"type\":\"aep.evidence.record/v1\",\
-             \"args\":{{\"command\":\"record-evidence\",\"kind\":\"{kind}\",\
-             \"reference\":\"{reference}\",\"source\":\"wave D\"}},\
-             \"payload\":{{\"at\":178900000000{revision},\
-             \"recorded_at\":\"2026-09-21T00:0{revision}:00Z\"}}}}\n",
-            revision + 2
-        ));
+        fs::write(
+            evidence.join(format!(
+                "20260921T000{revision}00Z-000-{revision:012x}.json"
+            )),
+            format!(
+                "{{\"at\":\"2026-09-21T00:0{revision}:00Z\",\"actor\":\"agent:wave-d\",\
+                 \"artifact\":\"executable-system-specification:mandate\",\
+                 \"kind\":\"executable-system-specification\",\"revision\":{},\
+                 \"change\":{{\"change\":\"evidence\",\"kind\":\"{kind}\",\
+                 \"source\":\"wave D\",\"reference\":\"{reference}\"}}}}\n",
+                revision + 2
+            ),
+        )
+        .expect("write the fixture evidence record");
     }
-    fs::write(planning.join("journal.jsonl"), journal).expect("write the fixture journal");
 }
 
 /// An approval is not a conformance run, and the release rule reads whichever came last.
 ///
-/// `latest_evidence` matches an `aep.evidence.record/v1` line on the entity, the id and the
-/// event type, and on nothing else — not on the `kind` the record carries. `aep plan artifact
+/// `latest_evidence` once matched an evidence record on the artifact it is about, and on
+/// nothing else — not on the `kind` the record carries. `aep plan artifact
 /// evidence` takes `--kind` free and `--ref` on every kind (this store already holds nine
 /// `approval` records carrying one), so a later record of any other kind supplies the commit
 /// the release is decided on. Here the conformance evidence is a wave old and an approval

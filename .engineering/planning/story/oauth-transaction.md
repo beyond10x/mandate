@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:oauth-transaction
 kind: story
 status: implemented
@@ -47,6 +47,10 @@ scope:
 - confidence: cited
   path: tests/security/cases.json
 revision: 9
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-19T09:01:38Z", actor: "human:timo", revision: 7, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-19T09:01:39Z", actor: "human:timo", revision: 8, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-19T11:26:13Z", actor: "human:timo", revision: 9, decided_on: {"recorded":{"test_result":1,"review_outcome":4}}, imported: true}
 ---
 # Issue and redeem authorization codes at the STS, behind ports
 

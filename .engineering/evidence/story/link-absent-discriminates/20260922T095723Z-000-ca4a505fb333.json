@@ -1,0 +1,12 @@
+{
+  "at": "2026-09-22T09:57:23Z",
+  "actor": "human:timo",
+  "artifact": "story:link-absent-discriminates",
+  "kind": "story",
+  "revision": 13,
+  "change": {
+    "change": "evidence",
+    "kind": "test_result",
+    "source": "task check on 9b3aeb1: exit 0, 250 suites, 1920 passed, 0 failed; mandate-federation 310, mandate-control-plane 138, mandate-conformance 41, 0 failed"
+  }
+}

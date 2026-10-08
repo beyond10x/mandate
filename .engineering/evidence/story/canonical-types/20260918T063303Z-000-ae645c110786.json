@@ -1,0 +1,12 @@
+{
+  "at": "2026-09-18T06:33:03Z",
+  "actor": "human:timo",
+  "artifact": "story:canonical-types",
+  "kind": "story",
+  "revision": 13,
+  "change": {
+    "change": "evidence",
+    "kind": "test_result",
+    "source": "task check exit 0 on integration head b1bd512 after the merge commits were re-made with bot authorship: 72 executed, 0 failed; boundaries, corpus, contracts, deny and aep validate each pass. Supersedes the record naming cd47045, which was discarded with the non-bot merges."
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "at": "2026-09-22T09:57:24Z",
+  "actor": "human:timo",
+  "artifact": "story:per-run-test-scratch",
+  "kind": "story",
+  "revision": 9,
+  "change": {
+    "change": "evidence",
+    "kind": "test_result",
+    "source": "task check on 9b3aeb1: exit 0, 250 suites, 1920 passed, 0 failed; cargo test -p mandate-control-plane --locked 150 executed 0 failed; four lanes at 4-way over ten rounds 3780 cases 0 failed"
+  }
+}

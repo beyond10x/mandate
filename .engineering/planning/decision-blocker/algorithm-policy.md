@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: decision-blocker:algorithm-policy
 kind: decision-blocker
 status: cleared
@@ -9,6 +9,8 @@ relations:
 - blocks: story:federation-linking
 - blocks: story:signing-and-verification
 revision: 3
+transitions:
+- {from: "open", to: "cleared", at: "2026-09-19T04:47:22Z", actor: "human:timo", revision: 3, decided_on: {"recorded":{"test_result":1,"approval":2}}, imported: true}
 ---
 SigningAlgorithm is a nominal name. Select and review a verifier-side algorithm/key allowlist; reject unconfigured names and untrusted token-header selection. The supplied sources do not settle the initial concrete set. No algorithm or numeric security behavior is invented to make this foundation compile.
 

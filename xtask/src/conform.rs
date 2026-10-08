@@ -61,9 +61,9 @@
 //! is what makes a doctored copy under `target/` the way this step's own failures are
 //! reproduced. The **planning store** is always this workspace's own — a copy must not be able
 //! to answer whether the story it names is still live — and so is the **compiled target
-//! binary**, which is this workspace's code under test. `--release` reads the artifact and the
-//! journal from **`root`** — the recorded evidence is a claim about the checkout under release
-//! — and runs `git` in the **checkout the implementation digest was taken over**
+//! binary**, which is this workspace's code under test. `--release` reads the artifact and its
+//! evidence records from **`root`** — the recorded evidence is a claim about the checkout under
+//! release — and runs `git` in the **checkout the implementation digest was taken over**
 //! (`Seams::sources`, this workspace in the wired gate), because what it decides is whether
 //! those sources have moved.
 use crate::emit;
@@ -1100,10 +1100,10 @@ fn rung(value: &str) -> String {
 ///
 /// Two things, and nothing that looks like them. `aep plan artifact set --model-digest` writes
 /// `model_digest:` into the artifact's **frontmatter**, and that is the only digest the
-/// document holds. `aep plan artifact evidence` appends an `aep.evidence.record/v1` line to
-/// `.engineering/planning/journal.jsonl` carrying the `--ref` it was given; the document
-/// carries no evidence section at all. A reader that scanned the prose for something
-/// digest-shaped read a paragraph as a record
+/// document holds. `aep plan artifact evidence` writes one JSON file per record under
+/// `.engineering/evidence/executable-system-specification/mandate/`, carrying the `--ref` it was
+/// given as `change.reference`; the document carries no evidence section at all. A reader that
+/// scanned the prose for something digest-shaped read a paragraph as a record
 /// (`review-result:wave-d-conform-gate-adversary-1` F1/F3).
 ///
 /// The reference is `git:<sha>`, and what it decides is whether the implementation has moved:
@@ -1135,28 +1135,28 @@ fn evidence(root: &Path, sources: &Path, specification: &str) -> Result<()> {
         .into());
     }
 
-    let journal = root.join(".engineering/planning/journal.jsonl");
-    let lines = fs::read_to_string(&journal).map_err(|e| {
+    let evidence_directory = root.join(EVIDENCE_DIRECTORY);
+    let records = evidence_records(&evidence_directory).map_err(|e| {
         format!(
-            "{}: {e}; the evidence a release is decided on is an aep.evidence.record/v1 line in \
-             the store's journal",
-            journal.display()
+            "{}: {e}; the evidence a release is decided on is a record file the store writes \
+             there",
+            evidence_directory.display()
         )
     })?;
-    let reference = latest_evidence(&lines).ok_or_else(|| {
+    let reference = latest_evidence(&records).ok_or_else(|| {
         format!(
             "{}: records no {CONFORMANCE_KIND} evidence for \
              executable-system-specification:mandate; `aep plan artifact evidence --kind \
              {CONFORMANCE_KIND} --source \'cargo xtask conform\' --ref git:<sha>` is what \
              records one",
-            journal.display()
+            evidence_directory.display()
         )
     })?;
     let commit = reference.strip_prefix("git:").ok_or_else(|| {
         format!(
             "{}: the latest {CONFORMANCE_KIND} evidence references {reference}, which names no \
              commit; a release is decided on `git:<sha>`",
-            journal.display()
+            evidence_directory.display()
         )
     })?;
 
@@ -1185,14 +1185,14 @@ fn evidence(root: &Path, sources: &Path, specification: &str) -> Result<()> {
         Some(1) => Err(format!(
             "{}: the latest {CONFORMANCE_KIND} evidence was taken at {commit} and the \
              implementation has moved since ({}); the recorded run is about other sources",
-            journal.display(),
+            evidence_directory.display(),
             IMPLEMENTATION.join(" ")
         )
         .into()),
         _ => Err(format!(
             "{}: the latest {CONFORMANCE_KIND} evidence references {reference}, which this \
              checkout cannot resolve: {}",
-            journal.display(),
+            evidence_directory.display(),
             String::from_utf8_lossy(&moved.stderr).trim()
         )
         .into()),
@@ -1231,38 +1231,65 @@ fn frontmatter(text: &str, key: &str) -> Option<String> {
     None
 }
 
-/// The reference of the **latest conformance** evidence record the journal holds for this
+/// Where `aep plan artifact evidence` writes the records about
+/// `executable-system-specification:mandate`, relative to the checkout root: one JSON file per
+/// record, named `<instant>-<sequence>-<digest>.json`.
+const EVIDENCE_DIRECTORY: &str = ".engineering/evidence/executable-system-specification/mandate";
+
+/// Every evidence record file in `directory`, as `(file name, text)`. A directory that does not
+/// exist holds no records, which is what a store that never recorded evidence looks like.
+fn evidence_records(directory: &Path) -> std::io::Result<Vec<(String, String)>> {
+    let entries = match fs::read_dir(directory) {
+        Ok(entries) => entries,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(e) => return Err(e),
+    };
+    let mut records = Vec::new();
+    for entry in entries {
+        let path = entry?.path();
+        if path.extension().is_none_or(|extension| extension != "json") {
+            continue;
+        }
+        let name = path
+            .file_name()
+            .map(|name| name.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        records.push((name, fs::read_to_string(&path)?));
+    }
+    Ok(records)
+}
+
+/// The reference of the **latest conformance** evidence record the store holds for this
 /// artifact.
 ///
-/// Three filters, and each one is load-bearing. The entity, the id and the event type say the
-/// record is about this artifact; `args.kind` says it is a conformance run, because
+/// Three filters, and each one is load-bearing. `artifact` and `change.change` say the record
+/// is evidence about this artifact; `change.kind` says it is a conformance run, because
 /// `aep plan artifact evidence` takes `--kind` free and `--ref` on every kind, so an approval
 /// recorded afterwards would otherwise supply the commit a release is decided on. And the
-/// latest is chosen by `payload.at`, the instant the recorder wrote, rather than by file order:
-/// the journal is append-only today, and a rule that depends on that is a rule that breaks the
-/// day a store is compacted (`review-result:wave-d-conform-gate-adversary-2` F5).
-fn latest_evidence(lines: &str) -> Option<String> {
-    let mut latest: Option<(i64, String)> = None;
-    for line in lines.lines() {
-        let Ok(event) = serde_json::from_str::<Value>(line) else {
+/// latest is chosen by the record's file name, `<instant>-<sequence>-<digest>.json`, whose
+/// fixed-width UTC instant and sequence the store derives from `at` and from the order of
+/// records sharing that instant. Directory order is never used: `read_dir` promises none
+/// (`review-result:wave-d-conform-gate-adversary-2` F5).
+fn latest_evidence(records: &[(String, String)]) -> Option<String> {
+    let mut latest: Option<(&str, String)> = None;
+    for (name, text) in records {
+        let Ok(record) = serde_json::from_str::<Value>(text) else {
             continue;
         };
-        if event["entity"] != "executable-system-specification"
-            || event["id"] != "mandate"
-            || event["type"] != "aep.evidence.record/v1"
-            || event["args"]["kind"] != CONFORMANCE_KIND
+        if record["artifact"] != "executable-system-specification:mandate"
+            || record["change"]["change"] != "evidence"
+            || record["change"]["kind"] != CONFORMANCE_KIND
         {
             continue;
         }
-        let Some(reference) = event["args"]["reference"]
-            .as_str()
-            .or_else(|| event["payload"]["change"]["reference"].as_str())
-        else {
+        let Some(reference) = record["change"]["reference"].as_str() else {
             continue;
         };
-        let at = event["payload"]["at"].as_i64().unwrap_or_default();
-        if latest.as_ref().is_none_or(|(newest, _)| at >= *newest) {
-            latest = Some((at, reference.to_owned()));
+        if latest
+            .as_ref()
+            .is_none_or(|(newest, _)| name.as_str() >= *newest)
+        {
+            latest = Some((name.as_str(), reference.to_owned()));
         }
     }
     latest.map(|(_, reference)| reference)

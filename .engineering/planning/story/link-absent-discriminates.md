@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:link-absent-discriminates
 kind: story
 status: implemented
@@ -25,6 +25,10 @@ scope:
 - confidence: cited
   path: services/control-plane/src/adapters.rs
 revision: 14
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-22T08:44:39Z", actor: "human:timo", revision: 9, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-22T08:44:40Z", actor: "human:timo", revision: 10, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-22T09:57:27Z", actor: "human:timo", revision: 14, decided_on: {"recorded":{"test_result":1,"review_outcome":2}}, imported: true}
 ---
 # LinkAbsent stands for two conditions and one of them may create a record
 

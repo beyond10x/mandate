@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:provisioning-replay-principal
 kind: story
 status: draft

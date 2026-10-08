@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:obligation-registry
 kind: story
 status: implemented
@@ -21,6 +21,10 @@ scope:
 - confidence: cited
   path: xtask/tests/obligations_registry.rs
 revision: 22
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-19T19:06:45Z", actor: "human:timo", revision: 14, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-19T19:06:46Z", actor: "human:timo", revision: 15, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-21T00:00:44Z", actor: "human:timo", revision: 22, decided_on: {"recorded":{"test_result":1,"review_outcome":2}}, imported: true}
 ---
 ## Acceptance
 

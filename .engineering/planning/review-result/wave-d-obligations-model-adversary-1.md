@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: review-result:wave-d-obligations-model-adversary-1
 kind: review-result
 status: active

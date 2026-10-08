@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:mutation-controls
 kind: story
 status: implemented
@@ -19,6 +19,10 @@ scope:
 - confidence: inferred
   path: xtask/tests/mutants.rs
 revision: 19
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-19T12:23:57Z", actor: "human:timo", revision: 9, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-19T12:23:58Z", actor: "human:timo", revision: 10, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-19T21:50:35Z", actor: "human:timo", revision: 16, decided_on: {"recorded":{"test_result":1,"review_outcome":4}}, imported: true}
 ---
 ## Acceptance
 

@@ -1,0 +1,14 @@
+{
+  "at": "2026-09-19T22:30:00Z",
+  "actor": "human:timo",
+  "artifact": "story:conformance-target",
+  "kind": "story",
+  "revision": 24,
+  "change": {
+    "change": "evidence",
+    "kind": "review_outcome",
+    "source": "review-result:wave-d-conformance-target-adversary-2",
+    "review": "review-result:wave-d-conformance-target-adversary-2",
+    "outcome": "fixed"
+  }
+}

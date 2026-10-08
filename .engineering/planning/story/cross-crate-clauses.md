@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:cross-crate-clauses
 kind: story
 status: implemented
@@ -36,6 +36,10 @@ scope:
 - confidence: cited
   path: xtask/tests/obligations_registry.rs
 revision: 17
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-23T06:48:07Z", actor: "human:timo", revision: 12, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-23T06:48:08Z", actor: "human:timo", revision: 13, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-23T07:31:51Z", actor: "human:timo", revision: 17, decided_on: {"recorded":{"test_result":1,"review_outcome":7}}, imported: true}
 ---
 ## Why
 

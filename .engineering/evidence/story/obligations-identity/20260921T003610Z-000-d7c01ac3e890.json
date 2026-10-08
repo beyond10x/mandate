@@ -1,0 +1,14 @@
+{
+  "at": "2026-09-21T00:36:10Z",
+  "actor": "human:timo",
+  "artifact": "story:obligations-identity",
+  "kind": "story",
+  "revision": 5,
+  "change": {
+    "change": "evidence",
+    "kind": "review_outcome",
+    "source": "review-result:wave-d-obligations-identity-adversary-1",
+    "review": "review-result:wave-d-obligations-identity-adversary-1",
+    "outcome": "fixed"
+  }
+}
