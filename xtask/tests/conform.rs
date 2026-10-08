@@ -5,7 +5,7 @@
 //! proved about the same suite, the same target binary, the same two ledgers and the same
 //! stories the gate reads. Every red case copies what the step reads from a root —
 //! `systems/mandate`, `generated/{conformance,schema,coverage}`, `contracts/` and, for the
-//! release cases, the AEP artifact and the journal — into a scratch root under `target/`,
+//! release cases, the AEP artifact and its evidence records — into a scratch root under `target/`,
 //! changes exactly one thing, and drives the same entry point at that root.
 //!
 //! # The three seams, and why the cases need them
@@ -726,8 +726,9 @@ fn head() -> String {
     String::from_utf8_lossy(&out.stdout).trim().to_owned()
 }
 
-/// The artifact and the journal as an AEP store holds them: `model_digest` in the document's
-/// frontmatter, and the evidence itself as an `aep.evidence.record/v1` line in `journal.jsonl`.
+/// The artifact and its evidence as an AEP store holds them: `model_digest` in the document's
+/// frontmatter, and the evidence itself as one record file under
+/// `.engineering/evidence/executable-system-specification/mandate/`.
 fn write_evidence(root: &Path, model_digest: &str, reference: &str) {
     let planning = root.join(".engineering/planning");
     let directory = planning.join("executable-system-specification");
@@ -748,33 +749,68 @@ fn write_evidence(root: &Path, model_digest: &str, reference: &str) {
     } else {
         vec![("ess_conformance", reference.to_owned(), 1_789_000_000_000)]
     };
-    journal(root, &records);
+    evidence_files(root, &records);
 }
 
-/// The artifact, and a journal holding one `aep.evidence.record/v1` line per record.
+/// The artifact, and one evidence record file per record.
 ///
 /// The shape is the store's own, measured by recording evidence into a scratch copy of this
-/// store with `aep plan artifact evidence --kind … --source … --ref git:<sha> --at <instant>`:
-/// `args.{kind,reference,source}` and `payload.at`.
+/// store with `aep plan artifact evidence --kind … --source … --ref git:<sha> --at <instant>`
+/// (aep 0.69.1): a file `<instant>-<sequence>-<digest>.json` holding `at`, `artifact` and
+/// `change.{change,kind,source,reference}`. The `i64` of each record is its instant, in
+/// milliseconds; the store writes whole seconds.
 fn write_records(root: &Path, model_digest: &str, records: &[(&str, String, i64)]) {
     write_evidence(root, model_digest, "");
-    journal(root, records);
+    evidence_files(root, records);
 }
 
-fn journal(root: &Path, records: &[(&str, String, i64)]) {
-    let mut lines = String::new();
-    for (revision, (kind, reference, at)) in records.iter().enumerate() {
-        lines.push_str(&format!(
-            "{{\"entity\":\"executable-system-specification\",\"id\":\"mandate\",\
-             \"revision\":{},\"type\":\"aep.evidence.record/v1\",\
-             \"args\":{{\"command\":\"record-evidence\",\"kind\":\"{kind}\",\
-             \"reference\":\"{reference}\",\"source\":\"cargo xtask conform\"}},\
-             \"payload\":{{\"at\":{at},\"recorded_at\":\"2026-09-21T00:00:00Z\"}}}}\n",
-            revision + 2
-        ));
+fn evidence_files(root: &Path, records: &[(&str, String, i64)]) {
+    let directory = root.join(".engineering/evidence/executable-system-specification/mandate");
+    if directory.exists() {
+        fs::remove_dir_all(&directory).expect("clear the fixture evidence");
     }
-    fs::write(root.join(".engineering/planning/journal.jsonl"), lines)
-        .expect("write the fixture journal");
+    fs::create_dir_all(&directory).expect("the fixture evidence directory");
+    for (sequence, (kind, reference, at)) in records.iter().enumerate() {
+        let instant = utc(at.div_euclid(1_000));
+        let name = format!(
+            "{}-{sequence:03}-{sequence:012x}.json",
+            instant.replace(['-', ':'], "")
+        );
+        fs::write(
+            directory.join(name),
+            format!(
+                "{{\"at\":\"{instant}\",\"actor\":\"human:fixture\",\
+                 \"artifact\":\"executable-system-specification:mandate\",\
+                 \"kind\":\"executable-system-specification\",\"revision\":{},\
+                 \"change\":{{\"change\":\"evidence\",\"kind\":\"{kind}\",\
+                 \"source\":\"cargo xtask conform\",\"reference\":\"{reference}\"}}}}\n",
+                sequence + 2
+            ),
+        )
+        .expect("write the fixture evidence record");
+    }
+}
+
+/// `seconds` since the Unix epoch as the store writes an instant: `YYYY-MM-DDTHH:MM:SSZ`.
+fn utc(seconds: i64) -> String {
+    let days = seconds.div_euclid(86_400);
+    let rest = seconds.rem_euclid(86_400);
+    // Civil date from days since 1970-01-01 (Howard Hinnant's algorithm).
+    let z = days + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z - era * 146_097;
+    let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let day = doy - (153 * mp + 2) / 5 + 1;
+    let month = if mp < 10 { mp + 3 } else { mp - 9 };
+    let year = yoe + era * 400 + i64::from(month <= 2);
+    format!(
+        "{year:04}-{month:02}-{day:02}T{:02}:{:02}:{:02}Z",
+        rest / 3_600,
+        rest % 3_600 / 60,
+        rest % 60
+    )
 }
 
 fn spec_digest(root: &Path) -> String {
@@ -814,13 +850,13 @@ fn release_refuses_a_model_digest_that_is_not_the_suites() {
 
 /// `--release` on a tree whose artifact carries no evidence record at all.
 #[test]
-fn release_refuses_when_the_journal_records_no_evidence() {
+fn release_refuses_when_the_store_records_no_evidence() {
     let root = fixture("no-evidence-record");
     write_evidence(&root, &spec_digest(&root), "");
     let error = failure(&root, true);
     assert!(
-        error.contains("journal.jsonl"),
-        "the refusal names the journal the evidence is recorded in: {error}"
+        error.contains(".engineering/evidence/executable-system-specification/mandate"),
+        "the refusal names the directory the evidence is recorded in: {error}"
     );
 }
 
