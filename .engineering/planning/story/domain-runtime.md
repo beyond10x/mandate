@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:domain-runtime
 kind: story
 status: implemented
@@ -54,6 +54,10 @@ scope:
 - confidence: cited
   path: tests/security/cases.json
 revision: 15
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-18T17:29:20Z", actor: "human:timo", revision: 12, decided_on: {"recorded":{"review_outcome":3}}, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-18T17:29:21Z", actor: "human:timo", revision: 13, decided_on: {"recorded":{"review_outcome":3}}, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-18T18:52:44Z", actor: "human:timo", revision: 15, decided_on: {"recorded":{"test_result":1,"review_outcome":23}}, imported: true}
 ---
 # Settle remaining domain lifecycle contracts
 

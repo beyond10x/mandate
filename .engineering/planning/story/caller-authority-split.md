@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:caller-authority-split
 kind: story
 status: implemented
@@ -24,6 +24,10 @@ scope:
 - confidence: cited
   path: contracts/obligations/sts.json
 revision: 11
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-21T14:44:06Z", actor: "human:timo", revision: 9, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-21T14:44:07Z", actor: "human:timo", revision: 10, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-22T06:31:20Z", actor: "human:timo", revision: 11, decided_on: {"recorded":{"test_result":1}}, imported: true}
 ---
 # Which caller-authority clauses a fold can decide
 

@@ -1,0 +1,13 @@
+{
+  "at": "2026-09-19T08:40:15Z",
+  "actor": "human:timo",
+  "artifact": "story:declared-writers",
+  "kind": "story",
+  "revision": 13,
+  "change": {
+    "change": "evidence",
+    "kind": "test_result",
+    "source": "task check (same tree as git:f86a485c, rebased onto the bot-only lineage before publication)",
+    "reference": "git:b663c74"
+  }
+}

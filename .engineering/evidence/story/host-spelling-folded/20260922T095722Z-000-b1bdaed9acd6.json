@@ -1,0 +1,12 @@
+{
+  "at": "2026-09-22T09:57:22Z",
+  "actor": "human:timo",
+  "artifact": "story:host-spelling-folded",
+  "kind": "story",
+  "revision": 8,
+  "change": {
+    "change": "evidence",
+    "kind": "test_result",
+    "source": "task check on 9b3aeb1: exit 0, 250 suites, 1920 passed, 0 failed; cargo test -p mandate-federation --locked 309 executed 0 failed"
+  }
+}

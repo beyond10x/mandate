@@ -1,0 +1,14 @@
+{
+  "at": "2026-09-19T01:29:31Z",
+  "actor": "human:timo",
+  "artifact": "story:contract-creates",
+  "kind": "story",
+  "revision": 9,
+  "change": {
+    "change": "evidence",
+    "kind": "review_outcome",
+    "source": "review-result:wave-e-contract-creates-adversary-1",
+    "review": "review-result:wave-e-contract-creates-adversary-1",
+    "outcome": "fixed"
+  }
+}

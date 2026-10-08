@@ -1,0 +1,14 @@
+{
+  "at": "2026-09-17T00:45:52Z",
+  "actor": "human:timo",
+  "artifact": "specification:combined",
+  "kind": "specification",
+  "revision": 1,
+  "change": {
+    "change": "evidence",
+    "kind": "review_outcome",
+    "source": "review-result:scope-round-1",
+    "review": "review-result:scope-round-1",
+    "outcome": "fixed"
+  }
+}

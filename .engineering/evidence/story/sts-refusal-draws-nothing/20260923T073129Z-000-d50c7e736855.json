@@ -1,0 +1,12 @@
+{
+  "at": "2026-09-23T07:31:29Z",
+  "actor": "human:timo",
+  "artifact": "story:sts-refusal-draws-nothing",
+  "kind": "story",
+  "revision": 8,
+  "change": {
+    "change": "evidence",
+    "kind": "test_result",
+    "source": "cargo xtask check on 38b4af9: exit 0, 267 suites, 1991 passed, 0 failed, 11 named mutants killed; obligations 191 clauses, 85 real"
+  }
+}

@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:bracketed-literal-trailing-dot
 kind: story
 status: implemented
@@ -15,6 +15,10 @@ scope:
 - confidence: cited
   path: crates/mandate-federation/tests/verifier_real.rs
 revision: 5
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-23T11:18:24Z", actor: "human:timo", revision: 3, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-23T11:18:26Z", actor: "human:timo", revision: 4, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-23T12:35:44Z", actor: "human:timo", revision: 5, decided_on: {"recorded":{"test_result":1}}, imported: true}
 ---
 # A bracketed issuer literal with a trailing dot is admitted and cannot be fetched
 

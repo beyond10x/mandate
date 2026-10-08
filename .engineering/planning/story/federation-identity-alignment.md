@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:federation-identity-alignment
 kind: story
 status: implemented
@@ -47,6 +47,10 @@ scope:
 - confidence: inferred
   path: crates/mandate-identity/tests/replay.rs
 revision: 17
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-19T03:06:36Z", actor: "human:timo", revision: 12, decided_on: {"recorded":{"review_outcome":2}}, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-19T03:06:37Z", actor: "human:timo", revision: 13, decided_on: {"recorded":{"review_outcome":2}}, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-19T04:47:19Z", actor: "human:timo", revision: 17, decided_on: {"recorded":{"test_result":1,"review_outcome":4}}, imported: true}
 ---
 ## Acceptance
 

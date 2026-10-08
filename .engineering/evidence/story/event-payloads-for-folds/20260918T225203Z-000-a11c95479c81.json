@@ -1,0 +1,13 @@
+{
+  "at": "2026-09-18T22:52:03Z",
+  "actor": "human:timo",
+  "artifact": "story:event-payloads-for-folds",
+  "kind": "story",
+  "revision": 12,
+  "change": {
+    "change": "evidence",
+    "kind": "test_result",
+    "source": "task check",
+    "reference": "333a1de"
+  }
+}

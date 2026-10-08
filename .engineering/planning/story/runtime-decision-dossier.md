@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:runtime-decision-dossier
 kind: story
 status: implemented
@@ -17,6 +17,10 @@ scope:
 - confidence: inferred
   path: docs/architecture/unmapped.md
 revision: 10
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-18T01:59:18Z", actor: "human:timo", revision: 8, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-18T01:59:19Z", actor: "human:timo", revision: 9, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-18T06:32:02Z", actor: "human:timo", revision: 10, decided_on: {"recorded":{"test_result":1,"review_outcome":17}}, imported: true}
 ---
 # Prepare the runtime decision dossier without clearing blockers
 

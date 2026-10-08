@@ -1,0 +1,13 @@
+{
+  "at": "2026-09-19T11:26:11Z",
+  "actor": "human:timo",
+  "artifact": "story:declared-writers",
+  "kind": "story",
+  "revision": 17,
+  "change": {
+    "change": "evidence",
+    "kind": "test_result",
+    "source": "task check",
+    "reference": "git:658f396"
+  }
+}

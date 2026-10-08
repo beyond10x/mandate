@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:declared-writers
 kind: story
 status: active
@@ -57,6 +57,9 @@ scope:
 - confidence: cited
   path: systems/mandate/domains/workload.yaml
 revision: 22
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-19T05:42:36Z", actor: "human:timo", revision: 11, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-19T05:42:37Z", actor: "human:timo", revision: 12, imported: true}
 ---
 # Every record has a declared writer
 

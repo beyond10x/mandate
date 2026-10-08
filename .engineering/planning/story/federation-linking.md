@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:federation-linking
 kind: story
 status: implemented
@@ -35,6 +35,10 @@ scope:
 - confidence: cited
   path: crates/mandate-federation/tests/verifier.rs
 revision: 34
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-18T18:53:44Z", actor: "human:timo", revision: 8, decided_on: {"recorded":{"review_outcome":5}}, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-18T18:53:45Z", actor: "human:timo", revision: 9, decided_on: {"recorded":{"review_outcome":5}}, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-18T20:22:10Z", actor: "human:timo", revision: 32, decided_on: {"recorded":{"test_result":1,"review_outcome":23}}, imported: true}
 ---
 # Implement verified federation and explicit linking
 

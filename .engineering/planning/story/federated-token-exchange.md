@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:federated-token-exchange
 kind: story
 status: implemented
@@ -23,6 +23,10 @@ scope:
 - confidence: inferred
   path: services/sts/src/lib.rs
 revision: 6
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-23T15:17:10Z", actor: "human:timo", revision: 3, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-23T15:17:13Z", actor: "human:timo", revision: 4, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-23T21:34:46Z", actor: "human:timo", revision: 6, decided_on: {"recorded":{"test_result":1,"review_outcome":11}}, imported: true}
 ---
 # A session is exchanged for a credential another platform accepts
 

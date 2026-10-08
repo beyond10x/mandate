@@ -1,0 +1,13 @@
+{
+  "at": "2026-09-19T06:55:00Z",
+  "actor": "human:timo",
+  "artifact": "story:federation-identity-alignment",
+  "kind": "story",
+  "revision": 16,
+  "change": {
+    "change": "evidence",
+    "kind": "test_result",
+    "source": "task check",
+    "reference": "git:2fc2cac5f5fffad9089b3bf3cf3f61cb542a3a86"
+  }
+}

@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:served-login-end-to-end
 kind: story
 status: implemented
@@ -18,6 +18,10 @@ scope:
 - confidence: cited
   path: services/control-plane/tests/end_to_end.rs
 revision: 8
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-21T18:21:27Z", actor: "human:timo", revision: 6, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-21T18:21:29Z", actor: "human:timo", revision: 7, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-21T23:17:54Z", actor: "human:timo", revision: 8, decided_on: {"recorded":{"test_result":2}}, imported: true}
 ---
 # The spawned binary completes one login against a real issuer
 

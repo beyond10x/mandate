@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:jit-principal-record
 kind: story
 status: implemented
@@ -23,6 +23,10 @@ scope:
 - confidence: cited
   path: services/control-plane/tests/serve.rs
 revision: 12
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-22T08:44:47Z", actor: "human:timo", revision: 8, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-22T08:44:48Z", actor: "human:timo", revision: 9, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-23T07:31:43Z", actor: "human:timo", revision: 12, decided_on: {"recorded":{"test_result":1,"review_outcome":2}}, imported: true}
 ---
 # A just-in-time login mints a principal nothing records
 

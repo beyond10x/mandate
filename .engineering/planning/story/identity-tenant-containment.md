@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:identity-tenant-containment
 kind: story
 status: implemented
@@ -24,6 +24,10 @@ scope:
 - confidence: cited
   path: crates/mandate-identity/tests/adversary_obligations_identity_1.rs
 revision: 8
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-23T05:54:31Z", actor: "human:timo", revision: 4, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-23T05:54:32Z", actor: "human:timo", revision: 5, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-23T07:31:48Z", actor: "human:timo", revision: 8, decided_on: {"recorded":{"test_result":1,"review_outcome":3}}, imported: true}
 ---
 ## Why
 

@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:gate-reads-document-deliverables
 kind: story
 status: implemented
@@ -18,6 +18,10 @@ scope:
 - confidence: inferred
   path: xtask/tests/documents.rs
 revision: 9
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-18T21:19:32Z", actor: "human:timo", revision: 5, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-18T21:19:33Z", actor: "human:timo", revision: 6, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-18T22:52:07Z", actor: "human:timo", revision: 9, decided_on: {"recorded":{"test_result":1,"review_outcome":22}}, imported: true}
 ---
 ## Acceptance
 

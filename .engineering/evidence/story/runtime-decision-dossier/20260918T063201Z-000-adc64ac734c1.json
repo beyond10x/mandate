@@ -1,0 +1,12 @@
+{
+  "at": "2026-09-18T06:32:01Z",
+  "actor": "human:timo",
+  "artifact": "story:runtime-decision-dossier",
+  "kind": "story",
+  "revision": 9,
+  "change": {
+    "change": "evidence",
+    "kind": "test_result",
+    "source": "task check exit 0 on merged integration head cd47045: 45 test targets + 14 doctest lanes, 72 executed, 0 failed, 0 ignored; boundaries 20 packages, corpus 47 scenarios, contracts deterministic, deny ok, aep validate valid, executable scaffold refusals pass"
+  }
+}

@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:control-plane-multi-fold-writes
 kind: story
 status: implemented
@@ -11,6 +11,10 @@ scope:
 - confidence: cited
   path: services/control-plane/src/adapters.rs
 revision: 5
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-23T11:18:27Z", actor: "human:timo", revision: 3, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-23T11:18:29Z", actor: "human:timo", revision: 4, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-23T12:35:49Z", actor: "human:timo", revision: 5, decided_on: {"recorded":{"test_result":1,"review_outcome":2}}, imported: true}
 ---
 # A control-plane command that writes several folds keeps the earlier writes when a later one is refused
 

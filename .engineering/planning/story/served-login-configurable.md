@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:served-login-configurable
 kind: story
 status: implemented
@@ -15,6 +15,10 @@ scope:
 - confidence: cited
   path: services/control-plane/tests/serve.rs
 revision: 7
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-21T17:42:09Z", actor: "human:timo", revision: 5, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-21T17:42:10Z", actor: "human:timo", revision: 6, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-21T23:17:44Z", actor: "human:timo", revision: 7, decided_on: {"recorded":{"test_result":1}}, imported: true}
 ---
 # The served deployment can be given a connection and a key
 

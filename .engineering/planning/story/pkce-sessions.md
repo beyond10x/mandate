@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:pkce-sessions
 kind: story
 status: implemented
@@ -38,6 +38,10 @@ scope:
 - confidence: inferred
   path: crates/mandate-federation/tests/publicclient.rs
 revision: 22
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-18T21:19:30Z", actor: "human:timo", revision: 16, decided_on: {"recorded":{"review_outcome":5}}, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-18T21:19:31Z", actor: "human:timo", revision: 17, decided_on: {"recorded":{"review_outcome":5}}, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-18T22:52:05Z", actor: "human:timo", revision: 22, decided_on: {"recorded":{"test_result":1,"review_outcome":23}}, imported: true}
 ---
 # Implement public-client authentication and sessions
 

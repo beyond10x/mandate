@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:host-spelling-folded
 kind: story
 status: implemented
@@ -15,6 +15,10 @@ scope:
 - confidence: cited
   path: crates/mandate-federation/tests/verifier_real.rs
 revision: 9
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-22T08:44:41Z", actor: "human:timo", revision: 6, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-22T08:44:42Z", actor: "human:timo", revision: 7, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-22T09:57:26Z", actor: "human:timo", revision: 9, decided_on: {"recorded":{"test_result":1,"review_outcome":2}}, imported: true}
 ---
 # Every spelling of a host is folded before both checks, not before one
 

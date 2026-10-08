@@ -1,0 +1,13 @@
+{
+  "at": "2026-09-18T12:30:00Z",
+  "actor": "human:timo",
+  "artifact": "decision-blocker:lifecycle",
+  "kind": "decision-blocker",
+  "revision": 1,
+  "change": {
+    "change": "evidence",
+    "kind": "approval",
+    "source": "operator, interactive session 2026-09-18",
+    "reference": "docs/architecture/federated-login.md"
+  }
+}

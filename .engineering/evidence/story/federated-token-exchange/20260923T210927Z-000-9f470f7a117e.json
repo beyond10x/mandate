@@ -1,0 +1,14 @@
+{
+  "at": "2026-09-23T21:09:27Z",
+  "actor": "human:timo",
+  "artifact": "story:federated-token-exchange",
+  "kind": "story",
+  "revision": 5,
+  "change": {
+    "change": "evidence",
+    "kind": "review_outcome",
+    "source": "review-result:wm-m2-exchange-adversary-2",
+    "review": "review-result:wm-m2-exchange-adversary-2",
+    "outcome": "fixed"
+  }
+}

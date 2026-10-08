@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:federation-rule-disjointness
 kind: story
 status: implemented
@@ -24,6 +24,10 @@ scope:
 - confidence: cited
   path: systems/mandate/scenarios/federation-ambiguous-tenant.yaml
 revision: 9
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-23T06:01:25Z", actor: "human:timo", revision: 5, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-23T06:01:27Z", actor: "human:timo", revision: 6, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-23T07:31:49Z", actor: "human:timo", revision: 9, decided_on: {"recorded":{"test_result":1,"review_outcome":4}}, imported: true}
 ---
 ## Why
 

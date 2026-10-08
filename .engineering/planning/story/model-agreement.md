@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:model-agreement
 kind: story
 status: implemented
@@ -27,6 +27,10 @@ scope:
 - confidence: inferred
   path: crates/mandate-types/tests/inventory.rs
 revision: 14
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-19T03:06:38Z", actor: "human:timo", revision: 9, decided_on: {"recorded":{"review_outcome":2}}, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-19T03:06:38Z", actor: "human:timo", revision: 10, decided_on: {"recorded":{"review_outcome":2}}, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-19T04:47:21Z", actor: "human:timo", revision: 14, decided_on: {"recorded":{"test_result":1,"review_outcome":4}}, imported: true}
 ---
 ## Acceptance
 

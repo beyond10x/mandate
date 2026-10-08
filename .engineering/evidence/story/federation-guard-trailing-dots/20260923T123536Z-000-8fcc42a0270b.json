@@ -1,0 +1,12 @@
+{
+  "at": "2026-09-23T12:35:36Z",
+  "actor": "human:timo",
+  "artifact": "story:federation-guard-trailing-dots",
+  "kind": "story",
+  "revision": 4,
+  "change": {
+    "change": "evidence",
+    "kind": "test_result",
+    "source": "cargo xtask check on 14316f9: exit 0, 274 suites, 2016 passed, 0 failed, 11 named mutants killed"
+  }
+}

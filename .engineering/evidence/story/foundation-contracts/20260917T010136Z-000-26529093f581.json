@@ -1,0 +1,13 @@
+{
+  "at": "2026-09-17T01:01:36Z",
+  "actor": "human:timo",
+  "artifact": "story:foundation-contracts",
+  "kind": "story",
+  "revision": 7,
+  "change": {
+    "change": "evidence",
+    "kind": "test_result",
+    "source": "task check: Rust 1.98.1, ESS 0.25.0, AEP 0.55.0; exit 0; contract/scaffold checks only",
+    "reference": "docs/verification.md"
+  }
+}

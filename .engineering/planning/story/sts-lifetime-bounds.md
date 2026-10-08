@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:sts-lifetime-bounds
 kind: story
 status: implemented
@@ -22,6 +22,10 @@ scope:
 - confidence: cited
   path: services/sts/tests/adversary_obligations_sts_1.rs
 revision: 8
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-23T00:21:36Z", actor: "human:timo", revision: 5, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-23T00:21:39Z", actor: "human:timo", revision: 6, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-23T07:31:45Z", actor: "human:timo", revision: 8, decided_on: {"recorded":{"test_result":1,"review_outcome":6}}, imported: true}
 ---
 ## Why
 

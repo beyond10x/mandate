@@ -1,11 +1,13 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: executable-system-specification:mandate
 kind: executable-system-specification
 status: validated
 title: Mandate's executable system specification and its conformance evidence
 model_digest: 2f11d2daffc2d75bb4ca8c0485aedc56fb2a712cdaed6347fc48b8ba2b1f7ca6
 revision: 3
+transitions:
+- {from: "draft", to: "validated", at: "2026-09-21T08:30:17Z", actor: "human:timo", revision: 3, imported: true}
 ---
 ## What this records
 

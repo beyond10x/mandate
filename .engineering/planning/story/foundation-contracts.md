@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:foundation-contracts
 kind: story
 status: implemented
@@ -19,6 +19,10 @@ scope:
 - confidence: cited
   path: xtask
 revision: 13
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-17T00:56:46Z", actor: "human:timo", revision: 6, decided_on: {"recorded":{"review_outcome":1}}, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-17T00:56:47Z", actor: "human:timo", revision: 7, decided_on: {"recorded":{"review_outcome":1}}, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-17T07:49:12Z", actor: "human:timo", revision: 11, decided_on: {"recorded":{"test_result":4,"review_outcome":2}}, imported: true}
 ---
 # Stabilize combined ESS and foundation scaffold
 

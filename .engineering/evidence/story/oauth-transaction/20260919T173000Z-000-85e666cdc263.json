@@ -1,0 +1,14 @@
+{
+  "at": "2026-09-19T17:30:00Z",
+  "actor": "human:timo",
+  "artifact": "story:oauth-transaction",
+  "kind": "story",
+  "revision": 8,
+  "change": {
+    "change": "evidence",
+    "kind": "review_outcome",
+    "source": "review-result:wave-c-parallel-r1",
+    "review": "review-result:wave-c-parallel-r1",
+    "outcome": "fixed"
+  }
+}

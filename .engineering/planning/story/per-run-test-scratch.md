@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:per-run-test-scratch
 kind: story
 status: implemented
@@ -17,6 +17,10 @@ scope:
 - confidence: cited
   path: services/control-plane/tests/serve.rs
 revision: 11
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-22T08:44:44Z", actor: "human:timo", revision: 7, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-22T08:44:46Z", actor: "human:timo", revision: 8, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-22T09:57:28Z", actor: "human:timo", revision: 10, decided_on: {"recorded":{"test_result":1,"review_outcome":2}}, imported: true}
 ---
 # Two copies of one test binary do not share a scratch directory
 

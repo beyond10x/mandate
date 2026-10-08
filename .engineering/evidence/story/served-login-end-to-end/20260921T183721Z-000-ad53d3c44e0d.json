@@ -1,0 +1,12 @@
+{
+  "at": "2026-09-21T18:37:21Z",
+  "actor": "human:timo",
+  "artifact": "story:served-login-end-to-end",
+  "kind": "story",
+  "revision": 7,
+  "change": {
+    "change": "evidence",
+    "kind": "test_result",
+    "source": "cargo test -p mandate-control-plane --locked --test end_to_end"
+  }
+}

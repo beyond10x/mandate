@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:login-adapters
 kind: story
 status: implemented
@@ -39,6 +39,10 @@ scope:
 - confidence: inferred
   path: docs/architecture/adapter-contract.md
 revision: 16
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-19T11:44:33Z", actor: "human:timo", revision: 10, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-19T11:44:33Z", actor: "human:timo", revision: 11, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-19T14:27:08Z", actor: "human:timo", revision: 16, decided_on: {"recorded":{"test_result":1,"review_outcome":5}}, imported: true}
 ---
 # Decode the login road's requests: routes, verified context, form encoding, the obligations registry
 

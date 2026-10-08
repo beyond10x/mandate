@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:graph-policy
 kind: story
 status: implemented
@@ -69,6 +69,10 @@ scope:
 - confidence: cited
   path: crates/mandate-policy/tests/record.rs
 revision: 64
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-18T18:53:45Z", actor: "human:timo", revision: 12, decided_on: {"recorded":{"review_outcome":4}}, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-18T18:53:46Z", actor: "human:timo", revision: 13, decided_on: {"recorded":{"review_outcome":4}}, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-18T20:22:11Z", actor: "human:timo", revision: 14, decided_on: {"recorded":{"test_result":1,"review_outcome":20}}, imported: true}
 ---
 # Implement graph and policy ports with test doubles
 

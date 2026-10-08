@@ -1,0 +1,13 @@
+{
+  "at": "2026-09-19T23:50:00Z",
+  "actor": "human:timo",
+  "artifact": "story:conformance-target",
+  "kind": "story",
+  "revision": 26,
+  "change": {
+    "change": "evidence",
+    "kind": "test_result",
+    "source": "task check",
+    "reference": "git:fdbf214"
+  }
+}

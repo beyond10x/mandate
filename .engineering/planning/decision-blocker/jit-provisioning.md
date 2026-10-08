@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: decision-blocker:jit-provisioning
 kind: decision-blocker
 status: cleared
@@ -9,6 +9,8 @@ relations:
 - blocks: story:domain-runtime
 withholds: test_result
 revision: 3
+transitions:
+- {from: "open", to: "cleared", at: "2026-09-21T18:01:43Z", actor: "human:timo", revision: 3, decided_on: {"recorded":{"approval":1}}, imported: true}
 ---
 Just-in-time provisioning: does a customer's user who has never logged in get a Mandate principal and an `ExternalPrincipal` link created during that first login, or must somebody provision both ahead of time?
 

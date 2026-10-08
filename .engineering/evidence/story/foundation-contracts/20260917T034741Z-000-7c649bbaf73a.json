@@ -1,0 +1,13 @@
+{
+  "at": "2026-09-17T03:47:41Z",
+  "actor": "human:timo",
+  "artifact": "story:foundation-contracts",
+  "kind": "story",
+  "revision": 9,
+  "change": {
+    "change": "evidence",
+    "kind": "test_result",
+    "source": "task check; 27 JSON Schema shape checks; local viewer browser suite",
+    "reference": "docs/verification.md"
+  }
+}

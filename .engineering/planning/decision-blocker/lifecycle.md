@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: decision-blocker:lifecycle
 kind: decision-blocker
 status: open

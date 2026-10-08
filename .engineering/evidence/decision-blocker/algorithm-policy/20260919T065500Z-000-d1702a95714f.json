@@ -1,0 +1,13 @@
+{
+  "at": "2026-09-19T06:55:00Z",
+  "actor": "human:timo",
+  "artifact": "decision-blocker:algorithm-policy",
+  "kind": "decision-blocker",
+  "revision": 2,
+  "change": {
+    "change": "evidence",
+    "kind": "test_result",
+    "source": "cargo test -p mandate-federation -p mandate-token (tests/verifier_real.rs, tests/signing_real.rs: header algorithm refused regardless of signature, none refused, unconfigured and empty lists refused at issuance and at validation, kid overlap across a rotation window, emergency revocation exercised on both sides, no private key in source)",
+    "reference": "git:2fc2cac5f5fffad9089b3bf3cf3f61cb542a3a86"
+  }
+}

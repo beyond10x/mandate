@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:event-payloads-for-folds
 kind: story
 status: implemented
@@ -34,6 +34,10 @@ scope:
 - confidence: cited
   path: systems/mandate/domains/tenancy.yaml
 revision: 13
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-18T21:19:31Z", actor: "human:timo", revision: 7, decided_on: {"recorded":{"review_outcome":1}}, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-18T21:19:32Z", actor: "human:timo", revision: 8, decided_on: {"recorded":{"review_outcome":1}}, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-18T22:52:06Z", actor: "human:timo", revision: 13, decided_on: {"recorded":{"test_result":1,"review_outcome":19}}, imported: true}
 ---
 # Events carry the identity and fields a fold needs
 

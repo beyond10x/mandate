@@ -1,0 +1,13 @@
+{
+  "at": "2026-09-21T23:17:41Z",
+  "actor": "human:timo",
+  "artifact": "story:served-login-end-to-end",
+  "kind": "story",
+  "revision": 7,
+  "change": {
+    "change": "evidence",
+    "kind": "test_result",
+    "source": "cargo xtask check",
+    "reference": "git:4df229cc8df27ab1c2894b13e8f9ea8211d37deb"
+  }
+}

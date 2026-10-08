@@ -1,5 +1,5 @@
 ---
-format: aep.planning-md/1
+format: aep.planning-md/3
 id: story:obligations-identity
 kind: story
 status: implemented
@@ -15,6 +15,10 @@ scope:
 - confidence: cited
   path: crates/mandate-identity/tests/obligations.rs
 revision: 7
+transitions:
+- {from: "draft", to: "proposed", at: "2026-09-20T23:45:42Z", actor: "human:timo", revision: 4, imported: true}
+- {from: "proposed", to: "active", at: "2026-09-20T23:45:43Z", actor: "human:timo", revision: 5, imported: true}
+- {from: "active", to: "implemented", at: "2026-09-21T08:29:34Z", actor: "human:timo", revision: 7, decided_on: {"recorded":{"test_result":1,"review_outcome":2}}, imported: true}
 ---
 ## Why
 
