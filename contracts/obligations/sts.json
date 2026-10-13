@@ -83,6 +83,11 @@
           "blocked_on": "story:constrained-exchange"
         },
         {
+          "clause": "two current capability ceilings share one agent and organization-or-platform key",
+          "tests": [],
+          "blocked_on": "story:constrained-exchange"
+        },
+        {
           "clause": "transitive delegation is requested",
           "tests": [
             {
@@ -246,7 +251,7 @@
         {
           "clause": "authority narrowing",
           "tests": [],
-          "blocked_on": "story:agent-authority-kernel"
+          "blocked_on": "story:agent-security"
         },
         {
           "clause": "bounded expiry validation fails",
@@ -294,7 +299,7 @@
         {
           "clause": "subject/actor authority or ceilings do not cover requested scope",
           "tests": [],
-          "blocked_on": "story:agent-authority-kernel"
+          "blocked_on": "story:agent-security"
         },
         {
           "clause": "target/profile is unregistered/disabled/outside tenant",
@@ -347,7 +352,7 @@
         {
           "clause": "subject/actor authority or ceilings do not cover requested scope",
           "tests": [],
-          "blocked_on": "story:agent-authority-kernel"
+          "blocked_on": "story:agent-security"
         },
         {
           "clause": "target/profile/signing algorithm or key is unadmitted",

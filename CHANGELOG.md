@@ -4,6 +4,27 @@ All notable changes to Mandate are recorded here. The format follows [Keep a Cha
 
 ## [Unreleased]
 
+### Added
+
+- **Agent authority evaluator.** `mandate_authz::agent::evaluate_agent_authority` decides what
+  an agent may do, acting for itself or for a subject under a delegation: the permitted set is
+  exactly the intersection of the request, both validated proofs' authority, the delegation's
+  scope and every applicable current capability ceiling, and never exceeds any of them; it
+  expires at the earliest of the inputs, compared as instants. Expired, revoked or mismatched
+  delegations, a disabled or retired actor, a mismatched organization, absent evidence and a
+  delegation chain deny, and an approval requirement answers `allowed = false` with its
+  challenge. The records arrive through `mandate_authz::agent::AgentAuthorityRead` as the new
+  `mandate_authz::delegation` projections of `Agent`, `AgentCapabilityCeiling` and
+  `Delegation`. A reusable library function: no token issuance, route or storage
+  (`story:agent-authority-kernel`).
+- **One current ceiling per key.** Ceilings are keyed by `(agent_id, organization_id)`, absent
+  organization being the platform key; the current one is the latest still `Recorded`, a ceiling
+  recorded for another organization does not apply, and two current ceilings on one key deny.
+  `ExchangeCredential`'s declared denial gains the clause "two current capability ceilings share
+  one agent and organization-or-platform key", with the authored scenario
+  `exchange-ceiling-conflict` (201 scenarios; it is refused before dispatch, attributed to
+  `story:declared-writers`).
+
 ### Changed
 
 - **Breaking.** A signing key's validity instants move into one record,

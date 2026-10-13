@@ -3,6 +3,7 @@
     "authored": [
       "mandate.authorization/authored/authz-unadmitted-organization",
       "mandate.credential/authored/credential-revoked-twice",
+      "mandate.credential/authored/exchange-ceiling-conflict",
       "mandate.credential/authored/introspect-caller-proof-malformed",
       "mandate.credential/authored/pkce-code-expired",
       "mandate.credential/authored/pkce-malformed-challenge",
@@ -32,6 +33,11 @@
         "digest": "sha256:635c5ae5e98fafc8e63932262252fc213bbcde437b73e83a91031e715945d0f0",
         "disposition": "accepted",
         "scenario": "mandate.credential/authored/credential-revoked-twice"
+      },
+      "scenarios/exchange-ceiling-conflict.yaml": {
+        "digest": "sha256:6a04552d9fb3ef65f6ff4eab276b85f6a137e4e2a928e74e1f349fb9c0287c66",
+        "disposition": "accepted",
+        "scenario": "mandate.credential/authored/exchange-ceiling-conflict"
       },
       "scenarios/federation-ambiguous-tenant.yaml": {
         "digest": "sha256:96c99bf6a1a82210d5b8fd456c70ab3fabc41981a6374d7e7677a4d0ebbe4cff",
@@ -125,7 +131,7 @@
       }
     },
     "counts": {
-      "authored": 20,
+      "authored": 21,
       "generated": 180,
       "outside": 0,
       "refused": 52
@@ -1197,9 +1203,9 @@
     }
   },
   "provenance": {
-    "contract_digest": "8e0a32f55d4d8e19f7f2fe1db9b11cd76a8270d328c4bcf81ef33fa2fdaf8161",
+    "contract_digest": "33e0677f3fde7287a281caa9c2fdbfeccd413784bc88dcd1ea40c7f33349b7ff",
     "scenario_initial_state": "empty",
-    "spec_digest": "a3050689a765805251d9f3e868a98ca1924b66c2582e8b4d01ac7d763360f34a",
+    "spec_digest": "bc14d822ad618424c38b62c9c38cd5211bf832d70eb206a30a00b4f625be02d4",
     "specification_version": "v1",
     "suite_version": "ess-conformance/35",
     "system": "mandate"
@@ -40769,6 +40775,265 @@
         },
         {
           "event": "mandate.credential.AccessCredentialRevoked",
+          "step": "expect_no_event"
+        }
+      ]
+    },
+    "mandate.credential/authored/exchange-ceiling-conflict": {
+      "purpose": "`two current capability ceilings share one agent and organization-or-platform key`: neither ceiling is picked; agent.rs; corpus: none.",
+      "source": [
+        {
+          "kind": "domain",
+          "name": "mandate.credential"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.Action"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.ActionPattern"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.AgentCapabilityCeilingId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.Audience"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.AuthorityScope"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.CredentialProof"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.DelegationId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.DenialReason"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.ExecutionId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.OrganizationId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.PrincipalId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.ResourceId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.ResourceRef"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.ResourceServerId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.ResourceType"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.SpaceId"
+        },
+        {
+          "kind": "entity",
+          "name": "mandate.delegation.Agent"
+        },
+        {
+          "kind": "entity",
+          "name": "mandate.delegation.AgentCapabilityCeiling"
+        },
+        {
+          "kind": "entity",
+          "name": "mandate.delegation.Delegation"
+        },
+        {
+          "kind": "command",
+          "name": "mandate.credential.ExchangeCredential"
+        },
+        {
+          "kind": "outcome",
+          "name": {
+            "command": "mandate.credential.ExchangeCredential",
+            "outcome": "denied"
+          }
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.TokenExchangeAllowed"
+        },
+        {
+          "kind": "error",
+          "name": "mandate.credential.Denied"
+        }
+      ],
+      "steps": [
+        {
+          "entity": "mandate.delegation.Agent",
+          "fields": {
+            "agent_type": "assistant",
+            "organization_id": "00000000-0000-4000-8000-0000000000a1"
+          },
+          "identity": "00000000-0000-4000-8000-000000000003",
+          "instance": "agent",
+          "state": "Recorded",
+          "step": "establish_entity"
+        },
+        {
+          "entity": "mandate.delegation.AgentCapabilityCeiling",
+          "fields": {
+            "agent_id": "00000000-0000-4000-8000-000000000003",
+            "allowed_actions": [
+              "document.*"
+            ],
+            "denied_actions": [],
+            "max_delegation_ttl": "PT1H",
+            "organization_id": "00000000-0000-4000-8000-0000000000a1",
+            "scope": {
+              "actions": [
+                "document.read"
+              ],
+              "resources": [
+                {
+                  "resource_id": "00000000-0000-4000-8000-000000000072",
+                  "resource_type": "document"
+                }
+              ]
+            }
+          },
+          "identity": "00000000-0000-4000-8000-0000000000e1",
+          "instance": "earlier-ceiling",
+          "state": "Recorded",
+          "step": "establish_entity"
+        },
+        {
+          "entity": "mandate.delegation.AgentCapabilityCeiling",
+          "fields": {
+            "agent_id": "00000000-0000-4000-8000-000000000003",
+            "allowed_actions": [
+              "document.read"
+            ],
+            "denied_actions": [],
+            "max_delegation_ttl": "PT1H",
+            "organization_id": "00000000-0000-4000-8000-0000000000a1",
+            "scope": {
+              "actions": [
+                "document.read"
+              ],
+              "resources": [
+                {
+                  "resource_id": "00000000-0000-4000-8000-000000000072",
+                  "resource_type": "document"
+                }
+              ]
+            }
+          },
+          "identity": "00000000-0000-4000-8000-0000000000e2",
+          "instance": "later-ceiling",
+          "state": "Recorded",
+          "step": "establish_entity"
+        },
+        {
+          "entity": "mandate.delegation.Delegation",
+          "fields": {
+            "audience": "api-a",
+            "created_at": "2026-01-05T08:00:00Z",
+            "delegate": "00000000-0000-4000-8000-000000000003",
+            "delegator": "00000000-0000-4000-8000-000000000001",
+            "expires_at": "2026-01-05T23:00:00Z",
+            "organization_id": "00000000-0000-4000-8000-0000000000a1",
+            "scope": {
+              "actions": [
+                "document.read"
+              ],
+              "resources": [
+                {
+                  "resource_id": "00000000-0000-4000-8000-000000000072",
+                  "resource_type": "document"
+                }
+              ]
+            },
+            "transitive": false
+          },
+          "identity": "00000000-0000-4000-8000-0000000000d1",
+          "instance": "delegation",
+          "state": "Active",
+          "step": "establish_entity"
+        },
+        {
+          "force": {
+            "command": "mandate.credential.ExchangeCredential",
+            "outcome": "denied"
+          },
+          "step": "configure_external_outcome"
+        },
+        {
+          "command": "mandate.credential.ExchangeCredential",
+          "input": {
+            "actor_proof": {
+              "kind": "literal",
+              "value": "YWN0b3ItcHJvb2YtZm9yLWFnZW50"
+            },
+            "delegation_id": {
+              "kind": "literal",
+              "value": "00000000-0000-4000-8000-0000000000d1"
+            },
+            "requested_scope": {
+              "kind": "literal",
+              "value": {
+                "actions": [
+                  "document.read"
+                ],
+                "resources": [
+                  {
+                    "resource_id": "00000000-0000-4000-8000-000000000072",
+                    "resource_type": "document"
+                  }
+                ]
+              }
+            },
+            "subject_proof": {
+              "kind": "literal",
+              "value": "c3ViamVjdC1wcm9vZi1mb3ItdXNlcg=="
+            },
+            "target": {
+              "kind": "literal",
+              "value": "00000000-0000-4000-8000-0000000000f2"
+            }
+          },
+          "step": "execute_command"
+        },
+        {
+          "outcome": {
+            "command": "mandate.credential.ExchangeCredential",
+            "outcome": "denied"
+          },
+          "step": "expect_outcome"
+        },
+        {
+          "error": "mandate.credential.Denied",
+          "fields": {
+            "reason": "Denied"
+          },
+          "step": "expect_error"
+        },
+        {
+          "event": "mandate.credential.TokenExchangeAllowed",
           "step": "expect_no_event"
         }
       ]

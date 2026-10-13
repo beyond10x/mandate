@@ -31,7 +31,7 @@
 //!   over both says they agree with each other; it does not say any hand-written Rust
 //!   agrees with either, because for these 30 this crate has none. They are named in
 //!   `mandate_types::inventory::DERIVED_STATE_ENUMS` — the 36 minus the six above.
-//! * **Thirteen of those 30 do have a domain enum, in a crate this one cannot reach**, and
+//! * **Sixteen of those 30 do have a domain enum, in a crate this one cannot reach**, and
 //!   each is decided by the story that owns its crate, not here. In `mandate-federation`:
 //!   `ConnectionState` (`mandate.federation.FederationConnection.State`), `LinkState`
 //!   (`mandate.federation.ExternalPrincipal.State`), `OAuthClientState`
@@ -48,9 +48,13 @@
 //!   (`mandate.graph.Relation.State`) and `GrantState` (`mandate.graph.Grant.State`); in
 //!   `mandate-policy`, `PolicyState` (`mandate.policy.Policy.State`) and
 //!   `AuthorizationModelState` (`mandate.policy.AuthorizationModel.State`) — those four
-//!   belong to `story:graph-policy-adapter`. `mandate-types` is a leaf and depends on none
-//!   of these crates; a case here could not construct their values.
-//! * **The remaining seventeen have no domain enum anywhere in this workspace**, so for
+//!   belong to `story:graph-policy-adapter`. In `mandate-authz`, `AgentState`
+//!   (`mandate.delegation.Agent.State`), `CeilingState`
+//!   (`mandate.delegation.AgentCapabilityCeiling.State`) and `DelegationState`
+//!   (`mandate.delegation.Delegation.State`) — those three belong to
+//!   `story:agent-authority-kernel`. `mandate-types` is a leaf and depends on none of these
+//!   crates; a case here could not construct their values.
+//! * **The remaining fourteen have no domain enum anywhere in this workspace**, so for
 //!   them the generated shape is the only realization there is to decide.
 //!
 //! The pairing is the only hand-written part of the account, and two things hold it to the

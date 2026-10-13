@@ -1,6 +1,6 @@
 # generated from mandate v1
-# model digest a3050689a765805251d9f3e868a98ca1924b66c2582e8b4d01ac7d763360f34a
-# contract digest slice-sha256/2:e1c471760f6208727c2067e313193a6c357272a14e813602fe98fa9e3fbf268a
+# model digest bc14d822ad618424c38b62c9c38cd5211bf832d70eb206a30a00b4f625be02d4
+# contract digest slice-sha256/2:3a9b6256752f34b29cfcc0f7c979b4c89429a768d9bf165b0fdc4841238581ea
 # do not edit: regenerate with `ess generate`
 openapi: 3.1.0
 info:
@@ -14,8 +14,8 @@ info:
   x-ess-provenance:
     system: mandate
     specification_version: v1
-    source_digest: a3050689a765805251d9f3e868a98ca1924b66c2582e8b4d01ac7d763360f34a
-    contract_digest: slice-sha256/2:e1c471760f6208727c2067e313193a6c357272a14e813602fe98fa9e3fbf268a
+    source_digest: bc14d822ad618424c38b62c9c38cd5211bf832d70eb206a30a00b4f625be02d4
+    contract_digest: slice-sha256/2:3a9b6256752f34b29cfcc0f7c979b4c89429a768d9bf165b0fdc4841238581ea
 tags:
 - name: credential
 paths:
@@ -1205,7 +1205,7 @@ components:
       type: object
     mandate.credential.ExchangeCredential.denied.Response:
       additionalProperties: false
-      description: 'Decided outside the request: Either independently validated proof is invalid/revoked/expired/stale; actor, tenant, registered target/source, scope, space, delegation or ceiling binding fails; transitive delegation is requested; approval is required; or authority/expiry narrowing and durable audit fail..'
+      description: 'Decided outside the request: Either independently validated proof is invalid/revoked/expired/stale; actor, tenant, registered target/source, scope, space, delegation or ceiling binding fails; two current capability ceilings share one agent and organization-or-platform key; transitive delegation is requested; approval is required; or authority/expiry narrowing and durable audit fail..'
       properties:
         error:
           const: mandate.credential.Denied

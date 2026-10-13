@@ -492,7 +492,7 @@ pub const ACCEPTED: &[Accepted] = &[
 ///
 /// # Where the coverage manifest accounts for each of them
 ///
-/// Nineteen have a hand-written enum in the crate that folds the record, registered there
+/// Twenty-two have a hand-written enum in the crate that folds the record, registered there
 /// through `mandate_types::realizes!` and reconciled by that crate's own agreement case:
 /// six in `mandate-model` (`mandate.tenancy.Organization.State`,
 /// `mandate.tenancy.OrganizationMembership.State`, `mandate.tenancy.Team.State`,
@@ -505,15 +505,19 @@ pub const ACCEPTED: &[Accepted] = &[
 /// `mandate.federation.ExternalPrincipal.State`, `mandate.federation.OAuthClient.State`);
 /// two in `mandate-identity` (`mandate.identity.Principal.State`,
 /// `mandate.identity.Session.State`); two in `mandate-graph`
-/// (`mandate.graph.Relation.State`, `mandate.graph.Grant.State`); and two in
+/// (`mandate.graph.Relation.State`, `mandate.graph.Grant.State`); two in
 /// `mandate-policy` (`mandate.policy.Policy.State`,
-/// `mandate.policy.AuthorizationModel.State`).
+/// `mandate.policy.AuthorizationModel.State`); and three in `mandate-authz`
+/// (`mandate.delegation.Agent.State` as `AgentState`,
+/// `mandate.delegation.AgentCapabilityCeiling.State` as `CeilingState` and
+/// `mandate.delegation.Delegation.State` as `DelegationState`, the records the agent
+/// authority evaluator reads).
 ///
-/// The other seventeen have no hand-written enum anywhere in this workspace, and each
+/// The other fourteen have no hand-written enum anywhere in this workspace, and each
 /// carries the status of the record it belongs to: the five identity epoch and snapshot
 /// states are `declared` on `story:federation-identity-alignment`, which
 /// `mandate-identity`'s own `ESS_UNREALIZED` reasons name as single-state lifecycles with no
-/// transition to fold, and the remaining twelve follow their records' `declared` or
+/// transition to fold, and the remaining nine follow their records' `declared` or
 /// `deferred` entries.
 ///
 /// `mandate-types` is a leaf and depends on none of those crates, so no case here can

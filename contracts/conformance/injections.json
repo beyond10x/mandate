@@ -920,6 +920,12 @@
       "blocked_on": "story:conform-gate"
     },
     {
+      "scenario": "mandate.credential/authored/exchange-ceiling-conflict",
+      "command": "mandate.delegation.Agent",
+      "reason": "entity-without-adapter-writer",
+      "blocked_on": "story:declared-writers"
+    },
+    {
       "scenario": "mandate.credential/authored/pkce-malformed-challenge",
       "command": "",
       "reason": "expectation-unmet",
@@ -947,91 +953,91 @@
       "scenario": "mandate.delegation.CompleteExecution/outcome/denied",
       "command": "mandate.delegation.CompleteExecution",
       "reason": "unrealized-command",
-      "blocked_on": "story:agent-authority-kernel"
+      "blocked_on": "story:agent-security"
     },
     {
       "scenario": "mandate.delegation.CompleteExecution/outcome/wrong-state",
       "command": "mandate.delegation.CompleteExecution",
       "reason": "unrealized-command",
-      "blocked_on": "story:agent-authority-kernel"
+      "blocked_on": "story:agent-security"
     },
     {
       "scenario": "mandate.delegation.ConsumeApproval/outcome/denied",
       "command": "mandate.delegation.ConsumeApproval",
       "reason": "unrealized-command",
-      "blocked_on": "story:agent-authority-kernel"
+      "blocked_on": "story:agent-security"
     },
     {
       "scenario": "mandate.delegation.ConsumeApproval/outcome/wrong-state",
       "command": "mandate.delegation.ConsumeApproval",
       "reason": "unrealized-command",
-      "blocked_on": "story:agent-authority-kernel"
+      "blocked_on": "story:agent-security"
     },
     {
       "scenario": "mandate.delegation.CreateDelegation/outcome/accepted",
       "command": "mandate.delegation.CreateDelegation",
       "reason": "unrealized-command",
-      "blocked_on": "story:agent-authority-kernel"
+      "blocked_on": "story:agent-security"
     },
     {
       "scenario": "mandate.delegation.CreateDelegation/outcome/denied",
       "command": "mandate.delegation.CreateDelegation",
       "reason": "unrealized-command",
-      "blocked_on": "story:agent-authority-kernel"
+      "blocked_on": "story:agent-security"
     },
     {
       "scenario": "mandate.delegation.Delegation/state/Revoked/refuses/mandate.delegation.RevokeDelegation",
       "command": "mandate.delegation.CreateDelegation",
       "reason": "unrealized-command",
-      "blocked_on": "story:agent-authority-kernel"
+      "blocked_on": "story:agent-security"
     },
     {
       "scenario": "mandate.delegation.Delegation/transition/revoke/by/mandate.delegation.RevokeDelegation/accepted",
       "command": "mandate.delegation.CreateDelegation",
       "reason": "unrealized-command",
-      "blocked_on": "story:agent-authority-kernel"
+      "blocked_on": "story:agent-security"
     },
     {
       "scenario": "mandate.delegation.RetireAgent/outcome/denied",
       "command": "mandate.delegation.RetireAgent",
       "reason": "unrealized-command",
-      "blocked_on": "story:agent-authority-kernel"
+      "blocked_on": "story:agent-security"
     },
     {
       "scenario": "mandate.delegation.RetireAgent/outcome/wrong-state",
       "command": "mandate.delegation.RetireAgent",
       "reason": "unrealized-command",
-      "blocked_on": "story:agent-authority-kernel"
+      "blocked_on": "story:agent-security"
     },
     {
       "scenario": "mandate.delegation.RevokeDelegation/outcome/accepted",
       "command": "mandate.delegation.CreateDelegation",
       "reason": "unrealized-command",
-      "blocked_on": "story:agent-authority-kernel"
+      "blocked_on": "story:agent-security"
     },
     {
       "scenario": "mandate.delegation.RevokeDelegation/outcome/denied",
       "command": "mandate.delegation.RevokeDelegation",
       "reason": "unrealized-command",
-      "blocked_on": "story:agent-authority-kernel"
+      "blocked_on": "story:agent-security"
     },
     {
       "scenario": "mandate.delegation.RevokeDelegation/outcome/wrong-state",
       "command": "mandate.delegation.RevokeDelegation",
       "reason": "unrealized-command",
-      "blocked_on": "story:agent-authority-kernel"
+      "blocked_on": "story:agent-security"
     },
     {
       "scenario": "mandate.delegation.SupersedeAgentCapabilityCeiling/outcome/denied",
       "command": "mandate.delegation.SupersedeAgentCapabilityCeiling",
       "reason": "unrealized-command",
-      "blocked_on": "story:agent-authority-kernel"
+      "blocked_on": "story:agent-security"
     },
     {
       "scenario": "mandate.delegation.SupersedeAgentCapabilityCeiling/outcome/wrong-state",
       "command": "mandate.delegation.SupersedeAgentCapabilityCeiling",
       "reason": "unrealized-command",
-      "blocked_on": "story:agent-authority-kernel"
+      "blocked_on": "story:agent-security"
     },
     {
       "scenario": "mandate.directory.CompleteSyncJob/outcome/denied",

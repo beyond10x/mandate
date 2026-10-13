@@ -1,0 +1,89 @@
+type: ess-scenario/2
+domain: mandate.credential
+scenario: exchange-ceiling-conflict
+summary: '`two current capability ceilings share one agent and organization-or-platform key`: neither ceiling is picked; agent.rs; corpus: none.'
+arrange:
+- instance: agent
+  entity: mandate.delegation.Agent
+  setup:
+    identity: 00000000-0000-4000-8000-000000000003
+    fields:
+      organization_id: 00000000-0000-4000-8000-0000000000a1
+      agent_type: assistant
+    state: Recorded
+- instance: earlier-ceiling
+  entity: mandate.delegation.AgentCapabilityCeiling
+  setup:
+    identity: 00000000-0000-4000-8000-0000000000e1
+    fields:
+      agent_id: 00000000-0000-4000-8000-000000000003
+      organization_id: 00000000-0000-4000-8000-0000000000a1
+      allowed_actions:
+      - document.*
+      denied_actions: []
+      scope:
+        actions:
+        - document.read
+        resources:
+        - resource_type: document
+          resource_id: 00000000-0000-4000-8000-000000000072
+      max_delegation_ttl: PT1H
+    state: Recorded
+- instance: later-ceiling
+  entity: mandate.delegation.AgentCapabilityCeiling
+  setup:
+    identity: 00000000-0000-4000-8000-0000000000e2
+    fields:
+      agent_id: 00000000-0000-4000-8000-000000000003
+      organization_id: 00000000-0000-4000-8000-0000000000a1
+      allowed_actions:
+      - document.read
+      denied_actions: []
+      scope:
+        actions:
+        - document.read
+        resources:
+        - resource_type: document
+          resource_id: 00000000-0000-4000-8000-000000000072
+      max_delegation_ttl: PT1H
+    state: Recorded
+- instance: delegation
+  entity: mandate.delegation.Delegation
+  setup:
+    identity: 00000000-0000-4000-8000-0000000000d1
+    fields:
+      organization_id: 00000000-0000-4000-8000-0000000000a1
+      delegator: 00000000-0000-4000-8000-000000000001
+      delegate: 00000000-0000-4000-8000-000000000003
+      scope:
+        actions:
+        - document.read
+        resources:
+        - resource_type: document
+          resource_id: 00000000-0000-4000-8000-000000000072
+      audience: api-a
+      expires_at: '2026-01-05T23:00:00Z'
+      transitive: false
+      created_at: '2026-01-05T08:00:00Z'
+    state: Active
+timeline:
+- at: '2026-01-05T09:00:00Z'
+  command: mandate.credential.ExchangeCredential
+  input:
+    subject_proof: c3ViamVjdC1wcm9vZi1mb3ItdXNlcg==
+    actor_proof: YWN0b3ItcHJvb2YtZm9yLWFnZW50
+    target: 00000000-0000-4000-8000-0000000000f2
+    requested_scope:
+      actions:
+      - document.read
+      resources:
+      - resource_type: document
+        resource_id: 00000000-0000-4000-8000-000000000072
+    delegation_id: 00000000-0000-4000-8000-0000000000d1
+  outcome: denied
+  error:
+    name: mandate.credential.Denied
+    fields:
+      reason: Denied
+  no_events:
+  - mandate.credential.TokenExchangeAllowed

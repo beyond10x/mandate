@@ -453,13 +453,14 @@ fn the_receipt_is_byte_identical_across_two_runs() {
         assert_eq!(value.len(), 64, "{digest} is not a SHA-256 digest: {value}");
     }
     assert_eq!(
-        parsed["counts"]["type"]["implemented"], 94,
-        "the receipt states the per-kind counts; 94 — the 93 wave D left and \
-         `mandate.core.SigningKeyWindow` — and not the 108 this pin first carried, because \
-         wave D's correction round refused a generated contract shape as an implementation \
-         and the 23 derived `.State` entries that named one now follow their records — six \
-         to mandate-model's own enums, two to mandate-token's authored types, and seventeen \
-         to declared or deferred"
+        parsed["counts"]["type"]["implemented"], 97,
+        "the receipt states the per-kind counts; 97 — the 93 wave D left, \
+         `mandate.core.SigningKeyWindow`, and the three delegation lifecycles mandate-authz \
+         registers for story:agent-authority-kernel — and not the 108 this pin first carried, \
+         because wave D's correction round refused a generated contract shape as an \
+         implementation and the 23 derived `.State` entries that named one now follow their \
+         records — six to mandate-model's own enums, two to mandate-token's authored types, \
+         and seventeen to declared or deferred"
     );
     // The receipt binds digests and counts and nothing else: test ids are the step's live
     // check, so `generate()` nests no cargo test build (the wave D ruling). A test id is the
