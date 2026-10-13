@@ -911,6 +911,7 @@ dependencies = [
  "mandate-model",
  "mandate-policy",
  "mandate-types",
+ "serde",
 ]
 
 [[package]]

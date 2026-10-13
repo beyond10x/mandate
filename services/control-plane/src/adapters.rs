@@ -3430,6 +3430,7 @@ where
                 expected_audience: &assembled.context.audience,
                 relation: ISSUANCE_RELATION,
                 scope: None,
+                at: &at,
             }) {
                 return Err(AuthorizationRefusal::AtRedirect {
                     refusal: Refusal {

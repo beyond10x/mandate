@@ -188,9 +188,15 @@ fn every_declared_entry_names_a_story_the_store_has_not_already_closed() {
     // decision-blocker:identity-uniqueness holds.
     // Amendment: that blocker cleared, so those thirteen and the three open `mandate.workload`
     // elements on story:agent-security moved from `deferred` to `declared` on that story.
+    // Amendment: story:agent-security registered `Execution` and `Approval` and their two
+    // lifecycles, which moved from `declared` on story:declared-writers to `implemented`.
+    // Amendment: story:agent-security realized `RevokeWorkloadIdentity`, its event and
+    // `mandate.workload.Denied`, which moved from `declared` to `implemented`.
+    // Amendment: story:agent-security realized five `mandate.delegation` commands, their five
+    // events and `mandate.delegation.Denied`, which moved from `declared` to `implemented`.
     assert!(
-        declared >= 41,
-        "this case found {declared} declared entries and the manifest holds 41"
+        declared >= 23,
+        "this case found {declared} declared entries and the manifest holds 23"
     );
     assert!(
         dead.is_empty(),

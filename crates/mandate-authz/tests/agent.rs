@@ -20,16 +20,16 @@ use mandate_authz::agent::{
     Unavailable, ValidatedProof, evaluate_agent_authority,
 };
 use mandate_authz::delegation::{
-    Agent, AgentCapabilityCeiling, AgentState, CeilingKey, CeilingState, Delegation,
-    DelegationState, current_ceilings,
+    Agent, AgentCapabilityCeiling, AgentState, Approval, CeilingKey, CeilingState, Delegation,
+    DelegationState, Execution, current_ceilings,
 };
 use mandate_policy::port::{
     AttributeSet, Challenge, ChallengeRequirement, Evaluation, PolicyEffect, PolicyError,
     PolicyEvaluator, PolicyRequest, Unanswered,
 };
 use mandate_types::{
-    Action, ActionPattern, AgentCapabilityCeilingId, Audience, AuthorityScope, CorrelationId,
-    CredentialId, DecisionReason, DelegationId, DenialReason, Duration, ExecutionId,
+    Action, ActionPattern, AgentCapabilityCeilingId, ApprovalId, Audience, AuthorityScope,
+    CorrelationId, CredentialId, DecisionReason, DelegationId, DenialReason, Duration, ExecutionId,
     OrganizationId, PolicyVersion, PrincipalId, ResourceId, ResourceRef, ResourceType, SpaceId,
     Timestamp, Uuid, VerifiedContext,
 };
@@ -265,6 +265,21 @@ impl AgentAuthorityRead for Records {
             .iter()
             .find(|delegation| delegation.id == *id)
             .cloned())
+    }
+
+    // No case here names an execution or an approval record; `tests/agent_security.rs` does.
+    fn execution(&self, _id: &ExecutionId) -> Result<Option<Execution>, Unavailable> {
+        if self.unavailable {
+            return Err(Unavailable);
+        }
+        Ok(None)
+    }
+
+    fn approval(&self, _id: &ApprovalId) -> Result<Option<Approval>, Unavailable> {
+        if self.unavailable {
+            return Err(Unavailable);
+        }
+        Ok(None)
     }
 }
 
@@ -905,18 +920,20 @@ fn a_mismatched_organization_denies() {
         AuthorityClause::OrganizationMismatch,
     );
 
+    // A record of another organization is refused like one nobody recorded, so the refusal
+    // discloses nothing about another tenant.
     let mut records = delegated_records();
     records.delegations[0].organization_id = other_organization();
     assert_refused(
         &Ask::delegated(requested.clone()).evaluate(&records, &Answers::allow()),
-        AuthorityClause::OrganizationMismatch,
+        AuthorityClause::DelegationAbsent,
     );
 
     let mut records = delegated_records();
     records.agents[0].organization_id = other_organization();
     assert_refused(
         &Ask::delegated(requested.clone()).evaluate(&records, &Answers::allow()),
-        AuthorityClause::OrganizationMismatch,
+        AuthorityClause::ActorNotAgent,
     );
 
     let mut ask = Ask::delegated(requested);

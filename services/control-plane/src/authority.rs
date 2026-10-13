@@ -37,13 +37,15 @@
 //! open while claiming to decide would be worse. The engine behind the ports is
 //! `story:graph-policy-adapter`'s, and until it lands the honest configuration is *none*.
 //!
-//! **The half that is decided over live state.** `mandate_authz::context::bind` reads
-//! `mandate_model::tenancy::Tenancy` and `mandate_model::graph::Topology`, both folds, and
-//! decides four things before either port is read: the organization still admits authority,
-//! the subject is a member of it, the request is direct, and the credential's audience is
-//! the one the caller requires. A caller failing any of those is refused over the fold.
+//! **The half that is decided over live state.** `mandate_authz::check` binds through
+//! `mandate_authz::context::bind_any`, which reads `mandate_model::tenancy::Tenancy` and
+//! `mandate_model::graph::Topology`, both folds, and decides three things before either port
+//! is read: the organization still admits authority, the subject is a member of it, and the
+//! credential's audience is the one the caller requires. A request that is not direct is then
+//! decided over the agent read, which is empty here (see the named residue), so it is
+//! refused. A caller failing any of those is refused before the graph or policy is asked.
 //!
-//! **This composition can fail three of the four, and the fourth is the audience.**
+//! **This composition can fail every one of them but the audience.**
 //! `bind` compares `context.audience` against the `expected_audience` the *caller* states,
 //! and a caller has two independent sources only when the context comes from credential
 //! validation and the expectation from a registry.
@@ -77,13 +79,19 @@
 //!   The two are different vocabularies and passing one as the other would refuse every
 //!   request by construction. Reconciling them is the credential-scope story's, not this
 //!   one's.
-//! * **No ceiling is passed.** No `mandate.delegation.AgentCapabilityCeiling` is readable
-//!   from this package's ceiling either, and `mandate_authz::context::direct` already
-//!   refuses a delegated context outright. `story:agent-authority-kernel` owns that.
+//! * **The agent records are the empty read.** `mandate_authz::check` reads the agent, its
+//!   capability ceilings, the delegation and the execution a request names through
+//!   `mandate_authz::agent::AgentAuthorityRead`, and no fold of the `mandate.delegation`
+//!   events is configured here, so the decision point holds
+//!   `mandate_authz::agent::AgentRecords::new()`. Under it a direct request of a principal
+//!   that is no agent is decided as before, and every request whose context names an actor
+//!   other than its subject, a delegation or an execution is refused, because no record
+//!   bounds it. Configuring the fold is the delegation commands' change, not this one's.
 //! * **No denial is audited.** `decision-blocker:audit-routing` holds the vocabulary and
 //!   `mandate-audit` is outside this package's ceiling, exactly as `adapters.rs` records
 //!   for every other refusal the road gives.
 
+use mandate_authz::agent::AgentRecords;
 use mandate_authz::decision::{ChallengeIssuer, DecisionIdAllocator, Denied};
 use mandate_authz::{CheckRequest, Pdp, check};
 use mandate_graph::port::GraphRead;
@@ -94,7 +102,7 @@ use mandate_model::tenancy::Tenancy;
 use mandate_policy::port::{AttributeSet, PolicyEvaluator};
 use mandate_policy::precedence::RoleCatalog;
 use mandate_types::{
-    Action, Audience, AuthorityScope, AuthzRevision, ResourceRef, VerifiedContext,
+    Action, Audience, AuthorityScope, AuthzRevision, ResourceRef, Timestamp, VerifiedContext,
 };
 
 /// The `mandate.core.ResourceType` the composition names a registered target by.
@@ -138,6 +146,9 @@ pub struct Admission<'a> {
     pub relation: &'a str,
     /// The authority scope the request is made under, when it is made under one.
     pub scope: Option<&'a AuthorityScope>,
+    /// The instant the decision is taken at: the request's own, read once
+    /// ([`crate::adapters::Deployment::now`]).
+    pub at: &'a Timestamp,
 }
 
 /// The decision the composition takes before it dispatches a handler.
@@ -195,6 +206,10 @@ where
             issuer: &self.issuer,
             tenancy: &self.tenancy,
             topology: &self.topology,
+            // No fold of the `mandate.delegation` events is configured: the empty read, under
+            // which every request naming an actor other than its subject, a delegation or an
+            // execution is refused (see the module header).
+            agents: &AgentRecords::new(),
         };
         check(
             &pdp,
@@ -208,7 +223,7 @@ where
                 minimum: &self.minimum,
                 attributes: &self.attributes,
                 scope: admission.scope,
-                ceilings: &[],
+                at: admission.at,
             },
         )
     }

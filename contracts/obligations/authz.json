@@ -165,38 +165,331 @@
     },
     {
       "command": "mandate.delegation.CompleteExecution",
-      "status": "deferred",
-      "story": "story:agent-security",
-      "clauses": [],
-      "no_state_change": []
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Caller is not the agent runtime that holds this execution",
+          "tests": [
+            {
+              "id": "mandate-authz::delegation_commands::an_execution_completed_by_another_principal_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "the execution is outside the verified organization",
+          "tests": [
+            {
+              "id": "mandate-authz::delegation_commands::an_execution_of_another_organization_refuses_like_an_unknown_one",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "completion cannot durably stop further tool calls bound to it",
+          "tests": [],
+          "blocked_on": "decision-blocker:epoch-atomicity"
+        }
+      ],
+      "no_state_change": [
+        {
+          "id": "mandate-authz::delegation_commands::a_second_completion_answers_wrong_state_and_emits_nothing",
+          "kind": "no-state-change",
+          "path": "real"
+        }
+      ],
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
     },
     {
       "command": "mandate.delegation.ConsumeApproval",
-      "status": "deferred",
-      "story": "story:agent-security",
-      "clauses": [],
-      "no_state_change": []
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Caller does not hold the decision context the approval answers",
+          "tests": [
+            {
+              "id": "mandate-authz::delegation_commands::an_approval_consumed_under_another_subject_or_actor_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "the approval is outside the verified organization",
+          "tests": [
+            {
+              "id": "mandate-authz::delegation_commands::an_approval_of_another_organization_refuses_like_an_unknown_one",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "its subject/actor/action/resource",
+          "tests": [],
+          "blocked_on": "story:agent-security"
+        },
+        {
+          "clause": "expiry does not match the check being satisfied",
+          "tests": [
+            {
+              "id": "mandate-authz::delegation_commands::an_expired_approval_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "one-use consumption cannot commit atomically with that decision",
+          "tests": [],
+          "blocked_on": "decision-blocker:epoch-atomicity"
+        }
+      ],
+      "no_state_change": [
+        {
+          "id": "mandate-authz::delegation_commands::a_second_consumption_answers_wrong_state_and_emits_nothing",
+          "kind": "no-state-change",
+          "path": "real"
+        }
+      ],
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
     },
     {
       "command": "mandate.delegation.CreateDelegation",
-      "status": "deferred",
-      "story": "story:agent-security",
-      "clauses": [],
-      "no_state_change": []
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Caller lacks delegation authority",
+          "tests": [
+            {
+              "id": "mandate-authz::delegation_commands::a_caller_the_admission_does_not_hold_as_a_delegator_is_refused_and_nothing_is_written",
+              "kind": "denial",
+              "path": "double",
+              "double": "mandate_authz::command::ConfiguredDelegationAdmission"
+            }
+          ],
+          "blocked_on": "decision-blocker:guards"
+        },
+        {
+          "clause": "subject",
+          "tests": [
+            {
+              "id": "mandate-authz::delegation_commands::a_disabled_delegator_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "delegate",
+          "tests": [
+            {
+              "id": "mandate-authz::delegation_commands::a_delegate_that_is_no_agent_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "tenant",
+          "tests": [
+            {
+              "id": "mandate-authz::delegation_commands::a_delegate_agent_of_another_organization_refuses_like_an_unknown_one",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "space",
+          "tests": [
+            {
+              "id": "mandate-authz::delegation_commands::a_scope_whose_space_conflicts_with_the_ceilings_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "registered audience",
+          "tests": [
+            {
+              "id": "mandate-authz::delegation_commands::an_audience_the_admission_does_not_register_is_refused",
+              "kind": "denial",
+              "path": "double",
+              "double": "mandate_authz::command::ConfiguredDelegationAdmission"
+            }
+          ],
+          "blocked_on": "decision-blocker:guards"
+        },
+        {
+          "clause": "execution binding fails",
+          "tests": [
+            {
+              "id": "mandate-authz::delegation_commands::an_execution_binding_to_another_agents_execution_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "requested scope/expiry exceeds source/delegation/policy limits",
+          "tests": [],
+          "blocked_on": "decision-blocker:guards"
+        },
+        {
+          "clause": "agent ceilings",
+          "tests": [
+            {
+              "id": "mandate-authz::delegation_commands::a_scope_outside_the_delegates_ceilings_is_refused",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-authz::delegation_commands::a_delegation_whose_expiry_exceeds_the_delegates_smallest_max_delegation_ttl_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "a transitive",
+          "tests": [
+            {
+              "id": "mandate-authz::delegation_commands::a_delegation_created_under_a_delegated_context_is_refused_as_transitive",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "approval-required grant would be created",
+          "tests": [
+            {
+              "id": "mandate-authz::delegation_commands::a_scope_policy_requires_approval_for_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        }
+      ],
+      "no_state_change": [
+        {
+          "id": "mandate-authz::delegation_commands::a_refused_creation_allocates_nothing_and_moves_no_record",
+          "kind": "no-state-change",
+          "path": "real"
+        }
+      ],
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
     },
     {
       "command": "mandate.delegation.RetireAgent",
-      "status": "deferred",
-      "story": "story:agent-security",
-      "clauses": [],
-      "no_state_change": []
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Caller lacks agent-administration authority",
+          "tests": [
+            {
+              "id": "mandate-authz::delegation_commands::a_caller_the_admission_does_not_hold_as_an_agent_administrator_is_refused",
+              "kind": "denial",
+              "path": "double",
+              "double": "mandate_authz::command::ConfiguredDelegationAdmission"
+            }
+          ],
+          "blocked_on": "decision-blocker:guards"
+        },
+        {
+          "clause": "the agent is outside the verified organization",
+          "tests": [
+            {
+              "id": "mandate-authz::delegation_commands::an_agent_of_another_organization_refuses_like_an_unknown_one",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "retirement cannot stop new executions and exchanges under its ceiling",
+          "tests": [
+            {
+              "id": "mandate-authz::delegation_commands::a_recorded_agent_is_retired_and_check_refuses_it_through_the_fold",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        }
+      ],
+      "no_state_change": [
+        {
+          "id": "mandate-authz::delegation_commands::a_second_retirement_answers_wrong_state_and_emits_nothing",
+          "kind": "no-state-change",
+          "path": "real"
+        }
+      ],
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
     },
     {
       "command": "mandate.delegation.RevokeDelegation",
-      "status": "deferred",
-      "story": "story:agent-security",
-      "clauses": [],
-      "no_state_change": []
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Caller lacks delegation-revocation authority",
+          "tests": [
+            {
+              "id": "mandate-authz::delegation_commands::a_caller_the_admission_does_not_hold_as_a_revoker_is_refused",
+              "kind": "denial",
+              "path": "double",
+              "double": "mandate_authz::command::ConfiguredDelegationAdmission"
+            }
+          ],
+          "blocked_on": "decision-blocker:guards"
+        },
+        {
+          "clause": "delegation is outside the verified organization",
+          "tests": [
+            {
+              "id": "mandate-authz::delegation_commands::a_delegation_of_another_organization_refuses_like_an_unknown_one",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "durable revocation and affected exchange invalidation fail",
+          "tests": [],
+          "blocked_on": "decision-blocker:epoch-atomicity"
+        }
+      ],
+      "no_state_change": [
+        {
+          "id": "mandate-authz::delegation_commands::a_second_revocation_answers_wrong_state_and_emits_nothing",
+          "kind": "no-state-change",
+          "path": "real"
+        }
+      ],
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
     },
     {
       "command": "mandate.delegation.SupersedeAgentCapabilityCeiling",
@@ -225,8 +518,18 @@
     },
     {
       "case": "autonomous-ceiling",
-      "tests": [],
-      "blocked_on": "story:agent-security"
+      "tests": [
+        {
+          "id": "mandate-authz::adversary_obligations_authz_1::the_ceiling_the_autonomous_ceiling_row_binds_is_not_bound_to_an_agent",
+          "kind": "denial",
+          "path": "real"
+        },
+        {
+          "id": "mandate-authz::agent_security::a_delegated_action_outside_the_installation_ceiling_is_denied_at_the_pep_under_the_preserved_subject_and_actor",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
     },
     {
       "case": "pdp-outage",

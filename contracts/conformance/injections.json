@@ -66,6 +66,16 @@
       "why": "an approval policy and a challenge expiry are values no port answers"
     },
     {
+      "port": "mandate_authz::command::DelegationAdmission",
+      "double": "mandate_authz::command::ConfiguredDelegationAdmission",
+      "why": "delegation, revocation and agent-administration authority are authorization decisions (decision-blocker:guards) and the audience registry is mandate-token's; this target admits the verified subject and registers the context's audience, so a delegation command is refused for its records and never for an authority nobody evaluated"
+    },
+    {
+      "port": "mandate_authz::command::DelegationIdAllocator",
+      "double": "mandate_authz::command::SequentialDelegationIds",
+      "why": "no crate in the authorization ceiling generates a uuid"
+    },
+    {
       "port": "mandate_identity::IdentityLog",
       "double": "mandate_identity::IdentityLog",
       "why": "the in-memory double of the event-log adapter a later story supplies"
@@ -293,36 +303,36 @@
     {
       "scenario": "mandate.delegation.CompleteExecution/outcome/denied",
       "command": "mandate.delegation.CompleteExecution",
-      "port": "none",
-      "kind": "unsupported-command",
+      "port": "mandate_authz::agent::AgentAuthorityRead",
+      "kind": "input-decided",
       "consulted": 0
     },
     {
       "scenario": "mandate.delegation.ConsumeApproval/outcome/denied",
       "command": "mandate.delegation.ConsumeApproval",
-      "port": "none",
-      "kind": "unsupported-command",
+      "port": "mandate_authz::agent::AgentAuthorityRead",
+      "kind": "input-decided",
       "consulted": 0
     },
     {
       "scenario": "mandate.delegation.CreateDelegation/outcome/denied",
       "command": "mandate.delegation.CreateDelegation",
-      "port": "none",
-      "kind": "unsupported-command",
+      "port": "mandate_authz::command::DelegationAdmission",
+      "kind": "input-decided",
       "consulted": 0
     },
     {
       "scenario": "mandate.delegation.RetireAgent/outcome/denied",
       "command": "mandate.delegation.RetireAgent",
-      "port": "none",
-      "kind": "unsupported-command",
+      "port": "mandate_authz::command::DelegationAdmission",
+      "kind": "input-decided",
       "consulted": 0
     },
     {
       "scenario": "mandate.delegation.RevokeDelegation/outcome/denied",
       "command": "mandate.delegation.RevokeDelegation",
-      "port": "none",
-      "kind": "unsupported-command",
+      "port": "mandate_authz::command::DelegationAdmission",
+      "kind": "input-decided",
       "consulted": 0
     },
     {
@@ -685,9 +695,9 @@
     {
       "scenario": "mandate.workload.RevokeWorkloadIdentity/outcome/denied",
       "command": "mandate.workload.RevokeWorkloadIdentity",
-      "port": "none",
-      "kind": "unsupported-command",
-      "consulted": 0
+      "port": "mandate_model::workload::WorkloadIdentityRead",
+      "kind": "armed-unrefused",
+      "consulted": 1
     }
   ],
   "blocked": [
@@ -908,76 +918,46 @@
       "blocked_on": "story:conform-gate"
     },
     {
-      "scenario": "mandate.delegation.CompleteExecution/outcome/denied",
-      "command": "mandate.delegation.CompleteExecution",
-      "reason": "unrealized-command",
-      "blocked_on": "story:agent-security"
-    },
-    {
       "scenario": "mandate.delegation.CompleteExecution/outcome/wrong-state",
-      "command": "mandate.delegation.CompleteExecution",
-      "reason": "unrealized-command",
-      "blocked_on": "story:agent-security"
-    },
-    {
-      "scenario": "mandate.delegation.ConsumeApproval/outcome/denied",
-      "command": "mandate.delegation.ConsumeApproval",
-      "reason": "unrealized-command",
-      "blocked_on": "story:agent-security"
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
     },
     {
       "scenario": "mandate.delegation.ConsumeApproval/outcome/wrong-state",
-      "command": "mandate.delegation.ConsumeApproval",
-      "reason": "unrealized-command",
-      "blocked_on": "story:agent-security"
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
     },
     {
       "scenario": "mandate.delegation.CreateDelegation/outcome/accepted",
-      "command": "mandate.delegation.CreateDelegation",
-      "reason": "unrealized-command",
-      "blocked_on": "story:agent-security"
-    },
-    {
-      "scenario": "mandate.delegation.CreateDelegation/outcome/denied",
-      "command": "mandate.delegation.CreateDelegation",
-      "reason": "unrealized-command",
-      "blocked_on": "story:agent-security"
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
     },
     {
       "scenario": "mandate.delegation.Delegation/transition/revoke/by/mandate.delegation.RevokeDelegation/accepted",
-      "command": "mandate.delegation.CreateDelegation",
-      "reason": "unrealized-command",
-      "blocked_on": "story:agent-security"
-    },
-    {
-      "scenario": "mandate.delegation.RetireAgent/outcome/denied",
-      "command": "mandate.delegation.RetireAgent",
-      "reason": "unrealized-command",
-      "blocked_on": "story:agent-security"
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
     },
     {
       "scenario": "mandate.delegation.RetireAgent/outcome/wrong-state",
-      "command": "mandate.delegation.RetireAgent",
-      "reason": "unrealized-command",
-      "blocked_on": "story:agent-security"
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
     },
     {
       "scenario": "mandate.delegation.RevokeDelegation/outcome/accepted",
-      "command": "mandate.delegation.CreateDelegation",
-      "reason": "unrealized-command",
-      "blocked_on": "story:agent-security"
-    },
-    {
-      "scenario": "mandate.delegation.RevokeDelegation/outcome/denied",
-      "command": "mandate.delegation.RevokeDelegation",
-      "reason": "unrealized-command",
-      "blocked_on": "story:agent-security"
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
     },
     {
       "scenario": "mandate.delegation.RevokeDelegation/outcome/wrong-state",
-      "command": "mandate.delegation.RevokeDelegation",
-      "reason": "unrealized-command",
-      "blocked_on": "story:agent-security"
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
     },
     {
       "scenario": "mandate.delegation.SupersedeAgentCapabilityCeiling/outcome/denied",
@@ -1526,16 +1506,10 @@
       "blocked_on": "story:conform-gate"
     },
     {
-      "scenario": "mandate.workload.RevokeWorkloadIdentity/outcome/denied",
-      "command": "mandate.workload.RevokeWorkloadIdentity",
-      "reason": "unrealized-command",
-      "blocked_on": "story:agent-security"
-    },
-    {
       "scenario": "mandate.workload.RevokeWorkloadIdentity/outcome/wrong-state",
-      "command": "mandate.workload.RevokeWorkloadIdentity",
-      "reason": "unrealized-command",
-      "blocked_on": "story:agent-security"
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
     }
   ]
 }

@@ -811,6 +811,8 @@ fn every_port_method_the_substituted_reader_implements_counts_its_read() {
     // A reader that answers a handler and reports that it was never asked makes
     // `injections.json` say the arming reached nothing when it decided the clause, which is
     // the same defect as a manufactured expectation one layer out.
+    use mandate_authz::agent::AgentAuthorityRead;
+    use mandate_authz::command::DelegationAdmission;
     use mandate_conformance::external::Substituted;
     use mandate_federation::publicclient::OAuthClientStore;
     use mandate_federation::register_client::ClientRegistrationAdmission;
@@ -820,6 +822,7 @@ fn every_port_method_the_substituted_reader_implements_counts_its_read() {
     use mandate_identity::IdentityRead;
     use mandate_identity::SecurityEpochWrite;
     use mandate_identity::TargetTenancy;
+    use mandate_model::workload::WorkloadIdentityRead;
     use mandate_sts::keys::{KeyMaterialResolver, SigningKeyReads};
     use mandate_sts::registry::ResourceServerReads;
     use mandate_sts::resolve::{CredentialReads, CredentialResolution};
@@ -847,6 +850,19 @@ fn every_port_method_the_substituted_reader_implements_counts_its_read() {
         execution: None,
         correlation: CorrelationId::new("correlation".to_owned()),
     };
+    /// The same context, for a closure that cannot borrow the one moved above.
+    fn delegation_context() -> VerifiedContext {
+        VerifiedContext {
+            subject: PrincipalId::new(identity(0x31)),
+            actor: None,
+            organization: OrganizationId::new(identity(0x32)),
+            audience: Audience::new("audience".to_owned()),
+            credential: CredentialId::new(identity(0x33)),
+            delegation: None,
+            execution: None,
+            correlation: CorrelationId::new("correlation".to_owned()),
+        }
+    }
     let resource = ResourceRef {
         resource_type: ResourceType::new("resource_type"),
         resource_id: ResourceId::new(identity(0x34)),
@@ -1128,6 +1144,88 @@ fn every_port_method_the_substituted_reader_implements_counts_its_read() {
                 );
             }),
         ),
+        (
+            "WorkloadIdentityRead::workload_identity",
+            Box::new(|r: &Substituted| {
+                let _ = WorkloadIdentityRead::workload_identity(
+                    r,
+                    &mandate_types::WorkloadIdentityId::new(identity(0x35)),
+                );
+            }),
+        ),
+        (
+            "DelegationAdmission::admits_delegation",
+            Box::new(|r: &Substituted| {
+                let _ = DelegationAdmission::admits_delegation(r, &delegation_context());
+            }),
+        ),
+        (
+            "DelegationAdmission::admits_audience",
+            Box::new(|r: &Substituted| {
+                let _ = DelegationAdmission::admits_audience(
+                    r,
+                    &OrganizationId::new(identity(0x32)),
+                    &Audience::new("audience".to_owned()),
+                );
+            }),
+        ),
+        (
+            "DelegationAdmission::admits_delegation_revocation",
+            Box::new(|r: &Substituted| {
+                let _ = DelegationAdmission::admits_delegation_revocation(r, &delegation_context());
+            }),
+        ),
+        (
+            "DelegationAdmission::admits_agent_administration",
+            Box::new(|r: &Substituted| {
+                let _ = DelegationAdmission::admits_agent_administration(r, &delegation_context());
+            }),
+        ),
+        (
+            "AgentAuthorityRead::standing",
+            Box::new(|r: &Substituted| {
+                let _ = AgentAuthorityRead::standing(r, &PrincipalId::new(identity(0x36)));
+            }),
+        ),
+        (
+            "AgentAuthorityRead::agent",
+            Box::new(|r: &Substituted| {
+                let _ = AgentAuthorityRead::agent(r, &PrincipalId::new(identity(0x36)));
+            }),
+        ),
+        (
+            "AgentAuthorityRead::ceilings",
+            Box::new(|r: &Substituted| {
+                let _ = AgentAuthorityRead::ceilings(r, &PrincipalId::new(identity(0x36)));
+            }),
+        ),
+        (
+            "AgentAuthorityRead::delegation",
+            Box::new(|r: &Substituted| {
+                let _ = AgentAuthorityRead::delegation(
+                    r,
+                    &mandate_types::DelegationId::new(identity(0x37)),
+                );
+            }),
+        ),
+        (
+            "AgentAuthorityRead::execution",
+            Box::new(|r: &Substituted| {
+                let _ = AgentAuthorityRead::execution(
+                    r,
+                    &mandate_types::ExecutionId::new(identity(0x38)),
+                );
+            }),
+        ),
+        (
+            "AgentAuthorityRead::approval",
+            Box::new(|r: &Substituted| {
+                let _ = AgentAuthorityRead::approval(
+                    r,
+                    &mandate_types::ApprovalId::new(identity(0x39)),
+                );
+            }),
+        ),
     ];
 
     let mut uncounted: Vec<&str> = Vec::new();
@@ -1210,9 +1308,11 @@ fn every_port_method_the_substituted_reader_implements_counts_its_read() {
 
 /// Where each crate that declares a port `Substituted` implements keeps its source.
 const PORT_CRATE_SOURCES: &[(&str, &str)] = &[
+    ("mandate_authz", "../mandate-authz/src"),
     ("mandate_federation", "../mandate-federation/src"),
     ("mandate_identity", "../mandate-identity/src"),
     ("mandate_graph", "../mandate-graph/src"),
+    ("mandate_model", "../mandate-model/src"),
     ("mandate_sts", "../../services/sts/src"),
 ];
 

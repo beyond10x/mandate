@@ -1,14 +1,20 @@
 //! `mandate.authorization.Check`, the one command the domain declares.
 //!
-//! # Five values the contract's input does not carry
+//! # Six values the contract's input does not carry
 //!
 //! `authorization.yaml` declares `Check(context, action, resource)`, and
-//! [`mandate_authz::CheckRequest`] needs five more that no port in the authorization
+//! [`mandate_authz::CheckRequest`] needs six more that no port in the authorization
 //! ceiling can answer: the audience the credential is required to carry, the relation the
-//! graph is asked about, the revision floor, the attribute input and the authority scope.
+//! graph is asked about, the revision floor, the attribute input, the authority scope and
+//! the decision instant, which is [`crate::FIXED_INSTANT`] like every other instant here.
 //! Each is documented at its field in that crate with the reason it cannot be looked up.
 //! This target states them, and `injections.json` records that it did: a reader who sees
 //! `Check` pass must be able to see which bounds were stated rather than evaluated.
+//!
+//! The agent records a delegated request is bounded by are read from this scenario's
+//! `mandate_authz::event::DelegationProjection`, the fold of the `mandate.delegation` events
+//! the scenario's delegation commands appended: a delegation a scenario created or revoked is
+//! read as it stands.
 //!
 //! # The accepted branch reports no event, and says so
 //!
@@ -20,15 +26,14 @@
 //! realization registry; a refusal declares no event and is reported in full.
 
 use ess_conformance::target::{SemanticCommandRequest, SemanticCommandResult, TargetError};
-use mandate_authz::evaluate::Ceiling;
 use mandate_authz::{CheckRequest, Pdp};
 use mandate_policy::port::AttributeSet;
-use mandate_types::{Action, AuthzRevision, ResourceRef, VerifiedContext};
+use mandate_types::{Action, AuthzRevision, ResourceRef, Timestamp, VerifiedContext};
 
-use crate::Live;
 use crate::commands::refused;
 use crate::external::Substituted;
 use crate::node;
+use crate::{FIXED_INSTANT, Live};
 
 /// The declared error the refusing outcome of this domain carries.
 const DENIED: &str = "mandate.authorization.Denied";
@@ -63,7 +68,7 @@ pub fn check(
     let minimum = AuthzRevision::new(INITIAL_REVISION.to_owned());
     let expected_audience = context.audience.clone();
     let relation = action.as_str().to_owned();
-    let ceilings: [Ceiling; 0] = [];
+    let at = Timestamp::new(FIXED_INSTANT);
     let request = CheckRequest {
         context: &context,
         action: &action,
@@ -73,7 +78,7 @@ pub fn check(
         minimum: &minimum,
         attributes: &attributes,
         scope: None,
-        ceilings: &ceilings,
+        at: &at,
     };
     let decided = if armed.is_some() {
         mandate_authz::check(
@@ -84,6 +89,7 @@ pub fn check(
                 issuer: &live.challenge,
                 tenancy: &live.tenancy,
                 topology: &live.topology,
+                agents: &live.delegations,
             },
             &mut live.decisions,
             &request,
@@ -97,6 +103,7 @@ pub fn check(
                 issuer: &live.challenge,
                 tenancy: &live.tenancy,
                 topology: &live.topology,
+                agents: &live.delegations,
             },
             &mut live.decisions,
             &request,

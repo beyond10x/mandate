@@ -1,5 +1,5 @@
-//! One graph read and one policy read per request, expanded, ceiling-bounded and folded
-//! through deny precedence.
+//! One graph read and one policy read per request, expanded and folded through deny
+//! precedence; the agent ceilings that bound a request are read by `check` before either.
 //!
 //! Corpus cases (`tests/security/cases.json`): `directory-no-authority` (`:5`) — a
 //! principal with no grant holds no authority; `autonomous-ceiling` (`:541`) — a grant
@@ -9,12 +9,19 @@
 
 use std::cell::Cell;
 
-use mandate_authz::evaluate::{Authority, Ceiling, Read, covers, evaluate, requested};
+use mandate_authz::agent::AgentRecords;
+use mandate_authz::decision::{Denied, FixedChallenge, SequentialDecisionIds};
+use mandate_authz::delegation::{Agent, AgentCapabilityCeiling, AgentState, CeilingState};
+use mandate_authz::evaluate::{Authority, Read, covers, evaluate, requested};
+use mandate_authz::{CheckRequest, Pdp, check};
 use mandate_graph::double::GraphDouble;
 use mandate_graph::port::{GraphError, GraphQuery, GraphRead, Observed};
 use mandate_graph::record::Grant;
 use mandate_graph::revocation::{RevisionView, RevocationWriter};
 use mandate_graph::topology::ResourceRegistry;
+use mandate_model::Decision;
+use mandate_model::graph::Topology;
+use mandate_model::tenancy::{MembershipAuthority, Tenancy};
 use mandate_policy::double::PolicyDouble;
 use mandate_policy::port::{
     AttributeSet, Challenge, ChallengeRequirement, Evaluation, PolicyEffect, PolicyError,
@@ -23,9 +30,10 @@ use mandate_policy::port::{
 use mandate_policy::precedence::{Combined, Component};
 use mandate_policy::record::{AuthorizationModel, Policy};
 use mandate_types::{
-    Action, ActionPattern, Audience, AuthorityScope, AuthoritySubject, AuthorizationModelId,
-    AuthzRevision, CorrelationId, CredentialId, DenialReason, GrantId, OrganizationId, PolicyId,
-    PolicyVersion, PrincipalId, ResourceId, ResourceRef, ResourceType, Uuid, VerifiedContext,
+    Action, ActionPattern, AgentCapabilityCeilingId, Audience, AuthorityScope, AuthoritySubject,
+    AuthorizationModelId, AuthzRevision, CorrelationId, CredentialId, DenialReason, Duration,
+    GrantId, OrganizationId, OrganizationMembershipId, PolicyId, PolicyVersion, PrincipalId,
+    ResourceId, ResourceRef, ResourceType, Timestamp, Uuid, VerifiedContext,
 };
 
 fn uuid(byte: u8) -> Uuid {
@@ -124,7 +132,6 @@ fn read<'a>(
     resource: &'a ResourceRef,
     minimum: &'a AuthzRevision,
     attributes: &'a AttributeSet,
-    ceilings: &'a [Ceiling],
 ) -> Read<'a> {
     Read {
         context,
@@ -135,7 +142,6 @@ fn read<'a>(
         minimum,
         attributes,
         scope: None,
-        ceilings,
     }
 }
 
@@ -160,7 +166,6 @@ fn a_subject_with_no_grant_holds_no_authority_however_policy_answers() {
             &resource(),
             &minimum,
             &attributes(),
-            &[],
         ),
     );
 
@@ -187,7 +192,6 @@ fn a_grant_the_catalog_says_carries_the_action_and_a_policy_allow_is_an_allow() 
             &resource(),
             &revision,
             &attributes(),
-            &[],
         ),
     );
 
@@ -230,7 +234,6 @@ fn a_role_that_does_not_carry_the_requested_action_denies() {
             &resource(),
             &revision,
             &attributes(),
-            &[],
         ),
     );
 
@@ -269,7 +272,6 @@ fn a_role_the_catalog_does_not_know_denies() {
             &resource(),
             &revision,
             &attributes(),
-            &[],
         ),
     );
 
@@ -300,7 +302,6 @@ fn a_grant_revoked_at_a_revision_carries_no_authority_at_that_revision() {
             &resource(),
             &before,
             &attributes(),
-            &[],
         ),
     );
     let after = evaluate(
@@ -314,7 +315,6 @@ fn a_grant_revoked_at_a_revision_carries_no_authority_at_that_revision() {
             &resource(),
             &revocation.revision,
             &attributes(),
-            &[],
         ),
     );
 
@@ -348,7 +348,6 @@ fn a_revision_the_reader_has_not_applied_is_unavailable_and_not_a_denial_about_t
             &resource(),
             &AuthzRevision::new("never-issued"),
             &attributes(),
-            &[],
         ),
     );
 
@@ -380,7 +379,6 @@ fn a_policy_decision_point_that_cannot_answer_denies_a_request_the_graph_allows(
             &resource(),
             &revision,
             &attributes(),
-            &[],
         ),
     );
 
@@ -392,113 +390,197 @@ fn a_policy_decision_point_that_cannot_answer_denies_a_request_the_graph_allows(
     assert_eq!(authority.policy_version, None);
 }
 
+/// The subject as an agent acting for itself: ceilings are an agent's, keyed by
+/// `(agent_id, organization_id)` (`systems/mandate/domains/delegation.yaml:5-6`), and
+/// [`mandate_authz::check`] reads them through the agent port before the graph and policy are
+/// asked anything. The ceiling cases below are therefore decided through `check`, the one path
+/// that reads them; [`evaluate`] reads no ceiling.
+fn as_agent(ceilings: Vec<AgentCapabilityCeiling>) -> AgentRecords {
+    AgentRecords {
+        agents: vec![Agent {
+            id: principal(),
+            organization_id: organization(),
+            agent_type: "assistant".to_owned(),
+            state: AgentState::Recorded,
+        }],
+        ceilings,
+        ..AgentRecords::new()
+    }
+}
+
+/// One ceiling of the agent, over the action and the resource.
+fn agent_ceiling(
+    byte: u8,
+    organization_id: Option<OrganizationId>,
+    allowed: &[&str],
+    denied: &[&str],
+) -> AgentCapabilityCeiling {
+    AgentCapabilityCeiling {
+        id: AgentCapabilityCeilingId::new(uuid(byte)),
+        agent_id: principal(),
+        organization_id,
+        allowed_actions: allowed
+            .iter()
+            .map(|name| ActionPattern::new(*name))
+            .collect(),
+        denied_actions: denied
+            .iter()
+            .map(|name| ActionPattern::new(*name))
+            .collect(),
+        scope: AuthorityScope {
+            actions: vec![action()],
+            resources: vec![resource()],
+            space: None,
+        },
+        max_delegation_ttl: Duration::new("PT1H"),
+        state: CeilingState::Recorded,
+    }
+}
+
+/// The organization, with the subject a member of it.
+fn tenancy() -> Tenancy {
+    let mut tenancy = Tenancy::new();
+    tenancy
+        .create_organization(&context(), organization(), "acme")
+        .expect("the organization is recorded");
+    tenancy
+        .add_organization_membership(
+            &context(),
+            MembershipAuthority::VerifiedOrganization,
+            OrganizationMembershipId::new(uuid(3)),
+            organization(),
+            principal(),
+        )
+        .expect("the subject is a member");
+    tenancy
+}
+
+/// One `mandate.authorization.Check` of the request, against these ports and these agent
+/// records.
+fn check_through<P: PolicyEvaluator>(
+    graph: &GraphDouble,
+    policy: &P,
+    catalog: &PolicyDouble,
+    minimum: &AuthzRevision,
+    agents: &AgentRecords,
+) -> Result<Decision, Denied> {
+    let tenancy = tenancy();
+    let topology = Topology::new();
+    let issuer = FixedChallenge {
+        expires_at: Timestamp::new("2026-09-18T00:00:00Z"),
+        approver_policy: Some(PolicyId::new(uuid(40))),
+    };
+    check(
+        &Pdp {
+            graph,
+            policy,
+            catalog,
+            issuer: &issuer,
+            tenancy: &tenancy,
+            topology: &topology,
+            agents,
+        },
+        &mut SequentialDecisionIds::new(),
+        &CheckRequest {
+            context: &context(),
+            action: &action(),
+            resource: &resource(),
+            expected_audience: &Audience::new("mandate"),
+            relation: "operator",
+            minimum,
+            attributes: &attributes(),
+            scope: None,
+            at: &Timestamp::new("2026-09-17T00:00:00Z"),
+        },
+    )
+}
+
 /// `autonomous-ceiling`: a persistent grant that exceeds the ceiling is refused, however
 /// the graph and policy answer.
 #[test]
 fn a_ceiling_that_does_not_admit_the_action_refuses_an_otherwise_allowed_request() {
-    let context = context();
     let mut policy = policy();
     policy.allow(organization(), subject(), action(), resource());
     let mut graph = graph();
     let revision = graph.record_grant(grant());
-    let ceilings = vec![Ceiling {
-        organization: None,
-        allowed_actions: vec![ActionPattern::new("deployment.read")],
-        denied_actions: Vec::new(),
-    }];
 
-    let authority = evaluate(
+    let allowed = check_through(
         &graph,
         &policy,
         &policy,
-        &read(
-            &context,
-            &subject(),
-            &action(),
-            &resource(),
-            &revision,
-            &attributes(),
-            &ceilings,
-        ),
-    );
+        &revision,
+        &as_agent(vec![agent_ceiling(60, None, &["deployment.*"], &[])]),
+    )
+    .expect("the control: a ceiling admitting the action allows");
+    assert!(allowed.allowed);
 
-    assert_eq!(authority.combined, Combined::Denied(DenialReason::Denied));
+    let refusal = check_through(
+        &graph,
+        &policy,
+        &policy,
+        &revision,
+        &as_agent(vec![agent_ceiling(60, None, &["deployment.read"], &[])]),
+    )
+    .expect_err("the ceiling does not admit the action");
+
+    assert_eq!(refusal.reason, DenialReason::Denied);
+    assert!(!refusal.decision.allowed);
 }
 
 /// `autonomous-ceiling`: every applicable ceiling intersects, so the tenant ceiling can
 /// refuse what the platform ceiling admits.
 #[test]
 fn every_applicable_ceiling_intersects() {
-    let context = context();
     let mut policy = policy();
     policy.allow(organization(), subject(), action(), resource());
     let mut graph = graph();
     let revision = graph.record_grant(grant());
-    let platform = Ceiling {
-        organization: None,
-        allowed_actions: vec![ActionPattern::new("deployment.*")],
-        denied_actions: Vec::new(),
-    };
-    let tenant = Ceiling {
-        organization: Some(organization()),
-        allowed_actions: vec![ActionPattern::new("deployment.*")],
-        denied_actions: vec![ActionPattern::new("deployment.restart")],
-    };
-    let elsewhere = Ceiling {
-        organization: Some(OrganizationId::new(uuid(9))),
-        allowed_actions: Vec::new(),
-        denied_actions: vec![ActionPattern::new("*")],
-    };
+    let platform = agent_ceiling(60, None, &["deployment.*"], &[]);
+    let tenant = agent_ceiling(
+        61,
+        Some(organization()),
+        &["deployment.*"],
+        &["deployment.restart"],
+    );
+    let elsewhere = agent_ceiling(62, Some(OrganizationId::new(uuid(9))), &[], &["*"]);
 
-    let inside = evaluate(
+    let inside = check_through(
         &graph,
         &policy,
         &policy,
-        &read(
-            &context,
-            &subject(),
-            &action(),
-            &resource(),
-            &revision,
-            &attributes(),
-            std::slice::from_ref(&platform),
-        ),
+        &revision,
+        &as_agent(vec![platform.clone()]),
     );
-    let intersected = evaluate(
+    let intersected = check_through(
         &graph,
         &policy,
         &policy,
-        &read(
-            &context,
-            &subject(),
-            &action(),
-            &resource(),
-            &revision,
-            &attributes(),
-            &[platform.clone(), tenant],
-        ),
+        &revision,
+        &as_agent(vec![platform.clone(), tenant]),
     );
-    let another_tenants = evaluate(
+    let another_tenants = check_through(
         &graph,
         &policy,
         &policy,
-        &read(
-            &context,
-            &subject(),
-            &action(),
-            &resource(),
-            &revision,
-            &attributes(),
-            &[platform, elsewhere],
-        ),
+        &revision,
+        &as_agent(vec![platform, elsewhere]),
     );
 
-    assert_eq!(inside.combined, Combined::Allowed);
-    assert_eq!(intersected.combined, Combined::Denied(DenialReason::Denied));
+    assert!(
+        inside
+            .expect("the platform ceiling admits the action")
+            .allowed
+    );
     assert_eq!(
-        another_tenants.combined,
-        Combined::Allowed,
-        "a ceiling recorded for another organization does not apply"
+        intersected
+            .expect_err("the tenant ceiling refuses the action")
+            .reason,
+        DenialReason::Denied
+    );
+    assert!(
+        another_tenants
+            .expect("a ceiling recorded for another organization does not apply")
+            .allowed
     );
 }
 
@@ -506,39 +588,20 @@ fn every_applicable_ceiling_intersects() {
 /// allow.
 #[test]
 fn a_ceiling_that_admits_the_action_grants_nothing_by_itself() {
-    let context = context();
     let graph = graph();
     let minimum = graph.observed();
-    let ceilings = vec![Ceiling {
-        organization: None,
-        allowed_actions: vec![ActionPattern::new("*")],
-        denied_actions: Vec::new(),
-    }];
 
-    let authority = evaluate(
+    let decided = check_through(
         &graph,
         &PolicyDouble::new(),
         &PolicyDouble::new(),
-        &read(
-            &context,
-            &subject(),
-            &action(),
-            &resource(),
-            &minimum,
-            &attributes(),
-            &ceilings,
-        ),
+        &minimum,
+        &as_agent(vec![agent_ceiling(60, None, &["*"], &[])]),
     );
 
-    assert!(!authority.combined.allowed());
-    assert_eq!(
-        Ceiling {
-            organization: None,
-            allowed_actions: vec![ActionPattern::new("*")],
-            denied_actions: Vec::new(),
-        }
-        .component(&action()),
-        Component::Nothing
+    assert!(
+        decided.is_err(),
+        "no grant and no policy, under a ceiling admitting everything: {decided:?}"
     );
 }
 
@@ -560,17 +623,21 @@ fn a_pattern_covers_the_action_it_names_and_the_prefix_it_ends() {
 /// An empty ceiling admits nothing, the same closed direction an empty source list takes.
 #[test]
 fn a_ceiling_that_admits_no_pattern_admits_no_action() {
-    let empty = Ceiling {
-        organization: None,
-        allowed_actions: Vec::new(),
-        denied_actions: Vec::new(),
-    };
+    let mut policy = policy();
+    policy.allow(organization(), subject(), action(), resource());
+    let mut graph = graph();
+    let revision = graph.record_grant(grant());
 
-    assert!(!empty.admits(&action()));
-    assert_eq!(
-        empty.component(&action()),
-        Component::Denied(DenialReason::Denied)
-    );
+    let refusal = check_through(
+        &graph,
+        &policy,
+        &policy,
+        &revision,
+        &as_agent(vec![agent_ceiling(60, None, &[], &[])]),
+    )
+    .expect_err("a ceiling with no allowed pattern admits no action");
+
+    assert_eq!(refusal.reason, DenialReason::Denied);
 }
 
 /// A binding refusal carries no port answer, and is still an authority value the one
@@ -629,12 +696,6 @@ fn each_port_is_read_exactly_once_per_request() {
         graph_reads: Cell::new(0),
         policy_reads: Cell::new(0),
     };
-    let ceilings = vec![Ceiling {
-        organization: None,
-        allowed_actions: vec![ActionPattern::new("*")],
-        denied_actions: Vec::new(),
-    }];
-
     let authority = evaluate(
         &counted,
         &counted,
@@ -646,7 +707,6 @@ fn each_port_is_read_exactly_once_per_request() {
             &resource(),
             &revision,
             &attributes(),
-            &ceilings,
         ),
     );
 
@@ -657,8 +717,10 @@ fn each_port_is_read_exactly_once_per_request() {
 
 /// A hand-rolled deterministic generator, on the pattern of
 /// `crates/mandate-types/tests/adversary.rs`: every combination of what the two ports can
-/// answer and what the ceiling can say, with the allow set stated independently of the
-/// implementation. No property-testing crate is in `Cargo.lock` and none may be added.
+/// answer and what the agent's ceiling can say, with the allow set stated independently of the
+/// implementation. No property-testing crate is in `Cargo.lock` and none may be added. The
+/// ceiling is the subject agent's, read through the agent port, so the request is asked of
+/// `check`, the path that reads it.
 #[test]
 fn only_a_covering_grant_and_a_policy_allow_inside_every_ceiling_is_an_allow() {
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -688,7 +750,6 @@ fn only_a_covering_grant_and_a_policy_allow_inside_every_ceiling_is_an_allow() {
         PolicyAnswer::Unreachable,
     ];
     let ceiling_admits = [true, false];
-    let context = context();
     let mut checked = 0_usize;
 
     for graph_answer in graph_answers {
@@ -734,41 +795,34 @@ fn only_a_covering_grant_and_a_policy_allow_inside_every_ceiling_is_an_allow() {
                     ),
                     PolicyAnswer::Unreachable => {}
                 }
-                let ceilings = vec![Ceiling {
-                    organization: None,
-                    allowed_actions: vec![ActionPattern::new(if admits {
+                let ceiling = agent_ceiling(
+                    60,
+                    None,
+                    &[if admits {
                         "deployment.*"
                     } else {
                         "directory.*"
-                    })],
-                    denied_actions: Vec::new(),
-                }];
-
-                let authority = evaluate(
-                    &graph,
-                    &policy,
-                    &policy,
-                    &read(
-                        &context,
-                        &subject(),
-                        &action(),
-                        &resource(),
-                        &minimum,
-                        &attributes(),
-                        &ceilings,
-                    ),
+                    }],
+                    &[],
                 );
+
+                let decided =
+                    check_through(&graph, &policy, &policy, &minimum, &as_agent(vec![ceiling]));
 
                 let should_allow = graph_answer == GraphAnswer::Covers
                     && policy_answer == PolicyAnswer::Allow
                     && admits;
+                let decision = match &decided {
+                    Ok(decision) => decision,
+                    Err(refusal) => &refusal.decision,
+                };
                 assert_eq!(
-                    authority.combined.allowed(),
-                    should_allow,
+                    decision.allowed, should_allow,
                     "graph {graph_answer:?}, policy {policy_answer:?}, ceiling admits {admits}"
                 );
+                assert_eq!(decided.is_ok(), should_allow);
                 if policy_answer == PolicyAnswer::Unreachable {
-                    assert_eq!(authority.policy_version, None);
+                    assert_eq!(decision.policy_version, None);
                 }
                 checked += 1;
             }
@@ -822,7 +876,6 @@ impl Asked {
             minimum,
             attributes: &self.attributes,
             scope,
-            ceilings: &[],
         }
     }
 }

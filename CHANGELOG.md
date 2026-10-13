@@ -4,6 +4,41 @@ All notable changes to Mandate are recorded here. The format follows [Keep a Cha
 
 ## [Unreleased]
 
+Wave 7: agent security. `Check` decides delegated requests against the agent records, and the
+delegation and workload commands that write those records arrive. Each unit was attacked by a
+security review.
+
+### Added
+
+- **Delegation commands.** `mandate_authz::command` decides `CreateDelegation`,
+  `RevokeDelegation`, `RetireAgent`, `CompleteExecution` and `ConsumeApproval`, and
+  `mandate_authz::event` folds their events into a `DelegationProjection` that answers
+  `AgentAuthorityRead`, so `Check` and the token exchange decide against what the commands wrote.
+  A delegation's delegator is the verified subject, its scope stays within the delegate's
+  applicable ceilings and its lifetime within the smallest `max_delegation_ttl`. A refusal emits
+  nothing; an unknown record refuses exactly like one of another organization. Each command's
+  `/outcome/denied` scenario passes. `SupersedeAgentCapabilityCeiling` stays deferred until ESS
+  can declare a create beside a move in one outcome.
+- **Workload identity revocation.** `mandate_model::workload` decides `RevokeWorkloadIdentity`;
+  an unknown, foreign or already revoked identity refuses alike, and its `/outcome/denied`
+  scenario passes.
+- **Durations.** `mandate_types::Duration::seconds` reads an ISO 8601 time duration and refuses
+  calendar, signed, fractional, reordered and overflowing forms.
+
+### Changed
+
+- **Breaking.** `mandate_authz::CheckRequest` gains `at`, `Pdp` gains an agent read, and the
+  caller-supplied `CheckRequest.ceilings` is removed: a delegated request, an execution or an
+  agent subject is decided through the evaluator's own record checks, with ceilings read by
+  agent. A completed, expired, foreign or mismatched execution refuses, and an agent subject is
+  bounded by its own ceilings.
+- **Records of another organization stay undisclosed.** A delegation or agent record of another
+  organization refuses like an unrecorded one at `Check` and at the token exchange
+  (`Denied`, no longer `TenantMismatch`), and `Check` refuses a disabled subject or actor.
+- An execution-bound delegation is refused at `Check` until an execution can name a delegation
+  created after it.
+- Conformance: 181 scenarios, 46 passed (40 at 0.7.1), 0 error.
+
 ## [0.7.1] - 2026-10-13
 
 Wave 6: the specification on the newest ESS format, and the planning tooling on the newest AEP.

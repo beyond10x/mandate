@@ -18,10 +18,12 @@
 
 pub mod authz;
 pub mod credential;
+pub mod delegation;
 pub mod federation;
 pub mod graph;
 pub mod identity;
 pub mod tenancy;
+pub mod workload;
 
 use ess_conformance::target::{
     DeclaredErrorValue, ObservedEvent, SemanticCommandRequest, SemanticCommandResult, TargetError,
@@ -48,6 +50,11 @@ pub const REALIZED: &[&str] = &[
     "mandate.credential.RetireSigningKey",
     "mandate.credential.RevokeAccessCredential",
     "mandate.credential.RevokeSigningKey",
+    "mandate.delegation.CompleteExecution",
+    "mandate.delegation.ConsumeApproval",
+    "mandate.delegation.CreateDelegation",
+    "mandate.delegation.RetireAgent",
+    "mandate.delegation.RevokeDelegation",
     "mandate.federation.AuthenticateFederation",
     "mandate.federation.AuthorizePublicClient",
     "mandate.federation.DisableFederationConnection",
@@ -72,6 +79,7 @@ pub const REALIZED: &[&str] = &[
     "mandate.tenancy.RemoveTeamMembership",
     "mandate.tenancy.RetireSpace",
     "mandate.tenancy.RetireTeam",
+    "mandate.workload.RevokeWorkloadIdentity",
 ];
 
 /// Every command the contract declares that this target answers `Unsupported` for, with the
@@ -104,34 +112,9 @@ pub const UNREALIZED: &[(&str, &str, &str)] = &[
         "story:constrained-exchange owns token exchange",
     ),
     (
-        "mandate.delegation.CompleteExecution",
-        "story:agent-security",
-        "story:agent-security owns the delegation command handlers; mandate-authz only reads the delegation records",
-    ),
-    (
-        "mandate.delegation.ConsumeApproval",
-        "story:agent-security",
-        "story:agent-security owns the delegation command handlers; mandate-authz only reads the delegation records",
-    ),
-    (
-        "mandate.delegation.CreateDelegation",
-        "story:agent-security",
-        "story:agent-security owns the delegation command handlers; mandate-authz only reads the delegation records",
-    ),
-    (
-        "mandate.delegation.RetireAgent",
-        "story:agent-security",
-        "story:agent-security owns the delegation command handlers; mandate-authz only reads the delegation records",
-    ),
-    (
-        "mandate.delegation.RevokeDelegation",
-        "story:agent-security",
-        "story:agent-security owns the delegation command handlers; mandate-authz only reads the delegation records",
-    ),
-    (
         "mandate.delegation.SupersedeAgentCapabilityCeiling",
         "story:agent-security",
-        "story:agent-security owns the delegation command handlers; mandate-authz only reads the delegation records",
+        "the command carries no replacement ceiling and ESS cannot yet declare a create beside a move in one outcome, so no ceiling has a writer",
     ),
     (
         "mandate.directory.CompleteSyncJob",
@@ -207,11 +190,6 @@ pub const UNREALIZED: &[(&str, &str, &str)] = &[
         "mandate.policy.SupersedePolicy",
         "story:graph-policy-adapter",
         "policy administration is a double; no command supersedes a policy",
-    ),
-    (
-        "mandate.workload.RevokeWorkloadIdentity",
-        "story:agent-security",
-        "mandate.workload is projected by nothing on any dependency line",
     ),
 ];
 
@@ -319,6 +297,14 @@ pub fn execute(
         }
         "mandate.tenancy.AddTeamMembership" => tenancy::add_team_membership(live, request),
         "mandate.tenancy.RemoveTeamMembership" => tenancy::remove_team_membership(live, request),
+        "mandate.workload.RevokeWorkloadIdentity" => {
+            workload::revoke_workload_identity(live, request)
+        }
+        "mandate.delegation.CreateDelegation" => delegation::create_delegation(live, request),
+        "mandate.delegation.RevokeDelegation" => delegation::revoke_delegation(live, request),
+        "mandate.delegation.RetireAgent" => delegation::retire_agent(live, request),
+        "mandate.delegation.CompleteExecution" => delegation::complete_execution(live, request),
+        "mandate.delegation.ConsumeApproval" => delegation::consume_approval(live, request),
         other => Err(TargetError::unavailable(
             format!("invoking `{other}`"),
             "this target dispatches only the commands `systems/mandate` declares, and the \
@@ -420,6 +406,12 @@ pub trait Refusal {
 }
 
 impl Refusal for mandate_federation::Denied {
+    fn branch(&self) -> &'static str {
+        self.outcome.ir_name()
+    }
+}
+
+impl Refusal for mandate_authz::command::Denied {
     fn branch(&self) -> &'static str {
         self.outcome.ir_name()
     }

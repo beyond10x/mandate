@@ -16,15 +16,15 @@ use mandate_authz::agent::{
     Unavailable, ValidatedProof, evaluate_agent_authority,
 };
 use mandate_authz::delegation::{
-    Agent, AgentCapabilityCeiling, AgentState, CeilingState, Delegation, DelegationState,
-    current_ceilings,
+    Agent, AgentCapabilityCeiling, AgentState, Approval, CeilingState, Delegation, DelegationState,
+    Execution, ExecutionState, current_ceilings,
 };
 use mandate_policy::port::{
     AttributeSet, Evaluation, PolicyEffect, PolicyError, PolicyEvaluator, PolicyRequest,
 };
 use mandate_types::{
-    Action, ActionPattern, AgentCapabilityCeilingId, Audience, AuthorityScope, CorrelationId,
-    CredentialId, DecisionReason, DelegationId, DenialReason, Duration, ExecutionId,
+    Action, ActionPattern, AgentCapabilityCeilingId, ApprovalId, Audience, AuthorityScope,
+    CorrelationId, CredentialId, DecisionReason, DelegationId, DenialReason, Duration, ExecutionId,
     OrganizationId, PolicyVersion, PrincipalId, ResourceId, ResourceRef, ResourceType, SpaceId,
     Timestamp, Uuid, VerifiedContext,
 };
@@ -180,6 +180,7 @@ struct Records {
     agents: Vec<Agent>,
     ceilings: Vec<AgentCapabilityCeiling>,
     delegations: Vec<Delegation>,
+    executions: Vec<Execution>,
     fails: Fails,
 }
 
@@ -198,6 +199,7 @@ impl Records {
             }],
             ceilings,
             delegations: vec![delegation_record(wide_scope())],
+            executions: Vec::new(),
             fails: Fails::Nothing,
         }
     }
@@ -246,6 +248,18 @@ impl AgentAuthorityRead for Records {
             .iter()
             .find(|delegation| delegation.id == *id)
             .cloned())
+    }
+
+    fn execution(&self, id: &ExecutionId) -> Result<Option<Execution>, Unavailable> {
+        Ok(self
+            .executions
+            .iter()
+            .find(|execution| execution.id == *id)
+            .cloned())
+    }
+
+    fn approval(&self, _id: &ApprovalId) -> Result<Option<Approval>, Unavailable> {
+        Ok(None)
     }
 }
 
@@ -702,6 +716,7 @@ fn adv_the_authored_ceiling_conflict_scenario_denies_on_its_named_clause() {
             created_at: Timestamp::new("2026-01-05T08:00:00Z"),
             state: DelegationState::Active,
         }],
+        executions: Vec::new(),
         fails: Fails::Nothing,
     };
     let proof_for = |principal| ValidatedProof {
@@ -765,6 +780,23 @@ fn adv_an_actor_proof_issued_under_a_delegation_is_a_chain() {
 fn adv_an_execution_bound_delegation_admits_only_its_execution() {
     let mut records = Records::platform();
     records.delegations[0].execution_binding = Some(ExecutionId::new(uuid(6)));
+    // Both executions are recorded, running and the agent's own under this delegation, so
+    // what refuses the second is the delegation's binding and not a record check of the
+    // execution (`story:agent-security` reads executions; `tests/agent_security.rs`).
+    for byte in [6, 66] {
+        records.executions.push(Execution {
+            id: ExecutionId::new(uuid(byte)),
+            organization_id: organization(),
+            agent_id: agent_principal(),
+            subject: Some(user()),
+            delegation_id: Some(records.delegations[0].id),
+            initiating_session: None,
+            created_at: Timestamp::new("2026-01-05T08:00:00Z"),
+            expires_at: Timestamp::new("2026-01-05T23:00:00Z"),
+            policy_version: PolicyVersion::new("v1"),
+            state: ExecutionState::Recorded,
+        });
+    }
 
     let mut ask = Ask::delegated(scope(&["document.read"], &[10]));
     ask.context.execution = Some(ExecutionId::new(uuid(6)));

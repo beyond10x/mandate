@@ -357,6 +357,20 @@ const STANDING: &[StandingDouble] = &[
         why: "an approval policy and a challenge expiry are values no port answers",
     },
     StandingDouble {
+        port: "mandate_authz::command::DelegationAdmission",
+        double: "mandate_authz::command::ConfiguredDelegationAdmission",
+        why: "delegation, revocation and agent-administration authority are authorization \
+              decisions (decision-blocker:guards) and the audience registry is \
+              mandate-token's; this target admits the verified subject and registers the \
+              context's audience, so a delegation command is refused for its records and \
+              never for an authority nobody evaluated",
+    },
+    StandingDouble {
+        port: "mandate_authz::command::DelegationIdAllocator",
+        double: "mandate_authz::command::SequentialDelegationIds",
+        why: "no crate in the authorization ceiling generates a uuid",
+    },
+    StandingDouble {
         port: "mandate_identity::IdentityLog",
         double: "mandate_identity::IdentityLog",
         why: "the in-memory double of the event-log adapter a later story supplies",
@@ -532,6 +546,30 @@ pub const PORTS: &[(&str, &str)] = &[
     ("mandate.tenancy.RemoveOrganizationMembership", NO_PORT),
     ("mandate.tenancy.AddTeamMembership", NO_PORT),
     ("mandate.tenancy.RemoveTeamMembership", NO_PORT),
+    (
+        "mandate.workload.RevokeWorkloadIdentity",
+        "mandate_model::workload::WorkloadIdentityRead",
+    ),
+    (
+        "mandate.delegation.CreateDelegation",
+        "mandate_authz::command::DelegationAdmission",
+    ),
+    (
+        "mandate.delegation.RevokeDelegation",
+        "mandate_authz::command::DelegationAdmission",
+    ),
+    (
+        "mandate.delegation.RetireAgent",
+        "mandate_authz::command::DelegationAdmission",
+    ),
+    (
+        "mandate.delegation.CompleteExecution",
+        "mandate_authz::agent::AgentAuthorityRead",
+    ),
+    (
+        "mandate.delegation.ConsumeApproval",
+        "mandate_authz::agent::AgentAuthorityRead",
+    ),
 ];
 
 /// What a command that consults no port has instead of one.
@@ -943,6 +981,108 @@ impl mandate_graph::topology::ResourceLookup for Substituted {
         Err(mandate_graph::port::GraphError::CouldNotAnswer(
             mandate_graph::port::Unanswered::ResourceUnresolved,
         ))
+    }
+}
+
+impl mandate_model::workload::WorkloadIdentityRead for Substituted {
+    /// Absence: an empty store holds no workload identity, which is what the standing fold
+    /// answers too while no command creates one.
+    fn workload_identity(
+        &self,
+        _id: &mandate_types::WorkloadIdentityId,
+    ) -> Option<mandate_model::workload::WorkloadIdentity> {
+        self.read();
+        None
+    }
+}
+
+impl mandate_authz::command::DelegationAdmission for Substituted {
+    /// A refusal, and counted as one: the standing admission holds the verified subject's
+    /// authority, so an admission that holds nothing answers what the standing one never
+    /// does. The signature is a `bool`, and `false` is the only absence it can express.
+    fn admits_delegation(&self, _context: &mandate_types::VerifiedContext) -> bool {
+        self.refuse();
+        false
+    }
+
+    /// The same, for an audience: the standing admission registers the context's own.
+    fn admits_audience(
+        &self,
+        _organization: &mandate_types::OrganizationId,
+        _audience: &mandate_types::Audience,
+    ) -> bool {
+        self.refuse();
+        false
+    }
+
+    fn admits_delegation_revocation(&self, _context: &mandate_types::VerifiedContext) -> bool {
+        self.refuse();
+        false
+    }
+
+    fn admits_agent_administration(&self, _context: &mandate_types::VerifiedContext) -> bool {
+        self.refuse();
+        false
+    }
+}
+
+impl mandate_authz::agent::AgentAuthorityRead for Substituted {
+    /// Absence at every read: an empty store holds no standing, agent, ceiling, delegation,
+    /// execution or approval, which is what the standing fold answers too while no command
+    /// creates those records.
+    fn standing(
+        &self,
+        _principal: &mandate_types::PrincipalId,
+    ) -> Result<Option<mandate_authz::agent::PrincipalStanding>, mandate_authz::agent::Unavailable>
+    {
+        self.read();
+        Ok(None)
+    }
+
+    fn agent(
+        &self,
+        _principal: &mandate_types::PrincipalId,
+    ) -> Result<Option<mandate_authz::delegation::Agent>, mandate_authz::agent::Unavailable> {
+        self.read();
+        Ok(None)
+    }
+
+    fn ceilings(
+        &self,
+        _agent: &mandate_types::PrincipalId,
+    ) -> Result<
+        Vec<mandate_authz::delegation::AgentCapabilityCeiling>,
+        mandate_authz::agent::Unavailable,
+    > {
+        self.read();
+        Ok(Vec::new())
+    }
+
+    fn delegation(
+        &self,
+        _id: &mandate_types::DelegationId,
+    ) -> Result<Option<mandate_authz::delegation::Delegation>, mandate_authz::agent::Unavailable>
+    {
+        self.read();
+        Ok(None)
+    }
+
+    fn execution(
+        &self,
+        _id: &mandate_types::ExecutionId,
+    ) -> Result<Option<mandate_authz::delegation::Execution>, mandate_authz::agent::Unavailable>
+    {
+        self.read();
+        Ok(None)
+    }
+
+    fn approval(
+        &self,
+        _id: &mandate_types::ApprovalId,
+    ) -> Result<Option<mandate_authz::delegation::Approval>, mandate_authz::agent::Unavailable>
+    {
+        self.read();
+        Ok(None)
     }
 }
 

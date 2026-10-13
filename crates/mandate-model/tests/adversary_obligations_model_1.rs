@@ -402,6 +402,18 @@ fn the_creating_commands_refuse_although_the_document_defers_every_clause_they_p
 /// writes each bullet as ``* `<command>` — "<clause>"``, wrapped at the file's comment width.
 /// A bullet broken across lines is read with its line breaks collapsed to single spaces, which
 /// is the rule the section states for itself. The section ends at the next top-level heading.
+/// Every source file of this crate, in a stable order.
+fn sources() -> Vec<std::path::PathBuf> {
+    let directory = concat!(env!("CARGO_MANIFEST_DIR"), "/src");
+    let mut files: Vec<std::path::PathBuf> = fs::read_dir(directory)
+        .unwrap_or_else(|error| panic!("{directory}: {error}"))
+        .map(|entry| entry.expect("a readable directory entry").path())
+        .filter(|path| path.extension().is_some_and(|extension| extension == "rs"))
+        .collect();
+    files.sort();
+    files
+}
+
 fn unrealized(fold: &str) -> BTreeSet<(String, String, String)> {
     const HEADING: &str = "# Every denial clause this fold does not realize";
 
@@ -501,7 +513,19 @@ fn every_clause_re_pointed_off_the_binding_story_is_one_the_fold_records_as_unre
          about that claim and has to be re-read if it goes"
     );
 
-    let recorded = unrealized(&fold);
+    // `model.json` is this crate's whole record, not `tenancy.rs`'s: every module of the crate
+    // that decides a command keeps its own section under the same heading, and the record is
+    // compared with all of them at once. Reading `tenancy.rs` alone made every deferral of
+    // another module (`workload.rs`) a disagreement no edit to that module could answer.
+    let mut recorded = unrealized(&fold);
+    for module in sources() {
+        if module.ends_with("tenancy.rs") {
+            continue;
+        }
+        let text = fs::read_to_string(&module)
+            .unwrap_or_else(|error| panic!("{}: {error}", module.display()));
+        recorded.extend(unrealized(&text));
+    }
     assert!(
         !recorded.is_empty(),
         "the fold's section enumerates no clause this case can read. It is parsed as \
@@ -527,7 +551,7 @@ fn every_clause_re_pointed_off_the_binding_story_is_one_the_fold_records_as_unre
     assert!(
         missing.is_empty() && unclaimed.is_empty(),
         "contracts/obligations/model.json and the \"Every denial clause this fold does not \
-         realize\" section of crates/mandate-model/src/tenancy.rs disagree, while that section \
+         realize\" sections of crates/mandate-model/src disagree, while tenancy.rs's section \
          says \"These are all of them\".\n  \
          {} deferred by the record and not enumerated by the fold:\n  {}\n  \
          {} enumerated by the fold and not deferred to that owner by the record:\n  {}",

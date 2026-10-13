@@ -97,6 +97,46 @@ pub fn bind<L: ResourceLookup + ?Sized>(
     lookup: &L,
     binding: &Binding<'_>,
 ) -> Result<Bound, DenialReason> {
+    bound(tenancy, topology, lookup, binding, Directness::Required)
+}
+
+/// Bind the verified context of any request, direct or not: [`bind`] without step 3.
+///
+/// What `mandate.authorization.Check` binds through. The tenant, audience, resource and space
+/// bindings are decided here exactly as [`bind`] decides them, for the subject the context
+/// names. Whether a request that is not direct is bounded — its actor an agent, its
+/// delegation and execution recorded and holding, the ceilings admitting it — is not a
+/// binding question: [`crate::check`] asks the record checks the token exchange decides by
+/// ([`crate::agent`]), so a delegated request is decided, never refused for being delegated.
+///
+/// # Errors
+///
+/// Those of [`bind`], except that a context that is not direct is not refused here.
+pub fn bind_any<L: ResourceLookup + ?Sized>(
+    tenancy: &Tenancy,
+    topology: &Topology,
+    lookup: &L,
+    binding: &Binding<'_>,
+) -> Result<Bound, DenialReason> {
+    bound(tenancy, topology, lookup, binding, Directness::Decided)
+}
+
+/// Whether binding refuses a context that is not direct, or leaves it to the record checks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Directness {
+    /// Refuse it: [`bind`].
+    Required,
+    /// Leave it to [`crate::agent`]: [`bind_any`].
+    Decided,
+}
+
+fn bound<L: ResourceLookup + ?Sized>(
+    tenancy: &Tenancy,
+    topology: &Topology,
+    lookup: &L,
+    binding: &Binding<'_>,
+    directness: Directness,
+) -> Result<Bound, DenialReason> {
     let context = binding.context;
     let organization = context.organization;
 
@@ -106,7 +146,7 @@ pub fn bind<L: ResourceLookup + ?Sized>(
     if !tenancy.is_member(organization, context.subject) {
         return Err(DenialReason::TenantMismatch);
     }
-    if !direct(context) {
+    if directness == Directness::Required && !direct(context) {
         return Err(DenialReason::Denied);
     }
     if &context.audience != binding.expected_audience {
@@ -156,22 +196,19 @@ pub fn bind<L: ResourceLookup + ?Sized>(
 /// `docs/architecture/combined.md:53` makes effective authority the intersection of, among
 /// others, the **actor ceiling** and the **explicit delegation**. `mandate.core.VerifiedContext`
 /// carries all three of the inputs that say a request is not direct — `actor`, `delegation`
-/// and `execution` (`crates/mandate-types/src/record.rs:63-95`) — and this crate's
-/// dependency ceiling contains no port that reads any of them: `mandate.delegation` is
-/// projected by nothing in `dependency-boundaries.json:20-25`, and no ceiling record is
-/// reachable. A bound that cannot be evaluated cannot be intersected, and granting as
-/// though it were unbounded is the open direction, so a request that names one is refused.
+/// and `execution` (`crates/mandate-types/src/record.rs:63-95`) — and each names a record
+/// that bounds the request: the actor's agent record and ceilings, the delegation, the
+/// execution.
 ///
 /// * `actor` absent, or equal to the subject — the subject acting as itself. Direct.
-/// * any other `actor` — refused: the actor ceiling is `story:agent-authority-kernel`'s
-///   (`docs/architecture/ownership.md:16`), together with the `agent_id` binding of
-///   `mandate.delegation.AgentCapabilityCeiling`, and is not implemented here.
-/// * `delegation` or `execution` present — refused for the same reason, one field over: an
-///   explicit delegation and an execution each bound the authority, and neither record is
-///   readable from here.
+/// * any other `actor` — not direct: the actor's ceilings bound it.
+/// * `delegation` or `execution` present — not direct, one field over: an explicit delegation
+///   and an execution each bound the authority.
 ///
-/// The refusal is [`DenialReason::Denied`]: it is a decision about this request's
-/// authority, not an outage and not a statement that some record is missing.
+/// [`bind`] refuses a request that is not direct, as [`DenialReason::Denied`]: a decision
+/// about this request's authority, not an outage. [`crate::check`] binds through
+/// [`bind_any`] instead and reads the records a request that is not direct names, through
+/// [`crate::agent::AgentAuthorityRead`].
 #[must_use]
 pub fn direct(context: &VerifiedContext) -> bool {
     let acting_as_itself = context

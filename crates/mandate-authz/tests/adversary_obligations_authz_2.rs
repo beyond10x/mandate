@@ -21,9 +21,10 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use mandate_authz::agent::AgentRecords;
 use mandate_authz::context::{Binding, Bound, bind};
 use mandate_authz::decision::{Denied, FixedChallenge, SequentialDecisionIds};
-use mandate_authz::evaluate::Ceiling;
+use mandate_authz::delegation::{Agent, AgentCapabilityCeiling, AgentState, CeilingState};
 use mandate_authz::{CheckRequest, Pdp, check};
 use mandate_graph::double::GraphDouble;
 use mandate_graph::record::Grant;
@@ -35,10 +36,10 @@ use mandate_policy::double::PolicyDouble;
 use mandate_policy::port::AttributeSet;
 use mandate_policy::record::{AuthorizationModel, Policy};
 use mandate_types::{
-    Action, ActionPattern, Audience, AuthorityScope, AuthoritySubject, AuthorizationModelId,
-    AuthzRevision, CorrelationId, CredentialId, DenialReason, GrantId, OrganizationId,
-    OrganizationMembershipId, PolicyId, PolicyVersion, PrincipalId, ResourceId, ResourceRef,
-    ResourceType, SpaceId, Timestamp, Uuid, VerifiedContext,
+    Action, ActionPattern, AgentCapabilityCeilingId, Audience, AuthorityScope, AuthoritySubject,
+    AuthorizationModelId, AuthzRevision, CorrelationId, CredentialId, DenialReason, Duration,
+    GrantId, OrganizationId, OrganizationMembershipId, PolicyId, PolicyVersion, PrincipalId,
+    ResourceId, ResourceRef, ResourceType, SpaceId, Timestamp, Uuid, VerifiedContext,
 };
 
 // ---------------------------------------------------------------------------------------
@@ -490,26 +491,44 @@ fn allowing_policy() -> PolicyDouble {
     policy
 }
 
-/// A ceiling that admits the action, recorded for nobody.
-fn permissive() -> Ceiling {
-    Ceiling {
-        organization: None,
+/// One ceiling of the subject, which is an agent acting for itself: ceilings are an agent's,
+/// keyed by `(agent_id, organization_id)`, and read through the agent port.
+fn agent_ceiling(
+    byte: u8,
+    organization_id: Option<OrganizationId>,
+    denied: &[&str],
+) -> AgentCapabilityCeiling {
+    AgentCapabilityCeiling {
+        id: AgentCapabilityCeilingId::new(uuid(byte)),
+        agent_id: principal(),
+        organization_id,
         allowed_actions: vec![ActionPattern::new("deployment.*")],
-        denied_actions: Vec::new(),
+        denied_actions: denied
+            .iter()
+            .map(|name| ActionPattern::new(*name))
+            .collect(),
+        scope: AuthorityScope {
+            actions: vec![action_checked()],
+            resources: vec![resource()],
+            space: None,
+        },
+        max_delegation_ttl: Duration::new("PT1H"),
+        state: CeilingState::Recorded,
     }
 }
 
-/// The refusing ceiling of `tests/obligations.rs:164-170`, with the field its test's name is
-/// about — the organization it is recorded for — as a parameter.
-fn refusing(recorded_for: Option<OrganizationId>) -> Ceiling {
-    Ceiling {
-        organization: recorded_for,
-        allowed_actions: vec![ActionPattern::new("deployment.*")],
-        denied_actions: vec![ActionPattern::new("deployment.restart")],
-    }
+/// A ceiling that admits the action, recorded for no organization: the platform ceiling.
+fn permissive() -> AgentCapabilityCeiling {
+    agent_ceiling(60, None, &[])
 }
 
-fn check_under(ceilings: &[Ceiling]) -> Result<Decision, Denied> {
+/// The refusing ceiling of `tests/obligations.rs`, with the field its test's name is about —
+/// the organization it is recorded for — as a parameter.
+fn refusing(recorded_for: Option<OrganizationId>) -> AgentCapabilityCeiling {
+    agent_ceiling(61, recorded_for, &["deployment.restart"])
+}
+
+fn check_under(ceilings: &[AgentCapabilityCeiling]) -> Result<Decision, Denied> {
     let (graph, revision) = granting_graph();
     let policy = allowing_policy();
     let tenancy = tenancy();
@@ -518,6 +537,16 @@ fn check_under(ceilings: &[Ceiling]) -> Result<Decision, Denied> {
         expires_at: Timestamp::new("2026-09-18T00:00:00Z"),
         approver_policy: Some(PolicyId::new(uuid(40))),
     };
+    let agents = AgentRecords {
+        agents: vec![Agent {
+            id: principal(),
+            organization_id: organization(),
+            agent_type: "assistant".to_owned(),
+            state: AgentState::Recorded,
+        }],
+        ceilings: ceilings.to_vec(),
+        ..AgentRecords::new()
+    };
     let pdp = Pdp {
         graph: &graph,
         policy: &policy,
@@ -525,6 +554,7 @@ fn check_under(ceilings: &[Ceiling]) -> Result<Decision, Denied> {
         issuer: &issuer,
         tenancy: &tenancy,
         topology: &topology,
+        agents: &agents,
     };
 
     check(
@@ -539,7 +569,7 @@ fn check_under(ceilings: &[Ceiling]) -> Result<Decision, Denied> {
             minimum: &revision,
             attributes: &AttributeSet::new(),
             scope: None,
-            ceilings,
+            at: &Timestamp::new("2026-09-17T00:00:00Z"),
         },
     )
 }
@@ -591,6 +621,13 @@ fn the_organization_the_new_ceiling_row_records_its_ceiling_for_decides_nothing(
     // could separate them without contradicting the declared model. The assertion is inverted to
     // record that, rather than deleted — the original finding was right that this pair proves
     // nothing, and the evidence for the row is the other two mutations.
+    //
+    // `story:agent-security` retired the caller-supplied `Ceiling` for the agent's
+    // `AgentCapabilityCeiling`, read through the agent port and keyed by
+    // `(agent_id, organization_id)`. The pair is still refused alike, now on two declared
+    // clauses: the tenant ceiling does not admit the action, and a second platform ceiling
+    // beside `permissive()` shares its key, which is the declared conflict. Neither reads
+    // authority, so the two decisions are equal.
     assert_eq!(
         recorded_for_the_organization, recorded_for_nobody,
         "a ceiling recorded for no organization and one recorded for this organization now differ. \

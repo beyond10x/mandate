@@ -380,6 +380,7 @@ fn a_caller_the_graph_holds_no_grant_for_is_refused_by_the_decision_point() {
             expected_audience: &audience,
             relation: mandate_control_plane::authority::ISSUANCE_RELATION,
             scope: None,
+            at: &Timestamp::new("2026-09-19T00:00:00Z"),
         })
         .expect_err("a subject with no grant holds no authority");
 
@@ -413,6 +414,7 @@ fn a_caller_the_tenancy_fold_holds_no_membership_for_is_refused_before_a_port_is
             expected_audience: &audience,
             relation: mandate_control_plane::authority::ISSUANCE_RELATION,
             scope: None,
+            at: &Timestamp::new("2026-09-19T00:00:00Z"),
         })
         .expect_err("a non-member binds to nothing");
 
@@ -535,6 +537,7 @@ fn a_context_whose_audience_is_not_the_expected_one_is_refused_by_the_decision_p
             expected_audience: &required,
             relation: mandate_control_plane::authority::ISSUANCE_RELATION,
             scope: None,
+            at: &Timestamp::new("2026-09-19T00:00:00Z"),
         })
         .expect_err("a credential issued for another audience binds to nothing");
 
