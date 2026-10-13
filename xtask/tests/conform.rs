@@ -208,7 +208,7 @@ fn the_committed_corpus_is_accepted() {
     );
     for story in [
         "story:ess-synthesizer-prerequisites",
-        "story:refusal-discriminators",
+        "story:agent-security",
         "story:testkit-doubles",
         "story:directory-provenance",
     ] {
@@ -243,7 +243,7 @@ fn a_scenario_the_run_does_not_carry_is_refused_by_name() {
     let body = outcomes(&root);
     let first = row(
         &body,
-        "mandate.audit.AuditEvent/state/Redacted/refuses/mandate.audit.RedactAuditEvent",
+        "mandate.audit.AuditEvent/transition/redact/by/mandate.audit.RedactAuditEvent/accepted",
     );
     let invented =
         "{\"id\":\"mandate.audit.NoSuchScenario/outcome/accepted\",\"outcome\":\"passed\"}";
@@ -641,7 +641,7 @@ fn a_report_that_skips_a_scenario_is_refused_by_name() {
         },
     );
     assert!(
-        error.contains("mandate.audit.AuditEvent/state/Redacted"),
+        error.contains("mandate.audit.AuditEvent/transition/redact"),
         "the refusal names the skipped scenario: {error}"
     );
     assert!(
@@ -663,7 +663,7 @@ fn a_report_that_errors_a_scenario_is_refused_by_name() {
         },
     );
     assert!(
-        error.contains("mandate.audit.AuditEvent/state/Redacted"),
+        error.contains("mandate.audit.AuditEvent/transition/redact"),
         "the refusal names the scenario the runner could not decide: {error}"
     );
     assert!(
@@ -767,8 +767,8 @@ fn write_evidence(root: &Path, model_digest: &str, reference: &str) {
 ///
 /// The shape is the store's own, measured by recording evidence into a scratch copy of this
 /// store with `aep plan artifact evidence --kind … --source … --ref git:<sha> --at <instant>`
-/// (aep 0.69.1): a file `<instant>-<sequence>-<digest>.json` holding `at`, `artifact` and
-/// `change.{change,kind,source,reference}`. The `i64` of each record is its instant, in
+/// (aep 0.69.1, again with 0.71.2): a file `<instant>-<sequence>-<digest>.json` holding `at`,
+/// `artifact` and `change.{change,kind,source,reference}`. The `i64` of each record is its instant, in
 /// milliseconds; the store writes whole seconds.
 fn write_records(root: &Path, model_digest: &str, records: &[(&str, String, i64)]) {
     write_evidence(root, model_digest, "");

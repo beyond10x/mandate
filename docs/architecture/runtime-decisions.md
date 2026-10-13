@@ -1,6 +1,6 @@
 # Runtime decision dossier
 
-Ten open runtime decision blockers, one row each, and one cleared register kept in place — section 9, `decision-blocker:algorithm-policy`, cleared 2026-09-19 — so section numbers and the cross-references into them stay stable. Every row carries a source-cited decision question, bounded alternatives, a proposed owner, the affected stories read from the planning store, and the exact evidence required to clear it. An independent reviewer should be able to take one row, follow its citations, and hold the decision conversation without reading the rest of this file.
+Nine open runtime decision blockers, one row each, and two cleared registers kept in place — section 8, `decision-blocker:identity-uniqueness`, cleared 2026-10-13, and section 9, `decision-blocker:algorithm-policy`, cleared 2026-09-19 — so section numbers and the cross-references into them stay stable. Every row carries a source-cited decision question, bounded alternatives, a proposed owner, the affected stories read from the planning store, and the exact evidence required to clear it. An independent reviewer should be able to take one row, follow its citations, and hold the decision conversation without reading the rest of this file.
 
 ## What this document does not do
 
@@ -14,12 +14,11 @@ The blocker set and the affected-stories column come from `aep plan artifact blo
 
 ## Where the register disagrees with the store
 
-Four of the ten rows name fewer stories in `unmapped.md` than the store holds, and one names the same set across two separate sections rather than on its `AEP:` line. The register is not wrong about the semantics in any of these cases; it is behind on edges added after it was written. Nothing in this document is built from those lines.
+Three of the nine rows name fewer stories in `unmapped.md` than the store holds, and one names the same set across two separate sections rather than on its `AEP:` line. The register is not wrong about the semantics in any of these cases; it is behind on edges added after it was written. Nothing in this document is built from those lines.
 
 | Row | Register `AEP:` line | Store adds |
 |---|---|---|
 | `decision-blocker:lifecycle` | `unmapped.md:15` names `story:domain-runtime` | `story:audit-worker-delivery` |
-| `decision-blocker:identity-uniqueness` | `unmapped.md:56` names three stories | `story:agent-authority-kernel` |
 | `decision-blocker:audit-routing` | `unmapped.md:68` names two stories | `story:audit-worker-delivery` |
 | `decision-blocker:worker-orchestration` | `unmapped.md:74` names two stories | `story:audit-worker-delivery` |
 | `decision-blocker:guards` | `unmapped.md:21` names `story:protocol-adapters` only; `story:audit-client` appears at `unmapped.md:44` under UNMAPPED-DENIAL-AUDIT | nothing — the register is complete but split across two sections |
@@ -41,7 +40,6 @@ No source this document may cite names an individual for any of these decisions,
 | 5 | `decision-blocker:backend` | UNMAPPED-BACKEND | `story:graph-policy-adapter` |
 | 6 | `decision-blocker:global-trust` | UNMAPPED-GLOBAL | `story:advanced-delegation` |
 | 7 | `decision-blocker:subject-relations` | UNMAPPED-SUBJECT-RELATIONS | `story:graph-policy-adapter` |
-| 8 | `decision-blocker:identity-uniqueness` | UNMAPPED-UNIQUENESS | `story:agent-security`, `story:credential-profiles`, `story:federation-linking` |
 | 10 | `decision-blocker:audit-routing` | UNMAPPED-AUDIT-ROUTING, UNMAPPED-AUDIT-VOCABULARY | `story:audit-client`, `story:audit-worker-delivery`, `story:constrained-exchange` |
 | 11 | `decision-blocker:worker-orchestration` | UNMAPPED-ORCHESTRATION | `story:audit-worker-delivery`, `story:directory-provenance`, `story:domain-runtime` |
 
@@ -225,7 +223,7 @@ Out of bounds: representing the union as a plain identifier with the branch impl
 - A case showing a subject outside tenant membership is rejected before graph admission (`command-obligations.md:34`; `unmapped.md:48`).
 - Evidence the reference is non-owning: removing the referenced principal or team does not silently delete the relation or grant. This answer depends on row 2 — decide lifecycle first, or the two rows will be cleared with contradictory cascade semantics.
 
-## 8. `decision-blocker:identity-uniqueness` — composite uniqueness
+## 8. Cleared 2026-10-13 — composite uniqueness
 
 **Decision question.** Which composite uniqueness constraints does storage enforce atomically, and on exactly which key columns? Storage must enforce `ExternalPrincipal` uniqueness by (organization, immutable configured connection issuer, external subject) with the issuer derived from the validated connection rather than supplied; resource-server audiences unique within an organization; allowed exchange source identifiers resolving to registered, enabled records in the same verified organization; and one current ceiling record per (agent, organization-or-platform). Composite uniqueness is not implied by nominal IDs or plain JSON Schema validation (`unmapped.md:54`). The addendum names the recommended constraints directly (`../sources/architecture-addendum.md:859-862`). Email equality never authorizes linking, and same email is not same principal (`command-obligations.md:28`; `../sources/architecture-addendum.md:941`; `combined.md:33`).
 
@@ -241,7 +239,7 @@ Out of bounds: nominal ID uniqueness or JSON Schema as the enforcement mechanism
 
 **Proposed owner.** The concrete storage adapter owner, which the map places under the graph port rather than giving it a row of its own (`ownership.md:11`), with `mandate-federation` for the external-principal key (`ownership.md:14`) and `mandate-token` with the credential registry for the audience and exchange-source keys (`ownership.md:15`). The ceiling half belongs to `mandate-authz` and the delegation domain (`ownership.md:16`).
 
-**Affected stories (store).** `story:agent-security`, `story:credential-profiles`, `story:federation-linking`, the three the register names (`unmapped.md:56`). The ceiling half, which `story:agent-authority-kernel` needed, is recorded and cleared on its own, so this record no longer blocks that story.
+**Cleared.** The planning store moved `decision-blocker:identity-uniqueness` from `open` to `cleared` on 2026-10-13, on the operator's decision recorded on the blocker: each remaining key is enforced by the command path refusing before it emits and by a fold that reports a conflict rather than resolving it silently. At clearance it blocked `story:agent-security`, `story:credential-profiles` and `story:federation-linking`; the ceiling half had already moved to `decision-blocker:identity-uniqueness-ceiling`. Atomic enforcement in storage moved to `decision-blocker:identity-uniqueness-storage`, which blocks `story:domain-folds-over-the-kit`. The text of this section is the question as it stood before clearance and is kept as the record of it; this section is no longer a row of the index and states no store row set.
 
 **Exact evidence required to clear.**
 
@@ -367,4 +365,4 @@ Two claims are deliberately *not* in this table because they are judgements, not
 
 ## Completeness
 
-This dossier is complete when each of the ten rows above carries its five fields, and no row's clearance evidence has been produced by writing it here. Every row above is open. Nothing in this document constitutes a clearance, an approval, an algorithm selection, a backend selection or a claim that any case listed as clearance evidence has been run — none has.
+This dossier is complete when each of the nine rows above carries its five fields, and no row's clearance evidence has been produced by writing it here. Every row above is open. Nothing in this document constitutes a clearance, an approval, an algorithm selection, a backend selection or a claim that any case listed as clearance evidence has been run — none has.

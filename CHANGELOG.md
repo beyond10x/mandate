@@ -4,6 +4,28 @@ All notable changes to Mandate are recorded here. The format follows [Keep a Cha
 
 ## [Unreleased]
 
+Wave 6: the specification on the newest ESS format, and the planning tooling on the newest AEP.
+No handler changes its answer; the OpenAPI projections change only their digests.
+
+### Changed
+
+- **Specification format `ess/24`.** `systems/mandate` declares `format: ess/24` in place of
+  `ess/4`, and `generated/` is regenerated under ESS 0.59.0. The synthesized conformance suite goes
+  from 201 to 181 scenarios: the 20 `<Entity>/state/<State>/refuses/<Command>` scenarios that no
+  view could observe are no longer emitted (`ESS-SYNTH-001`); none of them passed. Each is named in
+  `docs/plans/2026-10-13-wave-6-execution.md` (`story:unknown-instance-refusals`).
+- **Unknown identities stay undisclosed.** The 15 commands that act on an existing record keep
+  answering an identity no record carries exactly like a record the caller may not see. Their
+  synthesized scenarios, which expect a separate outcome, stay failing on
+  `story:unknown-instance-non-disclosing` until ESS can declare the case with an existing refusal.
+- **AEP 0.71.2.** `cargo xtask check` and CI require `aep` 0.71.2 in place of 0.69.1
+  (`story:aep-repin-0-71`).
+- **Composite-key uniqueness decided.** The external-principal, audience and exchange-source keys
+  are held by the command-path refusals and fold conflict views that already ship; capability
+  ceilings enter only through `SupersedeAgentCapabilityCeiling`. The delegation and workload
+  elements are mapped to `story:agent-security` instead of deferred. Atomic enforcement in storage
+  waits on persistence.
+
 ## [0.7.0] - 2026-10-13
 
 Wave 5a: Mandate moves onto ESS 0.59.0, and the shared agent authority evaluator arrives. Two

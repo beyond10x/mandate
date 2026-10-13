@@ -1,0 +1,13 @@
+{
+  "at": "2026-10-13T06:26:29Z",
+  "actor": "human:timo",
+  "artifact": "story:aep-repin-0-71",
+  "kind": "story",
+  "revision": 3,
+  "change": {
+    "change": "evidence",
+    "kind": "test_result",
+    "source": "cargo test -p xtask; cargo test -p mandate-authz",
+    "reference": "d96b79f712fd7af17920663e7460ba15e7205307"
+  }
+}
