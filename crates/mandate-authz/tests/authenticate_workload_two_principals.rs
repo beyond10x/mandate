@@ -102,8 +102,14 @@ fn request(agent: PrincipalId) -> AuthenticateWorkload {
 #[test]
 fn invariant_3_the_runtime_is_never_authenticated_as_its_own_agent() {
     // The control: the pair of two distinct principals is admitted in this world.
-    decide_authenticate_workload(&verifier(), &workloads(), &records(), &request(agent()), &now())
-        .expect("the control: a distinct agent is admitted");
+    decide_authenticate_workload(
+        &verifier(),
+        &workloads(),
+        &records(),
+        &request(agent()),
+        &now(),
+    )
+    .expect("the control: a distinct agent is admitted");
 
     let decided = decide_authenticate_workload(
         &verifier(),
@@ -127,8 +133,13 @@ fn invariant_3_a_disabled_runtime_principal_is_refused() {
     records
         .standings
         .push((runtime(), PrincipalStanding::Disabled));
-    let decided =
-        decide_authenticate_workload(&verifier(), &workloads(), &records, &request(agent()), &now());
+    let decided = decide_authenticate_workload(
+        &verifier(),
+        &workloads(),
+        &records,
+        &request(agent()),
+        &now(),
+    );
     assert!(
         decided.is_err(),
         "a disabled runtime principal was authenticated: {:?}",

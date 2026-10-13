@@ -12,7 +12,7 @@ decided against anything. Where the two disagree, the registry is right and this
 
 ## Scope, and what it does not cover
 
-`story:login-adapters` delivers the four commands the customer login road serves. The other 57
+`story:login-adapters` delivers the four commands the customer login road serves. The other 59
 commands are registered here as reached only through their generated
 `POST /<domain>/commands/<Command>` projection: this library declares no product route for them,
 decodes nothing for them, and establishes none of their preconditions. Their product routes and
@@ -39,11 +39,11 @@ nothing else.
 | `GET` | `/oauth/jwks` | the JWK Set document | `../sources/original-design.md:1862`, verbatim. |
 
 `../public/contracts.md:29`: generated command routes "do not implement product routes". The
-proof is `crates/mandate-server/tests/routes.rs`, which reads the 61 generated paths from
+proof is `crates/mandate-server/tests/routes.rs`, which reads the 63 generated paths from
 `generated/openapi/*.yaml` at test time and decides that the intersection with this table is
 empty — and, more than that, that no path here has the shape
-`/<domain>/commands/<Command>` at all, which holds for the 62nd generated route as well as the
-61 that exist.
+`/<domain>/commands/<Command>` at all, which holds for the 64th generated route as well as the
+63 that exist.
 
 The paths `original-design.md:1855-1862` lists that are deliberately absent:
 `/.well-known/openid-configuration` (no OpenID Connect command is declared), `/oauth/revoke`
