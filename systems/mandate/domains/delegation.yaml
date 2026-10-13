@@ -3,7 +3,9 @@
 # An execution is never expired by a recorded move: eligibility is read from expires_at, and completion is the only declared transition.
 # An approval is one-use and is never reinstated: it is consumed by exactly one decision, or it expires by its own expires_at with no recorded move.
 # A ceiling has its own identity. organization_id absent means a platform ceiling; present means a tenant ceiling. All applicable platform/tenant ceilings intersect.
-# UNMAPPED-UNIQUENESS: enforce one current ceiling per (agent, organization-or-platform), with trusted Agent-kind and organization checks.
+# The ceiling key is (agent_id, organization_id); organization_id absent is the platform key. The current ceiling for a key is the latest recorded one, still in Recorded: an earlier ceiling on the same key is superseded, never edited. A ceiling recorded for another organization applies to no request made in this one.
+# Two current ceilings on one key are a declared denial (mandate.credential.ExchangeCredential: "two current capability ceilings share one agent and organization-or-platform key"). The fold records the conflict and the decision path denies; no evaluator picks one of the two.
+# UNMAPPED-UNIQUENESS: a storage unique index on the ceiling key waits for persistence; trusted Agent-kind and organization checks are the evaluator's.
 # CreateDelegation fixes transitive=false; the entity invariant also refuses transitive declarations.
 domain: mandate.delegation
 entities:

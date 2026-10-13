@@ -52,6 +52,7 @@
 {"id":"mandate.credential.SigningKey/transition/retire/by/mandate.credential.RetireSigningKey/accepted","outcome":"failed","blocked_on":"story:ess-synthesizer-prerequisites"},
 {"id":"mandate.credential.SigningKey/transition/revoke/by/mandate.credential.RevokeSigningKey/accepted","outcome":"failed","blocked_on":"story:ess-synthesizer-prerequisites"},
 {"id":"mandate.credential/authored/credential-revoked-twice","outcome":"passed"},
+{"id":"mandate.credential/authored/exchange-ceiling-conflict","outcome":"unsupported","blocked_on":"story:declared-writers"},
 {"id":"mandate.credential/authored/introspect-caller-proof-malformed","outcome":"passed"},
 {"id":"mandate.credential/authored/pkce-code-expired","outcome":"passed"},
 {"id":"mandate.credential/authored/pkce-malformed-challenge","outcome":"failed","blocked_on":"story:ess-synthesizer-prerequisites"},

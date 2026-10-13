@@ -83,6 +83,11 @@
           "blocked_on": "story:constrained-exchange"
         },
         {
+          "clause": "two current capability ceilings share one agent and organization-or-platform key",
+          "tests": [],
+          "blocked_on": "story:constrained-exchange"
+        },
+        {
           "clause": "transitive delegation is requested",
           "tests": [
             {

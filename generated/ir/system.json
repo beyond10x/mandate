@@ -6333,7 +6333,7 @@
           "name": "denied",
           "condition": {
             "kind": "external",
-            "cause": "Either independently validated proof is invalid/revoked/expired/stale; actor, tenant, registered target/source, scope, space, delegation or ceiling binding fails; transitive delegation is requested; approval is required; or authority/expiry narrowing and durable audit fail."
+            "cause": "Either independently validated proof is invalid/revoked/expired/stale; actor, tenant, registered target/source, scope, space, delegation or ceiling binding fails; two current capability ceilings share one agent and organization-or-platform key; transitive delegation is requested; approval is required; or authority/expiry narrowing and durable audit fail."
           },
           "test_strategy": "inject_fault",
           "emits": [],

@@ -920,6 +920,12 @@
       "blocked_on": "story:conform-gate"
     },
     {
+      "scenario": "mandate.credential/authored/exchange-ceiling-conflict",
+      "command": "mandate.delegation.Agent",
+      "reason": "entity-without-adapter-writer",
+      "blocked_on": "story:declared-writers"
+    },
+    {
       "scenario": "mandate.credential/authored/pkce-malformed-challenge",
       "command": "",
       "reason": "expectation-unmet",

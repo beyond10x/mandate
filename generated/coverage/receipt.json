@@ -1,5 +1,5 @@
 {
-  "contract_crate_digest": "eebfdb57c1b75e09dfce876b409348220aa481212c333513bc66768283304fd5",
+  "contract_crate_digest": "daa9c30f87c3b4c70ec5bd23d7edad5ff196061c138632b97a73ab464793a267",
   "counts": {
     "command": {
       "declared": 8,
@@ -29,7 +29,7 @@
   },
   "ess_version": "ess 0.59.0",
   "format": "mandate-coverage-receipt/1",
-  "ir_digest": "8b01a3e5ea34f88d0929f857a1affdeeccd4225eb1bcec87e6a9165bb109148e",
+  "ir_digest": "1a5ead84a94f3d01f40918ac83b58b2cf82353fd1ceab379c825015bdc105830",
   "manifest_digest": "ba66e71fdcf5eb668a903cece1a09333b1fd55415d9f87918852fd49f987ccc4",
-  "source_digest": "06b0320540759285a87f0843a8eb26657fbedd34e7e833c4e1b2b5100a3b2978"
+  "source_digest": "74dfe7e4ab46e7997c35705afc632d27d767cc0c06c288433e872e98117d3973"
 }
