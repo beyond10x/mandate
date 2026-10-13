@@ -553,6 +553,33 @@ fn system_ir() -> Value {
     serde_json::from_str(&text).expect("the generated IR is JSON")
 }
 
+/// An entity invariant of the compiled model, written back as the source text it compiles
+/// from.
+///
+/// From `ess/22` an invariant compiles to a structured comparison —
+/// `window.not_before < window.expires_at` is
+/// `{"compare": {"left": "window.not_before", "op": "lt", "right": {"fact":
+/// "window.expires_at"}, "as": "timestamp"}}` — where below it the IR kept the text. Both
+/// forms are read; any other shape is `None` and matches no row.
+fn invariant_text(declared: &Value) -> Option<String> {
+    if let Some(text) = declared.as_str() {
+        return Some(text.to_owned());
+    }
+    let compare = &declared["compare"];
+    let op = match compare["op"].as_str()? {
+        "lt" => "<",
+        "le" => "<=",
+        "gt" => ">",
+        "ge" => ">=",
+        "eq" => "==",
+        "ne" => "!=",
+        _ => return None,
+    };
+    let left = compare["left"].as_str()?;
+    let right = compare["right"]["fact"].as_str()?;
+    Some(format!("{left} {op} {right}"))
+}
+
 fn outcome<'a>(ir: &'a Value, command: &str, name: &str) -> Option<&'a Value> {
     ir["commands"][command]["outcomes"]
         .as_array()?
@@ -593,7 +620,9 @@ fn every_clause_this_crate_constructs_is_declared_by_its_command() {
                     .as_array()
                     .unwrap_or_else(|| panic!("{entity} declares no invariants"));
                 assert!(
-                    declared.iter().any(|declared| declared == invariant),
+                    declared
+                        .iter()
+                        .any(|declared| invariant_text(declared).as_deref() == Some(*invariant)),
                     "{command} / {clause:?}: `{invariant}` is not an invariant {entity} \
                      declares: {declared:?}"
                 );

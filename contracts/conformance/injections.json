@@ -692,12 +692,6 @@
   ],
   "blocked": [
     {
-      "scenario": "mandate.audit.AuditEvent/state/Redacted/refuses/mandate.audit.RedactAuditEvent",
-      "command": "mandate.audit.RecordAuditEvent",
-      "reason": "unrealized-command",
-      "blocked_on": "story:audit-worker-delivery"
-    },
-    {
       "scenario": "mandate.audit.AuditEvent/transition/redact/by/mandate.audit.RedactAuditEvent/accepted",
       "command": "mandate.audit.RecordAuditEvent",
       "reason": "unrealized-command",
@@ -746,22 +740,10 @@
       "blocked_on": "story:conform-gate"
     },
     {
-      "scenario": "mandate.credential.AccessCredential/state/Revoked/refuses/mandate.credential.RevokeAccessCredential",
-      "command": "mandate.credential.ExchangeCredential",
-      "reason": "unrealized-command",
-      "blocked_on": "story:constrained-exchange"
-    },
-    {
       "scenario": "mandate.credential.AccessCredential/transition/revoke/by/mandate.credential.RevokeAccessCredential/accepted",
       "command": "mandate.credential.ExchangeCredential",
       "reason": "unrealized-command",
       "blocked_on": "story:constrained-exchange"
-    },
-    {
-      "scenario": "mandate.credential.AuthorizationCode/state/Consumed/refuses/mandate.credential.RedeemAuthorizationCode",
-      "command": "",
-      "reason": "expectation-unmet",
-      "blocked_on": "story:conform-gate"
     },
     {
       "scenario": "mandate.credential.AuthorizationCode/transition/consume/by/mandate.credential.RedeemAuthorizationCode/accepted",
@@ -842,12 +824,6 @@
       "blocked_on": "story:conform-gate"
     },
     {
-      "scenario": "mandate.credential.ResourceServer/state/Disabled/refuses/mandate.credential.DisableResourceServer",
-      "command": "",
-      "reason": "expectation-unmet",
-      "blocked_on": "story:conform-gate"
-    },
-    {
       "scenario": "mandate.credential.ResourceServer/transition/disable/by/mandate.credential.DisableResourceServer/accepted",
       "command": "",
       "reason": "expectation-unmet",
@@ -885,24 +861,6 @@
     },
     {
       "scenario": "mandate.credential.RevokeSigningKey/outcome/wrong-state",
-      "command": "",
-      "reason": "expectation-unmet",
-      "blocked_on": "story:conform-gate"
-    },
-    {
-      "scenario": "mandate.credential.SigningKey/state/Retired/refuses/mandate.credential.RetireSigningKey",
-      "command": "",
-      "reason": "expectation-unmet",
-      "blocked_on": "story:conform-gate"
-    },
-    {
-      "scenario": "mandate.credential.SigningKey/state/Revoked/refuses/mandate.credential.RetireSigningKey",
-      "command": "",
-      "reason": "expectation-unmet",
-      "blocked_on": "story:conform-gate"
-    },
-    {
-      "scenario": "mandate.credential.SigningKey/state/Revoked/refuses/mandate.credential.RevokeSigningKey",
       "command": "",
       "reason": "expectation-unmet",
       "blocked_on": "story:conform-gate"
@@ -986,12 +944,6 @@
       "blocked_on": "story:agent-security"
     },
     {
-      "scenario": "mandate.delegation.Delegation/state/Revoked/refuses/mandate.delegation.RevokeDelegation",
-      "command": "mandate.delegation.CreateDelegation",
-      "reason": "unrealized-command",
-      "blocked_on": "story:agent-security"
-    },
-    {
       "scenario": "mandate.delegation.Delegation/transition/revoke/by/mandate.delegation.RevokeDelegation/accepted",
       "command": "mandate.delegation.CreateDelegation",
       "reason": "unrealized-command",
@@ -1059,12 +1011,6 @@
     },
     {
       "scenario": "mandate.directory.CreateDirectoryGroupTeamMapping/outcome/denied",
-      "command": "mandate.directory.CreateDirectoryGroupTeamMapping",
-      "reason": "unrealized-command",
-      "blocked_on": "story:directory-provenance"
-    },
-    {
-      "scenario": "mandate.directory.DirectoryGroupTeamMapping/state/Removed/refuses/mandate.directory.RemoveDirectoryGroupTeamMapping",
       "command": "mandate.directory.CreateDirectoryGroupTeamMapping",
       "reason": "unrealized-command",
       "blocked_on": "story:directory-provenance"
@@ -1196,19 +1142,7 @@
       "blocked_on": "story:conform-gate"
     },
     {
-      "scenario": "mandate.federation.ExternalPrincipal/state/Unlinked/refuses/mandate.federation.UnlinkExternalPrincipal",
-      "command": "",
-      "reason": "expectation-unmet",
-      "blocked_on": "story:conform-gate"
-    },
-    {
       "scenario": "mandate.federation.ExternalPrincipal/transition/unlink/by/mandate.federation.UnlinkExternalPrincipal/accepted",
-      "command": "",
-      "reason": "expectation-unmet",
-      "blocked_on": "story:conform-gate"
-    },
-    {
-      "scenario": "mandate.federation.FederationConnection/state/Disabled/refuses/mandate.federation.DisableFederationConnection",
       "command": "",
       "reason": "expectation-unmet",
       "blocked_on": "story:conform-gate"
@@ -1221,12 +1155,6 @@
     },
     {
       "scenario": "mandate.federation.LinkExternalPrincipal/outcome/accepted",
-      "command": "",
-      "reason": "expectation-unmet",
-      "blocked_on": "story:conform-gate"
-    },
-    {
-      "scenario": "mandate.federation.OAuthClient/state/Disabled/refuses/mandate.federation.DisableOAuthClient",
       "command": "",
       "reason": "expectation-unmet",
       "blocked_on": "story:conform-gate"
@@ -1298,12 +1226,6 @@
       "blocked_on": "story:testkit-doubles"
     },
     {
-      "scenario": "mandate.graph.Relation/state/Removed/refuses/mandate.graph.RemoveRelation",
-      "command": "mandate.graph.WriteRelationship",
-      "reason": "unrealized-command",
-      "blocked_on": "story:graph-policy-adapter"
-    },
-    {
       "scenario": "mandate.graph.Relation/transition/remove/by/mandate.graph.RemoveRelation/accepted",
       "command": "mandate.graph.WriteRelationship",
       "reason": "unrealized-command",
@@ -1326,12 +1248,6 @@
       "command": "mandate.graph.RemoveRelation",
       "reason": "unrealized-command",
       "blocked_on": "story:graph-policy-adapter"
-    },
-    {
-      "scenario": "mandate.graph.Resource/state/Deregistered/refuses/mandate.graph.DeregisterResource",
-      "command": "",
-      "reason": "expectation-unmet",
-      "blocked_on": "story:conform-gate"
     },
     {
       "scenario": "mandate.graph.Resource/transition/deregister/by/mandate.graph.DeregisterResource/accepted",
@@ -1413,12 +1329,6 @@
     },
     {
       "scenario": "mandate.identity.RevokeSession/outcome/wrong-state",
-      "command": "",
-      "reason": "expectation-unmet",
-      "blocked_on": "story:conform-gate"
-    },
-    {
-      "scenario": "mandate.identity.Session/state/Revoked/refuses/mandate.identity.RevokeSession",
       "command": "",
       "reason": "expectation-unmet",
       "blocked_on": "story:conform-gate"
@@ -1520,18 +1430,6 @@
       "blocked_on": "story:testkit-doubles"
     },
     {
-      "scenario": "mandate.tenancy.Organization/state/Closed/refuses/mandate.tenancy.CloseOrganization",
-      "command": "",
-      "reason": "expectation-unmet",
-      "blocked_on": "story:conform-gate"
-    },
-    {
-      "scenario": "mandate.tenancy.OrganizationMembership/state/Removed/refuses/mandate.tenancy.RemoveOrganizationMembership",
-      "command": "",
-      "reason": "expectation-unmet",
-      "blocked_on": "story:conform-gate"
-    },
-    {
       "scenario": "mandate.tenancy.OrganizationMembership/transition/remove/by/mandate.tenancy.RemoveOrganizationMembership/accepted",
       "command": "",
       "reason": "expectation-unmet",
@@ -1610,31 +1508,13 @@
       "blocked_on": "story:conform-gate"
     },
     {
-      "scenario": "mandate.tenancy.Space/state/Retired/refuses/mandate.tenancy.RetireSpace",
-      "command": "",
-      "reason": "expectation-unmet",
-      "blocked_on": "story:conform-gate"
-    },
-    {
       "scenario": "mandate.tenancy.Space/transition/retire/by/mandate.tenancy.RetireSpace/accepted",
       "command": "",
       "reason": "expectation-unmet",
       "blocked_on": "story:conform-gate"
     },
     {
-      "scenario": "mandate.tenancy.Team/state/Retired/refuses/mandate.tenancy.RetireTeam",
-      "command": "",
-      "reason": "expectation-unmet",
-      "blocked_on": "story:conform-gate"
-    },
-    {
       "scenario": "mandate.tenancy.Team/transition/retire/by/mandate.tenancy.RetireTeam/accepted",
-      "command": "",
-      "reason": "expectation-unmet",
-      "blocked_on": "story:conform-gate"
-    },
-    {
-      "scenario": "mandate.tenancy.TeamMembership/state/Removed/refuses/mandate.tenancy.RemoveTeamMembership",
       "command": "",
       "reason": "expectation-unmet",
       "blocked_on": "story:conform-gate"
