@@ -2,7 +2,7 @@
 format: aep.planning-md/3
 id: story:agent-security
 kind: story
-status: draft
+status: active
 title: Implement constrained agents and execution security
 relations:
 - decomposes: epic:agents-workloads
@@ -12,10 +12,61 @@ relations:
 - informed_by: initiative:next-ten-waves
 scope:
 - confidence: cited
+  path: contracts/conformance/injections.json
+- confidence: cited
+  path: contracts/conformance/obligations-report.json
+- confidence: cited
+  path: contracts/coverage.json
+- confidence: cited
+  path: contracts/expected-outcomes.json
+- confidence: cited
+  path: contracts/obligations/authz.json
+- confidence: cited
+  path: contracts/obligations/model.json
+- confidence: cited
   path: crates/mandate-authz
+- confidence: inferred
+  path: crates/mandate-authz/Cargo.toml
+- confidence: cited
+  path: crates/mandate-authz/src/agent.rs
+- confidence: cited
+  path: crates/mandate-authz/src/context.rs
+- confidence: cited
+  path: crates/mandate-authz/src/delegation.rs
+- confidence: cited
+  path: crates/mandate-authz/src/evaluate.rs
+- confidence: cited
+  path: crates/mandate-authz/src/lib.rs
+- confidence: cited
+  path: crates/mandate-conformance/src/commands/authz.rs
+- confidence: inferred
+  path: crates/mandate-conformance/src/commands/delegation.rs
+- confidence: cited
+  path: crates/mandate-conformance/src/commands/mod.rs
+- confidence: inferred
+  path: crates/mandate-conformance/src/commands/workload.rs
+- confidence: cited
+  path: crates/mandate-conformance/src/external.rs
+- confidence: cited
+  path: crates/mandate-conformance/src/lib.rs
+- confidence: inferred
+  path: crates/mandate-model/src/lib.rs
+- confidence: inferred
+  path: crates/mandate-model/src/workload.rs
 - confidence: cited
   path: crates/mandate-policy
-revision: 5
+- confidence: inferred
+  path: dependency-boundaries.json
+- confidence: cited
+  path: generated
+- confidence: cited
+  path: services/control-plane/src/authority.rs
+- confidence: cited
+  path: systems/mandate/domains/delegation.yaml
+revision: 9
+transitions:
+- {from: "draft", to: "proposed", at: "2026-10-13T06:40:19Z", actor: "human:timo", revision: 8, decided_on: {"recorded":{"review_outcome":1}}}
+- {from: "proposed", to: "active", at: "2026-10-13T06:40:19Z", actor: "human:timo", revision: 9, decided_on: {"recorded":{"review_outcome":1}}}
 ---
 # Implement constrained agents and execution security
 
