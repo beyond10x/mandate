@@ -64,6 +64,13 @@ Rust API break.
   reached only through `serde_yaml` in the ESS crates; the ignore leaves when ESS drops
   `serde_yaml`.
 
+### Fixed
+
+- An authorization request answered `server_error` when a clock second passed during it: the
+  code's expiry was read from a second clock read and landed one second past the ceiling the STS
+  admits (`ExpiryUnbounded`). The code's expiry, and a login's session expiry, are now derived
+  from the request's one instant.
+
 ## [0.6.0] - 2026-09-24
 
 Wave M: a browser signs in through an external OIDC IdP, and a credential is exchanged for one
