@@ -1538,9 +1538,9 @@
     }
   },
   "provenance": {
-    "contract_digest": "890c4e5029e2171c3abad275af7a71d3ffccff4269b5fc933b70ff203f11574c",
+    "contract_digest": "6e8d60eff115f41f692ab8ecbaa0a553e233c3f25890f20288912b90d1cc1b04",
     "scenario_initial_state": "empty",
-    "spec_digest": "cc2b92ef62d71301fffac73193657e56997c8c3355bd5026b9a5ca7a6e331078",
+    "spec_digest": "e45424ae17215fcf0135234cf17e909e2979fce028c3da4b855c56b1a7b43bc7",
     "specification_version": "v1",
     "suite_version": "ess-conformance/35",
     "system": "mandate"
@@ -1638,6 +1638,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -2113,6 +2117,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -2522,6 +2530,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -2909,6 +2921,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -3322,6 +3338,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -3904,6 +3924,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -4269,6 +4293,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -4744,6 +4772,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -5101,6 +5133,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -5447,6 +5483,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -5765,6 +5805,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -6104,6 +6148,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -6501,6 +6549,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -7035,6 +7087,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.credential.AccessCredentialRevoked",
           "step": "expect_no_event"
         },
@@ -7400,6 +7456,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -7750,6 +7810,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -8126,6 +8190,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -8483,6 +8551,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -8801,6 +8873,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -9151,6 +9227,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -9863,6 +9943,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -10309,6 +10393,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -10726,6 +10814,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -11381,6 +11473,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -11742,6 +11838,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -12194,6 +12294,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -12547,6 +12651,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -12893,6 +13001,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -13211,6 +13323,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -13550,6 +13666,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -13951,6 +14071,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -14555,6 +14679,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -14905,6 +15033,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -15265,6 +15397,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -15650,6 +15786,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -16180,6 +16320,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -16498,6 +16642,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -16835,6 +16983,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -17244,6 +17396,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -17755,6 +17911,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -18152,6 +18312,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -18527,6 +18691,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -18924,6 +19092,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -19539,6 +19711,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -19916,6 +20092,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -20274,6 +20454,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -20671,6 +20855,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -21286,6 +21474,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -21663,6 +21855,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -22021,6 +22217,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -22445,6 +22645,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -23100,6 +23304,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -23430,6 +23638,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -23782,6 +23994,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -24100,6 +24316,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -24442,6 +24662,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -24811,6 +25035,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -25296,6 +25524,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -25661,6 +25893,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -26021,6 +26257,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -26390,6 +26630,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -26851,6 +27095,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -27212,6 +27460,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -27566,6 +27818,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -27934,6 +28190,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -28386,6 +28646,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -28747,6 +29011,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -29193,6 +29461,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -29546,6 +29818,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -29892,6 +30168,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -30210,6 +30490,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -30549,6 +30833,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -30913,6 +31201,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -31362,6 +31654,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -31711,6 +32007,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -32057,6 +32357,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -32375,6 +32679,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -32714,6 +33022,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -33082,6 +33394,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -33528,6 +33844,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -33881,6 +34201,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -34227,6 +34551,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -34545,6 +34873,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -34884,6 +35216,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -35252,6 +35588,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -35698,6 +36038,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -36070,6 +36414,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -36513,6 +36861,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -40974,6 +41326,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -41320,6 +41676,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -41638,6 +41998,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -41977,6 +42341,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -42337,6 +42705,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -42683,6 +43055,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -43001,6 +43377,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -43340,6 +43720,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -43717,6 +44101,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -44234,6 +44622,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -44607,6 +44999,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -44981,6 +45377,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -45348,6 +45748,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -45811,6 +46215,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -46160,6 +46568,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -46506,6 +46918,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -46824,6 +47240,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -47163,6 +47583,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -47530,6 +47954,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -47993,6 +48421,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -48342,6 +48774,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -48688,6 +49124,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -49006,6 +49446,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -49345,6 +49789,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -49705,6 +50153,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -50051,6 +50503,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -50369,6 +50825,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -50708,6 +51168,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -51068,6 +51532,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -51414,6 +51882,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -51732,6 +52204,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -52071,6 +52547,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -52440,6 +52920,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -52893,6 +53377,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -53250,6 +53738,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -53597,6 +54089,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -53968,6 +54464,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -54404,6 +54904,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -54757,6 +55261,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -55103,6 +55611,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -55421,6 +55933,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -55760,6 +56276,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -56120,6 +56640,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -56466,6 +56990,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -56784,6 +57312,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -57123,6 +57655,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -57494,6 +58030,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -57930,6 +58470,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -58283,6 +58827,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -58629,6 +59177,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -58947,6 +59499,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -59286,6 +59842,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -59646,6 +60206,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -59992,6 +60556,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -60310,6 +60878,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -60649,6 +61221,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -61009,6 +61585,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -61355,6 +61935,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -61673,6 +62257,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -62012,6 +62600,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -62373,6 +62965,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -62775,6 +63371,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -63128,6 +63728,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -63475,6 +64079,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -63828,6 +64436,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -64254,6 +64866,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -64576,6 +65192,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -64913,6 +65533,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -65294,6 +65918,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -65768,6 +66396,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -66130,6 +66762,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -66509,6 +67145,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -66874,6 +67514,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -67325,6 +67969,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -67678,6 +68326,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -68024,6 +68676,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -68342,6 +68998,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -68681,6 +69341,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -69049,6 +69713,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -69494,6 +70162,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -69847,6 +70519,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -70193,6 +70869,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -70511,6 +71191,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -70850,6 +71534,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -71218,6 +71906,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -71665,6 +72357,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -72026,6 +72722,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -72477,6 +73177,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -72839,6 +73543,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -73300,6 +74008,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -73661,6 +74373,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -74016,6 +74732,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -74384,6 +75104,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -74829,6 +75553,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -75179,6 +75907,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -75626,6 +76358,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -75948,6 +76684,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -76285,6 +77025,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -76654,6 +77398,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -77123,6 +77871,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -77481,6 +78233,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -77846,6 +78602,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -78208,6 +78968,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -78668,6 +79432,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -79025,6 +79793,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -79378,6 +80150,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -79746,6 +80522,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -80193,6 +80973,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -80546,6 +81330,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -80892,6 +81680,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -81210,6 +82002,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -81549,6 +82345,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -84603,6 +85403,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -85042,6 +85846,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -85395,6 +86203,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -85741,6 +86553,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -86059,6 +86875,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -86398,6 +87218,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -86763,6 +87587,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -87207,6 +88035,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -87568,6 +88400,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -87918,6 +88754,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -88289,6 +89129,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -88732,6 +89576,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -89099,6 +89947,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -89545,6 +90397,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -89898,6 +90754,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -90244,6 +91104,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -90562,6 +91426,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -90901,6 +91769,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -91269,6 +92141,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -91711,6 +92587,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -92064,6 +92944,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -92410,6 +93294,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -92728,6 +93616,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -93067,6 +93959,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -93444,6 +94340,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -93909,6 +94809,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -94278,6 +95182,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -94638,6 +95546,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -94991,6 +95903,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -95337,6 +96253,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -95655,6 +96575,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -95994,6 +96918,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -96351,6 +97279,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -96748,6 +97680,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -97105,6 +98041,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -97454,6 +98394,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -97776,6 +98720,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -98133,6 +99081,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -98451,6 +99403,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -98784,6 +99740,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -99144,6 +100104,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -99490,6 +100454,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -99808,6 +100776,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -100147,6 +101119,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -100518,6 +101494,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -100941,6 +101921,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -101294,6 +102278,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -101640,6 +102628,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -101958,6 +102950,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -102297,6 +103293,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -102668,6 +103668,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -103091,6 +104095,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -103444,6 +104452,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -103790,6 +104802,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -104108,6 +105124,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -104447,6 +105467,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -104807,6 +105831,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -105153,6 +106181,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -105471,6 +106503,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -105810,6 +106846,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -106167,6 +107207,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -106600,6 +107644,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -106946,6 +107994,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -107296,6 +108348,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -107661,6 +108717,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -108107,6 +109167,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -108460,6 +109524,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -108807,6 +109875,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -109171,6 +110243,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -109606,6 +110682,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -109955,6 +111035,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -110301,6 +111385,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -110619,6 +111707,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -110958,6 +112050,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -111311,6 +112407,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -111735,6 +112835,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -112084,6 +113188,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -112427,6 +113535,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -112784,6 +113896,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -113208,6 +114324,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -113557,6 +114677,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -113900,6 +115024,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -114257,6 +115385,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -114681,6 +115813,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -115030,6 +116166,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -115373,6 +116513,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -115737,6 +116881,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -116172,6 +117320,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -116533,6 +117685,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -116969,6 +118125,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -117336,6 +118496,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -117772,6 +118936,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -118125,6 +119293,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -118471,6 +119643,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -118789,6 +119965,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -119128,6 +120308,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -119499,6 +120683,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -119935,6 +121123,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -120288,6 +121480,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -120634,6 +121830,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -120952,6 +122152,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -121291,6 +122495,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -121662,6 +122870,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -122094,6 +123306,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -122447,6 +123663,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -122793,6 +124013,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -123111,6 +124335,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -123450,6 +124678,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -123821,6 +125053,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -124253,6 +125489,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -124606,6 +125846,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -124952,6 +126196,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -125270,6 +126518,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -125609,6 +126861,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -125977,6 +127233,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -126412,6 +127672,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -126773,6 +128037,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -127208,6 +128476,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -127569,6 +128841,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -128008,6 +129284,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -128338,6 +129618,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -128748,6 +130032,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -129074,6 +130362,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -129415,6 +130707,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {
@@ -129775,6 +131071,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
+        },
+        {
+          "kind": "event",
           "name": "mandate.authorization.DecisionRecorded"
         },
         {
@@ -130121,6 +131421,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.authorization.DecisionRecorded",
           "step": "expect_no_event"
         },
@@ -130439,6 +131743,10 @@
         {
           "kind": "event",
           "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.ApprovedDecisionRecorded"
         },
         {
           "kind": "event",
@@ -130778,6 +132086,10 @@
         },
         {
           "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.ApprovedDecisionRecorded",
           "step": "expect_no_event"
         },
         {

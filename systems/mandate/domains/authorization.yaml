@@ -37,19 +37,16 @@ commands:
     outcomes:
       - name: accepted
         emits:
-          - mandate.authorization.DecisionRecorded
-          - mandate.delegation.ApprovalConsumed
+          - mandate.authorization.ApprovedDecisionRecorded
         payload:
-          mandate.authorization.DecisionRecorded:
+          mandate.authorization.ApprovedDecisionRecorded:
             context: input.context
             decision:
               response: decision
-          mandate.delegation.ApprovalConsumed:
-            context: input.context
-            id: input.approval
+            approval: input.approval
         moves: mandate.delegation.Approval.consume
         instance: approval
-        summary: The second check after an approval-required decision. The approval is recorded, of the verified organization, unexpired at the decision instant, and names this subject, actor, action and resource; every other check of the request is decided as Check decides it, and the approval is consumed by this decision and satisfies no other.
+        summary: The second check after an approval-required decision. The approval is recorded, of the verified organization, unexpired at the decision instant, and names this subject, actor, action and resource; every other check of the request is decided as Check decides it, and the approval is consumed by this decision and satisfies no other. The one event records both the decision and the consumption, so the two commit together; the delegation fold applies it as the approval's consume.
       - name: wrong-state
         wrong_state: true
         error: mandate.authorization.Denied
@@ -66,6 +63,14 @@ events:
         type: mandate.core.VerifiedContext
       - name: decision
         type: mandate.core.Decision
+  - name: mandate.authorization.ApprovedDecisionRecorded
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: decision
+        type: mandate.core.Decision
+      - name: approval
+        type: mandate.core.ApprovalId
 errors:
   - name: mandate.authorization.Denied
     summary: Fail closed; no credential, authority or lifecycle mutation on refusal.

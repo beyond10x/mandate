@@ -1,6 +1,6 @@
 # generated from mandate v1
-# model digest cc2b92ef62d71301fffac73193657e56997c8c3355bd5026b9a5ca7a6e331078
-# contract digest slice-sha256/2:007dde8599fcda55d2b627cab3f5eb8734ad9f825cce8656416ff17c3f518169
+# model digest e45424ae17215fcf0135234cf17e909e2979fce028c3da4b855c56b1a7b43bc7
+# contract digest slice-sha256/2:21ecb990deafdb5d5471aee5dac3a4d3160cb61364826a31ba9573ce3378ad46
 # do not edit: regenerate with `ess generate`
 openapi: 3.1.0
 info:
@@ -14,8 +14,8 @@ info:
   x-ess-provenance:
     system: mandate
     specification_version: v1
-    source_digest: cc2b92ef62d71301fffac73193657e56997c8c3355bd5026b9a5ca7a6e331078
-    contract_digest: slice-sha256/2:007dde8599fcda55d2b627cab3f5eb8734ad9f825cce8656416ff17c3f518169
+    source_digest: e45424ae17215fcf0135234cf17e909e2979fce028c3da4b855c56b1a7b43bc7
+    contract_digest: slice-sha256/2:21ecb990deafdb5d5471aee5dac3a4d3160cb61364826a31ba9573ce3378ad46
 tags:
 - name: delegation
 - name: directory
@@ -1791,6 +1791,49 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.tenancy.RetireTeam.denied.Response'
+  /workload/commands/AuthenticateWorkload:
+    post:
+      operationId: mandate.workload.AuthenticateWorkload
+      summary: AuthenticateWorkload
+      tags:
+      - workload
+      requestBody:
+        description: The input `mandate.workload.AuthenticateWorkload` declares.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/mandate.workload.AuthenticateWorkload.Input'
+      responses:
+        '202':
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers and listed under `published`.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.workload.AuthenticateWorkload.accepted.Response'
+        '501':
+          description: 'No declared outcome: the realization is unfinished. Either a port this command runs reported an unmet obligation, and nothing was written: `committed` is `false`. Or the command''s effect was committed and delivering what this command published to a binding failed: `committed` is `true`, the effect and its events stand, and each binding whose delivery failed keeps its event and is attempted again on a later delivery, while no other binding receives it twice. Do not retry: after a failed delivery a retry performs the command a second time.'
+          content:
+            application/json:
+              schema:
+                additionalProperties: false
+                properties:
+                  committed:
+                    description: '`true` when the command''s effect and events were committed and delivering what it published failed; `false` when an unmet obligation stopped the command before anything was written.'
+                    type: boolean
+                  refused:
+                    description: What was left unfinished, in words.
+                    type: string
+                required:
+                - refused
+                - committed
+                type: object
+        '502':
+          description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.workload.AuthenticateWorkload.denied.Response'
   /workload/commands/RevokeWorkloadIdentity:
     post:
       operationId: mandate.workload.RevokeWorkloadIdentity
@@ -6078,6 +6121,74 @@ components:
       - context
       - id
       additionalProperties: false
+    mandate.workload.AuthenticateWorkload.Input:
+      title: AuthenticateWorkload input
+      x-ess-name: mandate.workload.AuthenticateWorkload
+      x-ess-kind: command-input
+      type: object
+      properties:
+        workload_proof:
+          $ref: '#/components/schemas/mandate.core.CredentialProof'
+        agent:
+          $ref: '#/components/schemas/mandate.core.PrincipalId'
+        execution:
+          $ref: '#/components/schemas/mandate.core.ExecutionId'
+      required:
+      - workload_proof
+      - agent
+      additionalProperties: false
+    mandate.workload.AuthenticateWorkload.accepted.Response:
+      additionalProperties: false
+      description: Two identities, each authenticated on its own. The workload proof is verified by the trust domain that issued it and resolves to one recorded workload identity, which names the runtime principal; the application agent is a recorded agent of the same organization, not retired, and is never derived from the workload proof. When an execution is named it is recorded, not completed, unexpired, of that organization and that agent. Nothing is created or moved, and the event folds into no record. Taken when no other outcome's condition matched. Emits `WorkloadAuthenticated`, published to consumers and listed under `published`.
+      properties:
+        outcome:
+          const: accepted
+          description: Which declared outcome the command took.
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          items: false
+          maxItems: 1
+          minItems: 1
+          prefixItems:
+          - additionalProperties: false
+            properties:
+              event:
+                const: mandate.workload.WorkloadAuthenticated
+                type: string
+              payload:
+                $ref: '#/components/schemas/mandate.workload.WorkloadAuthenticated.Event'
+            required:
+            - event
+            - payload
+            type: object
+          type: array
+      required:
+      - outcome
+      - published
+      type: object
+    mandate.workload.AuthenticateWorkload.denied.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: The workload proof is malformed, unverified by its trust domain or expired; it resolves to no workload identity, a revoked one, or one in another organization than the agent; the agent is unrecorded, retired, or its principal disabled; or a named execution is unrecorded, completed, expired, or bound to another agent or organization. Each is refused alike, so a caller learns only that the pair is not admitted..'
+      properties:
+        error:
+          const: mandate.workload.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.workload.Denied.Error'
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          maxItems: 0
+          type: array
+      required:
+      - outcome
+      - published
+      - error
+      - payload
+      type: object
     mandate.workload.Denied.Error:
       title: Denied payload
       description: Fail closed; no credential, authority or lifecycle mutation on refusal.
@@ -6178,6 +6289,32 @@ components:
       - published
       - error
       type: object
+    mandate.workload.WorkloadAuthenticated.Event:
+      title: WorkloadAuthenticated payload
+      x-ess-name: mandate.workload.WorkloadAuthenticated
+      x-ess-kind: event-payload
+      type: object
+      properties:
+        workload:
+          $ref: '#/components/schemas/mandate.core.WorkloadIdentityId'
+        runtime:
+          $ref: '#/components/schemas/mandate.core.PrincipalId'
+        agent:
+          $ref: '#/components/schemas/mandate.core.PrincipalId'
+        organization:
+          $ref: '#/components/schemas/mandate.core.OrganizationId'
+        execution:
+          $ref: '#/components/schemas/mandate.core.ExecutionId'
+        authenticated_at:
+          type: string
+          format: date-time
+      required:
+      - workload
+      - runtime
+      - agent
+      - organization
+      - authenticated_at
+      additionalProperties: false
     mandate.workload.WorkloadIdentityRevoked.Event:
       title: WorkloadIdentityRevoked payload
       x-ess-name: mandate.workload.WorkloadIdentityRevoked

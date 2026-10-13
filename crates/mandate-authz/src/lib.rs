@@ -146,6 +146,14 @@ mandate_types::realizes! {
 /// wait for a specification construct ESS does not yet have.
 pub const ESS_UNREALIZED: &[(&str, &str)] = &[
     (
+        "mandate.authorization.CheckWithApproval",
+        "specified in wave 8 before its handler; owner story:agent-security",
+    ),
+    (
+        "mandate.authorization.ApprovedDecisionRecorded",
+        "specified in wave 8 before its handler; owner story:agent-security",
+    ),
+    (
         "mandate.authorization.DecisionRecorded",
         "no event payload type is declared here: [`check`] returns the decision to its caller \
          and the recording adapter appends it; owner story:check-api",

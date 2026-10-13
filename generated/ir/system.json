@@ -44,6 +44,7 @@
         "mandate.authorization.CheckWithApproval"
       ],
       "events": [
+        "mandate.authorization.ApprovedDecisionRecorded",
         "mandate.authorization.DecisionRecorded"
       ],
       "errors": [
@@ -6070,12 +6071,11 @@
           },
           "test_strategy": "default_branch",
           "emits": [
-            "mandate.authorization.DecisionRecorded",
-            "mandate.delegation.ApprovalConsumed"
+            "mandate.authorization.ApprovedDecisionRecorded"
           ],
           "payload": [
             {
-              "event": "mandate.authorization.DecisionRecorded",
+              "event": "mandate.authorization.ApprovedDecisionRecorded",
               "fields": [
                 {
                   "target": "context",
@@ -6106,29 +6106,9 @@
                       "name": "mandate.core.Decision"
                     }
                   }
-                }
-              ]
-            },
-            {
-              "event": "mandate.delegation.ApprovalConsumed",
-              "fields": [
-                {
-                  "target": "context",
-                  "target_type": {
-                    "kind": "declared",
-                    "name": "mandate.core.VerifiedContext"
-                  },
-                  "value": {
-                    "kind": "input_field",
-                    "field": "context",
-                    "type_ref": {
-                      "kind": "declared",
-                      "name": "mandate.core.VerifiedContext"
-                    }
-                  }
                 },
                 {
-                  "target": "id",
+                  "target": "approval",
                   "target_type": {
                     "kind": "declared",
                     "name": "mandate.core.ApprovalId"
@@ -6145,7 +6125,7 @@
               ]
             }
           ],
-          "summary": "The second check after an approval-required decision. The approval is recorded, of the verified organization, unexpired at the decision instant, and names this subject, actor, action and resource; every other check of the request is decided as Check decides it, and the approval is consumed by this decision and satisfies no other."
+          "summary": "The second check after an approval-required decision. The approval is recorded, of the verified organization, unexpired at the decision instant, and names this subject, actor, action and resource; every other check of the request is decided as Check decides it, and the approval is consumed by this decision and satisfies no other. The one event records both the decision and the consumption, so the two commit together; the delegation fold applies it as the approval's consume."
         },
         {
           "name": "wrong-state",
@@ -15071,6 +15051,37 @@
       ],
       "naming": {}
     },
+    "mandate.authorization.ApprovedDecisionRecorded": {
+      "name": "mandate.authorization.ApprovedDecisionRecorded",
+      "domain": "mandate.authorization",
+      "fields": [
+        {
+          "name": "context",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.VerifiedContext"
+          },
+          "naming": {}
+        },
+        {
+          "name": "decision",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.Decision"
+          },
+          "naming": {}
+        },
+        {
+          "name": "approval",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.ApprovalId"
+          },
+          "naming": {}
+        }
+      ],
+      "naming": {}
+    },
     "mandate.authorization.DecisionRecorded": {
       "name": "mandate.authorization.DecisionRecorded",
       "domain": "mandate.authorization",
@@ -17885,6 +17896,7 @@
       ],
       "accepts": [
         "mandate.authorization.Check",
+        "mandate.authorization.CheckWithApproval",
         "mandate.graph.DeregisterResource",
         "mandate.graph.RegisterResource",
         "mandate.graph.RemoveRelation",
@@ -17894,6 +17906,7 @@
         "mandate.policy.SupersedePolicy"
       ],
       "publishes": [
+        "mandate.authorization.ApprovedDecisionRecorded",
         "mandate.authorization.DecisionRecorded",
         "mandate.graph.GrantRevoked",
         "mandate.graph.RelationRemoved",
@@ -17957,6 +17970,7 @@
         "mandate.tenancy.RemoveTeamMembership",
         "mandate.tenancy.RetireSpace",
         "mandate.tenancy.RetireTeam",
+        "mandate.workload.AuthenticateWorkload",
         "mandate.workload.RevokeWorkloadIdentity"
       ],
       "publishes": [
@@ -18005,6 +18019,7 @@
         "mandate.tenancy.TeamMembershipAdded",
         "mandate.tenancy.TeamMembershipRemoved",
         "mandate.tenancy.TeamRetired",
+        "mandate.workload.WorkloadAuthenticated",
         "mandate.workload.WorkloadIdentityRevoked"
       ],
       "naming": {

@@ -51,6 +51,7 @@ components:
         - mandate.delegation.CompleteExecution
         - mandate.delegation.ConsumeApproval
         - mandate.workload.RevokeWorkloadIdentity
+        - mandate.workload.AuthenticateWorkload
     publishes:
       events:
         - mandate.identity.PrincipalDisabled
@@ -99,6 +100,7 @@ components:
         - mandate.delegation.ExecutionCompleted
         - mandate.delegation.ApprovalConsumed
         - mandate.workload.WorkloadIdentityRevoked
+        - mandate.workload.WorkloadAuthenticated
   - component: mandate-authorization
     owns:
       domains:
@@ -114,6 +116,7 @@ components:
         - mandate.graph.WriteRelationship
         - mandate.graph.DeregisterResource
         - mandate.authorization.Check
+        - mandate.authorization.CheckWithApproval
         - mandate.policy.SupersedePolicy
         - mandate.policy.SupersedeAuthorizationModel
     publishes:
@@ -124,6 +127,7 @@ components:
         - mandate.graph.RelationshipWritten
         - mandate.graph.ResourceDeregistered
         - mandate.authorization.DecisionRecorded
+        - mandate.authorization.ApprovedDecisionRecorded
         - mandate.policy.PolicySuperseded
         - mandate.policy.AuthorizationModelSuperseded
   - component: mandate-sts

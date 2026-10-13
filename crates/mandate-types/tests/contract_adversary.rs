@@ -171,8 +171,8 @@ fn the_reader_sees_the_contract_it_claims_to_see() {
     );
     assert_eq!(
         contract.commands.len(),
-        61,
-        "the compiled model holds 61 commands"
+        63,
+        "the compiled model holds 63 commands"
     );
 
     let key = contract
@@ -703,13 +703,13 @@ fn the_second_reader_sees_the_contract_it_claims_to_see() {
     );
     assert_eq!(
         model.operations.len(),
-        61,
-        "the compiled model holds 61 commands"
+        63,
+        "the compiled model holds 63 commands"
     );
     assert_eq!(
         model.notices.len(),
-        74,
-        "the compiled model holds 74 events"
+        76,
+        "the compiled model holds 76 events"
     );
 
     let client = model.record("mandate.federation.OAuthClient");
@@ -1125,7 +1125,7 @@ fn an_organization_this_contract_creates_can_be_named_by_a_command_that_writes_i
     assert_ne!(
         selectors,
         Vec::<String>::new(),
-        "{} ({}:{}) returns {returned:?}, and the only command in all 61 that takes \
+        "{} ({}:{}) returns {returned:?}, and the only command in all 63 that takes \
          a {} as an input is the one that closes the organization again. Every \
          command that would put a membership, team, space, grant, connection or \
          resource inside an organization resolves it from input.context, whose \
