@@ -11,7 +11,7 @@ exist expect the refusal Mandate already gives, and the planning tooling moves t
 
 | unit | story | branch | managed id | scratch | stage |
 |---|---|---|---|---|---|
-| U1 | `story:aep-repin-0-71` | `impl/aep-repin-0-71` | `mandate-w6-aep-repin` | `~/.cache/mandate-w6/u1/` | opened |
+| U1 | `story:aep-repin-0-71` | `impl/aep-repin-0-71` | `mandate-w6-aep-repin` | `~/.cache/mandate-w6/u1/` | merged `f9aa1c7` (unit head `d96b79f`) |
 | U2 | `story:unknown-instance-refusals` | `impl/unknown-instance-refusals` | `mandate-w6-unknown-instance` | `~/.cache/mandate-w6/u2/` | opened |
 
 U1 and U2 share one line, `AGENTS.md:13`, which names both the AEP pin and the ESS format. U1 lands
@@ -52,3 +52,15 @@ process (`AGENTS.md`, standing cadence).
 - 05:20Z opening store commit: `story:aep-repin-0-71` created; both stories moved to active;
   `decision-blocker:identity-uniqueness` cleared; `decision-blocker:identity-uniqueness-storage`
   created.
+- U1 pin edits (aep 0.71.2 in `xtask/src/main.rs`, `ci.yml`, `AGENTS.md`, `README.md`,
+  `docs/handoff.md`). A probe recorded evidence with aep 0.71.2 into a scratch copy of the store:
+  the record file layout is unchanged. Package gate `cargo test -p xtask`: 1 failure,
+  `coverage::the_committed_manifest_agrees_with_...`: 16 coverage entries were deferred on the
+  blocker the opening commit cleared. Target du 3.4G. Fix-up dispatched in the U1 tree: the 16
+  entries become `declared` on `story:agent-security`, the registries and fixtures follow.
+- U1 fix-up (`d96b79f`): the 16 entries `declared` on `story:agent-security`, the registries drop
+  the blocker, the relabel and blocker mutant cases move to `mandate.audit.RedactAuditEvent`, and
+  two architecture documents carry the blocker as cleared. `cargo test -p xtask`: 245 passed, 1
+  ignored; `cargo test -p mandate-authz`: 125 passed; clippy of both and fmt clean;
+  `cargo xtask coverage`: 293 mapped, 211 implemented, 41 declared, 41 deferred;
+  `cargo xtask documents`: 20 row sets match. Peak target du 4.1G. Merged as `f9aa1c7`.
