@@ -14,14 +14,14 @@ release, after waves I, J and K.
 
 ## Where it stands
 
-`v0.7.0` is the latest release. Fourteen waves have run — 1 to 3, A to M, then 5a. The federated-login road runs end
+`v0.7.1` is the latest release. Fifteen waves have run — 1 to 3, A to M, 5a, then 6. The federated-login road runs end
 to end against the shipped binary: `mandate-control-plane serve` serves `/v1/federation/login`,
 `/oauth/authorize`, `/oauth/token`, `/oauth/introspect`, `/oauth/jwks` and
 `/.well-known/oauth-authorization-server`, a first login provisions a user just in time where the
 connection admits it, and a revoked link is not provisioned around.
 
-Measured at `0.7.0`: `task check` exit 0, 290 suites, 2,166 tests, 0 failed; 11 named mutants each
-killed; 293 contract elements with 211 implemented; 201 conformance scenarios (ESS 0.59.0) with 40
+Measured at `0.7.1`: `task check` exit 0, 290 suites, 2,166 tests, 0 failed; 11 named mutants each
+killed; 293 contract elements with 211 implemented; 181 conformance scenarios (ESS 0.59.0, `ess/24`) with 40
 passed and 0 error; 199 denial clauses with 89 decided on the real path.
 
 Waves I–K moved the clause count for the first time since wave D (83 of 190 → 85 of 191; one
