@@ -161,10 +161,24 @@ impl DelegationProjection {
 
     /// Write one declared event into the projection, and log it.
     ///
-    /// Total, and re-checks nothing; see the module documentation.
+    /// Total, and re-checks nothing; see the module documentation. Creation is monotone: a
+    /// `DelegationCreated` for an id already held changes nothing, and one whose revocation
+    /// the log already holds records the delegation revoked, so no repetition or order of the
+    /// log puts a revoked delegation back in force.
     pub fn apply(&mut self, event: &DelegationEvent) {
+        let revoked_earlier = |id: &DelegationId| {
+            self.log.iter().any(
+                |logged| matches!(logged, DelegationEvent::Revoked { id: revoked, .. } if revoked == id),
+            )
+        };
+        let created_revoked = match event {
+            DelegationEvent::Created(created) => revoked_earlier(&created.id),
+            _ => false,
+        };
         let records = &mut self.records;
         match event {
+            DelegationEvent::Created(created)
+                if records.delegations.iter().any(|d| d.id == created.id) => {}
             DelegationEvent::Created(created) => {
                 let DelegationCreated {
                     context,
@@ -190,7 +204,11 @@ impl DelegationProjection {
                     execution_binding: *execution_binding,
                     transitive: false,
                     created_at: created_at.clone(),
-                    state: DelegationState::Active,
+                    state: if created_revoked {
+                        DelegationState::Revoked
+                    } else {
+                        DelegationState::Active
+                    },
                 });
             }
             DelegationEvent::Revoked { id, .. } => {
