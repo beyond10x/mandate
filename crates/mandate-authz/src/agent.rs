@@ -56,6 +56,12 @@
 //! delegation is involved ([`AuthorityClause::ExecutionUnbound`],
 //! [`AuthorityClause::ExecutionNotTheActors`]).
 //!
+//! A delegation bound to an execution (`execution_binding`, `delegation.yaml`'s header) admits
+//! only requests made in that execution, and the execution, recorded before the delegation,
+//! may name no delegation and no subject yet: it holds when its `delegation_id` is absent or
+//! names this delegation and its `subject` is absent or the delegator. `CreateDelegation`
+//! binds an execution by the same rule, through the same function (`execution_holds`).
+//!
 //! # Refusals
 //!
 //! Every refusal names an [`AuthorityClause`], and every clause names a verbatim phrase of
@@ -747,8 +753,12 @@ where
         expiry.offer(ends, &delegation.expires_at);
     }
 
+    // A bound delegation was checked above to name exactly the context's execution.
+    let bound = delegation
+        .as_ref()
+        .is_some_and(|delegation| delegation.execution_binding.is_some());
     if let Some(id) = &context.execution {
-        let ends = execution(records, who, id, now)?;
+        let ends = execution(records, who, id, bound, now)?;
         expiry.offer(ends.0, &ends.1);
     }
 
@@ -786,19 +796,93 @@ fn installed(agent: &Agent, organization: &OrganizationId) -> Result<(), Authori
     Ok(())
 }
 
+/// What an execution must be held by and for, as [`execution_holds`] reads it.
+pub(crate) struct ExecutionHolder<'a> {
+    /// The organization the execution must be recorded in.
+    pub(crate) organization: &'a OrganizationId,
+    /// The agent that must hold it: the request's actor, or the delegate being bound.
+    pub(crate) agent: &'a PrincipalId,
+    /// The subject it must be for: the request's subject, or the delegator being bound.
+    pub(crate) subject: &'a PrincipalId,
+    /// The delegation it runs under: the request's, or none for a delegation not yet created.
+    pub(crate) delegation: Option<&'a DelegationId>,
+    /// Whether the delegation names this execution in its `execution_binding`.
+    pub(crate) bound: bool,
+}
+
+/// Whether `execution` holds for `holder` at `now`; the instant it ends, when it does. The one
+/// rule both [`crate::check`] and [`crate::command::decide_create_delegation`] read.
+///
+/// It holds when it is recorded in the holder's organization, not `Completed`, before its
+/// `expires_at` (`delegation.yaml:3`: eligibility is read from `expires_at`, with no recorded
+/// move), and held by the holder's agent. For whom and under which delegation depends on how
+/// the execution is named:
+///
+/// - an execution a delegation is bound to (`delegation.yaml`'s header) was recorded first
+///   and may name no delegation and no subject yet: its `delegation_id` is absent or names
+///   this delegation, and its `subject` is absent or the delegator. A delegation still being
+///   created has no identity, so an execution naming any delegation names another one;
+/// - any other execution runs under exactly the request's delegation, and for the request's
+///   subject — its own `subject` when it names one, the agent itself when it names none.
+///
+/// The expiry is read last, so an execution that fails a record condition is
+/// [`Unheld::Refused`] whatever its `expires_at` says, and [`Unheld::Unreadable`] names only
+/// an execution that is otherwise the holder's.
+pub(crate) fn execution_holds(
+    execution: &Execution,
+    holder: &ExecutionHolder<'_>,
+    now: instant::Instant,
+) -> Result<instant::Instant, Unheld> {
+    let delegation_holds = if holder.bound {
+        execution
+            .delegation_id
+            .as_ref()
+            .is_none_or(|named| Some(named) == holder.delegation)
+    } else {
+        execution.delegation_id.as_ref() == holder.delegation
+    };
+    let subject_holds = if holder.bound {
+        execution
+            .subject
+            .is_none_or(|subject| subject == *holder.subject)
+    } else {
+        execution.subject.unwrap_or(execution.agent_id) == *holder.subject
+    };
+    if execution.organization_id != *holder.organization
+        || execution.state == ExecutionState::Completed
+        || execution.agent_id != *holder.agent
+        || !delegation_holds
+        || !subject_holds
+    {
+        return Err(Unheld::Refused);
+    }
+    let ends = instant::parse(&execution.expires_at).ok_or(Unheld::Unreadable)?;
+    if ends <= now {
+        return Err(Unheld::Refused);
+    }
+    Ok(ends)
+}
+
+/// Why an execution does not hold for its holder.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Unheld {
+    /// A condition of [`execution_holds`] fails, or the execution has ended.
+    Refused,
+    /// Every record condition holds, and its `expires_at` names no instant.
+    Unreadable,
+}
+
 /// The execution the context names, checked against the request; its expiry when it holds.
 ///
-/// An execution is read whenever the context names one. It holds when it is recorded in this
-/// organization, not `Completed`, before its `expires_at` (`delegation.yaml:3`: eligibility is
-/// read from `expires_at`, with no recorded move), held by the acting agent, under exactly the
-/// delegation the request is made under, and for the request's subject — its own `subject`
-/// when it names one, the agent itself when it names none. An execution recorded in another
-/// organization is refused like one nobody recorded, so the refusal discloses nothing about
-/// another tenant.
+/// An execution is read whenever the context names one, and holds by [`execution_holds`];
+/// `bound` says the request's delegation names it in `execution_binding`. An execution
+/// recorded in another organization is refused like one nobody recorded, so the refusal
+/// discloses nothing about another tenant, and every condition that fails refuses the same.
 fn execution<R>(
     records: &R,
     who: &Principals<'_>,
     id: &ExecutionId,
+    bound: bool,
     now: instant::Instant,
 ) -> Result<(instant::Instant, Timestamp), AuthorityClause>
 where
@@ -810,18 +894,17 @@ where
         AuthorityClause::ExecutionNotTheActors
     };
     let execution = records.execution(id).map_err(unavailable)?.ok_or(refused)?;
-    if execution.organization_id != who.context.organization
-        || execution.state == ExecutionState::Completed
-        || execution.agent_id != *who.actor
-        || execution.delegation_id.as_ref() != who.delegation
-        || execution.subject.unwrap_or(execution.agent_id) != *who.subject
-    {
-        return Err(refused);
-    }
-    let ends = instant::parse(&execution.expires_at).ok_or(AuthorityClause::ProofUnreadable)?;
-    if ends <= now {
-        return Err(refused);
-    }
+    let holder = ExecutionHolder {
+        organization: &who.context.organization,
+        agent: who.actor,
+        subject: who.subject,
+        delegation: who.delegation,
+        bound,
+    };
+    let ends = execution_holds(&execution, &holder, now).map_err(|unheld| match unheld {
+        Unheld::Refused => refused,
+        Unheld::Unreadable => AuthorityClause::ProofUnreadable,
+    })?;
     Ok((ends, execution.expires_at))
 }
 
