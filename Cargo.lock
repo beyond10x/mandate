@@ -415,8 +415,8 @@ dependencies = [
 
 [[package]]
 name = "ess-compiler"
-version = "0.26.0"
-source = "git+https://github.com/beyond10x/ess.git?tag=0.26.0#a5f1bea13294510819b266561c83be9509e6ba57"
+version = "0.59.0"
+source = "git+https://github.com/beyond10x/ess.git?tag=0.59.0#56bd965b4a54e4f57afdcf1c1868317bcd0237b4"
 dependencies = [
  "ess-domain",
  "ess-primitives",
@@ -427,8 +427,8 @@ dependencies = [
 
 [[package]]
 name = "ess-conformance"
-version = "0.26.0"
-source = "git+https://github.com/beyond10x/ess.git?tag=0.26.0#a5f1bea13294510819b266561c83be9509e6ba57"
+version = "0.59.0"
+source = "git+https://github.com/beyond10x/ess.git?tag=0.59.0#56bd965b4a54e4f57afdcf1c1868317bcd0237b4"
 dependencies = [
  "ess-compiler",
  "ess-domain",
@@ -442,8 +442,8 @@ dependencies = [
 
 [[package]]
 name = "ess-domain"
-version = "0.26.0"
-source = "git+https://github.com/beyond10x/ess.git?tag=0.26.0#a5f1bea13294510819b266561c83be9509e6ba57"
+version = "0.59.0"
+source = "git+https://github.com/beyond10x/ess.git?tag=0.59.0#56bd965b4a54e4f57afdcf1c1868317bcd0237b4"
 dependencies = [
  "ess-primitives",
  "schemars",
@@ -455,12 +455,13 @@ dependencies = [
 
 [[package]]
 name = "ess-gen"
-version = "0.26.0"
-source = "git+https://github.com/beyond10x/ess.git?tag=0.26.0#a5f1bea13294510819b266561c83be9509e6ba57"
+version = "0.59.0"
+source = "git+https://github.com/beyond10x/ess.git?tag=0.59.0#56bd965b4a54e4f57afdcf1c1868317bcd0237b4"
 dependencies = [
  "ess-compiler",
  "ess-domain",
  "ess-primitives",
+ "ess-transport",
  "pulldown-cmark",
  "serde",
  "serde_json",
@@ -470,13 +471,26 @@ dependencies = [
 
 [[package]]
 name = "ess-primitives"
-version = "0.26.0"
-source = "git+https://github.com/beyond10x/ess.git?tag=0.26.0#a5f1bea13294510819b266561c83be9509e6ba57"
+version = "0.59.0"
+source = "git+https://github.com/beyond10x/ess.git?tag=0.59.0#56bd965b4a54e4f57afdcf1c1868317bcd0237b4"
 dependencies = [
  "schemars",
  "serde",
  "serde_json",
+ "serde_yaml",
  "thiserror",
+]
+
+[[package]]
+name = "ess-transport"
+version = "0.59.0"
+source = "git+https://github.com/beyond10x/ess.git?tag=0.59.0#56bd965b4a54e4f57afdcf1c1868317bcd0237b4"
+dependencies = [
+ "ess-compiler",
+ "ess-domain",
+ "serde",
+ "serde_json",
+ "serde_yaml",
 ]
 
 [[package]]

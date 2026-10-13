@@ -48,7 +48,7 @@ fn entries() -> BTreeMap<String, Value> {
         .as_array()
         .expect("the manifest states its entries")
         .clone();
-    assert_eq!(entries.len(), 292, "the manifest's element count");
+    assert_eq!(entries.len(), 293, "the manifest's element count");
     entries
         .into_iter()
         .map(|entry| {

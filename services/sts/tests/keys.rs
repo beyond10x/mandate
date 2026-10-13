@@ -7,12 +7,11 @@
 //!
 //! Two things are decided here that nothing else can decide:
 //!
-//! - the entity invariant `not_before < expires_at`. ESS 0.26.0 does not type an invariant's
-//!   comparison and its synthesizer builds an equal window, so the contract's own accepted
-//!   scenario for this command is expected to fail until both are fixed (routed to the ESS
-//!   wave on `story:declared-writers`). Until then these cases are the check, and they decide
-//!   the window as *instants*: a byte comparison of the two declared forms is not their
-//!   chronological order.
+//! - the entity invariant `window.not_before < window.expires_at`. Under ESS 0.59.0 the
+//!   synthesizer builds an ordered window, and the contract's own accepted scenario is still
+//!   refused before the window is read: it names the algorithm `"algorithm"`, which no
+//!   deployment admits. These cases are the check, and they decide the window as *instants*:
+//!   a byte comparison of the two declared forms is not their chronological order.
 //! - that one piece of key material is never recorded under two identities, which is what
 //!   makes a revocation record mean something after a restart.
 
@@ -28,7 +27,7 @@ use mandate_token::projection::{
 use mandate_token::signing_real::AllowedAlgorithms;
 use mandate_types::{
     Audience, CorrelationId, CredentialId, DenialReason, KeyReference, OrganizationId, PrincipalId,
-    SigningAlgorithm, SigningKeyId, Timestamp, Uuid, VerifiedContext,
+    SigningAlgorithm, SigningKeyId, SigningKeyWindow, Timestamp, Uuid, VerifiedContext,
 };
 
 fn uuid(tag: u8) -> Uuid {
@@ -98,8 +97,10 @@ fn registration(reference: &str, not_before: &str, expires_at: &str) -> Register
         context: context(),
         key_reference: KeyReference::new(reference),
         algorithm: SigningAlgorithm::new("RS256"),
-        not_before: Timestamp::new(not_before),
-        expires_at: Timestamp::new(expires_at),
+        window: SigningKeyWindow {
+            not_before: Timestamp::new(not_before),
+            expires_at: Timestamp::new(expires_at),
+        },
     }
 }
 
@@ -150,8 +151,10 @@ fn a_registration_responds_with_the_identity_and_the_thumbprint_it_resolved() {
             key_reference: KeyReference::new("kms://one"),
             thumbprint: "thumb-one".to_owned(),
             algorithm: SigningAlgorithm::new("RS256"),
-            not_before: Timestamp::new("2026-09-19T00:00:00Z"),
-            expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+            window: SigningKeyWindow {
+                not_before: Timestamp::new("2026-09-19T00:00:00Z"),
+                expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+            },
         }
     );
 
@@ -667,8 +670,10 @@ fn a_key_that_holds_no_index_is_admitted_for_neither() {
             key_reference: KeyReference::new("kms://one"),
             thumbprint: "thumb-two".to_owned(),
             algorithm: SigningAlgorithm::new("RS256"),
-            not_before: Timestamp::new("2026-09-19T00:00:00Z"),
-            expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+            window: SigningKeyWindow {
+                not_before: Timestamp::new("2026-09-19T00:00:00Z"),
+                expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+            },
         },
     ])
     .expect("a duplicated index is a view, not a refusal");

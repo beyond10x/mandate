@@ -305,6 +305,8 @@ commands:
               generated: true
         creates: mandate.delegation.Delegation
         instance: id
+        sets:
+          transitive: 'false'
       - name: denied
         external: Caller lacks delegation authority, subject/delegate/tenant/space/registered audience or execution binding fails, requested scope/expiry exceeds source/delegation/policy limits or agent ceilings, or a transitive/approval-required grant would be created.
         error: mandate.delegation.Denied

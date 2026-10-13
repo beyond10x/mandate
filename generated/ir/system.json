@@ -121,6 +121,7 @@
         "mandate.core.SessionId",
         "mandate.core.SigningAlgorithm",
         "mandate.core.SigningKeyId",
+        "mandate.core.SigningKeyWindow",
         "mandate.core.SpaceId",
         "mandate.core.SyncJobId",
         "mandate.core.TeamId",
@@ -1799,6 +1800,32 @@
       },
       "naming": {}
     },
+    "mandate.core.SigningKeyWindow": {
+      "name": "mandate.core.SigningKeyWindow",
+      "body": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "not_before",
+            "type_ref": {
+              "kind": "primitive",
+              "name": "timestamp"
+            },
+            "naming": {}
+          },
+          {
+            "name": "expires_at",
+            "type_ref": {
+              "kind": "primitive",
+              "name": "timestamp"
+            },
+            "naming": {}
+          }
+        ],
+        "invariants": []
+      },
+      "naming": {}
+    },
     "mandate.core.SpaceId": {
       "name": "mandate.core.SpaceId",
       "body": {
@@ -3010,18 +3037,10 @@
           "naming": {}
         },
         {
-          "name": "not_before",
+          "name": "window",
           "type_ref": {
-            "kind": "primitive",
-            "name": "timestamp"
-          },
-          "naming": {}
-        },
-        {
-          "name": "expires_at",
-          "type_ref": {
-            "kind": "primitive",
-            "name": "timestamp"
+            "kind": "declared",
+            "name": "mandate.core.SigningKeyWindow"
           },
           "naming": {}
         }
@@ -3057,7 +3076,7 @@
         ]
       },
       "invariants": [
-        "not_before < expires_at"
+        "window.not_before < window.expires_at"
       ],
       "naming": {}
     },
@@ -7711,18 +7730,10 @@
           "naming": {}
         },
         {
-          "name": "not_before",
+          "name": "window",
           "type_ref": {
-            "kind": "primitive",
-            "name": "timestamp"
-          },
-          "naming": {}
-        },
-        {
-          "name": "expires_at",
-          "type_ref": {
-            "kind": "primitive",
-            "name": "timestamp"
+            "kind": "declared",
+            "name": "mandate.core.SigningKeyWindow"
           },
           "naming": {}
         }
@@ -7851,39 +7862,41 @@
                   }
                 },
                 {
-                  "target": "not_before",
+                  "target": "window",
                   "target_type": {
-                    "kind": "primitive",
-                    "name": "timestamp"
+                    "kind": "declared",
+                    "name": "mandate.core.SigningKeyWindow"
                   },
                   "value": {
                     "kind": "input_field",
-                    "field": "not_before",
+                    "field": "window",
                     "type_ref": {
-                      "kind": "primitive",
-                      "name": "timestamp"
-                    }
-                  }
-                },
-                {
-                  "target": "expires_at",
-                  "target_type": {
-                    "kind": "primitive",
-                    "name": "timestamp"
-                  },
-                  "value": {
-                    "kind": "input_field",
-                    "field": "expires_at",
-                    "type_ref": {
-                      "kind": "primitive",
-                      "name": "timestamp"
+                      "kind": "declared",
+                      "name": "mandate.core.SigningKeyWindow"
                     }
                   }
                 }
               ]
             }
           ],
-          "summary": "The key enters the contract Recorded, which is what rotation requires — RetireSigningKey denies a retirement with no overlapping replacement published for continued verification, and no replacement can exist until a key can be registered. SigningKeyRegistered carries the whole mandate.credential.SigningKey record — the key identity, the reference the deployment resolves to the material, the thumbprint of the public key, the algorithm name and the validity window — so the credential fold materializes the key from this event alone and reads no command input or response. The mandate.core.SigningKeyId is the kid the signer publishes and a credential names; the thumbprint is the RFC 7638 JWK thumbprint of the public key this outcome resolved from key_reference, so a revocation record naming a kid and a thumbprint is rebuilt from this log without resolving the material of a key that was revoked as compromised. Both are decided by this outcome and read from its response. No key material enters the contract — KeyReference is a handle to material the deployment holds, and no event here carries a secret. The algorithm is a name and not an admitted algorithm (UNMAPPED-ALGORITHM-POLICY); the deployment's verifier-side allowlist admits it or the registration is denied. A key reference, or the key material it resolves to, already held by a recorded key is refused in every state that key can be in, including Retired and Revoked, so material the deployment revoked never returns under a second identity. The window ordering is the entity's invariant, checked by the deciding handler; the synthesized accepted scenario builds an equal window and is expected to fail until ESS's synthesizer consults entity invariants (routed to the ESS wave). No command replaces a key in place; rotation registers the successor and retires the predecessor."
+          "summary": "The key enters the contract Recorded, which is what rotation requires — RetireSigningKey denies a retirement with no overlapping replacement published for continued verification, and no replacement can exist until a key can be registered. SigningKeyRegistered carries the whole mandate.credential.SigningKey record — the key identity, the reference the deployment resolves to the material, the thumbprint of the public key, the algorithm name and the validity window — so the credential fold materializes the key from this event alone and reads no command input or response. The mandate.core.SigningKeyId is the kid the signer publishes and a credential names; the thumbprint is the RFC 7638 JWK thumbprint of the public key this outcome resolved from key_reference, so a revocation record naming a kid and a thumbprint is rebuilt from this log without resolving the material of a key that was revoked as compromised. Both are decided by this outcome and read from its response. No key material enters the contract — KeyReference is a handle to material the deployment holds, and no event here carries a secret. The algorithm is a name and not an admitted algorithm (UNMAPPED-ALGORITHM-POLICY); the deployment's verifier-side allowlist admits it or the registration is denied. A key reference, or the key material it resolves to, already held by a recorded key is refused in every state that key can be in, including Retired and Revoked, so material the deployment revoked never returns under a second identity. The window ordering is the entity's invariant, window.not_before < window.expires_at, checked by the deciding handler; the two instants are one mandate.core.SigningKeyWindow because an invariant compares two fields only as members of one struct, and the accepted outcome sets the window from the command's input, so the invariant reads a specified value. No command replaces a key in place; rotation registers the successor and retires the predecessor.",
+          "sets": [
+            {
+              "target": "window",
+              "target_type": {
+                "kind": "declared",
+                "name": "mandate.core.SigningKeyWindow"
+              },
+              "value": {
+                "kind": "input_field",
+                "field": "window",
+                "type_ref": {
+                  "kind": "declared",
+                  "name": "mandate.core.SigningKeyWindow"
+                }
+              }
+            }
+          ]
         },
         {
           "name": "denied",
@@ -8741,6 +8754,19 @@
                   }
                 }
               ]
+            }
+          ],
+          "sets": [
+            {
+              "target": "transitive",
+              "target_type": {
+                "kind": "primitive",
+                "name": "boolean"
+              },
+              "value": {
+                "kind": "literal",
+                "value": "false"
+              }
             }
           ]
         },
@@ -15176,18 +15202,10 @@
           "naming": {}
         },
         {
-          "name": "not_before",
+          "name": "window",
           "type_ref": {
-            "kind": "primitive",
-            "name": "timestamp"
-          },
-          "naming": {}
-        },
-        {
-          "name": "expires_at",
-          "type_ref": {
-            "kind": "primitive",
-            "name": "timestamp"
+            "kind": "declared",
+            "name": "mandate.core.SigningKeyWindow"
           },
           "naming": {}
         }

@@ -181,7 +181,7 @@ fn the_regeneration_byte_compare_the_file_assigns_to_the_receipt_mutants_kills_a
     let root = receipt_fixture("relabel-against-the-receipt");
     let path = root.join("contracts/coverage.json");
     let body = fs::read_to_string(&path).expect("the fixture manifest");
-    let entry = line(&body, "mandate.delegation.DelegationCreated");
+    let entry = line(&body, "mandate.workload.RevokeWorkloadIdentity");
     let doctored = relabelled(
         &entry,
         "mandate-authz",
@@ -231,7 +231,7 @@ fn the_committed_relabel_patch_writes_the_entry_the_data_case_writes() {
     assert_eq!(written.len(), 1, "the patch rewrites one entry");
 
     let body = manifest_text();
-    let entry = line(&body, "mandate.delegation.DelegationCreated");
+    let entry = line(&body, "mandate.workload.RevokeWorkloadIdentity");
     let doctored = relabelled(
         &entry,
         "mandate-authz",

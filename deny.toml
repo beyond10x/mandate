@@ -1,5 +1,8 @@
 [advisories]
 yanked = "deny"
+ignore = [
+  { id = "RUSTSEC-2024-0449", reason = "unsafe-libyaml is reached only through serde_yaml in the pinned ESS crates (ess-conformance, ess-domain, ess-primitives); no safe upgrade exists and the dependency leaves when ESS drops serde_yaml" },
+]
 [licenses]
 allow = ["Apache-2.0", "BSD-3-Clause", "CDLA-Permissive-2.0", "ISC", "MIT", "MIT-0", "Unicode-3.0", "Zlib"]
 [bans]

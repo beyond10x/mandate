@@ -39,6 +39,8 @@
 //! | `armed` | a reader was substituted and it answered something the standing reader could not have |
 //! | `armed-unrefused` | a reader was substituted and consulted `consulted` times, and refused nothing |
 //! | `armed-unreached` | the arming lapsed without a reader ever being consulted: the command refused, or decided, before reading anything |
+//! | `input-decided` | no fault was placed: the command, decided over the standing readers, already answered the forced branch |
+//! | `input-refused-elsewhere` | no fault was placed: the command, decided over the standing readers, refused on a branch other than the forced one, and that refusal is the answer |
 //! | `refused-before-dispatch` | there was no reader to substitute; see above |
 //! | `unsupported-command` | no crate realizes the command |
 //!
@@ -69,6 +71,38 @@
 //! same without the arming. Whether it would have is a second run, which `injections.json`
 //! is not, and `tests/adversary_conformance_1.rs` is where that comparison is actually
 //! made.
+//!
+//! # An arming the input already decides places no fault
+//!
+//! ESS compiles an *authored* act whose `outcome:` names an `external:` branch into a
+//! `configure_external_outcome` for that one call (beyond10x/ess#243), and every `denied` of
+//! `mandate.federation` is declared `external:`. An authored refusal is usually one its own
+//! input decides — an audience that is not the client, a registration that collides with
+//! another organization's rule — and it states the reason production gives. A fault placed
+//! first answers a different one, or none: the refusing [`ScenarioVerifier`] says
+//! `InvalidCredential` before the audience is compared, and an empty substituted connection
+//! store admits the colliding registration.
+//!
+//! So the `mandate.federation` commands decide over the **standing** readers first
+//! (`commands::standing_first`). When that decision already refuses, the refusal is the
+//! answer and nothing is substituted. The row reads `input-decided` only when the refusal
+//! *is* the forced branch; a refusal on another branch — a connection disabled a second
+//! time answers `wrong-state` while the arming forced `denied` — reads
+//! `input-refused-elsewhere`, because the input did not answer what was forced. Only a
+//! command the input would have admitted is decided again over the substituted reader. The
+//! trial runs over copies of the allocator and the session issuer and appends nothing, so an
+//! admitted trial leaves no trace. A row is relabelled only by the invocation that took the
+//! arming ([`Arming`] is consumed by the call that records it), so a later unarmed call of
+//! the same command in the same scenario leaves the armed row as it was.
+//!
+//! `mandate.credential.RegisterResourceServer` is decided the same way, for a synthesized
+//! rather than an authored reason: its synthesized input names, in
+//! `allowed_exchange_sources`, a resource server no record carries, so the standing reader
+//! already refuses it `denied` and a fault placed first decided nothing — the row read
+//! `armed` while the scenario answered identically unarmed. The other domains keep the
+//! fault-first rule: no authored scenario of theirs answers differently armed and unarmed,
+//! and every row they record `armed` changes its scenario
+//! (`tests/adversary_ess_repin_1.rs`).
 //!
 //! # Every double is written down
 //!
@@ -196,6 +230,25 @@ impl Ledger {
         } else {
             "armed-unreached"
         };
+    }
+
+    /// Record that the arming for `command` placed no fault, because the standing decision
+    /// already refused: `input-decided` when it refused on the `forced` branch,
+    /// `input-refused-elsewhere` when it refused on `refusal`, another one.
+    pub fn decided_by_input(&mut self, scenario: &str, command: &str, forced: &str, refusal: &str) {
+        if let Some(row) = self
+            .injections
+            .iter_mut()
+            .rev()
+            .find(|held| held.scenario == scenario && held.command == command)
+        {
+            row.consulted = 0;
+            row.kind = if refusal == forced {
+                "input-decided"
+            } else {
+                "input-refused-elsewhere"
+            };
+        }
     }
 
     /// Record a scenario this target could not satisfy, once.
@@ -930,22 +983,49 @@ impl mandate_sts::keys::KeyMaterialResolver for ScenarioKeys {
 
 /// The outcome armed for the next invocation of one command.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct Armed(Option<String>);
+pub struct Armed(Option<Arming>);
 
-impl Armed {
-    /// Arm the next invocation of `command`.
-    pub fn arm(&mut self, command: &str) {
-        self.0 = Some(command.to_owned());
+/// One arming, taken by the invocation it applies to.
+///
+/// It is the only way to relabel an injection row (`Live::record_reads`,
+/// `Live::input_decided` consume it), so an invocation that took no arming cannot rewrite
+/// the row an earlier, armed invocation of the same command recorded.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Arming {
+    command: String,
+    outcome: String,
+}
+
+impl Arming {
+    /// The command whose invocation this arming applies to.
+    #[must_use]
+    pub fn command(&self) -> &str {
+        &self.command
     }
 
-    /// Whether `command` is armed, consuming the arming: §12 says it applies to the **next**
+    /// The branch the arming forces, as the contract names it.
+    #[must_use]
+    pub fn outcome(&self) -> &str {
+        &self.outcome
+    }
+}
+
+impl Armed {
+    /// Arm the next invocation of `command` to answer `outcome`.
+    pub fn arm(&mut self, command: &str, outcome: &str) {
+        self.0 = Some(Arming {
+            command: command.to_owned(),
+            outcome: outcome.to_owned(),
+        });
+    }
+
+    /// The arming for `command`, consuming it: §12 says it applies to the **next**
     /// invocation and then lapses.
-    pub fn take(&mut self, command: &str) -> bool {
-        if self.0.as_deref() == Some(command) {
-            self.0 = None;
-            return true;
+    pub fn take(&mut self, command: &str) -> Option<Arming> {
+        if self.0.as_ref().map(Arming::command) == Some(command) {
+            return self.0.take();
         }
-        false
+        None
     }
 }
 
@@ -1100,11 +1180,18 @@ mod tests {
     #[test]
     fn an_arming_applies_once_to_the_command_it_named() {
         let mut armed = Armed::default();
-        armed.arm("mandate.tenancy.CreateTeam");
-        assert!(!armed.take("mandate.tenancy.CreateSpace"));
-        assert!(armed.take("mandate.tenancy.CreateTeam"));
+        armed.arm("mandate.tenancy.CreateTeam", "denied");
+        assert!(armed.take("mandate.tenancy.CreateSpace").is_none());
+        let taken = armed
+            .take("mandate.tenancy.CreateTeam")
+            .expect("the named command is armed");
+        assert_eq!(
+            taken.outcome(),
+            "denied",
+            "the arming lost the branch it forces"
+        );
         assert!(
-            !armed.take("mandate.tenancy.CreateTeam"),
+            armed.take("mandate.tenancy.CreateTeam").is_none(),
             "the arming outlived the invocation it applied to"
         );
     }

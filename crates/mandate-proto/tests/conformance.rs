@@ -14,7 +14,7 @@ fn every_accepted_type_carries_a_wire_contract() {
     let mut accepted: Vec<&str> = ACCEPTED.iter().map(|entry| entry.ess_name).collect();
     accepted.sort_unstable();
     assert_eq!(wired, accepted, "an accepted type with no wire contract");
-    assert_eq!(wired.len(), 74);
+    assert_eq!(wired.len(), 75);
 }
 
 /// The six records `mandate-model` and `mandate-token` declare are on the wire by the
@@ -125,7 +125,7 @@ fn the_two_identifiers_share_a_declared_wire_form_no_decoder_can_tell_apart() {
 /// `PrincipalId::to_wire`. This shows `w` is byte-identical to the wire form a valid
 /// `OrganizationId` produces, and that `from_wire` accepts that form — as the wire
 /// contract requires, and as `every_wire_contract_round_trips_through_its_explicit_conversion`
-/// asserts for all 74 types. `from_wire` is a function of the string alone, so it cannot
+/// asserts for all 75 types. `from_wire` is a function of the string alone, so it cannot
 /// return `Ok` and `Err` for the same string: the requirement is a contradiction, not a
 /// defect in the implementation.
 ///

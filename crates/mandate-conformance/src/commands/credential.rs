@@ -29,12 +29,17 @@ use mandate_token::projection::{CredentialEvent, Denied};
 use mandate_types::{CredentialProof, VerifiedContext};
 
 use crate::Live;
-use crate::commands::{accepted, refused};
+use crate::commands::{accepted, refused, standing_first};
 use crate::external::Substituted;
 use crate::node;
 
 /// The declared error every refusing outcome of this domain carries.
 const DENIED: &str = "mandate.credential.Denied";
+
+/// The STS identity allocator a registration advances.
+fn sts_ids(live: &mut Live) -> &mut mandate_sts::SequentialAllocator {
+    &mut live.sts_ids
+}
 
 /// `mandate.credential.RegisterResourceServer`.
 ///
@@ -53,14 +58,23 @@ pub fn register_resource_server(
         profile: node::field(&request.input, "profile")?,
         allowed_exchange_sources: node::field(&request.input, "allowed_exchange_sources")?,
     };
+    // Decided standing-first (`external.rs`, "An arming the input already decides"): the
+    // synthesized input names an exchange source no record carries, so the standing reader
+    // already refuses it and a fault placed first would decide nothing.
     let reader = Substituted::new();
-    let armed = live.armed.take(COMMAND);
-    let decided = if armed {
-        registry::register_resource_server(&input, &reader, &mut live.sts_ids)
-    } else {
-        registry::register_resource_server(&input, &live.credentials, &mut live.sts_ids)
-    };
-    live.record_reads(COMMAND, reader.consulted(), reader.refused());
+    let decided = standing_first(
+        live,
+        COMMAND,
+        sts_ids,
+        |live, ids, faulted| {
+            if faulted {
+                registry::register_resource_server(&input, &reader, ids)
+            } else {
+                registry::register_resource_server(&input, &live.credentials, ids)
+            }
+        },
+        || (reader.consulted(), reader.refused()),
+    );
     match decided {
         Ok(registered) => {
             live.append_credential(registered.event.clone())?;
@@ -96,12 +110,14 @@ pub fn disable_resource_server(
     };
     let reader = Substituted::new();
     let armed = live.armed.take(COMMAND);
-    let decided = if armed {
+    let decided = if armed.is_some() {
         registry::disable_resource_server(&input, &reader)
     } else {
         registry::disable_resource_server(&input, &live.credentials)
     };
-    live.record_reads(COMMAND, reader.consulted(), reader.refused());
+    if let Some(arming) = armed {
+        live.record_reads(arming, reader.consulted(), reader.refused());
+    }
     finish(live, COMMAND, decided)
 }
 
@@ -124,7 +140,7 @@ pub fn issue_reference_credential(
     let context = live.sts_context(&input.context);
     let reader = Substituted::new();
     let armed = live.armed.take(COMMAND);
-    let decided = if armed {
+    let decided = if armed.is_some() {
         issue::issue_reference_credential(
             &input,
             &context,
@@ -147,7 +163,9 @@ pub fn issue_reference_credential(
             },
         )
     };
-    live.record_reads(COMMAND, reader.consulted(), reader.refused());
+    if let Some(arming) = armed {
+        live.record_reads(arming, reader.consulted(), reader.refused());
+    }
     issued(live, COMMAND, decided)
 }
 
@@ -172,7 +190,7 @@ pub fn issue_self_contained_credential(
     let signer = live.signer.clone();
     let reader = Substituted::new();
     let armed = live.armed.take(COMMAND);
-    let decided = if armed {
+    let decided = if armed.is_some() {
         issue::issue_self_contained_credential(
             &input,
             &context,
@@ -197,7 +215,9 @@ pub fn issue_self_contained_credential(
             },
         )
     };
-    live.record_reads(COMMAND, reader.consulted(), reader.refused());
+    if let Some(arming) = armed {
+        live.record_reads(arming, reader.consulted(), reader.refused());
+    }
     issued(live, COMMAND, decided)
 }
 
@@ -219,7 +239,7 @@ pub fn introspect_credential(
     let context = live.sts_request_context();
     let reader = Substituted::new();
     let armed = live.armed.take(COMMAND);
-    let decided = if armed {
+    let decided = if armed.is_some() {
         resolve::introspect_credential(
             &input,
             &context,
@@ -240,7 +260,9 @@ pub fn introspect_credential(
             },
         )
     };
-    live.record_reads(COMMAND, reader.consulted(), reader.refused());
+    if let Some(arming) = armed {
+        live.record_reads(arming, reader.consulted(), reader.refused());
+    }
     match decided {
         Ok(introspection) => {
             live.append_credential(introspection.event.clone())?;
@@ -280,12 +302,14 @@ pub fn revoke_access_credential(
     };
     let reader = Substituted::new();
     let armed = live.armed.take(COMMAND);
-    let decided = if armed {
+    let decided = if armed.is_some() {
         resolve::revoke_access_credential(&input, &reader)
     } else {
         resolve::revoke_access_credential(&input, &live.credentials)
     };
-    live.record_reads(COMMAND, reader.consulted(), reader.refused());
+    if let Some(arming) = armed {
+        live.record_reads(arming, reader.consulted(), reader.refused());
+    }
     finish(live, COMMAND, decided)
 }
 
@@ -304,19 +328,20 @@ pub fn register_signing_key(
         context: node::field(&request.input, "context")?,
         key_reference: node::field(&request.input, "key_reference")?,
         algorithm: node::field(&request.input, "algorithm")?,
-        not_before: node::field(&request.input, "not_before")?,
-        expires_at: node::field(&request.input, "expires_at")?,
+        window: node::field(&request.input, "window")?,
     };
     let administration = live.key_administration.clone();
     let material = live.key_material;
     let reader = Substituted::new();
     let armed = live.armed.take(COMMAND);
-    let decided = if armed {
+    let decided = if armed.is_some() {
         administration.register(&input, &reader, &reader, &mut live.sts_ids)
     } else {
         administration.register(&input, &live.credentials, &material, &mut live.sts_ids)
     };
-    live.record_reads(COMMAND, reader.consulted(), reader.refused());
+    if let Some(arming) = armed {
+        live.record_reads(arming, reader.consulted(), reader.refused());
+    }
     match decided {
         Ok(recorded) => {
             live.append_credential(recorded.event.clone())?;
@@ -353,12 +378,14 @@ pub fn retire_signing_key(
     let context = live.sts_request_context();
     let reader = Substituted::new();
     let armed = live.armed.take(COMMAND);
-    let decided = if armed {
+    let decided = if armed.is_some() {
         keys::retire_signing_key(&input, &reader, &context)
     } else {
         keys::retire_signing_key(&input, &live.credentials, &context)
     };
-    live.record_reads(COMMAND, reader.consulted(), reader.refused());
+    if let Some(arming) = armed {
+        live.record_reads(arming, reader.consulted(), reader.refused());
+    }
     finish(live, COMMAND, decided)
 }
 
@@ -379,12 +406,14 @@ pub fn revoke_signing_key(
     };
     let reader = Substituted::new();
     let armed = live.armed.take(COMMAND);
-    let decided = if armed {
+    let decided = if armed.is_some() {
         keys::revoke_signing_key(&input, &reader)
     } else {
         keys::revoke_signing_key(&input, &live.credentials)
     };
-    live.record_reads(COMMAND, reader.consulted(), reader.refused());
+    if let Some(arming) = armed {
+        live.record_reads(arming, reader.consulted(), reader.refused());
+    }
     finish(live, COMMAND, decided)
 }
 
@@ -415,7 +444,7 @@ pub fn issue_authorization_code(
     let clients = live.oauth_clients.clone();
     let reader = Substituted::new();
     let armed = live.armed.take(COMMAND);
-    let decided = if armed {
+    let decided = if armed.is_some() {
         issuance.issue(
             &input,
             &context,
@@ -440,7 +469,9 @@ pub fn issue_authorization_code(
             },
         )
     };
-    live.record_reads(COMMAND, reader.consulted(), reader.refused());
+    if let Some(arming) = armed {
+        live.record_reads(arming, reader.consulted(), reader.refused());
+    }
     match decided {
         Ok(issuance) => {
             live.append_code(issuance.event.clone())?;
@@ -489,7 +520,7 @@ pub fn redeem_authorization_code(
     let reader = Substituted::new();
     let armed = live.armed.take(COMMAND);
     let credentials = live.credentials.clone();
-    let decided = if armed {
+    let decided = if armed.is_some() {
         redemption::redeem_and_consume(
             &input,
             &context,
@@ -522,7 +553,9 @@ pub fn redeem_authorization_code(
             },
         )
     };
-    live.record_reads(COMMAND, reader.consulted(), reader.refused());
+    if let Some(arming) = armed {
+        live.record_reads(arming, reader.consulted(), reader.refused());
+    }
     match decided {
         Ok(redeemed) => {
             let mut response = vec![

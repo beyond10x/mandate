@@ -94,7 +94,7 @@ fn the_committed_manifest_agrees_with_the_compiled_contract_the_store_and_the_te
         assert!(report.contains(kind), "the table states {kind}:\n{report}");
     }
     assert!(
-        report.contains("292"),
+        report.contains("293"),
         "the table states the element total:\n{report}"
     );
 }
@@ -453,12 +453,13 @@ fn the_receipt_is_byte_identical_across_two_runs() {
         assert_eq!(value.len(), 64, "{digest} is not a SHA-256 digest: {value}");
     }
     assert_eq!(
-        parsed["counts"]["type"]["implemented"], 93,
-        "the receipt states the per-kind counts; 93 and not the 108 this pin first carried, \
-         because wave D's correction round refused a generated contract shape as an \
-         implementation and the 23 derived `.State` entries that named one now follow their \
-         records — six to mandate-model's own enums, two to mandate-token's authored types, \
-         and seventeen to declared or deferred"
+        parsed["counts"]["type"]["implemented"], 94,
+        "the receipt states the per-kind counts; 94 — the 93 wave D left and \
+         `mandate.core.SigningKeyWindow` — and not the 108 this pin first carried, because \
+         wave D's correction round refused a generated contract shape as an implementation \
+         and the 23 derived `.State` entries that named one now follow their records — six \
+         to mandate-model's own enums, two to mandate-token's authored types, and seventeen \
+         to declared or deferred"
     );
     // The receipt binds digests and counts and nothing else: test ids are the step's live
     // check, so `generate()` nests no cargo test build (the wave D ruling). A test id is the
@@ -586,7 +587,7 @@ fn no_entry_of_the_committed_manifest_names_a_generated_contract_symbol() {
     let entries = parsed["entries"]
         .as_array()
         .expect("the manifest's entries");
-    assert_eq!(entries.len(), 292, "the manifest's element count");
+    assert_eq!(entries.len(), 293, "the manifest's element count");
     let mut claimed = Vec::new();
     for entry in entries {
         for symbol in entry["impl"].as_array().map(Vec::as_slice).unwrap_or(&[]) {

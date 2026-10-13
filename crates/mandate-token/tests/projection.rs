@@ -29,8 +29,8 @@ use mandate_token::{CredentialDescriptor, CredentialProfile};
 use mandate_types::{
     Audience, AuthorityScope, AuthorizationCodeId, CorrelationId, CredentialId, CredentialKind,
     CredentialVerifier, DenialReason, Duration, EpochSnapshotRef, KeyReference, OrganizationId,
-    PrincipalId, ResourceServerId, RevocationGuarantee, SigningAlgorithm, SigningKeyId, Timestamp,
-    Uuid, VerifiedContext,
+    PrincipalId, ResourceServerId, RevocationGuarantee, SigningAlgorithm, SigningKeyId,
+    SigningKeyWindow, Timestamp, Uuid, VerifiedContext,
 };
 
 fn uuid(tag: u8) -> Uuid {
@@ -155,8 +155,10 @@ fn key_registered(id: SigningKeyId, reference: &str, thumbprint: &str) -> Creden
         key_reference: KeyReference::new(reference),
         thumbprint: thumbprint.to_owned(),
         algorithm: SigningAlgorithm::new("declared-by-deployment"),
-        not_before: Timestamp::new("2026-09-19T00:00:00Z"),
-        expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+        window: SigningKeyWindow {
+            not_before: Timestamp::new("2026-09-19T00:00:00Z"),
+            expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+        },
     }
 }
 
@@ -505,8 +507,10 @@ fn a_key_registration_creates_the_signing_key_in_its_declared_initial_state() {
             key_reference: KeyReference::new("kms://one"),
             thumbprint: "thumb-one".to_owned(),
             algorithm: SigningAlgorithm::new("declared-by-deployment"),
-            not_before: Timestamp::new("2026-09-19T00:00:00Z"),
-            expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+            window: SigningKeyWindow {
+                not_before: Timestamp::new("2026-09-19T00:00:00Z"),
+                expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+            },
             state: SigningKeyState::Recorded,
         }]
     );

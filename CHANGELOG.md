@@ -4,6 +4,32 @@ All notable changes to Mandate are recorded here. The format follows [Keep a Cha
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking.** A signing key's validity instants move into one record,
+  `mandate_types::SigningKeyWindow` (`mandate.core.SigningKeyWindow`), carried as `window`:
+  `mandate_token::projection::SigningKey`, `CredentialEvent::SigningKeyRegistered` and
+  `mandate_sts::keys::RegisterSigningKey` hold `window` where they held `not_before` and
+  `expires_at`. The entity invariant reads `window.not_before < window.expires_at`. Rust API only:
+  no HTTP route and no stored event changes (`story:ess-repin-0-59`).
+- ESS moves from 0.26.0 to 0.59.0: the `ess-conformance`, `ess-primitives` and `ess-domain`
+  crates, the CLI the gate requires and CI installs, and `generated/`, regenerated under it
+  (`story:ess-repin-0-59`).
+- The conformance suite is synthesized under 0.59.0: 166 → 200 scenarios, `cargo xtask conform`
+  40 passed / 78 failed / 0 error / 82 unsupported / 0 skipped. The 34 new `wrong-state`
+  scenarios start from an empty state: 19 name commands no crate realizes and restate the owner
+  `injections.json` names, and the 15 the handlers refuse as `denied` are attributed to
+  `story:ess-synthesizer-prerequisites`, as are four `ResourceServer` scenarios whose synthesized
+  `allowed_exchange_sources` names a resource server that does not exist. Every non-passed
+  scenario names a live story.
+- The conformance target decides an armed `mandate.federation` command over the standing readers
+  first: 0.59.0 compiles an authored `denied` into a `configure_external_outcome`, and a refusal
+  the input already decides is now the handler's own answer, recorded `input-decided`, rather
+  than a fault placed ahead of it (`federation-audience-mismatch`, `federation-ambiguous-tenant`,
+  `federation-configured-method-on-explicit-link`).
+- The `mandate.delegation` coverage rows are `declared` on `story:agent-authority-kernel`, no
+  longer deferred on `decision-blocker:identity-uniqueness`.
+
 ## [0.6.0] - 2026-09-24
 
 Wave M: a browser signs in through an external OIDC IdP, and a credential is exchanged for one

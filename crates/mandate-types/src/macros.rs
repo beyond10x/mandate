@@ -169,7 +169,7 @@ macro_rules! canonical_transient_bytes {
             #[doc = "- [`crate::conformance::Canonical::encode`], the conformance suite's"]
             #[doc = "  rendering."]
             #[doc = "- `mandate_proto::WireContract::to_wire`, which delegates to it. Both"]
-            #[doc = "  transient types are among the 74 contracts `mandate-proto` declares,"]
+            #[doc = "  transient types are among the 75 contracts `mandate-proto` declares,"]
             #[doc = "  because the projection names them from commands and responses, and"]
             #[doc = "  `mandate-client` and `mandate-server` depend on that crate."]
             #[doc = "- [`crate::value::declared_credential_form`], named at a field with"]

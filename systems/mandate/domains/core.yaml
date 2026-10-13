@@ -312,6 +312,15 @@ types:
   - name: mandate.core.SigningAlgorithm
     kind: newtype
     of: String
+  # A signing key's validity window. The two instants are one struct so that the key's
+  # invariant can compare them: below ess/22 a right-hand side without a dot is a literal.
+  - name: mandate.core.SigningKeyWindow
+    kind: struct
+    fields:
+      - name: not_before
+        type: Timestamp
+      - name: expires_at
+        type: Timestamp
   - name: mandate.core.DenialReason
     kind: enum
     variants:

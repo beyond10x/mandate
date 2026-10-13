@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$ref": "#/$defs/mandate.core.SigningKeyWindow",
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "a3050689a765805251d9f3e868a98ca1924b66c2582e8b4d01ac7d763360f34a",
+    "contract_digest": "slice-sha256/2:c82a1da29a54ce61ed9e88c43553a199d008b7d1c2707032051a147d6e3e2bd8",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.core.SigningKeyWindow": {
+      "title": "SigningKeyWindow",
+      "x-ess-name": "mandate.core.SigningKeyWindow",
+      "x-ess-kind": "struct",
+      "type": "object",
+      "properties": {
+        "not_before": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "not_before",
+        "expires_at"
+      ],
+      "additionalProperties": false
+    }
+  }
+}
