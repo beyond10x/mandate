@@ -159,6 +159,13 @@
       "consulted": 0
     },
     {
+      "scenario": "mandate.authorization.CheckWithApproval/outcome/denied",
+      "command": "mandate.authorization.CheckWithApproval",
+      "port": "mandate_graph::port::GraphRead",
+      "kind": "armed-unreached",
+      "consulted": 0
+    },
+    {
       "scenario": "mandate.authorization/authored/authz-unadmitted-organization",
       "command": "mandate.authorization.Check",
       "port": "mandate_graph::port::GraphRead",
@@ -751,6 +758,12 @@
     },
     {
       "scenario": "mandate.authorization.Check/outcome/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.authorization.CheckWithApproval/outcome/wrong-state",
       "command": "",
       "reason": "expectation-unmet",
       "blocked_on": "story:conform-gate"

@@ -128,9 +128,9 @@ fn the_two_document_paths_are_entries_of_this_table() {
 }
 
 #[test]
-fn the_generated_projection_publishes_sixty_one_command_routes() {
+fn the_generated_projection_publishes_sixty_three_command_routes() {
     let generated = generated_paths();
-    assert_eq!(generated.len(), 61);
+    assert_eq!(generated.len(), 63);
     for path in &generated {
         let segments: Vec<&str> = path.split('/').collect();
         assert_eq!(segments.len(), 4, "{path}");
@@ -158,7 +158,7 @@ fn the_product_table_intersects_the_generated_command_routes_nowhere() {
 
 #[test]
 fn no_product_route_is_shaped_like_a_generated_command_route() {
-    // Stronger than the intersection: the intersection is empty for the 61 that exist today,
+    // Stronger than the intersection: the intersection is empty for the 63 that exist today,
     // and this holds for the ones a later contract adds.
     for route in ROUTES {
         assert!(

@@ -4,7 +4,7 @@
 //! names: "A written adapter contract naming, for every one of the 59 commands ... which party
 //! establishes each declared precondition. A sample is not evidence; the table is the
 //! enumeration." and "A negative conformance case per command deny clause". (59 has since
-//! become 61; the count is read here rather than restated.)
+//! become 63; the count is read here rather than restated.)
 //!
 //! Two enumerations, both machine-checked against a source outside this crate:
 //!
@@ -48,7 +48,7 @@ fn the_registry_names_every_operation_id_the_projection_publishes_and_nothing_el
         .collect();
     assert_eq!(registered, published, "the registry is not the command set");
     assert_eq!(OBLIGATIONS.len(), published.len());
-    assert_eq!(OBLIGATIONS.len(), 61);
+    assert_eq!(OBLIGATIONS.len(), 63);
 }
 
 #[test]
@@ -528,6 +528,6 @@ fn declared_causes() -> BTreeMap<String, String> {
         let text = rest.strip_suffix(" |").expect("an obligations row");
         causes.insert(name.to_owned(), text.to_owned());
     }
-    assert!(causes.len() >= 61, "read {} rows", causes.len());
+    assert!(causes.len() >= 63, "read {} rows", causes.len());
     causes
 }
