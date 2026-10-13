@@ -45,14 +45,16 @@
 //! delegated once: transitive); when the delegator is not an active principal; when the
 //! delegate is not an active principal with an installed agent record of this organization;
 //! when the audience is not registered; when the execution binding names no open execution
-//! the delegate holds for the delegator; when the delegate has no current applicable ceiling
-//! or two on one key; when the scope is not within the ceilings — through
-//! [`crate::agent::intersect`], the evaluator's own intersection, which must keep every action
-//! and resource requested and confine to the same space; when `expires_at - created_at` is not
-//! inside `(0, max_delegation_ttl]` for the smallest `max_delegation_ttl` over the delegate's
-//! applicable platform and tenant ceilings, read by [`mandate_types::Duration::seconds`]; and
-//! when policy, asked about the delegator for every action on every resource of the scope,
-//! requires an approval (the grant would skip it) or does not allow it.
+//! the delegate holds for the delegator or for itself, naming no delegation (the rule `check`
+//! decides the bound call by, `crate::agent::execution_holds`); when the delegate has no
+//! current applicable ceiling or two on one key; when the scope is not within the ceilings —
+//! through [`crate::agent::intersect`], the evaluator's own intersection, which must keep every
+//! action and resource requested and confine to the same space; when
+//! `expires_at - created_at` is not inside `(0, max_delegation_ttl]` for the smallest
+//! `max_delegation_ttl` over the delegate's applicable platform and tenant ceilings, read by
+//! [`mandate_types::Duration::seconds`]; and when policy, asked about the delegator for every
+//! action on every resource of the scope, requires an approval (the grant would skip it) or
+//! does not allow it.
 //!
 //! # Every denial clause this module does not realize
 //!
@@ -69,16 +71,20 @@
 //! * `ConsumeApproval` — "its subject/actor/action/resource": the check being satisfied is
 //!   not an input of the command, so only the subject and actor the context carries are
 //!   compared (the sibling clause "Caller does not hold the decision context the approval
-//!   answers"), and the action and resource wait for an approval input to `Check`
-//!   (decision 9 of the wave). `story:agent-security`.
+//!   answers"). The action and resource are compared by `mandate.authorization.CheckWithApproval`
+//!   ([`crate::check_with_approval`]), which states the check through the same approval checks
+//!   (`approval_answers`); this command has no input that names them. `story:agent-security`.
 
 use mandate_policy::port::{AttributeSet, PolicyEffect, PolicyEvaluator, PolicyRequest};
 use mandate_types::{
-    ApprovalId, Audience, AuthorityScope, AuthoritySubject, DelegationId, DenialReason,
-    ExecutionId, OrganizationId, PrincipalId, Timestamp, Uuid, VerifiedContext,
+    Action, ApprovalId, Audience, AuthorityScope, AuthoritySubject, DelegationId, DenialReason,
+    ExecutionId, OrganizationId, PrincipalId, ResourceRef, Timestamp, Uuid, VerifiedContext,
 };
 
-use crate::agent::{AgentAuthorityRead, AuthorityClause, PrincipalStanding, Unavailable, instant};
+use crate::agent::{
+    AgentAuthorityRead, AuthorityClause, ExecutionHolder, PrincipalStanding, Unavailable,
+    execution_holds, instant,
+};
 use crate::delegation::{AgentState, ApprovalState, DelegationState, ExecutionState};
 use crate::event::{DelegationCreated, DelegationEvent};
 
@@ -380,16 +386,19 @@ where
 
     let created = instant::parse(at).ok_or(Denied::on(DelegationClause::ExceedsCeilings))?;
     if let Some(id) = &input.execution_binding {
+        // The rule `check` decides the bound call by, for a delegation that has no identity
+        // yet: an execution naming any delegation names another one.
+        let holder = ExecutionHolder {
+            organization,
+            agent: &input.delegate,
+            subject: &delegator,
+            delegation: None,
+            bound: true,
+        };
         let open = records
             .execution(id)
             .map_err(unavailable)?
-            .is_some_and(|execution| {
-                execution.organization_id == *organization
-                    && execution.state == ExecutionState::Recorded
-                    && execution.agent_id == input.delegate
-                    && execution.subject == Some(delegator)
-                    && instant::parse(&execution.expires_at).is_some_and(|ends| created < ends)
-            });
+            .is_some_and(|execution| execution_holds(&execution, &holder, created).is_ok());
         if !open {
             return Err(Denied::on(DelegationClause::ExecutionBindingFails));
         }
@@ -637,6 +646,46 @@ pub fn decide_consume_approval<R>(
 where
     R: AgentAuthorityRead + ?Sized,
 {
+    approval_answers(records, context, id, at, None)?;
+    Ok(DelegationEvent::ApprovalConsumed {
+        context: context.clone(),
+        id,
+    })
+}
+
+/// The action and resource of the check an approval is asked to satisfy, when the caller
+/// states them.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Satisfying<'a> {
+    /// The action the check is asked about.
+    pub action: &'a Action,
+    /// The resource the action is on.
+    pub resource: &'a ResourceRef,
+}
+
+/// Whether approval `id` may be consumed by the caller at `at`: the one set of approval
+/// checks `ConsumeApproval` and `mandate.authorization.CheckWithApproval` both decide by.
+///
+/// The approval must be recorded in the verified organization; its subject must be the
+/// verified subject and its actor the verified actor (absent when the subject acts as
+/// itself); when the check being satisfied is stated, its action and resource must be the
+/// approval's; it must not be consumed; and `at` must be before its `expires_at`. Every
+/// mismatch is checked before the state, so a caller that does not hold the decision the
+/// approval answers learns nothing about it.
+///
+/// # Errors
+///
+/// [`Denied`] for each condition above, `wrong-state` for a consumed approval.
+pub(crate) fn approval_answers<R>(
+    records: &R,
+    context: &VerifiedContext,
+    id: ApprovalId,
+    at: &Timestamp,
+    satisfying: Option<Satisfying<'_>>,
+) -> Result<(), Denied>
+where
+    R: AgentAuthorityRead + ?Sized,
+{
     let approval = records
         .approval(&id)
         .map_err(unavailable)?
@@ -645,6 +694,11 @@ where
     let acting = context.actor.filter(|actor| *actor != context.subject);
     let approved = approval.actor.filter(|actor| *actor != approval.subject);
     if context.subject != approval.subject || acting != approved {
+        return Err(Denied::on(DelegationClause::NotTheDecisionContext));
+    }
+    if let Some(check) = satisfying
+        && (*check.action != approval.action || *check.resource != approval.resource)
+    {
         return Err(Denied::on(DelegationClause::NotTheDecisionContext));
     }
     if approval.state == ApprovalState::Consumed {
@@ -657,8 +711,5 @@ where
     if !open {
         return Err(Denied::on(DelegationClause::ApprovalExpired));
     }
-    Ok(DelegationEvent::ApprovalConsumed {
-        context: context.clone(),
-        id,
-    })
+    Ok(())
 }

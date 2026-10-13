@@ -24,6 +24,38 @@ commands:
     response:
       - name: decision
         type: mandate.core.Decision
+  - name: mandate.authorization.CheckWithApproval
+    input:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: action
+        type: mandate.core.Action
+      - name: resource
+        type: mandate.core.ResourceRef
+      - name: approval
+        type: mandate.core.ApprovalId
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.authorization.ApprovedDecisionRecorded
+        payload:
+          mandate.authorization.ApprovedDecisionRecorded:
+            context: input.context
+            decision:
+              response: decision
+            approval: input.approval
+        moves: mandate.delegation.Approval.consume
+        instance: approval
+        summary: The second check after an approval-required decision. The approval is recorded, of the verified organization, unexpired at the decision instant, and names this subject, actor, action and resource; every other check of the request is decided as Check decides it, and the approval is consumed by this decision and satisfies no other. The one event records both the decision and the consumption, so the two commit together; the delegation fold applies it as the approval's consume.
+      - name: wrong-state
+        wrong_state: true
+        error: mandate.authorization.Denied
+      - name: denied
+        external: Anything Check refuses other than approval-required; or the approval is unrecorded, of another organization, expired, or names another subject, actor, action or resource, each refused exactly as an unrecorded approval; or one-use consumption cannot commit atomically with the decision.
+        error: mandate.authorization.Denied
+    response:
+      - name: decision
+        type: mandate.core.Decision
 events:
   - name: mandate.authorization.DecisionRecorded
     fields:
@@ -31,6 +63,14 @@ events:
         type: mandate.core.VerifiedContext
       - name: decision
         type: mandate.core.Decision
+  - name: mandate.authorization.ApprovedDecisionRecorded
+    fields:
+      - name: context
+        type: mandate.core.VerifiedContext
+      - name: decision
+        type: mandate.core.Decision
+      - name: approval
+        type: mandate.core.ApprovalId
 errors:
   - name: mandate.authorization.Denied
     summary: Fail closed; no credential, authority or lifecycle mutation on refusal.

@@ -7,6 +7,7 @@
 # Two current ceilings on one key are a declared denial (mandate.credential.ExchangeCredential: "two current capability ceilings share one agent and organization-or-platform key"). The fold records the conflict and the decision path denies; no evaluator picks one of the two.
 # UNMAPPED-UNIQUENESS: a storage unique index on the ceiling key waits for persistence; trusted Agent-kind and organization checks are the evaluator's.
 # CreateDelegation fixes transitive=false; the entity invariant also refuses transitive declarations.
+# An execution-bound delegation names its execution in execution_binding. The execution is recorded first and may name no delegation yet, so Check admits the binding when the execution is recorded, unexpired and not completed, its delegation_id is absent or names this delegation, its agent_id is the delegate, its subject is absent or the delegator, and its organization_id is the delegation's. Any other execution refuses the bound call.
 domain: mandate.delegation
 entities:
   - name: mandate.delegation.Delegation

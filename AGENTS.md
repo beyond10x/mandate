@@ -33,11 +33,12 @@ Tag only the resulting merged `main` commit, after the requested version, reposi
 Since 2026-09-23 the operator has asked for integration, release and cleanup to happen after every closed batch, not on request. When a batch of up to three waves closes green, the coordinator, without asking again:
 
 1. opens one PR from the integration branch to `main` through the bot, waits for every required check on its exact head, and merges it through the bot;
-2. advances `repositories."beyond10x/mandate".baseline` in `gates-policy/policy.json` to that merge commit — the merge is committed by `GitHub`, and until the baseline moves the push guard refuses every branch cut from `main` and every tag;
-3. cuts a release from a `release/X.Y.Z` branch: minor when the batch's changelog has a **Breaking** entry, patch otherwise; version in every manifest and `Cargo.lock`, the `[Unreleased]` section headed with the version and date, the full gate, PR, bot merge, an annotated tag on the resulting `main` merge commit and a GitHub Release from the changelog section; reported as released only after the tag, the checks on that commit and the Release are verified;
-4. deletes every remote branch that is an ancestor of `main` and removes its own managed trees through `worktree finish` and reviewed `worktree gc`.
+2. cuts a release from a `release/X.Y.Z` branch: minor when the batch's changelog has a **Breaking** entry, patch otherwise; version in every manifest and `Cargo.lock`, the `[Unreleased]` section headed with the version and date, the full gate, PR, bot merge, an annotated tag on the resulting `main` merge commit and a GitHub Release from the changelog section; reported as released only after the tag, the checks on that commit and the Release are verified;
+3. deletes every remote branch that is an ancestor of `main` and removes its own managed trees through `worktree finish` and reviewed `worktree gc`.
 
-The cadence does not cover a wave's own approval, a deployment, or anything outside this repository beyond the baseline advance.
+A branch or an annotated tag cut from that GitHub merge commit needs no Gates baseline move: the push guard admits one cut from a GitHub App merge from gates 0.1.17 on. Keep the installed hooks at that version or newer (`b10x-gates install --repo . --policy <policy> --repository beyond10x/mandate` after each gates release); a refused push is reported with its refusal line, not answered by moving the baseline.
+
+The cadence does not cover a wave's own approval, a deployment, or anything outside this repository.
 
 ## Milestone boundary
 

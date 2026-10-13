@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AuthenticateWorkload input",
+  "x-ess-name": "mandate.workload.AuthenticateWorkload",
+  "x-ess-kind": "command-input",
+  "type": "object",
+  "properties": {
+    "workload_proof": {
+      "$ref": "#/$defs/mandate.core.CredentialProof"
+    },
+    "agent": {
+      "$ref": "#/$defs/mandate.core.PrincipalId"
+    },
+    "execution": {
+      "$ref": "#/$defs/mandate.core.ExecutionId"
+    }
+  },
+  "required": [
+    "workload_proof",
+    "agent"
+  ],
+  "additionalProperties": false,
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
+    "contract_digest": "slice-sha256/2:8f3d902045a3480d5347989534f35f2da9111f0e0a9cf9991ac82f1def52c45d",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.core.CredentialProof": {
+      "title": "CredentialProof",
+      "x-ess-name": "mandate.core.CredentialProof",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+      "contentEncoding": "base64"
+    },
+    "mandate.core.ExecutionId": {
+      "title": "ExecutionId",
+      "x-ess-name": "mandate.core.ExecutionId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.PrincipalId": {
+      "title": "PrincipalId",
+      "x-ess-name": "mandate.core.PrincipalId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    }
+  }
+}

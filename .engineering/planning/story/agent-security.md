@@ -63,7 +63,7 @@ scope:
   path: services/control-plane/src/authority.rs
 - confidence: cited
   path: systems/mandate/domains/delegation.yaml
-revision: 10
+revision: 12
 transitions:
 - {from: "draft", to: "proposed", at: "2026-10-13T06:40:19Z", actor: "human:timo", revision: 8, decided_on: {"recorded":{"review_outcome":1}}}
 - {from: "proposed", to: "active", at: "2026-10-13T06:40:19Z", actor: "human:timo", revision: 9, decided_on: {"recorded":{"review_outcome":1}}}
@@ -120,3 +120,19 @@ Still on this story:
 - An execution-bound delegation fails closed at `Check`: `CreateDelegation` binds only an execution recorded before the delegation, and `Check` requires that execution's `delegation_id` to name the delegation. Decide how the two records name each other; until then the bound call is refused (`a_delegation_bound_to_an_execution_fails_closed_at_check`).
 - Workload and application-agent authentication; an approval consumed inside `Check` (needs a change to `Check`'s input); the `Pdp` in `services/control-plane/src/authority.rs` still holds no delegation fold.
 - The fold applies creation monotonically, so a replayed or reordered log keeps a revoked delegation revoked; durable de-duplication waits on persistence.
+
+## Wave 8
+
+Wave 8 (2026-10-13, `docs/plans/2026-10-13-wave-8-execution.md`), on `integration/wave-20261013-003`.
+
+Decided for the execution binding, as the option that can be undone (it admits more than wave 7 and can be narrowed again without a contract change): the delegation names its execution in `execution_binding`; the execution is recorded first and may name no delegation yet. `Check` admits a bound call when the execution is recorded, unexpired and not completed, its `delegation_id` is absent or names this delegation, its `agent_id` is the delegate, its `subject` is absent or the delegator, and its organization is the delegation's; `CreateDelegation` admits the same execution. Why: requiring the execution to name the delegation needs an execution writer this repository does not have, and keeps every bound call refused. Recorded in the `delegation.yaml` header.
+
+Specified before implementation: `mandate.authorization.CheckWithApproval` (the approval consumed by the second check; a new command because ESS refuses an outcome chosen by an identity, and `Check`'s contract stays as other repositories call it) and `mandate.workload.AuthenticateWorkload` (the workload runtime and the application agent authenticated each on its own).
+
+Security review of wave 8 (one for the wave): execution binding, `CheckWithApproval`, the control-plane fold and credential redaction held. Two introduced findings in `AuthenticateWorkload` were fixed in the wave, spec first: a disabled runtime principal is refused, and the named agent may not be the runtime principal itself, so the two identities stay two principals.
+
+Still on this story after wave 8:
+
+- One-use approval under concurrency: two `CheckWithApproval` decisions taken over the same fold before either is applied both succeed, and the fold logs both. The contract puts this on the commit ("one-use consumption cannot commit atomically" refuses), so the event-log adapter must refuse the second `ApprovedDecisionRecorded` for one approval when persistence lands.
+- The control plane records any `DelegationEvent` it is given without re-deciding it; no route records events yet, and a served route must pass only decide-function output.
+- A SPIFFE / JWT-SVID verifier behind the trust-domain port; `SupersedeAgentCapabilityCeiling` still waits on ESS.

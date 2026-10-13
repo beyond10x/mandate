@@ -35,7 +35,7 @@
 //! `docs/public/contracts.md:29` says the generated command routes do not implement product
 //! routes. [`is_generated_command_path`] is the predicate, and
 //! `crates/mandate-server/tests/routes.rs` decides both halves: no path here is shaped like a
-//! generated one, and the intersection with the 61 paths read from `generated/openapi/*.yaml`
+//! generated one, and the intersection with the 63 paths read from `generated/openapi/*.yaml`
 //! at test time is empty.
 
 /// The methods this table declares.
@@ -195,8 +195,8 @@ pub fn route_for_document(document: Document) -> Option<&'static Route> {
 /// Whether a path is one of the generated `/<domain>/commands/<Command>` projections.
 ///
 /// The shape, not a list: exactly three non-empty segments whose middle one is
-/// [`GENERATED_COMMAND_SEGMENT`]. A list would answer for the 61 that exist and not for the
-/// 62nd. `crates/mandate-server/tests/routes.rs` decides this predicate against every path the
+/// [`GENERATED_COMMAND_SEGMENT`]. A list would answer for the 63 that exist and not for the
+/// 64th. `crates/mandate-server/tests/routes.rs` decides this predicate against every path the
 /// four generated documents publish today.
 #[must_use]
 pub fn is_generated_command_path(path: &str) -> bool {

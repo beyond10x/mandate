@@ -41,9 +41,9 @@
 //! `mandate_authz::context::bind_any`, which reads `mandate_model::tenancy::Tenancy` and
 //! `mandate_model::graph::Topology`, both folds, and decides three things before either port
 //! is read: the organization still admits authority, the subject is a member of it, and the
-//! credential's audience is the one the caller requires. A request that is not direct is then
-//! decided over the agent read, which is empty here (see the named residue), so it is
-//! refused. A caller failing any of those is refused before the graph or policy is asked.
+//! credential's audience is the one the caller requires. A request that involves an agent is
+//! then decided over the delegation fold the decision point holds (see *The delegation fold*
+//! below). A caller failing any of those is refused before the graph or policy is asked.
 //!
 //! **This composition can fail every one of them but the audience.**
 //! `bind` compares `context.audience` against the `expected_audience` the *caller* states,
@@ -66,6 +66,28 @@
 //! whether the caller *holds* the authority — because `tenancy.rs:317-318` puts that with
 //! "grants and relationships", which are the graph's and the policy's.
 //!
+//! # The delegation fold
+//!
+//! `mandate_authz::check` reads the agent, its capability ceilings, the delegation and the
+//! execution a request names through `mandate_authz::agent::AgentAuthorityRead`. A
+//! [`DecisionPoint`] answers it from its own `mandate_authz::event::DelegationProjection`,
+//! the fold of the `mandate.delegation` events (`docs/adr/0009-event-sourced-persistence.md`):
+//! the projection is the log and the records folded from it, never a table written beside a
+//! log. [`Deployment::record_delegation`](crate::adapters::Deployment::record_delegation)
+//! appends an event the decide functions of `mandate-authz` produced — `CreateDelegation`,
+//! `RevokeDelegation`, `RetireAgent`, `CompleteExecution`, `ConsumeApproval`, and the
+//! `ApprovedDecisionRecorded` of `CheckWithApproval` through its `From` — and applies it, so
+//! the next check reads what the command wrote: a delegated request is admitted over a
+//! recorded delegation and refused once its revocation is recorded. Applying is total, as
+//! the projection's own `apply` is, so no write can be refused half-way and nothing is copied
+//! to be swapped.
+//!
+//! The fold belongs to the decision point because nothing else in the composition reads it:
+//! a deployment configured with no decision point decides no authority, and it refuses to
+//! record a delegation event (`DelegationUnrecorded`) rather than keeping one nothing reads.
+//! A direct request of a principal that is no agent reads no record of the fold and is
+//! decided as it was over the empty read.
+//!
 //! # Named residue
 //!
 //! * **The relation is a constant this module states.** `mandate-authz`'s own header says
@@ -79,20 +101,25 @@
 //!   The two are different vocabularies and passing one as the other would refuse every
 //!   request by construction. Reconciling them is the credential-scope story's, not this
 //!   one's.
-//! * **The agent records are the empty read.** `mandate_authz::check` reads the agent, its
-//!   capability ceilings, the delegation and the execution a request names through
-//!   `mandate_authz::agent::AgentAuthorityRead`, and no fold of the `mandate.delegation`
-//!   events is configured here, so the decision point holds
-//!   `mandate_authz::agent::AgentRecords::new()`. Under it a direct request of a principal
-//!   that is no agent is decided as before, and every request whose context names an actor
-//!   other than its subject, a delegation or an execution is refused, because no record
-//!   bounds it. Configuring the fold is the delegation commands' change, not this one's.
+//! * **Agents, ceilings, executions and approvals are seeded, not recorded.** No command
+//!   creates them yet (`story:declared-writers`; `SupersedeAgentCapabilityCeiling` stays
+//!   deferred), so the projection starts from the records the operator configures, as
+//!   `DelegationProjection::fold(records, events)` takes them, and only delegations — and the
+//!   moves the commands make on the seeded records — come from events. The seeding goes in
+//!   with the decision point, through the opt-in
+//!   [`Deployment::with_authority`](crate::adapters::Deployment::with_authority); `src/main.rs`
+//!   configures none, for the reason the section above gives.
+//! * **No route serves a delegation command.** The deployment records the events a caller of
+//!   the decide functions hands it; serving `CreateDelegation` and its siblings over HTTP is
+//!   not done here.
+//! * **The log is in memory**, as every fold of the deployment is until the event-log adapter
+//!   lands (`crate::adapters::Deployment`).
 //! * **No denial is audited.** `decision-blocker:audit-routing` holds the vocabulary and
 //!   `mandate-audit` is outside this package's ceiling, exactly as `adapters.rs` records
 //!   for every other refusal the road gives.
 
-use mandate_authz::agent::AgentRecords;
 use mandate_authz::decision::{ChallengeIssuer, DecisionIdAllocator, Denied};
+use mandate_authz::event::{DelegationEvent, DelegationProjection};
 use mandate_authz::{CheckRequest, Pdp, check};
 use mandate_graph::port::GraphRead;
 use mandate_graph::topology::ResourceLookup;
@@ -164,6 +191,22 @@ pub trait Admitting {
     /// The declared refusal, [`Denied`], carrying both the reason that crosses the wire and
     /// the decision that was taken.
     fn admit(&mut self, admission: &Admission<'_>) -> Result<Decision, Denied>;
+
+    /// The `mandate.delegation` fold [`Admitting::admit`] decides a request that involves an
+    /// agent over: the seeded records with every event recorded since applied, and the log
+    /// of those events.
+    ///
+    /// The read the decide half of a delegation command takes
+    /// (`mandate_authz::command::decide_revoke_delegation` and its siblings), so a command
+    /// is decided over exactly the records the next check reads.
+    fn delegations(&self) -> &DelegationProjection;
+
+    /// Record one `mandate.delegation` event a decide function of `mandate-authz` produced:
+    /// append it to the log and apply it to the fold the next [`Admitting::admit`] reads.
+    ///
+    /// Total, as `DelegationProjection::apply` is: the decide half has refused everything
+    /// the contract refuses, and recording re-checks nothing.
+    fn record_delegation(&mut self, event: &DelegationEvent);
 }
 
 /// A decision point: the ports, the folds and the two request values the composition states
@@ -188,6 +231,10 @@ pub struct DecisionPoint<G, P, C, I, A> {
     pub minimum: AuthzRevision,
     /// The attribute input policy evaluates against.
     pub attributes: AttributeSet,
+    /// The `mandate.delegation` projection: the agents, ceilings, executions and approvals
+    /// the operator seeds (no command creates them yet), and the delegation events the
+    /// deployment records over them ([`Admitting::record_delegation`]).
+    pub delegations: DelegationProjection,
 }
 
 impl<G, P, C, I, A> Admitting for DecisionPoint<G, P, C, I, A>
@@ -206,10 +253,10 @@ where
             issuer: &self.issuer,
             tenancy: &self.tenancy,
             topology: &self.topology,
-            // No fold of the `mandate.delegation` events is configured: the empty read, under
-            // which every request naming an actor other than its subject, a delegation or an
-            // execution is refused (see the module header).
-            agents: &AgentRecords::new(),
+            // The fold of the `mandate.delegation` events this decision point recorded, over
+            // its seeded records: a request naming an agent, a delegation or an execution is
+            // decided over what the commands wrote (see the module header).
+            agents: &self.delegations,
         };
         check(
             &pdp,
@@ -226,5 +273,13 @@ where
                 at: admission.at,
             },
         )
+    }
+
+    fn delegations(&self) -> &DelegationProjection {
+        &self.delegations
+    }
+
+    fn record_delegation(&mut self, event: &DelegationEvent) {
+        self.delegations.apply(event);
     }
 }

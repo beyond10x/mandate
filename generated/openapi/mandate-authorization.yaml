@@ -1,6 +1,6 @@
 # generated from mandate v1
-# model digest deae57d148a5f63c051f8fb5fcc75b60572366e23d12c3cfe66b5d1f2ca3e08c
-# contract digest slice-sha256/2:3a85480970d2602f3d7af802b8aed7878f49178e3f1b8f7f974b3e6845ca510b
+# model digest 7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182
+# contract digest slice-sha256/2:53177f2e253b38cb44cfce2b3739cb274ee04cc6530da486f285e186292db808
 # do not edit: regenerate with `ess generate`
 openapi: 3.1.0
 info:
@@ -14,8 +14,8 @@ info:
   x-ess-provenance:
     system: mandate
     specification_version: v1
-    source_digest: deae57d148a5f63c051f8fb5fcc75b60572366e23d12c3cfe66b5d1f2ca3e08c
-    contract_digest: slice-sha256/2:3a85480970d2602f3d7af802b8aed7878f49178e3f1b8f7f974b3e6845ca510b
+    source_digest: 7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182
+    contract_digest: slice-sha256/2:53177f2e253b38cb44cfce2b3739cb274ee04cc6530da486f285e186292db808
 tags:
 - name: authorization
 - name: graph
@@ -65,6 +65,55 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.authorization.Check.denied.Response'
+  /authorization/commands/CheckWithApproval:
+    post:
+      operationId: mandate.authorization.CheckWithApproval
+      summary: CheckWithApproval
+      tags:
+      - authorization
+      requestBody:
+        description: The input `mandate.authorization.CheckWithApproval` declares.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/mandate.authorization.CheckWithApproval.Input'
+      responses:
+        '202':
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers and listed under `published`.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.authorization.CheckWithApproval.accepted.Response'
+        '409':
+          description: 'Outcome `wrong-state`: the input was acceptable and the subject is in a state this command does not act from. Resending the same request changes nothing until something else moves it.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.authorization.CheckWithApproval.wrong-state.Response'
+        '501':
+          description: 'No declared outcome: the realization is unfinished. Either a port this command runs reported an unmet obligation, and nothing was written: `committed` is `false`. Or the command''s effect was committed and delivering what this command published to a binding failed: `committed` is `true`, the effect and its events stand, and each binding whose delivery failed keeps its event and is attempted again on a later delivery, while no other binding receives it twice. Do not retry: after a failed delivery a retry performs the command a second time.'
+          content:
+            application/json:
+              schema:
+                additionalProperties: false
+                properties:
+                  committed:
+                    description: '`true` when the command''s effect and events were committed and delivering what it published failed; `false` when an unmet obligation stopped the command before anything was written.'
+                    type: boolean
+                  refused:
+                    description: What was left unfinished, in words.
+                    type: string
+                required:
+                - refused
+                - committed
+                type: object
+        '502':
+          description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.authorization.CheckWithApproval.denied.Response'
   /graph/commands/DeregisterResource:
     post:
       operationId: mandate.graph.DeregisterResource
@@ -398,6 +447,23 @@ paths:
                 $ref: '#/components/schemas/mandate.policy.SupersedePolicy.denied.Response'
 components:
   schemas:
+    mandate.authorization.ApprovedDecisionRecorded.Event:
+      title: ApprovedDecisionRecorded payload
+      x-ess-name: mandate.authorization.ApprovedDecisionRecorded
+      x-ess-kind: event-payload
+      type: object
+      properties:
+        context:
+          $ref: '#/components/schemas/mandate.core.VerifiedContext'
+        decision:
+          $ref: '#/components/schemas/mandate.core.Decision'
+        approval:
+          $ref: '#/components/schemas/mandate.core.ApprovalId'
+      required:
+      - context
+      - decision
+      - approval
+      additionalProperties: false
     mandate.authorization.Check.Input:
       title: Check input
       x-ess-name: mandate.authorization.Check
@@ -467,6 +533,100 @@ components:
       - error
       - payload
       type: object
+    mandate.authorization.CheckWithApproval.Input:
+      title: CheckWithApproval input
+      x-ess-name: mandate.authorization.CheckWithApproval
+      x-ess-kind: command-input
+      type: object
+      properties:
+        context:
+          $ref: '#/components/schemas/mandate.core.VerifiedContext'
+        action:
+          $ref: '#/components/schemas/mandate.core.Action'
+        resource:
+          $ref: '#/components/schemas/mandate.core.ResourceRef'
+        approval:
+          $ref: '#/components/schemas/mandate.core.ApprovalId'
+      required:
+      - context
+      - action
+      - resource
+      - approval
+      additionalProperties: false
+    mandate.authorization.CheckWithApproval.accepted.Response:
+      additionalProperties: false
+      description: The second check after an approval-required decision. The approval is recorded, of the verified organization, unexpired at the decision instant, and names this subject, actor, action and resource; every other check of the request is decided as Check decides it, and the approval is consumed by this decision and satisfies no other. The one event records both the decision and the consumption, so the two commit together; the delegation fold applies it as the approval's consume. Taken when no other outcome's condition matched. A `mandate.delegation.Approval` has moved to `Consumed`, along `consume`. The instance is the one `approval` names. Emits `ApprovedDecisionRecorded`, published to consumers and listed under `published`.
+      properties:
+        outcome:
+          const: accepted
+          description: Which declared outcome the command took.
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          items: false
+          maxItems: 1
+          minItems: 1
+          prefixItems:
+          - additionalProperties: false
+            properties:
+              event:
+                const: mandate.authorization.ApprovedDecisionRecorded
+                type: string
+              payload:
+                $ref: '#/components/schemas/mandate.authorization.ApprovedDecisionRecorded.Event'
+            required:
+            - event
+            - payload
+            type: object
+          type: array
+      required:
+      - outcome
+      - published
+      type: object
+    mandate.authorization.CheckWithApproval.denied.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: Anything Check refuses other than approval-required; or the approval is unrecorded, of another organization, expired, or names another subject, actor, action or resource, each refused exactly as an unrecorded approval; or one-use consumption cannot commit atomically with the decision..'
+      properties:
+        error:
+          const: mandate.authorization.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.authorization.Denied.Error'
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          maxItems: 0
+          type: array
+      required:
+      - outcome
+      - published
+      - error
+      - payload
+      type: object
+    mandate.authorization.CheckWithApproval.wrong-state.Response:
+      additionalProperties: false
+      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's. For an instance no record carries, `payload` is absent, because an instance that does not exist has nothing for the error to describe.
+      properties:
+        error:
+          const: mandate.authorization.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: wrong-state
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.authorization.Denied.Error'
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          maxItems: 0
+          type: array
+      required:
+      - outcome
+      - published
+      - error
+      type: object
     mandate.authorization.DecisionRecorded.Event:
       title: DecisionRecorded payload
       x-ess-name: mandate.authorization.DecisionRecorded
@@ -498,6 +658,13 @@ components:
       x-ess-name: mandate.core.Action
       x-ess-kind: newtype
       type: string
+    mandate.core.ApprovalId:
+      title: ApprovalId
+      x-ess-name: mandate.core.ApprovalId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
     mandate.core.Audience:
       title: Audience
       x-ess-name: mandate.core.Audience

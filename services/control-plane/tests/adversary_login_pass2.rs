@@ -503,6 +503,9 @@ type Wired = Deployment<ConstructedVerifier, FixedClock, CountingSecrets, Sequen
 /// the composition's own public surface admits.
 struct AnsweringDenied {
     asked: usize,
+    /// The delegation fold the trait requires a decision point to hold; no case here records
+    /// into it.
+    delegations: mandate_authz::event::DelegationProjection,
 }
 
 impl Admitting for AnsweringDenied {
@@ -520,6 +523,14 @@ impl Admitting for AnsweringDenied {
             policy_version: None,
             model_version: None,
         })
+    }
+
+    fn delegations(&self) -> &mandate_authz::event::DelegationProjection {
+        &self.delegations
+    }
+
+    fn record_delegation(&mut self, event: &mandate_authz::event::DelegationEvent) {
+        self.delegations.apply(event);
     }
 }
 
@@ -651,7 +662,10 @@ fn authorize_input(login: &Login, target: ResourceServerId) -> decode::Authorize
 #[test]
 fn a_decision_that_denied_does_not_reach_the_handler_on_either_arm() {
     let (deployment, target) = deployment();
-    let mut deployment = deployment.with_authority(Box::new(AnsweringDenied { asked: 0 }));
+    let mut deployment = deployment.with_authority(Box::new(AnsweringDenied {
+        asked: 0,
+        delegations: mandate_authz::event::DelegationProjection::default(),
+    }));
     let login = login(&mut deployment);
 
     let answered = deployment.authorize(&authorize_input(&login, target));

@@ -62,7 +62,56 @@ commands:
       - name: denied
         external: Caller lacks workload-identity administration authority, the identity is outside the verified organization, or revocation cannot durably stop the exchange of workload credentials presented under the binding.
         error: mandate.workload.Denied
+  - name: mandate.workload.AuthenticateWorkload
+    input:
+      - name: workload_proof
+        type: mandate.core.CredentialProof
+      - name: agent
+        type: mandate.core.PrincipalId
+      - name: execution
+        type: Optional<mandate.core.ExecutionId>
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.workload.WorkloadAuthenticated
+        payload:
+          mandate.workload.WorkloadAuthenticated:
+            workload:
+              response: workload
+            runtime:
+              response: runtime
+            agent: input.agent
+            organization:
+              response: organization
+            execution: input.execution
+            authenticated_at:
+              generated: true
+        summary: Two identities, each authenticated on its own. The workload proof is verified by the trust domain that issued it and resolves to one recorded workload identity, which names the runtime principal; the application agent is a recorded agent of the same organization, not retired, and is never derived from the workload proof. When an execution is named it is recorded, not completed, unexpired, of that organization and that agent. Nothing is created or moved, and the event folds into no record.
+      - name: denied
+        external: The workload proof is malformed, unverified by its trust domain or expired; it resolves to no workload identity, a revoked one, or one in another organization than the agent; the runtime principal is disabled; the agent is unrecorded, the runtime itself, retired, or its principal disabled; or a named execution is unrecorded, completed, expired, or bound to another agent or organization. Each is refused alike, so a caller learns only that the pair is not admitted.
+        error: mandate.workload.Denied
+    response:
+      - name: workload
+        type: mandate.core.WorkloadIdentityId
+      - name: runtime
+        type: mandate.core.PrincipalId
+      - name: organization
+        type: mandate.core.OrganizationId
 events:
+  - name: mandate.workload.WorkloadAuthenticated
+    fields:
+      - name: workload
+        type: mandate.core.WorkloadIdentityId
+      - name: runtime
+        type: mandate.core.PrincipalId
+      - name: agent
+        type: mandate.core.PrincipalId
+      - name: organization
+        type: mandate.core.OrganizationId
+      - name: execution
+        type: Optional<mandate.core.ExecutionId>
+      - name: authenticated_at
+        type: Timestamp
   - name: mandate.workload.WorkloadIdentityRevoked
     fields:
       - name: context

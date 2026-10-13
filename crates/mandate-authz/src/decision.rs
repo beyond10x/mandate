@@ -79,10 +79,12 @@ use mandate_model::{Decision, DecisionChallenge};
 use mandate_policy::port::ChallengeRequirement;
 use mandate_policy::precedence::{Combined, strictest};
 use mandate_types::{
-    Action, DecisionId, DecisionReason, DenialReason, OrganizationId, PolicyId, ResourceRef,
-    Timestamp, Uuid, VerifiedContext,
+    Action, ApprovalId, DecisionId, DecisionReason, DenialReason, OrganizationId, PolicyId,
+    ResourceRef, Timestamp, Uuid, VerifiedContext,
 };
+use serde::Serialize;
 
+use crate::command::{self, RefusedAs};
 use crate::evaluate::Authority;
 
 /// The identity a decision is recorded under.
@@ -266,6 +268,97 @@ where
             model_version: None,
         }),
     })
+}
+
+/// `mandate.authorization.ApprovedDecisionRecorded`: the allowed decision a
+/// `CheckWithApproval` took, and the approval it consumed.
+///
+/// One event records both (`authorization.yaml`, `CheckWithApproval.accepted`), so the
+/// decision and the consumption commit together or not at all. The delegation fold applies it
+/// as the approval's `consume` ([`crate::event::DelegationProjection::apply`]); the decision
+/// itself names no approval, so it cannot be presented again as one.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ApprovedDecisionRecorded {
+    /// The verified context the request was made in.
+    pub context: VerifiedContext,
+    /// The decision taken. `allowed` is always `true`.
+    pub decision: Decision,
+    /// The approval this decision consumed.
+    pub approval: ApprovalId,
+}
+
+/// `mandate.authorization.Denied` from `CheckWithApproval`, and the declared branch it was
+/// refused through.
+///
+/// `CheckWithApproval` declares two refusing outcomes with the one error: `wrong-state`, for
+/// an approval of the caller's own decision that one decision already consumed, and `denied`
+/// for everything else.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ApprovalDenied {
+    /// The declared branch.
+    pub outcome: RefusedAs,
+    /// The refusal, and the decision that was taken.
+    pub denied: Denied,
+}
+
+impl ApprovalDenied {
+    /// A refusal `Check` itself would make: through `denied`, as it stands.
+    #[must_use]
+    pub const fn standing(denied: Denied) -> Self {
+        Self {
+            outcome: RefusedAs::Denied,
+            denied,
+        }
+    }
+}
+
+/// Whether a refusal is the approval requirement an approval clears.
+///
+/// Only [`DenialReason::ApprovalRequired`] is; [`decide`] answers a requirement the contract
+/// cannot express, a reauthentication, as [`DenialReason::Unavailable`], and an approval does
+/// not clear what the caller alone can.
+#[must_use]
+pub fn approval_clears(refused: &Denied) -> bool {
+    refused.reason == DenialReason::ApprovalRequired
+}
+
+/// The decision an approval makes of the approval-required refusal it clears: allowed, under
+/// the identity the decision was taken under, at the same revision and policy version, and
+/// with no challenge left to answer.
+#[must_use]
+pub fn satisfied(refused: Denied) -> Decision {
+    Decision {
+        allowed: true,
+        reason: DecisionReason::Allowed,
+        challenge: None,
+        ..*refused.decision
+    }
+}
+
+/// The one refusal an approval that cannot be consumed gets, whatever the reason it cannot.
+///
+/// An unrecorded approval, one of another organization, an expired one and one naming
+/// another subject, actor, action or resource are refused alike: the declared reason the
+/// approval checks give, and a decision that carries nothing the request's own evaluation
+/// read, so no field tells one case from another. A consumed approval is answered the same
+/// way through `wrong-state`.
+#[must_use]
+pub fn approval_refused(decision_id: DecisionId, refusal: command::Denied) -> ApprovalDenied {
+    ApprovalDenied {
+        outcome: refusal.outcome,
+        denied: Denied {
+            reason: refusal.reason,
+            decision: Box::new(Decision {
+                allowed: false,
+                reason: declared(refusal.reason),
+                decision_id,
+                revision: None,
+                challenge: None,
+                policy_version: None,
+                model_version: None,
+            }),
+        },
+    }
 }
 
 /// A deterministic allocator, for a caller under test.

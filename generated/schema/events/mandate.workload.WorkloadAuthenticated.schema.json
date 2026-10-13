@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WorkloadAuthenticated payload",
+  "x-ess-name": "mandate.workload.WorkloadAuthenticated",
+  "x-ess-kind": "event-payload",
+  "type": "object",
+  "properties": {
+    "workload": {
+      "$ref": "#/$defs/mandate.core.WorkloadIdentityId"
+    },
+    "runtime": {
+      "$ref": "#/$defs/mandate.core.PrincipalId"
+    },
+    "agent": {
+      "$ref": "#/$defs/mandate.core.PrincipalId"
+    },
+    "organization": {
+      "$ref": "#/$defs/mandate.core.OrganizationId"
+    },
+    "execution": {
+      "$ref": "#/$defs/mandate.core.ExecutionId"
+    },
+    "authenticated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "workload",
+    "runtime",
+    "agent",
+    "organization",
+    "authenticated_at"
+  ],
+  "additionalProperties": false,
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
+    "contract_digest": "slice-sha256/2:53e228865b89fd93c67c70718cba6b9ab46ab4ca9824e4aa5167ae6dbcc4bf95",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.core.ExecutionId": {
+      "title": "ExecutionId",
+      "x-ess-name": "mandate.core.ExecutionId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.OrganizationId": {
+      "title": "OrganizationId",
+      "x-ess-name": "mandate.core.OrganizationId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.PrincipalId": {
+      "title": "PrincipalId",
+      "x-ess-name": "mandate.core.PrincipalId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.WorkloadIdentityId": {
+      "title": "WorkloadIdentityId",
+      "x-ess-name": "mandate.core.WorkloadIdentityId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    }
+  }
+}

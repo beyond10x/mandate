@@ -11,7 +11,9 @@
 //! The projection implements [`AgentAuthorityRead`], so [`crate::check`] and the token
 //! exchange read what the commands wrote: a revoked delegation, a retired agent, a completed
 //! execution and a consumed approval are answered in their terminal state the moment the
-//! event is applied.
+//! event is applied. An approval is consumed by `ConsumeApproval` or by
+//! `mandate.authorization.CheckWithApproval`, whose `ApprovedDecisionRecorded` this fold
+//! applies as the same move.
 //!
 //! # Applying is total
 //!
@@ -28,6 +30,7 @@ use mandate_types::{
 };
 
 use crate::agent::{AgentAuthorityRead, AgentRecords, PrincipalStanding, Unavailable};
+use crate::decision::ApprovedDecisionRecorded;
 use crate::delegation::{
     Agent, AgentCapabilityCeiling, AgentState, Approval, ApprovalState, Delegation,
     DelegationState, Execution, ExecutionState,
@@ -63,7 +66,8 @@ pub struct DelegationCreated {
     pub created_at: Timestamp,
 }
 
-/// The declared `mandate.delegation` event payloads this crate emits.
+/// The declared `mandate.delegation` event payloads this crate emits, and the one
+/// `mandate.authorization` event that moves a delegation record.
 ///
 /// `#[serde(untagged)]`, so a variant serializes as the bare payload object, as
 /// `mandate_model::tenancy::TenancyEvent` does; `Serialize` only, because an event is read
@@ -103,6 +107,17 @@ pub enum DelegationEvent {
         /// The approval one decision used.
         id: ApprovalId,
     },
+    /// `mandate.authorization.ApprovedDecisionRecorded`: written by
+    /// `mandate.authorization.CheckWithApproval` and applied here as the approval.s `consume`,
+    /// so the decision and the consumption are one record. Boxed for the reason
+    /// [`Self::Created`] is.
+    ApprovedDecision(Box<ApprovedDecisionRecorded>),
+}
+
+impl From<ApprovedDecisionRecorded> for DelegationEvent {
+    fn from(recorded: ApprovedDecisionRecorded) -> Self {
+        Self::ApprovedDecision(Box::new(recorded))
+    }
 }
 
 impl DelegationEvent {
@@ -118,6 +133,7 @@ impl DelegationEvent {
             Self::AgentRetired { .. } => "mandate.delegation.AgentRetired",
             Self::ExecutionCompleted { .. } => "mandate.delegation.ExecutionCompleted",
             Self::ApprovalConsumed { .. } => "mandate.delegation.ApprovalConsumed",
+            Self::ApprovedDecision(_) => "mandate.authorization.ApprovedDecisionRecorded",
         }
     }
 }
@@ -226,13 +242,18 @@ impl DelegationProjection {
                     record.state = ExecutionState::Completed;
                 }
             }
-            DelegationEvent::ApprovalConsumed { id, .. } => {
-                if let Some(record) = records.approvals.iter_mut().rev().find(|a| a.id == *id) {
-                    record.state = ApprovalState::Consumed;
-                }
-            }
+            DelegationEvent::ApprovalConsumed { id, .. } => consume(records, *id),
+            DelegationEvent::ApprovedDecision(recorded) => consume(records, recorded.approval),
         }
         self.log.push(event.clone());
+    }
+}
+
+/// Move the approval `id` names to its terminal state: the one `consume` both
+/// `ApprovalConsumed` and `ApprovedDecisionRecorded` apply.
+fn consume(records: &mut AgentRecords, id: ApprovalId) {
+    if let Some(record) = records.approvals.iter_mut().rev().find(|a| a.id == id) {
+        record.state = ApprovalState::Consumed;
     }
 }
 

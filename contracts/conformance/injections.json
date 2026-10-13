@@ -76,6 +76,11 @@
       "why": "no crate in the authorization ceiling generates a uuid"
     },
     {
+      "port": "mandate_authz::workload::TrustDomainVerifier",
+      "double": "mandate_authz::workload::ConfiguredTrustDomains",
+      "why": "no trust bundle is configured for a scenario and the SPIFFE verifier is story:agent-security's; this one verifies no proof, so AuthenticateWorkload is refused for its proof and never admitted on a forged verification"
+    },
+    {
       "port": "mandate_identity::IdentityLog",
       "double": "mandate_identity::IdentityLog",
       "why": "the in-memory double of the event-log adapter a later story supplies"
@@ -149,6 +154,13 @@
     {
       "scenario": "mandate.authorization.Check/outcome/denied",
       "command": "mandate.authorization.Check",
+      "port": "mandate_graph::port::GraphRead",
+      "kind": "armed-unreached",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.authorization.CheckWithApproval/outcome/denied",
+      "command": "mandate.authorization.CheckWithApproval",
       "port": "mandate_graph::port::GraphRead",
       "kind": "armed-unreached",
       "consulted": 0
@@ -693,6 +705,13 @@
       "consulted": 0
     },
     {
+      "scenario": "mandate.workload.AuthenticateWorkload/outcome/denied",
+      "command": "mandate.workload.AuthenticateWorkload",
+      "port": "mandate_authz::workload::TrustDomainVerifier",
+      "kind": "input-decided",
+      "consulted": 0
+    },
+    {
       "scenario": "mandate.workload.RevokeWorkloadIdentity/outcome/denied",
       "command": "mandate.workload.RevokeWorkloadIdentity",
       "port": "mandate_model::workload::WorkloadIdentityRead",
@@ -739,6 +758,12 @@
     },
     {
       "scenario": "mandate.authorization.Check/outcome/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.authorization.CheckWithApproval/outcome/wrong-state",
       "command": "",
       "reason": "expectation-unmet",
       "blocked_on": "story:conform-gate"
@@ -1501,6 +1526,12 @@
     },
     {
       "scenario": "mandate.tenancy.TeamMembership/transition/remove/by/mandate.tenancy.RemoveTeamMembership/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.workload.AuthenticateWorkload/outcome/accepted",
       "command": "",
       "reason": "expectation-unmet",
       "blocked_on": "story:conform-gate"

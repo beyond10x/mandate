@@ -33,6 +33,14 @@ fn in_domain(element: &str) -> bool {
     DOMAINS.iter().any(|domain| element.starts_with(domain))
 }
 
+/// The one element of another crate's domain this crate realizes, and nothing more:
+/// `mandate.workload.AuthenticateWorkload` reads the agent and execution records only this
+/// crate folds, so its decision is here while `mandate-model` keeps the domain's records,
+/// events and error (`src/workload.rs`). Not an allowance for a second realizer:
+/// [`every_realized_element_is_one_the_contract_declares`] asserts `mandate-model` registers
+/// none of these.
+const OUTSIDE_DOMAIN: [&str; 1] = ["mandate.workload.AuthenticateWorkload"];
+
 const SCHEMA: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../generated/schema");
 
 /// Every element the compiled model declares, across the five element indexes.
@@ -54,7 +62,7 @@ fn declared_elements() -> BTreeSet<String> {
             declared.insert(element.to_owned());
         }
     }
-    assert_eq!(declared.len(), 293, "the compiled model's element count");
+    assert_eq!(declared.len(), 297, "the compiled model's element count");
     declared
 }
 
@@ -79,8 +87,22 @@ fn every_realized_element_is_one_the_contract_declares() {
         // given to it by `ownership.md`. An allowance for a realization outside them would be
         // an allowance for a second realizer.
         assert!(
-            in_domain(element),
+            in_domain(element) || OUTSIDE_DOMAIN.contains(element),
             "{element} (realized by {symbol}) is not an element of this crate's domain"
+        );
+    }
+    for element in OUTSIDE_DOMAIN {
+        assert!(
+            mandate_authz::ESS_REALIZATIONS
+                .iter()
+                .any(|(realized, _)| *realized == element),
+            "{element} is allowed outside this crate's domain and this crate does not realize it"
+        );
+        assert!(
+            !mandate_model::ESS_REALIZATIONS
+                .iter()
+                .any(|(realized, _)| *realized == element),
+            "{element} is realized here and by mandate-model: one element has one realizer"
         );
     }
 }
@@ -120,9 +142,10 @@ fn every_declared_element_of_this_domain_is_realized_or_named_as_unrealized() {
         realized.intersection(&unrealized).collect::<Vec<_>>()
     );
     assert_eq!(
-        realized.len(),
+        realized.len() + OUTSIDE_DOMAIN.len(),
         mandate_authz::ESS_REALIZATIONS.len(),
-        "the registry holds no duplicate"
+        "the registry holds no duplicate, and nothing outside this crate's domain but \
+         OUTSIDE_DOMAIN"
     );
     assert_eq!(
         unrealized.len(),
@@ -265,7 +288,7 @@ fn symbol_list(line: &str, element: &str) -> Vec<String> {
 /// Every entry of the coverage manifest, as `(status, crate, the first impl symbol)`.
 ///
 /// Read as lines, for the reason `manifest_entries` is: no `serde_json` is reachable from
-/// this crate. A reflowed manifest yields fewer than 293 entries here and the count below
+/// this crate. A reflowed manifest yields fewer than 297 entries here and the count below
 /// refuses it, so this reader cannot select nothing and pass.
 fn coverage_manifest_claims() -> std::collections::BTreeMap<String, (String, String, String)> {
     let text = fs::read_to_string(MANIFEST).unwrap_or_else(|error| panic!("{MANIFEST}: {error}"));
@@ -290,7 +313,7 @@ fn coverage_manifest_claims() -> std::collections::BTreeMap<String, (String, Str
             ),
         );
     }
-    assert_eq!(claims.len(), 293, "the coverage manifest's element count");
+    assert_eq!(claims.len(), 297, "the coverage manifest's element count");
     claims
 }
 
