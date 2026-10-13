@@ -4,6 +4,12 @@ All notable changes to Mandate are recorded here. The format follows [Keep a Cha
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-13
+
+Wave 5a: Mandate moves onto ESS 0.59.0, and the shared agent authority evaluator arrives. Two
+stories, each attacked by an adversary pass. Minor, because the signing key's `window` move is a
+Rust API break.
+
 ### Added
 
 - **Agent authority evaluator.** `mandate_authz::agent::evaluate_agent_authority` decides what
@@ -57,6 +63,13 @@ All notable changes to Mandate are recorded here. The format follows [Keep a Cha
 - `cargo deny` admits RUSTSEC-2024-0449 (`unsafe-libyaml`, unmaintained, not a vulnerability),
   reached only through `serde_yaml` in the ESS crates; the ignore leaves when ESS drops
   `serde_yaml`.
+
+### Fixed
+
+- An authorization request answered `server_error` when a clock second passed during it: the
+  code's expiry was read from a second clock read and landed one second past the ceiling the STS
+  admits (`ExpiryUnbounded`). The code's expiry, and a login's session expiry, are now derived
+  from the request's one instant.
 
 ## [0.6.0] - 2026-09-24
 

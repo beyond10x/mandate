@@ -2956,13 +2956,22 @@ where
     ///
     /// One clock read per request, so that two handlers serving one request decide the same
     /// instant (`mandate_sts::RequestContext::at` says so for its own half).
+    ///
+    /// **A handler that derives a second instant from the request's — an expiry — derives it
+    /// from the seconds this read answered, and never reads the clock again.** A second read
+    /// answers a later second whenever the request straddles one, and an expiry measured from
+    /// it lies past the ceiling the request's own instant bounds: `Deployment::authorize`
+    /// once read twice, and the STS refused the code `ExpiryUnbounded`, which the
+    /// authorization endpoint answers `server_error`. Such a handler reads
+    /// [`Deployment::seconds`] once and passes the value down.
     #[must_use]
     pub fn now(&self) -> Timestamp {
         instant::at(self.seconds())
     }
 
+    /// The one clock read of a request, as the seconds its every instant is derived from.
     fn seconds(&self) -> i64 {
-        i64::try_from(self.clock.unix_seconds()).unwrap_or(i64::MAX)
+        seconds_of(self.clock.unix_seconds())
     }
 
     /// An identity minted from the deployment's secret source; see [`identity_from`], which
@@ -3043,16 +3052,22 @@ where
                 FederationClause::NonceMismatch,
             ));
         }
-        self.authenticate_admitted(input)
+        let seconds = self.seconds();
+        self.authenticate_admitted(input, seconds)
     }
 
     /// [`Deployment::authenticate`] without the relying-party refusal: the three-step
     /// sequence itself, for the login route and the callback both.
+    ///
+    /// `seconds` is the request's one clock read ([`Deployment::now`]): both attempts and
+    /// the provisioning between them are decided at it, and the session's expiry is measured
+    /// from it.
     fn authenticate_admitted(
         &mut self,
         input: &decode::AuthenticateFederation,
+        seconds: i64,
     ) -> Result<Login, Refusal> {
-        let denied = match self.authenticate_once(input) {
+        let denied = match self.authenticate_once(input, seconds) {
             Ok(login) => return Ok(login),
             Err(denied) => denied,
         };
@@ -3079,10 +3094,10 @@ where
         // `story:link-absent-discriminates` moved the condition into the library, where
         // every composition inherits it rather than one. Deciding it in two places is what
         // lets them disagree.
-        if !self.provisioned(input) {
+        if !self.provisioned(input, seconds) {
             return Err(Refusal::from(&denied));
         }
-        self.authenticate_once(input)
+        self.authenticate_once(input, seconds)
             .map_err(|refused| Refusal::from(&refused))
     }
 
@@ -3102,7 +3117,7 @@ where
     /// `story:link-absent-discriminates` the command refuses `ExternalKeyExists` for every
     /// key a revoked record holds, so this is the ordinary path for a revoked subject's every
     /// login attempt, not an exceptional one.
-    fn provisioned(&mut self, input: &decode::AuthenticateFederation) -> bool {
+    fn provisioned(&mut self, input: &decode::AuthenticateFederation, seconds: i64) -> bool {
         let request = mandate_federation::RequestContext {
             audience: self.audience(),
             // Minted here, from the deployment's own identity source, for the reason the
@@ -3115,7 +3130,7 @@ where
             // As at `Deployment::authenticate_once`: this route authenticates no caller
             // credential, and the nil UUID is what "names none" spells.
             credential: CredentialId::new(Uuid::from_bytes([0; 16])),
-            at: self.now(),
+            at: instant::at(seconds),
         };
         let mut allocator = MintedIdentities {
             secrets: &mut self.secrets,
@@ -3166,11 +3181,14 @@ where
     fn authenticate_once(
         &mut self,
         input: &decode::AuthenticateFederation,
+        seconds: i64,
     ) -> Result<Login, FederationDenied> {
-        let at = self.now();
+        let at = instant::at(seconds);
         let session_id = SessionId::new(self.next_identity());
         let epochs = EpochSnapshotRef::new(self.next_identity());
-        let expires_at = instant::at(self.seconds().saturating_add(self.session_lifetime));
+        // Measured from the login's own instant, never from a second clock read
+        // ([`Deployment::now`]).
+        let expires_at = instant::at(seconds.saturating_add(self.session_lifetime));
         let request = mandate_federation::RequestContext {
             audience: self.audience(),
             correlation: CorrelationId::new(session_id.to_string()),
@@ -3251,7 +3269,8 @@ where
     ) -> Result<Authorization, AuthorizationRefusal> {
         use mandate_federation::DenialClause as FederationClause;
 
-        let at = self.now();
+        let seconds = self.seconds();
+        let at = instant::at(seconds);
         let in_place = |clause: FederationClause, reason: DenialReason| {
             AuthorizationRefusal::InPlace(Refusal {
                 clause: format!("{clause:?}"),
@@ -3349,7 +3368,10 @@ where
             Some(_) => {}
         }
 
-        let expires_at = instant::at(self.seconds().saturating_add(self.code_lifetime));
+        // Measured from the request's own instant, never from a second clock read: the STS
+        // admits an expiry no later than `request.at` plus the code lifetime, and a read a
+        // second later than `at` lands one second past that ceiling ([`Deployment::now`]).
+        let expires_at = instant::at(seconds.saturating_add(self.code_lifetime));
         // The value `AuthorizePublicClient`'s accepted outcome stops at, assembled from
         // validated facts and handed to the STS by value.
         let assembled = IssueAuthorizationCodeInput {
@@ -3806,10 +3828,15 @@ where
                 FederationClause::NonceMismatch,
             ));
         }
-        let login = self.authenticate_admitted(&decode::AuthenticateFederation {
-            connection_id: pending.connection_id,
-            proof,
-        })?;
+        // At the callback's own instant, the one its pending sign-in was taken at and its
+        // handoff is held from, rather than a second clock read ([`Deployment::now`]).
+        let login = self.authenticate_admitted(
+            &decode::AuthenticateFederation {
+                connection_id: pending.connection_id,
+                proof,
+            },
+            seconds_of(now),
+        )?;
         let code = base64url(self.secrets.next_secret().expose_bytes());
         if let Some(relying_party) = self.relying_party.as_mut() {
             relying_party
@@ -4290,6 +4317,12 @@ impl IdentityAllocator for SystemAllocator {
     fn commit_credential_id(&mut self, _reserved: CredentialId) {}
 
     fn release_credential_id(&mut self, _reserved: CredentialId) {}
+}
+
+/// A clock reading as the signed seconds every instant of a request is derived from; a
+/// reading past `i64::MAX` saturates there, as [`Deployment::now`] always has.
+fn seconds_of(unix_seconds: u64) -> i64 {
+    i64::try_from(unix_seconds).unwrap_or(i64::MAX)
 }
 
 /// Reading the declared `date-time` and `duration` forms as spans on a timeline.
