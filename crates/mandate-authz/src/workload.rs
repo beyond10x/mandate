@@ -181,8 +181,12 @@ pub enum AuthenticationClause {
     WorkloadAmbiguous,
     /// "one in another organization than the agent".
     OrganizationMismatch,
+    /// "the runtime principal is disabled".
+    RuntimePrincipalDisabled,
     /// "the agent is unrecorded".
     AgentUnrecorded,
+    /// "the runtime itself": the named agent is the runtime principal the proof resolved to.
+    AgentIsRuntime,
     /// The agent is retired.
     AgentRetired,
     /// "its principal disabled".
@@ -284,7 +288,19 @@ where
     };
     let organization = identity.organization_id;
 
+    // The runtime principal stands on its own: a disabled one admits no workload.
+    if records
+        .standing(&identity.principal_id)
+        .map_err(unavailable)?
+        == Some(PrincipalStanding::Disabled)
+    {
+        return Err(Denied::on(AuthenticationClause::RuntimePrincipalDisabled));
+    }
+
     // The agent the caller names: never the runtime the proof resolved to.
+    if input.agent == identity.principal_id {
+        return Err(Denied::on(AuthenticationClause::AgentIsRuntime));
+    }
     let agent = records
         .agent(&input.agent)
         .map_err(unavailable)?

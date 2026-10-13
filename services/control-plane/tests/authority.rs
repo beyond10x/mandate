@@ -22,9 +22,17 @@
 //! A caller whose organization does not admit authority, or who is no member of it, is
 //! refused before either port is read.
 
+use mandate_authz::agent::{AgentRecords, PrincipalStanding};
+use mandate_authz::command::{
+    ConfiguredDelegationAdmission, CreateDelegation, SequentialDelegationIds,
+    decide_create_delegation, decide_revoke_delegation,
+};
 use mandate_authz::decision::{FixedChallenge, SequentialDecisionIds};
+use mandate_authz::delegation::{Agent, AgentCapabilityCeiling, AgentState, CeilingState};
+use mandate_authz::event::{DelegationCreated, DelegationEvent, DelegationProjection};
 use mandate_control_plane::adapters::{
-    AuthorizationRefusal, Configuration, Deployment, Login, SeededResourceServer,
+    AuthorizationRefusal, Configuration, DelegationUnrecorded, Deployment, Login,
+    SeededResourceServer,
 };
 use mandate_control_plane::authority::{Admission, Admitting, DecisionPoint};
 use mandate_federation::record::FederationEvent;
@@ -44,13 +52,13 @@ use mandate_sts::code::CodeLifetime;
 use mandate_sts::{CountingSecrets, SequentialAllocator};
 use mandate_token::CredentialProfile;
 use mandate_types::{
-    Action, Audience, AuthorityScope, AuthoritySubject, AuthorizationModelId, ClientId,
-    CorrelationId, CredentialId, CredentialKind, CredentialProof, DenialReason, Duration,
-    ExternalLinkMethod, ExternalPrincipalId, ExternalSubject, FederationConnectionId, GrantId,
-    Issuer, OAuthClientId, OrganizationId, OrganizationMembershipId, PkceChallenge, PkceMethod,
-    PolicyId, PolicyVersion, PrincipalId, RedirectUri, ResourceId, ResourceRef, ResourceServerId,
-    ResourceType, RevocationGuarantee, SigningAlgorithm, Timestamp, Transient, Uuid,
-    VerifiedContext,
+    Action, ActionPattern, AgentCapabilityCeilingId, Audience, AuthorityScope, AuthoritySubject,
+    AuthorizationModelId, ClientId, CorrelationId, CredentialId, CredentialKind, CredentialProof,
+    DelegationId, DenialReason, Duration, ExternalLinkMethod, ExternalPrincipalId, ExternalSubject,
+    FederationConnectionId, GrantId, Issuer, OAuthClientId, OrganizationId,
+    OrganizationMembershipId, PkceChallenge, PkceMethod, PolicyId, PolicyVersion, PrincipalId,
+    RedirectUri, ResourceId, ResourceRef, ResourceServerId, ResourceType, RevocationGuarantee,
+    SigningAlgorithm, Timestamp, Transient, Uuid, VerifiedContext,
 };
 
 const ISSUER: &str = "https://mandate.example";
@@ -210,6 +218,32 @@ fn decision_point(
         RevisionView::observed(&graph)
     };
 
+    let policy = policy(answers, target);
+
+    DecisionPoint {
+        graph,
+        policy: policy.clone(),
+        catalog: policy,
+        issuer: FixedChallenge {
+            expires_at: Timestamp::new("2026-09-19T01:00:00Z"),
+            approver_policy: Some(approver()),
+        },
+        allocator: SequentialDecisionIds::new(),
+        tenancy: tenancy(),
+        topology: Topology::new(),
+        minimum: revision,
+        attributes: AttributeSet::new(),
+        // No agent record and no event: the read every case before the delegation fold was
+        // decided over.
+        delegations: DelegationProjection::default(),
+    }
+}
+
+/// The policy double, told how to answer about the subject on the target.
+///
+/// A function of its own because `CreateDelegation` asks policy about the delegator too, and
+/// a case that creates a delegation asks the same answers the decision point is given.
+fn policy(answers: Answers, target: ResourceServerId) -> PolicyDouble {
     let mut policy = PolicyDouble::new();
     policy.record_role(
         organization(),
@@ -231,23 +265,14 @@ fn decision_point(
         ));
     }
     if answers == Answers::Allow {
-        policy.allow(organization(), subject(), issue_action(), resource);
+        policy.allow(
+            organization(),
+            subject(),
+            issue_action(),
+            target_resource(target),
+        );
     }
-
-    DecisionPoint {
-        graph,
-        policy: policy.clone(),
-        catalog: policy,
-        issuer: FixedChallenge {
-            expires_at: Timestamp::new("2026-09-19T01:00:00Z"),
-            approver_policy: Some(approver()),
-        },
-        allocator: SequentialDecisionIds::new(),
-        tenancy: tenancy(),
-        topology: Topology::new(),
-        minimum: revision,
-        attributes: AttributeSet::new(),
-    }
+    policy
 }
 
 /// The smallest world the login road needs: one connection, one link, one public client and
@@ -543,4 +568,265 @@ fn a_context_whose_audience_is_not_the_expected_one_is_refused_by_the_decision_p
 
     assert_eq!(denied.reason, DenialReason::AudienceMismatch);
     assert!(!denied.decision.allowed);
+}
+
+// ---------------------------------------------------------------------------------------
+// The delegation fold the decision point decides over
+// ---------------------------------------------------------------------------------------
+
+/// The agent installation the delegated requests are made by.
+fn agent() -> PrincipalId {
+    PrincipalId::new(uuid(0x5a))
+}
+
+/// The instant the delegated requests are decided at: `NOW`, as the deployment reads it.
+fn at() -> Timestamp {
+    Timestamp::new("2026-09-19T00:00:00Z")
+}
+
+/// The authority the agent is bounded to and delegated: the issuance, on the target.
+fn issuance_scope(target: ResourceServerId) -> AuthorityScope {
+    AuthorityScope {
+        actions: vec![issue_action()],
+        resources: vec![target_resource(target)],
+        space: None,
+    }
+}
+
+/// The records no command of `mandate.delegation` creates, seeded as
+/// `DelegationProjection::fold` takes them: the delegator and the agent are active, the agent
+/// is installed in the organization, and — when `ceiling` — bounded by one current tenant
+/// ceiling that admits the issuance on the target.
+fn records(target: ResourceServerId, ceiling: bool) -> AgentRecords {
+    let mut records = AgentRecords::new();
+    records.standings = vec![
+        (principal(), PrincipalStanding::Active),
+        (agent(), PrincipalStanding::Active),
+    ];
+    records.agents = vec![Agent {
+        id: agent(),
+        organization_id: organization(),
+        agent_type: "assistant".to_owned(),
+        state: AgentState::Recorded,
+    }];
+    if ceiling {
+        records.ceilings = vec![AgentCapabilityCeiling {
+            id: AgentCapabilityCeilingId::new(uuid(0x5c)),
+            agent_id: agent(),
+            organization_id: Some(organization()),
+            allowed_actions: vec![ActionPattern::new("mandate.credential.*")],
+            denied_actions: Vec::new(),
+            scope: issuance_scope(target),
+            max_delegation_ttl: Duration::new("PT1H"),
+            state: CeilingState::Recorded,
+        }];
+    }
+    records
+}
+
+/// The context the agent's request is made under: acting for the delegator, under
+/// `delegation`.
+fn delegated_context(delegation: DelegationId) -> VerifiedContext {
+    VerifiedContext {
+        actor: Some(agent()),
+        delegation: Some(delegation),
+        ..context()
+    }
+}
+
+/// Ask `deployment`'s decision point about the issuance on `target` under `context`.
+fn decide(
+    deployment: &mut Wired,
+    context: &VerifiedContext,
+    target: ResourceServerId,
+) -> Result<mandate_model::Decision, mandate_authz::decision::Denied> {
+    let action = issue_action();
+    let resource = target_resource(target);
+    deployment
+        .admit(&Admission {
+            context,
+            action: &action,
+            resource: &resource,
+            expected_audience: &context.audience,
+            relation: mandate_control_plane::authority::ISSUANCE_RELATION,
+            scope: None,
+            at: &at(),
+        })
+        .expect("the deployment is configured with a decision point")
+}
+
+/// The unit's case: a delegation created by `CreateDelegation` and recorded through the
+/// deployment is the record the deployment's decision point decides the agent's request over,
+/// and the `DelegationRevoked` `RevokeDelegation` decides, recorded the same way, refuses the
+/// same request.
+///
+/// The graph holds the delegator's grant and policy allows it throughout, so the delegation
+/// record is the one thing that changes between the three decisions: refused before it is
+/// recorded, allowed while it stands, refused once it is revoked.
+#[test]
+fn a_delegated_request_is_permitted_over_a_delegation_recorded_through_the_deployment_and_refused_after_its_revocation()
+ {
+    let (deployment, target) = deployment();
+    let mut point = decision_point(Held::Grant, Answers::Allow, target);
+    point.delegations = DelegationProjection::holding(records(target, true));
+    let mut deployment = deployment.with_authority(Box::new(point));
+    let admission = ConfiguredDelegationAdmission::new()
+        .with_delegator(principal())
+        .with_revoker(principal())
+        .with_audience(organization(), context().audience);
+
+    let created = decide_create_delegation(
+        deployment
+            .delegations()
+            .expect("a decision point holds the fold"),
+        &policy(Answers::Allow, target),
+        &admission,
+        &mut SequentialDelegationIds::new(),
+        &CreateDelegation {
+            context: context(),
+            delegate: agent(),
+            scope: issuance_scope(target),
+            audience: context().audience,
+            expires_at: Timestamp::new("2026-09-19T00:30:00Z"),
+            not_before: None,
+            execution_binding: None,
+        },
+        &at(),
+    )
+    .expect("the delegator may delegate the issuance to its installed agent");
+    let delegated = delegated_context(created.delegation_id);
+
+    let unrecorded = decide(&mut deployment, &delegated, target)
+        .expect_err("a delegation decided but not yet recorded bounds nothing");
+    assert_eq!(unrecorded.reason, DenialReason::Denied);
+
+    deployment
+        .record_delegation(&created.event)
+        .expect("a deployment with a decision point records the event");
+    let allowed = decide(&mut deployment, &delegated, target)
+        .expect("the recorded delegation admits the agent's request");
+    assert!(allowed.allowed);
+
+    let revoked = decide_revoke_delegation(
+        deployment
+            .delegations()
+            .expect("a decision point holds the fold"),
+        &admission,
+        &context(),
+        created.delegation_id,
+    )
+    .expect("the delegator may revoke its own standing delegation");
+    deployment
+        .record_delegation(&revoked)
+        .expect("a deployment with a decision point records the event");
+    let refused = decide(&mut deployment, &delegated, target)
+        .expect_err("a revoked delegation admits nothing");
+    assert_eq!(refused.reason, DenialReason::Denied);
+    assert!(!refused.decision.allowed);
+
+    let log = deployment
+        .delegations()
+        .expect("a decision point holds the fold")
+        .log();
+    assert_eq!(log, [created.event, revoked].as_slice());
+}
+
+/// An agent bounded by no capability ceiling is refused, over a delegation that otherwise
+/// admits its request; the control, the same fold with the ceiling, is allowed.
+///
+/// The delegation is folded from its `DelegationCreated` over the seeded records, because
+/// `CreateDelegation` itself refuses a delegate with no ceiling.
+#[test]
+fn an_agent_request_without_a_ceiling_is_refused_by_the_deployments_decision_point() {
+    let delegation = DelegationId::new(uuid(0xd1));
+    let decided = |ceiling: bool| {
+        let (deployment, target) = deployment();
+        let mut point = decision_point(Held::Grant, Answers::Allow, target);
+        point.delegations = DelegationProjection::fold(
+            records(target, ceiling),
+            &[DelegationEvent::Created(Box::new(DelegationCreated {
+                context: context(),
+                id: delegation,
+                delegator: principal(),
+                delegate: agent(),
+                scope: issuance_scope(target),
+                audience: context().audience,
+                not_before: None,
+                expires_at: Timestamp::new("2026-09-19T00:30:00Z"),
+                execution_binding: None,
+                created_at: at(),
+            }))],
+        );
+        let mut deployment = deployment.with_authority(Box::new(point));
+        decide(&mut deployment, &delegated_context(delegation), target)
+    };
+
+    let refused = decided(false).expect_err("no ceiling bounds the agent, so it is refused");
+    assert_eq!(refused.reason, DenialReason::Denied);
+    assert!(!refused.decision.allowed);
+    assert!(
+        decided(true)
+            .expect("the control: the same fold with the ceiling")
+            .allowed,
+        "only the ceiling differs between the two"
+    );
+}
+
+/// A direct request of a principal that is no agent is decided as it was over the empty read,
+/// though the fold now holds an agent and a delegation: it reaches the handler and a code is
+/// issued, and without the grant it is refused `Denied`.
+#[test]
+fn a_direct_request_of_a_non_agent_principal_is_decided_as_before_over_the_delegation_fold() {
+    let fold = |target| {
+        DelegationProjection::fold(
+            records(target, true),
+            &[DelegationEvent::Created(Box::new(DelegationCreated {
+                context: context(),
+                id: DelegationId::new(uuid(0xd1)),
+                delegator: principal(),
+                delegate: agent(),
+                scope: issuance_scope(target),
+                audience: context().audience,
+                not_before: None,
+                expires_at: Timestamp::new("2026-09-19T00:30:00Z"),
+                execution_binding: None,
+                created_at: at(),
+            }))],
+        )
+    };
+
+    let (granted, target) = deployment();
+    let mut point = decision_point(Held::Grant, Answers::Allow, target);
+    point.delegations = fold(target);
+    let mut granted = granted.with_authority(Box::new(point));
+    let session = login(&mut granted);
+    let issued = granted
+        .authorize(&authorize_input(&session, target))
+        .expect("a direct caller the decision point allows is issued a code");
+    assert_eq!(issued.state, "state-1");
+
+    let (ungranted, target) = deployment();
+    let mut point = decision_point(Held::NoGrant, Answers::Nothing, target);
+    point.delegations = fold(target);
+    let mut ungranted = ungranted.with_authority(Box::new(point));
+    let session = login(&mut ungranted);
+    let refused = ungranted
+        .authorize(&authorize_input(&session, target))
+        .expect_err("a direct caller holding no grant is refused, as before");
+    assert_eq!(refused_with(&refused).1, DenialReason::Denied);
+}
+
+/// A deployment configured with no decision point holds no delegation fold, so it refuses to
+/// record a delegation event rather than accepting one nothing will ever read.
+#[test]
+fn a_deployment_with_no_decision_point_refuses_to_record_a_delegation_event() {
+    let (mut deployment, _) = deployment();
+
+    let refused = deployment.record_delegation(&DelegationEvent::Revoked {
+        context: context(),
+        id: DelegationId::new(uuid(0xd1)),
+    });
+
+    assert_eq!(refused, Err(DelegationUnrecorded));
+    assert!(deployment.delegations().is_none());
 }

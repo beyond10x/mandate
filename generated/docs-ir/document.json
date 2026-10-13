@@ -15,8 +15,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "e45424ae17215fcf0135234cf17e909e2979fce028c3da4b855c56b1a7b43bc7",
-          "contract_digest": "6e8d60eff115f41f692ab8ecbaa0a553e233c3f25890f20288912b90d1cc1b04"
+          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
+          "contract_digest": "90c631a420df9593ddf90b48ed18919d7a1fe6a8e477d90e737e1d4bebced13c"
         },
         "slice": {
           "of": "whole-model"
@@ -2553,8 +2553,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "e45424ae17215fcf0135234cf17e909e2979fce028c3da4b855c56b1a7b43bc7",
-          "contract_digest": "slice-sha256/2:755ea6a7844058fdee8b56a0f879f4d936a84494a0ec5981fd183c4f0ef44606"
+          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
+          "contract_digest": "slice-sha256/2:66f54405913c442fd9581b56dd20b56fe4f6f3529c3c0a283b513560f78ba8ed"
         },
         "slice": {
           "of": "constructs",
@@ -5048,8 +5048,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "e45424ae17215fcf0135234cf17e909e2979fce028c3da4b855c56b1a7b43bc7",
-          "contract_digest": "slice-sha256/2:755ea6a7844058fdee8b56a0f879f4d936a84494a0ec5981fd183c4f0ef44606"
+          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
+          "contract_digest": "slice-sha256/2:66f54405913c442fd9581b56dd20b56fe4f6f3529c3c0a283b513560f78ba8ed"
         },
         "slice": {
           "of": "constructs",
@@ -6156,8 +6156,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "e45424ae17215fcf0135234cf17e909e2979fce028c3da4b855c56b1a7b43bc7",
-          "contract_digest": "slice-sha256/2:e203e2ac5f6e66dda67ea02179324170732f00b5d49708ace4b3802707511d3a"
+          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
+          "contract_digest": "slice-sha256/2:206c9d8dacd7bdcb9a73b0936372e4312ee54301199bb2224162d91f9699ff66"
         },
         "slice": {
           "of": "constructs",
@@ -11053,8 +11053,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "e45424ae17215fcf0135234cf17e909e2979fce028c3da4b855c56b1a7b43bc7",
-          "contract_digest": "slice-sha256/2:755ea6a7844058fdee8b56a0f879f4d936a84494a0ec5981fd183c4f0ef44606"
+          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
+          "contract_digest": "slice-sha256/2:66f54405913c442fd9581b56dd20b56fe4f6f3529c3c0a283b513560f78ba8ed"
         },
         "slice": {
           "of": "constructs",
@@ -19738,8 +19738,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "e45424ae17215fcf0135234cf17e909e2979fce028c3da4b855c56b1a7b43bc7",
-          "contract_digest": "slice-sha256/2:755ea6a7844058fdee8b56a0f879f4d936a84494a0ec5981fd183c4f0ef44606"
+          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
+          "contract_digest": "slice-sha256/2:66f54405913c442fd9581b56dd20b56fe4f6f3529c3c0a283b513560f78ba8ed"
         },
         "slice": {
           "of": "constructs",
@@ -25759,8 +25759,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "e45424ae17215fcf0135234cf17e909e2979fce028c3da4b855c56b1a7b43bc7",
-          "contract_digest": "slice-sha256/2:755ea6a7844058fdee8b56a0f879f4d936a84494a0ec5981fd183c4f0ef44606"
+          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
+          "contract_digest": "slice-sha256/2:66f54405913c442fd9581b56dd20b56fe4f6f3529c3c0a283b513560f78ba8ed"
         },
         "slice": {
           "of": "constructs",
@@ -32846,8 +32846,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "e45424ae17215fcf0135234cf17e909e2979fce028c3da4b855c56b1a7b43bc7",
-          "contract_digest": "slice-sha256/2:755ea6a7844058fdee8b56a0f879f4d936a84494a0ec5981fd183c4f0ef44606"
+          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
+          "contract_digest": "slice-sha256/2:66f54405913c442fd9581b56dd20b56fe4f6f3529c3c0a283b513560f78ba8ed"
         },
         "slice": {
           "of": "constructs",
@@ -39174,8 +39174,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "e45424ae17215fcf0135234cf17e909e2979fce028c3da4b855c56b1a7b43bc7",
-          "contract_digest": "slice-sha256/2:755ea6a7844058fdee8b56a0f879f4d936a84494a0ec5981fd183c4f0ef44606"
+          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
+          "contract_digest": "slice-sha256/2:66f54405913c442fd9581b56dd20b56fe4f6f3529c3c0a283b513560f78ba8ed"
         },
         "slice": {
           "of": "constructs",
@@ -43118,8 +43118,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "e45424ae17215fcf0135234cf17e909e2979fce028c3da4b855c56b1a7b43bc7",
-          "contract_digest": "slice-sha256/2:d548fb565d03e1ad12874dfc3fd7a2f3d5989f9a058a3a9c19e8973b6b7792b9"
+          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
+          "contract_digest": "slice-sha256/2:e1d57c8110be7d45cc207d92d7f56228818809673b5afdc964d9086db1e6eb87"
         },
         "slice": {
           "of": "constructs",
@@ -48296,8 +48296,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "e45424ae17215fcf0135234cf17e909e2979fce028c3da4b855c56b1a7b43bc7",
-          "contract_digest": "slice-sha256/2:755ea6a7844058fdee8b56a0f879f4d936a84494a0ec5981fd183c4f0ef44606"
+          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
+          "contract_digest": "slice-sha256/2:66f54405913c442fd9581b56dd20b56fe4f6f3529c3c0a283b513560f78ba8ed"
         },
         "slice": {
           "of": "constructs",
@@ -50208,8 +50208,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "e45424ae17215fcf0135234cf17e909e2979fce028c3da4b855c56b1a7b43bc7",
-          "contract_digest": "slice-sha256/2:755ea6a7844058fdee8b56a0f879f4d936a84494a0ec5981fd183c4f0ef44606"
+          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
+          "contract_digest": "slice-sha256/2:66f54405913c442fd9581b56dd20b56fe4f6f3529c3c0a283b513560f78ba8ed"
         },
         "slice": {
           "of": "constructs",
@@ -56949,8 +56949,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "e45424ae17215fcf0135234cf17e909e2979fce028c3da4b855c56b1a7b43bc7",
-          "contract_digest": "slice-sha256/2:755ea6a7844058fdee8b56a0f879f4d936a84494a0ec5981fd183c4f0ef44606"
+          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
+          "contract_digest": "slice-sha256/2:66f54405913c442fd9581b56dd20b56fe4f6f3529c3c0a283b513560f78ba8ed"
         },
         "slice": {
           "of": "constructs",
@@ -57664,7 +57664,7 @@
                     },
                     {
                       "inline": "text",
-                      "text": "Decided outside the input: The workload proof is malformed, unverified by its trust domain or expired; it resolves to no workload identity, a revoked one, or one in another organization than the agent; the agent is unrecorded, retired, or its principal disabled; or a named execution is unrecorded, completed, expired, or bound to another agent or organization. Each is refused alike, so a caller learns only that the pair is not admitted.. No predicate over the input reaches this branch, and saying "
+                      "text": "Decided outside the input: The workload proof is malformed, unverified by its trust domain or expired; it resolves to no workload identity, a revoked one, or one in another organization than the agent; the runtime principal is disabled; the agent is unrecorded, the runtime itself, retired, or its principal disabled; or a named execution is unrecorded, completed, expired, or bound to another agent or organization. Each is refused alike, so a caller learns only that the pair is not admitted.. No predicate over the input reaches this branch, and saying "
                     },
                     {
                       "inline": "code",
@@ -58527,8 +58527,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "e45424ae17215fcf0135234cf17e909e2979fce028c3da4b855c56b1a7b43bc7",
-          "contract_digest": "6e8d60eff115f41f692ab8ecbaa0a553e233c3f25890f20288912b90d1cc1b04"
+          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
+          "contract_digest": "90c631a420df9593ddf90b48ed18919d7a1fe6a8e477d90e737e1d4bebced13c"
         },
         "slice": {
           "of": "whole-model"
@@ -59458,8 +59458,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "e45424ae17215fcf0135234cf17e909e2979fce028c3da4b855c56b1a7b43bc7",
-          "contract_digest": "6e8d60eff115f41f692ab8ecbaa0a553e233c3f25890f20288912b90d1cc1b04"
+          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
+          "contract_digest": "90c631a420df9593ddf90b48ed18919d7a1fe6a8e477d90e737e1d4bebced13c"
         },
         "slice": {
           "of": "whole-model"
@@ -59537,8 +59537,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "e45424ae17215fcf0135234cf17e909e2979fce028c3da4b855c56b1a7b43bc7",
-          "contract_digest": "6e8d60eff115f41f692ab8ecbaa0a553e233c3f25890f20288912b90d1cc1b04"
+          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
+          "contract_digest": "90c631a420df9593ddf90b48ed18919d7a1fe6a8e477d90e737e1d4bebced13c"
         },
         "slice": {
           "of": "whole-model"

@@ -88,7 +88,7 @@ commands:
               generated: true
         summary: Two identities, each authenticated on its own. The workload proof is verified by the trust domain that issued it and resolves to one recorded workload identity, which names the runtime principal; the application agent is a recorded agent of the same organization, not retired, and is never derived from the workload proof. When an execution is named it is recorded, not completed, unexpired, of that organization and that agent. Nothing is created or moved, and the event folds into no record.
       - name: denied
-        external: The workload proof is malformed, unverified by its trust domain or expired; it resolves to no workload identity, a revoked one, or one in another organization than the agent; the agent is unrecorded, retired, or its principal disabled; or a named execution is unrecorded, completed, expired, or bound to another agent or organization. Each is refused alike, so a caller learns only that the pair is not admitted.
+        external: The workload proof is malformed, unverified by its trust domain or expired; it resolves to no workload identity, a revoked one, or one in another organization than the agent; the runtime principal is disabled; the agent is unrecorded, the runtime itself, retired, or its principal disabled; or a named execution is unrecorded, completed, expired, or bound to another agent or organization. Each is refused alike, so a caller learns only that the pair is not admitted.
         error: mandate.workload.Denied
     response:
       - name: workload

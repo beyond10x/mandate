@@ -14804,7 +14804,7 @@
           "name": "denied",
           "condition": {
             "kind": "external",
-            "cause": "The workload proof is malformed, unverified by its trust domain or expired; it resolves to no workload identity, a revoked one, or one in another organization than the agent; the agent is unrecorded, retired, or its principal disabled; or a named execution is unrecorded, completed, expired, or bound to another agent or organization. Each is refused alike, so a caller learns only that the pair is not admitted."
+            "cause": "The workload proof is malformed, unverified by its trust domain or expired; it resolves to no workload identity, a revoked one, or one in another organization than the agent; the runtime principal is disabled; the agent is unrecorded, the runtime itself, retired, or its principal disabled; or a named execution is unrecorded, completed, expired, or bound to another agent or organization. Each is refused alike, so a caller learns only that the pair is not admitted."
           },
           "test_strategy": "inject_fault",
           "emits": [],

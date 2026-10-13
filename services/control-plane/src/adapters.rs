@@ -82,6 +82,8 @@ use crate::authority::{
     AUTHORITY_DENIED, Admission, Admitting, ISSUANCE_RELATION, ISSUE_AUTHORIZATION_CODE,
     RESOURCE_SERVER,
 };
+use mandate_authz::decision::Denied as AuthorityDenied;
+use mandate_authz::event::{DelegationEvent, DelegationProjection};
 use mandate_federation::authorize::{IssueAuthorizationCodeInput, TargetRegistry};
 use mandate_federation::idp_token::{
     ClientSecret, CodeRedemption, IdpEndpoints, IdpTokenEndpoint, TokenRefusal,
@@ -103,7 +105,7 @@ use mandate_identity::{
     EpochSnapshotRecorded, Generation, IdentityEvent, IdentityLog, IdentityRead,
     SecurityEpochRecorded, SessionOpened, StreamVersion,
 };
-use mandate_model::TenantResolutionRule;
+use mandate_model::{Decision, TenantResolutionRule};
 use mandate_proto::oauth;
 use mandate_server::decode;
 use mandate_server::metadata::{
@@ -803,6 +805,21 @@ impl core::fmt::Display for ConfigurationRefused {
 }
 
 impl std::error::Error for ConfigurationRefused {}
+
+/// Why a deployment did not record a `mandate.delegation` event: it was configured with no
+/// decision point, so it holds no delegation fold ([`Deployment::record_delegation`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DelegationUnrecorded;
+
+impl core::fmt::Display for DelegationUnrecorded {
+    fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        formatter.write_str(
+            "the deployment is configured with no decision point, so it holds no delegation fold",
+        )
+    }
+}
+
+impl std::error::Error for DelegationUnrecorded {}
 
 // ---------------------------------------------------------------------------------------
 // The two documents a served deployment is configured from
@@ -2839,10 +2856,61 @@ where
     /// part of the configuration a deployment is validated against, and a deployment
     /// without one is the deployment that shipped before this story. See
     /// [`crate::authority`] for why nothing real can be passed here yet.
+    ///
+    /// The point carries the delegation fold's seeded records (agents, ceilings, executions
+    /// and approvals, which no command creates yet); the deployment then records the
+    /// delegation events over them ([`Deployment::record_delegation`]).
     #[must_use]
     pub fn with_authority(mut self, point: Box<dyn Admitting + Send>) -> Self {
         self.authority = Some(point);
         self
+    }
+
+    /// Record one `mandate.delegation` event into the decision point's fold.
+    ///
+    /// The event is one a decide function of `mandate-authz` produced —
+    /// `decide_create_delegation`, `decide_revoke_delegation`, `decide_retire_agent`,
+    /// `decide_complete_execution`, `decide_consume_approval`, or `check_with_approval`'s
+    /// `ApprovedDecisionRecorded` through `DelegationEvent::from` — decided over
+    /// [`Deployment::delegations`]. It is appended to the log and applied, and the next
+    /// [`Deployment::admit`] or authorization reads it. Recording re-checks nothing; see
+    /// [`Admitting::record_delegation`].
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DelegationUnrecorded`] when the deployment was configured with no decision
+    /// point: it holds no delegation fold, and keeping an event nothing reads would be a log
+    /// beside the record rather than the record.
+    pub fn record_delegation(
+        &mut self,
+        event: &DelegationEvent,
+    ) -> Result<(), DelegationUnrecorded> {
+        let authority = self.authority.as_mut().ok_or(DelegationUnrecorded)?;
+        authority.record_delegation(event);
+        Ok(())
+    }
+
+    /// The `mandate.delegation` fold the decision point decides over, when the deployment is
+    /// configured with one: the read a delegation command is decided against.
+    #[must_use]
+    pub fn delegations(&self) -> Option<&DelegationProjection> {
+        self.authority.as_deref().map(Admitting::delegations)
+    }
+
+    /// Decide one `mandate.authorization.Check` through the decision point, when the
+    /// deployment is configured with one.
+    ///
+    /// The same decision [`Deployment::authorize`] asks before it dispatches, for a caller
+    /// that holds the request's context itself — an agent's delegated request, which the
+    /// authorization endpoint never assembles. `None` when no decision point is configured:
+    /// such a deployment decides no authority, and answering anything would claim it did.
+    pub fn admit(
+        &mut self,
+        admission: &Admission<'_>,
+    ) -> Option<Result<Decision, AuthorityDenied>> {
+        self.authority
+            .as_mut()
+            .map(|authority| authority.admit(admission))
     }
 
     /// The issuer identifier this deployment publishes, normalised.

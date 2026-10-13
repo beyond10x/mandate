@@ -1,6 +1,6 @@
 # generated from mandate v1
-# model digest e45424ae17215fcf0135234cf17e909e2979fce028c3da4b855c56b1a7b43bc7
-# contract digest slice-sha256/2:21ecb990deafdb5d5471aee5dac3a4d3160cb61364826a31ba9573ce3378ad46
+# model digest 7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182
+# contract digest slice-sha256/2:d28c95ca735aa99aeee2acc242e347d5cadf7fe69dda065ece5954dd1ee4a439
 # do not edit: regenerate with `ess generate`
 openapi: 3.1.0
 info:
@@ -14,8 +14,8 @@ info:
   x-ess-provenance:
     system: mandate
     specification_version: v1
-    source_digest: e45424ae17215fcf0135234cf17e909e2979fce028c3da4b855c56b1a7b43bc7
-    contract_digest: slice-sha256/2:21ecb990deafdb5d5471aee5dac3a4d3160cb61364826a31ba9573ce3378ad46
+    source_digest: 7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182
+    contract_digest: slice-sha256/2:d28c95ca735aa99aeee2acc242e347d5cadf7fe69dda065ece5954dd1ee4a439
 tags:
 - name: delegation
 - name: directory
@@ -6168,7 +6168,7 @@ components:
       type: object
     mandate.workload.AuthenticateWorkload.denied.Response:
       additionalProperties: false
-      description: 'Decided outside the request: The workload proof is malformed, unverified by its trust domain or expired; it resolves to no workload identity, a revoked one, or one in another organization than the agent; the agent is unrecorded, retired, or its principal disabled; or a named execution is unrecorded, completed, expired, or bound to another agent or organization. Each is refused alike, so a caller learns only that the pair is not admitted..'
+      description: 'Decided outside the request: The workload proof is malformed, unverified by its trust domain or expired; it resolves to no workload identity, a revoked one, or one in another organization than the agent; the runtime principal is disabled; the agent is unrecorded, the runtime itself, retired, or its principal disabled; or a named execution is unrecorded, completed, expired, or bound to another agent or organization. Each is refused alike, so a caller learns only that the pair is not admitted..'
       properties:
         error:
           const: mandate.workload.Denied
