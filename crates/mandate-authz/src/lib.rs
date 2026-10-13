@@ -1,9 +1,11 @@
 //! `mandate.authorization.Check`: the one question a policy enforcement point asks, and
 //! the decision it gets back.
 //!
-//! `systems/mandate/domains/authorization.yaml:4-26` declares exactly one command —
-//! `Check(context, action, resource) -> Decision`, refused with
-//! `mandate.authorization.Denied` — one event, `DecisionRecorded`, and no entity.
+//! `systems/mandate/domains/authorization.yaml` declares `Check(context, action, resource) ->
+//! Decision`, refused with `mandate.authorization.Denied`, its event `DecisionRecorded`, and no
+//! entity. It declares a second command, `CheckWithApproval`, the check after an
+//! approval-required decision: [`check_with_approval`] decides the request by the same path and
+//! returns `ApprovedDecisionRecorded`, which records the decision and the approval it consumed.
 //! `docs/architecture/ownership.md:13` gives that domain to this crate. [`check`] is the
 //! command; the four modules under it are the four things it does, in order:
 //!
@@ -98,6 +100,10 @@ pub mod workload;
 
 mandate_types::realizes! {
     "mandate.authorization.Check" => crate::check,
+    // The second check after an approval-required decision, and the one event that records
+    // its decision and the approval it consumed; the delegation fold applies that event.
+    "mandate.authorization.CheckWithApproval" => crate::check_with_approval,
+    "mandate.authorization.ApprovedDecisionRecorded" => crate::decision::ApprovedDecisionRecorded,
     "mandate.authorization.Denied" => crate::decision::Denied,
     // The five `mandate.delegation` records and their lifecycles. Projections read through
     // `agent::AgentAuthorityRead`, which `event::DelegationProjection` answers by folding the
@@ -150,14 +156,6 @@ mandate_types::realizes! {
 /// wait for a specification construct ESS does not yet have.
 pub const ESS_UNREALIZED: &[(&str, &str)] = &[
     (
-        "mandate.authorization.CheckWithApproval",
-        "specified in wave 8 before its handler; owner story:agent-security",
-    ),
-    (
-        "mandate.authorization.ApprovedDecisionRecorded",
-        "specified in wave 8 before its handler; owner story:agent-security",
-    ),
-    (
         "mandate.authorization.DecisionRecorded",
         "no event payload type is declared here: [`check`] returns the decision to its caller \
          and the recording adapter appends it; owner story:check-api",
@@ -183,12 +181,16 @@ use mandate_model::tenancy::Tenancy;
 use mandate_policy::port::{AttributeSet, PolicyEvaluator};
 use mandate_policy::precedence::RoleCatalog;
 use mandate_types::{
-    Action, Audience, AuthorityScope, AuthzRevision, ResourceRef, Timestamp, VerifiedContext,
+    Action, ApprovalId, Audience, AuthorityScope, AuthzRevision, ResourceRef, Timestamp,
+    VerifiedContext,
 };
 
 use crate::agent::AgentAuthorityRead;
+use crate::command::Satisfying;
 use crate::context::Binding;
-use crate::decision::{ChallengeIssuer, DecisionIdAllocator, Denied, Taken};
+use crate::decision::{
+    ApprovalDenied, ApprovedDecisionRecorded, ChallengeIssuer, DecisionIdAllocator, Denied, Taken,
+};
 use crate::evaluate::{Authority, Read};
 
 /// What `mandate.authorization.Check` is asked.
@@ -289,15 +291,102 @@ where
     R: AgentAuthorityRead + ?Sized,
     A: DecisionIdAllocator + ?Sized,
 {
-    let taken = Taken {
+    decision::decide(
+        allocator,
+        pdp.issuer,
+        &taken(request),
+        &authority(pdp, request),
+    )
+}
+
+/// Decide one `mandate.authorization.CheckWithApproval`: the second check after an
+/// approval-required decision, consuming approval `approval`.
+///
+/// Every part of the request is decided by the path [`check`] takes — binding, the agent
+/// record checks, graph, policy and deny precedence — and then:
+///
+/// * a refusal for any reason other than an approval requirement stands, exactly as
+///   [`check`] makes it, and nothing is consumed;
+/// * otherwise the approval is checked by the approval checks `ConsumeApproval` decides by
+///   (`command::approval_answers`), stating this request's action and resource. An approval
+///   that is unrecorded, of another organization, expired or names another subject, actor,
+///   action or resource is refused alike ([`decision::approval_refused`]), and one already
+///   consumed through `wrong-state`; either way nothing is consumed;
+/// * an approval requirement the approval answers becomes an allow under the same decision
+///   identity ([`decision::satisfied`]), and a request that needed no approval allows as
+///   [`check`] allows it. Both consume the approval.
+///
+/// The allow is returned as the one event that records the decision and the consumption, so
+/// a caller commits both or neither; the delegation fold applying it is what makes the same
+/// approval `wrong-state` the next time.
+///
+/// # Errors
+///
+/// [`ApprovalDenied`] for every outcome that is not an allow, with its declared branch.
+pub fn check_with_approval<G, P, C, I, R, A>(
+    pdp: &Pdp<'_, G, P, C, I, R>,
+    allocator: &mut A,
+    request: &CheckRequest<'_>,
+    approval: ApprovalId,
+) -> Result<ApprovedDecisionRecorded, ApprovalDenied>
+where
+    G: GraphRead<Revision = AuthzRevision> + ResourceLookup + ?Sized,
+    P: PolicyEvaluator + ?Sized,
+    C: RoleCatalog + ?Sized,
+    I: ChallengeIssuer + ?Sized,
+    R: AgentAuthorityRead + ?Sized,
+    A: DecisionIdAllocator + ?Sized,
+{
+    let decided = match check(pdp, allocator, request) {
+        Err(refused) if !decision::approval_clears(&refused) => {
+            return Err(ApprovalDenied::standing(refused));
+        }
+        decided => decided,
+    };
+    let decision_id = match &decided {
+        Ok(allowed) => allowed.decision_id,
+        Err(refused) => refused.decision.decision_id,
+    };
+    command::approval_answers(
+        pdp.agents,
+        request.context,
+        approval,
+        request.at,
+        Some(Satisfying {
+            action: request.action,
+            resource: request.resource,
+        }),
+    )
+    .map_err(|refusal| decision::approval_refused(decision_id, refusal))?;
+    Ok(ApprovedDecisionRecorded {
+        context: request.context.clone(),
+        decision: decided.unwrap_or_else(decision::satisfied),
+        approval,
+    })
+}
+
+/// The contract's three inputs, for the decision assembled from them.
+const fn taken<'a>(request: &CheckRequest<'a>) -> Taken<'a> {
+    Taken {
         context: request.context,
         action: request.action,
         resource: request.resource,
-    };
+    }
+}
 
+/// What every part of a request comes to before a decision is assembled from it: the one
+/// path [`check`] and [`check_with_approval`] both take.
+fn authority<G, P, C, I, R>(pdp: &Pdp<'_, G, P, C, I, R>, request: &CheckRequest<'_>) -> Authority
+where
+    G: GraphRead<Revision = AuthzRevision> + ResourceLookup + ?Sized,
+    P: PolicyEvaluator + ?Sized,
+    C: RoleCatalog + ?Sized,
+    I: ChallengeIssuer + ?Sized,
+    R: AgentAuthorityRead + ?Sized,
+{
     // Binding first, and a refusal returns without reading a port: a request whose context
     // does not stand must not ask the graph or policy anything on its behalf.
-    let authority = match context::bind_any(
+    match context::bind_any(
         pdp.tenancy,
         pdp.topology,
         pdp.graph,
@@ -342,7 +431,5 @@ where
             }
         }
         Err(reason) => Authority::refused(reason),
-    };
-
-    decision::decide(allocator, pdp.issuer, &taken, &authority)
+    }
 }

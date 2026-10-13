@@ -1,7 +1,7 @@
 {
   "format": "mandate-obligations-report/1",
   "crates": {
-    "mandate-authz": {"clauses": 53, "real_covered": 34, "double_only": 6, "deferred": 13},
+    "mandate-authz": {"clauses": 60, "real_covered": 40, "double_only": 6, "deferred": 14},
     "mandate-federation": {"clauses": 41, "real_covered": 29, "double_only": 3, "deferred": 9},
     "mandate-graph": {"clauses": 19, "real_covered": 0, "double_only": 8, "deferred": 11},
     "mandate-identity": {"clauses": 12, "real_covered": 5, "double_only": 2, "deferred": 5},
@@ -9,5 +9,5 @@
     "mandate-policy": {"clauses": 10, "real_covered": 0, "double_only": 6, "deferred": 4},
     "mandate-sts": {"clauses": 60, "real_covered": 36, "double_only": 0, "deferred": 24}
   },
-  "totals": {"clauses": 240, "real_covered": 117, "double_only": 25, "deferred": 98}
+  "totals": {"clauses": 247, "real_covered": 123, "double_only": 25, "deferred": 99}
 }

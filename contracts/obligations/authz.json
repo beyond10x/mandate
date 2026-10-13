@@ -164,6 +164,94 @@
       }
     },
     {
+      "command": "mandate.authorization.CheckWithApproval",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Anything Check refuses other than approval-required",
+          "tests": [
+            {
+              "id": "mandate-authz::approval_check::a_graph_or_policy_deny_stands_with_an_approval_named_and_consumes_nothing",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-authz::approval_check::an_approval_does_not_clear_a_reauthentication_requirement",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "the approval is unrecorded",
+          "tests": [
+            {
+              "id": "mandate-authz::approval_check::every_mismatched_approval_refuses_exactly_as_an_unknown_one_and_consumes_nothing",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "of another organization",
+          "tests": [
+            {
+              "id": "mandate-authz::approval_check::every_mismatched_approval_refuses_exactly_as_an_unknown_one_and_consumes_nothing",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "expired",
+          "tests": [
+            {
+              "id": "mandate-authz::approval_check::every_mismatched_approval_refuses_exactly_as_an_unknown_one_and_consumes_nothing",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "names another subject, actor, action or resource",
+          "tests": [
+            {
+              "id": "mandate-authz::approval_check::every_mismatched_approval_refuses_exactly_as_an_unknown_one_and_consumes_nothing",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "each refused exactly as an unrecorded approval",
+          "tests": [
+            {
+              "id": "mandate-authz::approval_check::every_mismatched_approval_refuses_exactly_as_an_unknown_one_and_consumes_nothing",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "one-use consumption cannot commit atomically with the decision",
+          "tests": [],
+          "blocked_on": "decision-blocker:epoch-atomicity"
+        }
+      ],
+      "no_state_change": [
+        {
+          "id": "mandate-authz::approval_check::a_second_use_of_the_same_approval_is_wrong_state",
+          "kind": "no-state-change",
+          "path": "real"
+        }
+      ],
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
+    },
+    {
       "command": "mandate.delegation.CompleteExecution",
       "status": "implemented",
       "clauses": [

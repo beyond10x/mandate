@@ -71,13 +71,14 @@
 //! * `ConsumeApproval` — "its subject/actor/action/resource": the check being satisfied is
 //!   not an input of the command, so only the subject and actor the context carries are
 //!   compared (the sibling clause "Caller does not hold the decision context the approval
-//!   answers"), and the action and resource wait for an approval input to `Check`
-//!   (decision 9 of the wave). `story:agent-security`.
+//!   answers"). The action and resource are compared by `mandate.authorization.CheckWithApproval`
+//!   ([`crate::check_with_approval`]), which states the check through the same approval checks
+//!   (`approval_answers`); this command has no input that names them. `story:agent-security`.
 
 use mandate_policy::port::{AttributeSet, PolicyEffect, PolicyEvaluator, PolicyRequest};
 use mandate_types::{
-    ApprovalId, Audience, AuthorityScope, AuthoritySubject, DelegationId, DenialReason,
-    ExecutionId, OrganizationId, PrincipalId, Timestamp, Uuid, VerifiedContext,
+    Action, ApprovalId, Audience, AuthorityScope, AuthoritySubject, DelegationId, DenialReason,
+    ExecutionId, OrganizationId, PrincipalId, ResourceRef, Timestamp, Uuid, VerifiedContext,
 };
 
 use crate::agent::{
@@ -645,6 +646,46 @@ pub fn decide_consume_approval<R>(
 where
     R: AgentAuthorityRead + ?Sized,
 {
+    approval_answers(records, context, id, at, None)?;
+    Ok(DelegationEvent::ApprovalConsumed {
+        context: context.clone(),
+        id,
+    })
+}
+
+/// The action and resource of the check an approval is asked to satisfy, when the caller
+/// states them.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Satisfying<'a> {
+    /// The action the check is asked about.
+    pub action: &'a Action,
+    /// The resource the action is on.
+    pub resource: &'a ResourceRef,
+}
+
+/// Whether approval `id` may be consumed by the caller at `at`: the one set of approval
+/// checks `ConsumeApproval` and `mandate.authorization.CheckWithApproval` both decide by.
+///
+/// The approval must be recorded in the verified organization; its subject must be the
+/// verified subject and its actor the verified actor (absent when the subject acts as
+/// itself); when the check being satisfied is stated, its action and resource must be the
+/// approval's; it must not be consumed; and `at` must be before its `expires_at`. Every
+/// mismatch is checked before the state, so a caller that does not hold the decision the
+/// approval answers learns nothing about it.
+///
+/// # Errors
+///
+/// [`Denied`] for each condition above, `wrong-state` for a consumed approval.
+pub(crate) fn approval_answers<R>(
+    records: &R,
+    context: &VerifiedContext,
+    id: ApprovalId,
+    at: &Timestamp,
+    satisfying: Option<Satisfying<'_>>,
+) -> Result<(), Denied>
+where
+    R: AgentAuthorityRead + ?Sized,
+{
     let approval = records
         .approval(&id)
         .map_err(unavailable)?
@@ -653,6 +694,11 @@ where
     let acting = context.actor.filter(|actor| *actor != context.subject);
     let approved = approval.actor.filter(|actor| *actor != approval.subject);
     if context.subject != approval.subject || acting != approved {
+        return Err(Denied::on(DelegationClause::NotTheDecisionContext));
+    }
+    if let Some(check) = satisfying
+        && (*check.action != approval.action || *check.resource != approval.resource)
+    {
         return Err(Denied::on(DelegationClause::NotTheDecisionContext));
     }
     if approval.state == ApprovalState::Consumed {
@@ -665,8 +711,5 @@ where
     if !open {
         return Err(Denied::on(DelegationClause::ApprovalExpired));
     }
-    Ok(DelegationEvent::ApprovalConsumed {
-        context: context.clone(),
-        id,
-    })
+    Ok(())
 }

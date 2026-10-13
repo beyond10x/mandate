@@ -9,6 +9,8 @@
 {"id":"mandate.audit.RedactAuditEvent/outcome/wrong-state","outcome":"unsupported","blocked_on":"story:audit-worker-delivery"},
 {"id":"mandate.authorization.Check/outcome/accepted","outcome":"failed","blocked_on":"story:ess-synthesizer-prerequisites"},
 {"id":"mandate.authorization.Check/outcome/denied","outcome":"passed"},
+{"id":"mandate.authorization.CheckWithApproval/outcome/denied","outcome":"passed"},
+{"id":"mandate.authorization.CheckWithApproval/outcome/wrong-state","outcome":"failed","blocked_on":"story:unknown-instance-non-disclosing"},
 {"id":"mandate.authorization/authored/authz-unadmitted-organization","outcome":"failed","blocked_on":"story:ess-synthesizer-prerequisites"},
 {"id":"mandate.credential.AccessCredential/transition/revoke/by/mandate.credential.RevokeAccessCredential/accepted","outcome":"unsupported","blocked_on":"story:constrained-exchange"},
 {"id":"mandate.credential.AuthorizationCode/transition/consume/by/mandate.credential.RedeemAuthorizationCode/accepted","outcome":"failed","blocked_on":"story:ess-synthesizer-prerequisites"},

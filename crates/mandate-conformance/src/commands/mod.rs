@@ -39,6 +39,7 @@ use crate::node;
 /// Every command this target drives against a real handler.
 pub const REALIZED: &[&str] = &[
     "mandate.authorization.Check",
+    "mandate.authorization.CheckWithApproval",
     "mandate.credential.DisableResourceServer",
     "mandate.credential.IntrospectCredential",
     "mandate.credential.IssueAuthorizationCode",
@@ -282,6 +283,7 @@ pub fn execute(
             identity::increment_security_epoch(live, request)
         }
         "mandate.authorization.Check" => authz::check(live, request),
+        "mandate.authorization.CheckWithApproval" => authz::check_with_approval(live, request),
         "mandate.graph.RegisterResource" => graph::register_resource(live, request),
         "mandate.graph.DeregisterResource" => graph::deregister_resource(live, request),
         "mandate.tenancy.CreateOrganization" => tenancy::create_organization(live, request),
