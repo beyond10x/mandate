@@ -673,10 +673,23 @@ where
     let organization = &context.organization;
     let delegated = who.subject != who.actor;
 
-    // The actor is an agent of this organization, and still installed.
+    // A disabled subject or actor is refused at `Check` exactly as at the token exchange. An
+    // unrecorded standing is the exchange's own refusal: there each principal comes from a
+    // proof, at `Check` from the validated credential.
+    if records.standing(who.subject).map_err(unavailable)? == Some(PrincipalStanding::Disabled) {
+        return Err(AuthorityClause::SubjectInvalid);
+    }
+    if records.standing(who.actor).map_err(unavailable)? == Some(PrincipalStanding::Disabled) {
+        return Err(AuthorityClause::ActorDisabled);
+    }
+
+    // The actor is an agent of this organization, and still installed. An agent record of
+    // another organization is refused like no agent record, so the refusal discloses nothing
+    // about another tenant.
     let agent = records
         .agent(who.actor)
         .map_err(unavailable)?
+        .filter(|agent| agent.organization_id == *organization)
         .ok_or(AuthorityClause::ActorNotAgent)?;
     installed(&agent, organization)?;
 
@@ -691,19 +704,18 @@ where
         installed(subject_agent, organization)?;
     }
 
+    // A delegation recorded in another organization is refused like one nobody recorded.
     let delegation = match who.delegation {
         Some(id) => Some(
             records
                 .delegation(id)
                 .map_err(unavailable)?
+                .filter(|delegation| delegation.organization_id == *organization)
                 .ok_or(AuthorityClause::DelegationAbsent)?,
         ),
         None => None,
     };
     if let Some(delegation) = &delegation {
-        if delegation.organization_id != *organization {
-            return Err(AuthorityClause::OrganizationMismatch);
-        }
         if delegation.transitive {
             return Err(AuthorityClause::TransitiveChain);
         }

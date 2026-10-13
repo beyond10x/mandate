@@ -920,18 +920,20 @@ fn a_mismatched_organization_denies() {
         AuthorityClause::OrganizationMismatch,
     );
 
+    // A record of another organization is refused like one nobody recorded, so the refusal
+    // discloses nothing about another tenant.
     let mut records = delegated_records();
     records.delegations[0].organization_id = other_organization();
     assert_refused(
         &Ask::delegated(requested.clone()).evaluate(&records, &Answers::allow()),
-        AuthorityClause::OrganizationMismatch,
+        AuthorityClause::DelegationAbsent,
     );
 
     let mut records = delegated_records();
     records.agents[0].organization_id = other_organization();
     assert_refused(
         &Ask::delegated(requested.clone()).evaluate(&records, &Answers::allow()),
-        AuthorityClause::OrganizationMismatch,
+        AuthorityClause::ActorNotAgent,
     );
 
     let mut ask = Ask::delegated(requested);
