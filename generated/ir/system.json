@@ -40,7 +40,8 @@
       "types": [],
       "entities": [],
       "commands": [
-        "mandate.authorization.Check"
+        "mandate.authorization.Check",
+        "mandate.authorization.CheckWithApproval"
       ],
       "events": [
         "mandate.authorization.DecisionRecorded"
@@ -478,9 +479,11 @@
         "mandate.workload.WorkloadIdentity"
       ],
       "commands": [
+        "mandate.workload.AuthenticateWorkload",
         "mandate.workload.RevokeWorkloadIdentity"
       ],
       "events": [
+        "mandate.workload.WorkloadAuthenticated",
         "mandate.workload.WorkloadIdentityRevoked"
       ],
       "errors": [
@@ -5982,6 +5985,183 @@
           "condition": {
             "kind": "external",
             "cause": "Credential-derived context is invalid/revoked/expired/stale, tenant/audience/resource/space binding mismatches, relationships/policy/ceilings deny, approval is required, or the required PDP/graph/credential authority is unavailable."
+          },
+          "test_strategy": "inject_fault",
+          "emits": [],
+          "error": "mandate.authorization.Denied"
+        }
+      ],
+      "naming": {}
+    },
+    "mandate.authorization.CheckWithApproval": {
+      "name": "mandate.authorization.CheckWithApproval",
+      "domain": "mandate.authorization",
+      "input": [
+        {
+          "name": "context",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.VerifiedContext"
+          },
+          "naming": {}
+        },
+        {
+          "name": "action",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.Action"
+          },
+          "naming": {}
+        },
+        {
+          "name": "resource",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.ResourceRef"
+          },
+          "naming": {}
+        },
+        {
+          "name": "approval",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.ApprovalId"
+          },
+          "naming": {}
+        }
+      ],
+      "response": [
+        {
+          "name": "decision",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.Decision"
+          },
+          "naming": {}
+        }
+      ],
+      "outcomes": [
+        {
+          "name": "accepted",
+          "condition": {
+            "kind": "otherwise"
+          },
+          "subject": {
+            "entity": "mandate.delegation.Approval",
+            "effect": "moves",
+            "transition": {
+              "name": "consume",
+              "from": [
+                "Recorded"
+              ],
+              "to": "Consumed"
+            },
+            "instance": {
+              "from": "supplied",
+              "field": {
+                "name": "approval",
+                "type_ref": {
+                  "kind": "declared",
+                  "name": "mandate.core.ApprovalId"
+                },
+                "naming": {}
+              }
+            }
+          },
+          "test_strategy": "default_branch",
+          "emits": [
+            "mandate.authorization.DecisionRecorded",
+            "mandate.delegation.ApprovalConsumed"
+          ],
+          "payload": [
+            {
+              "event": "mandate.authorization.DecisionRecorded",
+              "fields": [
+                {
+                  "target": "context",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.VerifiedContext"
+                  },
+                  "value": {
+                    "kind": "input_field",
+                    "field": "context",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.VerifiedContext"
+                    }
+                  }
+                },
+                {
+                  "target": "decision",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.Decision"
+                  },
+                  "value": {
+                    "kind": "response_field",
+                    "field": "decision",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.Decision"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "event": "mandate.delegation.ApprovalConsumed",
+              "fields": [
+                {
+                  "target": "context",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.VerifiedContext"
+                  },
+                  "value": {
+                    "kind": "input_field",
+                    "field": "context",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.VerifiedContext"
+                    }
+                  }
+                },
+                {
+                  "target": "id",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.ApprovalId"
+                  },
+                  "value": {
+                    "kind": "input_field",
+                    "field": "approval",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.ApprovalId"
+                    }
+                  }
+                }
+              ]
+            }
+          ],
+          "summary": "The second check after an approval-required decision. The approval is recorded, of the verified organization, unexpired at the decision instant, and names this subject, actor, action and resource; every other check of the request is decided as Check decides it, and the approval is consumed by this decision and satisfies no other."
+        },
+        {
+          "name": "wrong-state",
+          "condition": {
+            "kind": "wrong_state"
+          },
+          "complete_refusal": true,
+          "test_strategy": "arrange_state",
+          "emits": [],
+          "error": "mandate.authorization.Denied"
+        },
+        {
+          "name": "denied",
+          "condition": {
+            "kind": "external",
+            "cause": "Anything Check refuses other than approval-required; or the approval is unrecorded, of another organization, expired, or names another subject, actor, action or resource, each refused exactly as an unrecorded approval; or one-use consumption cannot commit atomically with the decision."
           },
           "test_strategy": "inject_fault",
           "emits": [],
@@ -14472,6 +14652,187 @@
       ],
       "naming": {}
     },
+    "mandate.workload.AuthenticateWorkload": {
+      "name": "mandate.workload.AuthenticateWorkload",
+      "domain": "mandate.workload",
+      "input": [
+        {
+          "name": "workload_proof",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.CredentialProof"
+          },
+          "naming": {}
+        },
+        {
+          "name": "agent",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.PrincipalId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "execution",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.ExecutionId"
+            }
+          },
+          "naming": {}
+        }
+      ],
+      "response": [
+        {
+          "name": "workload",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.WorkloadIdentityId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "runtime",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.PrincipalId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "organization",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.OrganizationId"
+          },
+          "naming": {}
+        }
+      ],
+      "outcomes": [
+        {
+          "name": "accepted",
+          "condition": {
+            "kind": "otherwise"
+          },
+          "test_strategy": "default_branch",
+          "emits": [
+            "mandate.workload.WorkloadAuthenticated"
+          ],
+          "payload": [
+            {
+              "event": "mandate.workload.WorkloadAuthenticated",
+              "fields": [
+                {
+                  "target": "workload",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.WorkloadIdentityId"
+                  },
+                  "value": {
+                    "kind": "response_field",
+                    "field": "workload",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.WorkloadIdentityId"
+                    }
+                  }
+                },
+                {
+                  "target": "runtime",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.PrincipalId"
+                  },
+                  "value": {
+                    "kind": "response_field",
+                    "field": "runtime",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.PrincipalId"
+                    }
+                  }
+                },
+                {
+                  "target": "agent",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.PrincipalId"
+                  },
+                  "value": {
+                    "kind": "input_field",
+                    "field": "agent",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.PrincipalId"
+                    }
+                  }
+                },
+                {
+                  "target": "organization",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.OrganizationId"
+                  },
+                  "value": {
+                    "kind": "response_field",
+                    "field": "organization",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.OrganizationId"
+                    }
+                  }
+                },
+                {
+                  "target": "execution",
+                  "target_type": {
+                    "kind": "optional",
+                    "of": {
+                      "kind": "declared",
+                      "name": "mandate.core.ExecutionId"
+                    }
+                  },
+                  "value": {
+                    "kind": "input_field",
+                    "field": "execution",
+                    "type_ref": {
+                      "kind": "optional",
+                      "of": {
+                        "kind": "declared",
+                        "name": "mandate.core.ExecutionId"
+                      }
+                    }
+                  }
+                },
+                {
+                  "target": "authenticated_at",
+                  "target_type": {
+                    "kind": "primitive",
+                    "name": "timestamp"
+                  },
+                  "value": {
+                    "kind": "generated"
+                  }
+                }
+              ]
+            }
+          ],
+          "summary": "Two identities, each authenticated on its own. The workload proof is verified by the trust domain that issued it and resolves to one recorded workload identity, which names the runtime principal; the application agent is a recorded agent of the same organization, not retired, and is never derived from the workload proof. When an execution is named it is recorded, not completed, unexpired, of that organization and that agent. Nothing is created or moved, and the event folds into no record."
+        },
+        {
+          "name": "denied",
+          "condition": {
+            "kind": "external",
+            "cause": "The workload proof is malformed, unverified by its trust domain or expired; it resolves to no workload identity, a revoked one, or one in another organization than the agent; the agent is unrecorded, retired, or its principal disabled; or a named execution is unrecorded, completed, expired, or bound to another agent or organization. Each is refused alike, so a caller learns only that the pair is not admitted."
+          },
+          "test_strategy": "inject_fault",
+          "emits": [],
+          "error": "mandate.workload.Denied"
+        }
+      ],
+      "naming": {}
+    },
     "mandate.workload.RevokeWorkloadIdentity": {
       "name": "mandate.workload.RevokeWorkloadIdentity",
       "domain": "mandate.workload",
@@ -17256,6 +17617,64 @@
           "type_ref": {
             "kind": "declared",
             "name": "mandate.core.TeamId"
+          },
+          "naming": {}
+        }
+      ],
+      "naming": {}
+    },
+    "mandate.workload.WorkloadAuthenticated": {
+      "name": "mandate.workload.WorkloadAuthenticated",
+      "domain": "mandate.workload",
+      "fields": [
+        {
+          "name": "workload",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.WorkloadIdentityId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "runtime",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.PrincipalId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "agent",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.PrincipalId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "organization",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.OrganizationId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "execution",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.ExecutionId"
+            }
+          },
+          "naming": {}
+        },
+        {
+          "name": "authenticated_at",
+          "type_ref": {
+            "kind": "primitive",
+            "name": "timestamp"
           },
           "naming": {}
         }

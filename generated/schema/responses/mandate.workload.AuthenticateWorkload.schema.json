@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AuthenticateWorkload response",
+  "x-ess-name": "mandate.workload.AuthenticateWorkload",
+  "x-ess-kind": "command-response",
+  "type": "object",
+  "properties": {
+    "workload": {
+      "$ref": "#/$defs/mandate.core.WorkloadIdentityId"
+    },
+    "runtime": {
+      "$ref": "#/$defs/mandate.core.PrincipalId"
+    },
+    "organization": {
+      "$ref": "#/$defs/mandate.core.OrganizationId"
+    }
+  },
+  "required": [
+    "workload",
+    "runtime",
+    "organization"
+  ],
+  "additionalProperties": false,
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "cc2b92ef62d71301fffac73193657e56997c8c3355bd5026b9a5ca7a6e331078",
+    "contract_digest": "slice-sha256/2:a44f921bfab102ea8625cb4e4aef6f6b5c063cf7ffba49330cf6b2d393535686",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.core.OrganizationId": {
+      "title": "OrganizationId",
+      "x-ess-name": "mandate.core.OrganizationId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.PrincipalId": {
+      "title": "PrincipalId",
+      "x-ess-name": "mandate.core.PrincipalId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.WorkloadIdentityId": {
+      "title": "WorkloadIdentityId",
+      "x-ess-name": "mandate.core.WorkloadIdentityId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    }
+  }
+}

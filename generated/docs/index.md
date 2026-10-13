@@ -1,7 +1,7 @@
 <!--
 generated from mandate v1
-model digest deae57d148a5f63c051f8fb5fcc75b60572366e23d12c3cfe66b5d1f2ca3e08c
-contract digest 8c8a4c5c20546b9c78fc5f4fe3dd244989b8aff69b79ba0bbf3cd5613e3b3743
+model digest cc2b92ef62d71301fffac73193657e56997c8c3355bd5026b9a5ca7a6e331078
+contract digest 890c4e5029e2171c3abad275af7a71d3ffccff4269b5fc933b70ff203f11574c
 do not edit: regenerate with `ess generate`
 -->
 
@@ -15,13 +15,13 @@ Standalone identity, authorization and constrained credential contracts. Runtime
 flowchart TB
     subgraph unit0["mandate-authorization"]
         cmd2["mandate.authorization.Check"]
-        cmd38["mandate.graph.DeregisterResource"]
-        cmd39["mandate.graph.RegisterResource"]
-        cmd40["mandate.graph.RemoveRelation"]
-        cmd41["mandate.graph.RevokeGrant"]
-        cmd42["mandate.graph.WriteRelationship"]
-        cmd48["mandate.policy.SupersedeAuthorizationModel"]
-        cmd49["mandate.policy.SupersedePolicy"]
+        cmd39["mandate.graph.DeregisterResource"]
+        cmd40["mandate.graph.RegisterResource"]
+        cmd41["mandate.graph.RemoveRelation"]
+        cmd42["mandate.graph.RevokeGrant"]
+        cmd43["mandate.graph.WriteRelationship"]
+        cmd49["mandate.policy.SupersedeAuthorizationModel"]
+        cmd50["mandate.policy.SupersedePolicy"]
         evt7["mandate.authorization.DecisionRecorded"]
         evt48["mandate.graph.GrantRevoked"]
         evt49["mandate.graph.RelationRemoved"]
@@ -32,45 +32,45 @@ flowchart TB
         evt62["mandate.policy.PolicySuperseded"]
     end
     subgraph unit1["mandate-control-plane"]
-        cmd15["mandate.delegation.CompleteExecution"]
-        cmd16["mandate.delegation.ConsumeApproval"]
-        cmd17["mandate.delegation.CreateDelegation"]
-        cmd18["mandate.delegation.RetireAgent"]
-        cmd19["mandate.delegation.RevokeDelegation"]
-        cmd20["mandate.delegation.SupersedeAgentCapabilityCeiling"]
-        cmd21["mandate.directory.CompleteSyncJob"]
-        cmd22["mandate.directory.CreateDirectoryGroupTeamMapping"]
-        cmd23["mandate.directory.FailSyncJob"]
-        cmd24["mandate.directory.RemoveDirectoryGroupMembership"]
-        cmd25["mandate.directory.RemoveDirectoryGroupTeamMapping"]
-        cmd26["mandate.directory.RemoveMembershipContribution"]
-        cmd27["mandate.directory.RetireDirectoryGroup"]
-        cmd28["mandate.directory.SyncDirectoryMembership"]
-        cmd29["mandate.federation.AuthenticateFederation"]
-        cmd30["mandate.federation.AuthorizePublicClient"]
-        cmd31["mandate.federation.DisableFederationConnection"]
-        cmd32["mandate.federation.DisableOAuthClient"]
-        cmd33["mandate.federation.LinkExternalPrincipal"]
-        cmd34["mandate.federation.ProvisionExternalPrincipal"]
-        cmd35["mandate.federation.RegisterFederationConnection"]
-        cmd36["mandate.federation.RegisterOAuthClient"]
-        cmd37["mandate.federation.UnlinkExternalPrincipal"]
-        cmd43["mandate.identity.DisablePrincipal"]
-        cmd44["mandate.identity.IncrementSecurityEpoch"]
-        cmd45["mandate.identity.RefreshSession"]
-        cmd46["mandate.identity.RevokeRefreshCredential"]
-        cmd47["mandate.identity.RevokeSession"]
-        cmd50["mandate.tenancy.AddOrganizationMembership"]
-        cmd51["mandate.tenancy.AddTeamMembership"]
-        cmd52["mandate.tenancy.CloseOrganization"]
-        cmd53["mandate.tenancy.CreateOrganization"]
-        cmd54["mandate.tenancy.CreateSpace"]
-        cmd55["mandate.tenancy.CreateTeam"]
-        cmd56["mandate.tenancy.RemoveOrganizationMembership"]
-        cmd57["mandate.tenancy.RemoveTeamMembership"]
-        cmd58["mandate.tenancy.RetireSpace"]
-        cmd59["mandate.tenancy.RetireTeam"]
-        cmd60["mandate.workload.RevokeWorkloadIdentity"]
+        cmd16["mandate.delegation.CompleteExecution"]
+        cmd17["mandate.delegation.ConsumeApproval"]
+        cmd18["mandate.delegation.CreateDelegation"]
+        cmd19["mandate.delegation.RetireAgent"]
+        cmd20["mandate.delegation.RevokeDelegation"]
+        cmd21["mandate.delegation.SupersedeAgentCapabilityCeiling"]
+        cmd22["mandate.directory.CompleteSyncJob"]
+        cmd23["mandate.directory.CreateDirectoryGroupTeamMapping"]
+        cmd24["mandate.directory.FailSyncJob"]
+        cmd25["mandate.directory.RemoveDirectoryGroupMembership"]
+        cmd26["mandate.directory.RemoveDirectoryGroupTeamMapping"]
+        cmd27["mandate.directory.RemoveMembershipContribution"]
+        cmd28["mandate.directory.RetireDirectoryGroup"]
+        cmd29["mandate.directory.SyncDirectoryMembership"]
+        cmd30["mandate.federation.AuthenticateFederation"]
+        cmd31["mandate.federation.AuthorizePublicClient"]
+        cmd32["mandate.federation.DisableFederationConnection"]
+        cmd33["mandate.federation.DisableOAuthClient"]
+        cmd34["mandate.federation.LinkExternalPrincipal"]
+        cmd35["mandate.federation.ProvisionExternalPrincipal"]
+        cmd36["mandate.federation.RegisterFederationConnection"]
+        cmd37["mandate.federation.RegisterOAuthClient"]
+        cmd38["mandate.federation.UnlinkExternalPrincipal"]
+        cmd44["mandate.identity.DisablePrincipal"]
+        cmd45["mandate.identity.IncrementSecurityEpoch"]
+        cmd46["mandate.identity.RefreshSession"]
+        cmd47["mandate.identity.RevokeRefreshCredential"]
+        cmd48["mandate.identity.RevokeSession"]
+        cmd51["mandate.tenancy.AddOrganizationMembership"]
+        cmd52["mandate.tenancy.AddTeamMembership"]
+        cmd53["mandate.tenancy.CloseOrganization"]
+        cmd54["mandate.tenancy.CreateOrganization"]
+        cmd55["mandate.tenancy.CreateSpace"]
+        cmd56["mandate.tenancy.CreateTeam"]
+        cmd57["mandate.tenancy.RemoveOrganizationMembership"]
+        cmd58["mandate.tenancy.RemoveTeamMembership"]
+        cmd59["mandate.tenancy.RetireSpace"]
+        cmd60["mandate.tenancy.RetireTeam"]
+        cmd62["mandate.workload.RevokeWorkloadIdentity"]
         evt21["mandate.delegation.AgentCapabilityCeilingSuperseded"]
         evt22["mandate.delegation.AgentRetired"]
         evt23["mandate.delegation.ApprovalConsumed"]
@@ -116,21 +116,21 @@ flowchart TB
         evt70["mandate.tenancy.TeamMembershipAdded"]
         evt71["mandate.tenancy.TeamMembershipRemoved"]
         evt72["mandate.tenancy.TeamRetired"]
-        evt73["mandate.workload.WorkloadIdentityRevoked"]
+        evt74["mandate.workload.WorkloadIdentityRevoked"]
     end
     subgraph unit2["mandate-sts"]
-        cmd3["mandate.credential.DisableResourceServer"]
-        cmd4["mandate.credential.ExchangeCredential"]
-        cmd5["mandate.credential.IntrospectCredential"]
-        cmd6["mandate.credential.IssueAuthorizationCode"]
-        cmd7["mandate.credential.IssueReferenceCredential"]
-        cmd8["mandate.credential.IssueSelfContainedCredential"]
-        cmd9["mandate.credential.RedeemAuthorizationCode"]
-        cmd10["mandate.credential.RegisterResourceServer"]
-        cmd11["mandate.credential.RegisterSigningKey"]
-        cmd12["mandate.credential.RetireSigningKey"]
-        cmd13["mandate.credential.RevokeAccessCredential"]
-        cmd14["mandate.credential.RevokeSigningKey"]
+        cmd4["mandate.credential.DisableResourceServer"]
+        cmd5["mandate.credential.ExchangeCredential"]
+        cmd6["mandate.credential.IntrospectCredential"]
+        cmd7["mandate.credential.IssueAuthorizationCode"]
+        cmd8["mandate.credential.IssueReferenceCredential"]
+        cmd9["mandate.credential.IssueSelfContainedCredential"]
+        cmd10["mandate.credential.RedeemAuthorizationCode"]
+        cmd11["mandate.credential.RegisterResourceServer"]
+        cmd12["mandate.credential.RegisterSigningKey"]
+        cmd13["mandate.credential.RetireSigningKey"]
+        cmd14["mandate.credential.RevokeAccessCredential"]
+        cmd15["mandate.credential.RevokeSigningKey"]
         evt8["mandate.credential.AccessCredentialRevoked"]
         evt9["mandate.credential.AuthorizationCodeIssued"]
         evt10["mandate.credential.AuthorizationCodeRedeemed"]
@@ -156,67 +156,75 @@ flowchart TB
         evt5["mandate.audit.FederationConnectionChanged"]
         evt6["mandate.audit.TokenExchangeDenied"]
     end
+    subgraph unowned["owned by no component"]
+        cmd3["mandate.authorization.CheckWithApproval"]
+        cmd61["mandate.workload.AuthenticateWorkload"]
+        evt73["mandate.workload.WorkloadAuthenticated"]
+    end
     cmd0 -->|"recorded"| evt0
     cmd1 -->|"accepted"| evt1
     cmd2 -->|"accepted"| evt7
-    cmd3 -->|"accepted"| evt14
-    cmd4 -->|"accepted"| evt19
-    cmd5 -->|"accepted"| evt11
-    cmd6 -->|"accepted"| evt9
-    cmd7 -->|"accepted"| evt12
-    cmd8 -->|"accepted"| evt13
-    cmd9 -->|"accepted"| evt10
-    cmd10 -->|"accepted"| evt15
-    cmd11 -->|"accepted"| evt16
-    cmd12 -->|"accepted"| evt17
-    cmd13 -->|"accepted"| evt8
-    cmd14 -->|"accepted"| evt18
-    cmd15 -->|"accepted"| evt26
-    cmd16 -->|"accepted"| evt23
-    cmd17 -->|"accepted"| evt24
-    cmd18 -->|"accepted"| evt22
-    cmd19 -->|"accepted"| evt25
-    cmd20 -->|"accepted"| evt21
-    cmd21 -->|"accepted"| evt36
-    cmd22 -->|"accepted"| evt32
-    cmd23 -->|"accepted"| evt37
-    cmd24 -->|"accepted"| evt29
-    cmd25 -->|"accepted"| evt33
-    cmd26 -->|"accepted"| evt35
-    cmd27 -->|"accepted"| evt31
-    cmd28 -->|"accepted"| evt27
-    cmd29 -->|"accepted"| evt43
-    cmd30 -->|"accepted"| evt39
-    cmd31 -->|"accepted"| evt45
-    cmd32 -->|"accepted"| evt46
-    cmd33 -->|"accepted"| evt40
-    cmd34 -->|"accepted"| evt41
-    cmd35 -->|"accepted"| evt44
-    cmd36 -->|"accepted"| evt47
-    cmd37 -->|"accepted"| evt42
-    cmd38 -->|"accepted"| evt51
-    cmd39 -->|"accepted"| evt52
-    cmd40 -->|"accepted"| evt49
-    cmd41 -->|"accepted"| evt48
-    cmd42 -->|"accepted"| evt50
-    cmd43 -->|"accepted"| evt54
-    cmd44 -->|"accepted"| evt56
-    cmd45 -->|"accepted"| evt59
-    cmd46 -->|"accepted"| evt55
-    cmd47 -->|"accepted"| evt60
-    cmd48 -->|"accepted"| evt61
-    cmd49 -->|"accepted"| evt62
-    cmd50 -->|"accepted"| evt65
-    cmd51 -->|"accepted"| evt70
-    cmd52 -->|"accepted"| evt63
-    cmd53 -->|"accepted"| evt64
-    cmd54 -->|"accepted"| evt67
-    cmd55 -->|"accepted"| evt69
-    cmd56 -->|"accepted"| evt66
-    cmd57 -->|"accepted"| evt71
-    cmd58 -->|"accepted"| evt68
-    cmd59 -->|"accepted"| evt72
-    cmd60 -->|"accepted"| evt73
+    cmd3 -->|"accepted"| evt7
+    cmd3 -->|"accepted"| evt23
+    cmd4 -->|"accepted"| evt14
+    cmd5 -->|"accepted"| evt19
+    cmd6 -->|"accepted"| evt11
+    cmd7 -->|"accepted"| evt9
+    cmd8 -->|"accepted"| evt12
+    cmd9 -->|"accepted"| evt13
+    cmd10 -->|"accepted"| evt10
+    cmd11 -->|"accepted"| evt15
+    cmd12 -->|"accepted"| evt16
+    cmd13 -->|"accepted"| evt17
+    cmd14 -->|"accepted"| evt8
+    cmd15 -->|"accepted"| evt18
+    cmd16 -->|"accepted"| evt26
+    cmd17 -->|"accepted"| evt23
+    cmd18 -->|"accepted"| evt24
+    cmd19 -->|"accepted"| evt22
+    cmd20 -->|"accepted"| evt25
+    cmd21 -->|"accepted"| evt21
+    cmd22 -->|"accepted"| evt36
+    cmd23 -->|"accepted"| evt32
+    cmd24 -->|"accepted"| evt37
+    cmd25 -->|"accepted"| evt29
+    cmd26 -->|"accepted"| evt33
+    cmd27 -->|"accepted"| evt35
+    cmd28 -->|"accepted"| evt31
+    cmd29 -->|"accepted"| evt27
+    cmd30 -->|"accepted"| evt43
+    cmd31 -->|"accepted"| evt39
+    cmd32 -->|"accepted"| evt45
+    cmd33 -->|"accepted"| evt46
+    cmd34 -->|"accepted"| evt40
+    cmd35 -->|"accepted"| evt41
+    cmd36 -->|"accepted"| evt44
+    cmd37 -->|"accepted"| evt47
+    cmd38 -->|"accepted"| evt42
+    cmd39 -->|"accepted"| evt51
+    cmd40 -->|"accepted"| evt52
+    cmd41 -->|"accepted"| evt49
+    cmd42 -->|"accepted"| evt48
+    cmd43 -->|"accepted"| evt50
+    cmd44 -->|"accepted"| evt54
+    cmd45 -->|"accepted"| evt56
+    cmd46 -->|"accepted"| evt59
+    cmd47 -->|"accepted"| evt55
+    cmd48 -->|"accepted"| evt60
+    cmd49 -->|"accepted"| evt61
+    cmd50 -->|"accepted"| evt62
+    cmd51 -->|"accepted"| evt65
+    cmd52 -->|"accepted"| evt70
+    cmd53 -->|"accepted"| evt63
+    cmd54 -->|"accepted"| evt64
+    cmd55 -->|"accepted"| evt67
+    cmd56 -->|"accepted"| evt69
+    cmd57 -->|"accepted"| evt66
+    cmd58 -->|"accepted"| evt71
+    cmd59 -->|"accepted"| evt68
+    cmd60 -->|"accepted"| evt72
+    cmd61 -->|"accepted"| evt73
+    cmd62 -->|"accepted"| evt74
 ```
 
 A command is accepted by the component that owns its context, emits the events one of its outcomes declares, and a dashed edge is a binding carrying an event into the next command. Design §9 begins one step earlier, at the actor who invokes the first command, and so does this graph: a solid edge out of an actor is a grant, and an actor drawn with no edge at all may invoke nothing — which is something the model says, not an arrow somebody forgot.
@@ -224,7 +232,7 @@ A command is accepted by the component that owns its context, emits the events o
 ## Bounded contexts
 
 - **[audit](domains/mandate-audit.md)** (`mandate.audit`) — Canonical redacted audit records and the trusted worker append port. UNMAPPED-AUDIT-ROUTING: per-domain event mapping, durable outbox transport, the concrete retention floor and failure policy remain required; retention itself is redaction, never deletion. Named AuditAction and AuditOutcome do not admit arbitrary values. No types, one entity, no views, two commands, seven events, one error and no actors.
-- **[authorization](domains/mandate-authorization.md)** (`mandate.authorization`) No types, no entities, no views, one command, one event, one error and no actors.
+- **[authorization](domains/mandate-authorization.md)** (`mandate.authorization`) No types, no entities, no views, two commands, one event, one error and no actors.
 - **[core](domains/mandate-core.md)** (`mandate.core`) 75 types, no entities, no views, no commands, no events, no errors and no actors.
 - **[credential](domains/mandate-credential.md)** (`mandate.credential`) No types, four entities, no views, 12 commands, 13 events, one error and no actors.
 - **[delegation](domains/mandate-delegation.md)** (`mandate.delegation`) No types, five entities, no views, six commands, six events, one error and no actors.
@@ -234,7 +242,7 @@ A command is accepted by the component that owns its context, emits the events o
 - **[identity](domains/mandate-identity.md)** (`mandate.identity`) — Principal, session and independent principal/organization/federation generation ownership. UNMAPPED-EPOCH: each generation record declares one non-negative Integer generation, the recorded stand-in for the addendum's u64; monotonic increment, denial at the maximum and per-dimension snapshot values are absent until supported. EpochSnapshotRef is an immutable record handle, not a generation number. Refresh and exchange cannot be implemented without closing this blocker. No types, seven entities, no views, five commands, eight events, one error and no actors.
 - **[policy](domains/mandate-policy.md)** (`mandate.policy`) No types, two entities, no views, two commands, two events, one error and no actors.
 - **[tenancy](domains/mandate-tenancy.md)** (`mandate.tenancy`) No types, five entities, no views, 10 commands, 10 events, one error and no actors.
-- **[workload](domains/mandate-workload.md)** (`mandate.workload`) No types, one entity, no views, one command, one event, one error and no actors.
+- **[workload](domains/mandate-workload.md)** (`mandate.workload`) No types, one entity, no views, two commands, two events, one error and no actors.
 
 ## Components
 
@@ -271,4 +279,4 @@ A component is a unit of ownership, not a deployment. How many of each runs, and
 
 ---
 
-Generated from mandate v1 · model digest `deae57d148a5f63c051f8fb5fcc75b60572366e23d12c3cfe66b5d1f2ca3e08c` · contract digest `8c8a4c5c20546b9c78fc5f4fe3dd244989b8aff69b79ba0bbf3cd5613e3b3743`. Do not edit this file; change the specification and regenerate it with `ess generate`.
+Generated from mandate v1 · model digest `cc2b92ef62d71301fffac73193657e56997c8c3355bd5026b9a5ca7a6e331078` · contract digest `890c4e5029e2171c3abad275af7a71d3ffccff4269b5fc933b70ff203f11574c`. Do not edit this file; change the specification and regenerate it with `ess generate`.

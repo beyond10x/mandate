@@ -1,6 +1,6 @@
 # generated from mandate v1
-# model digest deae57d148a5f63c051f8fb5fcc75b60572366e23d12c3cfe66b5d1f2ca3e08c
-# contract digest slice-sha256/2:32eb43912c6ac3e0401951bbaf835a0e74d9d0f6aa0862405c32a616961d46cf
+# model digest cc2b92ef62d71301fffac73193657e56997c8c3355bd5026b9a5ca7a6e331078
+# contract digest slice-sha256/2:007dde8599fcda55d2b627cab3f5eb8734ad9f825cce8656416ff17c3f518169
 # do not edit: regenerate with `ess generate`
 openapi: 3.1.0
 info:
@@ -14,8 +14,8 @@ info:
   x-ess-provenance:
     system: mandate
     specification_version: v1
-    source_digest: deae57d148a5f63c051f8fb5fcc75b60572366e23d12c3cfe66b5d1f2ca3e08c
-    contract_digest: slice-sha256/2:32eb43912c6ac3e0401951bbaf835a0e74d9d0f6aa0862405c32a616961d46cf
+    source_digest: cc2b92ef62d71301fffac73193657e56997c8c3355bd5026b9a5ca7a6e331078
+    contract_digest: slice-sha256/2:007dde8599fcda55d2b627cab3f5eb8734ad9f825cce8656416ff17c3f518169
 tags:
 - name: delegation
 - name: directory

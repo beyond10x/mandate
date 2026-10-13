@@ -1,6 +1,6 @@
 # generated from mandate v1
-# model digest deae57d148a5f63c051f8fb5fcc75b60572366e23d12c3cfe66b5d1f2ca3e08c
-# contract digest slice-sha256/2:3a85480970d2602f3d7af802b8aed7878f49178e3f1b8f7f974b3e6845ca510b
+# model digest cc2b92ef62d71301fffac73193657e56997c8c3355bd5026b9a5ca7a6e331078
+# contract digest slice-sha256/2:79eccd29d6318b61a13ea0bf1999645f5a9006d0118175f262f59e6a52511536
 # do not edit: regenerate with `ess generate`
 openapi: 3.1.0
 info:
@@ -14,8 +14,8 @@ info:
   x-ess-provenance:
     system: mandate
     specification_version: v1
-    source_digest: deae57d148a5f63c051f8fb5fcc75b60572366e23d12c3cfe66b5d1f2ca3e08c
-    contract_digest: slice-sha256/2:3a85480970d2602f3d7af802b8aed7878f49178e3f1b8f7f974b3e6845ca510b
+    source_digest: cc2b92ef62d71301fffac73193657e56997c8c3355bd5026b9a5ca7a6e331078
+    contract_digest: slice-sha256/2:79eccd29d6318b61a13ea0bf1999645f5a9006d0118175f262f59e6a52511536
 tags:
 - name: authorization
 - name: graph

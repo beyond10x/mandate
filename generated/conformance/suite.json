@@ -132,9 +132,9 @@
     },
     "counts": {
       "authored": 21,
-      "generated": 160,
+      "generated": 164,
       "outside": 0,
-      "refused": 72
+      "refused": 75
     },
     "generated": [
       "mandate.audit.AuditEvent/transition/redact/by/mandate.audit.RedactAuditEvent/accepted",
@@ -145,6 +145,8 @@
       "mandate.audit.RedactAuditEvent/outcome/wrong-state",
       "mandate.authorization.Check/outcome/accepted",
       "mandate.authorization.Check/outcome/denied",
+      "mandate.authorization.CheckWithApproval/outcome/denied",
+      "mandate.authorization.CheckWithApproval/outcome/wrong-state",
       "mandate.credential.AccessCredential/transition/revoke/by/mandate.credential.RevokeAccessCredential/accepted",
       "mandate.credential.AuthorizationCode/transition/consume/by/mandate.credential.RedeemAuthorizationCode/accepted",
       "mandate.credential.DisableResourceServer/outcome/accepted",
@@ -295,6 +297,8 @@
       "mandate.tenancy.Space/transition/retire/by/mandate.tenancy.RetireSpace/accepted",
       "mandate.tenancy.Team/transition/retire/by/mandate.tenancy.RetireTeam/accepted",
       "mandate.tenancy.TeamMembership/transition/remove/by/mandate.tenancy.RemoveTeamMembership/accepted",
+      "mandate.workload.AuthenticateWorkload/outcome/accepted",
+      "mandate.workload.AuthenticateWorkload/outcome/denied",
       "mandate.workload.RevokeWorkloadIdentity/outcome/denied",
       "mandate.workload.RevokeWorkloadIdentity/outcome/wrong-state"
     ],
@@ -479,6 +483,21 @@
         "subject": {
           "kind": "entity",
           "name": "mandate.delegation.AgentCapabilityCeiling"
+        }
+      },
+      {
+        "code": "ESS-SYNTH-004",
+        "effect": "candidate_not_emitted",
+        "message": "refusal[ESS-SYNTH-004]: entity mandate.delegation.Approval has no scenario `mandate.delegation.Approval/state/Consumed/refuses/mandate.authorization.CheckWithApproval`\n  it needs an instance of `mandate.delegation.Approval` resting in `Consumed`, and no outcome creates one\n  help: give some command outcome `creates:` for this entity; nothing can act on an instance nothing brings into existence",
+        "needs": [],
+        "origin": "generated",
+        "retained": null,
+        "scenario": "mandate.delegation.Approval/state/Consumed/refuses/mandate.authorization.CheckWithApproval",
+        "scope": "in_scope",
+        "source": null,
+        "subject": {
+          "kind": "entity",
+          "name": "mandate.delegation.Approval"
         }
       },
       {
@@ -934,6 +953,24 @@
       {
         "code": "ESS-SYNTH-004",
         "effect": "candidate_not_emitted",
+        "message": "refusal[ESS-SYNTH-004]: outcome mandate.authorization.CheckWithApproval/accepted has no scenario `mandate.authorization.CheckWithApproval/outcome/accepted`\n  it needs an instance of `mandate.delegation.Approval` to move along `consume`, and no outcome creates one\n  help: give some command outcome `creates:` for this entity; nothing can act on an instance nothing brings into existence",
+        "needs": [],
+        "origin": "generated",
+        "retained": null,
+        "scenario": "mandate.authorization.CheckWithApproval/outcome/accepted",
+        "scope": "in_scope",
+        "source": null,
+        "subject": {
+          "kind": "outcome",
+          "name": {
+            "command": "mandate.authorization.CheckWithApproval",
+            "outcome": "accepted"
+          }
+        }
+      },
+      {
+        "code": "ESS-SYNTH-004",
+        "effect": "candidate_not_emitted",
         "message": "refusal[ESS-SYNTH-004]: outcome mandate.delegation.CompleteExecution/accepted has no scenario `mandate.delegation.CompleteExecution/outcome/accepted`\n  it needs an instance of `mandate.delegation.Execution` to move along `complete`, and no outcome creates one\n  help: give some command outcome `creates:` for this entity; nothing can act on an instance nothing brings into existence",
         "needs": [],
         "origin": "generated",
@@ -1240,6 +1277,24 @@
       {
         "code": "ESS-SYNTH-004",
         "effect": "candidate_not_emitted",
+        "message": "refusal[ESS-SYNTH-004]: transition mandate.delegation.Approval/consume has no scenario `mandate.delegation.Approval/transition/consume/by/mandate.authorization.CheckWithApproval/accepted`\n  it needs an instance of `mandate.delegation.Approval` to move along `consume`, and no outcome creates one\n  help: give some command outcome `creates:` for this entity; nothing can act on an instance nothing brings into existence",
+        "needs": [],
+        "origin": "generated",
+        "retained": null,
+        "scenario": "mandate.delegation.Approval/transition/consume/by/mandate.authorization.CheckWithApproval/accepted",
+        "scope": "in_scope",
+        "source": null,
+        "subject": {
+          "kind": "transition",
+          "name": {
+            "entity": "mandate.delegation.Approval",
+            "transition": "consume"
+          }
+        }
+      },
+      {
+        "code": "ESS-SYNTH-004",
+        "effect": "candidate_not_emitted",
         "message": "refusal[ESS-SYNTH-004]: transition mandate.delegation.Approval/consume has no scenario `mandate.delegation.Approval/transition/consume/by/mandate.delegation.ConsumeApproval/accepted`\n  it needs an instance of `mandate.delegation.Approval` to move along `consume`, and no outcome creates one\n  help: give some command outcome `creates:` for this entity; nothing can act on an instance nothing brings into existence",
         "needs": [],
         "origin": "generated",
@@ -1483,9 +1538,9 @@
     }
   },
   "provenance": {
-    "contract_digest": "8c8a4c5c20546b9c78fc5f4fe3dd244989b8aff69b79ba0bbf3cd5613e3b3743",
+    "contract_digest": "890c4e5029e2171c3abad275af7a71d3ffccff4269b5fc933b70ff203f11574c",
     "scenario_initial_state": "empty",
-    "spec_digest": "deae57d148a5f63c051f8fb5fcc75b60572366e23d12c3cfe66b5d1f2ca3e08c",
+    "spec_digest": "cc2b92ef62d71301fffac73193657e56997c8c3355bd5026b9a5ca7a6e331078",
     "specification_version": "v1",
     "suite_version": "ess-conformance/35",
     "system": "mandate"
@@ -1847,6 +1902,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -2318,6 +2377,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -2723,6 +2786,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -3106,6 +3173,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -3515,6 +3586,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -4093,6 +4168,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -4454,6 +4533,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -4925,6 +5008,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -5278,6 +5365,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -5620,6 +5711,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -5934,6 +6029,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -6269,6 +6368,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -6662,6 +6765,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -7188,6 +7295,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -7553,6 +7664,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -7899,6 +8014,1411 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadIdentityRevoked",
+          "step": "expect_no_event"
+        }
+      ]
+    },
+    "mandate.authorization.CheckWithApproval/outcome/denied": {
+      "purpose": "`mandate.authorization.CheckWithApproval` answers `denied` for the cause it declares as external, injected",
+      "source": [
+        {
+          "kind": "type",
+          "name": "mandate.core.Action"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.ApprovalId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.Audience"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.CorrelationId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.CredentialId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.DelegationId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.DenialReason"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.ExecutionId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.OrganizationId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.PrincipalId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.ResourceId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.ResourceRef"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.ResourceType"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.VerifiedContext"
+        },
+        {
+          "kind": "command",
+          "name": "mandate.authorization.CheckWithApproval"
+        },
+        {
+          "kind": "outcome",
+          "name": {
+            "command": "mandate.authorization.CheckWithApproval",
+            "outcome": "denied"
+          }
+        },
+        {
+          "kind": "event",
+          "name": "mandate.audit.AuditEventRecorded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.audit.AuditEventRedacted"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.audit.CredentialRevoked"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.audit.DirectoryGroupCreated"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.audit.ExternalPrincipalUnlinked"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.audit.FederationConnectionChanged"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.DecisionRecorded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.AccessCredentialRevoked"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.AuthorizationCodeIssued"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.AuthorizationCodeRedeemed"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.CredentialIntrospected"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.CredentialReferenceIssued"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.CredentialSelfContainedIssued"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.ResourceServerDisabled"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.ResourceServerRegistered"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.SigningKeyRegistered"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.SigningKeyRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.SigningKeyRevoked"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.TokenExchangeAllowed"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.delegation.AgentCapabilityCeilingSuperseded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.delegation.AgentRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.delegation.ApprovalConsumed"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.delegation.DelegationCreated"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.delegation.DelegationRevoked"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.delegation.ExecutionCompleted"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.DirectoryGroupMembershipChanged"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.DirectoryGroupMembershipRecorded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.DirectoryGroupMembershipRemoved"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.DirectoryGroupRecorded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.DirectoryGroupRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.DirectoryGroupTeamMappingCreated"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.DirectoryGroupTeamMappingRemoved"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.MembershipContributionRecorded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.MembershipContributionRemoved"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.SyncJobCompleted"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.SyncJobFailed"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.SyncJobRecorded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.AuthorizationCodeIssued"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.ExternalPrincipalLinked"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.ExternalPrincipalProvisioned"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.ExternalPrincipalUnlinked"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.FederationAuthenticated"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.FederationConnectionCreated"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.FederationConnectionDisabled"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.OAuthClientDisabled"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.OAuthClientRegistered"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.graph.GrantRevoked"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.graph.RelationRemoved"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.graph.RelationshipWritten"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.graph.ResourceDeregistered"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.graph.ResourceRegistered"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.identity.EpochSnapshotRecorded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.identity.PrincipalDisabled"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.identity.RefreshCredentialRevoked"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.identity.SecurityEpochIncremented"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.identity.SecurityEpochRecorded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.identity.SessionOpened"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.identity.SessionRefreshed"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.identity.SessionRevoked"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.policy.AuthorizationModelSuperseded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.policy.PolicySuperseded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.tenancy.OrganizationClosed"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.tenancy.OrganizationCreated"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.tenancy.OrganizationMembershipAdded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.tenancy.OrganizationMembershipRemoved"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.tenancy.SpaceCreated"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.tenancy.SpaceRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.tenancy.TeamCreated"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.tenancy.TeamMembershipAdded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.tenancy.TeamMembershipRemoved"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadIdentityRevoked"
+        },
+        {
+          "kind": "error",
+          "name": "mandate.authorization.Denied"
+        }
+      ],
+      "steps": [
+        {
+          "force": {
+            "command": "mandate.authorization.CheckWithApproval",
+            "outcome": "denied"
+          },
+          "step": "configure_external_outcome"
+        },
+        {
+          "command": "mandate.authorization.CheckWithApproval",
+          "input": {
+            "action": {
+              "kind": "literal",
+              "value": "action"
+            },
+            "approval": {
+              "kind": "literal",
+              "value": "00000000-0000-4000-8000-4ddf2d05a286"
+            },
+            "context": {
+              "kind": "literal",
+              "value": {
+                "actor": "00000000-0000-4000-8000-67527e907bdf",
+                "audience": "context.audience",
+                "correlation": "context.correlation",
+                "credential": "00000000-0000-4000-8000-1a9adaafbbe3",
+                "delegation": "00000000-0000-4000-8000-4ce7d2de1620",
+                "execution": "00000000-0000-4000-8000-4328179a0efc",
+                "organization": "00000000-0000-4000-8000-d6e5803f2cb9",
+                "subject": "00000000-0000-4000-8000-ca24861528da"
+              }
+            },
+            "resource": {
+              "kind": "literal",
+              "value": {
+                "resource_id": "00000000-0000-4000-8000-cedd08990237",
+                "resource_type": "resource.resource_type"
+              }
+            }
+          },
+          "step": "execute_command"
+        },
+        {
+          "outcome": {
+            "command": "mandate.authorization.CheckWithApproval",
+            "outcome": "denied"
+          },
+          "step": "expect_outcome"
+        },
+        {
+          "error": "mandate.authorization.Denied",
+          "step": "expect_error"
+        },
+        {
+          "event": "mandate.audit.AuditEventRecorded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.audit.AuditEventRedacted",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.audit.CredentialRevoked",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.audit.DirectoryGroupCreated",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.audit.ExternalPrincipalUnlinked",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.audit.FederationConnectionChanged",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.DecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.AccessCredentialRevoked",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.AuthorizationCodeIssued",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.AuthorizationCodeRedeemed",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.CredentialIntrospected",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.CredentialReferenceIssued",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.CredentialSelfContainedIssued",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.ResourceServerDisabled",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.ResourceServerRegistered",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.SigningKeyRegistered",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.SigningKeyRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.SigningKeyRevoked",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.TokenExchangeAllowed",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.delegation.AgentCapabilityCeilingSuperseded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.delegation.AgentRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.delegation.ApprovalConsumed",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.delegation.DelegationCreated",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.delegation.DelegationRevoked",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.delegation.ExecutionCompleted",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.DirectoryGroupMembershipChanged",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.DirectoryGroupMembershipRecorded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.DirectoryGroupMembershipRemoved",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.DirectoryGroupRecorded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.DirectoryGroupRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.DirectoryGroupTeamMappingCreated",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.DirectoryGroupTeamMappingRemoved",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.MembershipContributionRecorded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.MembershipContributionRemoved",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.SyncJobCompleted",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.SyncJobFailed",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.SyncJobRecorded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.federation.AuthorizationCodeIssued",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.federation.ExternalPrincipalLinked",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.federation.ExternalPrincipalProvisioned",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.federation.ExternalPrincipalUnlinked",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.federation.FederationAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.federation.FederationConnectionCreated",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.federation.FederationConnectionDisabled",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.federation.OAuthClientDisabled",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.federation.OAuthClientRegistered",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.graph.GrantRevoked",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.graph.RelationRemoved",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.graph.RelationshipWritten",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.graph.ResourceDeregistered",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.graph.ResourceRegistered",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.identity.EpochSnapshotRecorded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.identity.PrincipalDisabled",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.identity.RefreshCredentialRevoked",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.identity.SecurityEpochIncremented",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.identity.SecurityEpochRecorded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.identity.SessionOpened",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.identity.SessionRefreshed",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.identity.SessionRevoked",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.policy.AuthorizationModelSuperseded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.policy.PolicySuperseded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.tenancy.OrganizationClosed",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.tenancy.OrganizationCreated",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.tenancy.OrganizationMembershipAdded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.tenancy.OrganizationMembershipRemoved",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.tenancy.SpaceCreated",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.tenancy.SpaceRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.tenancy.TeamCreated",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.tenancy.TeamMembershipAdded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.tenancy.TeamMembershipRemoved",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadIdentityRevoked",
+          "step": "expect_no_event"
+        }
+      ]
+    },
+    "mandate.authorization.CheckWithApproval/outcome/wrong-state": {
+      "purpose": "`mandate.authorization.CheckWithApproval` for an identity no record carries takes `wrong-state` and reports `mandate.authorization.Denied`",
+      "source": [
+        {
+          "kind": "entity",
+          "name": "mandate.delegation.Approval"
+        },
+        {
+          "kind": "command",
+          "name": "mandate.authorization.CheckWithApproval"
+        },
+        {
+          "kind": "outcome",
+          "name": {
+            "command": "mandate.authorization.CheckWithApproval",
+            "outcome": "wrong-state"
+          }
+        },
+        {
+          "kind": "event",
+          "name": "mandate.audit.AuditEventRecorded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.audit.AuditEventRedacted"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.audit.CredentialRevoked"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.audit.DirectoryGroupCreated"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.audit.ExternalPrincipalUnlinked"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.audit.FederationConnectionChanged"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.DecisionRecorded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.AccessCredentialRevoked"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.AuthorizationCodeIssued"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.AuthorizationCodeRedeemed"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.CredentialIntrospected"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.CredentialReferenceIssued"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.CredentialSelfContainedIssued"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.ResourceServerDisabled"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.ResourceServerRegistered"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.SigningKeyRegistered"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.SigningKeyRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.SigningKeyRevoked"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.TokenExchangeAllowed"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.delegation.AgentCapabilityCeilingSuperseded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.delegation.AgentRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.delegation.ApprovalConsumed"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.delegation.DelegationCreated"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.delegation.DelegationRevoked"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.delegation.ExecutionCompleted"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.DirectoryGroupMembershipChanged"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.DirectoryGroupMembershipRecorded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.DirectoryGroupMembershipRemoved"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.DirectoryGroupRecorded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.DirectoryGroupRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.DirectoryGroupTeamMappingCreated"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.DirectoryGroupTeamMappingRemoved"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.MembershipContributionRecorded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.MembershipContributionRemoved"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.SyncJobCompleted"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.SyncJobFailed"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.SyncJobRecorded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.AuthorizationCodeIssued"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.ExternalPrincipalLinked"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.ExternalPrincipalProvisioned"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.ExternalPrincipalUnlinked"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.FederationAuthenticated"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.FederationConnectionCreated"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.FederationConnectionDisabled"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.OAuthClientDisabled"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.OAuthClientRegistered"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.graph.GrantRevoked"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.graph.RelationRemoved"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.graph.RelationshipWritten"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.graph.ResourceDeregistered"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.graph.ResourceRegistered"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.identity.EpochSnapshotRecorded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.identity.PrincipalDisabled"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.identity.RefreshCredentialRevoked"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.identity.SecurityEpochIncremented"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.identity.SecurityEpochRecorded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.identity.SessionOpened"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.identity.SessionRefreshed"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.identity.SessionRevoked"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.policy.AuthorizationModelSuperseded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.policy.PolicySuperseded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.tenancy.OrganizationClosed"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.tenancy.OrganizationCreated"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.tenancy.OrganizationMembershipAdded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.tenancy.OrganizationMembershipRemoved"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.tenancy.SpaceCreated"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.tenancy.SpaceRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.tenancy.TeamCreated"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.tenancy.TeamMembershipAdded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.tenancy.TeamMembershipRemoved"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadIdentityRevoked"
+        },
+        {
+          "kind": "error",
+          "name": "mandate.authorization.Denied"
+        }
+      ],
+      "steps": [
+        {
+          "command": "mandate.authorization.CheckWithApproval",
+          "input": {
+            "action": {
+              "kind": "literal",
+              "value": "action"
+            },
+            "approval": {
+              "kind": "literal",
+              "value": "00000000-0000-4000-8000-f10490058250"
+            },
+            "context": {
+              "kind": "literal",
+              "value": {
+                "actor": "00000000-0000-4000-8000-67527e907bdf",
+                "audience": "context.audience",
+                "correlation": "context.correlation",
+                "credential": "00000000-0000-4000-8000-1a9adaafbbe3",
+                "delegation": "00000000-0000-4000-8000-4ce7d2de1620",
+                "execution": "00000000-0000-4000-8000-4328179a0efc",
+                "organization": "00000000-0000-4000-8000-d6e5803f2cb9",
+                "subject": "00000000-0000-4000-8000-ca24861528da"
+              }
+            },
+            "resource": {
+              "kind": "literal",
+              "value": {
+                "resource_id": "00000000-0000-4000-8000-cedd08990237",
+                "resource_type": "resource.resource_type"
+              }
+            }
+          },
+          "step": "execute_command"
+        },
+        {
+          "outcome": {
+            "command": "mandate.authorization.CheckWithApproval",
+            "outcome": "wrong-state"
+          },
+          "step": "expect_outcome"
+        },
+        {
+          "error": "mandate.authorization.Denied",
+          "step": "expect_error"
+        },
+        {
+          "event": "mandate.audit.AuditEventRecorded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.audit.AuditEventRedacted",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.audit.CredentialRevoked",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.audit.DirectoryGroupCreated",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.audit.ExternalPrincipalUnlinked",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.audit.FederationConnectionChanged",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.DecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.AccessCredentialRevoked",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.AuthorizationCodeIssued",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.AuthorizationCodeRedeemed",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.CredentialIntrospected",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.CredentialReferenceIssued",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.CredentialSelfContainedIssued",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.ResourceServerDisabled",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.ResourceServerRegistered",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.SigningKeyRegistered",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.SigningKeyRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.SigningKeyRevoked",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.TokenExchangeAllowed",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.delegation.AgentCapabilityCeilingSuperseded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.delegation.AgentRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.delegation.ApprovalConsumed",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.delegation.DelegationCreated",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.delegation.DelegationRevoked",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.delegation.ExecutionCompleted",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.DirectoryGroupMembershipChanged",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.DirectoryGroupMembershipRecorded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.DirectoryGroupMembershipRemoved",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.DirectoryGroupRecorded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.DirectoryGroupRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.DirectoryGroupTeamMappingCreated",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.DirectoryGroupTeamMappingRemoved",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.MembershipContributionRecorded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.MembershipContributionRemoved",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.SyncJobCompleted",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.SyncJobFailed",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.SyncJobRecorded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.federation.AuthorizationCodeIssued",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.federation.ExternalPrincipalLinked",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.federation.ExternalPrincipalProvisioned",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.federation.ExternalPrincipalUnlinked",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.federation.FederationAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.federation.FederationConnectionCreated",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.federation.FederationConnectionDisabled",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.federation.OAuthClientDisabled",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.federation.OAuthClientRegistered",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.graph.GrantRevoked",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.graph.RelationRemoved",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.graph.RelationshipWritten",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.graph.ResourceDeregistered",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.graph.ResourceRegistered",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.identity.EpochSnapshotRecorded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.identity.PrincipalDisabled",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.identity.RefreshCredentialRevoked",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.identity.SecurityEpochIncremented",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.identity.SecurityEpochRecorded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.identity.SessionOpened",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.identity.SessionRefreshed",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.identity.SessionRevoked",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.policy.AuthorizationModelSuperseded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.policy.PolicySuperseded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.tenancy.OrganizationClosed",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.tenancy.OrganizationCreated",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.tenancy.OrganizationMembershipAdded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.tenancy.OrganizationMembershipRemoved",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.tenancy.SpaceCreated",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.tenancy.SpaceRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.tenancy.TeamCreated",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.tenancy.TeamMembershipAdded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.tenancy.TeamMembershipRemoved",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -8607,6 +10127,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         }
       ],
@@ -9045,6 +10569,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -9462,6 +10990,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -10109,6 +11641,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -10470,6 +12006,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -10914,6 +12454,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -11267,6 +12811,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -11609,6 +13157,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -11923,6 +13475,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -12258,6 +13814,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -12655,6 +14215,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -13251,6 +14815,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -13601,6 +15169,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -13957,6 +15529,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -14338,6 +15914,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -14860,6 +16440,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -15178,6 +16762,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -15511,6 +17099,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -15916,6 +17508,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -16419,6 +18015,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -16816,6 +18416,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -17187,6 +18791,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -17580,6 +19188,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -18187,6 +19799,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -18564,6 +20180,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -18918,6 +20538,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -19311,6 +20935,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -19918,6 +21546,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -20295,6 +21927,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -20649,6 +22285,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -21069,6 +22709,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -21716,6 +23360,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -22046,6 +23694,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -22394,6 +24046,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -22708,6 +24364,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -23046,6 +24706,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -23411,6 +25075,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -23888,6 +25556,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -24253,6 +25925,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -24609,6 +26285,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -24974,6 +26654,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -25427,6 +27111,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -25788,6 +27476,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -26138,6 +27830,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -26502,6 +28198,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -26946,6 +28646,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -27307,6 +29011,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -27745,6 +29453,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -28098,6 +29810,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -28440,6 +30156,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -28754,6 +30474,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -29089,6 +30813,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -29449,6 +31177,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -29890,6 +31622,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -30239,6 +31975,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -30581,6 +32321,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -30895,6 +32639,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -31230,6 +32978,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -31594,6 +33346,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -32032,6 +33788,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -32385,6 +34145,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -32727,6 +34491,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -33041,6 +34809,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -33376,6 +35148,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -33740,6 +35516,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -34178,6 +35958,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -34550,6 +36334,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -34985,6 +36773,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -39446,6 +41238,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -39788,6 +41584,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -40102,6 +41902,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -40437,6 +42241,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -40793,6 +42601,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -41135,6 +42947,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -41449,6 +43265,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -41784,6 +43604,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -42157,6 +43981,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -42666,6 +44494,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -43039,6 +44871,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -43409,6 +45245,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -43772,6 +45612,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         }
       ],
@@ -44227,6 +46071,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -44576,6 +46424,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -44918,6 +46770,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -45232,6 +47088,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -45567,6 +47427,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -45930,6 +47794,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         }
       ],
@@ -46385,6 +48253,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -46734,6 +48606,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -47076,6 +48952,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -47390,6 +49270,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -47725,6 +49609,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -48081,6 +49969,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -48423,6 +50315,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -48737,6 +50633,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -49072,6 +50972,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -49428,6 +51332,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -49770,6 +51678,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -50084,6 +51996,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -50419,6 +52335,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -50784,6 +52704,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -51229,6 +53153,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -51586,6 +53514,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -51929,6 +53861,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -52296,6 +54232,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         }
       ],
@@ -52724,6 +54664,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -53077,6 +55021,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -53419,6 +55367,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -53733,6 +55685,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -54068,6 +56024,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -54424,6 +56384,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -54766,6 +56730,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -55080,6 +57048,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -55415,6 +57387,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -55782,6 +57758,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         }
       ],
@@ -56210,6 +58190,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -56563,6 +58547,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -56905,6 +58893,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -57219,6 +59211,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -57554,6 +59550,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -57910,6 +59910,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -58252,6 +60256,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -58566,6 +60574,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -58901,6 +60913,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -59257,6 +61273,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -59599,6 +61619,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -59913,6 +61937,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -60248,6 +62276,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -60605,6 +62637,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -60999,6 +63035,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -61352,6 +63392,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -61695,6 +63739,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -62044,6 +64092,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -62462,6 +64514,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -62784,6 +64840,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -63117,6 +65177,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -63494,6 +65558,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -63960,6 +66028,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -64322,6 +66394,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -64697,6 +66773,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -65058,6 +67138,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -65501,6 +67585,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -65854,6 +67942,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -66196,6 +68288,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -66510,6 +68606,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -66845,6 +68945,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -67209,6 +69313,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -67646,6 +69754,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -67999,6 +70111,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -68341,6 +70457,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -68655,6 +70775,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -68990,6 +71114,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -69354,6 +71482,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -69793,6 +71925,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -70154,6 +72290,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -70597,6 +72737,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -70959,6 +73103,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -71412,6 +73560,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -71773,6 +73925,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -72124,6 +74280,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -72488,6 +74648,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -72925,6 +75089,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -73275,6 +75443,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -73714,6 +75886,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -74036,6 +76212,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -74369,6 +76549,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -74734,6 +76918,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -75195,6 +77383,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -75556,6 +77748,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -75911,6 +78107,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -76272,6 +78472,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -76724,6 +78928,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -77081,6 +79289,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -77430,6 +79642,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -77794,6 +80010,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -78233,6 +80453,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -78586,6 +80810,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -78928,6 +81156,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -79242,6 +81474,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -79577,6 +81813,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -82627,6 +84867,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         }
       ],
@@ -83058,6 +85302,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -83411,6 +85659,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -83753,6 +86005,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -84067,6 +86323,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -84402,6 +86662,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -84763,6 +87027,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -85199,6 +87467,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -85560,6 +87832,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -85906,6 +88182,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -86273,6 +88553,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         }
       ],
@@ -86708,6 +88992,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -87075,6 +89363,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         }
       ],
@@ -87513,6 +89805,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -87866,6 +90162,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -88208,6 +90508,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -88522,6 +90826,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -88857,6 +91165,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -89221,6 +91533,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -89655,6 +91971,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -90008,6 +92328,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -90350,6 +92674,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -90664,6 +92992,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -90999,6 +93331,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -91372,6 +93708,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -91829,6 +94169,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -92198,6 +94542,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -92554,6 +94902,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -92903,6 +95255,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -93245,6 +95601,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -93559,6 +95919,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -93894,6 +96258,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -94247,6 +96615,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -94636,6 +97008,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -94993,6 +97369,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -95338,6 +97718,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -95656,6 +98040,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -96005,6 +98393,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -96323,6 +98715,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -96652,6 +99048,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -97008,6 +99408,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -97350,6 +99754,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -97664,6 +100072,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -97999,6 +100411,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -98366,6 +100782,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         }
       ],
@@ -98781,6 +101201,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -99134,6 +101558,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -99476,6 +101904,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -99790,6 +102222,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -100125,6 +102561,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -100492,6 +102932,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         }
       ],
@@ -100907,6 +103351,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -101260,6 +103708,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -101602,6 +104054,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -101916,6 +104372,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -102251,6 +104711,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -102607,6 +105071,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -102949,6 +105417,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -103263,6 +105735,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -103598,6 +106074,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -103951,6 +106431,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -104376,6 +106860,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -104725,6 +107213,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -105068,6 +107560,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -105429,6 +107925,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -105867,6 +108367,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -106220,6 +108724,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -106563,6 +109071,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -106923,6 +109435,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -107350,6 +109866,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -107699,6 +110219,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -108041,6 +110565,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -108355,6 +110883,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -108690,6 +111222,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -109039,6 +111575,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -109455,6 +111995,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -109804,6 +112348,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -110143,6 +112691,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -110496,6 +113048,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -110912,6 +113468,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -111261,6 +113821,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -111600,6 +114164,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -111953,6 +114521,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -112369,6 +114941,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -112718,6 +115294,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -113057,6 +115637,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -113417,6 +116001,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -113844,6 +116432,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -114205,6 +116797,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -114633,6 +117229,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -115000,6 +117600,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         }
       ],
@@ -115428,6 +118032,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -115781,6 +118389,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -116123,6 +118735,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -116437,6 +119053,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -116772,6 +119392,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -117139,6 +119763,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         }
       ],
@@ -117567,6 +120195,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -117920,6 +120552,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -118262,6 +120898,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -118576,6 +121216,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -118911,6 +121555,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -119278,6 +121926,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         }
       ],
@@ -119702,6 +122354,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -120055,6 +122711,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -120397,6 +123057,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -120711,6 +123375,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -121046,6 +123714,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -121413,6 +124085,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         }
       ],
@@ -121837,6 +124513,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -122190,6 +124870,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -122532,6 +125216,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -122846,6 +125534,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -123181,6 +125873,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
@@ -123545,6 +126241,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -123972,6 +126672,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -124333,6 +127037,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -124760,6 +127468,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -125121,6 +127833,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -125552,6 +128268,1424 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadIdentityRevoked",
+          "step": "expect_no_event"
+        }
+      ]
+    },
+    "mandate.workload.AuthenticateWorkload/outcome/accepted": {
+      "purpose": "`mandate.workload.AuthenticateWorkload` answers `accepted` for an input no other branch's guard claims",
+      "source": [
+        {
+          "kind": "type",
+          "name": "mandate.core.CredentialProof"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.ExecutionId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.OrganizationId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.PrincipalId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.WorkloadIdentityId"
+        },
+        {
+          "kind": "command",
+          "name": "mandate.workload.AuthenticateWorkload"
+        },
+        {
+          "kind": "outcome",
+          "name": {
+            "command": "mandate.workload.AuthenticateWorkload",
+            "outcome": "accepted"
+          }
+        },
+        {
+          "kind": "event",
+          "name": "mandate.audit.AuditEventRecorded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.audit.AuditEventRedacted"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.audit.CredentialRevoked"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.audit.DirectoryGroupCreated"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.audit.ExternalPrincipalUnlinked"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.audit.FederationConnectionChanged"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.DecisionRecorded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.AccessCredentialRevoked"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.AuthorizationCodeIssued"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.AuthorizationCodeRedeemed"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.CredentialIntrospected"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.CredentialReferenceIssued"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.CredentialSelfContainedIssued"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.ResourceServerDisabled"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.ResourceServerRegistered"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.SigningKeyRegistered"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.SigningKeyRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.SigningKeyRevoked"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.TokenExchangeAllowed"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.delegation.AgentCapabilityCeilingSuperseded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.delegation.AgentRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.delegation.ApprovalConsumed"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.delegation.DelegationCreated"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.delegation.DelegationRevoked"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.delegation.ExecutionCompleted"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.DirectoryGroupMembershipChanged"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.DirectoryGroupMembershipRecorded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.DirectoryGroupMembershipRemoved"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.DirectoryGroupRecorded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.DirectoryGroupRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.DirectoryGroupTeamMappingCreated"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.DirectoryGroupTeamMappingRemoved"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.MembershipContributionRecorded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.MembershipContributionRemoved"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.SyncJobCompleted"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.SyncJobFailed"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.SyncJobRecorded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.AuthorizationCodeIssued"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.ExternalPrincipalLinked"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.ExternalPrincipalProvisioned"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.ExternalPrincipalUnlinked"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.FederationAuthenticated"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.FederationConnectionCreated"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.FederationConnectionDisabled"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.OAuthClientDisabled"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.OAuthClientRegistered"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.graph.GrantRevoked"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.graph.RelationRemoved"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.graph.RelationshipWritten"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.graph.ResourceDeregistered"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.graph.ResourceRegistered"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.identity.EpochSnapshotRecorded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.identity.PrincipalDisabled"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.identity.RefreshCredentialRevoked"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.identity.SecurityEpochIncremented"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.identity.SecurityEpochRecorded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.identity.SessionOpened"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.identity.SessionRefreshed"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.identity.SessionRevoked"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.policy.AuthorizationModelSuperseded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.policy.PolicySuperseded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.tenancy.OrganizationClosed"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.tenancy.OrganizationCreated"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.tenancy.OrganizationMembershipAdded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.tenancy.OrganizationMembershipRemoved"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.tenancy.SpaceCreated"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.tenancy.SpaceRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.tenancy.TeamCreated"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.tenancy.TeamMembershipAdded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.tenancy.TeamMembershipRemoved"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadIdentityRevoked"
+        }
+      ],
+      "steps": [
+        {
+          "command": "mandate.workload.AuthenticateWorkload",
+          "input": {
+            "agent": {
+              "kind": "literal",
+              "value": "00000000-0000-4000-8000-8a15c0f8e1e6"
+            },
+            "execution": {
+              "kind": "literal",
+              "value": "00000000-0000-4000-8000-f8104d76cc15"
+            },
+            "workload_proof": {
+              "kind": "literal",
+              "value": "AA=="
+            }
+          },
+          "step": "execute_command"
+        },
+        {
+          "outcome": {
+            "command": "mandate.workload.AuthenticateWorkload",
+            "outcome": "accepted"
+          },
+          "step": "expect_outcome"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "payload": {
+            "agent": "00000000-0000-4000-8000-8a15c0f8e1e6",
+            "execution": "00000000-0000-4000-8000-f8104d76cc15"
+          },
+          "shape": {
+            "agent": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "authenticated_at": {
+              "holds": "primitive",
+              "kind": "timestamp"
+            },
+            "execution": {
+              "holds": "primitive",
+              "kind": "uuid",
+              "optional": true
+            }
+          },
+          "step": "expect_event"
+        },
+        {
+          "response": {
+            "command": "mandate.workload.AuthenticateWorkload",
+            "declarations": {
+              "mandate.core.OrganizationId": {
+                "kind": "newtype",
+                "of": "Uuid"
+              },
+              "mandate.core.PrincipalId": {
+                "kind": "newtype",
+                "of": "Uuid"
+              },
+              "mandate.core.WorkloadIdentityId": {
+                "kind": "newtype",
+                "of": "Uuid"
+              }
+            },
+            "event": "mandate.workload.WorkloadAuthenticated",
+            "fields": [
+              {
+                "name": "workload",
+                "type": "mandate.core.WorkloadIdentityId"
+              },
+              {
+                "name": "runtime",
+                "type": "mandate.core.PrincipalId"
+              },
+              {
+                "name": "organization",
+                "type": "mandate.core.OrganizationId"
+              }
+            ],
+            "mappings": {
+              "organization": "organization",
+              "runtime": "runtime",
+              "workload": "workload"
+            },
+            "outcome": {
+              "command": "mandate.workload.AuthenticateWorkload",
+              "outcome": "accepted"
+            },
+            "targets": [
+              {
+                "name": "workload",
+                "type": "mandate.core.WorkloadIdentityId"
+              },
+              {
+                "name": "runtime",
+                "type": "mandate.core.PrincipalId"
+              },
+              {
+                "name": "organization",
+                "type": "mandate.core.OrganizationId"
+              }
+            ]
+          },
+          "step": "expect_response_payload"
+        },
+        {
+          "event": "mandate.audit.AuditEventRecorded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.audit.AuditEventRedacted",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.audit.CredentialRevoked",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.audit.DirectoryGroupCreated",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.audit.ExternalPrincipalUnlinked",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.audit.FederationConnectionChanged",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.DecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.AccessCredentialRevoked",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.AuthorizationCodeIssued",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.AuthorizationCodeRedeemed",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.CredentialIntrospected",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.CredentialReferenceIssued",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.CredentialSelfContainedIssued",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.ResourceServerDisabled",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.ResourceServerRegistered",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.SigningKeyRegistered",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.SigningKeyRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.SigningKeyRevoked",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.TokenExchangeAllowed",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.delegation.AgentCapabilityCeilingSuperseded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.delegation.AgentRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.delegation.ApprovalConsumed",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.delegation.DelegationCreated",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.delegation.DelegationRevoked",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.delegation.ExecutionCompleted",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.DirectoryGroupMembershipChanged",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.DirectoryGroupMembershipRecorded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.DirectoryGroupMembershipRemoved",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.DirectoryGroupRecorded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.DirectoryGroupRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.DirectoryGroupTeamMappingCreated",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.DirectoryGroupTeamMappingRemoved",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.MembershipContributionRecorded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.MembershipContributionRemoved",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.SyncJobCompleted",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.SyncJobFailed",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.SyncJobRecorded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.federation.AuthorizationCodeIssued",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.federation.ExternalPrincipalLinked",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.federation.ExternalPrincipalProvisioned",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.federation.ExternalPrincipalUnlinked",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.federation.FederationAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.federation.FederationConnectionCreated",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.federation.FederationConnectionDisabled",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.federation.OAuthClientDisabled",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.federation.OAuthClientRegistered",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.graph.GrantRevoked",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.graph.RelationRemoved",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.graph.RelationshipWritten",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.graph.ResourceDeregistered",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.graph.ResourceRegistered",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.identity.EpochSnapshotRecorded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.identity.PrincipalDisabled",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.identity.RefreshCredentialRevoked",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.identity.SecurityEpochIncremented",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.identity.SecurityEpochRecorded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.identity.SessionOpened",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.identity.SessionRefreshed",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.identity.SessionRevoked",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.policy.AuthorizationModelSuperseded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.policy.PolicySuperseded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.tenancy.OrganizationClosed",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.tenancy.OrganizationCreated",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.tenancy.OrganizationMembershipAdded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.tenancy.OrganizationMembershipRemoved",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.tenancy.SpaceCreated",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.tenancy.SpaceRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.tenancy.TeamCreated",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.tenancy.TeamMembershipAdded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.tenancy.TeamMembershipRemoved",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadIdentityRevoked",
+          "step": "expect_no_event"
+        }
+      ]
+    },
+    "mandate.workload.AuthenticateWorkload/outcome/denied": {
+      "purpose": "`mandate.workload.AuthenticateWorkload` answers `denied` for the cause it declares as external, injected",
+      "source": [
+        {
+          "kind": "type",
+          "name": "mandate.core.CredentialProof"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.DenialReason"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.ExecutionId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.PrincipalId"
+        },
+        {
+          "kind": "command",
+          "name": "mandate.workload.AuthenticateWorkload"
+        },
+        {
+          "kind": "outcome",
+          "name": {
+            "command": "mandate.workload.AuthenticateWorkload",
+            "outcome": "denied"
+          }
+        },
+        {
+          "kind": "event",
+          "name": "mandate.audit.AuditEventRecorded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.audit.AuditEventRedacted"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.audit.CredentialRevoked"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.audit.DirectoryGroupCreated"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.audit.ExternalPrincipalUnlinked"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.audit.FederationConnectionChanged"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.audit.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.authorization.DecisionRecorded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.AccessCredentialRevoked"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.AuthorizationCodeIssued"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.AuthorizationCodeRedeemed"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.CredentialIntrospected"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.CredentialReferenceIssued"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.CredentialSelfContainedIssued"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.ResourceServerDisabled"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.ResourceServerRegistered"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.SigningKeyRegistered"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.SigningKeyRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.SigningKeyRevoked"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.TokenExchangeAllowed"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.TokenExchangeDenied"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.delegation.AgentCapabilityCeilingSuperseded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.delegation.AgentRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.delegation.ApprovalConsumed"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.delegation.DelegationCreated"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.delegation.DelegationRevoked"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.delegation.ExecutionCompleted"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.DirectoryGroupMembershipChanged"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.DirectoryGroupMembershipRecorded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.DirectoryGroupMembershipRemoved"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.DirectoryGroupRecorded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.DirectoryGroupRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.DirectoryGroupTeamMappingCreated"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.DirectoryGroupTeamMappingRemoved"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.MembershipContributionRecorded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.MembershipContributionRemoved"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.SyncJobCompleted"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.SyncJobFailed"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.directory.SyncJobRecorded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.AuthorizationCodeIssued"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.ExternalPrincipalLinked"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.ExternalPrincipalProvisioned"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.ExternalPrincipalUnlinked"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.FederationAuthenticated"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.FederationConnectionCreated"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.FederationConnectionDisabled"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.OAuthClientDisabled"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.OAuthClientRegistered"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.graph.GrantRevoked"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.graph.RelationRemoved"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.graph.RelationshipWritten"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.graph.ResourceDeregistered"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.graph.ResourceRegistered"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.identity.EpochSnapshotRecorded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.identity.PrincipalDisabled"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.identity.RefreshCredentialRevoked"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.identity.SecurityEpochIncremented"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.identity.SecurityEpochRecorded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.identity.SessionOpened"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.identity.SessionRefreshed"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.identity.SessionRevoked"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.policy.AuthorizationModelSuperseded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.policy.PolicySuperseded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.tenancy.OrganizationClosed"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.tenancy.OrganizationCreated"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.tenancy.OrganizationMembershipAdded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.tenancy.OrganizationMembershipRemoved"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.tenancy.SpaceCreated"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.tenancy.SpaceRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.tenancy.TeamCreated"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.tenancy.TeamMembershipAdded"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.tenancy.TeamMembershipRemoved"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadIdentityRevoked"
+        },
+        {
+          "kind": "error",
+          "name": "mandate.workload.Denied"
+        }
+      ],
+      "steps": [
+        {
+          "force": {
+            "command": "mandate.workload.AuthenticateWorkload",
+            "outcome": "denied"
+          },
+          "step": "configure_external_outcome"
+        },
+        {
+          "command": "mandate.workload.AuthenticateWorkload",
+          "input": {
+            "agent": {
+              "kind": "literal",
+              "value": "00000000-0000-4000-8000-8a15c0f8e1e6"
+            },
+            "execution": {
+              "kind": "literal",
+              "value": "00000000-0000-4000-8000-f8104d76cc15"
+            },
+            "workload_proof": {
+              "kind": "literal",
+              "value": "AA=="
+            }
+          },
+          "step": "execute_command"
+        },
+        {
+          "outcome": {
+            "command": "mandate.workload.AuthenticateWorkload",
+            "outcome": "denied"
+          },
+          "step": "expect_outcome"
+        },
+        {
+          "error": "mandate.workload.Denied",
+          "step": "expect_error"
+        },
+        {
+          "event": "mandate.audit.AuditEventRecorded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.audit.AuditEventRedacted",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.audit.CredentialRevoked",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.audit.DirectoryGroupCreated",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.audit.ExternalPrincipalUnlinked",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.audit.FederationConnectionChanged",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.audit.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.authorization.DecisionRecorded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.AccessCredentialRevoked",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.AuthorizationCodeIssued",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.AuthorizationCodeRedeemed",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.CredentialIntrospected",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.CredentialReferenceIssued",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.CredentialSelfContainedIssued",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.ResourceServerDisabled",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.ResourceServerRegistered",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.SigningKeyRegistered",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.SigningKeyRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.SigningKeyRevoked",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.TokenExchangeAllowed",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.credential.TokenExchangeDenied",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.delegation.AgentCapabilityCeilingSuperseded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.delegation.AgentRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.delegation.ApprovalConsumed",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.delegation.DelegationCreated",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.delegation.DelegationRevoked",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.delegation.ExecutionCompleted",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.DirectoryGroupMembershipChanged",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.DirectoryGroupMembershipRecorded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.DirectoryGroupMembershipRemoved",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.DirectoryGroupRecorded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.DirectoryGroupRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.DirectoryGroupTeamMappingCreated",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.DirectoryGroupTeamMappingRemoved",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.MembershipContributionRecorded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.MembershipContributionRemoved",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.SyncJobCompleted",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.SyncJobFailed",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.directory.SyncJobRecorded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.federation.AuthorizationCodeIssued",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.federation.ExternalPrincipalLinked",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.federation.ExternalPrincipalProvisioned",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.federation.ExternalPrincipalUnlinked",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.federation.FederationAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.federation.FederationConnectionCreated",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.federation.FederationConnectionDisabled",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.federation.OAuthClientDisabled",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.federation.OAuthClientRegistered",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.graph.GrantRevoked",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.graph.RelationRemoved",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.graph.RelationshipWritten",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.graph.ResourceDeregistered",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.graph.ResourceRegistered",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.identity.EpochSnapshotRecorded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.identity.PrincipalDisabled",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.identity.RefreshCredentialRevoked",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.identity.SecurityEpochIncremented",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.identity.SecurityEpochRecorded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.identity.SessionOpened",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.identity.SessionRefreshed",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.identity.SessionRevoked",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.policy.AuthorizationModelSuperseded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.policy.PolicySuperseded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.tenancy.OrganizationClosed",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.tenancy.OrganizationCreated",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.tenancy.OrganizationMembershipAdded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.tenancy.OrganizationMembershipRemoved",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.tenancy.SpaceCreated",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.tenancy.SpaceRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.tenancy.TeamCreated",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.tenancy.TeamMembershipAdded",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.tenancy.TeamMembershipRemoved",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -125905,6 +130039,10 @@
         },
         {
           "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
+        },
+        {
+          "kind": "event",
           "name": "mandate.workload.WorkloadIdentityRevoked"
         },
         {
@@ -126247,6 +130385,10 @@
           "step": "expect_no_event"
         },
         {
+          "event": "mandate.workload.WorkloadAuthenticated",
+          "step": "expect_no_event"
+        },
+        {
           "event": "mandate.workload.WorkloadIdentityRevoked",
           "step": "expect_no_event"
         }
@@ -126561,6 +130703,10 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.TeamRetired"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.workload.WorkloadAuthenticated"
         },
         {
           "kind": "event",
@@ -126896,6 +131042,10 @@
         },
         {
           "event": "mandate.tenancy.TeamRetired",
+          "step": "expect_no_event"
+        },
+        {
+          "event": "mandate.workload.WorkloadAuthenticated",
           "step": "expect_no_event"
         },
         {
