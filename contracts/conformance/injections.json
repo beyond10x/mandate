@@ -685,9 +685,9 @@
     {
       "scenario": "mandate.workload.RevokeWorkloadIdentity/outcome/denied",
       "command": "mandate.workload.RevokeWorkloadIdentity",
-      "port": "none",
-      "kind": "unsupported-command",
-      "consulted": 0
+      "port": "mandate_model::workload::WorkloadIdentityRead",
+      "kind": "armed-unrefused",
+      "consulted": 1
     }
   ],
   "blocked": [
@@ -1526,16 +1526,10 @@
       "blocked_on": "story:conform-gate"
     },
     {
-      "scenario": "mandate.workload.RevokeWorkloadIdentity/outcome/denied",
-      "command": "mandate.workload.RevokeWorkloadIdentity",
-      "reason": "unrealized-command",
-      "blocked_on": "story:agent-security"
-    },
-    {
       "scenario": "mandate.workload.RevokeWorkloadIdentity/outcome/wrong-state",
-      "command": "mandate.workload.RevokeWorkloadIdentity",
-      "reason": "unrealized-command",
-      "blocked_on": "story:agent-security"
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
     }
   ]
 }

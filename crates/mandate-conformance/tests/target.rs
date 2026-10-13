@@ -820,6 +820,7 @@ fn every_port_method_the_substituted_reader_implements_counts_its_read() {
     use mandate_identity::IdentityRead;
     use mandate_identity::SecurityEpochWrite;
     use mandate_identity::TargetTenancy;
+    use mandate_model::workload::WorkloadIdentityRead;
     use mandate_sts::keys::{KeyMaterialResolver, SigningKeyReads};
     use mandate_sts::registry::ResourceServerReads;
     use mandate_sts::resolve::{CredentialReads, CredentialResolution};
@@ -1128,6 +1129,15 @@ fn every_port_method_the_substituted_reader_implements_counts_its_read() {
                 );
             }),
         ),
+        (
+            "WorkloadIdentityRead::workload_identity",
+            Box::new(|r: &Substituted| {
+                let _ = WorkloadIdentityRead::workload_identity(
+                    r,
+                    &mandate_types::WorkloadIdentityId::new(identity(0x35)),
+                );
+            }),
+        ),
     ];
 
     let mut uncounted: Vec<&str> = Vec::new();
@@ -1213,6 +1223,7 @@ const PORT_CRATE_SOURCES: &[(&str, &str)] = &[
     ("mandate_federation", "../mandate-federation/src"),
     ("mandate_identity", "../mandate-identity/src"),
     ("mandate_graph", "../mandate-graph/src"),
+    ("mandate_model", "../mandate-model/src"),
     ("mandate_sts", "../../services/sts/src"),
 ];
 

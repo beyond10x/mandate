@@ -540,10 +540,41 @@
     },
     {
       "command": "mandate.workload.RevokeWorkloadIdentity",
-      "status": "deferred",
-      "story": "story:agent-security",
-      "clauses": [],
-      "no_state_change": []
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "Caller lacks workload-identity administration authority",
+          "tests": [],
+          "blocked_on": "decision-blocker:guards"
+        },
+        {
+          "clause": "the identity is outside the verified organization",
+          "tests": [
+            {
+              "id": "mandate-model::workload::a_workload_identity_of_another_organization_refuses_like_an_unknown_one",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "revocation cannot durably stop the exchange of workload credentials presented under the binding",
+          "tests": [],
+          "blocked_on": "story:agent-security"
+        }
+      ],
+      "no_state_change": [
+        {
+          "id": "mandate-model::workload::a_second_revocation_refuses_and_emits_nothing",
+          "kind": "no-state-change",
+          "path": "real"
+        }
+      ],
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
     }
   ],
   "addendum": [],

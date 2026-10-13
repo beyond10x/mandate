@@ -35,10 +35,12 @@
 //!   by ESS's `declaration_name` rule — the round trip cannot do this, because the six
 //!   `{context, id}` payloads are structurally identical and reproduce each other's
 //!   documents exactly;
-//! * that [`mandate_model::ESS_REALIZATIONS`] names exactly the 39 elements this crate
-//!   implements — these eighteen and the four accepted `mandate.core` records — that each
-//!   is a compiled declaration under `generated/schema`, and that each symbol is the one
-//!   its element name says it should be.
+//! * that [`mandate_model::ESS_REALIZATIONS`] names exactly the 42 elements this crate
+//!   implements — these nineteen, the six projections' lifecycle enums, the four accepted
+//!   `mandate.core` records, and the eleven
+//!   commands and two refusals it decides — that each is a compiled declaration under
+//!   `generated/schema`, and that each symbol is the one its element name says it should
+//!   be.
 //!
 //! The samples are built here rather than by driving the fold: `tests/replay.rs` decides
 //! what the commands produce, and this file decides what the produced shapes *are*.
@@ -57,10 +59,11 @@ use mandate_model::tenancy::{
     Organization, OrganizationMembership, OrganizationMembershipState, OrganizationState, Space,
     SpaceState, Team, TeamMembership, TeamMembershipState, TeamState, TenancyEvent,
 };
+use mandate_model::workload::WorkloadEvent;
 use mandate_types::{
     Audience, CorrelationId, CredentialId, DelegationId, ExecutionId, MembershipContributionId,
     OrganizationId, OrganizationMembershipId, PrincipalId, ResourceId, ResourceRef, ResourceType,
-    SpaceId, TeamId, TeamMembershipId, VerifiedContext,
+    SpaceId, TeamId, TeamMembershipId, VerifiedContext, WorkloadIdentityId,
 };
 
 const SCHEMA: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../generated/schema");
@@ -112,6 +115,12 @@ const TENANCY_COMMANDS: [&str; 11] = [
     "mandate.tenancy.CreateSpace",
     "mandate.tenancy.RetireSpace",
     "mandate.tenancy.Denied",
+];
+
+/// The workload command `decide_revoke_workload_identity` decides, and the domain's refusal.
+const WORKLOAD_COMMANDS: [&str; 2] = [
+    "mandate.workload.RevokeWorkloadIdentity",
+    "mandate.workload.Denied",
 ];
 
 fn schema_names(directory: &str) -> BTreeSet<String> {
@@ -492,6 +501,13 @@ fn payload_agreements() -> Vec<Agreement> {
                     id: resource(0x100),
                 },
             ),
+            payload!(
+                events::MandateWorkloadWorkloadIdentityRevoked,
+                WorkloadEvent::IdentityRevoked {
+                    context: context.clone(),
+                    id: WorkloadIdentityId::parse(&uuid(0x200)).expect("workload identity"),
+                },
+            ),
         ]);
 
         // `parent` is the only optional either event enum declares; both forms are
@@ -515,12 +531,14 @@ fn payload_agreements() -> Vec<Agreement> {
     agreements
 }
 
-/// The twelve payloads the compiled model declares for this crate's two event enums.
+/// The thirteen payloads the compiled model declares for this crate's three event enums.
 fn declared_payloads() -> BTreeSet<String> {
     schema_names("events")
         .into_iter()
         .filter(|name| {
-            name.starts_with("mandate.tenancy.") || name.starts_with("mandate.graph.Resource")
+            name.starts_with("mandate.tenancy.")
+                || name.starts_with("mandate.graph.Resource")
+                || name.starts_with("mandate.workload.")
         })
         .collect()
 }
@@ -628,7 +646,7 @@ fn every_projection_round_trips_exactly_into_its_generated_entity_shape() {
 #[test]
 fn every_declared_payload_round_trips_exactly_into_its_generated_event_shape() {
     let declared = declared_payloads();
-    assert_eq!(declared.len(), 12, "declared payloads: {declared:?}");
+    assert_eq!(declared.len(), 13, "declared payloads: {declared:?}");
     let covered: BTreeSet<String> = payload_agreements()
         .iter()
         .map(|agreement| agreement.ess_name.to_owned())
@@ -675,7 +693,7 @@ fn an_absent_optional_is_an_absent_key_and_never_null() {
         .into_iter()
         .chain(payload_agreements())
         .collect();
-    assert_eq!(agreements.len(), 42, "cases: {}", agreements.len());
+    assert_eq!(agreements.len(), 44, "cases: {}", agreements.len());
     for agreement in &agreements {
         assert_no_null(agreement.ess_name, "", &agreement.emitted);
         let document = schema(agreement.directory, agreement.ess_name);
@@ -737,7 +755,7 @@ fn every_pairing_is_the_generated_shape_its_element_name_derives_to() {
         .iter()
         .map(|element| declaration_name(element))
         .collect();
-    assert_eq!(elements.len(), 18, "elements paired");
+    assert_eq!(elements.len(), 19, "elements paired");
     assert_eq!(
         derived.len(),
         elements.len(),
@@ -781,17 +799,21 @@ fn the_realization_registry_names_exactly_the_projections_payloads_and_records_t
     // The ten tenancy commands this crate decides and the domain's refusal, registered as
     // `@ Tenancy::decide_*` and `Denied` since wave D's second correction round.
     expected.extend(TENANCY_COMMANDS);
+    // The workload revocation and the domain's refusal; its payload is in `payloads`.
+    expected.extend(WORKLOAD_COMMANDS);
     assert_eq!(
         registered, expected,
         "the registry is not every element this crate implements: six projections and their \
-         six lifecycle enums, twelve payloads and four accepted records",
+         six lifecycle enums, thirteen payloads, four accepted records, eleven commands and \
+         two refusals",
     );
     assert_eq!(
         mandate_model::ESS_REALIZATIONS.len(),
-        39,
-        "the registry pins 39 elements: 22 as it stood, the six lifecycle enums wave D's \
-         first correction round moved off the generated shapes, and the ten tenancy \
-         commands this crate decides plus the domain's refusal, registered by the second",
+        42,
+        "the registry pins 42 elements: 22 as it stood, the six lifecycle enums wave D's \
+         first correction round moved off the generated shapes, the ten tenancy commands \
+         this crate decides plus the domain's refusal, registered by the second, and the \
+         workload revocation, its payload and its refusal",
     );
 
     let entities = schema_names("entities");
@@ -846,6 +868,14 @@ fn the_realization_registry_names_exactly_the_projections_payloads_and_records_t
                 *symbol == "crate::tenancy::Tenancy"
                     || symbol.starts_with("crate::tenancy::Tenancy::decide_"),
                 "{element}: the registry names {symbol}, not the aggregate that decides it",
+            );
+        } else if WORKLOAD_COMMANDS.contains(element) && !element.ends_with(".Denied") {
+            // The workload revocation is decided by a free function over the read port, and
+            // its name is the command's: `RevokeWorkloadIdentity` is
+            // `decide_revoke_workload_identity`.
+            assert_eq!(
+                *symbol, "crate::workload::decide_revoke_workload_identity",
+                "{element}: the registry names {symbol}, not the function that decides it",
             );
         } else {
             // A record is realized by a type, and the type's own name is the element's
