@@ -371,6 +371,13 @@ const STANDING: &[StandingDouble] = &[
         why: "no crate in the authorization ceiling generates a uuid",
     },
     StandingDouble {
+        port: "mandate_authz::workload::TrustDomainVerifier",
+        double: "mandate_authz::workload::ConfiguredTrustDomains",
+        why: "no trust bundle is configured for a scenario and the SPIFFE verifier is \
+              story:agent-security's; this one verifies no proof, so AuthenticateWorkload is \
+              refused for its proof and never admitted on a forged verification",
+    },
+    StandingDouble {
         port: "mandate_identity::IdentityLog",
         double: "mandate_identity::IdentityLog",
         why: "the in-memory double of the event-log adapter a later story supplies",
@@ -549,6 +556,10 @@ pub const PORTS: &[(&str, &str)] = &[
     (
         "mandate.workload.RevokeWorkloadIdentity",
         "mandate_model::workload::WorkloadIdentityRead",
+    ),
+    (
+        "mandate.workload.AuthenticateWorkload",
+        "mandate_authz::workload::TrustDomainVerifier",
     ),
     (
         "mandate.delegation.CreateDelegation",
@@ -993,6 +1004,29 @@ impl mandate_model::workload::WorkloadIdentityRead for Substituted {
     ) -> Option<mandate_model::workload::WorkloadIdentity> {
         self.read();
         None
+    }
+
+    fn bindings(
+        &self,
+        _trust_domain: &mandate_types::TrustDomain,
+        _external_subject: &ExternalSubject,
+    ) -> Vec<mandate_model::workload::WorkloadIdentity> {
+        self.read();
+        Vec::new()
+    }
+}
+
+impl mandate_authz::workload::TrustDomainVerifier for Substituted {
+    /// A refusal, and counted as one: the signature has no absence, and an unverified proof
+    /// is what a verifier holding no trust domain answers.
+    fn verify(
+        &self,
+        _proof: &CredentialProof,
+        _at: &mandate_types::Timestamp,
+    ) -> Result<mandate_authz::workload::VerifiedWorkload, mandate_authz::workload::ProofRefused>
+    {
+        self.refuse();
+        Err(mandate_authz::workload::ProofRefused::Unverified)
     }
 }
 

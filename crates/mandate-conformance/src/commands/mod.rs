@@ -79,6 +79,7 @@ pub const REALIZED: &[&str] = &[
     "mandate.tenancy.RemoveTeamMembership",
     "mandate.tenancy.RetireSpace",
     "mandate.tenancy.RetireTeam",
+    "mandate.workload.AuthenticateWorkload",
     "mandate.workload.RevokeWorkloadIdentity",
 ];
 
@@ -300,6 +301,7 @@ pub fn execute(
         "mandate.workload.RevokeWorkloadIdentity" => {
             workload::revoke_workload_identity(live, request)
         }
+        "mandate.workload.AuthenticateWorkload" => workload::authenticate_workload(live, request),
         "mandate.delegation.CreateDelegation" => delegation::create_delegation(live, request),
         "mandate.delegation.RevokeDelegation" => delegation::revoke_delegation(live, request),
         "mandate.delegation.RetireAgent" => delegation::retire_agent(live, request),
@@ -414,6 +416,13 @@ impl Refusal for mandate_federation::Denied {
 impl Refusal for mandate_authz::command::Denied {
     fn branch(&self) -> &'static str {
         self.outcome.ir_name()
+    }
+}
+
+/// `mandate.workload.AuthenticateWorkload` declares one refusing outcome.
+impl Refusal for mandate_authz::workload::Denied {
+    fn branch(&self) -> &'static str {
+        "denied"
     }
 }
 

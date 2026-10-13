@@ -1,10 +1,15 @@
 //! The `mandate.workload.WorkloadIdentity` projection, its revocation and the fold that writes it.
 //!
-//! `systems/mandate/domains/workload.yaml` declares one entity and one command over it.
+//! `systems/mandate/domains/workload.yaml` declares one entity and two commands.
 //! `RevokeWorkloadIdentity` moves a `WorkloadIdentity` from `Recorded` to `Revoked` along
 //! `revoke` and emits `mandate.workload.WorkloadIdentityRevoked`, `{context, id}`; every
 //! refusal carries `mandate.workload.Denied`. `docs/architecture/ownership.md` gives
 //! `mandate.workload` records to this crate.
+//!
+//! `AuthenticateWorkload` reads agent and execution records this crate does not hold, so
+//! `mandate-authz` decides it. Its event, `mandate.workload.WorkloadAuthenticated`, is
+//! [`WorkloadEvent::Authenticated`] here beside the revocation and folds into no record; the
+//! decider resolves a verified binding through [`WorkloadIdentityRead::bindings`].
 //!
 //! # The record is read through a port, and no command writes one
 //!
@@ -63,8 +68,8 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use mandate_types::{
-    DenialReason, ExternalSubject, OrganizationId, PrincipalId, TrustDomain, VerifiedContext,
-    WorkloadIdentityId,
+    DenialReason, ExecutionId, ExternalSubject, OrganizationId, PrincipalId, Timestamp,
+    TrustDomain, VerifiedContext, WorkloadIdentityId,
 };
 
 /// `mandate.workload.Denied`: the decision refused, and nothing was written.
@@ -122,6 +127,18 @@ pub trait WorkloadIdentityRead {
     /// A record-level read: deciding whether the caller may see the record is the
     /// decider's, never the reader's.
     fn workload_identity(&self, id: &WorkloadIdentityId) -> Option<WorkloadIdentity>;
+
+    /// Every kept record carrying this trust domain and external subject, in every state and
+    /// organization, in identity order; empty when none does.
+    ///
+    /// A record-level read, as [`Self::workload_identity`] is: which of them, if any, a
+    /// verified workload proof resolves to is the decider's (`mandate-authz`'s
+    /// `AuthenticateWorkload`), never the reader's.
+    fn bindings(
+        &self,
+        trust_domain: &TrustDomain,
+        external_subject: &ExternalSubject,
+    ) -> Vec<WorkloadIdentity>;
 }
 
 /// The declared `mandate.workload` event payloads.
@@ -139,6 +156,30 @@ pub enum WorkloadEvent {
         /// The binding that stops being admitted.
         id: WorkloadIdentityId,
     },
+    /// `mandate.workload.WorkloadAuthenticated`: a workload runtime and the application
+    /// agent it runs, each authenticated on its own.
+    ///
+    /// Decided by `mandate-authz` (`workload::decide_authenticate_workload`), which reads the
+    /// agent records this crate does not hold. It folds into no record:
+    /// [`WorkloadIdentities::apply`] leaves the projection as it was.
+    Authenticated {
+        /// The workload identity the verified proof resolved to.
+        workload: WorkloadIdentityId,
+        /// The runtime principal that workload identity names.
+        runtime: PrincipalId,
+        /// The application agent the caller named; never derived from the proof.
+        agent: PrincipalId,
+        /// The organization of the workload identity and of the agent.
+        organization: OrganizationId,
+        /// The execution the caller named, when it named one.
+        ///
+        /// Absent rather than null, for the reason `crate::graph::ResourceEvent`'s `parent`
+        /// gives.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        execution: Option<ExecutionId>,
+        /// The decision instant.
+        authenticated_at: Timestamp,
+    },
 }
 
 impl WorkloadEvent {
@@ -150,6 +191,7 @@ impl WorkloadEvent {
     pub fn ess_name(&self) -> &'static str {
         match self {
             Self::IdentityRevoked { .. } => "mandate.workload.WorkloadIdentityRevoked",
+            Self::Authenticated { .. } => "mandate.workload.WorkloadAuthenticated",
         }
     }
 }
@@ -224,6 +266,9 @@ impl WorkloadIdentities {
                     record.state = WorkloadIdentityState::Revoked;
                 }
             }
+            // `workload.yaml`: nothing is created or moved, and the event folds into no
+            // record.
+            WorkloadEvent::Authenticated { .. } => {}
         }
     }
 
@@ -243,6 +288,20 @@ impl WorkloadIdentities {
 impl WorkloadIdentityRead for WorkloadIdentities {
     fn workload_identity(&self, id: &WorkloadIdentityId) -> Option<WorkloadIdentity> {
         self.records.get(id).cloned()
+    }
+
+    fn bindings(
+        &self,
+        trust_domain: &TrustDomain,
+        external_subject: &ExternalSubject,
+    ) -> Vec<WorkloadIdentity> {
+        self.records
+            .values()
+            .filter(|record| {
+                record.trust_domain == *trust_domain && record.external_subject == *external_subject
+            })
+            .cloned()
+            .collect()
     }
 }
 

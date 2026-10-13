@@ -520,5 +520,6 @@ mandate_types::realizes! {
     // (`crate::workload`, "The record is read through a port").
     "mandate.workload.RevokeWorkloadIdentity" => crate::workload::decide_revoke_workload_identity,
     "mandate.workload.WorkloadIdentityRevoked" => crate::workload::WorkloadEvent::IdentityRevoked,
+    "mandate.workload.WorkloadAuthenticated" => crate::workload::WorkloadEvent::Authenticated,
     "mandate.workload.Denied" => crate::workload::Denied,
 }

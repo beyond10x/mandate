@@ -94,6 +94,7 @@ pub mod decision;
 pub mod delegation;
 pub mod evaluate;
 pub mod event;
+pub mod workload;
 
 mandate_types::realizes! {
     "mandate.authorization.Check" => crate::check,
@@ -125,6 +126,9 @@ mandate_types::realizes! {
     "mandate.delegation.ExecutionCompleted" => crate::event::DelegationEvent::ExecutionCompleted,
     "mandate.delegation.ApprovalConsumed" => crate::event::DelegationEvent::ApprovalConsumed,
     "mandate.delegation.Denied" => crate::command::Denied,
+    // `mandate.workload.AuthenticateWorkload`, decided over the agent records this crate folds;
+    // its event and the domain's error are `mandate-model`'s (`workload`).
+    "mandate.workload.AuthenticateWorkload" => crate::workload::decide_authenticate_workload,
 }
 
 /// Every declared `mandate.authorization` and `mandate.delegation` element this crate does

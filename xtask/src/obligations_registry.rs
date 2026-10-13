@@ -206,12 +206,23 @@ pub fn decide(
                 ));
                 continue;
             };
+            // An implemented command sits in the document of the crate the coverage manifest
+            // names for it (rule 3), even when that crate's document does not claim the
+            // command's domain: `mandate.workload.AuthenticateWorkload` is decided by
+            // `mandate-authz`, which reads the agent records, while `mandate-model` keeps the
+            // domain. Every other command sits in its domain's document.
+            let implementer = realized
+                .get(command)
+                .filter(|entry| entry["status"].as_str() == Some("implemented"))
+                .and_then(|entry| entry["crate"].as_str());
             match owner.get(declared.domain.as_str()) {
-                Some(held) if held != crate_name => problems.push(format!(
-                    "{command}: filed with {crate_name}, whose domains do not hold \
+                Some(held) if held != crate_name && implementer != Some(crate_name.as_str()) => {
+                    problems.push(format!(
+                        "{command}: filed with {crate_name}, whose domains do not hold \
                      {}; {held} claims that domain",
-                    declared.domain
-                )),
+                        declared.domain
+                    ))
+                }
                 _ => {}
             }
             command_entry(
