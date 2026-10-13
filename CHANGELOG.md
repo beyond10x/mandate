@@ -39,17 +39,24 @@ All notable changes to Mandate are recorded here. The format follows [Keep a Cha
 - The conformance suite is synthesized under 0.59.0: 166 → 200 scenarios, `cargo xtask conform`
   40 passed / 78 failed / 0 error / 82 unsupported / 0 skipped. The 34 new `wrong-state`
   scenarios start from an empty state: 19 name commands no crate realizes and restate the owner
-  `injections.json` names, and the 15 the handlers refuse as `denied` are attributed to
-  `story:ess-synthesizer-prerequisites`, as are four `ResourceServer` scenarios whose synthesized
-  `allowed_exchange_sources` names a resource server that does not exist. Every non-passed
-  scenario names a live story.
+  `injections.json` names, and the 15 the handlers refuse as `denied` act on an identity no record
+  carries; ESS reads that as `wrong-state` unless the command declares an `unknown_instance:`
+  outcome, so they are attributed to `story:unknown-instance-refusals`. Four `ResourceServer`
+  scenarios whose synthesized `allowed_exchange_sources` names a resource server that does not
+  exist are attributed to `story:ess-synthesizer-prerequisites`. Every non-passed scenario names
+  a live story.
 - The conformance target decides an armed `mandate.federation` command over the standing readers
   first: 0.59.0 compiles an authored `denied` into a `configure_external_outcome`, and a refusal
   the input already decides is now the handler's own answer, recorded `input-decided`, rather
   than a fault placed ahead of it (`federation-audience-mismatch`, `federation-ambiguous-tenant`,
   `federation-configured-method-on-explicit-link`).
-- The `mandate.delegation` coverage rows are `declared` on `story:agent-authority-kernel`, no
-  longer deferred on `decision-blocker:identity-uniqueness`.
+- The `mandate.delegation` records the evaluator reads (`Agent`, `AgentCapabilityCeiling`,
+  `Delegation`) are implemented; the delegation commands, their events and
+  `mandate.delegation.Denied` move to `story:agent-security`, deferred on
+  `decision-blocker:identity-uniqueness`.
+- `cargo deny` admits RUSTSEC-2024-0449 (`unsafe-libyaml`, unmaintained, not a vulnerability),
+  reached only through `serde_yaml` in the ESS crates; the ignore leaves when ESS drops
+  `serde_yaml`.
 
 ## [0.6.0] - 2026-09-24
 

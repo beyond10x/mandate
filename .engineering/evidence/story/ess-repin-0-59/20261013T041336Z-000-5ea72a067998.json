@@ -1,0 +1,13 @@
+{
+  "at": "2026-10-13T04:13:36Z",
+  "actor": "human:timo",
+  "artifact": "story:ess-repin-0-59",
+  "kind": "story",
+  "revision": 3,
+  "change": {
+    "change": "evidence",
+    "kind": "test_result",
+    "source": "task check",
+    "reference": "b3696b6bcd668d09538f5de838a0b35d5ce5deb0"
+  }
+}

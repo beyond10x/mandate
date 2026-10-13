@@ -2,7 +2,7 @@
 format: aep.planning-md/3
 id: story:agent-authority-kernel
 kind: story
-status: active
+status: implemented
 title: Implement shared agent authority and delegation checks before exchange
 relations:
 - decomposes: epic:agents-workloads
@@ -16,10 +16,11 @@ scope:
   path: crates/mandate-authz
 - confidence: inferred
   path: crates/mandate-policy
-revision: 6
+revision: 7
 transitions:
 - {from: "draft", to: "proposed", at: "2026-10-12T16:02:14Z", actor: "human:timo", revision: 5}
 - {from: "proposed", to: "active", at: "2026-10-12T16:02:14Z", actor: "human:timo", revision: 6}
+- {from: "active", to: "implemented", at: "2026-10-13T04:13:36Z", actor: "human:timo", revision: 7, decided_on: {"recorded":{"test_result":1}}}
 ---
 # Implement shared agent authority and delegation checks before exchange
 

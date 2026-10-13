@@ -13,7 +13,7 @@ on the newest ESS release.
 | unit | story | branch | managed id | scratch | stage |
 |---|---|---|---|---|---|
 | U0 | `story:ess-repin-0-59` | `impl/ess-repin-0-59` | `mandate-w5a-ess-repin` | `~/.cache/mandate-w5a/u0/` | merged `3cc4643` (unit head `b3696b6`) |
-| U1 | `story:agent-authority-kernel` | `impl/agent-authority-kernel` | `mandate-w5a-authority` | `~/.cache/mandate-w5a/u1/` | not started |
+| U1 | `story:agent-authority-kernel` | `impl/agent-authority-kernel` | `mandate-w5a-authority` | `~/.cache/mandate-w5a/u1/` | merged `ac9dac2` (unit head `88b1e75`) |
 
 U1 depends on U0: `domains/delegation.yaml`, which U1 models in, is refused by ESS 0.59.0 until U0
 lands. They run in sequence, and each tree builds into its own `target/`.
@@ -32,7 +32,10 @@ lands. They run in sequence, and each tree builds into its own `target/`.
 
 The opening store commit; one commit per unit, plus each adversary pass's test file; the merges into
 the integration branch; the closing store commit; one PR from the integration branch to `main`, and
-its bot merge on green CI. No release without a separate decision.
+its bot merge on green CI. No release without a separate decision. Amended 2026-10-13: the
+operator granted the release of this wave through the repository's own process; it is a minor
+release, because the `SigningKeyWindow` move is a Rust API break. The unit fix-ups after each
+adversary pass are unit commits too.
 
 ## Pre-flight
 
@@ -82,3 +85,17 @@ its bot merge on green CI. No release without a separate decision.
   0 failed over 287 result lines, every mutant killed; process groups `1879143` (on `867ed5e`) and
   `3045585` (on `b3696b6`); peak `target/` 7.2G.
 - Merged into the integration branch as `3cc4643`.
+- U1, `story:agent-authority-kernel`, from `c9854f1`: `516dad2` (the evaluator, its spec clause
+  and scenario `exchange-ceiling-conflict`), `d5dc6b3` and `c0384de` (gate findings). 20
+  required-observation tests red against a stub (0 of 20), then green; two hand-rolled properties
+  (exhaustive, 65,536 cases; 20,000 seeded samples). `task check` on `c0384de`: exit 0.
+- Adversary pass `39855ee` (18 cases, 1 red; the unit's suite missed 10 of 17 mutations, which
+  this file kills): a policy refusal lost its declared reason. Fixed in `59dc790`, for every
+  `DenialReason`. `91b9195` and `88b1e75` move the delegation commands, events, conformance rows
+  and obligation clauses this story does not realize to `story:agent-security` (deferred on
+  `decision-blocker:identity-uniqueness`); `5c05abf` is rustfmt on the adversary file. `task
+  check` on `88b1e75`: exit 0, 2165 tests listed, process group `2415528`, peak `target/` 6.0G.
+- Merged into the integration branch as `ac9dac2`. Closing store commit: both stories move to
+  `implemented` on their `task check` results; `story:agent-security` records what it inherits
+  and the two gaps the adversary noted for it (execution records are not read; a subject that is
+  an agent is not bounded by its own ceilings).
