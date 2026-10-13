@@ -183,9 +183,12 @@ fn every_declared_entry_names_a_story_the_store_has_not_already_closed() {
         }
     }
     // Coordinator amendment (correction 2): eleven tenancy elements moved to `implemented`.
+    // Amendment: the thirteen open `mandate.delegation` elements moved from `declared` on
+    // story:agent-authority-kernel to `deferred` on story:agent-security, which
+    // decision-blocker:identity-uniqueness holds.
     assert!(
-        declared >= 29,
-        "this case found {declared} declared entries and the manifest holds 29"
+        declared >= 25,
+        "this case found {declared} declared entries and the manifest holds 25"
     );
     assert!(
         dead.is_empty(),
