@@ -326,7 +326,7 @@ fn the_coverage_manifest_names_exactly_what_this_crate_accounts_for() {
             "{element}: two entries name this element"
         );
     }
-    assert_eq!(entries.len(), 293, "the coverage manifest's element count");
+    assert_eq!(entries.len(), 296, "the coverage manifest's element count");
 
     let mut claimed: BTreeMap<String, String> = BTreeMap::new();
     for (element, entry) in &entries {
