@@ -20,7 +20,7 @@ to end against the shipped binary: `mandate-control-plane serve` serves `/v1/fed
 `/.well-known/oauth-authorization-server`, a first login provisions a user just in time where the
 connection admits it, and a revoked link is not provisioned around.
 
-Measured at `0.7.0`: `task check` exit 0, 289 suites, 2,164 tests, 0 failed; 11 named mutants each
+Measured at `0.7.0`: `task check` exit 0, 290 suites, 2,166 tests, 0 failed; 11 named mutants each
 killed; 293 contract elements with 211 implemented; 201 conformance scenarios (ESS 0.59.0) with 40
 passed and 0 error; 199 denial clauses with 89 decided on the real path.
 

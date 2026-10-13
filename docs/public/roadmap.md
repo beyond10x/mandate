@@ -51,7 +51,7 @@ Every number below is read from a command rather than written from memory, and e
 
 | measured at `0.7.0` | |
 |---|---|
-| Tests | `task check` — 289 suites, 2,164 tests, 0 failed |
+| Tests | `task check` — 290 suites, 2,166 tests, 0 failed |
 | Mutation | 11 named mutants, each killed by the test that names it |
 | Contract coverage | 293 declared elements — 211 implemented, 25 declared, 57 deferred |
 | Conformance corpus | 201 scenarios under ESS 0.59.0 — 40 passed, 78 failed, 0 error, 83 unsupported |
