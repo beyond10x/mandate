@@ -1198,6 +1198,72 @@ fn approval_required_yields_allowed_false() {
     assert_refused(&decision, AuthorityClause::DelegationRevoked);
 }
 
+/// A policy that refuses every pair with one declared reason.
+struct Refuses(DenialReason);
+
+impl PolicyEvaluator for Refuses {
+    fn evaluate(&self, _request: &PolicyRequest<'_>) -> Result<Evaluation, PolicyError> {
+        Err(PolicyError::Denied(self.0))
+    }
+}
+
+/// A policy refusal keeps the reason policy declared, for every reason the contract can
+/// carry, the way `check` keeps it: an approval requirement named as a refusal is answered
+/// as the approval it is, with the challenge that clears it; an inability to decide is
+/// `Unavailable`; every other reason reaches the caller unchanged.
+#[test]
+fn a_policy_refusal_reports_the_reason_policy_declared_for_every_reason() {
+    for reason in DenialReason::VARIANTS {
+        let decision = Ask::delegated(scope(&["document.read"], &[10]))
+            .evaluate(&delegated_records(), &Refuses(*reason));
+        let (expected, clause) = match reason {
+            DenialReason::Denied => (DecisionReason::Denied, AuthorityClause::PolicyDenied),
+            DenialReason::ApprovalRequired => (
+                DecisionReason::ApprovalRequired,
+                AuthorityClause::ApprovalRequired,
+            ),
+            DenialReason::InvalidCredential => (
+                DecisionReason::InvalidCredential,
+                AuthorityClause::PolicyDenied,
+            ),
+            DenialReason::TenantMismatch => (
+                DecisionReason::TenantMismatch,
+                AuthorityClause::PolicyDenied,
+            ),
+            DenialReason::AudienceMismatch => (
+                DecisionReason::AudienceMismatch,
+                AuthorityClause::PolicyDenied,
+            ),
+            DenialReason::Unavailable => {
+                (DecisionReason::Unavailable, AuthorityClause::Unavailable)
+            }
+            DenialReason::StaleEpoch => (DecisionReason::StaleEpoch, AuthorityClause::PolicyDenied),
+        };
+        assert!(!decision.allowed, "{reason:?}: {decision:?}");
+        assert_eq!(decision.reason, expected, "{reason:?}: {decision:?}");
+        assert_eq!(decision.clause, Some(clause), "{reason:?}: {decision:?}");
+        assert!(
+            decision.permitted.actions.is_empty() && decision.permitted.resources.is_empty(),
+            "{reason:?}: {decision:?}"
+        );
+        assert_eq!(decision.expires_at, None, "{reason:?}: {decision:?}");
+        let challenged = *reason == DenialReason::ApprovalRequired;
+        assert_eq!(
+            decision.challenges.len(),
+            usize::from(challenged),
+            "{reason:?}: an approval carries the challenge that clears it, a refusal none: \
+             {decision:?}"
+        );
+        if challenged {
+            assert_eq!(
+                decision.challenges[0].requirement,
+                ChallengeRequirement::Approval,
+                "the strictest requirement applies when policy named none"
+            );
+        }
+    }
+}
+
 #[test]
 fn bounds_confined_to_different_spaces_permit_nothing() {
     let mut records = delegated_records();

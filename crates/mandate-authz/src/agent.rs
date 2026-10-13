@@ -60,7 +60,9 @@
 //! verbatim. `max_delegation_ttl` bounds how long a delegation may be created for, which is
 //! `CreateDelegation`'s to enforce and not read here.
 
-use mandate_policy::port::{AttributeSet, Challenge, PolicyEvaluator, PolicyRequest};
+use mandate_policy::port::{
+    AttributeSet, Challenge, ChallengeRequirement, PolicyEvaluator, PolicyRequest,
+};
 use mandate_policy::precedence::{Combined, Component, combine};
 use mandate_types::{
     Action, Audience, AuthorityScope, AuthoritySubject, DecisionReason, DelegationId, DenialReason,
@@ -210,7 +212,7 @@ pub enum AuthorityClause {
     SpaceConflict,
     /// The intersection permits no action or no resource.
     NothingPermitted,
-    /// Policy refused the request.
+    /// Policy refused the request. The decision carries the reason policy declared.
     PolicyDenied,
     /// Policy requires an approval first.
     ApprovalRequired,
@@ -274,7 +276,10 @@ impl AuthorityClause {
         }
     }
 
-    /// The declared reason a refusal on this clause carries.
+    /// The declared reason a refusal on this clause carries, when the evaluator decides it.
+    ///
+    /// A [`Self::PolicyDenied`] refusal carries the reason policy declared instead, as
+    /// `check` does; `Denied` here is that clause's reason only when policy found nothing.
     #[must_use]
     pub const fn reason(self) -> DenialReason {
         match self {
@@ -314,6 +319,18 @@ pub struct AuthorityDecision {
 impl AuthorityDecision {
     fn refused(request: &AuthorityRequest<'_>, clause: AuthorityClause) -> Self {
         Self::not_allowed(request, clause, Vec::new())
+    }
+
+    /// A refusal whose reason its source declared, rather than the clause's own.
+    fn refused_for(
+        request: &AuthorityRequest<'_>,
+        clause: AuthorityClause,
+        reason: DecisionReason,
+    ) -> Self {
+        Self {
+            reason,
+            ..Self::refused(request, clause)
+        }
     }
 
     fn not_allowed(
@@ -557,15 +574,30 @@ where
             expires_at: Some(bound.expires_at),
             challenges: Vec::new(),
         },
-        Combined::ApprovalRequired => {
+        // An approval requirement reaches the fold two ways, as `check` reads it
+        // (`crate::decision`): as the fold's own outcome, and as a policy refusal naming
+        // `ApprovalRequired`. Both are owed the same answer. A refusal carries no challenge
+        // material, so the strictest requirement applies, as it does in `check`.
+        Combined::ApprovalRequired | Combined::Denied(DenialReason::ApprovalRequired) => {
+            if challenges.is_empty() {
+                challenges.push(Challenge {
+                    requirement: ChallengeRequirement::Approval,
+                    correlation: request.context.correlation.clone(),
+                });
+            }
             AuthorityDecision::not_allowed(request, AuthorityClause::ApprovalRequired, challenges)
         }
         Combined::Denied(DenialReason::Unavailable) => {
             AuthorityDecision::refused(request, AuthorityClause::Unavailable)
         }
-        Combined::Denied(_) | Combined::Nothing => {
-            AuthorityDecision::refused(request, AuthorityClause::PolicyDenied)
-        }
+        // Every other refusal keeps the reason policy declared, as `check` keeps it; the
+        // clause stays the declared phrase a policy refusal is an instance of.
+        Combined::Denied(reason) => AuthorityDecision::refused_for(
+            request,
+            AuthorityClause::PolicyDenied,
+            decision_reason(reason),
+        ),
+        Combined::Nothing => AuthorityDecision::refused(request, AuthorityClause::PolicyDenied),
     }
 }
 
