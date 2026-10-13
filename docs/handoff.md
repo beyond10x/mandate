@@ -29,7 +29,13 @@ clause was split). The account is `docs/plans/2026-09-23-waves-i-j-k-execution.m
 
 ## In flight right now
 
-Nothing once wave 6 merges. Wave 6 raised the specification to `ess/24` (181 synthesized scenarios,
+Nothing once wave 7 merges. Wave 7 (`docs/plans/2026-10-13-wave-7-execution.md`) wired `Check` to
+the evaluator's record checks and delivered five delegation commands, their fold and workload
+revocation; `story:agent-security` stays active for `SupersedeAgentCapabilityCeiling` (waiting on
+ESS), workload authentication, the approval inside `Check` and the execution binding of a
+delegation, which fails closed.
+
+Wave 6 raised the specification to `ess/24` (181 synthesized scenarios,
 20 unobservable ones gone), moved the gate's `aep` pin to 0.71.2, and cleared
 `decision-blocker:identity-uniqueness`; its account is `docs/plans/2026-10-13-wave-6-execution.md`.
 The 15 unknown-identity scenarios wait on ESS in `story:unknown-instance-non-disclosing`: Mandate

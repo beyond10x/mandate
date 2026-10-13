@@ -68,3 +68,37 @@ Shared, merged by the coordinator (U3, then U1, then U2): the conformance regist
 passes; the seven `/outcome/denied` scenarios of the delegation and workload commands pass; every
 other scenario of the story is attributed as above; the evaluator-gap tests named in the unit briefs
 pass; `task check` on the integration head.
+
+## Execution
+
+Merged in the order U1, U3, U2: U3 was cut after U1's merge, so the shared files merged without
+conflict.
+
+| unit | branch | managed id | stage |
+|---|---|---|---|
+| U1 `agent-pdp` | `impl/w7-agent-pdp` | `mandate-w7-agent-pdp` | merged `33bbbd0` (unit head `4328a19`) |
+| U3 `workload-revocation` | `impl/w7-workload-revocation` | `mandate-w7-workload-revocation` | merged `e2ddcfc` (unit head `a3129ec`) |
+| U2 `delegation-commands` | `impl/w7-delegation-commands` | `mandate-w7-delegation-commands` | merged `269e08f` (unit head `1b4ffbe`) |
+
+- U1 security review: three introduced findings. `Check` answered `TenantMismatch` for a
+  delegation or an actor agent record of another organization, which told such a record from an
+  unrecorded one, and did not read principal standing. Fixed in `4328a19` under decision 1: a
+  foreign delegation refuses as `DelegationAbsent` and a foreign agent record as `ActorNotAgent`,
+  at `Check` and at the exchange; the shared record checks refuse a disabled subject or actor.
+  An unrecorded standing stays the exchange's own refusal. The review's three tests are green.
+- U3: `RevokeWorkloadIdentity/outcome/denied` passes; `wrong-state` is on
+  `story:unknown-instance-non-disclosing`. `WorkloadIdentity` and its state stay `declared` on
+  `story:declared-writers`: no command creates the record. The state account in `mandate-types`
+  names the new `WorkloadIdentityState` (`3fcb6b4`).
+- U2: the five `/outcome/denied` scenarios pass; four `wrong-state` scenarios are on
+  `story:unknown-instance-non-disclosing`, three synthesized `accepted` inputs on
+  `story:ess-synthesizer-prerequisites`. `mandate-authz` gains `serde` for the event payloads and
+  `mandate-types` the shared duration parser. Security review: a replayed or reordered log could
+  put a revoked delegation back in force (no adapter delivers one yet); fixed in `1b4ffbe` by
+  applying creation monotonically. An execution-bound delegation fails closed at `Check`, because
+  the execution must be recorded before the delegation and name it; how the two records name each
+  other is open on the story, guarded by `a_delegation_bound_to_an_execution_fails_closed_at_check`.
+- Conformance after U2 (`cargo xtask conform`): 181 scenarios, 46 passed, 71 failed, 0 error,
+  64 unsupported (40 / 63 / 78 at 0.7.1). Coverage: 229 implemented, 23 declared, 41 deferred.
+- `story:agent-security` stays `active`: `SupersedeAgentCapabilityCeiling` waits on ESS, and
+  workload authentication, the approval inside `Check` and the execution binding remain.
