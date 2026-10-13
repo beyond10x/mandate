@@ -520,7 +520,10 @@ pub const ACCEPTED: &[Accepted] = &[
 /// states are `declared` on `story:federation-identity-alignment`, which
 /// `mandate-identity`'s own `ESS_UNREALIZED` reasons name as single-state lifecycles with no
 /// transition to fold, and the remaining seven follow their records' `declared` or
-/// `deferred` entries.
+/// `deferred` entries. One of those seven, `mandate.workload.WorkloadIdentity.State`, has an
+/// enum after all, `WorkloadIdentityState` in `mandate-model`, which the revocation fold
+/// moves; it is not registered, and stays `declared` with its record on
+/// `story:declared-writers` until a command creates the record.
 ///
 /// `mandate-types` is a leaf and depends on none of those crates, so no case here can
 /// construct their values — which is why the account here is the pairing above and the claim
