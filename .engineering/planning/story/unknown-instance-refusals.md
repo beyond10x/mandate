@@ -2,12 +2,15 @@
 format: aep.planning-md/3
 id: story:unknown-instance-refusals
 kind: story
-status: draft
+status: active
 title: Declare the unknown-instance refusal on commands that act on an existing record
 relations:
 - decomposes: epic:foundations
 - serves: vision:mandate
-revision: 1
+revision: 3
+transitions:
+- {from: "draft", to: "proposed", at: "2026-10-13T05:20:16Z", actor: "human:timo", revision: 2}
+- {from: "proposed", to: "active", at: "2026-10-13T05:20:16Z", actor: "human:timo", revision: 3}
 ---
 # Declare the unknown-instance refusal on commands that act on an existing record
 
