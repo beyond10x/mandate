@@ -14,29 +14,28 @@ release, after waves I, J and K.
 
 ## Where it stands
 
-`v0.6.0` is the latest release. Thirteen waves have run — 1 to 3, then A to M. The federated-login road runs end
+`v0.7.0` is the latest release. Fourteen waves have run — 1 to 3, A to M, then 5a. The federated-login road runs end
 to end against the shipped binary: `mandate-control-plane serve` serves `/v1/federation/login`,
 `/oauth/authorize`, `/oauth/token`, `/oauth/introspect`, `/oauth/jwks` and
 `/.well-known/oauth-authorization-server`, a first login provisions a user just in time where the
 connection admits it, and a revoked link is not provisioned around.
 
-Measured at `0.6.0`: `task check` exit 0, 286 suites, 2,119 tests, 0 failed; 11 named mutants each
-killed; 292 contract elements with 201 implemented; 166 conformance scenarios with 44 passed and 0
-error; 191 denial clauses with 85 decided on the real path.
+Measured at `0.7.0`: `task check` exit 0, 289 suites, 2,164 tests, 0 failed; 11 named mutants each
+killed; 293 contract elements with 211 implemented; 201 conformance scenarios (ESS 0.59.0) with 40
+passed and 0 error; 199 denial clauses with 89 decided on the real path.
 
 Waves I–K moved the clause count for the first time since wave D (83 of 190 → 85 of 191; one
 clause was split). The account is `docs/plans/2026-09-23-waves-i-j-k-execution.md`.
 
 ## In flight right now
 
-Nothing. `main` holds 0.6.0; no integration branch is open. Wave M added an OIDC relying-party
-flow (`/v1/federation/authorize`, `/v1/federation/callback`, `/v1/federation/handoff`) and an RFC 8693
-token exchange at `/oauth/token`; its account is `docs/plans/2026-09-23-wave-m-execution.md`.
-Candidates for wave N with no blocker and typed scope: `control-plane-readable-instant`,
-`provisioning-replay-principal`, `seeding-repeated-external-principal-id` (all three on `adapters.rs`,
-so sequenced), `numeric-shorthand-trailing-dot`, `authorize-flood-eviction`, `listener-outbound-stall`.
-The gate pins `aep` 0.55.0; when the global binary is newer, build 0.55.0 into a private root and put
-it first on PATH for the gate.
+Nothing. `main` holds 0.7.0; no integration branch is open. Wave 5a moved the specification and
+the ESS crates to 0.59.0 (a signing key's instants are now one `SigningKeyWindow`) and added the
+shared agent authority evaluator, `mandate_authz::agent::evaluate_agent_authority`; its account is
+`docs/plans/2026-10-12-wave-5a-execution.md`. Next: `story:unknown-instance-refusals` (raise the
+specification format and declare `unknown_instance:` on 15 commands), and `story:agent-security`,
+which consumes the evaluator and inherits the delegation commands. The gate pins `aep` 0.69.1; when
+the global binary is newer, put a 0.69.1 binary first on PATH for the gate.
 
 Left out of waves I–K and still undecided: `linked-event-method-unenforced` (its premise is
 contradicted by the connection seeding at `services/control-plane/src/adapters.rs:962-970`) and

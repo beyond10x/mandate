@@ -47,15 +47,15 @@ records each gap with what it costs; in short:
 
 ## How progress is evidenced
 
-Every number below is read from a command rather than written from memory, and each is stated **as of `0.6.0`** so that a later reading which disagrees is a drift somebody can see rather than a claim that quietly went stale.
+Every number below is read from a command rather than written from memory, and each is stated **as of `0.7.0`** so that a later reading which disagrees is a drift somebody can see rather than a claim that quietly went stale.
 
-| measured at `0.6.0` | |
+| measured at `0.7.0` | |
 |---|---|
-| Tests | `task check` — 286 suites, 2,119 tests, 0 failed |
+| Tests | `task check` — 289 suites, 2,164 tests, 0 failed |
 | Mutation | 11 named mutants, each killed by the test that names it |
-| Contract coverage | 292 declared elements — 204 implemented, 29 declared, 59 deferred |
-| Conformance corpus | 166 synthesized scenarios — 44 passed, 59 failed, 0 error, 63 unsupported |
-| Denial obligations | 198 external denial clauses — 89 decided on the real path, 21 reached only by a test double, 88 deferred |
+| Contract coverage | 293 declared elements — 211 implemented, 25 declared, 57 deferred |
+| Conformance corpus | 201 scenarios under ESS 0.59.0 — 40 passed, 78 failed, 0 error, 83 unsupported |
+| Denial obligations | 199 external denial clauses — 89 decided on the real path, 21 reached only by a test double, 89 deferred |
 
 Those numbers are published rather than summarised because the failing and deferred halves are the
 honest part: every non-passing scenario and every unbound clause names the live story or open

@@ -4,6 +4,12 @@ All notable changes to Mandate are recorded here. The format follows [Keep a Cha
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-13
+
+Wave 5a: Mandate moves onto ESS 0.59.0, and the shared agent authority evaluator arrives. Two
+stories, each attacked by an adversary pass. Minor, because the signing key's `window` move is a
+Rust API break.
+
 ### Added
 
 - **Agent authority evaluator.** `mandate_authz::agent::evaluate_agent_authority` decides what
