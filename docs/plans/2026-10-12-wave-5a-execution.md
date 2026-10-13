@@ -12,7 +12,7 @@ on the newest ESS release.
 
 | unit | story | branch | managed id | scratch | stage |
 |---|---|---|---|---|---|
-| U0 | `story:ess-repin-0-59` | `impl/ess-repin-0-59` | `mandate-w5a-ess-repin` | `~/.cache/mandate-w5a/u0/` | spec phase committed `69cf8e8`; phase 2 waits for a build slot |
+| U0 | `story:ess-repin-0-59` | `impl/ess-repin-0-59` | `mandate-w5a-ess-repin` | `~/.cache/mandate-w5a/u0/` | merged `3cc4643` (unit head `b3696b6`) |
 | U1 | `story:agent-authority-kernel` | `impl/agent-authority-kernel` | `mandate-w5a-authority` | `~/.cache/mandate-w5a/u1/` | not started |
 
 U1 depends on U0: `domains/delegation.yaml`, which U1 models in, is refused by ESS 0.59.0 until U0
@@ -64,3 +64,21 @@ its bot merge on green CI. No release without a separate decision.
   (`crates/mandate-token/src/projection.rs`, `services/sts/src/keys.rs`,
   `crates/mandate-conformance/src/commands/credential.rs` and their tests) to `window`; update the
   ESS version text in `AGENTS.md` and `xtask/src/main.rs`; package gates; `task check`.
+- 2026-10-13, phase 2 under a 10G build slot: `18ab3aa` (pins, regenerate, `window` consumers),
+  `254fb52` (re-anchored mutants). ESS 0.59.0 writes a new conformance suite: 166 scenarios at
+  `ess-conformance/9` became 200 at `ess-conformance/35`. Every gap is attributed: 19 new
+  `unsupported` rows restate the target's owner; the 4 `ResourceServer` scenarios whose synthesized
+  input names an unarranged resource server go to `story:ess-synthesizer-prerequisites` (an ESS
+  defect, planned fix in an ESS release); 15 `wrong-state` scenarios on an unknown identity go to
+  the new draft `story:unknown-instance-refusals` (`626f694`; ESS's rule, repaired on this side by
+  declaring `unknown_instance:`, which needs a format raise and so waits for a later wave). The 3
+  authored federation scenarios: production returns the stated reason (`authenticate.rs:267-272`,
+  `record.rs:1002-1005`, `link.rs:96-101`); only the target pre-empted it, fixed there.
+- `867ed5e`: `deny.toml` ignores RUSTSEC-2024-0449 (unsafe-libyaml, unmaintained, reached only
+  through `serde_yaml` in the ESS crates; `main` at `e725a36` fails the same way) until ESS drops
+  `serde_yaml`.
+- Adversary pass `c043221` (5 cases, 4 red): one blocker (the 15 rows' owner) and three label
+  defects in the target; fixed in `b3696b6`. `task check` on `b3696b6`: exit 0, 2125 passed and
+  0 failed over 287 result lines, every mutant killed; process groups `1879143` (on `867ed5e`) and
+  `3045585` (on `b3696b6`); peak `target/` 7.2G.
+- Merged into the integration branch as `3cc4643`.
