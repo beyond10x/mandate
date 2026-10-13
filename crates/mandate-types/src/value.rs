@@ -249,6 +249,74 @@ macro_rules! lexical_builtin {
 lexical_builtin!(Timestamp, "date-time", "The `Timestamp` builtin.");
 lexical_builtin!(Duration, "duration", "The `Duration` builtin.");
 
+impl Duration {
+    /// The span this duration names, in whole seconds, or `None` when it names none.
+    ///
+    /// The shared reading of the declared `duration` form: `P[nD][T[nH][nM][nS]]` with
+    /// integer components and at least one of them. The calendar designators — years, months
+    /// and weeks — are refused rather than approximated, because a month is not a number of
+    /// seconds and a bound that depended on which month it was read in would not be the bound
+    /// it names. A fraction is refused for the same reason. A value that overflows `i64`
+    /// seconds names no span here either, and every caller fails closed on `None`.
+    ///
+    /// `services/sts/src/lib.rs`, `services/control-plane/src/adapters.rs` and
+    /// `crates/mandate-federation/src/authorize.rs` each keep a private copy of this rule
+    /// from before it had a shared home; `mandate-authz` reads it here.
+    #[must_use]
+    pub fn seconds(&self) -> Option<i64> {
+        let [b'P', rest @ ..] = self.as_str().as_bytes() else {
+            return None;
+        };
+        let mut seconds: i64 = 0;
+        let mut digits: Option<i64> = None;
+        let mut in_time = false;
+        let mut components = 0_u32;
+        let mut time_components = 0_u32;
+        let mut last_unit = i64::MAX;
+        for byte in rest {
+            match byte {
+                b'0'..=b'9' => {
+                    let value = digits.unwrap_or(0).checked_mul(10)?;
+                    digits = Some(value.checked_add(i64::from(byte - b'0'))?);
+                }
+                b'T' => {
+                    if in_time || digits.is_some() {
+                        return None;
+                    }
+                    in_time = true;
+                }
+                b'D' | b'H' | b'M' | b'S' => {
+                    let value = digits.take()?;
+                    let unit = match (in_time, byte) {
+                        (false, b'D') => 86_400,
+                        (true, b'H') => 3_600,
+                        (true, b'M') => 60,
+                        (true, b'S') => 1,
+                        // A day after `T`, or an hour, minute or second before it, is not
+                        // this form.
+                        _ => return None,
+                    };
+                    // Each designator once, largest first: `PT1H2H` is not this form.
+                    if unit >= last_unit {
+                        return None;
+                    }
+                    last_unit = unit;
+                    seconds = seconds.checked_add(value.checked_mul(unit)?)?;
+                    components += 1;
+                    if in_time {
+                        time_components += 1;
+                    }
+                }
+                _ => return None,
+            }
+        }
+        if digits.is_some() || components == 0 || (in_time && time_components == 0) {
+            return None;
+        }
+        Some(seconds)
+    }
+}
+
 /// Read an optional field that is present, refusing an explicit JSON `null`.
 ///
 /// The projection declares an optional field as a `$ref` to a non-nullable type and
@@ -336,5 +404,50 @@ where
     match value {
         Some(value) => declared_credential_form(value, serializer),
         None => serializer.serialize_none(),
+    }
+}
+
+#[cfg(test)]
+mod duration_tests {
+    use super::Duration;
+
+    #[test]
+    fn a_duration_is_read_as_whole_seconds() {
+        for (text, seconds) in [
+            ("PT1H", 3_600),
+            ("PT30S", 30),
+            ("PT0S", 0),
+            ("P1D", 86_400),
+            ("P1DT1H1M1S", 90_061),
+            ("PT90M", 5_400),
+        ] {
+            assert_eq!(Duration::new(text).seconds(), Some(seconds), "{text}");
+        }
+    }
+
+    #[test]
+    fn a_form_that_names_no_span_of_seconds_is_refused() {
+        for text in [
+            "",
+            "P",
+            "PT",
+            "1H",
+            "P1M",
+            "P1Y",
+            "P1W",
+            "PT1.5S",
+            "PT1D",
+            "P1H",
+            "PT1",
+            "P1DT",
+            "PTH",
+            "pt1h",
+            "PT1H1H1",
+            "PT1H2H",
+            "PT1S1M",
+            "P99999999999999999999D",
+        ] {
+            assert_eq!(Duration::new(text).seconds(), None, "{text:?}");
+        }
     }
 }

@@ -154,8 +154,8 @@ pub struct AgentCapabilityCeiling {
     pub denied_actions: Vec<ActionPattern>,
     /// The actions and resources the ceiling confines the agent to.
     pub scope: AuthorityScope,
-    /// The longest delegation the ceiling admits. Bounds `CreateDelegation`, not an
-    /// evaluation, and is not read here.
+    /// The longest delegation the ceiling admits. Bounds `CreateDelegation`
+    /// (`crate::command`), not an evaluation.
     pub max_delegation_ttl: Duration,
     /// The folded lifecycle state.
     pub state: CeilingState,

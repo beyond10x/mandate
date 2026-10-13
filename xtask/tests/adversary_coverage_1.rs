@@ -69,8 +69,10 @@ fn entries() -> BTreeMap<String, Value> {
 /// `mandate-sts` holds none since `story:federated-token-exchange` realized token exchange.
 /// It stays listed: an empty registry is still a registry, and a crate that later names an
 /// element there must be read by these cases rather than fall outside them.
+/// `mandate-authz` holds three since `story:agent-security` realized five `mandate.delegation`
+/// commands, their events and the domain's error.
 const REGISTRARS: [(&str, &str, usize); 6] = [
-    ("mandate-authz", "crates/mandate-authz/src/lib.rs", 14),
+    ("mandate-authz", "crates/mandate-authz/src/lib.rs", 3),
     (
         "mandate-federation",
         "crates/mandate-federation/src/lib.rs",
@@ -133,8 +135,8 @@ fn unrealized() -> Vec<(&'static str, String, String)> {
     }
     assert_eq!(
         all.len(),
-        34,
-        "every ESS_UNREALIZED entry of the workspace: authz 14, federation 1, graph 7, \
+        23,
+        "every ESS_UNREALIZED entry of the workspace: authz 3, federation 1, graph 7, \
          identity 10, policy 2, sts 0"
     );
     assert!(
