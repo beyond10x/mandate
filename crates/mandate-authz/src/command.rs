@@ -45,14 +45,16 @@
 //! delegated once: transitive); when the delegator is not an active principal; when the
 //! delegate is not an active principal with an installed agent record of this organization;
 //! when the audience is not registered; when the execution binding names no open execution
-//! the delegate holds for the delegator; when the delegate has no current applicable ceiling
-//! or two on one key; when the scope is not within the ceilings — through
-//! [`crate::agent::intersect`], the evaluator's own intersection, which must keep every action
-//! and resource requested and confine to the same space; when `expires_at - created_at` is not
-//! inside `(0, max_delegation_ttl]` for the smallest `max_delegation_ttl` over the delegate's
-//! applicable platform and tenant ceilings, read by [`mandate_types::Duration::seconds`]; and
-//! when policy, asked about the delegator for every action on every resource of the scope,
-//! requires an approval (the grant would skip it) or does not allow it.
+//! the delegate holds for the delegator or for itself, naming no delegation (the rule `check`
+//! decides the bound call by, `crate::agent::execution_holds`); when the delegate has no
+//! current applicable ceiling or two on one key; when the scope is not within the ceilings —
+//! through [`crate::agent::intersect`], the evaluator's own intersection, which must keep every
+//! action and resource requested and confine to the same space; when
+//! `expires_at - created_at` is not inside `(0, max_delegation_ttl]` for the smallest
+//! `max_delegation_ttl` over the delegate's applicable platform and tenant ceilings, read by
+//! [`mandate_types::Duration::seconds`]; and when policy, asked about the delegator for every
+//! action on every resource of the scope, requires an approval (the grant would skip it) or
+//! does not allow it.
 //!
 //! # Every denial clause this module does not realize
 //!
@@ -78,7 +80,10 @@ use mandate_types::{
     ExecutionId, OrganizationId, PrincipalId, Timestamp, Uuid, VerifiedContext,
 };
 
-use crate::agent::{AgentAuthorityRead, AuthorityClause, PrincipalStanding, Unavailable, instant};
+use crate::agent::{
+    AgentAuthorityRead, AuthorityClause, ExecutionHolder, PrincipalStanding, Unavailable,
+    execution_holds, instant,
+};
 use crate::delegation::{AgentState, ApprovalState, DelegationState, ExecutionState};
 use crate::event::{DelegationCreated, DelegationEvent};
 
@@ -380,16 +385,19 @@ where
 
     let created = instant::parse(at).ok_or(Denied::on(DelegationClause::ExceedsCeilings))?;
     if let Some(id) = &input.execution_binding {
+        // The rule `check` decides the bound call by, for a delegation that has no identity
+        // yet: an execution naming any delegation names another one.
+        let holder = ExecutionHolder {
+            organization,
+            agent: &input.delegate,
+            subject: &delegator,
+            delegation: None,
+            bound: true,
+        };
         let open = records
             .execution(id)
             .map_err(unavailable)?
-            .is_some_and(|execution| {
-                execution.organization_id == *organization
-                    && execution.state == ExecutionState::Recorded
-                    && execution.agent_id == input.delegate
-                    && execution.subject == Some(delegator)
-                    && instant::parse(&execution.expires_at).is_some_and(|ends| created < ends)
-            });
+            .is_some_and(|execution| execution_holds(&execution, &holder, created).is_ok());
         if !open {
             return Err(Denied::on(DelegationClause::ExecutionBindingFails));
         }

@@ -888,26 +888,205 @@ fn a_resource_outside_the_ceilings_beside_one_inside_is_refused() {
     assert_eq!(refused.clause, DelegationClause::ExceedsCeilings);
 }
 
-/// A delegation bound to an execution, created through the command, fails closed at check.
-/// `CreateDelegation` requires the execution to exist before the delegation and does not read
-/// its `delegation_id`; `check` requires the execution's `delegation_id` to name the request's
-/// delegation, which no execution recorded before the delegation can. How the two records
-/// name each other is open on `story:agent-security`; until it is decided the bound call is
-/// refused, never admitted.
-#[test]
-fn a_delegation_bound_to_an_execution_fails_closed_at_check() {
-    let mut fold = projection();
+// ---------------------------------------------------------------------------------------------
+// The execution-bound delegation (`delegation.yaml`'s header): the execution is recorded
+// first and may name no delegation yet, the delegation names it in `execution_binding`, and
+// `check` decides the bound call instead of refusing it.
+// ---------------------------------------------------------------------------------------------
+
+/// Another execution the agent holds for the administrator, recorded and running.
+fn second_execution_id() -> ExecutionId {
+    ExecutionId::new(uuid(23))
+}
+
+/// Create the administrator's delegation bound to [`execution_id`] through the command, over
+/// the starting records, and return its event.
+fn bound_creation() -> mandate_authz::command::Created {
     let mut input = within_ceilings();
     input.execution_binding = Some(execution_id());
-    let created = decide_create(
-        &fold,
+    decide_create(
+        &projection(),
         &admission(),
         &mut SequentialDelegationIds::new(),
         &input,
     )
-    .expect("the delegate's own open execution binds");
+    .expect("the delegate's own open execution binds")
+}
+
+/// A fold holding `records` and the bound delegation [`bound_creation`] decided.
+fn bound_fold(records: AgentRecords) -> (DelegationProjection, DelegationId) {
+    let created = bound_creation();
+    let mut fold = DelegationProjection::holding(records);
+    fold.apply(&created.event);
+    (fold, created.delegation_id)
+}
+
+/// The refusal a bound call naming an execution no record carries gets: every refusal of the
+/// binding is this one, so the caller learns nothing about which condition failed.
+fn unrecorded_execution_refusal() -> mandate_authz::decision::Denied {
+    let mut records = starting_records();
+    records.executions.clear();
+    let (fold, id) = bound_fold(records);
+    check_through(
+        &fold,
+        &delegated_context(id, Some(execution_id())),
+        &read_tool(),
+    )
+    .expect_err("an execution no record carries refuses the bound call")
+}
+
+/// The bound call is decided: the execution created before the delegation, naming no
+/// delegation yet, admits the agent's call for the administrator under it. So does the same
+/// execution naming no subject, and one naming this delegation.
+#[test]
+fn a_delegation_bound_to_an_execution_admits_the_bound_call_at_check() {
+    let mut fold = projection();
+    let created = bound_creation();
     fold.apply(&created.event);
     let context = delegated_context(created.delegation_id, Some(execution_id()));
-    check_through(&fold, &context, &read_tool())
-        .expect_err("the bound call is refused until the execution can name its delegation");
+    let decision = check_through(&fold, &context, &read_tool()).expect("the bound call");
+    assert!(decision.allowed);
+    // The same record checks, read through the exchange, which reports who it decided for.
+    let exchanged = exchange(&fold, &context);
+    assert!(exchanged.allowed, "{exchanged:?}");
+    assert_eq!(exchanged.subject, user(), "the subject is preserved");
+    assert_eq!(exchanged.actor, agent(), "the actor is preserved");
+
+    // The execution's `expires_at` still bounds the permitted expiry.
+    let mut records = starting_records();
+    records.executions[0].expires_at = Timestamp::new("2026-01-05T09:30:00Z");
+    let (early, _) = bound_fold(records);
+    assert_eq!(
+        exchange(&early, &context).expires_at,
+        Some(Timestamp::new("2026-01-05T09:30:00Z")),
+        "the execution ends before the delegation"
+    );
+
+    for (why, change) in [
+        (
+            "an execution naming no subject",
+            (|execution: &mut Execution, _: DelegationId| execution.subject = None)
+                as fn(&mut Execution, DelegationId),
+        ),
+        ("an execution naming this delegation", |execution, id| {
+            execution.delegation_id = Some(id);
+        }),
+    ] {
+        let mut records = starting_records();
+        change(&mut records.executions[0], created.delegation_id);
+        let (fold, id) = bound_fold(records);
+        assert_eq!(
+            id, created.delegation_id,
+            "one allocator, one first identity"
+        );
+        check_through(&fold, &context, &read_tool()).expect(why);
+    }
+}
+
+/// One change to the bound execution.
+type ExecutionChange = fn(&mut Execution);
+
+/// Every condition of the binding refuses the bound call, each with exactly the refusal an
+/// unrecorded execution gets.
+#[test]
+fn an_execution_that_does_not_hold_refuses_the_bound_call_like_an_unrecorded_one() {
+    let unrecorded = unrecorded_execution_refusal();
+    let cases: [(&str, ExecutionChange); 6] = [
+        ("completed", |execution| {
+            execution.state = ExecutionState::Completed;
+        }),
+        ("expired", |execution| {
+            execution.expires_at = Timestamp::new("2026-01-05T09:00:00Z");
+        }),
+        ("of another organization", |execution| {
+            execution.organization_id = other_organization();
+        }),
+        ("held by another agent", |execution| {
+            execution.agent_id = colleague();
+        }),
+        ("for another subject", |execution| {
+            execution.subject = Some(colleague());
+        }),
+        ("naming another delegation", |execution| {
+            execution.delegation_id = Some(DelegationId::new(uuid(98)));
+        }),
+    ];
+    for (why, change) in cases {
+        let mut records = starting_records();
+        change(&mut records.executions[0]);
+        let (fold, id) = bound_fold(records);
+        let refused = check_through(
+            &fold,
+            &delegated_context(id, Some(execution_id())),
+            &read_tool(),
+        )
+        .expect_err(why);
+        assert_eq!(refused, unrecorded, "an execution {why}");
+    }
+}
+
+/// A completion recorded through `CompleteExecution` refuses the bound call from then on.
+#[test]
+fn a_completion_through_the_command_refuses_the_bound_call() {
+    let (mut fold, id) = bound_fold(starting_records());
+    let context = delegated_context(id, Some(execution_id()));
+    check_through(&fold, &context, &read_tool()).expect("the control: the bound call holds");
+    let completed = decide_complete_execution(&fold, &plain_context(agent()), execution_id())
+        .expect("the agent completes its own execution");
+    fold.apply(&completed);
+    let refused = check_through(&fold, &context, &read_tool()).expect_err("completed");
+    assert_eq!(refused, unrecorded_execution_refusal());
+}
+
+/// A delegation bound to an execution admits no request made outside it: one naming no
+/// execution, and one naming another execution that is itself recorded and running.
+#[test]
+fn a_bound_delegation_refuses_a_call_outside_its_execution() {
+    let unrecorded = unrecorded_execution_refusal();
+    let mut records = starting_records();
+    let mut second = execution(agent(), organization());
+    second.id = second_execution_id();
+    records.executions.push(second);
+    let (fold, id) = bound_fold(records);
+
+    let none = check_through(&fold, &delegated_context(id, None), &read_tool())
+        .expect_err("a bound delegation used with no execution");
+    assert_eq!(none, unrecorded, "no execution");
+    let other = check_through(
+        &fold,
+        &delegated_context(id, Some(second_execution_id())),
+        &read_tool(),
+    )
+    .expect_err("a bound delegation used with another execution");
+    assert_eq!(other, unrecorded, "another execution");
+}
+
+/// `CreateDelegation` admits the binding the bound call is decided by: an execution naming no
+/// subject, and one naming no delegation.
+#[test]
+fn create_delegation_binds_an_execution_naming_no_subject_or_no_delegation() {
+    let mut input = within_ceilings();
+    input.execution_binding = Some(execution_id());
+    for (why, subject) in [
+        ("an execution naming no subject", None),
+        ("an execution naming the delegator", Some(user())),
+    ] {
+        let mut records = starting_records();
+        records.executions[0].subject = subject;
+        assert_eq!(
+            records.executions[0].delegation_id, None,
+            "names no delegation"
+        );
+        let created = decide_create(
+            &DelegationProjection::holding(records),
+            &admission(),
+            &mut SequentialDelegationIds::new(),
+            &input,
+        )
+        .expect(why);
+        let DelegationEvent::Created(event) = &created.event else {
+            panic!("a creation records DelegationCreated: {:?}", created.event);
+        };
+        assert_eq!(event.execution_binding, Some(execution_id()), "{why}");
+    }
 }
