@@ -184,7 +184,7 @@ fn a_patch_that_lands_away_from_its_header_is_refused() {
 /// doc comment of the next function along — and the check agrees.
 ///
 /// The committed catalogue already relies on the latitude: `ess-field-added` anchors
-/// `systems/mandate/domains/credential.yaml:593`, a context line the patch only inserts after.
+/// `systems/mandate/domains/credential.yaml:590`, a context line the patch only inserts after.
 /// The step's own words for what it decides are "the record's anchor names a line this patch
 /// actually rewrites".
 #[test]
