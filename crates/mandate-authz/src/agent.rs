@@ -3,14 +3,14 @@
 //!
 //! `docs/architecture/combined.md:53` makes effective authority the intersection of the
 //! subject's authority, the **actor ceiling**, the **explicit delegation** and the requested
-//! authority, inside the tenant binding and current policy. [`crate::check`] reads every one
-//! of those bounds except the two in bold and refuses any request that carries them
-//! ([`crate::context::direct`]). This module is the evaluator for the other kind of request,
-//! the one `story:agent-authority-kernel` owns: an agent acting for itself, or for a subject
-//! under a delegation. It is a reusable function for the token exchange to call. It issues
-//! nothing, stores nothing and speaks no protocol: the records it reads arrive through
-//! [`AgentAuthorityRead`], and policy is read through `mandate_policy`'s own
-//! [`PolicyEvaluator`].
+//! authority, inside the tenant binding and current policy. This module is the evaluator of
+//! the two bounds in bold, for a request that involves an agent: an agent acting for itself,
+//! or for a subject under a delegation. Its record checks — agent, delegation, execution,
+//! ceilings, intersection — are one implementation with two callers: the token exchange,
+//! through [`evaluate_agent_authority`], and [`crate::check`], the decision a PEP asks for
+//! before every tool call (`story:agent-security`). It issues nothing, stores nothing and
+//! speaks no protocol: the records it reads arrive through [`AgentAuthorityRead`], and policy
+//! is read through `mandate_policy`'s own [`PolicyEvaluator`].
 //!
 //! # The permitted set
 //!
@@ -43,34 +43,50 @@
 //! ([`crate::delegation::current_ceilings`]). An agent with no applicable current ceiling is
 //! refused: an intersection over no ceilings would bound nothing, which is the open direction.
 //!
+//! The actor's ceilings always bound the request. When the subject of a delegated request is
+//! itself an agent, its own applicable ceilings bound it too, and it is refused without one:
+//! an agent cannot lend a delegate more than its installation admits.
+//!
+//! # Executions
+//!
+//! Whenever the context names an execution, its record is read. It holds when it is recorded
+//! in this organization, not `Completed`, before its `expires_at`, held by the acting agent,
+//! under exactly the request's delegation, and for the request's subject. Otherwise the
+//! request is refused on "delegation or ceiling binding fails", or on "actor" when no
+//! delegation is involved ([`AuthorityClause::ExecutionUnbound`],
+//! [`AuthorityClause::ExecutionNotTheActors`]).
+//!
 //! # Refusals
 //!
 //! Every refusal names an [`AuthorityClause`], and every clause names a verbatim phrase of
 //! `mandate.credential.ExchangeCredential`'s declared denial (`tests/agent.rs` decides that
 //! against `docs/architecture/command-obligations.md`). Refusals are decided in a fixed order
-//! — chain, context, organization, proof expiry, principals, agent, delegation, ceilings,
-//! intersection — and policy is read last, so every denial beats an approval requirement, and
-//! an approval requirement is answered `allowed = false` with the challenge attached.
+//! — chain, context, organization, proof expiry, principals (the exchange's own checks), then
+//! the shared record checks: agent, delegation, execution, ceilings, intersection — and policy
+//! is read last, so every denial beats an approval requirement, and an approval requirement
+//! is answered `allowed = false` with the challenge attached.
 //!
 //! # Expiry
 //!
-//! An allowed decision expires at the earliest of the subject proof's, the actor proof's and
-//! the delegation's expiry, compared as instants: `Timestamp` orders on its bytes, and RFC 3339
-//! byte order is not time order. The returned value is the input that named that instant,
-//! verbatim. `max_delegation_ttl` bounds how long a delegation may be created for, which is
-//! `CreateDelegation`'s to enforce and not read here.
+//! An allowed decision expires at the earliest of the subject proof's, the actor proof's, the
+//! delegation's and the execution's expiry, compared as instants: `Timestamp` orders on its
+//! bytes, and RFC 3339 byte order is not time order. The returned value is the input that
+//! named that instant, verbatim. `max_delegation_ttl` bounds how long a delegation may be
+//! created for, which is `CreateDelegation`'s to enforce and not read here.
 
 use mandate_policy::port::{
     AttributeSet, Challenge, ChallengeRequirement, PolicyEvaluator, PolicyRequest,
 };
 use mandate_policy::precedence::{Combined, Component, combine};
 use mandate_types::{
-    Action, Audience, AuthorityScope, AuthoritySubject, DecisionReason, DelegationId, DenialReason,
-    OrganizationId, PrincipalId, ResourceRef, SpaceId, Timestamp, VerifiedContext,
+    Action, ApprovalId, Audience, AuthorityScope, AuthoritySubject, DecisionReason, DelegationId,
+    DenialReason, ExecutionId, OrganizationId, PrincipalId, ResourceRef, SpaceId, Timestamp,
+    VerifiedContext,
 };
 
 use crate::delegation::{
-    Agent, AgentCapabilityCeiling, AgentState, Delegation, DelegationState, current_ceilings,
+    Agent, AgentCapabilityCeiling, AgentState, Approval, Delegation, DelegationState, Execution,
+    ExecutionState, current_ceilings,
 };
 use crate::evaluate::covers;
 
@@ -140,6 +156,124 @@ pub trait AgentAuthorityRead {
     ///
     /// [`Unavailable`] when the read cannot be answered.
     fn delegation(&self, id: &DelegationId) -> Result<Option<Delegation>, Unavailable>;
+
+    /// The execution record, or `None` when none is recorded.
+    ///
+    /// # Errors
+    ///
+    /// [`Unavailable`] when the read cannot be answered.
+    fn execution(&self, id: &ExecutionId) -> Result<Option<Execution>, Unavailable>;
+
+    /// The approval record, or `None` when none is recorded.
+    ///
+    /// The evaluator reads none: `mandate.authorization.Check` declares no approval input.
+    /// The read is here for the command that consumes an approval, which folds the same
+    /// records.
+    ///
+    /// # Errors
+    ///
+    /// [`Unavailable`] when the read cannot be answered.
+    fn approval(&self, id: &ApprovalId) -> Result<Option<Approval>, Unavailable>;
+}
+
+/// An [`AgentAuthorityRead`] answered from lists: the records a caller arranged, and nothing
+/// else.
+///
+/// `AgentRecords::new()` holds no record, so every read answers that none exists: no
+/// principal is an agent, no delegation or execution is recorded and no ceiling applies.
+/// Under it a direct request of a principal that is no agent is decided as before, and every
+/// request that names an actor other than its subject, a delegation or an execution is
+/// refused, because the record that would bound it is not there. That is the read a caller
+/// passes until a fold of the `mandate.delegation` events answers it.
+///
+/// For each identity the **last** record given is the current one, as a fold that replaced
+/// it would answer; ceilings are answered whole, superseded ones included, in the order
+/// given.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct AgentRecords {
+    /// Principal standings.
+    pub standings: Vec<(PrincipalId, PrincipalStanding)>,
+    /// Agent records.
+    pub agents: Vec<Agent>,
+    /// Every capability ceiling, superseded ones included, in recorded order.
+    pub ceilings: Vec<AgentCapabilityCeiling>,
+    /// Delegation records.
+    pub delegations: Vec<Delegation>,
+    /// Execution records.
+    pub executions: Vec<Execution>,
+    /// Approval records.
+    pub approvals: Vec<Approval>,
+}
+
+impl AgentRecords {
+    /// A read that holds no record.
+    #[must_use]
+    pub const fn new() -> Self {
+        Self {
+            standings: Vec::new(),
+            agents: Vec::new(),
+            ceilings: Vec::new(),
+            delegations: Vec::new(),
+            executions: Vec::new(),
+            approvals: Vec::new(),
+        }
+    }
+}
+
+impl AgentAuthorityRead for AgentRecords {
+    fn standing(&self, principal: &PrincipalId) -> Result<Option<PrincipalStanding>, Unavailable> {
+        Ok(self
+            .standings
+            .iter()
+            .rev()
+            .find(|(recorded, _)| recorded == principal)
+            .map(|(_, standing)| *standing))
+    }
+
+    fn agent(&self, principal: &PrincipalId) -> Result<Option<Agent>, Unavailable> {
+        Ok(self
+            .agents
+            .iter()
+            .rev()
+            .find(|agent| agent.id == *principal)
+            .cloned())
+    }
+
+    fn ceilings(&self, agent: &PrincipalId) -> Result<Vec<AgentCapabilityCeiling>, Unavailable> {
+        Ok(self
+            .ceilings
+            .iter()
+            .filter(|ceiling| ceiling.agent_id == *agent)
+            .cloned()
+            .collect())
+    }
+
+    fn delegation(&self, id: &DelegationId) -> Result<Option<Delegation>, Unavailable> {
+        Ok(self
+            .delegations
+            .iter()
+            .rev()
+            .find(|delegation| delegation.id == *id)
+            .cloned())
+    }
+
+    fn execution(&self, id: &ExecutionId) -> Result<Option<Execution>, Unavailable> {
+        Ok(self
+            .executions
+            .iter()
+            .rev()
+            .find(|execution| execution.id == *id)
+            .cloned())
+    }
+
+    fn approval(&self, id: &ApprovalId) -> Result<Option<Approval>, Unavailable> {
+        Ok(self
+            .approvals
+            .iter()
+            .rev()
+            .find(|approval| approval.id == *id)
+            .cloned())
+    }
 }
 
 /// What the evaluator is asked.
@@ -202,6 +336,13 @@ pub enum AuthorityClause {
     /// The delegation names another delegator, delegate, audience or execution, or a
     /// request with no delegate names one.
     DelegationMismatch,
+    /// On a request made under a delegation, the context names an execution that is
+    /// unrecorded, completed, past its `expires_at`, recorded in another organization, or
+    /// bound to another agent, delegation or subject.
+    ExecutionUnbound,
+    /// The same, on a request made under no delegation: the execution is the actor's own, and
+    /// it does not hold.
+    ExecutionNotTheActors,
     /// No current ceiling applies to the agent.
     CeilingAbsent,
     /// Two current ceilings share one key.
@@ -236,6 +377,8 @@ impl AuthorityClause {
         Self::DelegationExpired,
         Self::DelegationNotYetInForce,
         Self::DelegationMismatch,
+        Self::ExecutionUnbound,
+        Self::ExecutionNotTheActors,
         Self::CeilingAbsent,
         Self::CeilingConflict,
         Self::TransitiveChain,
@@ -256,13 +399,15 @@ impl AuthorityClause {
             Self::ActorDisabled
             | Self::ActorNotAgent
             | Self::AgentRetired
-            | Self::ContextMismatch => "actor",
+            | Self::ContextMismatch
+            | Self::ExecutionNotTheActors => "actor",
             Self::OrganizationMismatch => "tenant",
             Self::DelegationAbsent
             | Self::DelegationRevoked
             | Self::DelegationExpired
             | Self::DelegationNotYetInForce
-            | Self::DelegationMismatch => "delegation or ceiling binding fails",
+            | Self::DelegationMismatch
+            | Self::ExecutionUnbound => "delegation or ceiling binding fails",
             Self::CeilingAbsent => "ceiling binding fails",
             Self::CeilingConflict => {
                 "two current capability ceilings share one agent and organization-or-platform key"
@@ -440,13 +585,8 @@ where
         expiry.offer(ends, &proof.expires_at);
     }
 
-    match (delegated, request.delegation) {
-        (true, None) => return Err(AuthorityClause::DelegationAbsent),
-        (false, Some(_)) => return Err(AuthorityClause::DelegationMismatch),
-        _ => {}
-    }
+    presence(delegated, request.delegation)?;
 
-    let unavailable = |_: Unavailable| AuthorityClause::Unavailable;
     match records.standing(&subject.principal).map_err(unavailable)? {
         Some(PrincipalStanding::Active) => {}
         Some(PrincipalStanding::Disabled) | None => return Err(AuthorityClause::SubjectInvalid),
@@ -457,36 +597,131 @@ where
         None => return Err(AuthorityClause::ActorNotAgent),
     }
 
-    let agent = records
-        .agent(&actor.principal)
-        .map_err(unavailable)?
-        .ok_or(AuthorityClause::ActorNotAgent)?;
-    if agent.organization_id != *organization {
-        return Err(AuthorityClause::OrganizationMismatch);
+    let permitted = recorded(
+        records,
+        &Principals {
+            context,
+            subject: &subject.principal,
+            actor: &actor.principal,
+            delegation: request.delegation,
+            audience: request.audience,
+        },
+        request.requested,
+        &[&subject.authority, &actor.authority],
+        now,
+        &mut expiry,
+    )?;
+    let expires_at = expiry.value.ok_or(AuthorityClause::ProofUnreadable)?;
+    Ok(Bound {
+        permitted,
+        expires_at,
+    })
+}
+
+/// The read the port could not answer, as the clause it is refused on.
+const fn unavailable(_: Unavailable) -> AuthorityClause {
+    AuthorityClause::Unavailable
+}
+
+/// A delegated request names a delegation, and a request that is not delegated names none.
+const fn presence(
+    delegated: bool,
+    delegation: Option<&DelegationId>,
+) -> Result<(), AuthorityClause> {
+    match (delegated, delegation) {
+        (true, None) => Err(AuthorityClause::DelegationAbsent),
+        (false, Some(_)) => Err(AuthorityClause::DelegationMismatch),
+        _ => Ok(()),
     }
-    if agent.state == AgentState::Retired {
-        return Err(AuthorityClause::AgentRetired);
+}
+
+/// Who a request is made by and for, as the record checks read it.
+struct Principals<'a> {
+    /// The credential-derived context: its organization is the tenancy bound, and its
+    /// execution, when it names one, is checked.
+    context: &'a VerifiedContext,
+    /// The subject. For an agent acting for itself, the actor.
+    subject: &'a PrincipalId,
+    /// The acting principal, which must be an agent.
+    actor: &'a PrincipalId,
+    /// The delegation the request is made under, exactly when the actor is not the subject.
+    delegation: Option<&'a DelegationId>,
+    /// The audience a delegation must be for.
+    audience: &'a Audience,
+}
+
+/// The record checks both the token exchange and `mandate.authorization.Check` decide a
+/// request through, in order — agent, delegation, execution, ceilings, intersection — and the
+/// permitted set they leave.
+///
+/// `proofs` are the authority bounds the caller holds for the request: the two validated
+/// proofs on the exchange, the scope a `Check` is made under there. `expiry` collects every
+/// instant the permitted set must not outlive; the delegation's and the execution's are
+/// offered here.
+fn recorded<R>(
+    records: &R,
+    who: &Principals<'_>,
+    requested: &AuthorityScope,
+    proofs: &[&AuthorityScope],
+    now: instant::Instant,
+    expiry: &mut Earliest,
+) -> Result<AuthorityScope, AuthorityClause>
+where
+    R: AgentAuthorityRead + ?Sized,
+{
+    let context = who.context;
+    let organization = &context.organization;
+    let delegated = who.subject != who.actor;
+
+    // A disabled subject or actor is refused at `Check` exactly as at the token exchange. An
+    // unrecorded standing is the exchange's own refusal: there each principal comes from a
+    // proof, at `Check` from the validated credential.
+    if records.standing(who.subject).map_err(unavailable)? == Some(PrincipalStanding::Disabled) {
+        return Err(AuthorityClause::SubjectInvalid);
+    }
+    if records.standing(who.actor).map_err(unavailable)? == Some(PrincipalStanding::Disabled) {
+        return Err(AuthorityClause::ActorDisabled);
     }
 
-    let delegation = match request.delegation {
+    // The actor is an agent of this organization, and still installed. An agent record of
+    // another organization is refused like no agent record, so the refusal discloses nothing
+    // about another tenant.
+    let agent = records
+        .agent(who.actor)
+        .map_err(unavailable)?
+        .filter(|agent| agent.organization_id == *organization)
+        .ok_or(AuthorityClause::ActorNotAgent)?;
+    installed(&agent, organization)?;
+
+    // A subject that is itself an agent is bounded as one: installed here, and by its own
+    // ceilings below. For an agent acting for itself the subject is the actor, read above.
+    let subject_agent = if delegated {
+        records.agent(who.subject).map_err(unavailable)?
+    } else {
+        None
+    };
+    if let Some(subject_agent) = &subject_agent {
+        installed(subject_agent, organization)?;
+    }
+
+    // A delegation recorded in another organization is refused like one nobody recorded.
+    let delegation = match who.delegation {
         Some(id) => Some(
             records
                 .delegation(id)
                 .map_err(unavailable)?
+                .filter(|delegation| delegation.organization_id == *organization)
                 .ok_or(AuthorityClause::DelegationAbsent)?,
         ),
         None => None,
     };
     if let Some(delegation) = &delegation {
-        if delegation.organization_id != *organization {
-            return Err(AuthorityClause::OrganizationMismatch);
-        }
         if delegation.transitive {
             return Err(AuthorityClause::TransitiveChain);
         }
-        if delegation.delegator != subject.principal
-            || delegation.delegate != actor.principal
-            || delegation.audience != *request.audience
+        if delegation.delegator != *who.subject
+            || delegation.delegate != *who.actor
+            || delegation.audience != *who.audience
             || delegation
                 .execution_binding
                 .is_some_and(|bound| context.execution != Some(bound))
@@ -509,29 +744,148 @@ where
         }
         expiry.offer(ends, &delegation.expires_at);
     }
-    let mut bounds: Vec<&AuthorityScope> = vec![&subject.authority, &actor.authority];
+
+    if let Some(id) = &context.execution {
+        let ends = execution(records, who, id, now)?;
+        expiry.offer(ends.0, &ends.1);
+    }
+
+    let mut bounds: Vec<&AuthorityScope> = proofs.to_vec();
     if let Some(delegation) = &delegation {
         bounds.push(&delegation.scope);
     }
 
-    let recorded = records.ceilings(&actor.principal).map_err(unavailable)?;
-    let ceilings = current_ceilings(&recorded, &actor.principal, organization);
+    let actor_ceilings = records.ceilings(who.actor).map_err(unavailable)?;
+    let subject_ceilings = if subject_agent.is_some() {
+        records.ceilings(who.subject).map_err(unavailable)?
+    } else {
+        Vec::new()
+    };
+    let mut ceilings = applicable(&actor_ceilings, who.actor, organization)?;
+    if subject_agent.is_some() {
+        ceilings.extend(applicable(&subject_ceilings, who.subject, organization)?);
+    }
+
+    let permitted = intersect(requested, &bounds, &ceilings)?;
+    if permitted.actions.is_empty() || permitted.resources.is_empty() {
+        return Err(AuthorityClause::NothingPermitted);
+    }
+    Ok(permitted)
+}
+
+/// An agent record admits authority in `organization`: recorded there, and not retired.
+fn installed(agent: &Agent, organization: &OrganizationId) -> Result<(), AuthorityClause> {
+    if agent.organization_id != *organization {
+        return Err(AuthorityClause::OrganizationMismatch);
+    }
+    if agent.state == AgentState::Retired {
+        return Err(AuthorityClause::AgentRetired);
+    }
+    Ok(())
+}
+
+/// The execution the context names, checked against the request; its expiry when it holds.
+///
+/// An execution is read whenever the context names one. It holds when it is recorded in this
+/// organization, not `Completed`, before its `expires_at` (`delegation.yaml:3`: eligibility is
+/// read from `expires_at`, with no recorded move), held by the acting agent, under exactly the
+/// delegation the request is made under, and for the request's subject — its own `subject`
+/// when it names one, the agent itself when it names none. An execution recorded in another
+/// organization is refused like one nobody recorded, so the refusal discloses nothing about
+/// another tenant.
+fn execution<R>(
+    records: &R,
+    who: &Principals<'_>,
+    id: &ExecutionId,
+    now: instant::Instant,
+) -> Result<(instant::Instant, Timestamp), AuthorityClause>
+where
+    R: AgentAuthorityRead + ?Sized,
+{
+    let refused = if who.delegation.is_some() {
+        AuthorityClause::ExecutionUnbound
+    } else {
+        AuthorityClause::ExecutionNotTheActors
+    };
+    let execution = records.execution(id).map_err(unavailable)?.ok_or(refused)?;
+    if execution.organization_id != who.context.organization
+        || execution.state == ExecutionState::Completed
+        || execution.agent_id != *who.actor
+        || execution.delegation_id.as_ref() != who.delegation
+        || execution.subject.unwrap_or(execution.agent_id) != *who.subject
+    {
+        return Err(refused);
+    }
+    let ends = instant::parse(&execution.expires_at).ok_or(AuthorityClause::ProofUnreadable)?;
+    if ends <= now {
+        return Err(refused);
+    }
+    Ok((ends, execution.expires_at))
+}
+
+/// The current ceilings that bound `agent` in `organization`: refused when two share a key,
+/// and when there are none, because an intersection over no ceiling bounds nothing.
+fn applicable<'a>(
+    recorded: &'a [AgentCapabilityCeiling],
+    agent: &PrincipalId,
+    organization: &OrganizationId,
+) -> Result<Vec<&'a AgentCapabilityCeiling>, AuthorityClause> {
+    let ceilings = current_ceilings(recorded, agent, organization);
     if !ceilings.conflicts.is_empty() {
         return Err(AuthorityClause::CeilingConflict);
     }
     if ceilings.current.is_empty() {
         return Err(AuthorityClause::CeilingAbsent);
     }
+    Ok(ceilings.current)
+}
 
-    let permitted = intersect(request.requested, &bounds, &ceilings.current)?;
-    if permitted.actions.is_empty() || permitted.resources.is_empty() {
-        return Err(AuthorityClause::NothingPermitted);
+/// The record checks of one `mandate.authorization.Check`, through the same
+/// [`recorded`] the token exchange decides by.
+///
+/// A request reads them when it involves an agent: it names an actor other than its subject,
+/// a delegation or an execution ([`crate::context::direct`] says it is not direct), or its
+/// subject is an agent acting for itself. A direct request of a principal no agent record
+/// names reads nothing further here. `scope`, the authority the request is made under, is
+/// the one proof bound a check holds; `requested` is the action and resource it asks about.
+pub(crate) fn check_records<R>(
+    records: &R,
+    context: &VerifiedContext,
+    requested: &AuthorityScope,
+    scope: Option<&AuthorityScope>,
+    at: &Timestamp,
+) -> Result<(), AuthorityClause>
+where
+    R: AgentAuthorityRead + ?Sized,
+{
+    let actor = context.actor.unwrap_or(context.subject);
+    let delegated = actor != context.subject;
+    if crate::context::direct(context)
+        && records
+            .agent(&context.subject)
+            .map_err(unavailable)?
+            .is_none()
+    {
+        return Ok(());
     }
-    let expires_at = expiry.value.ok_or(AuthorityClause::ProofUnreadable)?;
-    Ok(Bound {
-        permitted,
-        expires_at,
-    })
+    presence(delegated, context.delegation.as_ref())?;
+    let now = instant::parse(at).ok_or(AuthorityClause::ProofUnreadable)?;
+    let proofs: Vec<&AuthorityScope> = scope.into_iter().collect();
+    recorded(
+        records,
+        &Principals {
+            context,
+            subject: &context.subject,
+            actor: &actor,
+            delegation: context.delegation.as_ref(),
+            audience: &context.audience,
+        },
+        requested,
+        &proofs,
+        now,
+        &mut Earliest::default(),
+    )
+    .map(|_| ())
 }
 
 /// Ask policy about every permitted action on every permitted resource, and fold the answers

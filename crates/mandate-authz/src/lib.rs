@@ -5,12 +5,13 @@
 //! `Check(context, action, resource) -> Decision`, refused with
 //! `mandate.authorization.Denied` — one event, `DecisionRecorded`, and no entity.
 //! `docs/architecture/ownership.md:13` gives that domain to this crate. [`check`] is the
-//! command; the three modules under it are the three things it does, in order:
+//! command; the four modules under it are the four things it does, in order:
 //!
 //! | Module | What it decides |
 //! |---|---|
 //! | [`context`] | whether the credential-derived context binds: tenant, audience, resource, space |
-//! | [`evaluate`] | what the graph, policy and the capability ceilings come to, folded through deny precedence |
+//! | [`agent`] | for a request involving an agent: its agent, delegation, execution and capability ceilings |
+//! | [`evaluate`] | what the graph and policy come to, folded through deny precedence |
 //! | [`decision`] | the `mandate.core.Decision` record that is returned and recorded |
 //!
 //! # What this crate does not decide
@@ -33,21 +34,21 @@
 //! other port's yes. This is the `pdp-outage` case
 //! (`tests/security/cases.json:602`): deny, and invent no local permission.
 //!
-//! # Only direct requests are decided
+//! # A delegated request is decided, by the evaluator's own record checks
 //!
 //! `docs/architecture/combined.md:53` makes effective authority the intersection of the
 //! subject's authority, the **actor ceiling**, the **explicit delegation**, the requested
 //! authority, the tenant, space and resource bindings, the registered target and current
-//! policy. Every one of those bounds is read here except the actor ceiling and the
-//! delegation, which [`check`] has no port for, so a `VerifiedContext` naming an actor other
-//! than its subject, a delegation or an execution is **refused** ([`context::direct`]) rather
-//! than decided as though it were unbounded. The evaluator that does read them is
-//! [`agent::evaluate_agent_authority`] (`story:agent-authority-kernel`,
-//! `docs/architecture/ownership.md:16`): the actor ceilings keyed by `agent_id` and
-//! organization, and the delegation, read as [`delegation`] records through
-//! [`agent::AgentAuthorityRead`]. It is a reusable function for the token exchange; wiring it
-//! into [`check`] is not this crate's change to make alone, so a delegated `Check` is still
-//! refused and never allowed.
+//! policy. [`check`] reads every one of them. The two in bold, and the execution a request
+//! is made in, are read as [`delegation`] records through [`agent::AgentAuthorityRead`], the
+//! port [`Pdp::agents`] holds, by the same record checks the token exchange decides by
+//! ([`agent`]): agent, delegation, execution, ceilings, intersection. A request involves them
+//! when its context names an actor other than its subject, a delegation or an execution
+//! ([`context::direct`]), or when its subject is an agent acting for itself; the ceilings
+//! read are those keyed by the agent's `agent_id`, never a list the caller states. A request
+//! the records do not bound — an actor no agent record names, a delegation nobody recorded —
+//! is refused, so a read that holds no record ([`agent::AgentRecords::new`]) decides every
+//! direct request of a principal that is no agent as before and refuses every other one.
 //!
 //! # A reauthentication challenge cannot be expressed by this contract
 //!
@@ -75,11 +76,11 @@
 //!
 //! # What the caller must supply, and why
 //!
-//! [`CheckRequest`] carries the contract's three inputs and five values no port in the
+//! [`CheckRequest`] carries the contract's three inputs and six values no port in the
 //! ceiling can answer for: the audience the credential is required to carry, the relation
 //! name the graph is asked about, the revision floor the read must not answer below, the
-//! attribute input, the scope the request is made under, and the capability ceilings that
-//! bound it. Each is documented at its field with the reason it cannot be looked up here.
+//! attribute input, the scope the request is made under, and the instant the decision is
+//! taken at. Each is documented at its field with the reason it cannot be looked up here.
 
 pub mod agent;
 pub mod context;
@@ -90,15 +91,20 @@ pub mod evaluate;
 mandate_types::realizes! {
     "mandate.authorization.Check" => crate::check,
     "mandate.authorization.Denied" => crate::decision::Denied,
-    // The three `mandate.delegation` records the agent authority evaluator reads, and their
-    // lifecycles (`story:agent-authority-kernel`). Projections read through
-    // `agent::AgentAuthorityRead`; no command here writes them.
+    // The five `mandate.delegation` records and their lifecycles. Projections read through
+    // `agent::AgentAuthorityRead`; no command here writes them. The evaluator reads the
+    // agent, its ceilings, the delegation and the execution; the approval is read for the
+    // command that consumes it.
     "mandate.delegation.Agent" => crate::delegation::Agent,
     "mandate.delegation.Agent.State" => crate::delegation::AgentState,
     "mandate.delegation.AgentCapabilityCeiling" => crate::delegation::AgentCapabilityCeiling,
     "mandate.delegation.AgentCapabilityCeiling.State" => crate::delegation::CeilingState,
     "mandate.delegation.Delegation" => crate::delegation::Delegation,
     "mandate.delegation.Delegation.State" => crate::delegation::DelegationState,
+    "mandate.delegation.Execution" => crate::delegation::Execution,
+    "mandate.delegation.Execution.State" => crate::delegation::ExecutionState,
+    "mandate.delegation.Approval" => crate::delegation::Approval,
+    "mandate.delegation.Approval.State" => crate::delegation::ApprovalState,
 }
 
 /// Why a `mandate.delegation` command is not realized here.
@@ -124,9 +130,8 @@ const DELEGATION_EVENT: &str = "no event payload type is declared here: no comma
 /// event payload type, no allocator of one, and no port that could append it.
 /// `story:check-api` recorded why — `DecisionRecorded` "changes no entity … so it is not a
 /// move-event" — and the adapter that records it is the decision point's deployment, not
-/// this library. Of `mandate.delegation` this crate realizes the three records the
-/// evaluator reads: the six commands, their six events and the domain's error belong to the
-/// handlers, and `Execution` and `Approval` are read by no evaluation here.
+/// this library. Of `mandate.delegation` this crate realizes the five records: the six
+/// commands, their six events and the domain's error belong to the handlers.
 pub const ESS_UNREALIZED: &[(&str, &str)] = &[
     (
         "mandate.authorization.DecisionRecorded",
@@ -156,24 +161,6 @@ pub const ESS_UNREALIZED: &[(&str, &str)] = &[
         "no error type is declared here: the evaluator's refusals are the consuming \
          command's, named by agent::AuthorityClause, and no delegation command is handled here",
     ),
-    (
-        "mandate.delegation.Execution",
-        "no evaluation here reads an execution record; the execution a delegation is bound to \
-         is compared by identity from the verified context",
-    ),
-    (
-        "mandate.delegation.Execution.State",
-        "the lifecycle enum of mandate.delegation.Execution, which no evaluation here reads",
-    ),
-    (
-        "mandate.delegation.Approval",
-        "no evaluation here reads an approval record: an approval requirement is answered \
-         allowed=false with the challenge, and consuming the approval is another command's",
-    ),
-    (
-        "mandate.delegation.Approval.State",
-        "the lifecycle enum of mandate.delegation.Approval, which no evaluation here reads",
-    ),
 ];
 
 use mandate_graph::port::GraphRead;
@@ -184,12 +171,13 @@ use mandate_model::tenancy::Tenancy;
 use mandate_policy::port::{AttributeSet, PolicyEvaluator};
 use mandate_policy::precedence::RoleCatalog;
 use mandate_types::{
-    Action, Audience, AuthorityScope, AuthzRevision, ResourceRef, VerifiedContext,
+    Action, Audience, AuthorityScope, AuthzRevision, ResourceRef, Timestamp, VerifiedContext,
 };
 
+use crate::agent::AgentAuthorityRead;
 use crate::context::Binding;
 use crate::decision::{ChallengeIssuer, DecisionIdAllocator, Denied, Taken};
-use crate::evaluate::{Authority, Ceiling, Read};
+use crate::evaluate::{Authority, Read};
 
 /// What `mandate.authorization.Check` is asked.
 #[derive(Debug)]
@@ -225,9 +213,12 @@ pub struct CheckRequest<'a> {
     /// [`evaluate::requested`] — `combined.md:53` puts requested authority inside the same
     /// intersection as every other bound, and a scope that covers neither grants none.
     pub scope: Option<&'a AuthorityScope>,
-    /// The capability ceilings the caller holds. Every applicable one intersects
-    /// (`systems/mandate/domains/delegation.yaml:5`).
-    pub ceilings: &'a [Ceiling],
+    /// The instant the decision is taken at.
+    ///
+    /// Nothing in this crate's dependency ceiling tells the time, and a delegation's window,
+    /// an execution's `expires_at` and every other expiry a delegated request is bounded by
+    /// are compared against it. A delegation is never in force at a time nobody stated.
+    pub at: &'a Timestamp,
 }
 
 /// The decision point: the ports and the projections a decision is taken against.
@@ -235,12 +226,13 @@ pub struct CheckRequest<'a> {
 /// Held as one value so the entry point takes a request, an allocator and this, rather
 /// than eight parameters that could be passed in the wrong order.
 #[derive(Debug)]
-pub struct Pdp<'a, G, P, C, I>
+pub struct Pdp<'a, G, P, C, I, R>
 where
     G: GraphRead<Revision = AuthzRevision> + ResourceLookup + ?Sized,
     P: PolicyEvaluator + ?Sized,
     C: RoleCatalog + ?Sized,
     I: ChallengeIssuer + ?Sized,
+    R: AgentAuthorityRead + ?Sized,
 {
     /// The relationship graph: the authority read, and where a resource sits.
     pub graph: &'a G,
@@ -254,21 +246,26 @@ where
     pub tenancy: &'a Tenancy,
     /// The resource projection, read for a resource's space.
     pub topology: &'a Topology,
+    /// The `mandate.delegation` records: which principals are agents, their ceilings, and
+    /// the delegations and executions a request names.
+    pub agents: &'a R,
 }
 
 /// Decide one `mandate.authorization.Check`.
 ///
-/// The context binds first and a request that does not bind reads no authority at all;
-/// what the ports and ceilings come to is then folded through deny precedence; and the one
-/// assembly path turns that into the decision, refusal included.
+/// The context binds first and a request that does not bind reads no authority at all; a
+/// request that involves an agent is then decided by the record checks it shares with the
+/// token exchange ([`agent`]), and one they refuse reads no authority either; what the ports
+/// come to is then folded through deny precedence; and the one assembly path turns that into
+/// the decision, refusal included.
 ///
 /// # Errors
 ///
 /// [`Denied`] for every outcome that is not an allow, carrying both the declared reason
 /// and the decision that was taken — including the `allowed=false` decision with a
 /// structured challenge that an approval requirement produces.
-pub fn check<G, P, C, I, A>(
-    pdp: &Pdp<'_, G, P, C, I>,
+pub fn check<G, P, C, I, R, A>(
+    pdp: &Pdp<'_, G, P, C, I, R>,
     allocator: &mut A,
     request: &CheckRequest<'_>,
 ) -> Result<Decision, Denied>
@@ -277,6 +274,7 @@ where
     P: PolicyEvaluator + ?Sized,
     C: RoleCatalog + ?Sized,
     I: ChallengeIssuer + ?Sized,
+    R: AgentAuthorityRead + ?Sized,
     A: DecisionIdAllocator + ?Sized,
 {
     let taken = Taken {
@@ -287,7 +285,7 @@ where
 
     // Binding first, and a refusal returns without reading a port: a request whose context
     // does not stand must not ask the graph or policy anything on its behalf.
-    let authority = match context::bind(
+    let authority = match context::bind_any(
         pdp.tenancy,
         pdp.topology,
         pdp.graph,
@@ -298,22 +296,39 @@ where
             scope: request.scope,
         },
     ) {
-        Ok(bound) => evaluate::evaluate(
-            pdp.graph,
-            pdp.policy,
-            pdp.catalog,
-            &Read {
-                context: request.context,
-                subject: &bound.subject,
-                action: request.action,
-                resource: &bound.resource,
-                relation: request.relation,
-                minimum: request.minimum,
-                attributes: request.attributes,
-                scope: request.scope,
-                ceilings: request.ceilings,
-            },
-        ),
+        Ok(bound) => {
+            // Then the agent records a request names, through the record checks the token
+            // exchange decides by; a refusal reads neither port either.
+            let requested = AuthorityScope {
+                actions: vec![request.action.clone()],
+                resources: vec![bound.resource.clone()],
+                space: bound.space,
+            };
+            match agent::check_records(
+                pdp.agents,
+                request.context,
+                &requested,
+                request.scope,
+                request.at,
+            ) {
+                Ok(()) => evaluate::evaluate(
+                    pdp.graph,
+                    pdp.policy,
+                    pdp.catalog,
+                    &Read {
+                        context: request.context,
+                        subject: &bound.subject,
+                        action: request.action,
+                        resource: &bound.resource,
+                        relation: request.relation,
+                        minimum: request.minimum,
+                        attributes: request.attributes,
+                        scope: request.scope,
+                    },
+                ),
+                Err(clause) => Authority::refused(clause.reason()),
+            }
+        }
         Err(reason) => Authority::refused(reason),
     };
 

@@ -1,5 +1,5 @@
-//! `mandate.delegation.Agent`, `AgentCapabilityCeiling` and `Delegation` as projections, and
-//! the read that decides which ceilings are current.
+//! `mandate.delegation.Agent`, `AgentCapabilityCeiling`, `Delegation`, `Execution` and
+//! `Approval` as projections, and the read that decides which ceilings are current.
 //!
 //! The entities and their lifecycles are declared in `systems/mandate/domains/delegation.yaml`.
 //! These are projections, not the record: `docs/adr/0009-event-sourced-persistence.md` makes
@@ -18,8 +18,9 @@
 //! read that says so: it never picks one of two conflicting records, it reports the key.
 
 use mandate_types::{
-    ActionPattern, AgentCapabilityCeilingId, Audience, AuthorityScope, DelegationId, Duration,
-    ExecutionId, OrganizationId, PersistedValue, PrincipalId, Timestamp,
+    Action, ActionPattern, AgentCapabilityCeilingId, ApprovalId, Audience, AuthorityScope,
+    DelegationId, Duration, ExecutionId, OrganizationId, PersistedValue, PolicyVersion,
+    PrincipalId, ResourceRef, SessionId, Timestamp,
 };
 
 /// The declared lifecycle of `mandate.delegation.Delegation` (`delegation.yaml`).
@@ -191,6 +192,116 @@ impl AgentCapabilityCeiling {
                 .is_none_or(|recorded| recorded == organization)
     }
 }
+
+/// The declared lifecycle of `mandate.delegation.Execution` (`delegation.yaml`).
+///
+/// An execution is never expired by a recorded move: eligibility is read from its
+/// `expires_at`, and completion is the only declared transition (`delegation.yaml:3`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExecutionState {
+    /// The declared initial state: the agent invocation is recorded and admits tool calls
+    /// inside its window.
+    Recorded,
+    /// The declared terminal state: the invocation ended, and no further tool call is
+    /// admitted under it (`CompleteExecution`'s summary).
+    Completed,
+}
+
+impl ExecutionState {
+    /// Every state the contract declares, in declaration order.
+    pub const ALL: &'static [Self] = &[Self::Recorded, Self::Completed];
+
+    /// Whether the contract declares this state terminal.
+    #[must_use]
+    pub const fn terminal(self) -> bool {
+        matches!(self, Self::Completed)
+    }
+}
+
+impl PersistedValue for ExecutionState {}
+
+/// `mandate.delegation.Execution`: one agent invocation, the window its tool calls are
+/// admitted in, and what it is bound to.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Execution {
+    /// The declared identity.
+    pub id: ExecutionId,
+    /// The organization the execution is recorded in.
+    pub organization_id: OrganizationId,
+    /// The agent that holds the execution: the actor of every request made under it.
+    pub agent_id: PrincipalId,
+    /// The subject the agent acts for, when it acts for one; absent, it acts for itself.
+    pub subject: Option<PrincipalId>,
+    /// The delegation the execution runs under, when it runs under one.
+    pub delegation_id: Option<DelegationId>,
+    /// The session that started the execution, when one did.
+    pub initiating_session: Option<SessionId>,
+    /// When the execution was recorded.
+    pub created_at: Timestamp,
+    /// When the execution stops admitting tool calls, without any recorded move.
+    pub expires_at: Timestamp,
+    /// The policy version the execution was started under.
+    pub policy_version: PolicyVersion,
+    /// The folded lifecycle state.
+    pub state: ExecutionState,
+}
+
+impl PersistedValue for Execution {}
+
+/// The declared lifecycle of `mandate.delegation.Approval` (`delegation.yaml`).
+///
+/// One-use and never reinstated: it is consumed by exactly one decision, or it expires by its
+/// own `expires_at` with no recorded move (`delegation.yaml:4`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ApprovalState {
+    /// The declared initial state: the approval is recorded and not yet used.
+    Recorded,
+    /// The declared terminal state: one decision used it.
+    Consumed,
+}
+
+impl ApprovalState {
+    /// Every state the contract declares, in declaration order.
+    pub const ALL: &'static [Self] = &[Self::Recorded, Self::Consumed];
+
+    /// Whether the contract declares this state terminal.
+    #[must_use]
+    pub const fn terminal(self) -> bool {
+        matches!(self, Self::Consumed)
+    }
+}
+
+impl PersistedValue for ApprovalState {}
+
+/// `mandate.delegation.Approval`: a second party's one-use answer to one approval challenge.
+///
+/// Read through [`crate::agent::AgentAuthorityRead::approval`] for the command that consumes
+/// it. No evaluation here satisfies a challenge with one: `mandate.authorization.Check`
+/// declares no approval input, so an approval requirement is answered `allowed = false` with
+/// the challenge attached.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Approval {
+    /// The declared identity.
+    pub id: ApprovalId,
+    /// The organization the approval is recorded in.
+    pub organization_id: OrganizationId,
+    /// The subject of the decision the approval answers.
+    pub subject: PrincipalId,
+    /// The actor of that decision, when it had one.
+    pub actor: Option<PrincipalId>,
+    /// The action approved.
+    pub action: Action,
+    /// The resource the action is on.
+    pub resource: ResourceRef,
+    /// When the approval stops being usable, without any recorded move.
+    pub expires_at: Timestamp,
+    /// The principal who approved.
+    pub approver: PrincipalId,
+    /// The folded lifecycle state.
+    pub state: ApprovalState,
+}
+
+impl PersistedValue for Approval {}
 
 /// The key one current capability ceiling is held on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]

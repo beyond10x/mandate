@@ -1,11 +1,11 @@
-//! One authority read, one policy read, the ceilings, folded through deny precedence.
+//! One authority read and one policy read, folded through deny precedence.
 //!
 //! `docs/architecture/combined.md:53` — "denies override grants" — and the ranking of
 //! challenge requirements are `mandate-policy`'s single home
 //! (`crates/mandate-policy/src/precedence.rs`). This module consumes
 //! [`mandate_policy::precedence::combine`] and restates neither. What it owns is *which*
 //! components go in: the graph's answer expanded against the role catalog, policy's
-//! effect, and one component per applicable capability ceiling.
+//! effect, and the requested scope.
 //!
 //! # Exactly one read of each port
 //!
@@ -24,24 +24,16 @@
 //! the `pdp-outage` case (`tests/security/cases.json:602`): deny, and invent no local
 //! permission.
 //!
-//! # The ceiling shape is declared here, minimally
+//! # Ceilings are not read here
 //!
-//! `mandate.delegation.AgentCapabilityCeiling` declares `allowed_actions` and
-//! `denied_actions` as `List<mandate.core.ActionPattern>`, an `organization_id` that is
-//! absent for a platform ceiling and present for a tenant one, and the rule that "all
-//! applicable platform/tenant ceilings intersect"
-//! (`systems/mandate/domains/delegation.yaml:5,:106-111`). No type in this crate's
-//! dependency ceiling projects that entity and nothing anywhere matches an
-//! [`mandate_types::ActionPattern`] against an [`mandate_types::Action`], so [`Ceiling`]
-//! and [`covers`] are the minimum this module needs to apply one. The projection from the
-//! recorded entity is `story:agent-authority-kernel`'s
-//! (`docs/architecture/ownership.md:16`), and it is expected to replace [`Ceiling`]'s
-//! construction, not its meaning.
-//!
-//! A ceiling bounds; it never grants. A ceiling that admits the action contributes
-//! [`Component::Nothing`] — the identity of the fold — so a request no source allowed is
-//! still refused, and a ceiling that does not admit it contributes a refusal that
-//! overrides every allow. That is what makes the applicable ceilings an intersection.
+//! A capability ceiling bounds an *agent*: `mandate.delegation.AgentCapabilityCeiling` is
+//! keyed by `(agent_id, organization_id)` (`systems/mandate/domains/delegation.yaml:5-6`).
+//! [`crate::check`] reads the ceilings of the agents a request involves through
+//! [`crate::agent::AgentAuthorityRead`], in the record checks it shares with the token
+//! exchange ([`crate::agent`]), before this fold is asked anything. A caller-supplied list
+//! of ceilings keyed on the organization alone, which this module once took, bounded every
+//! member of an organization alike and is retired. [`covers`], the one reading of an
+//! [`mandate_types::ActionPattern`] against an [`mandate_types::Action`], stays here.
 //!
 //! # The requested authority is a bound too, and reads the same way
 //!
@@ -61,64 +53,8 @@ use mandate_policy::port::{AttributeSet, Challenge, PolicyEvaluator, PolicyReque
 use mandate_policy::precedence::{Combined, Component, RoleCatalog, combine, expand};
 use mandate_types::{
     Action, ActionPattern, AuthorityScope, AuthoritySubject, AuthzRevision, DenialReason,
-    OrganizationId, PolicyVersion, ResourceRef, VerifiedContext,
+    PolicyVersion, ResourceRef, VerifiedContext,
 };
-
-/// One capability ceiling, as this module needs it.
-///
-/// See the module documentation: the fields are the three of
-/// `mandate.delegation.AgentCapabilityCeiling` that bound an action. `scope` and
-/// `max_delegation_ttl` bound other things and are not read here.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Ceiling {
-    /// The organization this ceiling is recorded for; absent means a platform ceiling,
-    /// which applies to every organization (`delegation.yaml:5`).
-    pub organization: Option<OrganizationId>,
-    /// The action patterns the ceiling admits.
-    pub allowed_actions: Vec<ActionPattern>,
-    /// The action patterns the ceiling refuses, whatever it admits.
-    pub denied_actions: Vec<ActionPattern>,
-}
-
-impl Ceiling {
-    /// Whether this ceiling applies to a request made in this organization.
-    #[must_use]
-    pub fn applies(&self, organization: &OrganizationId) -> bool {
-        self.organization
-            .as_ref()
-            .is_none_or(|recorded| recorded == organization)
-    }
-
-    /// Whether this ceiling admits the action.
-    ///
-    /// A denied pattern wins over an allowed one, and an empty `allowed_actions` admits
-    /// nothing: the same closed direction `combined.md:53` states for an empty source
-    /// list.
-    #[must_use]
-    pub fn admits(&self, action: &Action) -> bool {
-        !self
-            .denied_actions
-            .iter()
-            .any(|pattern| covers(pattern, action))
-            && self
-                .allowed_actions
-                .iter()
-                .any(|pattern| covers(pattern, action))
-    }
-
-    /// The component this ceiling contributes to a request for this action.
-    ///
-    /// A ceiling never grants: admitting contributes the identity of the fold, so a
-    /// request no source allowed stays refused.
-    #[must_use]
-    pub fn component(&self, action: &Action) -> Component {
-        if self.admits(action) {
-            Component::Nothing
-        } else {
-            Component::Denied(DenialReason::Denied)
-        }
-    }
-}
 
 /// Whether an action pattern covers an action.
 ///
@@ -199,8 +135,6 @@ pub struct Read<'a> {
     /// The authority the request was made under, when it was made under one. Intersected
     /// by [`requested`]; its `space` is bound by [`crate::context::bind`].
     pub scope: Option<&'a AuthorityScope>,
-    /// Every capability ceiling the caller holds. Those that apply intersect.
-    pub ceilings: &'a [Ceiling],
 }
 
 /// What the ports answered, folded.
@@ -233,7 +167,7 @@ impl Authority {
     }
 }
 
-/// Ask the graph once, ask policy once, apply the ceilings, and fold the lot.
+/// Ask the graph once, ask policy once, apply the requested scope, and fold the lot.
 #[must_use]
 pub fn evaluate<G, P, C>(graph: &G, policy: &P, catalog: &C, read: &Read<'_>) -> Authority
 where
@@ -298,14 +232,6 @@ where
     }
 
     components.push(requested(read.scope, read.action, read.resource));
-
-    for ceiling in read
-        .ceilings
-        .iter()
-        .filter(|ceiling| ceiling.applies(&read.context.organization))
-    {
-        components.push(ceiling.component(read.action));
-    }
 
     Authority {
         combined: combine(&components),

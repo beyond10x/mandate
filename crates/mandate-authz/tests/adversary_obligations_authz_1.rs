@@ -17,9 +17,10 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use mandate_authz::agent::AgentRecords;
 use mandate_authz::context::{Binding, bind};
 use mandate_authz::decision::{Denied, FixedChallenge, SequentialDecisionIds};
-use mandate_authz::evaluate::Ceiling;
+use mandate_authz::delegation::{Agent, AgentCapabilityCeiling, AgentState, CeilingState};
 use mandate_authz::{CheckRequest, Pdp, check};
 use mandate_graph::double::GraphDouble;
 use mandate_graph::record::Grant;
@@ -31,10 +32,10 @@ use mandate_policy::double::PolicyDouble;
 use mandate_policy::port::AttributeSet;
 use mandate_policy::record::{AuthorizationModel, Policy};
 use mandate_types::{
-    Action, ActionPattern, Audience, AuthorityScope, AuthoritySubject, AuthorizationModelId,
-    AuthzRevision, CorrelationId, CredentialId, DenialReason, GrantId, OrganizationId,
-    OrganizationMembershipId, PolicyId, PolicyVersion, PrincipalId, ResourceId, ResourceRef,
-    ResourceType, Timestamp, Uuid, VerifiedContext,
+    Action, ActionPattern, AgentCapabilityCeilingId, Audience, AuthorityScope, AuthoritySubject,
+    AuthorizationModelId, AuthzRevision, CorrelationId, CredentialId, DenialReason, Duration,
+    GrantId, OrganizationId, OrganizationMembershipId, PolicyId, PolicyVersion, PrincipalId,
+    ResourceId, ResourceRef, ResourceType, Timestamp, Uuid, VerifiedContext,
 };
 
 // ---------------------------------------------------------------------------------------
@@ -161,31 +162,51 @@ fn policy() -> PolicyDouble {
     policy
 }
 
-/// The platform ceiling of `tests/security/cases.json:544`: `organization: None` applies to
-/// every organization (`systems/mandate/domains/delegation.yaml:5`) and it admits the action.
-fn platform() -> Ceiling {
-    Ceiling {
-        organization: None,
+/// One ceiling of the agent: ceilings are an agent's, keyed by `(agent_id, organization_id)`,
+/// and read through the agent port.
+fn agent_ceiling(
+    byte: u8,
+    organization_id: Option<OrganizationId>,
+    denied: &[&str],
+) -> AgentCapabilityCeiling {
+    AgentCapabilityCeiling {
+        id: AgentCapabilityCeilingId::new(uuid(byte)),
+        agent_id: agent(),
+        organization_id,
         allowed_actions: vec![ActionPattern::new("deployment.*")],
-        denied_actions: Vec::new(),
+        denied_actions: denied
+            .iter()
+            .map(|name| ActionPattern::new(*name))
+            .collect(),
+        scope: AuthorityScope {
+            actions: vec![action()],
+            resources: vec![resource()],
+            space: None,
+        },
+        max_delegation_ttl: Duration::new("PT1H"),
+        state: CeilingState::Recorded,
     }
 }
 
-/// The ceiling `crates/mandate-authz/tests/obligations.rs:150-157` calls "the installation
-/// ceiling": recorded for the organization, refusing the action the grant carries.
-fn installation() -> Ceiling {
-    Ceiling {
-        organization: Some(organization()),
-        allowed_actions: vec![ActionPattern::new("deployment.*")],
-        denied_actions: vec![ActionPattern::new("deployment.restart")],
-    }
+/// The platform ceiling of `tests/security/cases.json:544`: `organization_id` absent applies
+/// in every organization (`systems/mandate/domains/delegation.yaml:5`) and it admits the
+/// action.
+fn platform() -> AgentCapabilityCeiling {
+    agent_ceiling(60, None, &[])
 }
 
-/// One `mandate.authorization.Check` for `principal`, at `minimum`, under `ceilings`.
+/// The agent's installation ceiling: recorded for the organization, refusing the action the
+/// grant carries.
+fn installation() -> AgentCapabilityCeiling {
+    agent_ceiling(61, Some(organization()), &["deployment.restart"])
+}
+
+/// One `mandate.authorization.Check` for `principal` acting for itself, at `minimum`, where
+/// the agent — and only the agent — is recorded as one, bounded by `ceilings`.
 fn check_for(
     principal: PrincipalId,
     minimum: &AuthzRevision,
-    ceilings: &[Ceiling],
+    ceilings: &[AgentCapabilityCeiling],
 ) -> Result<Decision, Denied> {
     let (graph, _) = graph();
     let policy = policy();
@@ -195,6 +216,16 @@ fn check_for(
         expires_at: Timestamp::new("2026-09-18T00:00:00Z"),
         approver_policy: Some(PolicyId::new(uuid(40))),
     };
+    let agents = AgentRecords {
+        agents: vec![Agent {
+            id: agent(),
+            organization_id: organization(),
+            agent_type: "assistant".to_owned(),
+            state: AgentState::Recorded,
+        }],
+        ceilings: ceilings.to_vec(),
+        ..AgentRecords::new()
+    };
     let pdp = Pdp {
         graph: &graph,
         policy: &policy,
@@ -202,6 +233,7 @@ fn check_for(
         issuer: &issuer,
         tenancy: &tenancy,
         topology: &topology,
+        agents: &agents,
     };
 
     check(
@@ -216,7 +248,7 @@ fn check_for(
             minimum,
             attributes: &AttributeSet::new(),
             scope: None,
-            ceilings,
+            at: &Timestamp::new("2026-09-17T00:00:00Z"),
         },
     )
 }
@@ -391,8 +423,8 @@ fn the_credential_clause_publishes_four_conditions_and_names_no_row_that_decides
     );
 }
 
-/// RED. The `cases` row the unit added for `autonomous-ceiling` binds a ceiling that is not
-/// an agent's.
+/// The `cases` row the unit added for `autonomous-ceiling` bound a ceiling that was not an
+/// agent's. Red when written; it now asserts the bound state (see the end of the case).
 ///
 /// `tests/security/cases.json:541-551` gives the scenario as "Agent persistent grant exceeds
 /// platform/installation ceiling", checked "under own subject", expecting "deny outside
@@ -440,17 +472,22 @@ fn the_ceiling_the_autonomous_ceiling_row_binds_is_not_bound_to_an_agent() {
     // grant against an agent's ceiling — cannot be expressed here. `crates/mandate-authz/src/lib.rs:46-49`
     // already names `story:agent-authority-kernel` as the owner of the `agent_id` binding.
     //
-    // The case now asserts the shipped shape. It fells the day `Ceiling` learns about agents,
-    // which is the day `autonomous-ceiling` becomes bindable and its deferral should be re-read.
-    assert!(
-        colleague_decision.is_err(),
-        "a second organization member who is no agent and holds the same grant is no longer \
-         refused by the installation ceiling, so `mandate_authz::evaluate::Ceiling` has stopped \
-         keying on organization alone. If it now carries `agent_id`, the corpus scenario \
-         `autonomous-ceiling` is expressible in this crate for the first time and its deferral to \
-         `story:agent-authority-kernel` in `contracts/obligations/authz.json` should be re-read. \
-         Colleague got: {colleague_decision:?}"
-    );
+    // The case asserted the shipped shape until `Ceiling` learned about agents. It fell as its
+    // own text predicted when `story:agent-security` retired `mandate_authz::evaluate::Ceiling`
+    // for the agent's `mandate.delegation.AgentCapabilityCeiling`, which `check` reads by
+    // `agent_id` through `mandate_authz::agent::AgentAuthorityRead`; this is the bound state.
+    // The agent is refused by its own installation ceiling, and the colleague, who is no agent
+    // and holds the same grant, is bounded by no agent's ceiling and allowed. The deferral was
+    // re-read: `autonomous-ceiling` in `contracts/obligations/authz.json` now names this case
+    // and the delegated acceptance of `tests/agent_security.rs`.
+    let colleague_decision = colleague_decision.unwrap_or_else(|refusal| {
+        panic!(
+            "a second organization member who is no agent and holds the same grant is refused \
+             by the agent's installation ceiling, so a ceiling is no longer bound to its agent. \
+             Colleague got: {refusal:?}"
+        )
+    });
+    assert!(colleague_decision.allowed);
 }
 
 /// RED. The clause `the required PDP/graph/credential authority is unavailable` publishes
