@@ -534,6 +534,10 @@ pub const PORTS: &[(&str, &str)] = &[
         "mandate.authorization.Check",
         "mandate_graph::port::GraphRead",
     ),
+    (
+        "mandate.authorization.CheckWithApproval",
+        "mandate_graph::port::GraphRead",
+    ),
     ("mandate.graph.RegisterResource", NO_PORT),
     ("mandate.graph.DeregisterResource", NO_PORT),
     ("mandate.tenancy.CreateOrganization", NO_PORT),
