@@ -1538,9 +1538,9 @@
     }
   },
   "provenance": {
-    "contract_digest": "6e8d60eff115f41f692ab8ecbaa0a553e233c3f25890f20288912b90d1cc1b04",
+    "contract_digest": "90c631a420df9593ddf90b48ed18919d7a1fe6a8e477d90e737e1d4bebced13c",
     "scenario_initial_state": "empty",
-    "spec_digest": "e45424ae17215fcf0135234cf17e909e2979fce028c3da4b855c56b1a7b43bc7",
+    "spec_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
     "specification_version": "v1",
     "suite_version": "ess-conformance/35",
     "system": "mandate"

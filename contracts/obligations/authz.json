@@ -646,6 +646,16 @@
           ]
         },
         {
+          "clause": "the runtime principal is disabled",
+          "tests": [
+            {
+              "id": "mandate-authz::authenticate_workload_two_principals::invariant_3_a_disabled_runtime_principal_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
           "clause": "the agent is unrecorded",
           "tests": [
             {
@@ -655,6 +665,16 @@
             },
             {
               "id": "mandate-authz::workload_authentication::the_agent_is_never_derived_from_the_workload_proof",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "the runtime itself",
+          "tests": [
+            {
+              "id": "mandate-authz::authenticate_workload_two_principals::invariant_3_the_runtime_is_never_authenticated_as_its_own_agent",
               "kind": "denial",
               "path": "real"
             }
