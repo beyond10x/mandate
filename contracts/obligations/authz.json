@@ -167,7 +167,6 @@
       "command": "mandate.delegation.CompleteExecution",
       "status": "deferred",
       "story": "story:agent-security",
-      "blocker": "decision-blocker:identity-uniqueness",
       "clauses": [],
       "no_state_change": []
     },
@@ -175,7 +174,6 @@
       "command": "mandate.delegation.ConsumeApproval",
       "status": "deferred",
       "story": "story:agent-security",
-      "blocker": "decision-blocker:identity-uniqueness",
       "clauses": [],
       "no_state_change": []
     },
@@ -183,7 +181,6 @@
       "command": "mandate.delegation.CreateDelegation",
       "status": "deferred",
       "story": "story:agent-security",
-      "blocker": "decision-blocker:identity-uniqueness",
       "clauses": [],
       "no_state_change": []
     },
@@ -191,7 +188,6 @@
       "command": "mandate.delegation.RetireAgent",
       "status": "deferred",
       "story": "story:agent-security",
-      "blocker": "decision-blocker:identity-uniqueness",
       "clauses": [],
       "no_state_change": []
     },
@@ -199,7 +195,6 @@
       "command": "mandate.delegation.RevokeDelegation",
       "status": "deferred",
       "story": "story:agent-security",
-      "blocker": "decision-blocker:identity-uniqueness",
       "clauses": [],
       "no_state_change": []
     },
@@ -207,7 +202,6 @@
       "command": "mandate.delegation.SupersedeAgentCapabilityCeiling",
       "status": "deferred",
       "story": "story:agent-security",
-      "blocker": "decision-blocker:identity-uniqueness",
       "clauses": [],
       "no_state_change": []
     }

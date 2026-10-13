@@ -200,7 +200,7 @@ fn accepted(root: &Path) -> String {
 fn a_deferred_entry_relabelled_implemented_escapes_this_step_and_is_killed_by_the_registry_case() {
     let root = fixture("deferred-relabelled-implemented");
     let body = manifest(&root);
-    let entry = line(&body, "mandate.workload.RevokeWorkloadIdentity");
+    let entry = line(&body, "mandate.audit.RedactAuditEvent");
     let head = entry
         .split_once("\"impl\":[")
         .expect("the entry states an impl list")
@@ -209,7 +209,7 @@ fn a_deferred_entry_relabelled_implemented_escapes_this_step_and_is_killed_by_th
         "{head}\"crate\":\"mandate-authz\",\"impl\":[\"crate::decision::Taken\"],\"tests\":[\"{AUTHZ_REGISTRY_CASE}\"]}},"
     )
     .replace("\"status\":\"deferred\"", "\"status\":\"implemented\"");
-    mutate(&root, "mandate.workload.RevokeWorkloadIdentity", &doctored);
+    mutate(&root, "mandate.audit.RedactAuditEvent", &doctored);
 
     let report = accepted(&root);
     assert!(
@@ -345,7 +345,7 @@ fn the_registry_case_that_kills_the_relabels_is_run_and_is_what_the_relabel_reco
 fn a_relabel_moves_the_receipt_so_the_regeneration_byte_compare_kills_it_too() {
     let root = receipt_fixture("relabel-against-the-receipt");
     let body = manifest(&root);
-    let entry = line(&body, "mandate.workload.RevokeWorkloadIdentity");
+    let entry = line(&body, "mandate.audit.RedactAuditEvent");
     let head = entry
         .split_once("\"impl\":[")
         .expect("the entry states an impl list")
@@ -354,7 +354,7 @@ fn a_relabel_moves_the_receipt_so_the_regeneration_byte_compare_kills_it_too() {
         "{head}\"crate\":\"mandate-authz\",\"impl\":[\"crate::decision::Taken\"],\"tests\":[\"{AUTHZ_REGISTRY_CASE}\"]}},"
     )
     .replace("\"status\":\"deferred\"", "\"status\":\"implemented\"");
-    mutate(&root, "mandate.workload.RevokeWorkloadIdentity", &doctored);
+    mutate(&root, "mandate.audit.RedactAuditEvent", &doctored);
 
     let (committed, fresh) = regenerated(&root);
     assert_ne!(
@@ -483,12 +483,12 @@ fn an_element_renamed_to_one_the_model_does_not_declare_fails_both_ways() {
 fn a_deferred_entry_whose_blocker_the_store_has_cleared_fails() {
     let root = fixture("blocker-cleared");
     let body = manifest(&root);
-    let entry = line(&body, "mandate.workload.RevokeWorkloadIdentity");
+    let entry = line(&body, "mandate.audit.RedactAuditEvent");
     let doctored = entry.replace(
-        "\"blocker\":\"decision-blocker:identity-uniqueness\"",
+        "\"blocker\":\"decision-blocker:audit-routing\"",
         "\"blocker\":\"decision-blocker:algorithm-policy\"",
     );
-    mutate(&root, "mandate.workload.RevokeWorkloadIdentity", &doctored);
+    mutate(&root, "mandate.audit.RedactAuditEvent", &doctored);
     let error = failure(&root);
     assert!(
         error.contains("decision-blocker:algorithm-policy") && error.contains("does not report"),
@@ -502,12 +502,12 @@ fn a_deferred_entry_whose_blocker_the_store_has_cleared_fails() {
 fn a_deferred_entry_moved_onto_a_story_the_store_reports_implemented_fails() {
     let root = fixture("story-finished");
     let body = manifest(&root);
-    let entry = line(&body, "mandate.workload.RevokeWorkloadIdentity");
+    let entry = line(&body, "mandate.audit.RedactAuditEvent");
     let doctored = entry.replace(
-        "\"story\":\"story:agent-security\"",
+        "\"story\":\"story:audit-client\"",
         "\"story\":\"story:tenancy-topology\"",
     );
-    mutate(&root, "mandate.workload.RevokeWorkloadIdentity", &doctored);
+    mutate(&root, "mandate.audit.RedactAuditEvent", &doctored);
     let error = failure(&root);
     assert!(
         error.contains("story:tenancy-topology") && error.contains("terminal rung"),
