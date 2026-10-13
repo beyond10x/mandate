@@ -85,7 +85,7 @@
 //!   projections and no principal (`src/tenancy.rs:548-554`), so an unresolved principal
 //!   is unobservable here; and `mandate.identity.PrincipalDisabled` is folded nowhere in
 //!   the workspace (`crates/mandate-identity/src/lib.rs:219-226`,
-//!   `crates/mandate-conformance/src/commands/mod.rs:196`), so no world presents a
+//!   `crates/mandate-conformance/src/commands/mod.rs:177`), so no world presents a
 //!   disabled one. `story:declared-writers`.
 //!
 //! `contracts/obligations/model.json` records which story or blocker owns each of those
@@ -698,7 +698,7 @@ const CITED: &[(&str, &[&str])] = &[
         &["\"mandate.identity.PrincipalDisabled\""],
     ),
     (
-        "crates/mandate-conformance/src/commands/mod.rs:196",
+        "crates/mandate-conformance/src/commands/mod.rs:177",
         &["mandate.identity.PrincipalDisabled is folded nowhere"],
     ),
 ];

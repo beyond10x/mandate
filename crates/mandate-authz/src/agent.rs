@@ -72,7 +72,8 @@
 //! delegation's and the execution's expiry, compared as instants: `Timestamp` orders on its
 //! bytes, and RFC 3339 byte order is not time order. The returned value is the input that
 //! named that instant, verbatim. `max_delegation_ttl` bounds how long a delegation may be
-//! created for, which is `CreateDelegation`'s to enforce and not read here.
+//! created for, which [`crate::command::decide_create_delegation`] enforces and an evaluation
+//! does not read.
 
 use mandate_policy::port::{
     AttributeSet, Challenge, ChallengeRequirement, PolicyEvaluator, PolicyRequest,
@@ -183,8 +184,9 @@ pub trait AgentAuthorityRead {
 /// principal is an agent, no delegation or execution is recorded and no ceiling applies.
 /// Under it a direct request of a principal that is no agent is decided as before, and every
 /// request that names an actor other than its subject, a delegation or an execution is
-/// refused, because the record that would bound it is not there. That is the read a caller
-/// passes until a fold of the `mandate.delegation` events answers it.
+/// refused, because the record that would bound it is not there.
+/// [`crate::event::DelegationProjection`] starts from one of these and folds the
+/// `mandate.delegation` events over it.
 ///
 /// For each identity the **last** record given is the current one, as a fold that replaced
 /// it would answer; ceilings are answered whole, superseded ones included, in the order
@@ -825,7 +827,7 @@ where
 
 /// The current ceilings that bound `agent` in `organization`: refused when two share a key,
 /// and when there are none, because an intersection over no ceiling bounds nothing.
-fn applicable<'a>(
+pub(crate) fn applicable<'a>(
     recorded: &'a [AgentCapabilityCeiling],
     agent: &PrincipalId,
     organization: &OrganizationId,
@@ -959,7 +961,7 @@ where
 ///
 /// Requested order is kept and duplicates are dropped, so the result is a function of the
 /// sets alone.
-fn intersect(
+pub(crate) fn intersect(
     requested: &AuthorityScope,
     bounds: &[&AuthorityScope],
     ceilings: &[&AgentCapabilityCeiling],
@@ -1047,19 +1049,29 @@ impl Earliest {
 /// dependency ceiling: RFC 3339 with a mandatory offset, an optional fraction of up to nine
 /// digits, and the leap second 60. A value that names no instant is `None`, and the
 /// evaluator refuses rather than guess at it.
-mod instant {
+pub(crate) mod instant {
     use mandate_types::Timestamp;
 
     /// Seconds since `1970-01-01T00:00:00Z` and the nanoseconds within; the derived order is
     /// the chronological one.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-    pub(super) struct Instant {
+    pub(crate) struct Instant {
         seconds: i64,
         nanos: u32,
     }
 
+    impl Instant {
+        /// The instant `seconds` after this one, or `None` when it cannot be represented.
+        pub(crate) fn plus_seconds(self, seconds: i64) -> Option<Self> {
+            Some(Self {
+                seconds: self.seconds.checked_add(seconds)?,
+                nanos: self.nanos,
+            })
+        }
+    }
+
     /// The instant a declared timestamp names, or `None` when it names none.
-    pub(super) fn parse(value: &Timestamp) -> Option<Instant> {
+    pub(crate) fn parse(value: &Timestamp) -> Option<Instant> {
         let text = value.as_str().as_bytes();
         if text.len() < 20 || !matches!(text[10], b'T' | b't') {
             return None;

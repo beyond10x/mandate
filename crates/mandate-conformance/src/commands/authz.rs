@@ -11,8 +11,10 @@
 //! This target states them, and `injections.json` records that it did: a reader who sees
 //! `Check` pass must be able to see which bounds were stated rather than evaluated.
 //!
-//! The agent records a delegated request is bounded by are read through an empty
-//! `mandate_authz::agent::AgentRecords`: no fold of the `mandate.delegation` events is held.
+//! The agent records a delegated request is bounded by are read from this scenario's
+//! `mandate_authz::event::DelegationProjection`, the fold of the `mandate.delegation` events
+//! the scenario's delegation commands appended: a delegation a scenario created or revoked is
+//! read as it stands.
 //!
 //! # The accepted branch reports no event, and says so
 //!
@@ -24,7 +26,6 @@
 //! realization registry; a refusal declares no event and is reported in full.
 
 use ess_conformance::target::{SemanticCommandRequest, SemanticCommandResult, TargetError};
-use mandate_authz::agent::AgentRecords;
 use mandate_authz::{CheckRequest, Pdp};
 use mandate_policy::port::AttributeSet;
 use mandate_types::{Action, AuthzRevision, ResourceRef, Timestamp, VerifiedContext};
@@ -67,10 +68,6 @@ pub fn check(
     let minimum = AuthzRevision::new(INITIAL_REVISION.to_owned());
     let expected_audience = context.audience.clone();
     let relation = action.as_str().to_owned();
-    // No fold of the `mandate.delegation` events is held here: the empty read, under which
-    // a direct request of a principal that is no agent is decided and every request naming
-    // an actor other than its subject, a delegation or an execution is refused.
-    let agents = AgentRecords::new();
     let at = Timestamp::new(FIXED_INSTANT);
     let request = CheckRequest {
         context: &context,
@@ -92,7 +89,7 @@ pub fn check(
                 issuer: &live.challenge,
                 tenancy: &live.tenancy,
                 topology: &live.topology,
-                agents: &agents,
+                agents: &live.delegations,
             },
             &mut live.decisions,
             &request,
@@ -106,7 +103,7 @@ pub fn check(
                 issuer: &live.challenge,
                 tenancy: &live.tenancy,
                 topology: &live.topology,
-                agents: &agents,
+                agents: &live.delegations,
             },
             &mut live.decisions,
             &request,

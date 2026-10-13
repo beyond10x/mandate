@@ -28,7 +28,8 @@
       "mandate-types",
       "mandate-model",
       "mandate-graph",
-      "mandate-policy"
+      "mandate-policy",
+      "serde"
     ],
     "mandate-token": [
       "mandate-types",

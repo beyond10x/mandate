@@ -14,6 +14,11 @@
 //! | [`evaluate`] | what the graph and policy come to, folded through deny precedence |
 //! | [`decision`] | the `mandate.core.Decision` record that is returned and recorded |
 //!
+//! `docs/architecture/ownership.md:16` gives this crate `mandate.delegation` too: [`command`]
+//! decides five of its six commands, and [`event`] holds their events and the fold that
+//! answers [`agent::AgentAuthorityRead`] from them, so `check` reads what those commands
+//! wrote.
+//!
 //! # What this crate does not decide
 //!
 //! Deny precedence and the ranking of challenge requirements have one home,
@@ -83,18 +88,20 @@
 //! taken at. Each is documented at its field with the reason it cannot be looked up here.
 
 pub mod agent;
+pub mod command;
 pub mod context;
 pub mod decision;
 pub mod delegation;
 pub mod evaluate;
+pub mod event;
 
 mandate_types::realizes! {
     "mandate.authorization.Check" => crate::check,
     "mandate.authorization.Denied" => crate::decision::Denied,
     // The five `mandate.delegation` records and their lifecycles. Projections read through
-    // `agent::AgentAuthorityRead`; no command here writes them. The evaluator reads the
-    // agent, its ceilings, the delegation and the execution; the approval is read for the
-    // command that consumes it.
+    // `agent::AgentAuthorityRead`, which `event::DelegationProjection` answers by folding the
+    // commands' events. The evaluator reads the agent, its ceilings, the delegation and the
+    // execution; the approval is read for the command that consumes it.
     "mandate.delegation.Agent" => crate::delegation::Agent,
     "mandate.delegation.Agent.State" => crate::delegation::AgentState,
     "mandate.delegation.AgentCapabilityCeiling" => crate::delegation::AgentCapabilityCeiling,
@@ -105,16 +112,20 @@ mandate_types::realizes! {
     "mandate.delegation.Execution.State" => crate::delegation::ExecutionState,
     "mandate.delegation.Approval" => crate::delegation::Approval,
     "mandate.delegation.Approval.State" => crate::delegation::ApprovalState,
+    // Five of the six `mandate.delegation` commands, their events and the domain's refusal
+    // (`command`, `event`). `SupersedeAgentCapabilityCeiling` and its event are below.
+    "mandate.delegation.CreateDelegation" => crate::command::decide_create_delegation,
+    "mandate.delegation.RevokeDelegation" => crate::command::decide_revoke_delegation,
+    "mandate.delegation.RetireAgent" => crate::command::decide_retire_agent,
+    "mandate.delegation.CompleteExecution" => crate::command::decide_complete_execution,
+    "mandate.delegation.ConsumeApproval" => crate::command::decide_consume_approval,
+    "mandate.delegation.DelegationCreated" => crate::event::DelegationCreated,
+    "mandate.delegation.DelegationRevoked" => crate::event::DelegationEvent::Revoked,
+    "mandate.delegation.AgentRetired" => crate::event::DelegationEvent::AgentRetired,
+    "mandate.delegation.ExecutionCompleted" => crate::event::DelegationEvent::ExecutionCompleted,
+    "mandate.delegation.ApprovalConsumed" => crate::event::DelegationEvent::ApprovalConsumed,
+    "mandate.delegation.Denied" => crate::command::Denied,
 }
-
-/// Why a `mandate.delegation` command is not realized here.
-const DELEGATION_COMMAND: &str = "no command handler is declared here: this crate holds the \
-     reusable agent authority evaluator and the records it reads, and the command's handler, \
-     its writes and its event are outside story:agent-authority-kernel";
-
-/// Why a `mandate.delegation` event is not realized here.
-const DELEGATION_EVENT: &str = "no event payload type is declared here: no command of this \
-     domain is handled in this crate, so nothing here emits or folds the event";
 
 /// Every declared `mandate.authorization` and `mandate.delegation` element this crate does
 /// **not** realize, with the reason.
@@ -130,36 +141,25 @@ const DELEGATION_EVENT: &str = "no event payload type is declared here: no comma
 /// event payload type, no allocator of one, and no port that could append it.
 /// `story:check-api` recorded why — `DecisionRecorded` "changes no entity … so it is not a
 /// move-event" — and the adapter that records it is the decision point's deployment, not
-/// this library. Of `mandate.delegation` this crate realizes the five records: the six
-/// commands, their six events and the domain's error belong to the handlers.
+/// this library. Of `mandate.delegation` this crate realizes the five records, five commands,
+/// their five events and the domain's error; `SupersedeAgentCapabilityCeiling` and its event
+/// wait for a specification construct ESS does not yet have.
 pub const ESS_UNREALIZED: &[(&str, &str)] = &[
     (
         "mandate.authorization.DecisionRecorded",
         "no event payload type is declared here: [`check`] returns the decision to its caller \
          and the recording adapter appends it; owner story:check-api",
     ),
-    ("mandate.delegation.CreateDelegation", DELEGATION_COMMAND),
-    ("mandate.delegation.RevokeDelegation", DELEGATION_COMMAND),
-    ("mandate.delegation.RetireAgent", DELEGATION_COMMAND),
     (
         "mandate.delegation.SupersedeAgentCapabilityCeiling",
-        DELEGATION_COMMAND,
+        "no command handler is declared here: the command carries no replacement ceiling, and \
+         ESS 0.59.0 cannot declare a create beside a move in one outcome (ESS-COMMAND-009), so \
+         no ceiling has a writer; owner story:agent-security",
     ),
-    ("mandate.delegation.CompleteExecution", DELEGATION_COMMAND),
-    ("mandate.delegation.ConsumeApproval", DELEGATION_COMMAND),
-    ("mandate.delegation.DelegationCreated", DELEGATION_EVENT),
-    ("mandate.delegation.DelegationRevoked", DELEGATION_EVENT),
-    ("mandate.delegation.AgentRetired", DELEGATION_EVENT),
     (
         "mandate.delegation.AgentCapabilityCeilingSuperseded",
-        DELEGATION_EVENT,
-    ),
-    ("mandate.delegation.ExecutionCompleted", DELEGATION_EVENT),
-    ("mandate.delegation.ApprovalConsumed", DELEGATION_EVENT),
-    (
-        "mandate.delegation.Denied",
-        "no error type is declared here: the evaluator's refusals are the consuming \
-         command's, named by agent::AuthorityClause, and no delegation command is handled here",
+        "no event payload type is declared here: its command is not handled in this crate, so \
+         nothing here emits or folds the event; owner story:agent-security",
     ),
 ];
 
