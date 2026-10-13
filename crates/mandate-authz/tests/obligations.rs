@@ -15,10 +15,11 @@
 //!   deny-everything ceiling recorded for another. The ceiling the security case
 //!   `autonomous-ceiling` is about is an *agent's* — `generated/ir/system.json:3125-3143`
 //!   declares `mandate.delegation.AgentCapabilityCeiling`'s identity as `id`, of type
-//!   `mandate.core.AgentCapabilityCeilingId`, and `agent_id` as its first *field* — and this
-//!   crate has no field for it, which is `story:agent-authority-kernel`'s to bind
-//!   (`crates/mandate-authz/src/lib.rs:46-49`). That case is deferred there and is bound by
-//!   nothing here.
+//!   `mandate.core.AgentCapabilityCeilingId`, and `agent_id` as its first *field* — and
+//!   [`mandate_authz::evaluate::Ceiling`] has no field for it. `story:agent-authority-kernel`
+//!   bound the agent's ceiling in [`mandate_authz::agent`]
+//!   (`crates/mandate-authz/src/lib.rs:44-49`); the runtime case is `story:agent-security`'s,
+//!   it is deferred there, and it is bound by nothing here.
 //! * `graph` — the graph reader has not applied the revision the request requires, so it
 //!   answers nothing at all. `mandate_graph::port::GraphError::CouldNotAnswer` reaches the
 //!   fold as [`mandate_types::DenialReason::Unavailable`]

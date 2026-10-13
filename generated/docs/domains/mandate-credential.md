@@ -1,7 +1,7 @@
 <!--
 generated from mandate v1
-model digest 2f11d2daffc2d75bb4ca8c0485aedc56fb2a712cdaed6347fc48b8ba2b1f7ca6
-contract digest slice-sha256/2:6bf4b0d22c19d7ef08826bd3fbe010083c8c3ee4cb3003c0894f6f34a6a6144f
+model digest bc14d822ad618424c38b62c9c38cd5211bf832d70eb206a30a00b4f625be02d4
+contract digest slice-sha256/2:32193c14cbc67f8eb2e18510d2cbe8df0cdd99f80bd3f1f16707757659b1abc9
 do not edit: regenerate with `ess generate`
 -->
 
@@ -149,12 +149,11 @@ It holds:
 - `key_reference` — `mandate.core.KeyReference`
 - `thumbprint` — `String`
 - `algorithm` — `mandate.core.SigningAlgorithm`
-- `not_before` — `Timestamp`
-- `expires_at` — `Timestamp`
+- `window` — `mandate.core.SigningKeyWindow`
 
 It declares no relation to another entity, and no other entity names it.
 
-Every instance satisfies `not_before < expires_at` — a predicate over this entity's own fields, checked against them rather than stored as a sentence, so an invariant reading something the entity does not have is refused instead of documented.
+Every instance satisfies `window.not_before < window.expires_at` — a predicate over this entity's own fields, checked against them rather than stored as a sentence, so an invariant reading something the entity does not have is refused instead of documented.
 
 Its state is a `mandate.credential.SigningKey.State`, one of `Recorded`, `Retired` and `Revoked`. That enum is synthesised from the lifecycle rather than declared beside it, so the states a view's filter compares and the states drawn below cannot disagree.
 
@@ -220,7 +219,7 @@ It has two outcomes.
 
 **`accepted`** — The default branch, taken when no other outcome's condition matched. It creates a `mandate.credential.AccessCredential`, which starts in `Active`. The new instance's identity is published as `credential_id` on `mandate.credential.TokenExchangeAllowed`. It emits `mandate.credential.TokenExchangeAllowed`. A test reaches it by constructing an input that satisfies no other outcome's condition.
 
-**`denied`** — Decided outside the input: Either independently validated proof is invalid/revoked/expired/stale; actor, tenant, registered target/source, scope, space, delegation or ceiling binding fails; transitive delegation is requested; approval is required; or authority/expiry narrowing and durable audit fail.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
+**`denied`** — Decided outside the input: Either independently validated proof is invalid/revoked/expired/stale; actor, tenant, registered target/source, scope, space, delegation or ceiling binding fails; two current capability ceilings share one agent and organization-or-platform key; transitive delegation is requested; approval is required; or authority/expiry narrowing and durable audit fail.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
 ### `IntrospectCredential`
 
@@ -337,12 +336,11 @@ It takes:
 - `context` — `mandate.core.VerifiedContext`
 - `key_reference` — `mandate.core.KeyReference`
 - `algorithm` — `mandate.core.SigningAlgorithm`
-- `not_before` — `Timestamp`
-- `expires_at` — `Timestamp`
+- `window` — `mandate.core.SigningKeyWindow`
 
 It has two outcomes.
 
-**`accepted`** — The key enters the contract Recorded, which is what rotation requires — RetireSigningKey denies a retirement with no overlapping replacement published for continued verification, and no replacement can exist until a key can be registered. SigningKeyRegistered carries the whole mandate.credential.SigningKey record — the key identity, the reference the deployment resolves to the material, the thumbprint of the public key, the algorithm name and the validity window — so the credential fold materializes the key from this event alone and reads no command input or response. The mandate.core.SigningKeyId is the kid the signer publishes and a credential names; the thumbprint is the RFC 7638 JWK thumbprint of the public key this outcome resolved from key_reference, so a revocation record naming a kid and a thumbprint is rebuilt from this log without resolving the material of a key that was revoked as compromised. Both are decided by this outcome and read from its response. No key material enters the contract — KeyReference is a handle to material the deployment holds, and no event here carries a secret. The algorithm is a name and not an admitted algorithm (UNMAPPED-ALGORITHM-POLICY); the deployment's verifier-side allowlist admits it or the registration is denied. A key reference, or the key material it resolves to, already held by a recorded key is refused in every state that key can be in, including Retired and Revoked, so material the deployment revoked never returns under a second identity. The window ordering is the entity's invariant, checked by the deciding handler; the synthesized accepted scenario builds an equal window and is expected to fail until ESS's synthesizer consults entity invariants (routed to the ESS wave). No command replaces a key in place; rotation registers the successor and retires the predecessor. The default branch, taken when no other outcome's condition matched. It creates a `mandate.credential.SigningKey`, which starts in `Recorded`. The new instance's identity is published as `id` on `mandate.credential.SigningKeyRegistered`. It emits `mandate.credential.SigningKeyRegistered`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+**`accepted`** — The key enters the contract Recorded, which is what rotation requires — RetireSigningKey denies a retirement with no overlapping replacement published for continued verification, and no replacement can exist until a key can be registered. SigningKeyRegistered carries the whole mandate.credential.SigningKey record — the key identity, the reference the deployment resolves to the material, the thumbprint of the public key, the algorithm name and the validity window — so the credential fold materializes the key from this event alone and reads no command input or response. The mandate.core.SigningKeyId is the kid the signer publishes and a credential names; the thumbprint is the RFC 7638 JWK thumbprint of the public key this outcome resolved from key_reference, so a revocation record naming a kid and a thumbprint is rebuilt from this log without resolving the material of a key that was revoked as compromised. Both are decided by this outcome and read from its response. No key material enters the contract — KeyReference is a handle to material the deployment holds, and no event here carries a secret. The algorithm is a name and not an admitted algorithm (UNMAPPED-ALGORITHM-POLICY); the deployment's verifier-side allowlist admits it or the registration is denied. A key reference, or the key material it resolves to, already held by a recorded key is refused in every state that key can be in, including Retired and Revoked, so material the deployment revoked never returns under a second identity. The window ordering is the entity's invariant, window.not_before < window.expires_at, checked by the deciding handler; the two instants are one mandate.core.SigningKeyWindow because an invariant compares two fields only as members of one struct, and the accepted outcome sets the window from the command's input, so the invariant reads a specified value. No command replaces a key in place; rotation registers the successor and retires the predecessor. The default branch, taken when no other outcome's condition matched. It creates a `mandate.credential.SigningKey`, which starts in `Recorded`. The new instance's identity is published as `id` on `mandate.credential.SigningKeyRegistered`. It emits `mandate.credential.SigningKeyRegistered`. It sets `window` from `input.window`. A test reaches it by constructing an input that satisfies no other outcome's condition.
 
 **`denied`** — Decided outside the input: Caller lacks platform signing-key administration authority, the algorithm is outside the deployment's admitted set, the key reference is unresolvable, or the key reference or the key material is already recorded.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
@@ -546,8 +544,7 @@ It carries:
 - `key_reference` — `mandate.core.KeyReference`
 - `thumbprint` — `String`
 - `algorithm` — `mandate.core.SigningAlgorithm`
-- `not_before` — `Timestamp`
-- `expires_at` — `Timestamp`
+- `window` — `mandate.core.SigningKeyWindow`
 
 Emitted by `mandate.credential.RegisterSigningKey` on its `accepted` outcome.
 
@@ -649,4 +646,4 @@ Reported by `mandate.credential.RevokeSigningKey` on its `wrong-state` and `deni
 
 ---
 
-Generated from mandate v1 · model digest `2f11d2daffc2d75bb4ca8c0485aedc56fb2a712cdaed6347fc48b8ba2b1f7ca6` · contract digest `slice-sha256/2:6bf4b0d22c19d7ef08826bd3fbe010083c8c3ee4cb3003c0894f6f34a6a6144f`. Do not edit this file; change the specification and regenerate it with `ess generate`.
+Generated from mandate v1 · model digest `bc14d822ad618424c38b62c9c38cd5211bf832d70eb206a30a00b4f625be02d4` · contract digest `slice-sha256/2:32193c14cbc67f8eb2e18510d2cbe8df0cdd99f80bd3f1f16707757659b1abc9`. Do not edit this file; change the specification and regenerate it with `ess generate`.

@@ -39,14 +39,15 @@
 //! subject's authority, the **actor ceiling**, the **explicit delegation**, the requested
 //! authority, the tenant, space and resource bindings, the registered target and current
 //! policy. Every one of those bounds is read here except the actor ceiling and the
-//! delegation, and no port in this crate's dependency ceiling can read either:
-//! `mandate.delegation` is projected by nothing in `dependency-boundaries.json:20-25`. A
-//! bound that cannot be evaluated cannot be intersected, so a `VerifiedContext` naming an
-//! actor other than its subject, a delegation or an execution is **refused**
-//! ([`context::direct`]) rather than decided as though it were unbounded. The actor-ceiling
-//! intersection and the `agent_id` binding of `mandate.delegation.AgentCapabilityCeiling`
-//! are `story:agent-authority-kernel`'s (`docs/architecture/ownership.md:16`); until they
-//! land, a delegated request gets a refusal and never an allow.
+//! delegation, which [`check`] has no port for, so a `VerifiedContext` naming an actor other
+//! than its subject, a delegation or an execution is **refused** ([`context::direct`]) rather
+//! than decided as though it were unbounded. The evaluator that does read them is
+//! [`agent::evaluate_agent_authority`] (`story:agent-authority-kernel`,
+//! `docs/architecture/ownership.md:16`): the actor ceilings keyed by `agent_id` and
+//! organization, and the delegation, read as [`delegation`] records through
+//! [`agent::AgentAuthorityRead`]. It is a reusable function for the token exchange; wiring it
+//! into [`check`] is not this crate's change to make alone, so a delegated `Check` is still
+//! refused and never allowed.
 //!
 //! # A reauthentication challenge cannot be expressed by this contract
 //!
@@ -80,17 +81,37 @@
 //! attribute input, the scope the request is made under, and the capability ceilings that
 //! bound it. Each is documented at its field with the reason it cannot be looked up here.
 
+pub mod agent;
 pub mod context;
 pub mod decision;
+pub mod delegation;
 pub mod evaluate;
 
 mandate_types::realizes! {
     "mandate.authorization.Check" => crate::check,
     "mandate.authorization.Denied" => crate::decision::Denied,
+    // The three `mandate.delegation` records the agent authority evaluator reads, and their
+    // lifecycles (`story:agent-authority-kernel`). Projections read through
+    // `agent::AgentAuthorityRead`; no command here writes them.
+    "mandate.delegation.Agent" => crate::delegation::Agent,
+    "mandate.delegation.Agent.State" => crate::delegation::AgentState,
+    "mandate.delegation.AgentCapabilityCeiling" => crate::delegation::AgentCapabilityCeiling,
+    "mandate.delegation.AgentCapabilityCeiling.State" => crate::delegation::CeilingState,
+    "mandate.delegation.Delegation" => crate::delegation::Delegation,
+    "mandate.delegation.Delegation.State" => crate::delegation::DelegationState,
 }
 
-/// Every declared `mandate.authorization` element this crate does **not** realize, with the
-/// reason.
+/// Why a `mandate.delegation` command is not realized here.
+const DELEGATION_COMMAND: &str = "no command handler is declared here: this crate holds the \
+     reusable agent authority evaluator and the records it reads, and the command's handler, \
+     its writes and its event are outside story:agent-authority-kernel";
+
+/// Why a `mandate.delegation` event is not realized here.
+const DELEGATION_EVENT: &str = "no event payload type is declared here: no command of this \
+     domain is handled in this crate, so nothing here emits or folds the event";
+
+/// Every declared `mandate.authorization` and `mandate.delegation` element this crate does
+/// **not** realize, with the reason.
 ///
 /// A coverage registry that names what it covers and says nothing about the rest is read as
 /// a claim about the whole domain. This is the other half of [`ESS_REALIZATIONS`], and
@@ -98,17 +119,62 @@ mandate_types::realizes! {
 /// model in both directions: an element this list names and the registry also realizes is a
 /// contradiction, and an element neither one names is an element nobody accounted for.
 ///
-/// There is one, and it is not an oversight. `authorization.yaml:12-20` emits
-/// `DecisionRecorded` from the accepted outcome, and this crate returns the decision to its
-/// caller instead: it holds no event payload type, no allocator of one, and no port that
-/// could append it. `story:check-api` recorded why — `DecisionRecorded` "changes no entity …
-/// so it is not a move-event" — and the adapter that records it is the decision point's
-/// deployment, not this library.
-pub const ESS_UNREALIZED: &[(&str, &str)] = &[(
-    "mandate.authorization.DecisionRecorded",
-    "no event payload type is declared here: [`check`] returns the decision to its caller \
-     and the recording adapter appends it; owner story:check-api",
-)];
+/// None is an oversight. `authorization.yaml:12-20` emits `DecisionRecorded` from the
+/// accepted outcome, and this crate returns the decision to its caller instead: it holds no
+/// event payload type, no allocator of one, and no port that could append it.
+/// `story:check-api` recorded why — `DecisionRecorded` "changes no entity … so it is not a
+/// move-event" — and the adapter that records it is the decision point's deployment, not
+/// this library. Of `mandate.delegation` this crate realizes the three records the
+/// evaluator reads: the six commands, their six events and the domain's error belong to the
+/// handlers, and `Execution` and `Approval` are read by no evaluation here.
+pub const ESS_UNREALIZED: &[(&str, &str)] = &[
+    (
+        "mandate.authorization.DecisionRecorded",
+        "no event payload type is declared here: [`check`] returns the decision to its caller \
+         and the recording adapter appends it; owner story:check-api",
+    ),
+    ("mandate.delegation.CreateDelegation", DELEGATION_COMMAND),
+    ("mandate.delegation.RevokeDelegation", DELEGATION_COMMAND),
+    ("mandate.delegation.RetireAgent", DELEGATION_COMMAND),
+    (
+        "mandate.delegation.SupersedeAgentCapabilityCeiling",
+        DELEGATION_COMMAND,
+    ),
+    ("mandate.delegation.CompleteExecution", DELEGATION_COMMAND),
+    ("mandate.delegation.ConsumeApproval", DELEGATION_COMMAND),
+    ("mandate.delegation.DelegationCreated", DELEGATION_EVENT),
+    ("mandate.delegation.DelegationRevoked", DELEGATION_EVENT),
+    ("mandate.delegation.AgentRetired", DELEGATION_EVENT),
+    (
+        "mandate.delegation.AgentCapabilityCeilingSuperseded",
+        DELEGATION_EVENT,
+    ),
+    ("mandate.delegation.ExecutionCompleted", DELEGATION_EVENT),
+    ("mandate.delegation.ApprovalConsumed", DELEGATION_EVENT),
+    (
+        "mandate.delegation.Denied",
+        "no error type is declared here: the evaluator's refusals are the consuming \
+         command's, named by agent::AuthorityClause, and no delegation command is handled here",
+    ),
+    (
+        "mandate.delegation.Execution",
+        "no evaluation here reads an execution record; the execution a delegation is bound to \
+         is compared by identity from the verified context",
+    ),
+    (
+        "mandate.delegation.Execution.State",
+        "the lifecycle enum of mandate.delegation.Execution, which no evaluation here reads",
+    ),
+    (
+        "mandate.delegation.Approval",
+        "no evaluation here reads an approval record: an approval requirement is answered \
+         allowed=false with the challenge, and consuming the approval is another command's",
+    ),
+    (
+        "mandate.delegation.Approval.State",
+        "the lifecycle enum of mandate.delegation.Approval, which no evaluation here reads",
+    ),
+];
 
 use mandate_graph::port::GraphRead;
 use mandate_graph::topology::ResourceLookup;

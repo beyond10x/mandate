@@ -34,12 +34,12 @@ fn schema_kind(ess_name: &str) -> String {
 #[test]
 fn the_compiled_type_index_splits_into_authored_types_and_derived_state_enums() {
     let names = schema_names("types");
-    assert_eq!(names.len(), 110, "compiled type entries");
+    assert_eq!(names.len(), 111, "compiled type entries");
     let authored: BTreeSet<&String> = names
         .iter()
         .filter(|name| name.starts_with("mandate.core."))
         .collect();
-    assert_eq!(authored.len(), 74, "authored model types");
+    assert_eq!(authored.len(), 75, "authored model types");
     for name in &names {
         if !name.starts_with("mandate.core.") {
             assert!(name.ends_with(".State"), "unaccounted type entry {name}");
@@ -87,7 +87,7 @@ fn the_accepted_account_agrees_with_the_projected_kind_of_every_type() {
     }
     assert_eq!(breakdown[&Kind::Newtype], 55);
     assert_eq!(breakdown[&Kind::Enum], 8);
-    assert_eq!(breakdown[&Kind::Struct], 9);
+    assert_eq!(breakdown[&Kind::Struct], 10);
     assert_eq!(breakdown[&Kind::Union], 2);
 }
 
@@ -97,10 +97,10 @@ fn every_accepted_type_has_exactly_one_owning_crate() {
     for entry in ACCEPTED {
         *breakdown.entry(entry.owner).or_default() += 1;
     }
-    assert_eq!(breakdown.values().sum::<usize>(), 74);
+    assert_eq!(breakdown.values().sum::<usize>(), 75);
     assert_eq!(
         breakdown.get(&Owner::Types).copied().unwrap_or_default(),
-        68
+        69
     );
     assert_eq!(breakdown.get(&Owner::Model).copied().unwrap_or_default(), 4);
     assert_eq!(breakdown.get(&Owner::Token).copied().unwrap_or_default(), 2);
@@ -271,7 +271,7 @@ const MANIFEST: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../contracts/cov
 
 /// The coverage manifest's account of this crate is exactly the account this crate keeps.
 ///
-/// `contracts/coverage.json` maps all 110 compiled type declarations, and the eight registrar
+/// `contracts/coverage.json` maps all 111 compiled type declarations, and the eight registrar
 /// crates reconcile their own entries against a `mandate_types::realizes!` registry the
 /// compiler touches. This crate has no such registry and is not given one: the ruling for
 /// `story:coverage-map` is that the authored types are accounted here through the conformance
@@ -326,7 +326,7 @@ fn the_coverage_manifest_names_exactly_what_this_crate_accounts_for() {
             "{element}: two entries name this element"
         );
     }
-    assert_eq!(entries.len(), 292, "the coverage manifest's element count");
+    assert_eq!(entries.len(), 293, "the coverage manifest's element count");
 
     let mut claimed: BTreeMap<String, String> = BTreeMap::new();
     for (element, entry) in &entries {
@@ -367,7 +367,7 @@ fn the_coverage_manifest_names_exactly_what_this_crate_accounts_for() {
     }
     assert_eq!(
         expected.len(),
-        68,
+        69,
         "the share of the authored types this crate owns"
     );
     assert_eq!(
@@ -405,12 +405,13 @@ fn the_coverage_manifest_names_exactly_what_this_crate_accounts_for() {
         }
     }
     assert_eq!(
-        folded, 19,
+        folded, 22,
         "the derived state enums a crate of this workspace folds and registers: six in \
-         mandate-model, four in the STS, three in mandate-federation, two each in \
-         mandate-identity, mandate-graph and mandate-policy. The other seventeen have no \
-         hand-written enum anywhere in this workspace and carry their record's status; the \
-         count moved from 36 when wave D's correction round refused the generated contract \
-         shape as an implementation"
+         mandate-model, four in the STS, three in mandate-federation, three in mandate-authz, \
+         two each in mandate-identity, mandate-graph and mandate-policy. The other fourteen \
+         have no hand-written enum anywhere in this workspace and carry their record's \
+         status; the count moved from 36 when wave D's correction round refused the \
+         generated contract shape as an implementation, and from 19 when \
+         story:agent-authority-kernel registered the three delegation lifecycles"
     );
 }

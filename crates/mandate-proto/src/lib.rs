@@ -28,7 +28,7 @@
 //!
 //! # Two of these contracts carry credential material
 //!
-//! `mandate.core.CredentialSecret` and `mandate.core.CredentialProof` are among the 74
+//! `mandate.core.CredentialSecret` and `mandate.core.CredentialProof` are among the 75
 //! contracts below, because the projection names them from six commands and six responses
 //! and this crate is where those cross. [`WireContract::to_wire`] on those two therefore
 //! renders the declared base64 material, not the redaction their [`serde::Serialize`]
@@ -220,7 +220,7 @@ wire_contracts! {
     ::mandate_model::DecisionChallenge, ::mandate_model::Decision,
     ::mandate_types::AccessCredentialId, ::mandate_types::AgentCapabilityCeilingId,
     ::mandate_types::AuthorizationModelVersion, ::mandate_types::SigningAlgorithm,
-    ::mandate_types::DenialReason, ::mandate_types::AuthoritySubject,
+    ::mandate_types::SigningKeyWindow, ::mandate_types::DenialReason, ::mandate_types::AuthoritySubject,
     ::mandate_types::SecurityEpochTarget, ::mandate_types::AuditAction,
     ::mandate_types::AuditOutcome, ::mandate_model::AuditRecord,
 }

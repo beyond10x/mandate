@@ -32,7 +32,7 @@ use mandate_token::{CredentialDescriptor, CredentialProfile};
 use mandate_types::{
     Audience, AuthorityScope, CorrelationId, CredentialId, CredentialKind, CredentialVerifier,
     Duration, KeyReference, OrganizationId, PrincipalId, ResourceServerId, RevocationGuarantee,
-    SigningAlgorithm, SigningKeyId, Timestamp, Uuid, VerifiedContext,
+    SigningAlgorithm, SigningKeyId, SigningKeyWindow, Timestamp, Uuid, VerifiedContext,
 };
 
 /// A uuid built from a record prefix and an ordinal, so two records of one kind are
@@ -136,8 +136,10 @@ fn key_registered(id: SigningKeyId, reference: &str, thumbprint: &str) -> Creden
         key_reference: KeyReference::new(reference),
         thumbprint: thumbprint.to_owned(),
         algorithm: SigningAlgorithm::new("declared-by-deployment"),
-        not_before: Timestamp::new("2026-09-19T00:00:00Z"),
-        expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+        window: SigningKeyWindow {
+            not_before: Timestamp::new("2026-09-19T00:00:00Z"),
+            expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+        },
     }
 }
 

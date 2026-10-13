@@ -69,7 +69,7 @@ use serde::Serialize;
 use mandate_types::{
     Audience, AuthorityScope, AuthorizationCodeId, CredentialId, CredentialVerifier, DenialReason,
     EpochSnapshotRef, KeyReference, OrganizationId, PersistedValue, ResourceServerId,
-    SigningAlgorithm, SigningKeyId, Timestamp, VerifiedContext,
+    SigningAlgorithm, SigningKeyId, SigningKeyWindow, Timestamp, VerifiedContext,
 };
 
 use crate::{CredentialDescriptor, CredentialProfile};
@@ -187,10 +187,8 @@ pub struct SigningKey {
     pub thumbprint: String,
     /// The declared algorithm name.
     pub algorithm: SigningAlgorithm,
-    /// When the key starts being usable.
-    pub not_before: Timestamp,
-    /// When the key stops being usable.
-    pub expires_at: Timestamp,
+    /// When the key starts and stops being usable.
+    pub window: SigningKeyWindow,
     /// The lifecycle state.
     pub state: SigningKeyState,
 }
@@ -321,10 +319,8 @@ pub enum CredentialEvent {
         thumbprint: String,
         /// The declared `algorithm`.
         algorithm: SigningAlgorithm,
-        /// The declared `not_before`.
-        not_before: Timestamp,
-        /// The declared `expires_at`.
-        expires_at: Timestamp,
+        /// The declared `window`.
+        window: SigningKeyWindow,
     },
     /// `mandate.credential.SigningKeyRetired`.
     SigningKeyRetired {
@@ -622,7 +618,7 @@ pub enum DenialClause {
     KeyReferenceRecorded,
     /// The same clause: the material, caught by its thumbprint.
     KeyMaterialRecorded,
-    /// The entity invariant `not_before < expires_at`, checked by the deciding handler.
+    /// The entity invariant `window.not_before < window.expires_at`, checked by the deciding handler.
     KeyWindowNotOrdered,
     /// `RetireSigningKey` / `RevokeSigningKey`: "the key is unresolved".
     KeyUnknown,
@@ -936,8 +932,7 @@ impl Projection {
                 key_reference,
                 thumbprint,
                 algorithm,
-                not_before,
-                expires_at,
+                window,
             } => {
                 if self.signing_key(id).is_some() {
                     return Ok(());
@@ -952,8 +947,7 @@ impl Projection {
                     key_reference: key_reference.clone(),
                     thumbprint: thumbprint.clone(),
                     algorithm: algorithm.clone(),
-                    not_before: not_before.clone(),
-                    expires_at: expires_at.clone(),
+                    window: window.clone(),
                     state: SigningKeyState::Recorded,
                 });
             }
@@ -1348,16 +1342,14 @@ const _: () = {
                 key_reference,
                 thumbprint,
                 algorithm,
-                not_before,
-                expires_at,
+                window,
             } => {
                 persistable(context);
                 persistable(id);
                 persistable(key_reference);
                 persistable(thumbprint);
                 persistable(algorithm);
-                persistable(not_before);
-                persistable(expires_at);
+                persistable(window);
             }
             CredentialEvent::SigningKeyRetired { context, id }
             | CredentialEvent::SigningKeyRevoked { context, id } => {

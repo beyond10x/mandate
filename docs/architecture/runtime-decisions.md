@@ -41,7 +41,7 @@ No source this document may cite names an individual for any of these decisions,
 | 5 | `decision-blocker:backend` | UNMAPPED-BACKEND | `story:graph-policy-adapter` |
 | 6 | `decision-blocker:global-trust` | UNMAPPED-GLOBAL | `story:advanced-delegation` |
 | 7 | `decision-blocker:subject-relations` | UNMAPPED-SUBJECT-RELATIONS | `story:graph-policy-adapter` |
-| 8 | `decision-blocker:identity-uniqueness` | UNMAPPED-UNIQUENESS | `story:agent-authority-kernel`, `story:agent-security`, `story:credential-profiles`, `story:federation-linking` |
+| 8 | `decision-blocker:identity-uniqueness` | UNMAPPED-UNIQUENESS | `story:agent-security`, `story:credential-profiles`, `story:federation-linking` |
 | 10 | `decision-blocker:audit-routing` | UNMAPPED-AUDIT-ROUTING, UNMAPPED-AUDIT-VOCABULARY | `story:audit-client`, `story:audit-worker-delivery`, `story:constrained-exchange` |
 | 11 | `decision-blocker:worker-orchestration` | UNMAPPED-ORCHESTRATION | `story:audit-worker-delivery`, `story:directory-provenance`, `story:domain-runtime` |
 
@@ -241,7 +241,7 @@ Out of bounds: nominal ID uniqueness or JSON Schema as the enforcement mechanism
 
 **Proposed owner.** The concrete storage adapter owner, which the map places under the graph port rather than giving it a row of its own (`ownership.md:11`), with `mandate-federation` for the external-principal key (`ownership.md:14`) and `mandate-token` with the credential registry for the audience and exchange-source keys (`ownership.md:15`). The ceiling half belongs to `mandate-authz` and the delegation domain (`ownership.md:16`).
 
-**Affected stories (store).** `story:agent-authority-kernel`, `story:agent-security`, `story:credential-profiles`, `story:federation-linking`. The register names three (`unmapped.md:56`); `story:agent-authority-kernel` is store-only.
+**Affected stories (store).** `story:agent-security`, `story:credential-profiles`, `story:federation-linking`, the three the register names (`unmapped.md:56`). The ceiling half, which `story:agent-authority-kernel` needed, is recorded and cleared on its own, so this record no longer blocks that story.
 
 **Exact evidence required to clear.**
 

@@ -34,8 +34,8 @@ use mandate_types::{
     Audience, AuthorityScope, AuthorizationCodeId, CorrelationId, CredentialId, CredentialKind,
     CredentialProof, CredentialVerifier, DelegationId, Duration, ExecutionId, KeyReference,
     OAuthClientId, OrganizationId, PkceChallenge, PkceMethod, PrincipalId, RedirectUri,
-    ResourceServerId, RevocationGuarantee, SessionId, SigningAlgorithm, SigningKeyId, Timestamp,
-    Uuid, VerifiedContext,
+    ResourceServerId, RevocationGuarantee, SessionId, SigningAlgorithm, SigningKeyId,
+    SigningKeyWindow, Timestamp, Uuid, VerifiedContext,
 };
 use serde::{Serialize, de::DeserializeOwned};
 use serde_json::Value;
@@ -183,8 +183,10 @@ fn each_input_agrees(context: &VerifiedContext) -> Vec<Value> {
                 context: context.clone(),
                 key_reference: KeyReference::new("kms://one"),
                 algorithm: SigningAlgorithm::new("declared-by-deployment"),
-                not_before: Timestamp::new("2026-09-19T00:00:00Z"),
-                expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+                window: SigningKeyWindow {
+                    not_before: Timestamp::new("2026-09-19T00:00:00Z"),
+                    expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+                },
             },
             "mandate.credential.RegisterSigningKey",
         ),
@@ -547,7 +549,7 @@ fn coverage_manifest_claims() -> std::collections::BTreeMap<String, (String, Str
             ),
         );
     }
-    assert_eq!(claims.len(), 292, "the coverage manifest's element count");
+    assert_eq!(claims.len(), 293, "the coverage manifest's element count");
     claims
 }
 

@@ -281,6 +281,36 @@ fn every_armed_injection_changes_the_scenario_it_was_armed_for() {
     }
     let unarmed = Executed::of(&document.to_string(), DIGEST).expect("the suite executes");
 
+    // The rows set aside from this check, each by scenario and with its reason. The list is
+    // named, never computed: a rule that sets rows aside by a property hides every new inert
+    // row that shares it, and an inert `armed` row is exactly what this case exists to find.
+    //
+    // It is empty. The one row a computed rule hid under ESS 0.59.0 —
+    // `mandate.credential.RegisterResourceServer/outcome/denied`, whose synthesized input names
+    // an exchange source no record carries, so the standing reader refuses it armed or not —
+    // is now decided standing-first and recorded `input-decided` (`src/external.rs`, "An
+    // arming the input already decides places no fault"), so it is no longer an `armed` row.
+    const SET_ASIDE: &[(&str, &str)] = &[];
+    let named: BTreeSet<&str> = SET_ASIDE.iter().map(|(scenario, _)| *scenario).collect();
+    let stale: Vec<&str> = named
+        .iter()
+        .copied()
+        .filter(|scenario| !armed.contains_key(*scenario))
+        .collect();
+    assert!(
+        stale.is_empty(),
+        "these set-aside rows are no longer recorded `armed`, so their entries hide nothing and \
+         must go: {stale:?}"
+    );
+    let (set_aside, armed): (BTreeMap<String, String>, BTreeMap<String, String>) = armed
+        .into_iter()
+        .partition(|(scenario, _)| named.contains(scenario.as_str()));
+    assert!(
+        armed.contains_key("mandate.identity.IncrementSecurityEpoch/outcome/denied"),
+        "the forced denial this case is anchored on is no longer recorded `armed` (set aside: \
+         {set_aside:?}, checked: {armed:?})"
+    );
+
     let with = terminal(&executed.report);
     let without = terminal(&unarmed.report);
     let inert: Vec<String> = armed

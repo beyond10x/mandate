@@ -200,7 +200,7 @@ fn accepted(root: &Path) -> String {
 fn a_deferred_entry_relabelled_implemented_escapes_this_step_and_is_killed_by_the_registry_case() {
     let root = fixture("deferred-relabelled-implemented");
     let body = manifest(&root);
-    let entry = line(&body, "mandate.delegation.DelegationCreated");
+    let entry = line(&body, "mandate.workload.RevokeWorkloadIdentity");
     let head = entry
         .split_once("\"impl\":[")
         .expect("the entry states an impl list")
@@ -209,11 +209,11 @@ fn a_deferred_entry_relabelled_implemented_escapes_this_step_and_is_killed_by_th
         "{head}\"crate\":\"mandate-authz\",\"impl\":[\"crate::decision::Taken\"],\"tests\":[\"{AUTHZ_REGISTRY_CASE}\"]}},"
     )
     .replace("\"status\":\"deferred\"", "\"status\":\"implemented\"");
-    mutate(&root, "mandate.delegation.DelegationCreated", &doctored);
+    mutate(&root, "mandate.workload.RevokeWorkloadIdentity", &doctored);
 
     let report = accepted(&root);
     assert!(
-        report.contains("292 contract elements mapped"),
+        report.contains("293 contract elements mapped"),
         "the step read the doctored manifest whole: {report}"
     );
 }
@@ -287,7 +287,7 @@ fn an_implemented_entry_relabelled_declared_onto_a_live_story_escapes_this_step(
 
     let report = accepted(&root);
     assert!(
-        report.contains("292 contract elements mapped"),
+        report.contains("293 contract elements mapped"),
         "the step read the doctored manifest whole: {report}"
     );
 }
@@ -345,7 +345,7 @@ fn the_registry_case_that_kills_the_relabels_is_run_and_is_what_the_relabel_reco
 fn a_relabel_moves_the_receipt_so_the_regeneration_byte_compare_kills_it_too() {
     let root = receipt_fixture("relabel-against-the-receipt");
     let body = manifest(&root);
-    let entry = line(&body, "mandate.delegation.DelegationCreated");
+    let entry = line(&body, "mandate.workload.RevokeWorkloadIdentity");
     let head = entry
         .split_once("\"impl\":[")
         .expect("the entry states an impl list")
@@ -354,7 +354,7 @@ fn a_relabel_moves_the_receipt_so_the_regeneration_byte_compare_kills_it_too() {
         "{head}\"crate\":\"mandate-authz\",\"impl\":[\"crate::decision::Taken\"],\"tests\":[\"{AUTHZ_REGISTRY_CASE}\"]}},"
     )
     .replace("\"status\":\"deferred\"", "\"status\":\"implemented\"");
-    mutate(&root, "mandate.delegation.DelegationCreated", &doctored);
+    mutate(&root, "mandate.workload.RevokeWorkloadIdentity", &doctored);
 
     let (committed, fresh) = regenerated(&root);
     assert_ne!(
@@ -410,7 +410,7 @@ fn a_relabel_moves_the_receipt_so_the_regeneration_byte_compare_kills_it_too() {
 fn an_entry_deleted_leaves_an_element_the_model_declares_unmapped() {
     let root = fixture("entry-deleted");
     let body = manifest(&root);
-    let dropped = line(&body, "mandate.delegation.DelegationCreated");
+    let dropped = line(&body, "mandate.workload.RevokeWorkloadIdentity");
     // Not the last entry, so the line before it keeps its comma and the manifest stays
     // well-formed JSON: what fails is the account, not the parse.
     write_manifest(
@@ -425,7 +425,8 @@ fn an_entry_deleted_leaves_an_element_the_model_declares_unmapped() {
     );
     let error = failure(&root);
     assert!(
-        error.contains("mandate.delegation.DelegationCreated") && error.contains("no entry for it"),
+        error.contains("mandate.workload.RevokeWorkloadIdentity")
+            && error.contains("no entry for it"),
         "the failure names the element the manifest dropped: {error}"
     );
 }
@@ -436,13 +437,13 @@ fn an_entry_deleted_leaves_an_element_the_model_declares_unmapped() {
 fn an_entry_duplicated_gives_one_element_two_realizers() {
     let root = fixture("entry-duplicated");
     let body = manifest(&root);
-    let entry = line(&body, "mandate.delegation.DelegationCreated");
+    let entry = line(&body, "mandate.workload.RevokeWorkloadIdentity");
     // The line already carries the comma that separates it from the next entry, so the copy
     // goes below it and the manifest stays well-formed JSON.
     write_manifest(&root, &body.replace(&entry, &format!("{entry}\n{entry}")));
     let error = failure(&root);
     assert!(
-        error.contains("mandate.delegation.DelegationCreated") && error.contains("2 entries"),
+        error.contains("mandate.workload.RevokeWorkloadIdentity") && error.contains("2 entries"),
         "the failure names the element two entries claim: {error}"
     );
 }
@@ -454,20 +455,20 @@ fn an_entry_duplicated_gives_one_element_two_realizers() {
 fn an_element_renamed_to_one_the_model_does_not_declare_fails_both_ways() {
     let root = fixture("element-renamed");
     let body = manifest(&root);
-    let entry = line(&body, "mandate.delegation.DelegationCreated");
+    let entry = line(&body, "mandate.workload.RevokeWorkloadIdentity");
     let doctored = entry.replace(
-        "\"element\":\"mandate.delegation.DelegationCreated\"",
-        "\"element\":\"mandate.delegation.DelegationsCreated\"",
+        "\"element\":\"mandate.workload.RevokeWorkloadIdentity\"",
+        "\"element\":\"mandate.workload.RevokeWorkloadIdentities\"",
     );
-    mutate(&root, "mandate.delegation.DelegationCreated", &doctored);
+    mutate(&root, "mandate.workload.RevokeWorkloadIdentity", &doctored);
     let error = failure(&root);
     assert!(
-        error.contains("mandate.delegation.DelegationsCreated")
+        error.contains("mandate.workload.RevokeWorkloadIdentities")
             && error.contains("does not declare"),
         "the failure names the element nothing declares: {error}"
     );
     assert!(
-        error.contains("mandate.delegation.DelegationCreated: the compiled model declares it"),
+        error.contains("mandate.workload.RevokeWorkloadIdentity: the compiled model declares it"),
         "the failure names the element left unmapped by the rename: {error}"
     );
 }
@@ -482,12 +483,12 @@ fn an_element_renamed_to_one_the_model_does_not_declare_fails_both_ways() {
 fn a_deferred_entry_whose_blocker_the_store_has_cleared_fails() {
     let root = fixture("blocker-cleared");
     let body = manifest(&root);
-    let entry = line(&body, "mandate.delegation.DelegationCreated");
+    let entry = line(&body, "mandate.workload.RevokeWorkloadIdentity");
     let doctored = entry.replace(
         "\"blocker\":\"decision-blocker:identity-uniqueness\"",
         "\"blocker\":\"decision-blocker:algorithm-policy\"",
     );
-    mutate(&root, "mandate.delegation.DelegationCreated", &doctored);
+    mutate(&root, "mandate.workload.RevokeWorkloadIdentity", &doctored);
     let error = failure(&root);
     assert!(
         error.contains("decision-blocker:algorithm-policy") && error.contains("does not report"),
@@ -501,12 +502,12 @@ fn a_deferred_entry_whose_blocker_the_store_has_cleared_fails() {
 fn a_deferred_entry_moved_onto_a_story_the_store_reports_implemented_fails() {
     let root = fixture("story-finished");
     let body = manifest(&root);
-    let entry = line(&body, "mandate.delegation.DelegationCreated");
+    let entry = line(&body, "mandate.workload.RevokeWorkloadIdentity");
     let doctored = entry.replace(
-        "\"story\":\"story:agent-authority-kernel\"",
+        "\"story\":\"story:agent-security\"",
         "\"story\":\"story:tenancy-topology\"",
     );
-    mutate(&root, "mandate.delegation.DelegationCreated", &doctored);
+    mutate(&root, "mandate.workload.RevokeWorkloadIdentity", &doctored);
     let error = failure(&root);
     assert!(
         error.contains("story:tenancy-topology") && error.contains("terminal rung"),
@@ -520,15 +521,16 @@ fn a_deferred_entry_moved_onto_a_story_the_store_reports_implemented_fails() {
 fn a_state_entry_moved_off_its_records_story_fails() {
     let root = fixture("state-moved");
     let body = manifest(&root);
-    let entry = line(&body, "mandate.delegation.Agent.State");
+    let entry = line(&body, "mandate.delegation.Execution.State");
     let doctored = entry.replace(
         "\"story\":\"story:declared-writers\"",
         "\"story\":\"story:mutation-controls\"",
     );
-    mutate(&root, "mandate.delegation.Agent.State", &doctored);
+    mutate(&root, "mandate.delegation.Execution.State", &doctored);
     let error = failure(&root);
     assert!(
-        error.contains("mandate.delegation.Agent.State") && error.contains("against its record's"),
+        error.contains("mandate.delegation.Execution.State")
+            && error.contains("against its record's"),
         "the failure names the .State that left its record: {error}"
     );
 }

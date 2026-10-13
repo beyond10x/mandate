@@ -10,6 +10,10 @@
 //! rather than calling the handler with an argument this target would have to invent. It
 //! keeps a dispatch arm rather than a registry row because the gap is in the *shape* of one
 //! command, not in a domain nothing realizes, and the arm is where a reader looks for it.
+//!
+//! Every armed command here is decided over the standing readers first, through
+//! [`standing_first`]: an arming whose input already decides the refusal places no fault
+//! (`external.rs`, "An arming the input already decides places no fault").
 
 use ess_conformance::target::{SemanticCommandRequest, SemanticCommandResult, TargetError};
 use mandate_federation::record::FederationEvent;
@@ -17,12 +21,22 @@ use mandate_federation::{RequestContext, disable, link, record, register_client}
 use mandate_types::{CorrelationId, CredentialId, Timestamp};
 
 use crate::Live;
-use crate::commands::{accepted, refused};
-use crate::external::Substituted;
+use crate::commands::{accepted, refused, standing_first};
+use crate::external::{ScenarioVerifier, Substituted};
 use crate::node;
 
 /// The declared error every refusing outcome of this domain carries.
 const DENIED: &str = "mandate.federation.Denied";
+
+/// The federation identity allocator a decision advances.
+fn ids(live: &mut Live) -> &mut mandate_federation::SequentialAllocator {
+    &mut live.federation_ids
+}
+
+/// The session issuer an authentication advances.
+fn sessions(live: &mut Live) -> &mut mandate_federation::RecordingSessionIssuer {
+    &mut live.session_issuer
+}
 
 /// `mandate.federation.RegisterFederationConnection`.
 ///
@@ -43,13 +57,19 @@ pub fn register_federation_connection(
         jit_provisioning: node::field(&request.input, "jit_provisioning")?,
     };
     let reader = Substituted::new();
-    let armed = live.armed.take(COMMAND);
-    let decided = if armed {
-        record::register_federation_connection(&input, &reader, &mut live.federation_ids)
-    } else {
-        record::register_federation_connection(&input, &live.federation, &mut live.federation_ids)
-    };
-    live.record_reads(COMMAND, reader.consulted(), reader.refused());
+    let decided = standing_first(
+        live,
+        COMMAND,
+        ids,
+        |live, ids, faulted| {
+            if faulted {
+                record::register_federation_connection(&input, &reader, ids)
+            } else {
+                record::register_federation_connection(&input, &live.federation, ids)
+            }
+        },
+        || (reader.consulted(), reader.refused()),
+    );
     match decided {
         Ok(registered) => {
             live.append_federation(registered.event.clone())?;
@@ -91,25 +111,25 @@ pub fn link_external_principal(
     };
     let context = self::context(live, &input.context.correlation, input.context.credential);
     let reader = Substituted::new();
-    let armed = live.armed.take(COMMAND);
-    let decided = if armed {
-        link::link_external_principal(
-            &input,
-            &context,
-            &live.federation,
-            &reader,
-            &mut live.federation_ids,
-        )
-    } else {
-        link::link_external_principal(
-            &input,
-            &context,
-            &live.federation,
-            &live.federation,
-            &mut live.federation_ids,
-        )
-    };
-    live.record_reads(COMMAND, reader.consulted(), reader.refused());
+    let decided = standing_first(
+        live,
+        COMMAND,
+        ids,
+        |live, ids, faulted| {
+            if faulted {
+                link::link_external_principal(&input, &context, &live.federation, &reader, ids)
+            } else {
+                link::link_external_principal(
+                    &input,
+                    &context,
+                    &live.federation,
+                    &live.federation,
+                    ids,
+                )
+            }
+        },
+        || (reader.consulted(), reader.refused()),
+    );
     match decided {
         Ok(linked) => {
             live.append_federation(linked.event.clone())?;
@@ -149,16 +169,25 @@ pub fn authenticate_federation(
     let correlation = CorrelationId::new(request.correlation.to_string());
     let credential = live.minted_credential();
     let context = self::context(live, &correlation, credential);
-    let verifier = live.verifier(COMMAND);
-    let decided = mandate_federation::authenticate::authenticate_federation(
-        &input,
-        &context,
-        &verifier,
-        &live.federation,
-        &live.federation,
-        &mut live.session_issuer,
+    let reading = ScenarioVerifier::reading();
+    let refusing = ScenarioVerifier::refusing();
+    let decided = standing_first(
+        live,
+        COMMAND,
+        sessions,
+        |live, sessions, faulted| {
+            let verifier = if faulted { &refusing } else { &reading };
+            mandate_federation::authenticate::authenticate_federation(
+                &input,
+                &context,
+                verifier,
+                &live.federation,
+                &live.federation,
+                sessions,
+            )
+        },
+        || (refusing.consulted(), refusing.refused()),
     );
-    live.record_reads(COMMAND, verifier.consulted(), verifier.refused());
     match decided {
         Ok(authenticated) => {
             live.append_federation(authenticated.event.clone())?;
@@ -213,16 +242,25 @@ pub fn provision_external_principal(
     let correlation = CorrelationId::new(request.correlation.to_string());
     let credential = live.minted_credential();
     let context = self::context(live, &correlation, credential);
-    let verifier = live.verifier(COMMAND);
-    let decided = mandate_federation::authenticate::provision_external_principal(
-        &input,
-        &context,
-        &verifier,
-        &live.federation,
-        &live.federation,
-        &mut live.federation_ids,
+    let reading = ScenarioVerifier::reading();
+    let refusing = ScenarioVerifier::refusing();
+    let decided = standing_first(
+        live,
+        COMMAND,
+        ids,
+        |live, ids, faulted| {
+            let verifier = if faulted { &refusing } else { &reading };
+            mandate_federation::authenticate::provision_external_principal(
+                &input,
+                &context,
+                verifier,
+                &live.federation,
+                &live.federation,
+                ids,
+            )
+        },
+        || (refusing.consulted(), refusing.refused()),
     );
-    live.record_reads(COMMAND, verifier.consulted(), verifier.refused());
     match decided {
         Ok(provisioned) => {
             live.append_federation(provisioned.event.clone())?;
@@ -307,13 +345,19 @@ pub fn disable_federation_connection(
         id: node::field(&request.input, "id")?,
     };
     let reader = Substituted::new();
-    let armed = live.armed.take(COMMAND);
-    let decided = if armed {
-        disable::disable_federation_connection(&input, &reader)
-    } else {
-        disable::disable_federation_connection(&input, &live.federation)
-    };
-    live.record_reads(COMMAND, reader.consulted(), reader.refused());
+    let decided = standing_first(
+        live,
+        COMMAND,
+        ids,
+        |live, _, faulted| {
+            if faulted {
+                disable::disable_federation_connection(&input, &reader)
+            } else {
+                disable::disable_federation_connection(&input, &live.federation)
+            }
+        },
+        || (reader.consulted(), reader.refused()),
+    );
     finish(live, COMMAND, decided)
 }
 
@@ -333,13 +377,19 @@ pub fn unlink_external_principal(
         id: node::field(&request.input, "id")?,
     };
     let reader = Substituted::new();
-    let armed = live.armed.take(COMMAND);
-    let decided = if armed {
-        disable::unlink_external_principal(&input, &reader)
-    } else {
-        disable::unlink_external_principal(&input, &live.federation)
-    };
-    live.record_reads(COMMAND, reader.consulted(), reader.refused());
+    let decided = standing_first(
+        live,
+        COMMAND,
+        ids,
+        |live, _, faulted| {
+            if faulted {
+                disable::unlink_external_principal(&input, &reader)
+            } else {
+                disable::unlink_external_principal(&input, &live.federation)
+            }
+        },
+        || (reader.consulted(), reader.refused()),
+    );
     finish(live, COMMAND, decided)
 }
 
@@ -359,13 +409,19 @@ pub fn disable_oauth_client(
         id: node::field(&request.input, "id")?,
     };
     let reader = Substituted::new();
-    let armed = live.armed.take(COMMAND);
-    let decided = if armed {
-        disable::disable_oauth_client(&input, &reader)
-    } else {
-        disable::disable_oauth_client(&input, &live.federation)
-    };
-    live.record_reads(COMMAND, reader.consulted(), reader.refused());
+    let decided = standing_first(
+        live,
+        COMMAND,
+        ids,
+        |live, _, faulted| {
+            if faulted {
+                disable::disable_oauth_client(&input, &reader)
+            } else {
+                disable::disable_oauth_client(&input, &live.federation)
+            }
+        },
+        || (reader.consulted(), reader.refused()),
+    );
     finish(live, COMMAND, decided)
 }
 
@@ -387,14 +443,19 @@ pub fn register_oauth_client(
         pkce_method: node::field(&request.input, "pkce_method")?,
     };
     let reader = Substituted::new();
-    let armed = live.armed.take(COMMAND);
-    let standing = live.admission.clone();
-    let decided = if armed {
-        register_client::register_o_auth_client(&input, &reader, &mut live.federation_ids)
-    } else {
-        register_client::register_o_auth_client(&input, &standing, &mut live.federation_ids)
-    };
-    live.record_reads(COMMAND, reader.consulted(), reader.refused());
+    let decided = standing_first(
+        live,
+        COMMAND,
+        ids,
+        |live, ids, faulted| {
+            if faulted {
+                register_client::register_o_auth_client(&input, &reader, ids)
+            } else {
+                register_client::register_o_auth_client(&input, &live.admission, ids)
+            }
+        },
+        || (reader.consulted(), reader.refused()),
+    );
     match decided {
         Ok(registered) => {
             live.append_federation(registered.event.clone())?;

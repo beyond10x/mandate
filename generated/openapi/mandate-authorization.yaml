@@ -1,6 +1,6 @@
 # generated from mandate v1
-# model digest 2f11d2daffc2d75bb4ca8c0485aedc56fb2a712cdaed6347fc48b8ba2b1f7ca6
-# contract digest slice-sha256/2:2bfff111b18a2f3949a6b7c7d0ed64e54e670c22313d97347bca2165b796d26b
+# model digest bc14d822ad618424c38b62c9c38cd5211bf832d70eb206a30a00b4f625be02d4
+# contract digest slice-sha256/2:a454029b998b30d6b71bba8b6a23c1e31520bd0d04aa716e45a15d74c30e3a5a
 # do not edit: regenerate with `ess generate`
 openapi: 3.1.0
 info:
@@ -9,13 +9,13 @@ info:
   description: |-
     The HTTP surface of `mandate-authorization`, one of the components of `mandate` v1.
 
-    Every path here is one semantic command, so the method is always POST and the path is the command's wire name under its domain's: a command is not a resource, and this document does not invent one. A status code is the outcome the specification declares — 202 for a branch that was taken, 422 for a refusal the input decides, 502 for a refusal decided outside the request — and the `outcome` property of every response body names the branch. Events emitted by a branch are published to consumers through the event transport; they are not returned here.
+    Every path here is one semantic command, so the method is always POST and the path is the command's wire name under its domain's: a command is not a resource, and this document does not invent one. A status code is the outcome the specification declares — 202 for a branch that was taken, 422 for a refusal the input decides, 502 for a refusal decided outside the request — and the `outcome` property of every response body names the branch. Events emitted by a branch are published to consumers through the event transport, and the `published` property of every response body lists them too, in publication order.
   version: v1
   x-ess-provenance:
     system: mandate
     specification_version: v1
-    source_digest: 2f11d2daffc2d75bb4ca8c0485aedc56fb2a712cdaed6347fc48b8ba2b1f7ca6
-    contract_digest: slice-sha256/2:2bfff111b18a2f3949a6b7c7d0ed64e54e670c22313d97347bca2165b796d26b
+    source_digest: bc14d822ad618424c38b62c9c38cd5211bf832d70eb206a30a00b4f625be02d4
+    contract_digest: slice-sha256/2:a454029b998b30d6b71bba8b6a23c1e31520bd0d04aa716e45a15d74c30e3a5a
 tags:
 - name: authorization
 - name: graph
@@ -37,11 +37,28 @@ paths:
               $ref: '#/components/schemas/mandate.authorization.Check.Input'
       responses:
         '202':
-          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers, not returned here.'
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers and listed under `published`.'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.authorization.Check.accepted.Response'
+        '501':
+          description: 'No declared outcome: the realization is unfinished. Either a port this command runs reported an unmet obligation, and nothing was written: `committed` is `false`. Or the command''s effect was committed and delivering what this command published to a binding failed: `committed` is `true`, the effect and its events stand, and each binding whose delivery failed keeps its event and is attempted again on a later delivery, while no other binding receives it twice. Do not retry: after a failed delivery a retry performs the command a second time.'
+          content:
+            application/json:
+              schema:
+                additionalProperties: false
+                properties:
+                  committed:
+                    description: '`true` when the command''s effect and events were committed and delivering what it published failed; `false` when an unmet obligation stopped the command before anything was written.'
+                    type: boolean
+                  refused:
+                    description: What was left unfinished, in words.
+                    type: string
+                required:
+                - refused
+                - committed
+                type: object
         '502':
           description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
           content:
@@ -63,7 +80,7 @@ paths:
               $ref: '#/components/schemas/mandate.graph.DeregisterResource.Input'
       responses:
         '202':
-          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers, not returned here.'
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers and listed under `published`.'
           content:
             application/json:
               schema:
@@ -74,6 +91,23 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.graph.DeregisterResource.wrong-state.Response'
+        '501':
+          description: 'No declared outcome: the realization is unfinished. Either a port this command runs reported an unmet obligation, and nothing was written: `committed` is `false`. Or the command''s effect was committed and delivering what this command published to a binding failed: `committed` is `true`, the effect and its events stand, and each binding whose delivery failed keeps its event and is attempted again on a later delivery, while no other binding receives it twice. Do not retry: after a failed delivery a retry performs the command a second time.'
+          content:
+            application/json:
+              schema:
+                additionalProperties: false
+                properties:
+                  committed:
+                    description: '`true` when the command''s effect and events were committed and delivering what it published failed; `false` when an unmet obligation stopped the command before anything was written.'
+                    type: boolean
+                  refused:
+                    description: What was left unfinished, in words.
+                    type: string
+                required:
+                - refused
+                - committed
+                type: object
         '502':
           description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
           content:
@@ -95,11 +129,28 @@ paths:
               $ref: '#/components/schemas/mandate.graph.RegisterResource.Input'
       responses:
         '202':
-          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers, not returned here.'
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers and listed under `published`.'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.graph.RegisterResource.accepted.Response'
+        '501':
+          description: 'No declared outcome: the realization is unfinished. Either a port this command runs reported an unmet obligation, and nothing was written: `committed` is `false`. Or the command''s effect was committed and delivering what this command published to a binding failed: `committed` is `true`, the effect and its events stand, and each binding whose delivery failed keeps its event and is attempted again on a later delivery, while no other binding receives it twice. Do not retry: after a failed delivery a retry performs the command a second time.'
+          content:
+            application/json:
+              schema:
+                additionalProperties: false
+                properties:
+                  committed:
+                    description: '`true` when the command''s effect and events were committed and delivering what it published failed; `false` when an unmet obligation stopped the command before anything was written.'
+                    type: boolean
+                  refused:
+                    description: What was left unfinished, in words.
+                    type: string
+                required:
+                - refused
+                - committed
+                type: object
         '502':
           description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
           content:
@@ -121,7 +172,7 @@ paths:
               $ref: '#/components/schemas/mandate.graph.RemoveRelation.Input'
       responses:
         '202':
-          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers, not returned here.'
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers and listed under `published`.'
           content:
             application/json:
               schema:
@@ -132,6 +183,23 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.graph.RemoveRelation.wrong-state.Response'
+        '501':
+          description: 'No declared outcome: the realization is unfinished. Either a port this command runs reported an unmet obligation, and nothing was written: `committed` is `false`. Or the command''s effect was committed and delivering what this command published to a binding failed: `committed` is `true`, the effect and its events stand, and each binding whose delivery failed keeps its event and is attempted again on a later delivery, while no other binding receives it twice. Do not retry: after a failed delivery a retry performs the command a second time.'
+          content:
+            application/json:
+              schema:
+                additionalProperties: false
+                properties:
+                  committed:
+                    description: '`true` when the command''s effect and events were committed and delivering what it published failed; `false` when an unmet obligation stopped the command before anything was written.'
+                    type: boolean
+                  refused:
+                    description: What was left unfinished, in words.
+                    type: string
+                required:
+                - refused
+                - committed
+                type: object
         '502':
           description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
           content:
@@ -153,7 +221,7 @@ paths:
               $ref: '#/components/schemas/mandate.graph.RevokeGrant.Input'
       responses:
         '202':
-          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers, not returned here.'
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers and listed under `published`.'
           content:
             application/json:
               schema:
@@ -164,6 +232,23 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.graph.RevokeGrant.wrong-state.Response'
+        '501':
+          description: 'No declared outcome: the realization is unfinished. Either a port this command runs reported an unmet obligation, and nothing was written: `committed` is `false`. Or the command''s effect was committed and delivering what this command published to a binding failed: `committed` is `true`, the effect and its events stand, and each binding whose delivery failed keeps its event and is attempted again on a later delivery, while no other binding receives it twice. Do not retry: after a failed delivery a retry performs the command a second time.'
+          content:
+            application/json:
+              schema:
+                additionalProperties: false
+                properties:
+                  committed:
+                    description: '`true` when the command''s effect and events were committed and delivering what it published failed; `false` when an unmet obligation stopped the command before anything was written.'
+                    type: boolean
+                  refused:
+                    description: What was left unfinished, in words.
+                    type: string
+                required:
+                - refused
+                - committed
+                type: object
         '502':
           description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
           content:
@@ -185,11 +270,28 @@ paths:
               $ref: '#/components/schemas/mandate.graph.WriteRelationship.Input'
       responses:
         '202':
-          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers, not returned here.'
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers and listed under `published`.'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.graph.WriteRelationship.accepted.Response'
+        '501':
+          description: 'No declared outcome: the realization is unfinished. Either a port this command runs reported an unmet obligation, and nothing was written: `committed` is `false`. Or the command''s effect was committed and delivering what this command published to a binding failed: `committed` is `true`, the effect and its events stand, and each binding whose delivery failed keeps its event and is attempted again on a later delivery, while no other binding receives it twice. Do not retry: after a failed delivery a retry performs the command a second time.'
+          content:
+            application/json:
+              schema:
+                additionalProperties: false
+                properties:
+                  committed:
+                    description: '`true` when the command''s effect and events were committed and delivering what it published failed; `false` when an unmet obligation stopped the command before anything was written.'
+                    type: boolean
+                  refused:
+                    description: What was left unfinished, in words.
+                    type: string
+                required:
+                - refused
+                - committed
+                type: object
         '502':
           description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
           content:
@@ -211,7 +313,7 @@ paths:
               $ref: '#/components/schemas/mandate.policy.SupersedeAuthorizationModel.Input'
       responses:
         '202':
-          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers, not returned here.'
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers and listed under `published`.'
           content:
             application/json:
               schema:
@@ -222,6 +324,23 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.policy.SupersedeAuthorizationModel.wrong-state.Response'
+        '501':
+          description: 'No declared outcome: the realization is unfinished. Either a port this command runs reported an unmet obligation, and nothing was written: `committed` is `false`. Or the command''s effect was committed and delivering what this command published to a binding failed: `committed` is `true`, the effect and its events stand, and each binding whose delivery failed keeps its event and is attempted again on a later delivery, while no other binding receives it twice. Do not retry: after a failed delivery a retry performs the command a second time.'
+          content:
+            application/json:
+              schema:
+                additionalProperties: false
+                properties:
+                  committed:
+                    description: '`true` when the command''s effect and events were committed and delivering what it published failed; `false` when an unmet obligation stopped the command before anything was written.'
+                    type: boolean
+                  refused:
+                    description: What was left unfinished, in words.
+                    type: string
+                required:
+                - refused
+                - committed
+                type: object
         '502':
           description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
           content:
@@ -243,7 +362,7 @@ paths:
               $ref: '#/components/schemas/mandate.policy.SupersedePolicy.Input'
       responses:
         '202':
-          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers, not returned here.'
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers and listed under `published`.'
           content:
             application/json:
               schema:
@@ -254,6 +373,23 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.policy.SupersedePolicy.wrong-state.Response'
+        '501':
+          description: 'No declared outcome: the realization is unfinished. Either a port this command runs reported an unmet obligation, and nothing was written: `committed` is `false`. Or the command''s effect was committed and delivering what this command published to a binding failed: `committed` is `true`, the effect and its events stand, and each binding whose delivery failed keeps its event and is attempted again on a later delivery, while no other binding receives it twice. Do not retry: after a failed delivery a retry performs the command a second time.'
+          content:
+            application/json:
+              schema:
+                additionalProperties: false
+                properties:
+                  committed:
+                    description: '`true` when the command''s effect and events were committed and delivering what it published failed; `false` when an unmet obligation stopped the command before anything was written.'
+                    type: boolean
+                  refused:
+                    description: What was left unfinished, in words.
+                    type: string
+                required:
+                - refused
+                - committed
+                type: object
         '502':
           description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
           content:
@@ -281,13 +417,32 @@ components:
       additionalProperties: false
     mandate.authorization.Check.accepted.Response:
       additionalProperties: false
-      description: Taken when no other outcome's condition matched. Emits `DecisionRecorded`, published to consumers rather than returned here.
+      description: Taken when no other outcome's condition matched. Emits `DecisionRecorded`, published to consumers and listed under `published`.
       properties:
         outcome:
           const: accepted
           description: Which declared outcome the command took.
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          items: false
+          maxItems: 1
+          minItems: 1
+          prefixItems:
+          - additionalProperties: false
+            properties:
+              event:
+                const: mandate.authorization.DecisionRecorded
+                type: string
+              payload:
+                $ref: '#/components/schemas/mandate.authorization.DecisionRecorded.Event'
+            required:
+            - event
+            - payload
+            type: object
+          type: array
       required:
       - outcome
+      - published
       type: object
     mandate.authorization.Check.denied.Response:
       additionalProperties: false
@@ -302,11 +457,30 @@ components:
           description: Which declared outcome the command took.
         payload:
           $ref: '#/components/schemas/mandate.authorization.Denied.Error'
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          maxItems: 0
+          type: array
       required:
       - outcome
+      - published
       - error
       - payload
       type: object
+    mandate.authorization.DecisionRecorded.Event:
+      title: DecisionRecorded payload
+      x-ess-name: mandate.authorization.DecisionRecorded
+      x-ess-kind: event-payload
+      type: object
+      properties:
+        context:
+          $ref: '#/components/schemas/mandate.core.VerifiedContext'
+        decision:
+          $ref: '#/components/schemas/mandate.core.Decision'
+      required:
+      - context
+      - decision
+      additionalProperties: false
     mandate.authorization.Denied.Error:
       title: Denied payload
       description: Fail closed; no credential, authority or lifecycle mutation on refusal.
@@ -366,6 +540,16 @@ components:
       type: string
       format: uuid
       pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.AuthorizationModelVersion:
+      title: AuthorizationModelVersion
+      x-ess-name: mandate.core.AuthorizationModelVersion
+      x-ess-kind: newtype
+      type: string
+    mandate.core.AuthzRevision:
+      title: AuthzRevision
+      x-ess-name: mandate.core.AuthzRevision
+      x-ess-kind: newtype
+      type: string
     mandate.core.CorrelationId:
       title: CorrelationId
       x-ess-name: mandate.core.CorrelationId
@@ -378,6 +562,73 @@ components:
       type: string
       format: uuid
       pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.Decision:
+      title: Decision
+      x-ess-name: mandate.core.Decision
+      x-ess-kind: struct
+      type: object
+      properties:
+        allowed:
+          type: boolean
+        reason:
+          $ref: '#/components/schemas/mandate.core.DecisionReason'
+        decision_id:
+          $ref: '#/components/schemas/mandate.core.DecisionId'
+        revision:
+          $ref: '#/components/schemas/mandate.core.AuthzRevision'
+        challenge:
+          $ref: '#/components/schemas/mandate.core.DecisionChallenge'
+        policy_version:
+          $ref: '#/components/schemas/mandate.core.PolicyVersion'
+        model_version:
+          $ref: '#/components/schemas/mandate.core.AuthorizationModelVersion'
+      required:
+      - allowed
+      - reason
+      - decision_id
+      additionalProperties: false
+    mandate.core.DecisionChallenge:
+      title: DecisionChallenge
+      x-ess-name: mandate.core.DecisionChallenge
+      x-ess-kind: struct
+      type: object
+      properties:
+        action:
+          $ref: '#/components/schemas/mandate.core.Action'
+        resource:
+          $ref: '#/components/schemas/mandate.core.ResourceRef'
+        approver_policy:
+          $ref: '#/components/schemas/mandate.core.PolicyId'
+        expires_at:
+          type: string
+          format: date-time
+      required:
+      - action
+      - resource
+      - approver_policy
+      - expires_at
+      additionalProperties: false
+    mandate.core.DecisionId:
+      title: DecisionId
+      x-ess-name: mandate.core.DecisionId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.DecisionReason:
+      title: DecisionReason
+      x-ess-name: mandate.core.DecisionReason
+      x-ess-kind: enum
+      type: string
+      enum:
+      - Allowed
+      - Denied
+      - ApprovalRequired
+      - InvalidCredential
+      - TenantMismatch
+      - AudienceMismatch
+      - Unavailable
+      - StaleEpoch
     mandate.core.DelegationId:
       title: DelegationId
       x-ess-name: mandate.core.DelegationId
@@ -426,6 +677,11 @@ components:
       type: string
       format: uuid
       pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.PolicyVersion:
+      title: PolicyVersion
+      x-ess-name: mandate.core.PolicyVersion
+      x-ess-kind: newtype
+      type: string
     mandate.core.PrincipalId:
       title: PrincipalId
       x-ess-name: mandate.core.PrincipalId
@@ -530,13 +786,32 @@ components:
       additionalProperties: false
     mandate.graph.DeregisterResource.accepted.Response:
       additionalProperties: false
-      description: The security record of a deleted resource is kept and stops resolving. Relationship cleanup is the durable outbox job's, and each removal is its own recorded move; no child resource, relation or grant is destroyed as a side effect of this one. Taken when no other outcome's condition matched. A `mandate.graph.Resource` has moved to `Deregistered`, along `deregister`. The instance is the one `id` names. Emits `ResourceDeregistered`, published to consumers rather than returned here.
+      description: The security record of a deleted resource is kept and stops resolving. Relationship cleanup is the durable outbox job's, and each removal is its own recorded move; no child resource, relation or grant is destroyed as a side effect of this one. Taken when no other outcome's condition matched. A `mandate.graph.Resource` has moved to `Deregistered`, along `deregister`. The instance is the one `id` names. Emits `ResourceDeregistered`, published to consumers and listed under `published`.
       properties:
         outcome:
           const: accepted
           description: Which declared outcome the command took.
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          items: false
+          maxItems: 1
+          minItems: 1
+          prefixItems:
+          - additionalProperties: false
+            properties:
+              event:
+                const: mandate.graph.ResourceDeregistered
+                type: string
+              payload:
+                $ref: '#/components/schemas/mandate.graph.ResourceDeregistered.Event'
+            required:
+            - event
+            - payload
+            type: object
+          type: array
       required:
       - outcome
+      - published
       type: object
     mandate.graph.DeregisterResource.denied.Response:
       additionalProperties: false
@@ -551,14 +826,19 @@ components:
           description: Which declared outcome the command took.
         payload:
           $ref: '#/components/schemas/mandate.graph.Denied.Error'
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          maxItems: 0
+          type: array
       required:
       - outcome
+      - published
       - error
       - payload
       type: object
     mandate.graph.DeregisterResource.wrong-state.Response:
       additionalProperties: false
-      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's.
+      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's. For an instance no record carries, `payload` is absent, because an instance that does not exist has nothing for the error to describe.
       properties:
         error:
           const: mandate.graph.Denied
@@ -569,11 +849,29 @@ components:
           description: Which declared outcome the command took.
         payload:
           $ref: '#/components/schemas/mandate.graph.Denied.Error'
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          maxItems: 0
+          type: array
       required:
       - outcome
+      - published
       - error
-      - payload
       type: object
+    mandate.graph.GrantRevoked.Event:
+      title: GrantRevoked payload
+      x-ess-name: mandate.graph.GrantRevoked
+      x-ess-kind: event-payload
+      type: object
+      properties:
+        context:
+          $ref: '#/components/schemas/mandate.core.VerifiedContext'
+        id:
+          $ref: '#/components/schemas/mandate.core.GrantId'
+      required:
+      - context
+      - id
+      additionalProperties: false
     mandate.graph.RegisterResource.Input:
       title: RegisterResource input
       x-ess-name: mandate.graph.RegisterResource
@@ -592,13 +890,32 @@ components:
       additionalProperties: false
     mandate.graph.RegisterResource.accepted.Response:
       additionalProperties: false
-      description: Taken when no other outcome's condition matched. A `mandate.graph.Resource` now exists, in `Recorded`. Its identity is published as `resource_id` on `mandate.graph.ResourceRegistered`. Emits `ResourceRegistered`, published to consumers rather than returned here.
+      description: Taken when no other outcome's condition matched. A `mandate.graph.Resource` now exists, in `Recorded`. Its identity is published as `resource_id` on `mandate.graph.ResourceRegistered`. Emits `ResourceRegistered`, published to consumers and listed under `published`.
       properties:
         outcome:
           const: accepted
           description: Which declared outcome the command took.
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          items: false
+          maxItems: 1
+          minItems: 1
+          prefixItems:
+          - additionalProperties: false
+            properties:
+              event:
+                const: mandate.graph.ResourceRegistered
+                type: string
+              payload:
+                $ref: '#/components/schemas/mandate.graph.ResourceRegistered.Event'
+            required:
+            - event
+            - payload
+            type: object
+          type: array
       required:
       - outcome
+      - published
       type: object
     mandate.graph.RegisterResource.denied.Response:
       additionalProperties: false
@@ -613,11 +930,53 @@ components:
           description: Which declared outcome the command took.
         payload:
           $ref: '#/components/schemas/mandate.graph.Denied.Error'
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          maxItems: 0
+          type: array
       required:
       - outcome
+      - published
       - error
       - payload
       type: object
+    mandate.graph.RelationRemoved.Event:
+      title: RelationRemoved payload
+      x-ess-name: mandate.graph.RelationRemoved
+      x-ess-kind: event-payload
+      type: object
+      properties:
+        context:
+          $ref: '#/components/schemas/mandate.core.VerifiedContext'
+        id:
+          $ref: '#/components/schemas/mandate.core.RelationId'
+      required:
+      - context
+      - id
+      additionalProperties: false
+    mandate.graph.RelationshipWritten.Event:
+      title: RelationshipWritten payload
+      x-ess-name: mandate.graph.RelationshipWritten
+      x-ess-kind: event-payload
+      type: object
+      properties:
+        context:
+          $ref: '#/components/schemas/mandate.core.VerifiedContext'
+        id:
+          $ref: '#/components/schemas/mandate.core.RelationId'
+        subject:
+          $ref: '#/components/schemas/mandate.core.AuthoritySubject'
+        relation:
+          type: string
+        resource:
+          $ref: '#/components/schemas/mandate.core.ResourceRef'
+      required:
+      - context
+      - id
+      - subject
+      - relation
+      - resource
+      additionalProperties: false
     mandate.graph.RemoveRelation.Input:
       title: RemoveRelation input
       x-ess-name: mandate.graph.RemoveRelation
@@ -634,13 +993,32 @@ components:
       additionalProperties: false
     mandate.graph.RemoveRelation.accepted.Response:
       additionalProperties: false
-      description: Taken when no other outcome's condition matched. A `mandate.graph.Relation` has moved to `Removed`, along `remove`. The instance is the one `id` names. Emits `RelationRemoved`, published to consumers rather than returned here.
+      description: Taken when no other outcome's condition matched. A `mandate.graph.Relation` has moved to `Removed`, along `remove`. The instance is the one `id` names. Emits `RelationRemoved`, published to consumers and listed under `published`.
       properties:
         outcome:
           const: accepted
           description: Which declared outcome the command took.
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          items: false
+          maxItems: 1
+          minItems: 1
+          prefixItems:
+          - additionalProperties: false
+            properties:
+              event:
+                const: mandate.graph.RelationRemoved
+                type: string
+              payload:
+                $ref: '#/components/schemas/mandate.graph.RelationRemoved.Event'
+            required:
+            - event
+            - payload
+            type: object
+          type: array
       required:
       - outcome
+      - published
       type: object
     mandate.graph.RemoveRelation.denied.Response:
       additionalProperties: false
@@ -655,14 +1033,19 @@ components:
           description: Which declared outcome the command took.
         payload:
           $ref: '#/components/schemas/mandate.graph.Denied.Error'
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          maxItems: 0
+          type: array
       required:
       - outcome
+      - published
       - error
       - payload
       type: object
     mandate.graph.RemoveRelation.wrong-state.Response:
       additionalProperties: false
-      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's.
+      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's. For an instance no record carries, `payload` is absent, because an instance that does not exist has nothing for the error to describe.
       properties:
         error:
           const: mandate.graph.Denied
@@ -673,11 +1056,48 @@ components:
           description: Which declared outcome the command took.
         payload:
           $ref: '#/components/schemas/mandate.graph.Denied.Error'
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          maxItems: 0
+          type: array
       required:
       - outcome
+      - published
       - error
-      - payload
       type: object
+    mandate.graph.ResourceDeregistered.Event:
+      title: ResourceDeregistered payload
+      x-ess-name: mandate.graph.ResourceDeregistered
+      x-ess-kind: event-payload
+      type: object
+      properties:
+        context:
+          $ref: '#/components/schemas/mandate.core.VerifiedContext'
+        id:
+          $ref: '#/components/schemas/mandate.core.ResourceId'
+      required:
+      - context
+      - id
+      additionalProperties: false
+    mandate.graph.ResourceRegistered.Event:
+      title: ResourceRegistered payload
+      x-ess-name: mandate.graph.ResourceRegistered
+      x-ess-kind: event-payload
+      type: object
+      properties:
+        context:
+          $ref: '#/components/schemas/mandate.core.VerifiedContext'
+        resource_id:
+          $ref: '#/components/schemas/mandate.core.ResourceId'
+        resource:
+          $ref: '#/components/schemas/mandate.core.ResourceRef'
+        parent:
+          $ref: '#/components/schemas/mandate.core.ResourceId'
+      required:
+      - context
+      - resource_id
+      - resource
+      additionalProperties: false
     mandate.graph.RevokeGrant.Input:
       title: RevokeGrant input
       x-ess-name: mandate.graph.RevokeGrant
@@ -694,13 +1114,32 @@ components:
       additionalProperties: false
     mandate.graph.RevokeGrant.accepted.Response:
       additionalProperties: false
-      description: Taken when no other outcome's condition matched. A `mandate.graph.Grant` has moved to `Revoked`, along `revoke`. The instance is the one `id` names. Emits `GrantRevoked`, published to consumers rather than returned here.
+      description: Taken when no other outcome's condition matched. A `mandate.graph.Grant` has moved to `Revoked`, along `revoke`. The instance is the one `id` names. Emits `GrantRevoked`, published to consumers and listed under `published`.
       properties:
         outcome:
           const: accepted
           description: Which declared outcome the command took.
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          items: false
+          maxItems: 1
+          minItems: 1
+          prefixItems:
+          - additionalProperties: false
+            properties:
+              event:
+                const: mandate.graph.GrantRevoked
+                type: string
+              payload:
+                $ref: '#/components/schemas/mandate.graph.GrantRevoked.Event'
+            required:
+            - event
+            - payload
+            type: object
+          type: array
       required:
       - outcome
+      - published
       type: object
     mandate.graph.RevokeGrant.denied.Response:
       additionalProperties: false
@@ -715,14 +1154,19 @@ components:
           description: Which declared outcome the command took.
         payload:
           $ref: '#/components/schemas/mandate.graph.Denied.Error'
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          maxItems: 0
+          type: array
       required:
       - outcome
+      - published
       - error
       - payload
       type: object
     mandate.graph.RevokeGrant.wrong-state.Response:
       additionalProperties: false
-      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's.
+      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's. For an instance no record carries, `payload` is absent, because an instance that does not exist has nothing for the error to describe.
       properties:
         error:
           const: mandate.graph.Denied
@@ -733,10 +1177,14 @@ components:
           description: Which declared outcome the command took.
         payload:
           $ref: '#/components/schemas/mandate.graph.Denied.Error'
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          maxItems: 0
+          type: array
       required:
       - outcome
+      - published
       - error
-      - payload
       type: object
     mandate.graph.WriteRelationship.Input:
       title: WriteRelationship input
@@ -760,13 +1208,32 @@ components:
       additionalProperties: false
     mandate.graph.WriteRelationship.accepted.Response:
       additionalProperties: false
-      description: Taken when no other outcome's condition matched. A `mandate.graph.Relation` now exists, in `Active`. Its identity is published as `id` on `mandate.graph.RelationshipWritten`. Emits `RelationshipWritten`, published to consumers rather than returned here.
+      description: Taken when no other outcome's condition matched. A `mandate.graph.Relation` now exists, in `Active`. Its identity is published as `id` on `mandate.graph.RelationshipWritten`. Emits `RelationshipWritten`, published to consumers and listed under `published`.
       properties:
         outcome:
           const: accepted
           description: Which declared outcome the command took.
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          items: false
+          maxItems: 1
+          minItems: 1
+          prefixItems:
+          - additionalProperties: false
+            properties:
+              event:
+                const: mandate.graph.RelationshipWritten
+                type: string
+              payload:
+                $ref: '#/components/schemas/mandate.graph.RelationshipWritten.Event'
+            required:
+            - event
+            - payload
+            type: object
+          type: array
       required:
       - outcome
+      - published
       type: object
     mandate.graph.WriteRelationship.denied.Response:
       additionalProperties: false
@@ -781,11 +1248,30 @@ components:
           description: Which declared outcome the command took.
         payload:
           $ref: '#/components/schemas/mandate.graph.Denied.Error'
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          maxItems: 0
+          type: array
       required:
       - outcome
+      - published
       - error
       - payload
       type: object
+    mandate.policy.AuthorizationModelSuperseded.Event:
+      title: AuthorizationModelSuperseded payload
+      x-ess-name: mandate.policy.AuthorizationModelSuperseded
+      x-ess-kind: event-payload
+      type: object
+      properties:
+        context:
+          $ref: '#/components/schemas/mandate.core.VerifiedContext'
+        id:
+          $ref: '#/components/schemas/mandate.core.AuthorizationModelId'
+      required:
+      - context
+      - id
+      additionalProperties: false
     mandate.policy.Denied.Error:
       title: Denied payload
       description: Fail closed; no credential, authority or lifecycle mutation on refusal.
@@ -797,6 +1283,20 @@ components:
           $ref: '#/components/schemas/mandate.core.DenialReason'
       required:
       - reason
+      additionalProperties: false
+    mandate.policy.PolicySuperseded.Event:
+      title: PolicySuperseded payload
+      x-ess-name: mandate.policy.PolicySuperseded
+      x-ess-kind: event-payload
+      type: object
+      properties:
+        context:
+          $ref: '#/components/schemas/mandate.core.VerifiedContext'
+        id:
+          $ref: '#/components/schemas/mandate.core.PolicyId'
+      required:
+      - context
+      - id
       additionalProperties: false
     mandate.policy.SupersedeAuthorizationModel.Input:
       title: SupersedeAuthorizationModel input
@@ -814,13 +1314,32 @@ components:
       additionalProperties: false
     mandate.policy.SupersedeAuthorizationModel.accepted.Response:
       additionalProperties: false
-      description: The recorded schema version stops being the current one and is kept for attribution. A breaking change is a new model version with its own migration; no superseded model is reactivated and none is deleted. Taken when no other outcome's condition matched. A `mandate.policy.AuthorizationModel` has moved to `Superseded`, along `supersede`. The instance is the one `id` names. Emits `AuthorizationModelSuperseded`, published to consumers rather than returned here.
+      description: The recorded schema version stops being the current one and is kept for attribution. A breaking change is a new model version with its own migration; no superseded model is reactivated and none is deleted. Taken when no other outcome's condition matched. A `mandate.policy.AuthorizationModel` has moved to `Superseded`, along `supersede`. The instance is the one `id` names. Emits `AuthorizationModelSuperseded`, published to consumers and listed under `published`.
       properties:
         outcome:
           const: accepted
           description: Which declared outcome the command took.
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          items: false
+          maxItems: 1
+          minItems: 1
+          prefixItems:
+          - additionalProperties: false
+            properties:
+              event:
+                const: mandate.policy.AuthorizationModelSuperseded
+                type: string
+              payload:
+                $ref: '#/components/schemas/mandate.policy.AuthorizationModelSuperseded.Event'
+            required:
+            - event
+            - payload
+            type: object
+          type: array
       required:
       - outcome
+      - published
       type: object
     mandate.policy.SupersedeAuthorizationModel.denied.Response:
       additionalProperties: false
@@ -835,14 +1354,19 @@ components:
           description: Which declared outcome the command took.
         payload:
           $ref: '#/components/schemas/mandate.policy.Denied.Error'
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          maxItems: 0
+          type: array
       required:
       - outcome
+      - published
       - error
       - payload
       type: object
     mandate.policy.SupersedeAuthorizationModel.wrong-state.Response:
       additionalProperties: false
-      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's.
+      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's. For an instance no record carries, `payload` is absent, because an instance that does not exist has nothing for the error to describe.
       properties:
         error:
           const: mandate.policy.Denied
@@ -853,10 +1377,14 @@ components:
           description: Which declared outcome the command took.
         payload:
           $ref: '#/components/schemas/mandate.policy.Denied.Error'
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          maxItems: 0
+          type: array
       required:
       - outcome
+      - published
       - error
-      - payload
       type: object
     mandate.policy.SupersedePolicy.Input:
       title: SupersedePolicy input
@@ -874,13 +1402,32 @@ components:
       additionalProperties: false
     mandate.policy.SupersedePolicy.accepted.Response:
       additionalProperties: false
-      description: The recorded version stops being the current one. Its source is kept, because every decision already made under it stays attributable to it; a rollback is a new version record carrying the earlier source, never a revival of this one. Taken when no other outcome's condition matched. A `mandate.policy.Policy` has moved to `Superseded`, along `supersede`. The instance is the one `id` names. Emits `PolicySuperseded`, published to consumers rather than returned here.
+      description: The recorded version stops being the current one. Its source is kept, because every decision already made under it stays attributable to it; a rollback is a new version record carrying the earlier source, never a revival of this one. Taken when no other outcome's condition matched. A `mandate.policy.Policy` has moved to `Superseded`, along `supersede`. The instance is the one `id` names. Emits `PolicySuperseded`, published to consumers and listed under `published`.
       properties:
         outcome:
           const: accepted
           description: Which declared outcome the command took.
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          items: false
+          maxItems: 1
+          minItems: 1
+          prefixItems:
+          - additionalProperties: false
+            properties:
+              event:
+                const: mandate.policy.PolicySuperseded
+                type: string
+              payload:
+                $ref: '#/components/schemas/mandate.policy.PolicySuperseded.Event'
+            required:
+            - event
+            - payload
+            type: object
+          type: array
       required:
       - outcome
+      - published
       type: object
     mandate.policy.SupersedePolicy.denied.Response:
       additionalProperties: false
@@ -895,14 +1442,19 @@ components:
           description: Which declared outcome the command took.
         payload:
           $ref: '#/components/schemas/mandate.policy.Denied.Error'
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          maxItems: 0
+          type: array
       required:
       - outcome
+      - published
       - error
       - payload
       type: object
     mandate.policy.SupersedePolicy.wrong-state.Response:
       additionalProperties: false
-      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's.
+      description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's. For an instance no record carries, `payload` is absent, because an instance that does not exist has nothing for the error to describe.
       properties:
         error:
           const: mandate.policy.Denied
@@ -913,10 +1465,14 @@ components:
           description: Which declared outcome the command took.
         payload:
           $ref: '#/components/schemas/mandate.policy.Denied.Error'
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          maxItems: 0
+          type: array
       required:
       - outcome
+      - published
       - error
-      - payload
       type: object
 x-ess-entities:
   mandate.core.Action:

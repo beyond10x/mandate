@@ -38,7 +38,8 @@ use mandate_types::{
     Action, Audience, AuthorityScope, AuthorizationCodeId, CorrelationId, CredentialId,
     CredentialKind, CredentialVerifier, DelegationId, Duration, EpochSnapshotRef, ExecutionId,
     KeyReference, OrganizationId, PrincipalId, ResourceRef, ResourceServerId, ResourceType,
-    RevocationGuarantee, SigningAlgorithm, SigningKeyId, Timestamp, Uuid, VerifiedContext,
+    RevocationGuarantee, SigningAlgorithm, SigningKeyId, SigningKeyWindow, Timestamp, Uuid,
+    VerifiedContext,
 };
 use serde::{Serialize, de::DeserializeOwned};
 use serde_json::Value;
@@ -253,8 +254,10 @@ fn folded_events(carried: bool) -> Vec<CredentialEvent> {
             key_reference: KeyReference::new("kms://one"),
             thumbprint: "thumb-one".to_owned(),
             algorithm: SigningAlgorithm::new("declared-by-deployment"),
-            not_before: Timestamp::new("2026-09-19T00:00:00Z"),
-            expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+            window: SigningKeyWindow {
+                not_before: Timestamp::new("2026-09-19T00:00:00Z"),
+                expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+            },
         },
         CredentialEvent::SigningKeyRetired {
             context: context.clone(),
@@ -476,8 +479,10 @@ fn the_signing_key_record_round_trips_in_every_declared_state() {
             key_reference: KeyReference::new("kms://one"),
             thumbprint: "thumb-one".to_owned(),
             algorithm: SigningAlgorithm::new("declared-by-deployment"),
-            not_before: Timestamp::new("2026-09-19T00:00:00Z"),
-            expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+            window: SigningKeyWindow {
+                not_before: Timestamp::new("2026-09-19T00:00:00Z"),
+                expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+            },
             state,
         };
         let document = agrees::<_, entities::MandateCredentialSigningKey>(

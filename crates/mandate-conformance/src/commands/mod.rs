@@ -105,33 +105,33 @@ pub const UNREALIZED: &[(&str, &str, &str)] = &[
     ),
     (
         "mandate.delegation.CompleteExecution",
-        "story:agent-authority-kernel",
-        "mandate.delegation is projected by nothing on any dependency line",
+        "story:agent-security",
+        "story:agent-security owns the delegation command handlers; mandate-authz only reads the delegation records",
     ),
     (
         "mandate.delegation.ConsumeApproval",
-        "story:agent-authority-kernel",
-        "mandate.delegation is projected by nothing on any dependency line",
+        "story:agent-security",
+        "story:agent-security owns the delegation command handlers; mandate-authz only reads the delegation records",
     ),
     (
         "mandate.delegation.CreateDelegation",
-        "story:agent-authority-kernel",
-        "mandate.delegation is projected by nothing on any dependency line",
+        "story:agent-security",
+        "story:agent-security owns the delegation command handlers; mandate-authz only reads the delegation records",
     ),
     (
         "mandate.delegation.RetireAgent",
-        "story:agent-authority-kernel",
-        "mandate.delegation is projected by nothing on any dependency line",
+        "story:agent-security",
+        "story:agent-security owns the delegation command handlers; mandate-authz only reads the delegation records",
     ),
     (
         "mandate.delegation.RevokeDelegation",
-        "story:agent-authority-kernel",
-        "mandate.delegation is projected by nothing on any dependency line",
+        "story:agent-security",
+        "story:agent-security owns the delegation command handlers; mandate-authz only reads the delegation records",
     ),
     (
         "mandate.delegation.SupersedeAgentCapabilityCeiling",
-        "story:agent-authority-kernel",
-        "mandate.delegation is projected by nothing on any dependency line",
+        "story:agent-security",
+        "story:agent-security owns the delegation command handlers; mandate-authz only reads the delegation records",
     ),
     (
         "mandate.directory.CompleteSyncJob",
@@ -411,6 +411,62 @@ pub fn refused(
                 .with("reason", node::response_field(&reason)?),
         ),
     )
+}
+
+/// A crate's refusal, read for the declared branch it is.
+pub trait Refusal {
+    /// The refusing outcome's name in the compiled contract.
+    fn branch(&self) -> &'static str;
+}
+
+impl Refusal for mandate_federation::Denied {
+    fn branch(&self) -> &'static str {
+        self.outcome.ir_name()
+    }
+}
+
+impl Refusal for mandate_token::projection::Denied {
+    fn branch(&self) -> &'static str {
+        self.outcome.ir_name()
+    }
+}
+
+/// Decide `command` over the standing readers and, only when it is armed and that decision
+/// admitted it, once more with the fault in place (`external.rs`, "An arming the input
+/// already decides places no fault").
+///
+/// `decide` is called with `faulted: false` for the standing decision and `true` for the
+/// faulted one; `held` is the mutable state a decision advances (an allocator, a session
+/// issuer), which the standing trial advances on a copy. An armed command whose standing
+/// decision already refused is answered by that refusal, recorded `input-decided` when it
+/// refused on the forced branch and `input-refused-elsewhere` when on another; otherwise the
+/// faulted decision's reads are recorded. `reads` reports the substituted reader's two
+/// counts after the faulted decision. An unarmed invocation records nothing: only the
+/// invocation that took the arming relabels its row.
+pub fn standing_first<S: Clone, T, E: Refusal>(
+    live: &mut Live,
+    command: &str,
+    held: fn(&mut Live) -> &mut S,
+    decide: impl Fn(&Live, &mut S, bool) -> Result<T, E>,
+    reads: impl Fn() -> (u32, u32),
+) -> Result<T, E> {
+    let armed = live.armed.take(command);
+    let mut trial = held(live).clone();
+    let standing = decide(live, &mut trial, false);
+    let Some(arming) = armed else {
+        *held(live) = trial;
+        return standing;
+    };
+    if let Err(refusal) = &standing {
+        live.input_decided(arming, refusal.branch());
+        return standing;
+    }
+    let mut state = held(live).clone();
+    let faulted = decide(live, &mut state, true);
+    *held(live) = state;
+    let (consulted, refused) = reads();
+    live.record_reads(arming, consulted, refused);
+    faulted
 }
 
 /// The consistency token minted for one invocation, from a counter and never a clock.

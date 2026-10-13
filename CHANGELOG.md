@@ -4,6 +4,60 @@ All notable changes to Mandate are recorded here. The format follows [Keep a Cha
 
 ## [Unreleased]
 
+### Added
+
+- **Agent authority evaluator.** `mandate_authz::agent::evaluate_agent_authority` decides what
+  an agent may do, acting for itself or for a subject under a delegation: the permitted set is
+  exactly the intersection of the request, both validated proofs' authority, the delegation's
+  scope and every applicable current capability ceiling, and never exceeds any of them; it
+  expires at the earliest of the inputs, compared as instants. Expired, revoked or mismatched
+  delegations, a disabled or retired actor, a mismatched organization, absent evidence and a
+  delegation chain deny, and an approval requirement answers `allowed = false` with its
+  challenge. The records arrive through `mandate_authz::agent::AgentAuthorityRead` as the new
+  `mandate_authz::delegation` projections of `Agent`, `AgentCapabilityCeiling` and
+  `Delegation`. A reusable library function: no token issuance, route or storage
+  (`story:agent-authority-kernel`).
+- **One current ceiling per key.** Ceilings are keyed by `(agent_id, organization_id)`, absent
+  organization being the platform key; the current one is the latest still `Recorded`, a ceiling
+  recorded for another organization does not apply, and two current ceilings on one key deny.
+  `ExchangeCredential`'s declared denial gains the clause "two current capability ceilings share
+  one agent and organization-or-platform key", with the authored scenario
+  `exchange-ceiling-conflict` (201 scenarios; it is refused before dispatch, attributed to
+  `story:declared-writers`).
+
+### Changed
+
+- **Breaking.** A signing key's validity instants move into one record,
+  `mandate_types::SigningKeyWindow` (`mandate.core.SigningKeyWindow`), carried as `window`:
+  `mandate_token::projection::SigningKey`, `CredentialEvent::SigningKeyRegistered` and
+  `mandate_sts::keys::RegisterSigningKey` hold `window` where they held `not_before` and
+  `expires_at`. The entity invariant reads `window.not_before < window.expires_at`. Rust API only:
+  no HTTP route and no stored event changes (`story:ess-repin-0-59`).
+- ESS moves from 0.26.0 to 0.59.0: the `ess-conformance`, `ess-primitives` and `ess-domain`
+  crates, the CLI the gate requires and CI installs, and `generated/`, regenerated under it
+  (`story:ess-repin-0-59`).
+- The conformance suite is synthesized under 0.59.0: 166 → 200 scenarios, `cargo xtask conform`
+  40 passed / 78 failed / 0 error / 82 unsupported / 0 skipped. The 34 new `wrong-state`
+  scenarios start from an empty state: 19 name commands no crate realizes and restate the owner
+  `injections.json` names, and the 15 the handlers refuse as `denied` act on an identity no record
+  carries; ESS reads that as `wrong-state` unless the command declares an `unknown_instance:`
+  outcome, so they are attributed to `story:unknown-instance-refusals`. Four `ResourceServer`
+  scenarios whose synthesized `allowed_exchange_sources` names a resource server that does not
+  exist are attributed to `story:ess-synthesizer-prerequisites`. Every non-passed scenario names
+  a live story.
+- The conformance target decides an armed `mandate.federation` command over the standing readers
+  first: 0.59.0 compiles an authored `denied` into a `configure_external_outcome`, and a refusal
+  the input already decides is now the handler's own answer, recorded `input-decided`, rather
+  than a fault placed ahead of it (`federation-audience-mismatch`, `federation-ambiguous-tenant`,
+  `federation-configured-method-on-explicit-link`).
+- The `mandate.delegation` records the evaluator reads (`Agent`, `AgentCapabilityCeiling`,
+  `Delegation`) are implemented; the delegation commands, their events and
+  `mandate.delegation.Denied` move to `story:agent-security`, deferred on
+  `decision-blocker:identity-uniqueness`.
+- `cargo deny` admits RUSTSEC-2024-0449 (`unsafe-libyaml`, unmaintained, not a vulnerability),
+  reached only through `serde_yaml` in the ESS crates; the ignore leaves when ESS drops
+  `serde_yaml`.
+
 ## [0.6.0] - 2026-09-24
 
 Wave M: a browser signs in through an external OIDC IdP, and a credential is exchanged for one

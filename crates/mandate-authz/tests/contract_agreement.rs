@@ -5,7 +5,7 @@
 //! which is the half a coverage report is read through — an element this crate named and the
 //! contract does not declare is a realization of nothing. That is what the first case below
 //! decides, and the second decides the reverse: that every element the contract declares in
-//! this crate's domain is named by [`mandate_authz::ESS_REALIZATIONS`] or by
+//! this crate's two domains is named by [`mandate_authz::ESS_REALIZATIONS`] or by
 //! [`mandate_authz::ESS_UNREALIZED`], never by both and never by neither. This is the pair
 //! `crates/mandate-federation/tests/contract_agreement.rs` established for its domain.
 //!
@@ -23,9 +23,15 @@
 use std::collections::BTreeSet;
 use std::fs;
 
-/// The domain this crate realizes elements of, and of no other
-/// (`docs/architecture/ownership.md:13`).
-const DOMAIN: &str = "mandate.authorization.";
+/// The domains this crate realizes elements of, and of no other: `mandate.authorization`
+/// (`docs/architecture/ownership.md:13`) and `mandate.delegation`
+/// (`docs/architecture/ownership.md:16`), whose records the agent authority evaluator reads.
+const DOMAINS: [&str; 2] = ["mandate.authorization.", "mandate.delegation."];
+
+/// Whether an element belongs to one of [`DOMAINS`].
+fn in_domain(element: &str) -> bool {
+    DOMAINS.iter().any(|domain| element.starts_with(domain))
+}
 
 const SCHEMA: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../generated/schema");
 
@@ -48,7 +54,7 @@ fn declared_elements() -> BTreeSet<String> {
             declared.insert(element.to_owned());
         }
     }
-    assert_eq!(declared.len(), 292, "the compiled model's element count");
+    assert_eq!(declared.len(), 293, "the compiled model's element count");
     declared
 }
 
@@ -68,14 +74,12 @@ fn every_realized_element_is_one_the_contract_declares() {
             "{element} (realized by {symbol}) is declared by no commands, events, entities, \
              errors or types index of the compiled model"
         );
-        // One declared element has one realizer. This crate realizes elements of its own
-        // domain and of no other: `mandate.delegation` is given to this crate by
-        // `ownership.md:16` as well, and none of it is realized here — the actor ceiling and
-        // the delegation bound are `story:agent-authority-kernel`'s, and `src/lib.rs` says
-        // so. An allowance for a cross-domain realization would be an allowance for a second
-        // one.
+        // One declared element has one realizer. This crate realizes elements of its own two
+        // domains and of no other: `mandate.authorization` and `mandate.delegation`, both
+        // given to it by `ownership.md`. An allowance for a realization outside them would be
+        // an allowance for a second realizer.
         assert!(
-            element.starts_with(DOMAIN),
+            in_domain(element),
             "{element} (realized by {symbol}) is not an element of this crate's domain"
         );
     }
@@ -88,7 +92,7 @@ fn every_declared_element_of_this_domain_is_realized_or_named_as_unrealized() {
     let realized: BTreeSet<&str> = mandate_authz::ESS_REALIZATIONS
         .iter()
         .map(|(element, _)| *element)
-        .filter(|element| element.starts_with(DOMAIN))
+        .filter(|element| in_domain(element))
         .collect();
     let unrealized: BTreeSet<&str> = mandate_authz::ESS_UNREALIZED
         .iter()
@@ -97,7 +101,7 @@ fn every_declared_element_of_this_domain_is_realized_or_named_as_unrealized() {
 
     let declared: BTreeSet<String> = declared_elements()
         .into_iter()
-        .filter(|element| element.starts_with(DOMAIN))
+        .filter(|element| in_domain(element))
         .collect();
     let accounted: BTreeSet<String> = realized
         .iter()
@@ -131,7 +135,7 @@ fn every_declared_element_of_this_domain_is_realized_or_named_as_unrealized() {
             "{element} is named as unrealized with no reason"
         );
         assert!(
-            element.starts_with(DOMAIN),
+            in_domain(element),
             "{element} is not an element of this crate's domain"
         );
     }
@@ -261,7 +265,7 @@ fn symbol_list(line: &str, element: &str) -> Vec<String> {
 /// Every entry of the coverage manifest, as `(status, crate, the first impl symbol)`.
 ///
 /// Read as lines, for the reason `manifest_entries` is: no `serde_json` is reachable from
-/// this crate. A reflowed manifest yields fewer than 292 entries here and the count below
+/// this crate. A reflowed manifest yields fewer than 293 entries here and the count below
 /// refuses it, so this reader cannot select nothing and pass.
 fn coverage_manifest_claims() -> std::collections::BTreeMap<String, (String, String, String)> {
     let text = fs::read_to_string(MANIFEST).unwrap_or_else(|error| panic!("{MANIFEST}: {error}"));
@@ -286,7 +290,7 @@ fn coverage_manifest_claims() -> std::collections::BTreeMap<String, (String, Str
             ),
         );
     }
-    assert_eq!(claims.len(), 292, "the coverage manifest's element count");
+    assert_eq!(claims.len(), 293, "the coverage manifest's element count");
     claims
 }
 

@@ -256,13 +256,13 @@ fn the_resynthesized_suite_reads_the_specifications_scenario_list() {
 /// the projections without changing a source would otherwise leave every digest equal and the
 /// receipt silent about the one thing that moved". `conform::sources` reads `format` and
 /// `source_digest` out of that receipt and never the version, and `conform` itself spawns
-/// `ess` without the `version("ess", "ess 0.26.0")` check `generate` makes.
+/// `ess` without the `version("ess", "ess 0.59.0")` check `generate` makes.
 #[test]
 fn a_receipt_recording_another_ess_than_the_one_that_synthesized_is_refused() {
     let root = fixture("repinned-ess");
     let path = root.join("generated/coverage/receipt.json");
     let body = fs::read_to_string(&path).expect("the fixture receipt");
-    let repinned = body.replace("\"ess 0.26.0\"", "\"ess 0.1.0\"");
+    let repinned = body.replace("\"ess 0.59.0\"", "\"ess 0.1.0\"");
     assert_ne!(
         repinned, body,
         "the receipt's recorded toolchain was changed"
@@ -271,7 +271,7 @@ fn a_receipt_recording_another_ess_than_the_one_that_synthesized_is_refused() {
     let refusal = refusal(&root, false);
     assert!(
         refusal.contains("ess 0.1.0") || refusal.contains("ess_version"),
-        "the receipt says this corpus was projected by `ess 0.1.0` and `ess 0.26.0` is what \
+        "the receipt says this corpus was projected by `ess 0.1.0` and `ess 0.59.0` is what \
          just synthesized the suite the gate compared it against; the gate read the receipt \
          and did not read the one field that records the toolchain: {refusal}"
     );

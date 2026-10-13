@@ -231,7 +231,7 @@
         {
           "clause": "narrowing is refused",
           "tests": [],
-          "blocked_on": "story:agent-authority-kernel"
+          "blocked_on": "story:agent-security"
         }
       ],
       "no_state_change": [

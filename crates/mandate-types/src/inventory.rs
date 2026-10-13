@@ -1,7 +1,7 @@
 //! The account of what this milestone accepted and what it excluded.
 //!
 //! The entries below are decided against `generated/schema/types`, the compiled model's
-//! own type index, by `tests/inventory.rs`. The compiled index holds 110 entries: the 74
+//! own type index, by `tests/inventory.rs`. The compiled index holds 111 entries: the 75
 //! authored `mandate.core` types in [`ACCEPTED`], and one derived `<Entity>.State` enum
 //! per entity, the 36 of [`DERIVED_STATE_ENUMS`]. Both halves are accounted for; they are
 //! accounted for differently, and [`DERIVED_STATE_ENUMS`] says how.
@@ -50,8 +50,8 @@ pub enum Owner {
     ///
     /// This axis is *declaration* ownership — where the Rust type is written — and no
     /// authored `mandate.core` type is declared here, so this variant holds none of the
-    /// 74. That is not the same as carrying no accepted type: `mandate-proto` carries a
-    /// `WireContract` for **all** 74, including the six records `mandate-model` and
+    /// 75. That is not the same as carrying no accepted type: `mandate-proto` carries a
+    /// `WireContract` for **all** 75, including the six records `mandate-model` and
     /// `mandate-token` declare, which it reaches through the
     /// `mandate-proto -> mandate-model` and `mandate-proto -> mandate-token` entries in
     /// `dependency-boundaries.json`.
@@ -427,6 +427,11 @@ pub const ACCEPTED: &[Accepted] = &[
         owner: Owner::Types,
     },
     Accepted {
+        ess_name: "mandate.core.SigningKeyWindow",
+        kind: Kind::Struct,
+        owner: Owner::Types,
+    },
+    Accepted {
         ess_name: "mandate.core.DenialReason",
         kind: Kind::Enum,
         owner: Owner::Types,
@@ -469,7 +474,7 @@ pub const ACCEPTED: &[Accepted] = &[
 /// `tests/conformance.rs` pairs every name on this list with the generated
 /// `mandate_contract::entities::<Entity>State` shape — by ESS's own `declaration_name`
 /// derivation, because 23 of the 36 share a variant list and a literal pairing among those
-/// is not evidence — and puts each declared variant through the same schema account the 74
+/// is not evidence — and puts each declared variant through the same schema account the 75
 /// authored types go through. `tests/inventory.rs` asserts this list is exactly the `.State`
 /// half of the compiled index. A `.State` enum the contract adds therefore fails the
 /// inventory case until it is listed here, and fails the conformance case until it is paired
@@ -487,7 +492,7 @@ pub const ACCEPTED: &[Accepted] = &[
 ///
 /// # Where the coverage manifest accounts for each of them
 ///
-/// Nineteen have a hand-written enum in the crate that folds the record, registered there
+/// Twenty-two have a hand-written enum in the crate that folds the record, registered there
 /// through `mandate_types::realizes!` and reconciled by that crate's own agreement case:
 /// six in `mandate-model` (`mandate.tenancy.Organization.State`,
 /// `mandate.tenancy.OrganizationMembership.State`, `mandate.tenancy.Team.State`,
@@ -500,15 +505,19 @@ pub const ACCEPTED: &[Accepted] = &[
 /// `mandate.federation.ExternalPrincipal.State`, `mandate.federation.OAuthClient.State`);
 /// two in `mandate-identity` (`mandate.identity.Principal.State`,
 /// `mandate.identity.Session.State`); two in `mandate-graph`
-/// (`mandate.graph.Relation.State`, `mandate.graph.Grant.State`); and two in
+/// (`mandate.graph.Relation.State`, `mandate.graph.Grant.State`); two in
 /// `mandate-policy` (`mandate.policy.Policy.State`,
-/// `mandate.policy.AuthorizationModel.State`).
+/// `mandate.policy.AuthorizationModel.State`); and three in `mandate-authz`
+/// (`mandate.delegation.Agent.State` as `AgentState`,
+/// `mandate.delegation.AgentCapabilityCeiling.State` as `CeilingState` and
+/// `mandate.delegation.Delegation.State` as `DelegationState`, the records the agent
+/// authority evaluator reads).
 ///
-/// The other seventeen have no hand-written enum anywhere in this workspace, and each
+/// The other fourteen have no hand-written enum anywhere in this workspace, and each
 /// carries the status of the record it belongs to: the five identity epoch and snapshot
 /// states are `declared` on `story:federation-identity-alignment`, which
 /// `mandate-identity`'s own `ESS_UNREALIZED` reasons name as single-state lifecycles with no
-/// transition to fold, and the remaining twelve follow their records' `declared` or
+/// transition to fold, and the remaining nine follow their records' `declared` or
 /// `deferred` entries.
 ///
 /// `mandate-types` is a leaf and depends on none of those crates, so no case here can

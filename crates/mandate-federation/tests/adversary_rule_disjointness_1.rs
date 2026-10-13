@@ -48,17 +48,57 @@ fn registration(input: &Value) -> Option<RegisterFederationConnection> {
     })
 }
 
+/// Whether the `configure_external_outcome` at `index` only restates the outcome the act after
+/// it states.
+///
+/// ESS 0.59 compiles an authored act whose `outcome:` names an `external:` branch into a
+/// `configure_external_outcome` for that one call, immediately before its `execute_command`
+/// (beyond10x/ess#243), and every `denied` of `mandate.federation` is declared `external:`.
+/// Such a step forces exactly the outcome the act's own `expect_outcome` states, so it adds
+/// nothing this replay compares: the writer's standing answer is still held against the
+/// stated outcome. Any other arming — a different command, a different outcome, or one not
+/// followed by its call — is outside what this replay decides.
+fn restates_its_act(steps: &[Value], index: usize) -> bool {
+    let Some(force) = steps[index].get("force") else {
+        return false;
+    };
+    let (Some(command), Some(outcome)) = (
+        force.get("command").and_then(Value::as_str),
+        force.get("outcome").and_then(Value::as_str),
+    ) else {
+        return false;
+    };
+    let Some(call) = steps.get(index + 1) else {
+        return false;
+    };
+    if call.get("step").and_then(Value::as_str) != Some("execute_command")
+        || call.get("command").and_then(Value::as_str) != Some(command)
+    {
+        return false;
+    }
+    steps[index + 2..]
+        .iter()
+        .find(|next| next.get("step").and_then(Value::as_str) == Some("expect_outcome"))
+        .and_then(|next| next.pointer("/outcome/outcome"))
+        .and_then(Value::as_str)
+        == Some(outcome)
+}
+
 /// Replay one scenario's registrations; answer `(step index, document says, writer says)` for
 /// every registration where the two disagree. `None` when the scenario is outside what this
-/// replay can decide (a non-literal input, an arranged entity, a configured external outcome,
-/// or a connection disabled mid-scenario).
+/// replay can decide (a non-literal input, an arranged entity, a configured external outcome
+/// other than one restating its act's stated outcome, or a connection disabled
+/// mid-scenario).
 fn disagreements(steps: &[Value]) -> Option<Vec<(usize, String, String)>> {
-    let skipped = steps.iter().any(|step| {
-        matches!(
-            step.get("step").and_then(Value::as_str),
-            Some("configure_external_outcome" | "establish_entity")
-        ) || step.get("command").and_then(Value::as_str)
-            == Some("mandate.federation.DisableFederationConnection")
+    let skipped = steps.iter().enumerate().any(|(index, step)| {
+        let disables = step.get("command").and_then(Value::as_str)
+            == Some("mandate.federation.DisableFederationConnection");
+        disables
+            || match step.get("step").and_then(Value::as_str) {
+                Some("establish_entity") => true,
+                Some("configure_external_outcome") => !restates_its_act(steps, index),
+                _ => false,
+            }
     });
     if skipped {
         return None;

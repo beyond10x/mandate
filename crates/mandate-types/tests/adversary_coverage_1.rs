@@ -1,7 +1,7 @@
 //! An adversarial case against `story:coverage-map`'s manifest, decided against the account
 //! this crate already keeps.
 //!
-//! `mandate_types::inventory::ACCEPTED` is the 74 authored `mandate.core` types, each with
+//! `mandate_types::inventory::ACCEPTED` is the 75 authored `mandate.core` types, each with
 //! the crate that **declares its realization** — `tests/inventory.rs` decides that the set is
 //! exactly the compiled authored type index and that every entry has exactly one owning
 //! crate. An accepted type is therefore a type this workspace declares in Rust, in a named
@@ -50,7 +50,7 @@ fn every_accepted_authored_type_is_implemented_in_the_coverage_manifest() {
             )
         })
         .collect();
-    assert_eq!(ACCEPTED.len(), 74, "the authored type account");
+    assert_eq!(ACCEPTED.len(), 75, "the authored type account");
 
     let mut understated = Vec::new();
     for accepted in ACCEPTED {

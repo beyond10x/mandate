@@ -1,0 +1,13 @@
+{
+  "at": "2026-10-13T04:13:36Z",
+  "actor": "human:timo",
+  "artifact": "story:agent-authority-kernel",
+  "kind": "story",
+  "revision": 6,
+  "change": {
+    "change": "evidence",
+    "kind": "test_result",
+    "source": "task check",
+    "reference": "88b1e75fc1ff851b68da4246849844c9b695d7d3"
+  }
+}
