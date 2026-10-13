@@ -223,7 +223,11 @@ impl AgentAuthorityRead for Records {
         if self.fails == Fails::Agent {
             return Err(Unavailable);
         }
-        Ok(self.agents.iter().find(|agent| agent.id == *principal).cloned())
+        Ok(self
+            .agents
+            .iter()
+            .find(|agent| agent.id == *principal)
+            .cloned())
     }
 
     fn ceilings(&self, _agent: &PrincipalId) -> Result<Vec<AgentCapabilityCeiling>, Unavailable> {
@@ -340,7 +344,11 @@ impl Ask {
 }
 
 fn action_set(scope: &AuthorityScope) -> BTreeSet<String> {
-    scope.actions.iter().map(|a| a.as_str().to_owned()).collect()
+    scope
+        .actions
+        .iter()
+        .map(|a| a.as_str().to_owned())
+        .collect()
 }
 
 #[track_caller]
@@ -462,7 +470,10 @@ fn adv_the_permitted_expiry_is_the_earliest_instant_across_calendar_boundaries()
 
         let decision = ask.evaluate(&records, &Except::allow());
 
-        assert!(decision.allowed, "{subject} {actor} {delegation}: {decision:?}");
+        assert!(
+            decision.allowed,
+            "{subject} {actor} {delegation}: {decision:?}"
+        );
         assert_eq!(
             decision.expires_at,
             Some(Timestamp::new(earliest)),
@@ -535,7 +546,12 @@ fn adv_a_space_named_only_by_a_ceiling_bounds_the_permitted_set() {
 fn adv_a_tenant_ceilings_denied_patterns_narrow_including_wildcards() {
     let records = Records::new(vec![
         ceiling(30, None, &["*"], &[]),
-        ceiling(31, Some(organization()), &["*"], &["admin.*", "document.write"]),
+        ceiling(
+            31,
+            Some(organization()),
+            &["*"],
+            &["admin.*", "document.write"],
+        ),
     ]);
     let decision = Ask::autonomous(scope(&UNIVERSE, &[10])).evaluate(&records, &Except::allow());
     assert!(decision.allowed, "{decision:?}");
@@ -553,12 +569,19 @@ fn adv_a_tenant_ceilings_denied_patterns_narrow_including_wildcards() {
 #[test]
 fn adv_one_absent_ceiling_level_leaves_the_other_as_the_bound() {
     let platform_only = Records::new(vec![ceiling(30, None, &["document.read"], &[])]);
-    let decision = Ask::autonomous(scope(&UNIVERSE, &[10])).evaluate(&platform_only, &Except::allow());
+    let decision =
+        Ask::autonomous(scope(&UNIVERSE, &[10])).evaluate(&platform_only, &Except::allow());
     assert!(decision.allowed, "{decision:?}");
     assert_eq!(decision.permitted.actions, actions(&["document.read"]));
 
-    let tenant_only = Records::new(vec![ceiling(31, Some(organization()), &["document.share"], &[])]);
-    let decision = Ask::autonomous(scope(&UNIVERSE, &[10])).evaluate(&tenant_only, &Except::allow());
+    let tenant_only = Records::new(vec![ceiling(
+        31,
+        Some(organization()),
+        &["document.share"],
+        &[],
+    )]);
+    let decision =
+        Ask::autonomous(scope(&UNIVERSE, &[10])).evaluate(&tenant_only, &Except::allow());
     assert!(decision.allowed, "{decision:?}");
     assert_eq!(decision.permitted.actions, actions(&["document.share"]));
 }
@@ -777,13 +800,22 @@ fn adv_a_context_naming_the_agent_as_its_own_actor_widens_nothing() {
 /// so only the first read's error handling is decided).
 #[test]
 fn adv_each_port_read_failing_alone_denies_as_unavailable() {
-    for fails in [Fails::Standing, Fails::Agent, Fails::Ceilings, Fails::Delegation] {
+    for fails in [
+        Fails::Standing,
+        Fails::Agent,
+        Fails::Ceilings,
+        Fails::Delegation,
+    ] {
         let mut records = Records::platform();
         records.fails = fails;
         let decision =
             Ask::delegated(scope(&["document.read"], &[10])).evaluate(&records, &Except::allow());
         assert!(!decision.allowed, "{fails:?}: {decision:?}");
-        assert_eq!(decision.clause, Some(AuthorityClause::Unavailable), "{fails:?}");
+        assert_eq!(
+            decision.clause,
+            Some(AuthorityClause::Unavailable),
+            "{fails:?}"
+        );
         assert_eq!(decision.reason, DecisionReason::Unavailable, "{fails:?}");
     }
 }
@@ -813,8 +845,8 @@ fn adv_a_policy_refusal_keeps_its_declared_reason() {
         answer: Err(PolicyError::Denied(DenialReason::TenantMismatch)),
         asked: Cell::new(0),
     };
-    let decision = Ask::autonomous(scope(&["document.read"], &[10]))
-        .evaluate(&Records::platform(), &policy);
+    let decision =
+        Ask::autonomous(scope(&["document.read"], &[10])).evaluate(&Records::platform(), &policy);
     assert!(!decision.allowed, "{decision:?}");
     assert_eq!(
         decision.reason,
