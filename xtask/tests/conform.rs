@@ -767,8 +767,8 @@ fn write_evidence(root: &Path, model_digest: &str, reference: &str) {
 ///
 /// The shape is the store's own, measured by recording evidence into a scratch copy of this
 /// store with `aep plan artifact evidence --kind … --source … --ref git:<sha> --at <instant>`
-/// (aep 0.69.1): a file `<instant>-<sequence>-<digest>.json` holding `at`, `artifact` and
-/// `change.{change,kind,source,reference}`. The `i64` of each record is its instant, in
+/// (aep 0.69.1, again with 0.71.2): a file `<instant>-<sequence>-<digest>.json` holding `at`,
+/// `artifact` and `change.{change,kind,source,reference}`. The `i64` of each record is its instant, in
 /// milliseconds; the store writes whole seconds.
 fn write_records(root: &Path, model_digest: &str, records: &[(&str, String, i64)]) {
     write_evidence(root, model_digest, "");

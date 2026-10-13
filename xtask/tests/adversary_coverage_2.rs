@@ -186,9 +186,11 @@ fn every_declared_entry_names_a_story_the_store_has_not_already_closed() {
     // Amendment: the thirteen open `mandate.delegation` elements moved from `declared` on
     // story:agent-authority-kernel to `deferred` on story:agent-security, which
     // decision-blocker:identity-uniqueness holds.
+    // Amendment: that blocker cleared, so those thirteen and the three open `mandate.workload`
+    // elements on story:agent-security moved from `deferred` to `declared` on that story.
     assert!(
-        declared >= 25,
-        "this case found {declared} declared entries and the manifest holds 25"
+        declared >= 41,
+        "this case found {declared} declared entries and the manifest holds 41"
     );
     assert!(
         dead.is_empty(),

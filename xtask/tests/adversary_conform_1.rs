@@ -104,8 +104,8 @@ fn refusal(root: &Path, release: bool) -> String {
 
 /// The artifact and its evidence as an AEP store really holds them.
 ///
-/// Measured, not invented. `aep plan artifact evidence` (aep 0.69.1, `aep.project/5`) writes
-/// each record about an `executable-system-specification` as one file under
+/// Measured, not invented. `aep plan artifact evidence` (aep 0.69.1 and 0.71.2,
+/// `aep.project/5`) writes each record about an `executable-system-specification` as one file under
 /// `.engineering/evidence/executable-system-specification/<slug>/` carrying
 /// `change.{kind, source, reference}`, and the artifact markdown carries no evidence section at
 /// all — only a `model_digest:` key in its frontmatter, which is what
