@@ -4,8 +4,9 @@
 //! Every scenario is the same allowed request — member subject, covering grant, policy
 //! allow, no scope, no ceiling — varied in one input.
 
+use mandate_authz::agent::AgentRecords;
 use mandate_authz::decision::{Denied, FixedChallenge, SequentialDecisionIds};
-use mandate_authz::evaluate::Ceiling;
+use mandate_authz::delegation::{Agent, AgentCapabilityCeiling, AgentState, CeilingState};
 use mandate_authz::{CheckRequest, Pdp, check};
 use mandate_graph::double::GraphDouble;
 use mandate_graph::port::{GraphError, GraphQuery, GraphRead, Observed, Unanswered};
@@ -20,10 +21,11 @@ use mandate_policy::port::{
     PolicyEvaluator, PolicyRequest, Unanswered as PolicyUnanswered,
 };
 use mandate_types::{
-    Action, ActionPattern, Audience, AuthorityScope, AuthoritySubject, AuthorizationModelId,
-    AuthzRevision, CorrelationId, CredentialId, DecisionReason, DelegationId, DenialReason,
-    ExecutionId, GrantId, OrganizationId, OrganizationMembershipId, PolicyId, PolicyVersion,
-    PrincipalId, ResourceId, ResourceRef, ResourceType, SpaceId, Timestamp, Uuid, VerifiedContext,
+    Action, ActionPattern, AgentCapabilityCeilingId, Audience, AuthorityScope, AuthoritySubject,
+    AuthorizationModelId, AuthzRevision, CorrelationId, CredentialId, DecisionReason, DelegationId,
+    DenialReason, Duration, ExecutionId, GrantId, OrganizationId, OrganizationMembershipId,
+    PolicyId, PolicyVersion, PrincipalId, ResourceId, ResourceRef, ResourceType, SpaceId,
+    Timestamp, Uuid, VerifiedContext,
 };
 
 fn uuid(byte: u8) -> Uuid {
@@ -191,7 +193,7 @@ fn issuer() -> FixedChallenge {
 /// Everything one `check` varies, defaulted to the world in which the request is allowed.
 struct World<'a> {
     scope: Option<&'a AuthorityScope>,
-    ceilings: &'a [Ceiling],
+    agents: AgentRecords,
     issuer: FixedChallenge,
 }
 
@@ -199,7 +201,7 @@ impl Default for World<'_> {
     fn default() -> Self {
         Self {
             scope: None,
-            ceilings: &[],
+            agents: AgentRecords::new(),
             issuer: issuer(),
         }
     }
@@ -227,6 +229,7 @@ where
         issuer: &world.issuer,
         tenancy: &tenancy,
         topology: &topology,
+        agents: &world.agents,
     };
 
     check(
@@ -241,7 +244,7 @@ where
             minimum,
             attributes: &AttributeSet::new(),
             scope: world.scope,
-            ceilings: world.ceilings,
+            at: &Timestamp::new("2026-09-17T00:00:00Z"),
         },
     )
 }
@@ -436,15 +439,35 @@ fn a_scope_refusal_and_a_ceiling_refusal_agree_on_the_reason() {
         resources: vec![resource()],
         space: None,
     };
-    let refusing = [Ceiling {
-        organization: None,
-        allowed_actions: vec![ActionPattern::new("deployment.read")],
-        denied_actions: Vec::new(),
-    }];
+    // The subject is an agent acting for itself, and its one ceiling does not admit the
+    // action: ceilings are an agent's and read through the agent port.
+    let refusing = || AgentRecords {
+        agents: vec![Agent {
+            id: principal(),
+            organization_id: organization(),
+            agent_type: "assistant".to_owned(),
+            state: AgentState::Recorded,
+        }],
+        ceilings: vec![AgentCapabilityCeiling {
+            id: AgentCapabilityCeilingId::new(uuid(60)),
+            agent_id: principal(),
+            organization_id: None,
+            allowed_actions: vec![ActionPattern::new("deployment.read")],
+            denied_actions: Vec::new(),
+            scope: AuthorityScope {
+                actions: vec![action(), other_action()],
+                resources: vec![resource()],
+                space: None,
+            },
+            max_delegation_ttl: Duration::new("PT1H"),
+            state: CeilingState::Recorded,
+        }],
+        ..AgentRecords::new()
+    };
 
     let both = ordinary(&World {
         scope: Some(&outside),
-        ceilings: &refusing,
+        agents: refusing(),
         issuer: issuer(),
     })
     .expect_err("both bounds refuse");
@@ -454,7 +477,7 @@ fn a_scope_refusal_and_a_ceiling_refusal_agree_on_the_reason() {
     })
     .expect_err("the scope refuses");
     let ceiling_alone = ordinary(&World {
-        ceilings: &refusing,
+        agents: refusing(),
         ..World::default()
     })
     .expect_err("the ceiling refuses");

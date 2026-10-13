@@ -225,8 +225,18 @@
     },
     {
       "case": "autonomous-ceiling",
-      "tests": [],
-      "blocked_on": "story:agent-security"
+      "tests": [
+        {
+          "id": "mandate-authz::adversary_obligations_authz_1::the_ceiling_the_autonomous_ceiling_row_binds_is_not_bound_to_an_agent",
+          "kind": "denial",
+          "path": "real"
+        },
+        {
+          "id": "mandate-authz::agent_security::a_delegated_action_outside_the_installation_ceiling_is_denied_at_the_pep_under_the_preserved_subject_and_actor",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
     },
     {
       "case": "pdp-outage",

@@ -20,16 +20,16 @@ use mandate_authz::agent::{
     Unavailable, ValidatedProof, evaluate_agent_authority,
 };
 use mandate_authz::delegation::{
-    Agent, AgentCapabilityCeiling, AgentState, CeilingKey, CeilingState, Delegation,
-    DelegationState, current_ceilings,
+    Agent, AgentCapabilityCeiling, AgentState, Approval, CeilingKey, CeilingState, Delegation,
+    DelegationState, Execution, current_ceilings,
 };
 use mandate_policy::port::{
     AttributeSet, Challenge, ChallengeRequirement, Evaluation, PolicyEffect, PolicyError,
     PolicyEvaluator, PolicyRequest, Unanswered,
 };
 use mandate_types::{
-    Action, ActionPattern, AgentCapabilityCeilingId, Audience, AuthorityScope, CorrelationId,
-    CredentialId, DecisionReason, DelegationId, DenialReason, Duration, ExecutionId,
+    Action, ActionPattern, AgentCapabilityCeilingId, ApprovalId, Audience, AuthorityScope,
+    CorrelationId, CredentialId, DecisionReason, DelegationId, DenialReason, Duration, ExecutionId,
     OrganizationId, PolicyVersion, PrincipalId, ResourceId, ResourceRef, ResourceType, SpaceId,
     Timestamp, Uuid, VerifiedContext,
 };
@@ -265,6 +265,21 @@ impl AgentAuthorityRead for Records {
             .iter()
             .find(|delegation| delegation.id == *id)
             .cloned())
+    }
+
+    // No case here names an execution or an approval record; `tests/agent_security.rs` does.
+    fn execution(&self, _id: &ExecutionId) -> Result<Option<Execution>, Unavailable> {
+        if self.unavailable {
+            return Err(Unavailable);
+        }
+        Ok(None)
+    }
+
+    fn approval(&self, _id: &ApprovalId) -> Result<Option<Approval>, Unavailable> {
+        if self.unavailable {
+            return Err(Unavailable);
+        }
+        Ok(None)
     }
 }
 

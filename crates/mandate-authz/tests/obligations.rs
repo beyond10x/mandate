@@ -7,19 +7,14 @@
 //! one thing the clause names changed, so the refusal is attributable to that and not to an
 //! absent grant, an unbound context or a policy that refuses.
 //!
-//! * `ceilings deny` — a ceiling recorded for the verified organization does not admit the
-//!   action the grant carries. [`mandate_authz::evaluate::Ceiling`] keys on organization alone
-//!   ([`mandate_authz::evaluate::Ceiling::applies`]), so this is an organization-wide ceiling
-//!   and every member of that organization is refused alike; the case measures that the field
-//!   decides, by refusing under this organization's ceiling and allowing under a
-//!   deny-everything ceiling recorded for another. The ceiling the security case
-//!   `autonomous-ceiling` is about is an *agent's* — `generated/ir/system.json:3125-3143`
-//!   declares `mandate.delegation.AgentCapabilityCeiling`'s identity as `id`, of type
-//!   `mandate.core.AgentCapabilityCeilingId`, and `agent_id` as its first *field* — and
-//!   [`mandate_authz::evaluate::Ceiling`] has no field for it. `story:agent-authority-kernel`
-//!   bound the agent's ceiling in [`mandate_authz::agent`]
-//!   (`crates/mandate-authz/src/lib.rs:44-49`); the runtime case is `story:agent-security`'s,
-//!   it is deferred there, and it is bound by nothing here.
+//! * `ceilings deny` — the subject is an agent acting for itself, and its ceiling recorded for
+//!   the verified organization does not admit the action the grant carries. Ceilings are an
+//!   agent's, keyed by `(agent_id, organization_id)`, and [`mandate_authz::check`] reads them
+//!   through [`mandate_authz::agent::AgentAuthorityRead`]; the case measures that the
+//!   organization decides, by refusing under this organization's ceiling and allowing under a
+//!   deny-everything ceiling recorded for another. That a member who is no agent is bounded by
+//!   no agent's ceiling is `adversary_obligations_authz_1`'s, and the delegated case is
+//!   `tests/agent_security.rs`'s.
 //! * `graph` — the graph reader has not applied the revision the request requires, so it
 //!   answers nothing at all. `mandate_graph::port::GraphError::CouldNotAnswer` reaches the
 //!   fold as [`mandate_types::DenialReason::Unavailable`]
@@ -51,8 +46,9 @@
 //!   `Tenancy::admits(context.organization)`, decided from the field the sibling clause
 //!   `tenant` is bound through. Publishing one refusal as two conditions counts it twice.
 
+use mandate_authz::agent::AgentRecords;
 use mandate_authz::decision::{Denied, FixedChallenge, SequentialDecisionIds};
-use mandate_authz::evaluate::Ceiling;
+use mandate_authz::delegation::{Agent, AgentCapabilityCeiling, AgentState, CeilingState};
 use mandate_authz::{CheckRequest, Pdp, check};
 use mandate_graph::double::GraphDouble;
 use mandate_graph::record::Grant;
@@ -64,10 +60,10 @@ use mandate_policy::double::PolicyDouble;
 use mandate_policy::port::AttributeSet;
 use mandate_policy::record::{AuthorizationModel, Policy};
 use mandate_types::{
-    Action, ActionPattern, Audience, AuthorityScope, AuthoritySubject, AuthorizationModelId,
-    AuthzRevision, CorrelationId, CredentialId, DecisionReason, DenialReason, GrantId,
-    OrganizationId, OrganizationMembershipId, PolicyId, PolicyVersion, PrincipalId, ResourceId,
-    ResourceRef, ResourceType, Timestamp, Uuid, VerifiedContext,
+    Action, ActionPattern, AgentCapabilityCeilingId, Audience, AuthorityScope, AuthoritySubject,
+    AuthorizationModelId, AuthzRevision, CorrelationId, CredentialId, DecisionReason, DenialReason,
+    Duration, GrantId, OrganizationId, OrganizationMembershipId, PolicyId, PolicyVersion,
+    PrincipalId, ResourceId, ResourceRef, ResourceType, Timestamp, Uuid, VerifiedContext,
 };
 
 fn uuid(byte: u8) -> Uuid {
@@ -172,43 +168,69 @@ fn policy() -> PolicyDouble {
     policy
 }
 
-/// A ceiling that applies to every organization (`organization: None`,
-/// `systems/mandate/domains/delegation.yaml:5`) and admits the action.
-fn permissive() -> Ceiling {
-    Ceiling {
-        organization: None,
-        allowed_actions: vec![ActionPattern::new("deployment.*")],
-        denied_actions: Vec::new(),
+/// One capability ceiling of the subject, which is an agent acting for itself: ceilings are
+/// keyed by `(agent_id, organization_id)` (`systems/mandate/domains/delegation.yaml:5-6`) and
+/// read through the agent port.
+fn ceiling(
+    byte: u8,
+    organization_id: Option<OrganizationId>,
+    allowed: &[&str],
+    denied: &[&str],
+) -> AgentCapabilityCeiling {
+    AgentCapabilityCeiling {
+        id: AgentCapabilityCeilingId::new(uuid(byte)),
+        agent_id: principal(),
+        organization_id,
+        allowed_actions: allowed
+            .iter()
+            .map(|name| ActionPattern::new(*name))
+            .collect(),
+        denied_actions: denied
+            .iter()
+            .map(|name| ActionPattern::new(*name))
+            .collect(),
+        scope: AuthorityScope {
+            actions: vec![action()],
+            resources: vec![resource()],
+            space: None,
+        },
+        max_delegation_ttl: Duration::new("PT1H"),
+        state: CeilingState::Recorded,
     }
 }
 
-/// A ceiling recorded for this organization that does not admit the action the grant
-/// carries. It is keyed on the organization and on nothing finer, so it bounds every member
-/// of that organization alike.
-fn organization_ceiling() -> Ceiling {
-    Ceiling {
-        organization: Some(organization()),
-        allowed_actions: vec![ActionPattern::new("deployment.*")],
-        denied_actions: vec![ActionPattern::new("deployment.restart")],
-    }
+/// The agent's platform ceiling (`organization_id` absent,
+/// `systems/mandate/domains/delegation.yaml:5`): applies in every organization and admits the
+/// action.
+fn permissive() -> AgentCapabilityCeiling {
+    ceiling(60, None, &["deployment.*"], &[])
 }
 
-/// A ceiling recorded for another organization, admitting nothing and denying everything —
-/// the discriminating ceiling of `crates/mandate-authz/tests/evaluate.rs:447-451`, here at
-/// the `check` entry point. Nothing but its `organization` separates it from a ceiling that
-/// would refuse the request outright, so what it measures is
-/// [`mandate_authz::evaluate::Ceiling::applies`].
-fn another_organizations_ceiling() -> Ceiling {
-    Ceiling {
-        organization: Some(OrganizationId::new(uuid(9))),
-        allowed_actions: Vec::new(),
-        denied_actions: vec![ActionPattern::new("*")],
-    }
+/// The agent's ceiling recorded for this organization, not admitting the action the grant
+/// carries.
+fn organization_ceiling() -> AgentCapabilityCeiling {
+    ceiling(
+        61,
+        Some(organization()),
+        &["deployment.*"],
+        &["deployment.restart"],
+    )
 }
 
-/// One `mandate.authorization.Check`, against a reader required to have reached `minimum`
-/// and bounded by `ceilings`.
-fn check_under(minimum: &AuthzRevision, ceilings: &[Ceiling]) -> Result<Decision, Denied> {
+/// The agent's ceiling recorded for another organization, admitting nothing and denying
+/// everything. Nothing but its `organization_id` separates it from a ceiling that would refuse
+/// the request outright, so what it measures is
+/// [`mandate_authz::delegation::AgentCapabilityCeiling::applies`].
+fn another_organizations_ceiling() -> AgentCapabilityCeiling {
+    ceiling(62, Some(OrganizationId::new(uuid(9))), &[], &["*"])
+}
+
+/// One `mandate.authorization.Check` of the agent acting for itself, against a reader
+/// required to have reached `minimum` and bounded by the agent's `ceilings`.
+fn check_under(
+    minimum: &AuthzRevision,
+    ceilings: &[AgentCapabilityCeiling],
+) -> Result<Decision, Denied> {
     let (graph, _) = graph();
     let policy = policy();
     let tenancy = tenancy();
@@ -217,6 +239,16 @@ fn check_under(minimum: &AuthzRevision, ceilings: &[Ceiling]) -> Result<Decision
         expires_at: Timestamp::new("2026-09-18T00:00:00Z"),
         approver_policy: Some(PolicyId::new(uuid(40))),
     };
+    let agents = AgentRecords {
+        agents: vec![Agent {
+            id: principal(),
+            organization_id: organization(),
+            agent_type: "assistant".to_owned(),
+            state: AgentState::Recorded,
+        }],
+        ceilings: ceilings.to_vec(),
+        ..AgentRecords::new()
+    };
     let pdp = Pdp {
         graph: &graph,
         policy: &policy,
@@ -224,6 +256,7 @@ fn check_under(minimum: &AuthzRevision, ceilings: &[Ceiling]) -> Result<Decision
         issuer: &issuer,
         tenancy: &tenancy,
         topology: &topology,
+        agents: &agents,
     };
 
     check(
@@ -238,7 +271,7 @@ fn check_under(minimum: &AuthzRevision, ceilings: &[Ceiling]) -> Result<Decision
             minimum,
             attributes: &AttributeSet::new(),
             scope: None,
-            ceilings,
+            at: &Timestamp::new("2026-09-17T00:00:00Z"),
         },
     )
 }
@@ -260,8 +293,8 @@ fn reached() -> AuthzRevision {
 /// along: the same request under a ceiling that admits nothing and denies everything,
 /// recorded for another organization, is allowed — so the refusal below is attributable to
 /// the ceiling having been recorded for *this* organization and not merely to a ceiling
-/// existing. `mandate_authz::evaluate::Ceiling::applies` is the only reader of that field and
-/// this is the only case that drives it at the `check` entry point.
+/// existing. `mandate_authz::delegation::AgentCapabilityCeiling::applies` reads that field, and
+/// this case drives it at the `check` entry point.
 #[test]
 fn a_ceiling_recorded_for_the_organization_refuses_an_action_the_grant_carries() {
     let inside =

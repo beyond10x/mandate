@@ -10,10 +10,10 @@
 
 use std::cell::RefCell;
 
+use mandate_authz::agent::AgentRecords;
 use mandate_authz::decision::{
     ChallengeIssuer, DecisionIdAllocator, Denied, FixedChallenge, SequentialDecisionIds,
 };
-use mandate_authz::evaluate::Ceiling;
 use mandate_authz::{CheckRequest, Pdp, check};
 use mandate_graph::double::GraphDouble;
 use mandate_graph::port::{GraphError, GraphQuery, GraphRead, Observed};
@@ -27,10 +27,10 @@ use mandate_policy::double::PolicyDouble;
 use mandate_policy::port::{AttributeSet, ChallengeRequirement};
 use mandate_policy::record::{AuthorizationModel, Policy};
 use mandate_types::{
-    Action, ActionPattern, Audience, AuthorityScope, AuthoritySubject, AuthorizationModelId,
-    AuthzRevision, CorrelationId, CredentialId, DecisionReason, DenialReason, GrantId,
-    OrganizationId, OrganizationMembershipId, PolicyId, PolicyVersion, PrincipalId, ResourceId,
-    ResourceRef, ResourceType, SpaceId, Timestamp, Uuid, VerifiedContext,
+    Action, Audience, AuthorityScope, AuthoritySubject, AuthorizationModelId, AuthzRevision,
+    CorrelationId, CredentialId, DecisionReason, DenialReason, GrantId, OrganizationId,
+    OrganizationMembershipId, PolicyId, PolicyVersion, PrincipalId, ResourceId, ResourceRef,
+    ResourceType, SpaceId, Timestamp, Uuid, VerifiedContext,
 };
 
 fn uuid(byte: u8) -> Uuid {
@@ -66,6 +66,11 @@ fn approver() -> PolicyId {
 
 fn deadline() -> Timestamp {
     Timestamp::new("2026-09-18T00:00:00Z")
+}
+
+/// The instant every decision here is taken at.
+fn at() -> Timestamp {
+    Timestamp::new("2026-09-17T00:00:00Z")
 }
 
 fn context() -> VerifiedContext {
@@ -152,7 +157,7 @@ fn request<'a>(
     audience: &'a Audience,
     minimum: &'a AuthzRevision,
     attributes: &'a AttributeSet,
-    ceilings: &'a [Ceiling],
+    at: &'a Timestamp,
 ) -> CheckRequest<'a> {
     CheckRequest {
         context,
@@ -163,7 +168,7 @@ fn request<'a>(
         minimum,
         attributes,
         scope: None,
-        ceilings,
+        at,
     }
 }
 
@@ -194,6 +199,7 @@ fn a_request_missing_a_required_approval_is_allowed_false_with_a_scoped_challeng
         issuer: &issuer,
         tenancy: &tenancy,
         topology: &topology,
+        agents: &AgentRecords::new(),
     };
     let mut allocator = SequentialDecisionIds::new();
 
@@ -207,7 +213,7 @@ fn a_request_missing_a_required_approval_is_allowed_false_with_a_scoped_challeng
             &audience,
             &revision,
             &attributes,
-            &[],
+            &at(),
         ),
     )
     .expect_err("an approval requirement is not an allow");
@@ -265,6 +271,7 @@ fn a_decision_point_that_cannot_answer_denies_and_invents_no_permission() {
         issuer: &issuer,
         tenancy: &tenancy,
         topology: &topology,
+        agents: &AgentRecords::new(),
     };
 
     let refusal = check(
@@ -277,7 +284,7 @@ fn a_decision_point_that_cannot_answer_denies_and_invents_no_permission() {
             &audience,
             &revision,
             &attributes,
-            &[],
+            &at(),
         ),
     )
     .expect_err("an unavailable decision point denies");
@@ -314,13 +321,8 @@ fn an_allowed_request_returns_the_decision_the_command_declares_as_its_response(
         issuer: &issuer,
         tenancy: &tenancy,
         topology: &topology,
+        agents: &AgentRecords::new(),
     };
-    let ceilings = vec![Ceiling {
-        organization: None,
-        allowed_actions: vec![ActionPattern::new("deployment.*")],
-        denied_actions: Vec::new(),
-    }];
-
     let decision = check(
         &pdp,
         &mut SequentialDecisionIds::new(),
@@ -331,7 +333,7 @@ fn an_allowed_request_returns_the_decision_the_command_declares_as_its_response(
             &audience,
             &revision,
             &attributes,
-            &ceilings,
+            &at(),
         ),
     )
     .expect("the request is allowed");
@@ -389,6 +391,7 @@ fn a_context_that_does_not_bind_reads_no_authority_and_is_still_a_decision() {
         issuer: &issuer,
         tenancy: &tenancy,
         topology: &topology,
+        agents: &AgentRecords::new(),
     };
 
     let refusal = check(
@@ -401,7 +404,7 @@ fn a_context_that_does_not_bind_reads_no_authority_and_is_still_a_decision() {
             &other_api,
             &AuthzRevision::new("0"),
             &attributes,
-            &[],
+            &at(),
         ),
     )
     .expect_err("the credential names another audience");
@@ -470,6 +473,7 @@ fn the_challenge_is_issued_under_the_correlation_the_request_carried() {
         issuer: &issuer,
         tenancy: &tenancy,
         topology: &topology,
+        agents: &AgentRecords::new(),
     };
 
     check(
@@ -482,7 +486,7 @@ fn the_challenge_is_issued_under_the_correlation_the_request_carried() {
             &audience,
             &revision,
             &attributes,
-            &[],
+            &at(),
         ),
     )
     .expect_err("an approval requirement is not an allow");
@@ -515,6 +519,7 @@ fn one_request_mints_one_decision_identity() {
         issuer: &issuer,
         tenancy: &tenancy,
         topology: &topology,
+        agents: &AgentRecords::new(),
     };
     let mut allocator = SequentialDecisionIds::new();
 
@@ -529,7 +534,7 @@ fn one_request_mints_one_decision_identity() {
                 &audience,
                 &revision,
                 &attributes,
-                &[],
+                &at(),
             ),
         )
         .expect("the request is allowed");
@@ -591,6 +596,7 @@ impl World {
             issuer: &self.issuer,
             tenancy: &self.tenancy,
             topology: &self.topology,
+            agents: &AgentRecords::new(),
         };
 
         check(
@@ -603,7 +609,7 @@ impl World {
                 &self.audience,
                 &self.minimum,
                 &AttributeSet::new(),
-                &[],
+                &at(),
             ),
         )
     }
@@ -735,6 +741,7 @@ fn decide_under(scope: Option<&AuthorityScope>) -> Result<Decision, Denied> {
         issuer: &issuer,
         tenancy: &tenancy,
         topology: &topology,
+        agents: &AgentRecords::new(),
     };
 
     check(
@@ -749,7 +756,7 @@ fn decide_under(scope: Option<&AuthorityScope>) -> Result<Decision, Denied> {
             minimum: &revision,
             attributes: &AttributeSet::new(),
             scope,
-            ceilings: &[],
+            at: &at(),
         },
     )
 }

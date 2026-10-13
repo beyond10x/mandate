@@ -5,8 +5,8 @@
 //! holds a covering grant, policy allows, no ceiling refuses — varied in exactly one input,
 //! so what each case measures is that one input's effect on the decision.
 
+use mandate_authz::agent::AgentRecords;
 use mandate_authz::decision::{Denied, FixedChallenge, SequentialDecisionIds};
-use mandate_authz::evaluate::Ceiling;
 use mandate_authz::{CheckRequest, Pdp, check};
 use mandate_graph::double::GraphDouble;
 use mandate_graph::record::Grant;
@@ -177,8 +177,8 @@ fn decide_with<P: PolicyEvaluator>(
         issuer: &issuer,
         tenancy: &tenancy,
         topology: &topology,
+        agents: &AgentRecords::new(),
     };
-    let ceilings: [Ceiling; 0] = [];
 
     check(
         &pdp,
@@ -192,7 +192,7 @@ fn decide_with<P: PolicyEvaluator>(
             minimum: &revision,
             attributes: &AttributeSet::new(),
             scope,
-            ceilings: &ceilings,
+            at: &Timestamp::new("2026-09-17T00:00:00Z"),
         },
     )
 }
