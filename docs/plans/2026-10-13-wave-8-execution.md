@@ -72,3 +72,27 @@ recorded delegation and refuses it after `RevokeDelegation`; `task check` on the
 
 | unit | branch | managed id | stage |
 |---|---|---|---|
+| U1 `execution-binding` | `impl/w8-execution-binding` | `mandate-w8-execution-binding` | merged `c6395f1` (unit head `e77fb74`) |
+| U2 `workload-authentication` | `impl/w8-workload-authentication` | `mandate-w8-workload-authentication` | merged `c60bd16` (unit head `195a997`) |
+| U3 `approval-check` | `impl/w8-approval-check` | `mandate-w8-approval-check` | merged `ddd7921` (unit head `f724d4d`) |
+| U4 `control-plane-delegation-fold` | `impl/w8-control-plane-delegation-fold` | `mandate-w8-control-plane-fold` | merged `27c3cff` (unit head `dd793ff`) |
+
+- Spec, corrected after the first merge (`d8dff7c`): `CheckWithApproval` first emitted
+  `DecisionRecorded` and `ApprovalConsumed`, which gave each event two writers and left the moving
+  outcome's first event without the approval's id (`mandate-types` fold-input tests). It emits one
+  event of its own, `ApprovedDecisionRecorded {context, decision, approval}`, which the delegation
+  fold applies as the approval's consume. `components.yaml` declares both new commands and events.
+- U1: the relaxed rule applies to a bound delegation only; an unbound delegation keeps the exact
+  wave 7 rule, so no existing security test was loosened.
+- U2: the decide function is in `mandate-authz`, which reads the agent records; the
+  `WorkloadAuthenticated` payload is `mandate-model`'s, which owns every `mandate.workload` event.
+  The obligations registry now files an implemented command with its implementing crate.
+- U3: `check` and `check_with_approval` share one decision path, and `ConsumeApproval` and
+  `CheckWithApproval` share one approval check.
+- U4: recording a delegation event without a configured decision point refuses
+  (`DelegationUnrecorded`); serving the delegation commands over HTTP is not in this wave.
+- Security review (one for the wave): execution binding, the approval check, the control-plane
+  fold and credential redaction held. Two introduced findings in `AuthenticateWorkload` were fixed
+  spec first (`aeb78dc`): a disabled runtime principal refuses, and the agent may not be the
+  runtime itself. One-use approval under concurrency rests on an atomic commit and stays on the
+  story with the persistence adapter.

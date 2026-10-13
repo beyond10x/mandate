@@ -4,6 +4,48 @@ All notable changes to Mandate are recorded here. The format follows [Keep a Cha
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-13
+
+Wave 8: the second half of agent security. An execution-bound delegation is decided instead of
+refused, a workload runtime and the application agent it runs are authenticated each on its own,
+the second check after an approval-required decision consumes the approval, and the control
+plane decides delegated requests over the delegations it recorded. One security review covered
+the wave.
+
+### Added
+
+- **`mandate.authorization.CheckWithApproval`.** `mandate_authz::check_with_approval` decides the
+  request through `check`'s own path; an approval-required result is cleared by the named
+  approval when it is recorded, of the verified organization, unexpired, and names this subject,
+  actor, action and resource. Any mismatch refuses like an unknown approval and consumes nothing;
+  a consumed one is `wrong-state`; a deny or a reauthentication requirement stands. The new
+  event `ApprovedDecisionRecorded` records the decision and the consumption together, and the
+  delegation fold applies it as the approval's consume. `Check` itself is unchanged.
+- **`mandate.workload.AuthenticateWorkload`.** `mandate_authz::workload` verifies a workload proof
+  behind a trust-domain port, resolves it to one recorded workload identity (the runtime), and
+  authenticates the application agent separately: a recorded, unretired agent of that
+  organization with a standing principal, never derived from the proof. A named execution must
+  be open and the agent's. Every refusal is one `mandate.workload.Denied`. The event
+  `WorkloadAuthenticated` carries the runtime and the agent as two principals. No SPIFFE verifier
+  ships yet; the port takes one.
+
+### Changed
+
+- **Execution-bound delegations are decided.** `Check` and `CreateDelegation` share one rule: the
+  bound execution is recorded, unexpired and not completed, of the delegation's organization,
+  held by the delegate, and names no subject or the delegator and no delegation or this one. A
+  bound delegation refuses a call naming no execution or another one. Every failure refuses like
+  an unrecorded execution. An unbound delegation keeps the stricter rule of 0.8.0.
+- **Breaking.** The control plane's decision point holds the fold of the recorded
+  `mandate.delegation` events instead of the empty read: `Admitting` gains `delegations()` and
+  `record_delegation`, `Deployment` gains `record_delegation`, `delegations` and `admit`, and
+  recording without a decision point refuses with `DelegationUnrecorded`.
+- **Breaking.** `mandate_model::workload::WorkloadIdentityRead` gains `bindings`, the lookup by
+  trust domain and external subject.
+- The obligations registry files an implemented command with the crate the coverage manifest
+  names as its implementer, so a command decided outside its domain's crate is admitted.
+- A branch or tag cut from a GitHub merge of `main` needs no Gates baseline move.
+
 ## [0.8.0] - 2026-10-13
 
 Wave 7: agent security. `Check` decides delegated requests against the agent records, and the
