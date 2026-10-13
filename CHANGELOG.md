@@ -4,6 +4,8 @@ All notable changes to Mandate are recorded here. The format follows [Keep a Cha
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-13
+
 Wave 7: agent security. `Check` decides delegated requests against the agent records, and the
 delegation and workload commands that write those records arrive. Each unit was attacked by a
 security review.
