@@ -521,15 +521,16 @@ fn a_deferred_entry_moved_onto_a_story_the_store_reports_implemented_fails() {
 fn a_state_entry_moved_off_its_records_story_fails() {
     let root = fixture("state-moved");
     let body = manifest(&root);
-    let entry = line(&body, "mandate.delegation.Agent.State");
+    let entry = line(&body, "mandate.delegation.Execution.State");
     let doctored = entry.replace(
         "\"story\":\"story:declared-writers\"",
         "\"story\":\"story:mutation-controls\"",
     );
-    mutate(&root, "mandate.delegation.Agent.State", &doctored);
+    mutate(&root, "mandate.delegation.Execution.State", &doctored);
     let error = failure(&root);
     assert!(
-        error.contains("mandate.delegation.Agent.State") && error.contains("against its record's"),
+        error.contains("mandate.delegation.Execution.State")
+            && error.contains("against its record's"),
         "the failure names the .State that left its record: {error}"
     );
 }
