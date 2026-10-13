@@ -592,7 +592,7 @@ fn main() -> ExitCode {
             {
                 return Err("Rust 1.98.1 required".into());
             }
-            version("aep", "aep 0.69.1")?;
+            version("aep", "aep 0.71.2")?;
             run("cargo", &["fmt", "--all", "--", "--check"])?;
             run(
                 "cargo",

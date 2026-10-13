@@ -34,8 +34,7 @@ the ESS crates to 0.59.0 (a signing key's instants are now one `SigningKeyWindow
 shared agent authority evaluator, `mandate_authz::agent::evaluate_agent_authority`; its account is
 `docs/plans/2026-10-12-wave-5a-execution.md`. Next: `story:unknown-instance-refusals` (raise the
 specification format and declare `unknown_instance:` on 15 commands), and `story:agent-security`,
-which consumes the evaluator and inherits the delegation commands. The gate pins `aep` 0.69.1; when
-the global binary is newer, put a 0.69.1 binary first on PATH for the gate.
+which consumes the evaluator and inherits the delegation commands. The gate pins `aep` 0.71.2.
 
 Left out of waves I–K and still undecided: `linked-event-method-unenforced` (its premise is
 contradicted by the connection seeding at `services/control-plane/src/adapters.rs:962-970`) and
