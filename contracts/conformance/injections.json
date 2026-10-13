@@ -203,8 +203,8 @@
       "scenario": "mandate.credential.RegisterResourceServer/outcome/denied",
       "command": "mandate.credential.RegisterResourceServer",
       "port": "mandate_sts::registry::ResourceServerReads",
-      "kind": "armed",
-      "consulted": 1
+      "kind": "input-decided",
+      "consulted": 0
     },
     {
       "scenario": "mandate.credential.RegisterSigningKey/outcome/denied",

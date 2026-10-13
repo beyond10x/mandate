@@ -16,55 +16,17 @@
 //! (`external.rs`, "An arming the input already decides places no fault").
 
 use ess_conformance::target::{SemanticCommandRequest, SemanticCommandResult, TargetError};
-use mandate_federation::Denied;
 use mandate_federation::record::FederationEvent;
 use mandate_federation::{RequestContext, disable, link, record, register_client};
 use mandate_types::{CorrelationId, CredentialId, Timestamp};
 
 use crate::Live;
-use crate::commands::{accepted, refused};
+use crate::commands::{accepted, refused, standing_first};
 use crate::external::{ScenarioVerifier, Substituted};
 use crate::node;
 
 /// The declared error every refusing outcome of this domain carries.
 const DENIED: &str = "mandate.federation.Denied";
-
-/// Decide `command` over the standing readers and, only when it is armed and that decision
-/// admitted it, once more with the fault in place.
-///
-/// `decide` is called with `faulted: false` for the standing decision and `true` for the
-/// faulted one; `held` is the mutable state a decision advances (an allocator, a session
-/// issuer), which the standing trial advances on a copy. An armed command whose standing
-/// decision already refused is answered by that refusal and recorded `input-decided`;
-/// otherwise the faulted decision's reads are recorded as before. `reads` reports the
-/// substituted reader's two counts after the faulted decision.
-fn standing_first<S: Clone, T>(
-    live: &mut Live,
-    command: &str,
-    held: fn(&mut Live) -> &mut S,
-    decide: impl Fn(&Live, &mut S, bool) -> Result<T, Denied>,
-    reads: impl Fn() -> (u32, u32),
-) -> Result<T, Denied> {
-    let armed = live.armed.take(command);
-    let mut trial = held(live).clone();
-    let standing = decide(live, &mut trial, false);
-    if !armed {
-        *held(live) = trial;
-        let (consulted, refused) = reads();
-        live.record_reads(command, consulted, refused);
-        return standing;
-    }
-    if standing.is_err() {
-        live.input_decided(command);
-        return standing;
-    }
-    let mut state = held(live).clone();
-    let faulted = decide(live, &mut state, true);
-    *held(live) = state;
-    let (consulted, refused) = reads();
-    live.record_reads(command, consulted, refused);
-    faulted
-}
 
 /// The federation identity allocator a decision advances.
 fn ids(live: &mut Live) -> &mut mandate_federation::SequentialAllocator {

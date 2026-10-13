@@ -242,17 +242,21 @@ impl Live {
     /// Called after the handler returns, which is when the count exists. A command that
     /// refused before reading anything leaves its row at `armed-unreached` and
     /// `consulted: 0`, which is the fact the row is for.
-    pub fn record_reads(&mut self, command: &str, consulted: u32, refused: u32) {
+    ///
+    /// It takes the [`Arming`](external::Arming) the invocation consumed, so only the armed
+    /// invocation relabels its row.
+    pub fn record_reads(&mut self, arming: external::Arming, consulted: u32, refused: u32) {
         let scenario = self.scenario.clone();
         self.ledger
-            .consulted(&scenario, command, consulted, refused);
+            .consulted(&scenario, arming.command(), consulted, refused);
     }
 
-    /// Record that the arming for `command` placed no fault: the standing decision already
-    /// answered the forced branch (`external.rs`, "An arming the input already decides").
-    pub fn input_decided(&mut self, command: &str) {
+    /// Record that `arming` placed no fault: the standing decision already refused, on
+    /// `refusal` (`external.rs`, "An arming the input already decides").
+    pub fn input_decided(&mut self, arming: external::Arming, refusal: &str) {
         let scenario = self.scenario.clone();
-        self.ledger.decided_by_input(&scenario, command);
+        self.ledger
+            .decided_by_input(&scenario, arming.command(), arming.outcome(), refusal);
     }
 
     /// The credential identity an authentication's context carries, which the declared
@@ -665,7 +669,7 @@ impl ConformanceTarget for MandateTarget {
                 // command that refuses before reading anything leaves it exactly as it is.
                 live.ledger
                     .inject(&scenario, &command, port, "armed-unreached");
-                live.armed.arm(&command);
+                live.armed.arm(&command, request.force.outcome.as_str());
                 Ok(())
             }
         }

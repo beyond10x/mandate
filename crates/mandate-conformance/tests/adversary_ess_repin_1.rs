@@ -92,7 +92,8 @@ fn a_standing_refusal_on_another_branch_is_not_recorded_as_the_forced_one() {
     let executed = run(&suite);
     let disabled = row(&executed, SCENARIO, DISABLE).expect("the arming is recorded");
     assert_ne!(
-        disabled["kind"], "input-decided",
+        disabled["kind"],
+        "input-decided",
         "the standing decision refused the second disable as `wrong-state` \
          (`ConnectionDisabled`), the arming forced `denied`, and the row says the input \
          already answered the forced branch; scenario is `{}`",
@@ -159,13 +160,22 @@ fn no_authored_scenario_outside_federation_answers_differently_unarmed() {
             checked.push(id.clone());
         }
     }
-    assert!(!checked.is_empty(), "no authored scenario outside federation is armed");
+    assert!(
+        !checked.is_empty(),
+        "no authored scenario outside federation is armed"
+    );
     let with = terminal(&run(&armed).report);
     let without = terminal(&run(&unarmed).report);
     let differ: Vec<String> = checked
         .iter()
         .filter(|id| with.get(*id) != without.get(*id))
-        .map(|id| format!("{id}: armed {:?}, unarmed {:?}", with.get(id), without.get(id)))
+        .map(|id| {
+            format!(
+                "{id}: armed {:?}, unarmed {:?}",
+                with.get(id),
+                without.get(id)
+            )
+        })
         .collect();
     assert!(
         differ.is_empty(),
@@ -223,21 +233,28 @@ fn every_row_recorded_armed_is_a_fault_the_scenario_needed() {
 /// the end on the synthesized input and answered `denied` where the contract says
 /// `wrong-state`: a refusal-branch disagreement between handler and contract, which no
 /// synthesizer release closes.
+///
+/// Every failed `wrong-state` row is relabelled, whoever owns it, so the case is not vacuous
+/// once no row is attributed there: at least one relabelled row must pass, which shows the
+/// relabelling reaches a handler's answer and the attribution check below can fire.
 #[test]
 fn a_wrong_state_scenario_the_handler_answers_denied_is_not_a_synthesizer_gap() {
     let ledger = read("contracts/expected-outcomes.json");
-    let attributed: Vec<String> = ledger["scenarios"]
+    let failed: Vec<(String, String)> = ledger["scenarios"]
         .as_array()
         .expect("rows")
         .iter()
-        .filter(|row| row["blocked_on"] == "story:ess-synthesizer-prerequisites")
-        .filter_map(|row| row["id"].as_str())
-        .filter(|id| id.ends_with("/outcome/wrong-state"))
-        .map(str::to_owned)
+        .filter(|row| row["outcome"] == "failed")
+        .filter_map(|row| Some((row["id"].as_str()?, row["blocked_on"].as_str()?)))
+        .filter(|(id, _)| id.ends_with("/outcome/wrong-state"))
+        .map(|(id, owner)| (id.to_owned(), owner.to_owned()))
         .collect();
-    assert!(!attributed.is_empty(), "no wrong-state row is attributed there");
+    assert!(
+        !failed.is_empty(),
+        "no failed wrong-state row is in the ledger"
+    );
     let mut relabelled = suite();
-    for id in &attributed {
+    for (id, _) in &failed {
         for step in steps_of(&mut relabelled, id).iter_mut() {
             if step["step"] == "expect_outcome" && step["outcome"]["outcome"] == "wrong-state" {
                 step["outcome"]["outcome"] = json!("denied");
@@ -245,10 +262,17 @@ fn a_wrong_state_scenario_the_handler_answers_denied_is_not_a_synthesizer_gap() 
         }
     }
     let placed = terminal(&run(&relabelled).report);
-    let misowned: Vec<&String> = attributed
+    let passes = |id: &String| placed.get(id).map(String::as_str) == Some("passed");
+    assert!(
+        failed.iter().any(|(id, _)| passes(id)),
+        "no failed wrong-state row passes once it expects `denied`, so this case decides nothing"
+    );
+    let attributed: Vec<&String> = failed
         .iter()
-        .filter(|id| placed.get(*id).map(String::as_str) == Some("passed"))
+        .filter(|(_, owner)| owner == "story:ess-synthesizer-prerequisites")
+        .map(|(id, _)| id)
         .collect();
+    let misowned: Vec<&String> = attributed.iter().copied().filter(|id| passes(id)).collect();
     assert!(
         misowned.is_empty(),
         "{} of {} `wrong-state` rows attributed to story:ess-synthesizer-prerequisites pass \

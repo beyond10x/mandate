@@ -281,32 +281,30 @@ fn every_armed_injection_changes_the_scenario_it_was_armed_for() {
     }
     let unarmed = Executed::of(&document.to_string(), DIGEST).expect("the suite executes");
 
-    // Retargeted under ESS 0.59.0. A forced denial can only be told apart from the standing
-    // one when the synthesized input is one the command would otherwise admit. Where the
-    // synthesizer arranges no prerequisite the input names — `RegisterResourceServer`'s
-    // `allowed_exchange_sources` names a resource server that does not exist — the command's
-    // own `accepted` scenario fails, the authored ledger attributes that failure to
-    // `story:ess-synthesizer-prerequisites`, and its `denied` scenario is refused by the
-    // standing reader with or without the arming. Those rows are set aside by that computed
-    // rule, not by name, and the case must still find a row the arming flips.
-    let ledger: serde_json::Value = serde_json::from_str(
-        &std::fs::read_to_string(repository().join("contracts/expected-outcomes.json"))
-            .expect("the authored ledger is readable"),
-    )
-    .expect("the authored ledger is JSON");
-    let unadmitted: BTreeSet<String> = ledger["scenarios"]
-        .as_array()
-        .expect("the authored ledger lists its scenarios")
+    // The rows set aside from this check, each by scenario and with its reason. The list is
+    // named, never computed: a rule that sets rows aside by a property hides every new inert
+    // row that shares it, and an inert `armed` row is exactly what this case exists to find.
+    //
+    // It is empty. The one row a computed rule hid under ESS 0.59.0 —
+    // `mandate.credential.RegisterResourceServer/outcome/denied`, whose synthesized input names
+    // an exchange source no record carries, so the standing reader refuses it armed or not —
+    // is now decided standing-first and recorded `input-decided` (`src/external.rs`, "An
+    // arming the input already decides places no fault"), so it is no longer an `armed` row.
+    const SET_ASIDE: &[(&str, &str)] = &[];
+    let named: BTreeSet<&str> = SET_ASIDE.iter().map(|(scenario, _)| *scenario).collect();
+    let stale: Vec<&str> = named
         .iter()
-        .filter(|row| {
-            row["outcome"] == "failed" && row["blocked_on"] == "story:ess-synthesizer-prerequisites"
-        })
-        .filter_map(|row| row["id"].as_str()?.strip_suffix("/outcome/accepted"))
-        .map(str::to_owned)
+        .copied()
+        .filter(|scenario| !armed.contains_key(*scenario))
         .collect();
+    assert!(
+        stale.is_empty(),
+        "these set-aside rows are no longer recorded `armed`, so their entries hide nothing and \
+         must go: {stale:?}"
+    );
     let (set_aside, armed): (BTreeMap<String, String>, BTreeMap<String, String>) = armed
         .into_iter()
-        .partition(|(_, command)| unadmitted.contains(command));
+        .partition(|(scenario, _)| named.contains(scenario.as_str()));
     assert!(
         armed.contains_key("mandate.identity.IncrementSecurityEpoch/outcome/denied"),
         "the forced denial this case is anchored on is no longer recorded `armed` (set aside: \

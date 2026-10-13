@@ -90,12 +90,14 @@ pub fn refresh_session(
     };
     let reader = Substituted::new();
     let armed = live.armed.take(COMMAND);
-    let decided = if armed {
+    let decided = if armed.is_some() {
         mandate_identity::refresh_session(&reader, &id)
     } else {
         mandate_identity::refresh_session(&live.identity, &id)
     };
-    live.record_reads(COMMAND, reader.consulted(), reader.refused());
+    if let Some(arming) = armed {
+        live.record_reads(arming, reader.consulted(), reader.refused());
+    }
     match decided {
         Ok(refreshed) => accepted(
             live,
@@ -127,10 +129,10 @@ pub fn increment_security_epoch(
     let before = live.identity.clone();
     let expected = mandate_identity::IdentityRead::current(&live.identity, &target).version();
     let input = IncrementSecurityEpoch::new(context, target);
-    if live.armed.take(COMMAND) {
+    if let Some(arming) = live.armed.take(COMMAND) {
         let mut refusing = Substituted::new();
         let decided = input.execute(&mut refusing, expected);
-        live.record_reads(COMMAND, refusing.consulted(), refusing.refused());
+        live.record_reads(arming, refusing.consulted(), refusing.refused());
         live.identity_unchanged(&before)?;
         return match decided {
             Ok(_) => Err(TargetError::unavailable(

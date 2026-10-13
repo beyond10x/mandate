@@ -653,7 +653,10 @@ fn an_armed_row_says_what_its_substituted_reader_did() {
                  {consulted} reads"
             );
         }
-        if kind.starts_with("refused") || kind == "unsupported-command" || kind == "input-decided" {
+        if kind.starts_with("refused")
+            || kind == "unsupported-command"
+            || kind.starts_with("input-")
+        {
             assert_eq!(
                 consulted, 0,
                 "`{command}` substituted no reader and reports {consulted} consultations"

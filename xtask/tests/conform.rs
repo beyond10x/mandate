@@ -38,6 +38,7 @@ use std::{
     fs,
     path::{Path, PathBuf},
     process::Command,
+    sync::OnceLock,
 };
 
 fn repo() -> PathBuf {
@@ -88,11 +89,21 @@ fn copy(from: &Path, to: &Path) {
 /// Built once into a directory of its own and shared by every case: what a rung decides does
 /// not vary between them. The two written here carry the frontmatter the store renders —
 /// `id`, `kind`, `status` — because the rung is all this step reads.
+///
+/// Rebuilt from the store once per test process, never reused across runs: a copy kept
+/// because it existed lacked every story planned after it was taken, and refused the
+/// committed ledger for naming one.
 fn stories() -> PathBuf {
+    static BUILT: OnceLock<PathBuf> = OnceLock::new();
+    BUILT.get_or_init(build_stories).clone()
+}
+
+fn build_stories() -> PathBuf {
     let directory = repo().join("target/xtask-conform-store/story");
-    if !directory.join("conform-gate.md").is_file() {
-        copy(&repo().join(".engineering/planning/story"), &directory);
+    if directory.exists() {
+        fs::remove_dir_all(&directory).expect("clear the previous store copy");
     }
+    copy(&repo().join(".engineering/planning/story"), &directory);
     for (name, title) in [
         (
             "ess-synthesizer-prerequisites",

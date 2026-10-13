@@ -75,7 +75,7 @@ pub fn check(
         scope: None,
         ceilings: &ceilings,
     };
-    let decided = if armed {
+    let decided = if armed.is_some() {
         mandate_authz::check(
             &Pdp {
                 graph: &reader,
@@ -102,7 +102,9 @@ pub fn check(
             &request,
         )
     };
-    live.record_reads(COMMAND, reader.consulted(), reader.refused());
+    if let Some(arming) = armed {
+        live.record_reads(arming, reader.consulted(), reader.refused());
+    }
     match decided {
         Ok(_) => {
             live.ledger.block(

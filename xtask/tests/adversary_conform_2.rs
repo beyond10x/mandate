@@ -19,6 +19,7 @@ use std::{
     fs,
     path::{Path, PathBuf},
     process::{Command, Output},
+    sync::OnceLock,
 };
 
 fn repo() -> PathBuf {
@@ -70,12 +71,19 @@ fn copy(from: &Path, to: &Path) {
 ///
 /// The same seam the unit's own cases pass, in a directory of this pass's own: a tree whose
 /// store predates the stories its ledger names is what the seam is for, and no case here is
-/// about that.
+/// about that. Rebuilt from the store once per test process, never reused across runs: a
+/// kept copy lacks every story planned after it was taken.
 fn stories() -> PathBuf {
+    static BUILT: OnceLock<PathBuf> = OnceLock::new();
+    BUILT.get_or_init(build_stories).clone()
+}
+
+fn build_stories() -> PathBuf {
     let directory = scratch().join("story");
-    if !directory.join("conform-gate.md").is_file() {
-        copy(&repo().join(".engineering/planning/story"), &directory);
+    if directory.exists() {
+        fs::remove_dir_all(&directory).expect("clear the previous store copy");
     }
+    copy(&repo().join(".engineering/planning/story"), &directory);
     for name in [
         "ess-synthesizer-prerequisites",
         "conformance-denial-reasons",
