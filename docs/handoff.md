@@ -29,12 +29,13 @@ clause was split). The account is `docs/plans/2026-09-23-waves-i-j-k-execution.m
 
 ## In flight right now
 
-Nothing. `main` holds 0.7.0; no integration branch is open. Wave 5a moved the specification and
-the ESS crates to 0.59.0 (a signing key's instants are now one `SigningKeyWindow`) and added the
-shared agent authority evaluator, `mandate_authz::agent::evaluate_agent_authority`; its account is
-`docs/plans/2026-10-12-wave-5a-execution.md`. Next: `story:unknown-instance-refusals` (raise the
-specification format and declare `unknown_instance:` on 15 commands), and `story:agent-security`,
-which consumes the evaluator and inherits the delegation commands. The gate pins `aep` 0.71.2.
+Nothing once wave 6 merges. Wave 6 raised the specification to `ess/24` (181 synthesized scenarios,
+20 unobservable ones gone), moved the gate's `aep` pin to 0.71.2, and cleared
+`decision-blocker:identity-uniqueness`; its account is `docs/plans/2026-10-13-wave-6-execution.md`.
+The 15 unknown-identity scenarios wait on ESS in `story:unknown-instance-non-disclosing`: Mandate
+answers an unknown identity like a record the caller may not see, and ESS 0.59.0 can only declare
+the case as a distinct outcome. Next: `story:agent-security`, which consumes the evaluator of wave 5a
+(`docs/plans/2026-10-12-wave-5a-execution.md`) and inherits the delegation commands.
 
 Left out of waves I–K and still undecided: `linked-event-method-unenforced` (its premise is
 contradicted by the connection seeding at `services/control-plane/src/adapters.rs:962-970`) and

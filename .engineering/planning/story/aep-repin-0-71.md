@@ -2,15 +2,16 @@
 format: aep.planning-md/3
 id: story:aep-repin-0-71
 kind: story
-status: active
+status: implemented
 title: Move the planning tooling pin to AEP 0.71.2
 relations:
 - decomposes: epic:foundations
 - serves: vision:mandate
-revision: 3
+revision: 4
 transitions:
 - {from: "draft", to: "proposed", at: "2026-10-13T05:20:16Z", actor: "human:timo", revision: 2}
 - {from: "proposed", to: "active", at: "2026-10-13T05:20:16Z", actor: "human:timo", revision: 3}
+- {from: "active", to: "implemented", at: "2026-10-13T06:26:29Z", actor: "human:timo", revision: 4, decided_on: {"recorded":{"test_result":1}}}
 ---
 # Move the planning tooling pin to AEP 0.71.2
 

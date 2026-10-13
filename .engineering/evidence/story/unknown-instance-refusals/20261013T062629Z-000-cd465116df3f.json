@@ -1,0 +1,13 @@
+{
+  "at": "2026-10-13T06:26:29Z",
+  "actor": "human:timo",
+  "artifact": "story:unknown-instance-refusals",
+  "kind": "story",
+  "revision": 7,
+  "change": {
+    "change": "evidence",
+    "kind": "test_result",
+    "source": "cargo xtask conform; cargo test -p xtask; cargo test -p mandate-sts; cargo test -p mandate-conformance",
+    "reference": "4da1f1e9c5f9c0eabf84ff61f854e55374479755"
+  }
+}
