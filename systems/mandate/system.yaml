@@ -1,4 +1,4 @@
-format: ess/4
+format: ess/24
 system: mandate
 version: v1
 summary: Standalone identity, authorization and constrained credential contracts.

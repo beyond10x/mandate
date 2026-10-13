@@ -3076,7 +3076,16 @@
         ]
       },
       "invariants": [
-        "window.not_before < window.expires_at"
+        {
+          "compare": {
+            "as": "timestamp",
+            "left": "window.not_before",
+            "op": "lt",
+            "right": {
+              "fact": "window.expires_at"
+            }
+          }
+        }
       ],
       "naming": {}
     },
@@ -5863,6 +5872,7 @@
           "condition": {
             "kind": "wrong_state"
           },
+          "complete_refusal": true,
           "test_strategy": "arrange_state",
           "emits": [],
           "error": "mandate.audit.Denied"
@@ -6076,6 +6086,7 @@
           "condition": {
             "kind": "wrong_state"
           },
+          "complete_refusal": true,
           "test_strategy": "arrange_state",
           "emits": [],
           "error": "mandate.credential.Denied"
@@ -7506,6 +7517,7 @@
           "condition": {
             "kind": "wrong_state"
           },
+          "complete_refusal": true,
           "test_strategy": "arrange_state",
           "emits": [],
           "error": "mandate.credential.Denied"
@@ -8008,6 +8020,7 @@
           "condition": {
             "kind": "wrong_state"
           },
+          "complete_refusal": true,
           "test_strategy": "arrange_state",
           "emits": [],
           "error": "mandate.credential.Denied"
@@ -8121,6 +8134,7 @@
           "condition": {
             "kind": "wrong_state"
           },
+          "complete_refusal": true,
           "test_strategy": "arrange_state",
           "emits": [],
           "error": "mandate.credential.Denied"
@@ -8236,6 +8250,7 @@
           "condition": {
             "kind": "wrong_state"
           },
+          "complete_refusal": true,
           "test_strategy": "arrange_state",
           "emits": [],
           "error": "mandate.credential.Denied"
@@ -8350,6 +8365,7 @@
           "condition": {
             "kind": "wrong_state"
           },
+          "complete_refusal": true,
           "test_strategy": "arrange_state",
           "emits": [],
           "error": "mandate.delegation.Denied"
@@ -8464,6 +8480,7 @@
           "condition": {
             "kind": "wrong_state"
           },
+          "complete_refusal": true,
           "test_strategy": "arrange_state",
           "emits": [],
           "error": "mandate.delegation.Denied"
@@ -8880,6 +8897,7 @@
           "condition": {
             "kind": "wrong_state"
           },
+          "complete_refusal": true,
           "test_strategy": "arrange_state",
           "emits": [],
           "error": "mandate.delegation.Denied"
@@ -8993,6 +9011,7 @@
           "condition": {
             "kind": "wrong_state"
           },
+          "complete_refusal": true,
           "test_strategy": "arrange_state",
           "emits": [],
           "error": "mandate.delegation.Denied"
@@ -9107,6 +9126,7 @@
           "condition": {
             "kind": "wrong_state"
           },
+          "complete_refusal": true,
           "test_strategy": "arrange_state",
           "emits": [],
           "error": "mandate.delegation.Denied"
@@ -9221,6 +9241,7 @@
           "condition": {
             "kind": "wrong_state"
           },
+          "complete_refusal": true,
           "test_strategy": "arrange_state",
           "emits": [],
           "error": "mandate.directory.Denied"
@@ -9528,6 +9549,7 @@
           "condition": {
             "kind": "wrong_state"
           },
+          "complete_refusal": true,
           "test_strategy": "arrange_state",
           "emits": [],
           "error": "mandate.directory.Denied"
@@ -9641,6 +9663,7 @@
           "condition": {
             "kind": "wrong_state"
           },
+          "complete_refusal": true,
           "test_strategy": "arrange_state",
           "emits": [],
           "error": "mandate.directory.Denied"
@@ -9754,6 +9777,7 @@
           "condition": {
             "kind": "wrong_state"
           },
+          "complete_refusal": true,
           "test_strategy": "arrange_state",
           "emits": [],
           "error": "mandate.directory.Denied"
@@ -9867,6 +9891,7 @@
           "condition": {
             "kind": "wrong_state"
           },
+          "complete_refusal": true,
           "test_strategy": "arrange_state",
           "emits": [],
           "error": "mandate.directory.Denied"
@@ -9981,6 +10006,7 @@
           "condition": {
             "kind": "wrong_state"
           },
+          "complete_refusal": true,
           "test_strategy": "arrange_state",
           "emits": [],
           "error": "mandate.directory.Denied"
@@ -10697,6 +10723,7 @@
           "condition": {
             "kind": "wrong_state"
           },
+          "complete_refusal": true,
           "test_strategy": "arrange_state",
           "emits": [],
           "error": "mandate.federation.Denied"
@@ -10811,6 +10838,7 @@
           "condition": {
             "kind": "wrong_state"
           },
+          "complete_refusal": true,
           "test_strategy": "arrange_state",
           "emits": [],
           "error": "mandate.federation.Denied"
@@ -11764,6 +11792,7 @@
           "condition": {
             "kind": "wrong_state"
           },
+          "complete_refusal": true,
           "test_strategy": "arrange_state",
           "emits": [],
           "error": "mandate.federation.Denied"
@@ -11878,6 +11907,7 @@
           "condition": {
             "kind": "wrong_state"
           },
+          "complete_refusal": true,
           "test_strategy": "arrange_state",
           "emits": [],
           "error": "mandate.graph.Denied"
@@ -12146,6 +12176,7 @@
           "condition": {
             "kind": "wrong_state"
           },
+          "complete_refusal": true,
           "test_strategy": "arrange_state",
           "emits": [],
           "error": "mandate.graph.Denied"
@@ -12259,6 +12290,7 @@
           "condition": {
             "kind": "wrong_state"
           },
+          "complete_refusal": true,
           "test_strategy": "arrange_state",
           "emits": [],
           "error": "mandate.graph.Denied"
@@ -12549,6 +12581,7 @@
           "condition": {
             "kind": "wrong_state"
           },
+          "complete_refusal": true,
           "test_strategy": "arrange_state",
           "emits": [],
           "error": "mandate.identity.Denied"
@@ -12814,6 +12847,7 @@
           "condition": {
             "kind": "wrong_state"
           },
+          "complete_refusal": true,
           "test_strategy": "arrange_state",
           "emits": [],
           "error": "mandate.identity.Denied"
@@ -12927,6 +12961,7 @@
           "condition": {
             "kind": "wrong_state"
           },
+          "complete_refusal": true,
           "test_strategy": "arrange_state",
           "emits": [],
           "error": "mandate.identity.Denied"
@@ -13041,6 +13076,7 @@
           "condition": {
             "kind": "wrong_state"
           },
+          "complete_refusal": true,
           "test_strategy": "arrange_state",
           "emits": [],
           "error": "mandate.policy.Denied"
@@ -13155,6 +13191,7 @@
           "condition": {
             "kind": "wrong_state"
           },
+          "complete_refusal": true,
           "test_strategy": "arrange_state",
           "emits": [],
           "error": "mandate.policy.Denied"
@@ -13586,6 +13623,7 @@
           "condition": {
             "kind": "wrong_state"
           },
+          "complete_refusal": true,
           "test_strategy": "arrange_state",
           "emits": [],
           "error": "mandate.tenancy.Denied"
@@ -14071,6 +14109,7 @@
           "condition": {
             "kind": "wrong_state"
           },
+          "complete_refusal": true,
           "test_strategy": "arrange_state",
           "emits": [],
           "error": "mandate.tenancy.Denied"
@@ -14185,6 +14224,7 @@
           "condition": {
             "kind": "wrong_state"
           },
+          "complete_refusal": true,
           "test_strategy": "arrange_state",
           "emits": [],
           "error": "mandate.tenancy.Denied"
@@ -14299,6 +14339,7 @@
           "condition": {
             "kind": "wrong_state"
           },
+          "complete_refusal": true,
           "test_strategy": "arrange_state",
           "emits": [],
           "error": "mandate.tenancy.Denied"
@@ -14413,6 +14454,7 @@
           "condition": {
             "kind": "wrong_state"
           },
+          "complete_refusal": true,
           "test_strategy": "arrange_state",
           "emits": [],
           "error": "mandate.tenancy.Denied"
@@ -14527,6 +14569,7 @@
           "condition": {
             "kind": "wrong_state"
           },
+          "complete_refusal": true,
           "test_strategy": "arrange_state",
           "emits": [],
           "error": "mandate.workload.Denied"

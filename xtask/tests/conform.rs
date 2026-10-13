@@ -208,7 +208,7 @@ fn the_committed_corpus_is_accepted() {
     );
     for story in [
         "story:ess-synthesizer-prerequisites",
-        "story:refusal-discriminators",
+        "story:agent-security",
         "story:testkit-doubles",
         "story:directory-provenance",
     ] {
@@ -243,7 +243,7 @@ fn a_scenario_the_run_does_not_carry_is_refused_by_name() {
     let body = outcomes(&root);
     let first = row(
         &body,
-        "mandate.audit.AuditEvent/state/Redacted/refuses/mandate.audit.RedactAuditEvent",
+        "mandate.audit.AuditEvent/transition/redact/by/mandate.audit.RedactAuditEvent/accepted",
     );
     let invented =
         "{\"id\":\"mandate.audit.NoSuchScenario/outcome/accepted\",\"outcome\":\"passed\"}";
@@ -641,7 +641,7 @@ fn a_report_that_skips_a_scenario_is_refused_by_name() {
         },
     );
     assert!(
-        error.contains("mandate.audit.AuditEvent/state/Redacted"),
+        error.contains("mandate.audit.AuditEvent/transition/redact"),
         "the refusal names the skipped scenario: {error}"
     );
     assert!(
@@ -663,7 +663,7 @@ fn a_report_that_errors_a_scenario_is_refused_by_name() {
         },
     );
     assert!(
-        error.contains("mandate.audit.AuditEvent/state/Redacted"),
+        error.contains("mandate.audit.AuditEvent/transition/redact"),
         "the refusal names the scenario the runner could not decide: {error}"
     );
     assert!(

@@ -1,6 +1,6 @@
 # generated from mandate v1
-# model digest bc14d822ad618424c38b62c9c38cd5211bf832d70eb206a30a00b4f625be02d4
-# contract digest slice-sha256/2:3a9b6256752f34b29cfcc0f7c979b4c89429a768d9bf165b0fdc4841238581ea
+# model digest deae57d148a5f63c051f8fb5fcc75b60572366e23d12c3cfe66b5d1f2ca3e08c
+# contract digest slice-sha256/2:ee37311f539a501b92f7afa7450cc34896d9793fb37bbe0152c78e93188483f8
 # do not edit: regenerate with `ess generate`
 openapi: 3.1.0
 info:
@@ -14,8 +14,8 @@ info:
   x-ess-provenance:
     system: mandate
     specification_version: v1
-    source_digest: bc14d822ad618424c38b62c9c38cd5211bf832d70eb206a30a00b4f625be02d4
-    contract_digest: slice-sha256/2:3a9b6256752f34b29cfcc0f7c979b4c89429a768d9bf165b0fdc4841238581ea
+    source_digest: deae57d148a5f63c051f8fb5fcc75b60572366e23d12c3cfe66b5d1f2ca3e08c
+    contract_digest: slice-sha256/2:ee37311f539a501b92f7afa7450cc34896d9793fb37bbe0152c78e93188483f8
 tags:
 - name: credential
 paths:
