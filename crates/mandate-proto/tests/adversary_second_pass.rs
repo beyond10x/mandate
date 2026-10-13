@@ -146,7 +146,7 @@ fn projection_violations<T: Canonical>(failures: &mut Vec<String>, render: fn(&T
 ///
 /// `crates/mandate-types/src/conformance.rs:100` is the suite that discharges it, and it
 /// does not serialize: it calls `Canonical::encode`, whose default *is* the serialization
-/// for 72 of the 74 admitted types and is an override for the other two
+/// for 73 of the 75 admitted types and is an override for the other two
 /// (`crates/mandate-types/src/macros.rs:239`). `Case::encoded`, which every crate-level
 /// projection check reads, therefore holds a form `serde` never produces for exactly the
 /// two types where the two disagree.
@@ -177,7 +177,7 @@ fn every_admitted_type_serializes_into_the_form_its_projection_declares() {
 /// written this asserted that `WireContract::to_wire` does not render credential material,
 /// quoting `crates/mandate-types/src/macros.rs:164-165` — "The declared base64 form is
 /// reachable only through [`Canonical::encode`]" — against
-/// `crates/mandate-proto/src/lib.rs`, which passes all 74 admitted types, the two
+/// `crates/mandate-proto/src/lib.rs`, which passes all 75 admitted types, the two
 /// transient ones among them, to `wire_contracts!`, and so gives each a public
 /// `to_wire` in a crate `mandate-client` and `mandate-server` depend on.
 ///

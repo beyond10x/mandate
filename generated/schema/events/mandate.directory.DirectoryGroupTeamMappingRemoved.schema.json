@@ -20,8 +20,8 @@
   "x-ess-provenance": {
     "system": "mandate",
     "specification_version": "v1",
-    "source_digest": "2f11d2daffc2d75bb4ca8c0485aedc56fb2a712cdaed6347fc48b8ba2b1f7ca6",
-    "contract_digest": "slice-sha256/2:30d89c2d68ca8771b6f35a47d18283f616fabe741e74beb2d1641b001f32255e",
+    "source_digest": "a3050689a765805251d9f3e868a98ca1924b66c2582e8b4d01ac7d763360f34a",
+    "contract_digest": "slice-sha256/2:144fa13f6d5ffce0a8cfd0e57bd5c110f407e5964d5b9cd26bce71dd93047c40",
     "regenerate": "ess generate"
   },
   "$defs": {

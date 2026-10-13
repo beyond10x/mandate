@@ -166,7 +166,7 @@ pub use identifier::{
     TeamMembershipId, WorkloadIdentityId,
 };
 pub use marker::{PersistedValue, Transient};
-pub use record::{AuthorityScope, ResourceRef, VerifiedContext};
+pub use record::{AuthorityScope, ResourceRef, SigningKeyWindow, VerifiedContext};
 pub use text::{
     Action, ActionPattern, Audience, AuditAction, AuditOutcome, AuthorizationModelVersion,
     AuthzRevision, ClientId, CorrelationId, CredentialVerifier, ExternalSubject, Issuer,

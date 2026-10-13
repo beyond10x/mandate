@@ -90,7 +90,7 @@ const RECEIPT_FORMAT: &str = "mandate-coverage-receipt/1";
 
 /// The ESS this repository is pinned to, as `generate()` requires it and as the receipt
 /// records it.
-const ESS_VERSION: &str = "ess 0.26.0";
+const ESS_VERSION: &str = "ess 0.59.0";
 
 /// Every outcome a row may state. `skipped` is deliberately not one of them: a skipped
 /// scenario is a scenario nothing decided, and the gate requires the count to be zero rather

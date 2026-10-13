@@ -109,7 +109,7 @@ fn files(root: &Path) -> Result<BTreeMap<PathBuf, Vec<u8>>> {
     Ok(map)
 }
 fn generate(root: &Path) -> Result<()> {
-    version("ess", "ess 0.26.0")?;
+    version("ess", "ess 0.59.0")?;
     for kind in ["schema", "openapi", "docs", "docs-ir"] {
         let out = root;
         run(
@@ -126,7 +126,7 @@ fn generate(root: &Path) -> Result<()> {
         )?;
     }
     ir(root)?;
-    // The sixth kind: Rust shapes for the three kinds ESS 0.26.0's Rust target does not admit.
+    // The sixth kind: Rust shapes for the three kinds ESS 0.59.0's Rust target does not admit.
     // Emitted from the file [`ir`] just wrote, so the shapes and the model [`contracts`]
     // compares them against are the same bytes rather than two compilations of one source.
     emit::emit(root)?;
@@ -182,7 +182,7 @@ fn contracts() -> Result<()> {
 }
 /// Enroll the committed `generated/` tree as ESS-owned output. Once per checkout, by hand.
 ///
-/// ESS 0.26.0 will not write over bytes it does not own, so `cargo xtask generate` in a fresh
+/// ESS 0.59.0 will not write over bytes it does not own, so `cargo xtask generate` in a fresh
 /// tree stops at `unowned output destination: schema/commands/…` before writing anything.
 /// Ownership is recorded in `generated/.ess-output/`, which `.gitignore` excludes and should:
 /// the ledger states what *this* checkout wrote, which is a fact about a machine and not about

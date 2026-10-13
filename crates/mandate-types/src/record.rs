@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::conformance::Entry;
 use crate::{Action, Audience, CorrelationId, CredentialId, DelegationId, ExecutionId};
-use crate::{OrganizationId, PrincipalId, ResourceId, ResourceType, SpaceId};
+use crate::{OrganizationId, PrincipalId, ResourceId, ResourceType, SpaceId, Timestamp};
 
 /// `mandate.core.ResourceRef`: a resource named by its type and identity.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -129,10 +129,34 @@ crate::canonical_record!(
     ]
 );
 
+/// `mandate.core.SigningKeyWindow`: when a signing key starts and stops being usable.
+///
+/// The two instants are one record because `mandate.credential.SigningKey`'s invariant,
+/// `window.not_before < window.expires_at`, compares them, and an invariant compares two
+/// fields only as members of one struct. The ordering is the deciding handler's to check;
+/// this record carries the instants as declared.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SigningKeyWindow {
+    /// When the key starts being usable.
+    pub not_before: Timestamp,
+    /// When the key stops being usable.
+    pub expires_at: Timestamp,
+}
+
+crate::canonical_record!(
+    SigningKeyWindow { not_before, expires_at },
+    samples: vec![SigningKeyWindow {
+        not_before: Timestamp::new("2026-09-17T00:00:00Z"),
+        expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+    }]
+);
+
 pub(crate) fn entries() -> Vec<Entry> {
     vec![
         Entry::of::<ResourceRef>(),
         Entry::of::<AuthorityScope>(),
         Entry::of::<VerifiedContext>(),
+        Entry::of::<SigningKeyWindow>(),
     ]
 }

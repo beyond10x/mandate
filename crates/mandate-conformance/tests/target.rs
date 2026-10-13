@@ -653,7 +653,7 @@ fn an_armed_row_says_what_its_substituted_reader_did() {
                  {consulted} reads"
             );
         }
-        if kind.starts_with("refused") || kind == "unsupported-command" {
+        if kind.starts_with("refused") || kind == "unsupported-command" || kind == "input-decided" {
             assert_eq!(
                 consulted, 0,
                 "`{command}` substituted no reader and reports {consulted} consultations"
@@ -686,6 +686,82 @@ fn an_armed_row_says_what_its_substituted_reader_did() {
     assert!(
         check["consulted"].is_u64(),
         "`Check` records no consultation count"
+    );
+}
+
+/// An authored refusal the input already decides is answered by the handler, not by a fault.
+///
+/// ESS compiles an authored act whose `outcome:` is an `external:` branch into a
+/// `configure_external_outcome` for that one call (beyond10x/ess#243), and every `denied`
+/// of `mandate.federation` is declared `external:`. Three authored scenarios state the
+/// production reason for a refusal their own input decides — the audience binding
+/// (`mandate-federation/src/authenticate.rs:267-272`), the overlapping registration
+/// (`record.rs:1002-1005`) with the unlinked login after it (`authenticate.rs:122`), and the
+/// caller-named `ConfiguredFederation` method (`link.rs:96-101`). A fault placed at the port
+/// first answers a reason the scenario does not state, or none at all: the refusing verifier
+/// says `InvalidCredential` before step 4 is reached, and an empty substituted connection
+/// store admits the colliding registration. So the standing decision is taken first and, when
+/// it already reaches the forced branch, is the answer — and the row says no fault was placed.
+#[test]
+fn an_authored_refusal_the_input_decides_is_answered_by_the_handler_not_by_a_fault() {
+    let path = repository().join("generated/conformance/suite.json");
+    let suite = std::fs::read_to_string(&path)
+        .unwrap_or_else(|error| panic!("{}: {error}", path.display()));
+    let executed = Executed::of(&suite, DIGEST).expect("the suite executes");
+    let report: serde_json::Value =
+        serde_json::from_str(&executed.report).expect("the report is JSON");
+    let passed: BTreeSet<&str> = report["outcomes"]["passed"]
+        .as_array()
+        .expect("the report lists its passed scenarios")
+        .iter()
+        .filter_map(serde_json::Value::as_str)
+        .collect();
+    let injections: serde_json::Value =
+        serde_json::from_str(&executed.injections).expect("the injection record is JSON");
+    let rows = injections["injections"]
+        .as_array()
+        .expect("the record lists every armed external outcome");
+
+    let cases: [(&str, &[&str]); 3] = [
+        (
+            "mandate.federation/authored/federation-audience-mismatch",
+            &["mandate.federation.AuthenticateFederation"],
+        ),
+        (
+            "mandate.federation/authored/federation-ambiguous-tenant",
+            &[
+                "mandate.federation.RegisterFederationConnection",
+                "mandate.federation.AuthenticateFederation",
+            ],
+        ),
+        (
+            "mandate.federation/authored/federation-configured-method-on-explicit-link",
+            &["mandate.federation.LinkExternalPrincipal"],
+        ),
+    ];
+    let mut wrong = Vec::new();
+    for (scenario, commands) in cases {
+        if !passed.contains(scenario) {
+            wrong.push(format!("{scenario} did not pass"));
+        }
+        for command in commands {
+            let row = rows
+                .iter()
+                .find(|row| row["scenario"] == scenario && row["command"] == *command);
+            match row {
+                Some(row) if row["kind"] == "input-decided" && row["consulted"] == 0 => {}
+                Some(row) => wrong.push(format!(
+                    "{scenario}: `{command}` is recorded `{}` with {} consultations",
+                    row["kind"], row["consulted"]
+                )),
+                None => wrong.push(format!("{scenario}: `{command}` carries no row")),
+            }
+        }
+    }
+    assert!(
+        wrong.is_empty(),
+        "an authored refusal the input decides must be the handler's answer, and its row must \
+         say no fault was placed: {wrong:#?}"
     );
 }
 

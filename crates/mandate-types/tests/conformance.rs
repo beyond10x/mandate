@@ -3,7 +3,7 @@
 //! Every case is decided against `generated/schema/types`, the ESS projection that
 //! `cargo xtask contracts` byte-compares. Nothing here asserts runtime enforcement.
 //!
-//! The index holds 110 entries: the 74 authored `mandate.core` types, which
+//! The index holds 111 entries: the 75 authored `mandate.core` types, which
 //! `mandate_types::conformance::cases()` realizes and the cases below decide, and the 36
 //! derived `<Entity>.State` enums, which join the same account at the end of this file.
 //!

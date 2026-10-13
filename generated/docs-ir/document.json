@@ -15,8 +15,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "2f11d2daffc2d75bb4ca8c0485aedc56fb2a712cdaed6347fc48b8ba2b1f7ca6",
-          "contract_digest": "c10ff6000b18ab217e70b48ced7e45b185d42665b843db0c0d17aae4c5394ee5"
+          "source_digest": "a3050689a765805251d9f3e868a98ca1924b66c2582e8b4d01ac7d763360f34a",
+          "contract_digest": "8e0a32f55d4d8e19f7f2fe1db9b11cd76a8270d328c4bcf81ef33fa2fdaf8161"
         },
         "slice": {
           "of": "whole-model"
@@ -196,7 +196,7 @@
                       },
                       {
                         "inline": "text",
-                        "text": " 74 types, no entities, no views, no commands, no events, no errors and no actors."
+                        "text": " 75 types, no entities, no views, no commands, no events, no errors and no actors."
                       }
                     ]
                   }
@@ -2521,8 +2521,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "2f11d2daffc2d75bb4ca8c0485aedc56fb2a712cdaed6347fc48b8ba2b1f7ca6",
-          "contract_digest": "slice-sha256/2:6bf4b0d22c19d7ef08826bd3fbe010083c8c3ee4cb3003c0894f6f34a6a6144f"
+          "source_digest": "a3050689a765805251d9f3e868a98ca1924b66c2582e8b4d01ac7d763360f34a",
+          "contract_digest": "slice-sha256/2:2b51f36ad6deed69b27f96b8f4a58d89e7fa52aa62c2279e4d33347d6d3ce792"
         },
         "slice": {
           "of": "constructs",
@@ -5016,8 +5016,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "2f11d2daffc2d75bb4ca8c0485aedc56fb2a712cdaed6347fc48b8ba2b1f7ca6",
-          "contract_digest": "slice-sha256/2:6bf4b0d22c19d7ef08826bd3fbe010083c8c3ee4cb3003c0894f6f34a6a6144f"
+          "source_digest": "a3050689a765805251d9f3e868a98ca1924b66c2582e8b4d01ac7d763360f34a",
+          "contract_digest": "slice-sha256/2:2b51f36ad6deed69b27f96b8f4a58d89e7fa52aa62c2279e4d33347d6d3ce792"
         },
         "slice": {
           "of": "constructs",
@@ -5575,8 +5575,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "2f11d2daffc2d75bb4ca8c0485aedc56fb2a712cdaed6347fc48b8ba2b1f7ca6",
-          "contract_digest": "slice-sha256/2:dc56b634ab160d154b191173e0045d01e39f6bfb507cb38a5abcc158e0a3a095"
+          "source_digest": "a3050689a765805251d9f3e868a98ca1924b66c2582e8b4d01ac7d763360f34a",
+          "contract_digest": "slice-sha256/2:fd820327192aa12f742d03638dffd993c0a70c0366f555771079bd8582000a1c"
         },
         "slice": {
           "of": "constructs",
@@ -5848,6 +5848,10 @@
             {
               "kind": "type",
               "name": "mandate.core.SigningKeyId"
+            },
+            {
+              "kind": "type",
+              "name": "mandate.core.SigningKeyWindow"
             },
             {
               "kind": "type",
@@ -9821,6 +9825,80 @@
               "title": [
                 {
                   "inline": "code",
+                  "text": "SigningKeyWindow"
+                }
+              ],
+              "anchor": "signingkeywindow",
+              "about": {
+                "kind": "type",
+                "name": "mandate.core.SigningKeyWindow"
+              },
+              "blocks": [
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "code",
+                      "text": "mandate.core.SigningKeyWindow"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " is a record of two fields:"
+                    }
+                  ]
+                },
+                {
+                  "block": "list",
+                  "ordered": false,
+                  "items": [
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "not_before"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Timestamp"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "expires_at"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Timestamp"
+                          }
+                        ]
+                      }
+                    ]
+                  ]
+                }
+              ]
+            },
+            {
+              "block": "section",
+              "level": 3,
+              "title": [
+                {
+                  "inline": "code",
                   "text": "SpaceId"
                 }
               ],
@@ -10394,8 +10472,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "2f11d2daffc2d75bb4ca8c0485aedc56fb2a712cdaed6347fc48b8ba2b1f7ca6",
-          "contract_digest": "slice-sha256/2:6bf4b0d22c19d7ef08826bd3fbe010083c8c3ee4cb3003c0894f6f34a6a6144f"
+          "source_digest": "a3050689a765805251d9f3e868a98ca1924b66c2582e8b4d01ac7d763360f34a",
+          "contract_digest": "slice-sha256/2:2b51f36ad6deed69b27f96b8f4a58d89e7fa52aa62c2279e4d33347d6d3ce792"
         },
         "slice": {
           "of": "constructs",
@@ -12181,7 +12259,7 @@
                         "text": [
                           {
                             "inline": "code",
-                            "text": "not_before"
+                            "text": "window"
                           },
                           {
                             "inline": "text",
@@ -12189,26 +12267,7 @@
                           },
                           {
                             "inline": "code",
-                            "text": "Timestamp"
-                          }
-                        ]
-                      }
-                    ],
-                    [
-                      {
-                        "block": "prose",
-                        "text": [
-                          {
-                            "inline": "code",
-                            "text": "expires_at"
-                          },
-                          {
-                            "inline": "text",
-                            "text": " — "
-                          },
-                          {
-                            "inline": "code",
-                            "text": "Timestamp"
+                            "text": "mandate.core.SigningKeyWindow"
                           }
                         ]
                       }
@@ -12233,7 +12292,7 @@
                     },
                     {
                       "inline": "code",
-                      "text": "not_before < expires_at"
+                      "text": "window.not_before < window.expires_at"
                     },
                     {
                       "inline": "text",
@@ -15065,7 +15124,7 @@
                         "text": [
                           {
                             "inline": "code",
-                            "text": "not_before"
+                            "text": "window"
                           },
                           {
                             "inline": "text",
@@ -15073,26 +15132,7 @@
                           },
                           {
                             "inline": "code",
-                            "text": "Timestamp"
-                          }
-                        ]
-                      }
-                    ],
-                    [
-                      {
-                        "block": "prose",
-                        "text": [
-                          {
-                            "inline": "code",
-                            "text": "expires_at"
-                          },
-                          {
-                            "inline": "text",
-                            "text": " — "
-                          },
-                          {
-                            "inline": "code",
-                            "text": "Timestamp"
+                            "text": "mandate.core.SigningKeyWindow"
                           }
                         ]
                       }
@@ -15126,7 +15166,7 @@
                     },
                     {
                       "inline": "text",
-                      "text": "The key enters the contract Recorded, which is what rotation requires — RetireSigningKey denies a retirement with no overlapping replacement published for continued verification, and no replacement can exist until a key can be registered. SigningKeyRegistered carries the whole mandate.credential.SigningKey record — the key identity, the reference the deployment resolves to the material, the thumbprint of the public key, the algorithm name and the validity window — so the credential fold materializes the key from this event alone and reads no command input or response. The mandate.core.SigningKeyId is the kid the signer publishes and a credential names; the thumbprint is the RFC 7638 JWK thumbprint of the public key this outcome resolved from key_reference, so a revocation record naming a kid and a thumbprint is rebuilt from this log without resolving the material of a key that was revoked as compromised. Both are decided by this outcome and read from its response. No key material enters the contract — KeyReference is a handle to material the deployment holds, and no event here carries a secret. The algorithm is a name and not an admitted algorithm (UNMAPPED-ALGORITHM-POLICY); the deployment's verifier-side allowlist admits it or the registration is denied. A key reference, or the key material it resolves to, already held by a recorded key is refused in every state that key can be in, including Retired and Revoked, so material the deployment revoked never returns under a second identity. The window ordering is the entity's invariant, checked by the deciding handler; the synthesized accepted scenario builds an equal window and is expected to fail until ESS's synthesizer consults entity invariants (routed to the ESS wave). No command replaces a key in place; rotation registers the successor and retires the predecessor. "
+                      "text": "The key enters the contract Recorded, which is what rotation requires — RetireSigningKey denies a retirement with no overlapping replacement published for continued verification, and no replacement can exist until a key can be registered. SigningKeyRegistered carries the whole mandate.credential.SigningKey record — the key identity, the reference the deployment resolves to the material, the thumbprint of the public key, the algorithm name and the validity window — so the credential fold materializes the key from this event alone and reads no command input or response. The mandate.core.SigningKeyId is the kid the signer publishes and a credential names; the thumbprint is the RFC 7638 JWK thumbprint of the public key this outcome resolved from key_reference, so a revocation record naming a kid and a thumbprint is rebuilt from this log without resolving the material of a key that was revoked as compromised. Both are decided by this outcome and read from its response. No key material enters the contract — KeyReference is a handle to material the deployment holds, and no event here carries a secret. The algorithm is a name and not an admitted algorithm (UNMAPPED-ALGORITHM-POLICY); the deployment's verifier-side allowlist admits it or the registration is denied. A key reference, or the key material it resolves to, already held by a recorded key is refused in every state that key can be in, including Retired and Revoked, so material the deployment revoked never returns under a second identity. The window ordering is the entity's invariant, window.not_before < window.expires_at, checked by the deciding handler; the two instants are one mandate.core.SigningKeyWindow because an invariant compares two fields only as members of one struct, and the accepted outcome sets the window from the command's input, so the invariant reads a specified value. No command replaces a key in place; rotation registers the successor and retires the predecessor. "
                     },
                     {
                       "inline": "text",
@@ -15187,6 +15227,26 @@
                     {
                       "inline": "code",
                       "text": "mandate.credential.SigningKeyRegistered"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    },
+                    {
+                      "inline": "text",
+                      "text": " It sets "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "window"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " from "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "input.window"
                     },
                     {
                       "inline": "text",
@@ -18011,7 +18071,7 @@
                         "text": [
                           {
                             "inline": "code",
-                            "text": "not_before"
+                            "text": "window"
                           },
                           {
                             "inline": "text",
@@ -18019,26 +18079,7 @@
                           },
                           {
                             "inline": "code",
-                            "text": "Timestamp"
-                          }
-                        ]
-                      }
-                    ],
-                    [
-                      {
-                        "block": "prose",
-                        "text": [
-                          {
-                            "inline": "code",
-                            "text": "expires_at"
-                          },
-                          {
-                            "inline": "text",
-                            "text": " — "
-                          },
-                          {
-                            "inline": "code",
-                            "text": "Timestamp"
+                            "text": "mandate.core.SigningKeyWindow"
                           }
                         ]
                       }
@@ -19116,8 +19157,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "2f11d2daffc2d75bb4ca8c0485aedc56fb2a712cdaed6347fc48b8ba2b1f7ca6",
-          "contract_digest": "slice-sha256/2:6bf4b0d22c19d7ef08826bd3fbe010083c8c3ee4cb3003c0894f6f34a6a6144f"
+          "source_digest": "a3050689a765805251d9f3e868a98ca1924b66c2582e8b4d01ac7d763360f34a",
+          "contract_digest": "slice-sha256/2:2b51f36ad6deed69b27f96b8f4a58d89e7fa52aa62c2279e4d33347d6d3ce792"
         },
         "slice": {
           "of": "constructs",
@@ -22864,6 +22905,26 @@
                     },
                     {
                       "inline": "text",
+                      "text": " It sets "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "transitive"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " from "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "\"false\""
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    },
+                    {
+                      "inline": "text",
                       "text": " A test reaches it by constructing an input that satisfies no other outcome's condition."
                     }
                   ]
@@ -25097,8 +25158,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "2f11d2daffc2d75bb4ca8c0485aedc56fb2a712cdaed6347fc48b8ba2b1f7ca6",
-          "contract_digest": "slice-sha256/2:6bf4b0d22c19d7ef08826bd3fbe010083c8c3ee4cb3003c0894f6f34a6a6144f"
+          "source_digest": "a3050689a765805251d9f3e868a98ca1924b66c2582e8b4d01ac7d763360f34a",
+          "contract_digest": "slice-sha256/2:2b51f36ad6deed69b27f96b8f4a58d89e7fa52aa62c2279e4d33347d6d3ce792"
         },
         "slice": {
           "of": "constructs",
@@ -32184,8 +32245,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "2f11d2daffc2d75bb4ca8c0485aedc56fb2a712cdaed6347fc48b8ba2b1f7ca6",
-          "contract_digest": "slice-sha256/2:6bf4b0d22c19d7ef08826bd3fbe010083c8c3ee4cb3003c0894f6f34a6a6144f"
+          "source_digest": "a3050689a765805251d9f3e868a98ca1924b66c2582e8b4d01ac7d763360f34a",
+          "contract_digest": "slice-sha256/2:2b51f36ad6deed69b27f96b8f4a58d89e7fa52aa62c2279e4d33347d6d3ce792"
         },
         "slice": {
           "of": "constructs",
@@ -38512,8 +38573,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "2f11d2daffc2d75bb4ca8c0485aedc56fb2a712cdaed6347fc48b8ba2b1f7ca6",
-          "contract_digest": "slice-sha256/2:6bf4b0d22c19d7ef08826bd3fbe010083c8c3ee4cb3003c0894f6f34a6a6144f"
+          "source_digest": "a3050689a765805251d9f3e868a98ca1924b66c2582e8b4d01ac7d763360f34a",
+          "contract_digest": "slice-sha256/2:2b51f36ad6deed69b27f96b8f4a58d89e7fa52aa62c2279e4d33347d6d3ce792"
         },
         "slice": {
           "of": "constructs",
@@ -42456,8 +42517,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "2f11d2daffc2d75bb4ca8c0485aedc56fb2a712cdaed6347fc48b8ba2b1f7ca6",
-          "contract_digest": "slice-sha256/2:89845c0e0963fd70f09ee7fec78a7a43ced0650a5b71f849901b42ff676f8d43"
+          "source_digest": "a3050689a765805251d9f3e868a98ca1924b66c2582e8b4d01ac7d763360f34a",
+          "contract_digest": "slice-sha256/2:8354e20a2faa0b200e1100a418ce164390a347d097c76d33143f43a9ce4023f4"
         },
         "slice": {
           "of": "constructs",
@@ -47634,8 +47695,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "2f11d2daffc2d75bb4ca8c0485aedc56fb2a712cdaed6347fc48b8ba2b1f7ca6",
-          "contract_digest": "slice-sha256/2:6bf4b0d22c19d7ef08826bd3fbe010083c8c3ee4cb3003c0894f6f34a6a6144f"
+          "source_digest": "a3050689a765805251d9f3e868a98ca1924b66c2582e8b4d01ac7d763360f34a",
+          "contract_digest": "slice-sha256/2:2b51f36ad6deed69b27f96b8f4a58d89e7fa52aa62c2279e4d33347d6d3ce792"
         },
         "slice": {
           "of": "constructs",
@@ -49546,8 +49607,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "2f11d2daffc2d75bb4ca8c0485aedc56fb2a712cdaed6347fc48b8ba2b1f7ca6",
-          "contract_digest": "slice-sha256/2:6bf4b0d22c19d7ef08826bd3fbe010083c8c3ee4cb3003c0894f6f34a6a6144f"
+          "source_digest": "a3050689a765805251d9f3e868a98ca1924b66c2582e8b4d01ac7d763360f34a",
+          "contract_digest": "slice-sha256/2:2b51f36ad6deed69b27f96b8f4a58d89e7fa52aa62c2279e4d33347d6d3ce792"
         },
         "slice": {
           "of": "constructs",
@@ -56287,8 +56348,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "2f11d2daffc2d75bb4ca8c0485aedc56fb2a712cdaed6347fc48b8ba2b1f7ca6",
-          "contract_digest": "slice-sha256/2:6bf4b0d22c19d7ef08826bd3fbe010083c8c3ee4cb3003c0894f6f34a6a6144f"
+          "source_digest": "a3050689a765805251d9f3e868a98ca1924b66c2582e8b4d01ac7d763360f34a",
+          "contract_digest": "slice-sha256/2:2b51f36ad6deed69b27f96b8f4a58d89e7fa52aa62c2279e4d33347d6d3ce792"
         },
         "slice": {
           "of": "constructs",
@@ -57404,8 +57465,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "2f11d2daffc2d75bb4ca8c0485aedc56fb2a712cdaed6347fc48b8ba2b1f7ca6",
-          "contract_digest": "c10ff6000b18ab217e70b48ced7e45b185d42665b843db0c0d17aae4c5394ee5"
+          "source_digest": "a3050689a765805251d9f3e868a98ca1924b66c2582e8b4d01ac7d763360f34a",
+          "contract_digest": "8e0a32f55d4d8e19f7f2fe1db9b11cd76a8270d328c4bcf81ef33fa2fdaf8161"
         },
         "slice": {
           "of": "whole-model"
@@ -58313,8 +58374,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "2f11d2daffc2d75bb4ca8c0485aedc56fb2a712cdaed6347fc48b8ba2b1f7ca6",
-          "contract_digest": "c10ff6000b18ab217e70b48ced7e45b185d42665b843db0c0d17aae4c5394ee5"
+          "source_digest": "a3050689a765805251d9f3e868a98ca1924b66c2582e8b4d01ac7d763360f34a",
+          "contract_digest": "8e0a32f55d4d8e19f7f2fe1db9b11cd76a8270d328c4bcf81ef33fa2fdaf8161"
         },
         "slice": {
           "of": "whole-model"
@@ -58392,8 +58453,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "2f11d2daffc2d75bb4ca8c0485aedc56fb2a712cdaed6347fc48b8ba2b1f7ca6",
-          "contract_digest": "c10ff6000b18ab217e70b48ced7e45b185d42665b843db0c0d17aae4c5394ee5"
+          "source_digest": "a3050689a765805251d9f3e868a98ca1924b66c2582e8b4d01ac7d763360f34a",
+          "contract_digest": "8e0a32f55d4d8e19f7f2fe1db9b11cd76a8270d328c4bcf81ef33fa2fdaf8161"
         },
         "slice": {
           "of": "whole-model"

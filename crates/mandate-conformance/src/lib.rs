@@ -68,7 +68,7 @@ use mandate_types::{
     OrganizationMembershipId, PrincipalId, SpaceId, TeamId, TeamMembershipId, Timestamp, Uuid,
 };
 
-use crate::external::{Armed, Ledger, ScenarioVerifier};
+use crate::external::{Armed, Ledger};
 
 /// The instant every handler that needs one is served at.
 ///
@@ -248,14 +248,11 @@ impl Live {
             .consulted(&scenario, command, consulted, refused);
     }
 
-    /// The verifier a federation command is answered through.
-    #[must_use]
-    pub fn verifier(&mut self, command: &str) -> ScenarioVerifier {
-        if self.armed.take(command) {
-            ScenarioVerifier::refusing()
-        } else {
-            ScenarioVerifier::reading()
-        }
+    /// Record that the arming for `command` placed no fault: the standing decision already
+    /// answered the forced branch (`external.rs`, "An arming the input already decides").
+    pub fn input_decided(&mut self, command: &str) {
+        let scenario = self.scenario.clone();
+        self.ledger.decided_by_input(&scenario, command);
     }
 
     /// The credential identity an authentication's context carries, which the declared

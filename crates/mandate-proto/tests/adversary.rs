@@ -122,7 +122,7 @@ fn core_references(text: &str) -> BTreeSet<String> {
 /// this crate carries a wire contract for".
 ///
 /// `crates/mandate-types/src/inventory.rs:50` states the unit's position: "No authored
-/// `mandate.core` type is a wire-only contract, so this crate declares none of the 74. It
+/// `mandate.core` type is a wire-only contract, so this crate declares none of the 75. It
 /// carries the wire contract over the types it can reach, which the dependency policy
 /// limits to `mandate-types`." This case decides that position against the projection.
 #[test]

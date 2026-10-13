@@ -59,8 +59,8 @@ use mandate_types::{
     Audience, AuthorityScope, AuthorizationCodeId, CorrelationId, CredentialId, CredentialKind,
     CredentialProof, Duration, EpochSnapshotRef, Issuer, KeyReference, OAuthClientId,
     OrganizationId, PkceChallenge, PkceMethod, PrincipalId, RedirectUri, ResourceServerId,
-    RevocationGuarantee, SessionId, SigningAlgorithm, SigningKeyId, Timestamp, Transient, Uuid,
-    VerifiedContext,
+    RevocationGuarantee, SessionId, SigningAlgorithm, SigningKeyId, SigningKeyWindow, Timestamp,
+    Transient, Uuid, VerifiedContext,
 };
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -802,8 +802,10 @@ fn key_registration(reference: &str) -> RegisterSigningKey {
         context: context(organization(10)),
         key_reference: KeyReference::new(reference),
         algorithm: SigningAlgorithm::new("RS256"),
-        not_before: Timestamp::new("2026-09-19T00:00:00Z"),
-        expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+        window: SigningKeyWindow {
+            not_before: Timestamp::new("2026-09-19T00:00:00Z"),
+            expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+        },
     }
 }
 

@@ -19,7 +19,7 @@
 //!   transition's `from:` set — so what is decided is that the command declares a
 //!   `wrong-state` outcome and that the refusal took it.
 //! - One refusal is a **declared entity invariant** checked by the handler rather than a
-//!   denial phrase: `RegisterSigningKey`'s `not_before < expires_at`
+//!   denial phrase: `RegisterSigningKey`'s `window.not_before < window.expires_at`
 //!   (`credential.yaml`, `mandate.credential.SigningKey.invariants`). It is matched against
 //!   the invariant the IR declares for that entity. That the contract gives it no denial
 //!   phrase is a contract observation, recorded on its row rather than excused by an
@@ -78,8 +78,8 @@ use mandate_types::{
     Audience, AuthorityScope, CorrelationId, CredentialId, CredentialKind, CredentialProof,
     CredentialVerifier, Duration, EpochSnapshotRef, Issuer, KeyReference, OAuthClientId,
     OrganizationId, PkceChallenge, PkceMethod, PrincipalId, RedirectUri, ResourceServerId,
-    RevocationGuarantee, SessionId, SigningAlgorithm, SigningKeyId, Timestamp, Transient, Uuid,
-    VerifiedContext,
+    RevocationGuarantee, SessionId, SigningAlgorithm, SigningKeyId, SigningKeyWindow, Timestamp,
+    Transient, Uuid, VerifiedContext,
 };
 use serde_json::Value;
 
@@ -348,7 +348,10 @@ const ROWS: &[(&str, DenialClause, Source)] = &[
     (
         "mandate.credential.RegisterSigningKey",
         DenialClause::KeyWindowNotOrdered,
-        Source::EntityInvariant("mandate.credential.SigningKey", "not_before < expires_at"),
+        Source::EntityInvariant(
+            "mandate.credential.SigningKey",
+            "window.not_before < window.expires_at",
+        ),
     ),
     // --- RetireSigningKey
     (
@@ -2070,8 +2073,10 @@ fn every_refusal_the_three_key_commands_produce_has_a_row() {
             key_reference: KeyReference::new(reference),
             thumbprint: thumbprint.to_owned(),
             algorithm: SigningAlgorithm::new("RS256"),
-            not_before: Timestamp::new("2026-09-19T00:00:00Z"),
-            expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+            window: SigningKeyWindow {
+                not_before: Timestamp::new("2026-09-19T00:00:00Z"),
+                expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+            },
         }
     };
     let held = Projection::fold(&[
@@ -2094,8 +2099,10 @@ fn every_refusal_the_three_key_commands_produce_has_a_row() {
         context: context(organization(10)),
         key_reference: KeyReference::new(reference),
         algorithm: SigningAlgorithm::new(algorithm),
-        not_before: Timestamp::new("2026-09-19T00:00:00Z"),
-        expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+        window: SigningKeyWindow {
+            not_before: Timestamp::new("2026-09-19T00:00:00Z"),
+            expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+        },
     };
 
     assert_clauses_match_rows(
@@ -2103,8 +2110,10 @@ fn every_refusal_the_three_key_commands_produce_has_a_row() {
         &[
             // The declared entity invariant, checked by the handler.
             register(&RegisterSigningKey {
-                not_before: Timestamp::new("2026-12-31T00:00:00Z"),
-                expires_at: Timestamp::new("2026-09-19T00:00:00Z"),
+                window: SigningKeyWindow {
+                    not_before: Timestamp::new("2026-12-31T00:00:00Z"),
+                    expires_at: Timestamp::new("2026-09-19T00:00:00Z"),
+                },
                 ..candidate("kms://three", "RS256")
             }),
             register(&candidate("kms://three", "ES256")),

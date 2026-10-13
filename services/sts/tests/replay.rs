@@ -52,7 +52,7 @@ use mandate_types::{
     Audience, AuthorityScope, CorrelationId, CredentialId, CredentialKind, CredentialProof,
     Duration, EpochSnapshotRef, Issuer, KeyReference, OAuthClientId, OrganizationId, PkceChallenge,
     PkceMethod, PrincipalId, RedirectUri, RevocationGuarantee, SessionId, SigningAlgorithm,
-    Timestamp, Transient, Uuid, VerifiedContext,
+    SigningKeyWindow, Timestamp, Transient, Uuid, VerifiedContext,
 };
 
 fn uuid(tag: u8) -> Uuid {
@@ -322,8 +322,10 @@ fn the_signing_key_record_is_rebuilt_through_both_terminal_states() {
                         context: context(),
                         key_reference: KeyReference::new(reference),
                         algorithm: SigningAlgorithm::new("RS256"),
-                        not_before: Timestamp::new("2026-09-19T00:00:00Z"),
-                        expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+                        window: SigningKeyWindow {
+                            not_before: Timestamp::new("2026-09-19T00:00:00Z"),
+                            expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+                        },
                     },
                     &deployment.live,
                     &ResolvableKeys,
@@ -345,8 +347,10 @@ fn the_signing_key_record_is_rebuilt_through_both_terminal_states() {
             key_reference: KeyReference::new("kms://one"),
             thumbprint: "thumb-one".to_owned(),
             algorithm: SigningAlgorithm::new("RS256"),
-            not_before: Timestamp::new("2026-09-19T00:00:00Z"),
-            expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+            window: SigningKeyWindow {
+                not_before: Timestamp::new("2026-09-19T00:00:00Z"),
+                expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+            },
             state: SigningKeyState::Recorded,
         })
     );

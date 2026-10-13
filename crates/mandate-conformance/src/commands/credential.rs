@@ -304,8 +304,7 @@ pub fn register_signing_key(
         context: node::field(&request.input, "context")?,
         key_reference: node::field(&request.input, "key_reference")?,
         algorithm: node::field(&request.input, "algorithm")?,
-        not_before: node::field(&request.input, "not_before")?,
-        expires_at: node::field(&request.input, "expires_at")?,
+        window: node::field(&request.input, "window")?,
     };
     let administration = live.key_administration.clone();
     let material = live.key_material;

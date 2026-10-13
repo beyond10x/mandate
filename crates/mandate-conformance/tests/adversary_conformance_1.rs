@@ -281,6 +281,38 @@ fn every_armed_injection_changes_the_scenario_it_was_armed_for() {
     }
     let unarmed = Executed::of(&document.to_string(), DIGEST).expect("the suite executes");
 
+    // Retargeted under ESS 0.59.0. A forced denial can only be told apart from the standing
+    // one when the synthesized input is one the command would otherwise admit. Where the
+    // synthesizer arranges no prerequisite the input names — `RegisterResourceServer`'s
+    // `allowed_exchange_sources` names a resource server that does not exist — the command's
+    // own `accepted` scenario fails, the authored ledger attributes that failure to
+    // `story:ess-synthesizer-prerequisites`, and its `denied` scenario is refused by the
+    // standing reader with or without the arming. Those rows are set aside by that computed
+    // rule, not by name, and the case must still find a row the arming flips.
+    let ledger: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(repository().join("contracts/expected-outcomes.json"))
+            .expect("the authored ledger is readable"),
+    )
+    .expect("the authored ledger is JSON");
+    let unadmitted: BTreeSet<String> = ledger["scenarios"]
+        .as_array()
+        .expect("the authored ledger lists its scenarios")
+        .iter()
+        .filter(|row| {
+            row["outcome"] == "failed" && row["blocked_on"] == "story:ess-synthesizer-prerequisites"
+        })
+        .filter_map(|row| row["id"].as_str()?.strip_suffix("/outcome/accepted"))
+        .map(str::to_owned)
+        .collect();
+    let (set_aside, armed): (BTreeMap<String, String>, BTreeMap<String, String>) = armed
+        .into_iter()
+        .partition(|(_, command)| unadmitted.contains(command));
+    assert!(
+        armed.contains_key("mandate.identity.IncrementSecurityEpoch/outcome/denied"),
+        "the forced denial this case is anchored on is no longer recorded `armed` (set aside: \
+         {set_aside:?}, checked: {armed:?})"
+    );
+
     let with = terminal(&executed.report);
     let without = terminal(&unarmed.report);
     let inert: Vec<String> = armed

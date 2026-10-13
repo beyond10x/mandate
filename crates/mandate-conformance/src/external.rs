@@ -39,6 +39,7 @@
 //! | `armed` | a reader was substituted and it answered something the standing reader could not have |
 //! | `armed-unrefused` | a reader was substituted and consulted `consulted` times, and refused nothing |
 //! | `armed-unreached` | the arming lapsed without a reader ever being consulted: the command refused, or decided, before reading anything |
+//! | `input-decided` | no fault was placed: the command, decided over the standing readers, already answered the forced branch |
 //! | `refused-before-dispatch` | there was no reader to substitute; see above |
 //! | `unsupported-command` | no crate realizes the command |
 //!
@@ -69,6 +70,25 @@
 //! same without the arming. Whether it would have is a second run, which `injections.json`
 //! is not, and `tests/adversary_conformance_1.rs` is where that comparison is actually
 //! made.
+//!
+//! # An arming the input already decides places no fault
+//!
+//! ESS compiles an *authored* act whose `outcome:` names an `external:` branch into a
+//! `configure_external_outcome` for that one call (beyond10x/ess#243), and every `denied` of
+//! `mandate.federation` is declared `external:`. An authored refusal is usually one its own
+//! input decides — an audience that is not the client, a registration that collides with
+//! another organization's rule — and it states the reason production gives. A fault placed
+//! first answers a different one, or none: the refusing [`ScenarioVerifier`] says
+//! `InvalidCredential` before the audience is compared, and an empty substituted connection
+//! store admits the colliding registration.
+//!
+//! So the `mandate.federation` commands decide over the **standing** readers first. When that
+//! decision already reaches the forced branch it is the answer, nothing is substituted, and
+//! the row reads `input-decided`; only a command the input would have admitted is decided
+//! again over the substituted reader. The trial runs over copies of the allocator and the
+//! session issuer and appends nothing, so an admitted trial leaves no trace. The other
+//! domains keep the fault-first rule: no authored scenario of theirs answers differently
+//! armed and unarmed.
 //!
 //! # Every double is written down
 //!
@@ -196,6 +216,20 @@ impl Ledger {
         } else {
             "armed-unreached"
         };
+    }
+
+    /// Record that the arming for `command` placed no fault, because the standing decision
+    /// already answered the forced branch.
+    pub fn decided_by_input(&mut self, scenario: &str, command: &str) {
+        if let Some(row) = self
+            .injections
+            .iter_mut()
+            .rev()
+            .find(|held| held.scenario == scenario && held.command == command)
+        {
+            row.consulted = 0;
+            row.kind = "input-decided";
+        }
     }
 
     /// Record a scenario this target could not satisfy, once.

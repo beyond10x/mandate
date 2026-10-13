@@ -342,7 +342,7 @@ fn a_receipt_naming_another_toolchain_is_refused() {
     let root = fixture("repinned-ess");
     let path = root.join("generated/coverage/receipt.json");
     let body = fs::read_to_string(&path).expect("the fixture receipt");
-    let repinned = body.replace("\"ess 0.26.0\"", "\"ess 0.1.0\"");
+    let repinned = body.replace("\"ess 0.59.0\"", "\"ess 0.1.0\"");
     assert_ne!(repinned, body, "the recorded toolchain was changed");
     fs::write(&path, repinned).expect("write the fixture receipt");
     let error = failure(&root, false);
@@ -1186,8 +1186,10 @@ fn walk(directory: &Path, into: &mut Vec<PathBuf>) {
 /// (`review-result:wave-d-conform-gate-adversary-2` F1/F2).
 ///
 /// The fixture empties the list rather than assuming it is empty, and carries the corpus that
-/// emptied specification yields: 146 is the synthesized-only total, and it is the total only
-/// while no authored file is listed.
+/// emptied specification yields: the synthesized-only total, which is the committed suite less
+/// its authored scenarios (146 under ESS 0.26.0, 180 under 0.59.0), and is the total only while
+/// no authored file is listed. It is read off the committed suite rather than written down, for
+/// the reason [`carried`] gives.
 #[test]
 fn a_comment_beside_the_empty_scenarios_list_is_not_a_scenario() {
     let root = fixture("commented-empty-list");
@@ -1199,9 +1201,13 @@ fn a_comment_beside_the_empty_scenarios_list_is_not_a_scenario() {
     reseal_receipt(&root);
     let report = conform::decide(&root, false, &seams())
         .expect("a comment beside the empty list is the same empty list");
+    let synthesized = scenarios(&repo())
+        .iter()
+        .filter(|id| !id.contains("/authored/"))
+        .count();
     assert!(
-        report.contains("146"),
-        "the suite is the same one:\n{report}"
+        report.contains(&format!("conformance: {synthesized} scenarios synthesized")),
+        "the suite is the synthesized-only {synthesized}:\n{report}"
     );
 }
 

@@ -36,7 +36,7 @@ use mandate_token::projection::{
 };
 use mandate_token::signing_real::AllowedAlgorithms;
 use mandate_types::{
-    DenialReason, KeyReference, SigningAlgorithm, SigningKeyId, Timestamp, VerifiedContext,
+    DenialReason, KeyReference, SigningAlgorithm, SigningKeyId, SigningKeyWindow, VerifiedContext,
 };
 use serde::Serialize;
 
@@ -99,10 +99,8 @@ pub struct RegisterSigningKey {
     pub key_reference: KeyReference,
     /// The declared `algorithm`.
     pub algorithm: SigningAlgorithm,
-    /// The declared `not_before`.
-    pub not_before: Timestamp,
-    /// The declared `expires_at`.
-    pub expires_at: Timestamp,
+    /// The declared `window`.
+    pub window: SigningKeyWindow,
 }
 
 /// `mandate.credential.RetireSigningKey`.
@@ -183,12 +181,12 @@ impl SigningKeyAdministration {
         material: &impl KeyMaterialResolver,
         allocator: &mut impl IdentityAllocator,
     ) -> Result<SigningKeyRecorded, Denied> {
-        // The entity invariant `not_before < expires_at`, "checked by the deciding handler"
+        // The entity invariant `window.not_before < window.expires_at`, "checked by the deciding handler"
         // (`credential.yaml`, `RegisterSigningKey`). Decided as instants: the declared
         // `date-time` form admits offsets, and its byte order is not its chronological one.
         // A value that names no instant cannot be shown to be before another, so it fails
         // closed here rather than being compared as text.
-        if instant::is_before(&input.not_before, &input.expires_at) != Some(true) {
+        if instant::is_before(&input.window.not_before, &input.window.expires_at) != Some(true) {
             return Err(Denied::new(
                 DenialReason::Denied,
                 DenialClause::KeyWindowNotOrdered,
@@ -241,8 +239,7 @@ impl SigningKeyAdministration {
                 key_reference: input.key_reference.clone(),
                 thumbprint,
                 algorithm: input.algorithm.clone(),
-                not_before: input.not_before.clone(),
-                expires_at: input.expires_at.clone(),
+                window: input.window.clone(),
             },
         })
     }
@@ -292,8 +289,8 @@ pub fn admitted_for_verification(key: &SigningKey, now: i64, keys: &impl Signing
 ///
 /// A bound that names no instant fails closed, as every comparison in this crate does.
 fn inside_window(key: &SigningKey, now: i64) -> bool {
-    instant::seconds_of(&key.not_before).is_some_and(|starts| starts <= now)
-        && instant::seconds_of(&key.expires_at).is_some_and(|ends| now < ends)
+    instant::seconds_of(&key.window.not_before).is_some_and(|starts| starts <= now)
+        && instant::seconds_of(&key.window.expires_at).is_some_and(|ends| now < ends)
 }
 
 /// Realize `mandate.credential.RetireSigningKey`.
