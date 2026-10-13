@@ -18,6 +18,10 @@
 //! commands returned and asserts the result equals the projection those same commands
 //! wrote, for all six.
 //!
+//! [`workload`] carries the thirteenth payload, `mandate.workload.WorkloadIdentityRevoked`,
+//! with the same three halves; its record has no declared creating command and is read
+//! through a port (see that module).
+//!
 //! # Credential containment
 //!
 //! The four accepted `mandate.core` records declared in this file —
@@ -65,6 +69,7 @@
 
 pub mod graph;
 pub mod tenancy;
+pub mod workload;
 
 pub use graph::ResourceEvent;
 pub use tenancy::TenancyEvent;
@@ -509,4 +514,11 @@ mandate_types::realizes! {
     "mandate.tenancy.CreateSpace" => crate::tenancy::Tenancy,
     "mandate.tenancy.RetireSpace" => @ crate::tenancy::Tenancy::decide_retire_space,
     "mandate.tenancy.Denied" => crate::tenancy::Denied,
+    // `mandate.workload`: the revocation, its event and the domain's refusal. The record and
+    // its lifecycle enum are not registered: no command creates a `WorkloadIdentity`, so the
+    // record has no declared writer and stays on `story:declared-writers`
+    // (`crate::workload`, "The record is read through a port").
+    "mandate.workload.RevokeWorkloadIdentity" => crate::workload::decide_revoke_workload_identity,
+    "mandate.workload.WorkloadIdentityRevoked" => crate::workload::WorkloadEvent::IdentityRevoked,
+    "mandate.workload.Denied" => crate::workload::Denied,
 }

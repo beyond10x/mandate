@@ -532,6 +532,10 @@ pub const PORTS: &[(&str, &str)] = &[
     ("mandate.tenancy.RemoveOrganizationMembership", NO_PORT),
     ("mandate.tenancy.AddTeamMembership", NO_PORT),
     ("mandate.tenancy.RemoveTeamMembership", NO_PORT),
+    (
+        "mandate.workload.RevokeWorkloadIdentity",
+        "mandate_model::workload::WorkloadIdentityRead",
+    ),
 ];
 
 /// What a command that consults no port has instead of one.
@@ -943,6 +947,18 @@ impl mandate_graph::topology::ResourceLookup for Substituted {
         Err(mandate_graph::port::GraphError::CouldNotAnswer(
             mandate_graph::port::Unanswered::ResourceUnresolved,
         ))
+    }
+}
+
+impl mandate_model::workload::WorkloadIdentityRead for Substituted {
+    /// Absence: an empty store holds no workload identity, which is what the standing fold
+    /// answers too while no command creates one.
+    fn workload_identity(
+        &self,
+        _id: &mandate_types::WorkloadIdentityId,
+    ) -> Option<mandate_model::workload::WorkloadIdentity> {
+        self.read();
+        None
     }
 }
 

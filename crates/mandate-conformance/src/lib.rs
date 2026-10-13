@@ -14,7 +14,7 @@
 //!
 //! §8 requires that observations from one scenario cannot satisfy another, and the cheapest
 //! honest way to get it is a fresh [`Live`] per `begin_scenario`: an empty federation event
-//! log and its projection, an empty `IdentityLog`, empty `Tenancy` and `Topology` folds, an
+//! log and its projection, an empty `IdentityLog`, empty `Tenancy`, `Topology` and `WorkloadIdentities` folds, an
 //! empty authorization-code log, and the doubles the ports have no adapter for. An accepted
 //! command appends its event to the log and the projection is **refolded from the log**,
 //! which is `docs/adr/0009-event-sourced-persistence.md`'s rule executed rather than
@@ -54,6 +54,7 @@ use mandate_graph::double::GraphDouble;
 use mandate_identity::IdentityLog;
 use mandate_model::graph::{ResourceEvent, Topology};
 use mandate_model::tenancy::{Tenancy, TenancyEvent};
+use mandate_model::workload::{WorkloadEvent, WorkloadIdentities};
 use mandate_policy::double::PolicyDouble;
 use mandate_sts::binding::RecordedSessions;
 use mandate_sts::code::{CodeIssuance, CodeLifetime, RecordedClients};
@@ -131,6 +132,11 @@ pub struct Live {
     pub topology_log: Vec<ResourceEvent>,
     /// The resource read model.
     pub topology: Topology,
+    /// The workload event log; the workload projection is rebuilt from it.
+    pub workload_log: Vec<WorkloadEvent>,
+    /// The `mandate.workload` read model. It starts empty: no command creates a
+    /// `WorkloadIdentity` and no establish step arranges one.
+    pub workloads: WorkloadIdentities,
     /// The credential event log; the STS read model is rebuilt from it.
     pub credential_log: Vec<CredentialEvent>,
     /// The `mandate.credential` read model every STS handler decides against.
@@ -191,6 +197,8 @@ impl Live {
             tenancy: Tenancy::new(),
             topology_log: Vec::new(),
             topology: Topology::new(),
+            workload_log: Vec::new(),
+            workloads: WorkloadIdentities::default(),
             credential_log: Vec::new(),
             credentials: mandate_token::projection::Projection::default(),
             sts_ids: StsIds::new(),
@@ -410,6 +418,31 @@ impl Live {
         unchanged(
             Topology::fold(&self.topology_log) == self.topology,
             "mandate.graph",
+        )
+    }
+
+    /// Append a workload event and refold the workload projection from the log.
+    ///
+    /// The fold starts from no record: no command creates a `WorkloadIdentity`.
+    ///
+    /// # Errors
+    ///
+    /// None today; the signature is the other domains' so a refusing fold has somewhere to go.
+    pub fn append_workload(&mut self, event: WorkloadEvent) -> Result<(), TargetError> {
+        self.workload_log.push(event);
+        self.workloads = WorkloadIdentities::fold(std::iter::empty(), &self.workload_log);
+        Ok(())
+    }
+
+    /// Show that a refused workload command wrote nothing.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`TargetError::Unavailable`] when the fold moved.
+    pub fn workloads_unchanged(&self) -> Result<(), TargetError> {
+        unchanged(
+            WorkloadIdentities::fold(std::iter::empty(), &self.workload_log) == self.workloads,
+            "mandate.workload",
         )
     }
 

@@ -180,7 +180,7 @@
 {"id":"mandate.tenancy.Space/transition/retire/by/mandate.tenancy.RetireSpace/accepted","outcome":"failed","blocked_on":"story:ess-synthesizer-prerequisites"},
 {"id":"mandate.tenancy.Team/transition/retire/by/mandate.tenancy.RetireTeam/accepted","outcome":"failed","blocked_on":"story:ess-synthesizer-prerequisites"},
 {"id":"mandate.tenancy.TeamMembership/transition/remove/by/mandate.tenancy.RemoveTeamMembership/accepted","outcome":"failed","blocked_on":"story:ess-synthesizer-prerequisites"},
-{"id":"mandate.workload.RevokeWorkloadIdentity/outcome/denied","outcome":"unsupported","blocked_on":"story:agent-security"},
-{"id":"mandate.workload.RevokeWorkloadIdentity/outcome/wrong-state","outcome":"unsupported","blocked_on":"story:agent-security"}
+{"id":"mandate.workload.RevokeWorkloadIdentity/outcome/denied","outcome":"passed"},
+{"id":"mandate.workload.RevokeWorkloadIdentity/outcome/wrong-state","outcome":"failed","blocked_on":"story:unknown-instance-non-disclosing"}
   ]
 }

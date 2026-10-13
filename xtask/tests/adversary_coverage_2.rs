@@ -190,9 +190,11 @@ fn every_declared_entry_names_a_story_the_store_has_not_already_closed() {
     // elements on story:agent-security moved from `deferred` to `declared` on that story.
     // Amendment: story:agent-security registered `Execution` and `Approval` and their two
     // lifecycles, which moved from `declared` on story:declared-writers to `implemented`.
+    // Amendment: story:agent-security realized `RevokeWorkloadIdentity`, its event and
+    // `mandate.workload.Denied`, which moved from `declared` to `implemented`.
     assert!(
-        declared >= 37,
-        "this case found {declared} declared entries and the manifest holds 37"
+        declared >= 34,
+        "this case found {declared} declared entries and the manifest holds 34"
     );
     assert!(
         dead.is_empty(),

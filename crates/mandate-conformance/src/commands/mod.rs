@@ -22,6 +22,7 @@ pub mod federation;
 pub mod graph;
 pub mod identity;
 pub mod tenancy;
+pub mod workload;
 
 use ess_conformance::target::{
     DeclaredErrorValue, ObservedEvent, SemanticCommandRequest, SemanticCommandResult, TargetError,
@@ -72,6 +73,7 @@ pub const REALIZED: &[&str] = &[
     "mandate.tenancy.RemoveTeamMembership",
     "mandate.tenancy.RetireSpace",
     "mandate.tenancy.RetireTeam",
+    "mandate.workload.RevokeWorkloadIdentity",
 ];
 
 /// Every command the contract declares that this target answers `Unsupported` for, with the
@@ -208,11 +210,6 @@ pub const UNREALIZED: &[(&str, &str, &str)] = &[
         "story:graph-policy-adapter",
         "policy administration is a double; no command supersedes a policy",
     ),
-    (
-        "mandate.workload.RevokeWorkloadIdentity",
-        "story:agent-security",
-        "mandate.workload is projected by nothing on any dependency line",
-    ),
 ];
 
 /// The story and the reason an unrealized command is blocked on, when it is one.
@@ -319,6 +316,9 @@ pub fn execute(
         }
         "mandate.tenancy.AddTeamMembership" => tenancy::add_team_membership(live, request),
         "mandate.tenancy.RemoveTeamMembership" => tenancy::remove_team_membership(live, request),
+        "mandate.workload.RevokeWorkloadIdentity" => {
+            workload::revoke_workload_identity(live, request)
+        }
         other => Err(TargetError::unavailable(
             format!("invoking `{other}`"),
             "this target dispatches only the commands `systems/mandate` declares, and the \
