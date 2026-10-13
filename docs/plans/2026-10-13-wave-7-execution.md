@@ -11,14 +11,18 @@ revocation, and the evaluator gaps wave 5a handed on.
 ## Spec first (coordinator, before any unit)
 
 `systems/mandate/domains/delegation.yaml`, `SupersedeAgentCapabilityCeiling`: today it takes only
-`{id, context}` and no command creates a ceiling, so ceiling data has no writer. Decided by the
-coordinator: the command carries the replacement record (`agent_id`, `organization_id` optional,
-`allowed_actions`, `denied_actions`, `scope`, `max_delegation_ttl`), creates it, and moves
-`supersede` over the current ceiling on the same `(agent_id, organization_id)` key, none for a first
-ceiling. The event carries the full record. This is the one form in which "ceiling data enters only
-through `SupersedeAgentCapabilityCeiling`" holds for a first ceiling. The `id` input goes, so that
-command's `wrong-state` scenario goes too. Validate under ESS 0.59.0, regenerate, update the suite
-ledgers, commit on the integration branch; units are cut after it.
+`{id, context}` and no command creates a ceiling, so ceiling data has no writer. The intended model:
+the command carries the replacement record, creates it in `Recorded`, and moves `supersede` over the
+current ceiling on the same `(agent_id, organization_id)` key, none for a first ceiling.
+
+Measured 2026-10-13 under ESS 0.59.0 (`ess/24`): each half validates on its own, the two together do
+not. `affects:` beside `creates:` is refused (`ESS-COMMAND-009`, `unsupported_construct`: a secondary
+effect is admitted beside `moves:`, `updates:` and `deletes:` only), and an `affects:` entry cannot
+create. Creating without the move leaves the `supersede` transition with no cause
+(`ESS-ENTITY-005`, `missing_causation`). The specification therefore stays as it is in this wave;
+the draft is kept outside the repository and the construct is requested of ESS.
+`SupersedeAgentCapabilityCeiling` stays deferred on `story:agent-security`; U1's tests arrange
+ceilings as fixtures through the read port.
 
 ## Units
 
@@ -26,7 +30,7 @@ ledgers, commit on the integration branch; units are cut after it.
 |---|---|---|
 | U1 `agent-pdp` | `crates/mandate-authz/src/{agent,delegation,context,evaluate}.rs`, the Check part of `lib.rs`; `Execution` and `Approval` projections; the `Pdp` construction in `services/control-plane/src/authority.rs` and `crates/mandate-conformance/src/commands/authz.rs`; the `autonomous-ceiling` case | first, parallel with U3 |
 | U3 `workload-revocation` | `crates/mandate-model/src/workload.rs` (new), its `lib.rs` lines and tests; `contracts/obligations/model.json`; `crates/mandate-conformance/src/commands/workload.rs` (new) | parallel with U1 |
-| U2 `delegation-commands` | the six handlers, events, fold and `mandate.delegation.Denied` in `crates/mandate-authz/src/{command,event}.rs` (new) and the delegation part of `lib.rs`; `crates/mandate-conformance/src/commands/delegation.rs` (new); the six commands in `contracts/obligations/authz.json` | after U1 (same files, and the fold implements U1's widened read port) |
+| U2 `delegation-commands` | five handlers (all but `SupersedeAgentCapabilityCeiling`), events, fold and `mandate.delegation.Denied` in `crates/mandate-authz/src/{command,event}.rs` (new) and the delegation part of `lib.rs`; `crates/mandate-conformance/src/commands/delegation.rs` (new); those five commands in `contracts/obligations/authz.json` | after U1 (same files, and the fold implements U1's widened read port) |
 
 Shared, merged by the coordinator (U3, then U1, then U2): the conformance registries
 (`commands/mod.rs`, `external.rs`, `lib.rs`), `contracts/expected-outcomes.json`,
