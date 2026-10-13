@@ -1154,6 +1154,26 @@ fn every_port_method_the_substituted_reader_implements_counts_its_read() {
             }),
         ),
         (
+            "WorkloadIdentityRead::bindings",
+            Box::new(|r: &Substituted| {
+                let _ = WorkloadIdentityRead::bindings(
+                    r,
+                    &mandate_types::TrustDomain::new("trust_domain"),
+                    &ExternalSubject::new("external_subject"),
+                );
+            }),
+        ),
+        (
+            "TrustDomainVerifier::verify",
+            Box::new(|r: &Substituted| {
+                let _ = mandate_authz::workload::TrustDomainVerifier::verify(
+                    r,
+                    &mandate_types::CredentialProof::from_bytes(b"proof".to_vec()),
+                    &mandate_types::Timestamp::new("2026-01-01T00:00:00Z"),
+                );
+            }),
+        ),
+        (
             "DelegationAdmission::admits_delegation",
             Box::new(|r: &Substituted| {
                 let _ = DelegationAdmission::admits_delegation(r, &delegation_context());

@@ -497,6 +497,164 @@
       "story": "story:agent-security",
       "clauses": [],
       "no_state_change": []
+    },
+    {
+      "command": "mandate.workload.AuthenticateWorkload",
+      "status": "implemented",
+      "clauses": [
+        {
+          "clause": "The workload proof is malformed",
+          "tests": [],
+          "blocked_on": "story:agent-security"
+        },
+        {
+          "clause": "unverified by its trust domain",
+          "tests": [],
+          "blocked_on": "story:agent-security"
+        },
+        {
+          "clause": "expired",
+          "tests": [
+            {
+              "id": "mandate-authz::workload_authentication::an_expired_proof_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "it resolves to no workload identity",
+          "tests": [
+            {
+              "id": "mandate-authz::workload_authentication::a_proof_that_resolves_to_no_workload_identity_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "a revoked one",
+          "tests": [
+            {
+              "id": "mandate-authz::workload_authentication::a_revoked_workload_identity_refuses",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "one in another organization than the agent",
+          "tests": [
+            {
+              "id": "mandate-authz::workload_authentication::a_workload_identity_of_another_organization_than_the_agent_is_refused",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-authz::workload_authentication::an_agent_of_another_organization_refuses_like_an_unrecorded_one",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "the agent is unrecorded",
+          "tests": [
+            {
+              "id": "mandate-authz::workload_authentication::an_unrecorded_agent_is_refused",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-authz::workload_authentication::the_agent_is_never_derived_from_the_workload_proof",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "retired",
+          "tests": [
+            {
+              "id": "mandate-authz::workload_authentication::a_retired_agent_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "its principal disabled",
+          "tests": [
+            {
+              "id": "mandate-authz::workload_authentication::an_agent_whose_principal_is_disabled_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "a named execution is unrecorded",
+          "tests": [
+            {
+              "id": "mandate-authz::workload_authentication::an_unrecorded_execution_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "completed, expired",
+          "tests": [
+            {
+              "id": "mandate-authz::workload_authentication::a_completed_execution_is_refused",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-authz::workload_authentication::an_expired_execution_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "bound to another agent or organization",
+          "tests": [
+            {
+              "id": "mandate-authz::workload_authentication::an_execution_of_another_agent_is_refused",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-authz::workload_authentication::an_execution_of_another_organization_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "Each is refused alike, so a caller learns only that the pair is not admitted",
+          "tests": [
+            {
+              "id": "mandate-authz::workload_authentication::every_refusal_is_one_denied_with_one_reason",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        }
+      ],
+      "no_state_change": [
+        {
+          "id": "mandate-authz::workload_authentication::a_refusal_writes_nothing",
+          "kind": "no-state-change",
+          "path": "real"
+        }
+      ],
+      "denial_audit": {
+        "status": "deferred",
+        "blocker": "decision-blocker:audit-routing",
+        "tests": []
+      }
     }
   ],
   "addendum": [],

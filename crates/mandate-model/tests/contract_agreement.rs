@@ -35,8 +35,8 @@
 //!   by ESS's `declaration_name` rule — the round trip cannot do this, because the six
 //!   `{context, id}` payloads are structurally identical and reproduce each other's
 //!   documents exactly;
-//! * that [`mandate_model::ESS_REALIZATIONS`] names exactly the 42 elements this crate
-//!   implements — these nineteen, the six projections' lifecycle enums, the four accepted
+//! * that [`mandate_model::ESS_REALIZATIONS`] names exactly the 43 elements this crate
+//!   implements — these twenty, the six projections' lifecycle enums, the four accepted
 //!   `mandate.core` records, and the eleven
 //!   commands and two refusals it decides — that each is a compiled declaration under
 //!   `generated/schema`, and that each symbol is the one its element name says it should
@@ -63,7 +63,7 @@ use mandate_model::workload::WorkloadEvent;
 use mandate_types::{
     Audience, CorrelationId, CredentialId, DelegationId, ExecutionId, MembershipContributionId,
     OrganizationId, OrganizationMembershipId, PrincipalId, ResourceId, ResourceRef, ResourceType,
-    SpaceId, TeamId, TeamMembershipId, VerifiedContext, WorkloadIdentityId,
+    SpaceId, TeamId, TeamMembershipId, Timestamp, VerifiedContext, WorkloadIdentityId,
 };
 
 const SCHEMA: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../generated/schema");
@@ -510,8 +510,27 @@ fn payload_agreements() -> Vec<Agreement> {
             ),
         ]);
 
-        // `parent` is the only optional either event enum declares; both forms are
-        // crossed with both forms of the context.
+        // `execution` is the authentication payload's one optional; both forms are crossed
+        // with both forms of the context.
+        for execution in [
+            Some(ExecutionId::parse(&uuid(0x203)).expect("execution identity")),
+            None,
+        ] {
+            agreements.push(payload!(
+                events::MandateWorkloadWorkloadAuthenticated,
+                WorkloadEvent::Authenticated {
+                    workload: WorkloadIdentityId::parse(&uuid(0x200)).expect("workload identity"),
+                    runtime: PrincipalId::parse(&uuid(0x201)).expect("runtime principal"),
+                    agent: PrincipalId::parse(&uuid(0x202)).expect("agent principal"),
+                    organization: context.organization,
+                    execution,
+                    authenticated_at: Timestamp::new("2026-06-01T12:00:00Z"),
+                },
+            ));
+        }
+
+        // `parent` is the resource enum's one optional; both forms are crossed with both
+        // forms of the context.
         for parent in [Some(resource(0x101)), None] {
             agreements.push(payload!(
                 events::MandateGraphResourceRegistered,
@@ -531,7 +550,7 @@ fn payload_agreements() -> Vec<Agreement> {
     agreements
 }
 
-/// The thirteen payloads the compiled model declares for this crate's three event enums.
+/// The fourteen payloads the compiled model declares for this crate's three event enums.
 fn declared_payloads() -> BTreeSet<String> {
     schema_names("events")
         .into_iter()
@@ -646,7 +665,7 @@ fn every_projection_round_trips_exactly_into_its_generated_entity_shape() {
 #[test]
 fn every_declared_payload_round_trips_exactly_into_its_generated_event_shape() {
     let declared = declared_payloads();
-    assert_eq!(declared.len(), 13, "declared payloads: {declared:?}");
+    assert_eq!(declared.len(), 14, "declared payloads: {declared:?}");
     let covered: BTreeSet<String> = payload_agreements()
         .iter()
         .map(|agreement| agreement.ess_name.to_owned())
@@ -693,7 +712,7 @@ fn an_absent_optional_is_an_absent_key_and_never_null() {
         .into_iter()
         .chain(payload_agreements())
         .collect();
-    assert_eq!(agreements.len(), 44, "cases: {}", agreements.len());
+    assert_eq!(agreements.len(), 48, "cases: {}", agreements.len());
     for agreement in &agreements {
         assert_no_null(agreement.ess_name, "", &agreement.emitted);
         let document = schema(agreement.directory, agreement.ess_name);
@@ -746,7 +765,7 @@ fn every_pairing_is_the_generated_shape_its_element_name_derives_to() {
     // The rule has to discriminate to be evidence: two elements deriving to one Rust name
     // would make the check above pass for a swap between them. ESS refuses that itself
     // (`name_collision`, reproduced at `xtask/src/emit.rs:505-528`); this is that refusal
-    // over the eighteen elements here.
+    // over the twenty elements here.
     let elements: BTreeSet<&str> = agreements
         .iter()
         .map(|agreement| agreement.ess_name)
@@ -755,7 +774,7 @@ fn every_pairing_is_the_generated_shape_its_element_name_derives_to() {
         .iter()
         .map(|element| declaration_name(element))
         .collect();
-    assert_eq!(elements.len(), 19, "elements paired");
+    assert_eq!(elements.len(), 20, "elements paired");
     assert_eq!(
         derived.len(),
         elements.len(),
@@ -804,16 +823,16 @@ fn the_realization_registry_names_exactly_the_projections_payloads_and_records_t
     assert_eq!(
         registered, expected,
         "the registry is not every element this crate implements: six projections and their \
-         six lifecycle enums, thirteen payloads, four accepted records, eleven commands and \
+         six lifecycle enums, fourteen payloads, four accepted records, eleven commands and \
          two refusals",
     );
     assert_eq!(
         mandate_model::ESS_REALIZATIONS.len(),
-        42,
-        "the registry pins 42 elements: 22 as it stood, the six lifecycle enums wave D's \
+        43,
+        "the registry pins 43 elements: 22 as it stood, the six lifecycle enums wave D's \
          first correction round moved off the generated shapes, the ten tenancy commands \
          this crate decides plus the domain's refusal, registered by the second, and the \
-         workload revocation, its payload and its refusal",
+         workload revocation, its payload and its refusal, and the authentication payload",
     );
 
     let entities = schema_names("entities");
