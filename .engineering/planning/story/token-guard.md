@@ -7,12 +7,12 @@ title: A service runs behind a Mandate token guard, as a sidecar or a library
 relations:
 - serves: vision:mandate
 - informed_by: epic:openid-provider
-revision: 1
+revision: 2
 ---
 # A service runs behind a Mandate token guard, as a sidecar or a library
 
-Draft. Waits on the operator's acceptance of `docs/adr/0013-token-guard.md` (proposed); no
-implementing wave runs before it.
+Decided by `docs/adr/0013-token-guard.md`, accepted by the operator on 2026-10-15. Forks G1–G3
+take the ADR's proposed options unless the implementation finds one does not hold.
 
 ## Why
 
@@ -50,5 +50,5 @@ the ADR.
 
 ## Depends on
 
-The operator's acceptance of ADR 0013. Not on ADR 0012's parity: the guard verifies any standard
+Nothing in this epic: not on ADR 0012's parity: the guard verifies any standard
 issuer's tokens; its end-to-end proof against Mandate follows `story:oidc-signed-tokens-and-key-rotation`.

@@ -1,7 +1,7 @@
 # Mandate ships the token guard in front of a service
 
-Status: proposed 2026-10-15. Not accepted: no implementing wave runs on it until the operator
-accepts it.
+Status: accepted by the operator on 2026-10-15. Forks G1–G3 take the proposed option unless the
+implementing story finds one does not hold.
 
 ## Context
 
@@ -17,7 +17,7 @@ policy-enforcement-point crate, `crates/mandate-client` ("Rust PEP client and mi
 `crates/mandate-client/src/lib.rs:1`). ADR 0012 makes Mandate the OpenID Provider that issues the
 tokens; the check at the receiving service is the other half of the same contract.
 
-## Proposed decision
+## Decision
 
 Mandate ships a token guard, in two forms over one rule set:
 
@@ -44,7 +44,7 @@ implemented; the JWK Set fetch and the header forms are wire forms, decided by R
 - The guard verifies tokens from any standard OpenID Provider, not only Mandate, so it can run
   before ADR 0012's parity ships.
 
-## Open forks
+## Forks (proposed options taken)
 
 - G1 per-identity limits: in-process token bucket per guard replica (simple, limits multiply with
   replicas), or a shared store (exact, a new dependency). Proposed: in-process first.
