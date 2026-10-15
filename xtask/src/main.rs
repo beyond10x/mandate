@@ -109,7 +109,7 @@ fn files(root: &Path) -> Result<BTreeMap<PathBuf, Vec<u8>>> {
     Ok(map)
 }
 fn generate(root: &Path) -> Result<()> {
-    version("ess", "ess 0.59.0")?;
+    version("ess", "ess 0.60.0")?;
     for kind in ["schema", "openapi", "docs", "docs-ir"] {
         let out = root;
         run(
@@ -168,7 +168,7 @@ fn ir(root: &Path) -> Result<()> {
     Ok(())
 }
 fn contracts() -> Result<()> {
-    run("ess", &["specify", "validate", "--path", "systems/mandate"])?;
+    run("ess", &["specify", "validate", "--strict-requires", "--path", "systems/mandate"])?;
     let root = PathBuf::from("target/xtask-contract-regeneration");
     if root.exists() {
         fs::remove_dir_all(&root)?;
@@ -592,7 +592,7 @@ fn main() -> ExitCode {
             {
                 return Err("Rust 1.98.1 required".into());
             }
-            version("aep", "aep 0.71.2")?;
+            version("aep", "aep 0.73.0")?;
             run("cargo", &["fmt", "--all", "--", "--check"])?;
             run(
                 "cargo",

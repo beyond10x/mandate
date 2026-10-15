@@ -4,6 +4,19 @@ All notable changes to Mandate are recorded here. The format follows [Keep a Cha
 
 ## [Unreleased]
 
+Wave 9: the tooling moves to the releases installed for this repository.
+
+### Changed
+
+- **ESS 0.60.0.** The specification declares `requires: ess 0.60.0` in `format: ess-inputs/2`, the
+  gate validates with `--strict-requires`, and the workspace's ESS crates are 0.60.0. The compiled
+  model is byte-identical; regenerated output differs only in the ESS version it names. The
+  conformance counts are unchanged (185 scenarios: 48 passed, 73 failed, 64 unsupported).
+- **AEP 0.73.0** for the planning store, which is already on `aep.project/5` and needed no
+  migration. CI installs `ess:0.60.0 aep:0.73.0`.
+- `serde_yaml` and `unsafe-libyaml` leave the dependency tree with ESS 0.60.0, so the scoped
+  advisory ignore in `deny.toml` is removed.
+
 ## [0.9.0] - 2026-10-13
 
 Wave 8: the second half of agent security. An execution-bound delegation is decided instead of

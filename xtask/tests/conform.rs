@@ -353,7 +353,7 @@ fn a_receipt_naming_another_toolchain_is_refused() {
     let root = fixture("repinned-ess");
     let path = root.join("generated/coverage/receipt.json");
     let body = fs::read_to_string(&path).expect("the fixture receipt");
-    let repinned = body.replace("\"ess 0.59.0\"", "\"ess 0.1.0\"");
+    let repinned = body.replace("\"ess 0.60.0\"", "\"ess 0.1.0\"");
     assert_ne!(repinned, body, "the recorded toolchain was changed");
     fs::write(&path, repinned).expect("write the fixture receipt");
     let error = failure(&root, false);
