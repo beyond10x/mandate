@@ -4,7 +4,7 @@ Identity and authority for people, services, and agents.
 
 Mandate is a standalone foundation for applications that need to know who is acting, which organization they belong to, and precisely what they may do. Its design brings authentication, tenant isolation, relationship-based authorization, and constrained credential exchange into one explicit model.
 
-**Current milestone: foundations.** The Rust workspace builds, the ESS contracts validate, and the implementation roadmap has been reviewed. Services and the CLI expose help/version only. Authentication, authorization enforcement, and credential issuance are not implemented yet.
+**Current release: 0.9.0, a development release.** `mandate-control-plane serve` runs federated login — a direct IdP-proof login and an OIDC relying-party code flow — S256 PKCE authorization codes, reference-credential issuance, RFC 7662 introspection and subject-only RFC 8693 token exchange, over nine routes and from in-memory state seeded per process. Authorization checks, agent delegation, approval consumption and workload authentication are implemented as libraries; relationship and policy reads still run against in-memory doubles. Nothing persists across a restart, the listener speaks plain HTTP, denials are not audited, and directory sync, SAML, actor or delegation exchange and a token revocation endpoint are not implemented. The [changelog](CHANGELOG.md) records what each release shipped.
 
 ## Explore the design
 
@@ -17,9 +17,9 @@ Mandate is a standalone foundation for applications that need to know who is act
 
 Who is the subject, and who is acting for them? Which tenant has verified the identity? What authority was granted, what constraints narrow it, and when does it stop being valid? Those questions stay connected through authentication, authorization, and credential exchange.
 
-Directory groups contribute to authorization only through explicit mappings. Email equality never merges identities. Agents operate under ceilings, and a decision requiring approval remains denied. Credential exchange preserves subject and actor while narrowing authority and expiry.
+Directory groups contribute to authorization only through explicit mappings. Email equality never merges identities. Agents operate under capability ceilings and delegations, and what they may do is the intersection of every input. A decision requiring approval stays denied until a recorded, matching approval is consumed. Credential exchange keeps the subject and never widens authority or expiry; an exchange naming an actor or a delegation is refused until constrained exchange is built.
 
-These are required behaviors in the contracts and acceptance scenarios. Runtime implementation is the next phase.
+These are required behaviors in the contracts and acceptance scenarios. The [roadmap](docs/public/roadmap.md) measures how much of them the code enforces today; directory mappings are specified and not yet implemented.
 
 ## Start with the source
 
@@ -29,9 +29,9 @@ Use Rust 1.98.1, ESS 0.59.0, AEP 0.71.2, Task, and cargo-deny:
 task check
 ```
 
-The gate checks the Rust scaffold, dependencies, ESS contracts, deterministic generated artifacts, planning records, and structural acceptance scenarios. It does not test a running authorization service.
+The gate checks formatting, lints, the workspace and its tests, dependencies, licenses and crate boundaries, ESS contracts, deterministic generated artifacts, the coverage and denial-obligation registries, an executed conformance run, named mutants, and planning records. It spawns `mandate-control-plane` on loopback; it exercises no deployment and no external identity provider.
 
-Licensed under Apache-2.0. Packages are version 0.1.0 and are not published to crates.io. This milestone contains no service release or deployment.
+Licensed under Apache-2.0. Packages carry the workspace version, 0.9.0, and are not published to crates.io. Releases are source releases; nothing is deployed.
 
 <!-- b10x-docs:start -->
 ## Documentation

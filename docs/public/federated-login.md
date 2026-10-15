@@ -50,37 +50,40 @@ One case it deliberately does not cover: an external subject whose link was expl
 
 | Standard | What is implemented |
 |---|---|
-| RFC 6749 — OAuth 2.0 | The authorization code grant, and only it. `GET /oauth/authorize` answers `302` with `code` and the exact `state` received; `POST /oauth/token` answers the credential. Every refusal is an RFC 6749 error object of exactly two members, `error` and `error_description`; no description carries a byte the caller sent. |
+| RFC 6749 — OAuth 2.0 | The authorization code grant, and RFC 8693 token exchange at the same endpoint. `GET /oauth/authorize` answers `302` with `code` and the exact `state` received; `POST /oauth/token` answers the credential. Every refusal is an RFC 6749 error object of exactly two members, `error` and `error_description`; no description carries a byte the caller sent. |
 | RFC 7636 — PKCE | Required, `S256` only. `mandate.core.PkceMethod` declares one variant, the authorization decoder refuses any other `code_challenge_method`, and each registered client states its `pkce_method`. A verifier that does not match the challenge is refused `invalid_grant`. |
 | RFC 8414 — Authorization server metadata | `GET /.well-known/oauth-authorization-server` publishes nine members. Every endpoint URL is the configured `issuer` joined with a path read from the same route table the listener dispatches, so the document cannot advertise a path nothing serves. A member naming an endpoint this deployment does not serve — `revocation_endpoint`, `registration_endpoint`, `device_authorization_endpoint` — is absent rather than empty. |
 | RFC 7662 — Introspection | `POST /oauth/introspect`, taking `token` and optional `token_type_hint`, and requiring the calling resource server's own credential as a bearer token. Answers `active`, and where the credential resolves, `credential_id`, `aud` and `sub`. A refusal about the *caller* is `401 invalid_client`; anything about the presented token is `200 {"active": false}`. |
 | RFC 7517 — JWKS | `GET /oauth/jwks` publishes the key set the `--key` documents configure. The member set is closed: `kty`, `kid`, `use`, `alg`, plus `n`, `e`, `crv`, `x`, `y`. RFC 7517 section 9.2's private members are refused at construction, as is a repeated `kid` anywhere in the set. |
 | OpenID Connect Discovery | Consumed, not published. To find a connection's key set, Mandate fetches `{issuer}/.well-known/openid-configuration` and reads `jwks_uri`; the document is read once per issuer and held. Mandate publishes **no** `/.well-known/openid-configuration` of its own — no OpenID Connect command is declared, and the route table has no such path. Mandate is not an OpenID Provider. |
 
-Three further standards are named in this repository's design sources and are **not** implemented on this road. They appear in [the combined architecture](https://github.com/beyond10x/mandate/blob/main/docs/architecture/combined.md) and the preserved design snapshots, and in no crate:
+Three further standards are named in this repository's design sources, in [the combined architecture](https://github.com/beyond10x/mandate/blob/main/docs/architecture/combined.md) and the preserved design snapshots. Two are implemented in part, and one is not:
 
 | Standard | Status |
 |---|---|
-| RFC 8693 — Token Exchange | Not implemented. No exchange grant is admitted at the token endpoint; the only `grant_type` is `authorization_code`. |
-| RFC 8707 — Resource Indicators | Not implemented. The authorization request names its target with a `target` parameter carrying a registered resource-server id, which is Mandate's own registration and not RFC 8707's `resource`. |
+| RFC 8693 — Token Exchange | Subject-only. `grant_type=urn:ietf:params:oauth:grant-type:token-exchange` exchanges a Mandate access credential for one issued to another registered resource server, provided that server lists the source credential's resource server in `allowed_exchange_sources`. The issued credential keeps the subject and organization, its scope stays inside the source's, and its expiry is no later than the source's. An `actor_token`, or a source credential that names an actor or a delegation, is refused. A refusal about the target answers `invalid_target`, other refusals answer the code the clause table assigns (mostly `invalid_grant`), and each refusal the handler decides is recorded in memory as `TokenExchangeDenied`. |
+| RFC 8707 — Resource Indicators | Partial. The exchange grant names its target by `audience` or by `resource`; `resource=urn:uuid:<resource_server_id>` names a registration by identity. The authorization request still names its target with Mandate's own `target` parameter, not RFC 8707's `resource`. |
 | RFC 9700 — OAuth 2.0 Security BCP | Named as the intended baseline. No conformance to it is claimed or measured here. |
 
 Token revocation is likewise not on this road: there is no `/oauth/revoke`.
 
 ## The endpoints
 
-Six routes. A path not in this table is a path nothing serves — including the generated `/<domain>/commands/<Command>` projections, which are refused like any other unknown path.
+Nine routes. A path not in this table is a path nothing serves — including the generated `/<domain>/commands/<Command>` projections, which are refused like any other unknown path.
 
 | Method | Path | Takes | Answers |
 |---|---|---|---|
 | `POST` | `/v1/federation/login` | `application/json`: `connection_id`, `proof` (the IdP's JWT, base64) | `200` with `session_id`, `principal_id`, `organization_id`, `epochs`, `expires_at`, `session_proof` |
+| `GET` | `/v1/federation/authorize` | Query: `connection_id`, optional `app_state` | `302` to the IdP's authorization endpoint, with a `__Host-` binding cookie |
+| `GET` | `/v1/federation/callback` | The IdP's `code` (or `error`), `state` and optional `iss`; the binding cookie | `302` to the connection's `return_uri` with a single-use `handoff`, or the handoff as JSON when no `return_uri` is configured |
+| `POST` | `/v1/federation/handoff` | `application/json`: `handoff`, optional `app_state` | `200` with the same members as the login answer, including `session_proof`; a handoff redeems once |
 | `GET` | `/oauth/authorize` | Query: `response_type=code`, `client_id`, `redirect_uri`, `code_challenge`, `code_challenge_method=S256`, `state`, `nonce`, `target`, `scope`. Header: `Authorization: Bearer <session_proof>` | `302` with `Location: <redirect_uri>?code=…&state=…` |
-| `POST` | `/oauth/token` | `application/x-www-form-urlencoded`: `grant_type=authorization_code`, `client_id`, `code`, `code_verifier`, `redirect_uri` | `200` with `access_token`, `token_type: "Bearer"`, `credential_id` |
+| `POST` | `/oauth/token` | `application/x-www-form-urlencoded`: `grant_type=authorization_code`, `client_id`, `code`, `code_verifier`, `redirect_uri`; or the token-exchange grant: `subject_token`, `subject_token_type`, `audience` or `resource`, `scope`, optional `requested_token_type` | `200` with `access_token`, `token_type: "Bearer"`, `credential_id`; for exchange `access_token`, `issued_token_type`, `token_type`, `expires_in` |
 | `POST` | `/oauth/introspect` | `application/x-www-form-urlencoded`: `token`, `token_type_hint`. Header: `Authorization: Bearer <caller's own credential>` | `200` with `active`, and where it resolves `credential_id`, `aud`, `sub` |
 | `GET` | `/.well-known/oauth-authorization-server` | nothing | `200` with the RFC 8414 document |
 | `GET` | `/oauth/jwks` | nothing | `200` with the RFC 7517 key set |
 
-`expires_in` is absent from the token response: it is RECOMMENDED rather than required by RFC 6749 section 5.1, the contract's response does not declare it, and it is not derived from a clock the response does not carry. Introspection answers the credential's expiry instead.
+`expires_in` is absent from the authorization-code grant's response: it is RECOMMENDED rather than required by RFC 6749 section 5.1, and the contract's response does not declare it. Introspection does not answer the expiry either today; it answers `active`, `credential_id`, `aud` and `sub`. The token-exchange response does carry `expires_in`, as RFC 8693 section 2.2.1 describes.
 
 Responses carrying credentials are sent `no-store`.
 
@@ -90,6 +93,7 @@ Responses carrying credentials are sent `no-store`.
 mandate-control-plane serve --listen <addr> --issuer <url>
     [--code-lifetime <ISO 8601 duration>] [--session-lifetime <ISO 8601 duration>]
     [--connection <path>]... [--key <path>]... [--client <path>]... [--resource-server <path>]...
+    [--client-secret-file <NAME=PATH>]...
 ```
 
 | Flag | Meaning |
@@ -102,6 +106,7 @@ mandate-control-plane serve --listen <addr> --issuer <url>
 | `--key` | A public JWK the key set publishes. Repeatable. |
 | `--client` | A registered OAuth public client. Repeatable. |
 | `--resource-server` | A registered resource server. Repeatable. |
+| `--client-secret-file` | `NAME=PATH`: the file holding the IdP client secret that a connection's `relying_party.client_secret` names. The flag carries where the secret is, never the secret. Repeatable; a name given twice exits **2**. |
 
 Each document is JSON, one per file, and unknown members are refused. A document that configures no deployment exits **2** before the socket is bound, naming the file; a listener that cannot bind exits **1**.
 
@@ -118,6 +123,7 @@ Each document is JSON, one per file, and unknown members are refused. A document
 | `tenant_resolution` | yes | How the organization is resolved. `configured_organization` is required; `verified_claim_name` and `verified_claim_value` optionally bind the rule to a validated claim. |
 | `jit_provisioning` | yes | Whether a first login with no link may create the principal. Stated, never defaulted. |
 | `link` | no | A pre-existing link: `principal_id`, `subject`, `linked_at`, and optionally `external_principal_id`. |
+| `relying_party` | no | Enables the browser code flow through `/v1/federation/authorize` and `/v1/federation/callback`: `redirect_uri` (this deployment's `/v1/federation/callback` as the browser reaches it), `client_secret` (a `--client-secret-file` name, never the secret), optional `return_uri` (where the callback sends the browser with the handoff), and optional `endpoint_hosts` (hosts beside the issuer's origin the IdP's authorization and token endpoints may be on). A relying-party connection admits no proof at `/v1/federation/login`. |
 
 ```json
 {
@@ -192,9 +198,9 @@ A resource server trusts the Mandate credential and never the customer's IdP. Th
 
 ## What is proven, and what is not
 
-[`services/control-plane/tests/end_to_end.rs`](https://github.com/beyond10x/mandate/blob/main/services/control-plane/tests/end_to_end.rs) spawns the composition binary as a child process and drives all six routes against it over a real socket, with a loopback issuer that really signs the proof with a P-256 key generated when the case runs. The child fetches the discovery document and the key set off that issuer and verifies a signature under a key it fetched. No key is committed.
+[`services/control-plane/tests/end_to_end.rs`](https://github.com/beyond10x/mandate/blob/main/services/control-plane/tests/end_to_end.rs) spawns the composition binary as a child process and drives the login road's six routes against it over a real socket, with a loopback issuer that really signs the proof with a P-256 key generated when the case runs. The child fetches the discovery document and the key set off that issuer and verifies a signature under a key it fetched. No key is committed.
 
-Fifteen cases: three that complete a login, one that decides the JWKS host wiring in-process, and eleven refusals — each refusal asserted by its whole response body rather than by its status alone.
+Seventeen road cases: three that complete a login, two that check the listener's bound address, one that decides the JWKS host wiring in-process, and eleven refusals — each refusal asserted by its whole response body rather than by its status alone. The same file holds seven further cases about the test lane's own hygiene. The relying-party flow and token exchange are proven in `relying_party.rs` and `exchange.rs` in the same directory.
 
 | Refused | Answer |
 |---|---|

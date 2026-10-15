@@ -45,6 +45,9 @@ the wave.
 - The obligations registry files an implemented command with the crate the coverage manifest
   names as its implementer, so a command decided outside its domain's crate is admitted.
 - A branch or tag cut from a GitHub merge of `main` needs no Gates baseline move.
+- Measured at this release: conformance 185 scenarios, 48 passed (46 at 0.8.0), 73 failed,
+  64 unsupported, 0 error; coverage 297 elements, 233 implemented, 23 declared, 41 deferred;
+  denial obligations 249 clauses, 125 real, 25 double-only, 99 deferred.
 
 ## [0.8.0] - 2026-10-13
 
@@ -587,7 +590,16 @@ The planning batch ([#4](https://github.com/beyond10x/mandate/pull/4)), on top o
 
 `task check` passed, including AEP validation (72 artifacts), ESS validation and deterministic projections.
 
-[Unreleased]: https://github.com/beyond10x/mandate/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/beyond10x/mandate/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/beyond10x/mandate/compare/v0.8.0...v0.9.0
+[0.8.0]: https://github.com/beyond10x/mandate/compare/v0.7.1...v0.8.0
+[0.7.1]: https://github.com/beyond10x/mandate/compare/v0.7.0...v0.7.1
+[0.7.0]: https://github.com/beyond10x/mandate/compare/v0.6.0...v0.7.0
+[0.6.0]: https://github.com/beyond10x/mandate/compare/v0.5.1...v0.6.0
+[0.5.1]: https://github.com/beyond10x/mandate/compare/v0.5.0...v0.5.1
+[0.5.0]: https://github.com/beyond10x/mandate/compare/v0.4.0...v0.5.0
+[0.4.0]: https://github.com/beyond10x/mandate/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/beyond10x/mandate/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/beyond10x/mandate/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/beyond10x/mandate/compare/v0.1.0-alpha.4...v0.1.0
 [0.1.0-alpha.4]: https://github.com/beyond10x/mandate/compare/v0.1.0-alpha.3...v0.1.0-alpha.4

@@ -11,7 +11,7 @@ Mandate separates establishing identity from deciding access and issuing constra
 | Security Token Service (STS) | Credential issuance, resolution and introspection, exchange, and revocation. |
 | Worker | Asynchronous provisioning, synchronization, and other background work. |
 
-Of the four, the control plane runs: `mandate-control-plane serve` composes the control plane and the STS in one process and serves the federated-login road over six routes. The STS is consumed as a library rather than run as a service; the authorization and worker binaries expose help and version information only. The boundaries below describe the intended integration rather than four running services.
+Of the four, the control plane runs: `mandate-control-plane serve` composes the control plane and the STS in one process and serves nine routes: the federated-login road, the OIDC relying-party flow, the OAuth endpoints including RFC 8693 token exchange, and the metadata and key-set documents. The STS and the authorization decision point are consumed as libraries rather than run as services; the authorization, STS and worker binaries expose help and version information only. The boundaries below describe the intended integration rather than four running services.
 
 ```mermaid
 flowchart LR
@@ -36,7 +36,7 @@ Directory groups and authorization-bearing teams are separate. A directory membe
 
 STS supports named profiles for signed and reference credentials. Reference credentials persist only as non-reversible verifiers. Resource servers must be registered, enabled, and valid for the organization; the default is one intended audience per credential.
 
-Exchange retains the subject and actor and intersects requested authority with existing authority and constraints. Expiry cannot exceed applicable source, delegation, or policy limits. Autonomous and delegated agents both have ceilings. Transitive delegation is initially disabled; approval-required decisions remain denied.
+Exchange retains the subject and actor and intersects requested authority with existing authority and constraints. Expiry cannot exceed applicable source, delegation, or policy limits; today exchange is subject-only and refuses an actor or a delegation. Autonomous and delegated agents both have ceilings. Transitive delegation is initially disabled. An approval-required decision is denied until a second check names a recorded, unexpired, matching approval and consumes it.
 
 Trusted session infrastructure retains the original user credential. Agent execution receives the applicable constrained credential; the original credential is not passed into an agent's environment or tools.
 
