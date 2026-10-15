@@ -21,9 +21,9 @@ aws-lc-rs = "=1.18.1"
 ureq = { version = "=3.4.2", default-features = false, features = ["native-tls"] }
 eventlog-core = { version = "0.3.0", git = "https://github.com/beyond10x/eventlog.git", tag = "0.3.0" }
 eventlog-sqlite = { version = "0.3.0", git = "https://github.com/beyond10x/eventlog.git", tag = "0.3.0" }
-ess-conformance = { version = "0.59.0", git = "https://github.com/beyond10x/ess.git", tag = "0.59.0" }
-ess-primitives = { version = "0.59.0", git = "https://github.com/beyond10x/ess.git", tag = "0.59.0" }
-ess-domain = { version = "0.59.0", git = "https://github.com/beyond10x/ess.git", tag = "0.59.0" }
+ess-conformance = { version = "0.60.0", git = "https://github.com/beyond10x/ess.git", tag = "0.60.0" }
+ess-primitives = { version = "0.60.0", git = "https://github.com/beyond10x/ess.git", tag = "0.60.0" }
+ess-domain = { version = "0.60.0", git = "https://github.com/beyond10x/ess.git", tag = "0.60.0" }
 [workspace.lints.rust]
 unsafe_code = "forbid"
 [workspace.lints.clippy]
