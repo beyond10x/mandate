@@ -124,6 +124,15 @@ enum Action {
         /// The value is `NAME=PATH`: the flag carries where the secret is, never the secret.
         #[arg(long = "client-secret-file", value_name = "NAME=PATH", value_parser = secret_file)]
         client_secret_files: Vec<(String, PathBuf)>,
+        /// A directory of documents, read as if each were given to its flag. Repeatable.
+        ///
+        /// It holds `connections/`, `keys/`, `clients/` and `resource-servers/`, each of
+        /// `*.json` documents, and `client-secrets/`, each file of which is the client secret
+        /// named for it. They are read in file-name order and after the documents the flags
+        /// name. Any other entry is refused, exit 2. A name starting with `..` is a mount's
+        /// own bookkeeping and is skipped.
+        #[arg(long = "config-dir", value_name = "DIR")]
+        config_dirs: Vec<PathBuf>,
     },
 }
 
@@ -139,6 +148,8 @@ enum Refused {
     /// A `--connection` or `--key` document that configures no deployment. The same **2** as
     /// [`Refused::Configuration`], and separate only because it names the file it read.
     Seed(SeedRefused),
+    /// A `--config-dir` that cannot be read as documents. The same **2**.
+    ConfigDir(String),
     /// Two `--client-secret-file` flags give one name. The same **2**.
     RepeatedSecretName(String),
     Start(Box<dyn std::error::Error>),
@@ -157,6 +168,7 @@ fn main() -> ExitCode {
             clients,
             resource_servers,
             client_secret_files,
+            config_dirs,
         } => match serve(&Serving {
             listen,
             issuer,
@@ -167,6 +179,7 @@ fn main() -> ExitCode {
             clients,
             resource_servers,
             client_secret_files,
+            config_dirs,
         }) {
             Ok(()) => ExitCode::SUCCESS,
             Err(Refused::Configuration(refusal)) => {
@@ -174,6 +187,10 @@ fn main() -> ExitCode {
                 ExitCode::from(2)
             }
             Err(Refused::Seed(refusal)) => {
+                eprintln!("mandate-control-plane: {refusal}");
+                ExitCode::from(2)
+            }
+            Err(Refused::ConfigDir(refusal)) => {
                 eprintln!("mandate-control-plane: {refusal}");
                 ExitCode::from(2)
             }
@@ -207,9 +224,13 @@ struct Serving {
     clients: Vec<PathBuf>,
     resource_servers: Vec<PathBuf>,
     client_secret_files: Vec<(String, PathBuf)>,
+    config_dirs: Vec<PathBuf>,
 }
 
-fn serve(serving: &Serving) -> Result<(), Refused> {
+fn serve(given: &Serving) -> Result<(), Refused> {
+    // The directories are read first and appended to what the flags named, so the rest of this
+    // function is the one path every document takes, whichever way it arrived.
+    let serving = &with_config_dirs(given)?;
     // Every document is read before a socket, a key or the host CSPRNG is touched: an
     // operator who mistyped a duration — or wrote a key nobody can publish — learns it from
     // the exit status, not from a client.
@@ -477,4 +498,87 @@ impl FederationVerifier for RecordingVerifier {
         self.0.tenant_claim_refused(kind);
         eprintln!("mandate-control-plane: tenant resolution refused TenantClaimNotText({kind:?})");
     }
+}
+
+/// The `--config-dir` subdirectories that hold `*.json` documents, and the flag each stands
+/// for. A directory of documents is the flags written as a layout, so each name is the flag's.
+const DOCUMENT_DIRECTORIES: [&str; 4] = ["connections", "keys", "clients", "resource-servers"];
+
+/// The directory of client secrets: each file is one, and its name is the `NAME` of
+/// `--client-secret-file NAME=PATH`.
+const SECRET_DIRECTORY: &str = "client-secrets";
+
+/// What the flags named, followed by what every `--config-dir` holds.
+fn with_config_dirs(given: &Serving) -> Result<Serving, Refused> {
+    let mut serving = Serving {
+        listen: given.listen,
+        issuer: given.issuer.clone(),
+        code_lifetime: given.code_lifetime.clone(),
+        session_lifetime: given.session_lifetime.clone(),
+        connections: given.connections.clone(),
+        keys: given.keys.clone(),
+        clients: given.clients.clone(),
+        resource_servers: given.resource_servers.clone(),
+        client_secret_files: given.client_secret_files.clone(),
+        config_dirs: Vec::new(),
+    };
+    for directory in &given.config_dirs {
+        let top = entries(directory)?;
+        for (name, path) in &top {
+            let known = DOCUMENT_DIRECTORIES.contains(&name.as_str()) || name == SECRET_DIRECTORY;
+            if !known || !path.is_dir() {
+                return Err(unknown(path, "is not one of the document directories"));
+            }
+        }
+        for (name, path) in top {
+            if name == SECRET_DIRECTORY {
+                for (secret, file) in entries(&path)? {
+                    if !file.is_file() {
+                        return Err(unknown(&file, "is not a file"));
+                    }
+                    serving.client_secret_files.push((secret, file));
+                }
+                continue;
+            }
+            let target = match name.as_str() {
+                "connections" => &mut serving.connections,
+                "keys" => &mut serving.keys,
+                "clients" => &mut serving.clients,
+                _ => &mut serving.resource_servers,
+            };
+            for (document, file) in entries(&path)? {
+                if !file.is_file() || !document.ends_with(".json") {
+                    return Err(unknown(&file, "is not a `*.json` document"));
+                }
+                target.push(file);
+            }
+        }
+    }
+    Ok(serving)
+}
+
+/// The entries of a directory in file-name order, without a mount's `..` bookkeeping.
+fn entries(directory: &std::path::Path) -> Result<Vec<(String, PathBuf)>, Refused> {
+    let unreadable = |error: std::io::Error| {
+        Refused::ConfigDir(format!(
+            "the --config-dir `{}` cannot be read: {error}",
+            directory.display()
+        ))
+    };
+    let mut found = Vec::new();
+    for entry in std::fs::read_dir(directory).map_err(unreadable)? {
+        let entry = entry.map_err(unreadable)?;
+        let Some(name) = entry.file_name().to_str().map(str::to_owned) else {
+            return Err(unknown(&entry.path(), "has a name that is not text"));
+        };
+        if !name.starts_with("..") {
+            found.push((name, entry.path()));
+        }
+    }
+    found.sort();
+    Ok(found)
+}
+
+fn unknown(path: &std::path::Path, why: &str) -> Refused {
+    Refused::ConfigDir(format!("the --config-dir entry `{}` {why}", path.display()))
 }

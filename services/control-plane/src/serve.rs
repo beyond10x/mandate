@@ -49,6 +49,7 @@ use mandate_federation::FederationVerifier;
 use mandate_federation::verifier_real::Clock;
 use mandate_proto::oauth::{self, ErrorBody, ErrorCode};
 use mandate_server::decode::{self, Refusal as DecodeRefusal, Request};
+use mandate_server::metadata::Health;
 use mandate_server::routes::{self, Binding, Document, Method, RelyingPartyStep, Route};
 use mandate_sts::redemption::RedemptionRefused;
 use mandate_sts::{IdentityAllocator, SecretSource};
@@ -532,6 +533,15 @@ where
     match route.binds {
         Binding::Document(Document::AuthorizationServerMetadata) => {
             Response::json(200, deployment.metadata().to_json())
+        }
+        Binding::Document(Document::HealthLive) => {
+            Response::json(Health::live().status(), Health::live().to_json()).no_store()
+        }
+        // Readiness reflects the signing keys admitted from the `--key` documents; the signer
+        // rewiring answers for the key it signs with instead.
+        Binding::Document(Document::HealthReady) => {
+            let health = Health::ready(deployment.jwks().map_or(0, |jwks| jwks.keys.len()));
+            Response::json(health.status(), health.to_json()).no_store()
         }
         Binding::Document(Document::Jwks) => match deployment.jwks() {
             Ok(jwks) => Response::json(200, jwks.to_json()),

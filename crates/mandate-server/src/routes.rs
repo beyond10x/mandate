@@ -1,7 +1,10 @@
+//! | `GET` | `/healthz/live` | the liveness document | The probe path a container platform polls; a wire document, not a command, and outside every versioned prefix so no generated projection can collide with it. `GET` because a probe issues nothing else. |
+//! | `GET` | `/healthz/ready` | the readiness document | The same, answering `503` until a signing key is admitted. |
 //! The product route table, as data.
 //!
-//! Nine routes: the four the customer login road needs, the two documents RFC 8414 puts a
-//! client's discovery on, and the three steps of the relying-party flow toward an external IdP.
+//! Eleven routes: the four the customer login road needs, the two documents RFC 8414 puts a
+//! client's discovery on, the three steps of the relying-party flow toward an external IdP, and
+//! the two health documents a deployment's probes read.
 //! `story:product-listener` dispatches this table and hardcodes no
 //! path, so a path that is not here is a path nothing serves.
 //!
@@ -40,7 +43,7 @@
 
 /// The methods this table declares.
 ///
-/// Two, because nine routes need two. A method a route does not declare is a route a listener
+/// Two, because eleven routes need two. A method a route does not declare is a route a listener
 /// does not answer, which is what `crates/mandate-server/tests/routes.rs` decides.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Method {
@@ -74,6 +77,10 @@ pub enum Document {
     AuthorizationServerMetadata,
     /// The JWKS document RFC 8414's `jwks_uri` names.
     Jwks,
+    /// The liveness document: the process answers.
+    HealthLive,
+    /// The readiness document: the configuration is admitted and a signing key is held.
+    HealthReady,
 }
 
 /// A step of the relying-party flow toward an external OIDC IdP.
@@ -147,6 +154,16 @@ pub const ROUTES: &[Route] = &[
         method: Method::Get,
         path: "/oauth/jwks",
         binds: Binding::Document(Document::Jwks),
+    },
+    Route {
+        method: Method::Get,
+        path: "/healthz/live",
+        binds: Binding::Document(Document::HealthLive),
+    },
+    Route {
+        method: Method::Get,
+        path: "/healthz/ready",
+        binds: Binding::Document(Document::HealthReady),
     },
     Route {
         method: Method::Get,

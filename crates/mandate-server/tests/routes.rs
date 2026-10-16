@@ -20,8 +20,8 @@ use mandate_server::routes::{self, Binding, Document, Method, ROUTES, RelyingPar
 const OPENAPI: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../generated/openapi");
 
 #[test]
-fn the_table_carries_the_four_road_routes_the_two_documents_and_the_three_relying_party_steps() {
-    assert_eq!(ROUTES.len(), 9);
+fn the_table_carries_the_four_road_routes_the_four_documents_and_the_three_relying_party_steps() {
+    assert_eq!(ROUTES.len(), 11);
     let commands: Vec<&str> = ROUTES
         .iter()
         .filter_map(|route| match route.binds {
@@ -47,7 +47,12 @@ fn the_table_carries_the_four_road_routes_the_two_documents_and_the_three_relyin
         .collect();
     assert_eq!(
         documents,
-        vec![Document::AuthorizationServerMetadata, Document::Jwks]
+        vec![
+            Document::AuthorizationServerMetadata,
+            Document::Jwks,
+            Document::HealthLive,
+            Document::HealthReady
+        ]
     );
     let steps: Vec<(Method, &str, RelyingPartyStep)> = ROUTES
         .iter()
@@ -211,4 +216,25 @@ fn generated_paths() -> BTreeSet<String> {
     }
     assert_eq!(documents, 4, "the four generated documents");
     paths
+}
+
+#[test]
+fn health_paths_are_not_command_shaped() {
+    // The two probe routes join the table as documents, on paths no generated projection can
+    // share, and the disjointness proofs above cover them because they are table entries.
+    let health = [
+        (Document::HealthLive, "/healthz/live"),
+        (Document::HealthReady, "/healthz/ready"),
+    ];
+    let generated = generated_paths();
+    for (document, path) in health {
+        let route = routes::route_for_document(document).expect("the table declares the document");
+        assert_eq!(route.path, path);
+        assert_eq!(route.method, Method::Get);
+        assert_eq!(route.binds, Binding::Document(document));
+        assert_eq!(routes::lookup(Method::Get, path), Some(route));
+        assert_eq!(routes::lookup(Method::Post, path), None, "{path}");
+        assert!(!routes::is_generated_command_path(path), "{path}");
+        assert!(!generated.contains(path), "{path}");
+    }
 }

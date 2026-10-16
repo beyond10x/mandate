@@ -159,6 +159,9 @@ fn every_route_of_the_table_is_a_command_the_registry_serves_or_a_document_this_
             Binding::Document(Document::Jwks) => {
                 assert_eq!(metadata::Jwks::empty().to_json(), r#"{"keys":[]}"#);
             }
+            Binding::Document(Document::HealthLive | Document::HealthReady) => {
+                assert_eq!(metadata::Health::live().to_json(), r#"{"status":"ok"}"#);
+            }
             Binding::RelyingParty(routes::RelyingPartyStep::Authorize) => {
                 let request = Request::new("GET", &format!("{}?connection_id={UUID}", route.path));
                 assert_eq!(request.route_path(), route.path);

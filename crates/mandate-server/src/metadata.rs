@@ -328,3 +328,61 @@ impl Jwks {
         )])
     }
 }
+
+/// The health documents the two probe routes publish.
+///
+/// A wire document, not a contract command: it carries a status word and, when the answer is
+/// not a success, the one reason, and nothing about the configuration, the keys or the
+/// tenants behind it. A probe is unauthenticated and its answer is for a platform, so the
+/// reason is a fixed phrase and never a value read from a document.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Health {
+    /// The process answers.
+    Live,
+    /// The deployment admitted its configuration and holds a signing key.
+    Ready,
+    /// The deployment has admitted no signing key, so it can publish none and sign none.
+    NotReady,
+}
+
+impl Health {
+    /// The liveness answer: the process is answering, so it is live.
+    #[must_use]
+    pub const fn live() -> Self {
+        Self::Live
+    }
+
+    /// The readiness answer for a deployment that admitted `keys` signing keys.
+    ///
+    /// Zero keys is not ready. The count is the keys admitted from the `--key` documents until
+    /// the signer is wired into the composition, which then answers for the key it signs with.
+    #[must_use]
+    pub const fn ready(keys: usize) -> Self {
+        if keys == 0 {
+            Self::NotReady
+        } else {
+            Self::Ready
+        }
+    }
+
+    /// The HTTP status this answer is served with.
+    #[must_use]
+    pub const fn status(self) -> u16 {
+        match self {
+            Self::Live | Self::Ready => 200,
+            Self::NotReady => 503,
+        }
+    }
+
+    /// The declared JSON rendering.
+    #[must_use]
+    pub fn to_json(self) -> String {
+        match self {
+            Self::Live | Self::Ready => oauth::object(&[("status", Member::Text("ok".to_owned()))]),
+            Self::NotReady => oauth::object(&[
+                ("reason", Member::Text("no signing key admitted".to_owned())),
+                ("status", Member::Text("unavailable".to_owned())),
+            ]),
+        }
+    }
+}
