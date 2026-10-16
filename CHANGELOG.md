@@ -4,6 +4,11 @@ All notable changes to Mandate are recorded here. The format follows [Keep a Cha
 
 ## [Unreleased]
 
+### Changed
+
+- The planning store and the tool pins move to AEP 0.74.0; the store needs no migration
+  (`aep plan store migrate git --dry-run`: nothing to migrate).
+
 ## [0.9.2] - 2026-10-16
 
 The spec-conformance audit of 0.9.0: every gap it found has an owner, and the small ones are closed.

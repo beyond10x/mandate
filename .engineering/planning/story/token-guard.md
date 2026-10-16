@@ -2,12 +2,15 @@
 format: aep.planning-md/3
 id: story:token-guard
 kind: story
-status: draft
+status: active
 title: A service runs behind a Mandate token guard, as a sidecar or a library
 relations:
 - serves: vision:mandate
 - informed_by: epic:openid-provider
-revision: 2
+revision: 4
+transitions:
+- {from: "draft", to: "proposed", at: "2026-10-16T21:58:37Z", actor: "human:timo", revision: 3, decided_on: {"asserted":{"review_outcome":1}}}
+- {from: "proposed", to: "active", at: "2026-10-16T21:58:37Z", actor: "human:timo", revision: 4, decided_on: {"asserted":{"review_outcome":1}}}
 ---
 # A service runs behind a Mandate token guard, as a sidecar or a library
 

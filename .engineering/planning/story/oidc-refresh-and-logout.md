@@ -2,14 +2,17 @@
 format: aep.planning-md/3
 id: story:oidc-refresh-and-logout
 kind: story
-status: draft
+status: active
 title: Refresh tokens rotate, and a client can end the session
 relations:
 - decomposes: epic:openid-provider
 - serves: vision:mandate
 - depends_on: story:oidc-discovery-and-code-flow
 - depends_on: story:oidc-signed-tokens-and-key-rotation
-revision: 1
+revision: 3
+transitions:
+- {from: "draft", to: "proposed", at: "2026-10-16T21:58:36Z", actor: "human:timo", revision: 2, decided_on: {"asserted":{"review_outcome":1}}}
+- {from: "proposed", to: "active", at: "2026-10-16T21:58:36Z", actor: "human:timo", revision: 3, decided_on: {"asserted":{"review_outcome":1}}}
 ---
 # Refresh tokens rotate, and a client can end the session
 

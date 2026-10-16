@@ -2,12 +2,15 @@
 format: aep.planning-md/3
 id: story:oidc-static-client-registry
 kind: story
-status: draft
+status: active
 title: Apps are registered as static OIDC clients in configuration
 relations:
 - decomposes: epic:openid-provider
 - serves: vision:mandate
-revision: 1
+revision: 3
+transitions:
+- {from: "draft", to: "proposed", at: "2026-10-16T21:58:35Z", actor: "human:timo", revision: 2, decided_on: {"asserted":{"review_outcome":1}}}
+- {from: "proposed", to: "active", at: "2026-10-16T21:58:35Z", actor: "human:timo", revision: 3, decided_on: {"asserted":{"review_outcome":1}}}
 ---
 # Apps are registered as static OIDC clients in configuration
 

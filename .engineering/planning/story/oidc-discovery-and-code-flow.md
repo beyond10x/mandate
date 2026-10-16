@@ -2,13 +2,16 @@
 format: aep.planning-md/3
 id: story:oidc-discovery-and-code-flow
 kind: story
-status: draft
+status: active
 title: A gateway discovers Mandate and completes the OIDC code flow as a confidential client
 relations:
 - decomposes: epic:openid-provider
 - serves: vision:mandate
 - depends_on: story:oidc-static-client-registry
-revision: 1
+revision: 3
+transitions:
+- {from: "draft", to: "proposed", at: "2026-10-16T21:58:36Z", actor: "human:timo", revision: 2, decided_on: {"asserted":{"review_outcome":1}}}
+- {from: "proposed", to: "active", at: "2026-10-16T21:58:36Z", actor: "human:timo", revision: 3, decided_on: {"asserted":{"review_outcome":1}}}
 ---
 # A gateway discovers Mandate and completes the OIDC code flow as a confidential client
 

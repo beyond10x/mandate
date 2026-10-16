@@ -2,13 +2,16 @@
 format: aep.planning-md/3
 id: story:oidc-signed-tokens-and-key-rotation
 kind: story
-status: draft
+status: active
 title: The token endpoint returns signed ID and access tokens under rotating keys
 relations:
 - decomposes: epic:openid-provider
 - serves: vision:mandate
 - depends_on: story:oidc-discovery-and-code-flow
-revision: 1
+revision: 3
+transitions:
+- {from: "draft", to: "proposed", at: "2026-10-16T21:58:35Z", actor: "human:timo", revision: 2, decided_on: {"asserted":{"review_outcome":1}}}
+- {from: "proposed", to: "active", at: "2026-10-16T21:58:36Z", actor: "human:timo", revision: 3, decided_on: {"asserted":{"review_outcome":1}}}
 ---
 # The token endpoint returns signed ID and access tokens under rotating keys
 

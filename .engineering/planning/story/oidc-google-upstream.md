@@ -2,12 +2,15 @@
 format: aep.planning-md/3
 id: story:oidc-google-upstream
 kind: story
-status: draft
+status: active
 title: Google is configured once as the upstream connector, with hosted domains and Workspace groups
 relations:
 - decomposes: epic:openid-provider
 - serves: vision:mandate
-revision: 1
+revision: 3
+transitions:
+- {from: "draft", to: "proposed", at: "2026-10-16T21:58:35Z", actor: "human:timo", revision: 2, decided_on: {"asserted":{"review_outcome":1}}}
+- {from: "proposed", to: "active", at: "2026-10-16T21:58:35Z", actor: "human:timo", revision: 3, decided_on: {"asserted":{"review_outcome":1}}}
 ---
 # Google is configured once as the upstream connector, with hosted domains and Workspace groups
 

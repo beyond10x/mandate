@@ -2,12 +2,15 @@
 format: aep.planning-md/3
 id: story:tooling-repin-aep-0-74
 kind: story
-status: draft
+status: active
 title: Move the planning store and pins to AEP 0.74.0
 relations:
 - decomposes: epic:foundations
 - serves: vision:mandate
-revision: 1
+revision: 3
+transitions:
+- {from: "draft", to: "proposed", at: "2026-10-16T21:58:37Z", actor: "human:timo", revision: 2, decided_on: {"asserted":{"review_outcome":1}}}
+- {from: "proposed", to: "active", at: "2026-10-16T21:58:37Z", actor: "human:timo", revision: 3, decided_on: {"asserted":{"review_outcome":1}}}
 ---
 # Move the planning store and pins to AEP 0.74.0
 

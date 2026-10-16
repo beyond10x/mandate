@@ -2,12 +2,15 @@
 format: aep.planning-md/3
 id: story:oidc-deployment-package
 kind: story
-status: draft
+status: active
 title: Mandate ships as a container image and a Helm chart with health and readiness
 relations:
 - decomposes: epic:openid-provider
 - serves: vision:mandate
-revision: 1
+revision: 3
+transitions:
+- {from: "draft", to: "proposed", at: "2026-10-16T21:58:37Z", actor: "human:timo", revision: 2, decided_on: {"asserted":{"review_outcome":1}}}
+- {from: "proposed", to: "active", at: "2026-10-16T21:58:37Z", actor: "human:timo", revision: 3, decided_on: {"asserted":{"review_outcome":1}}}
 ---
 # Mandate ships as a container image and a Helm chart with health and readiness
 
