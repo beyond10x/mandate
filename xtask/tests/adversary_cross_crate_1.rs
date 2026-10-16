@@ -259,7 +259,7 @@ fn decided_in_on_a_command_entry_is_refused() {
 fn decided_in_on_a_no_state_change_row_is_refused() {
     let root = fixture("decided-in-on-a-no-state-change-row");
     let mut federation = document(&root, "federation");
-    let at = command_at(&federation, "mandate.federation.AuthorizePublicClient");
+    let at = command_at(&federation, "mandate.federation.AuthenticateFederation");
     federation["commands"][at]["no_state_change"][0]["decided_in"] =
         Value::String("mandate-sts".to_owned());
     write_document(&root, "federation", &federation);

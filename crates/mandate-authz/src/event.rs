@@ -72,8 +72,10 @@ pub struct DelegationCreated {
 /// `#[serde(untagged)]`, so a variant serializes as the bare payload object, as
 /// `mandate_model::tenancy::TenancyEvent` does; `Serialize` only, because an event is read
 /// back by folding it here and never by decoding a document.
-/// `AgentCapabilityCeilingSuperseded` is absent: its command stays deferred on
-/// `story:agent-security` (`docs/plans/2026-10-13-wave-7-execution.md`, "Spec first").
+/// `AgentCapabilityCeilingSuperseded` is absent: its command stays `declared` on
+/// `story:agent-security`, because the command carries no replacement ceiling and ESS 0.59.0
+/// cannot declare a create beside a move in one outcome (ESS-COMMAND-009), so no ceiling has
+/// a writer (`crate::ESS_UNREALIZED`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(untagged)]
 pub enum DelegationEvent {

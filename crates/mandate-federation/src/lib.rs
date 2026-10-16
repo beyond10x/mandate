@@ -59,7 +59,6 @@ mandate_types::realizes! {
     "mandate.federation.LinkExternalPrincipal" => crate::link::link_external_principal,
     "mandate.federation.AuthenticateFederation" => crate::authenticate::authenticate_federation,
     "mandate.federation.ProvisionExternalPrincipal" => crate::authenticate::provision_external_principal,
-    "mandate.federation.AuthorizePublicClient" => crate::authorize::validate_authorization_code,
     "mandate.federation.DisableFederationConnection" => crate::disable::disable_federation_connection,
     "mandate.federation.UnlinkExternalPrincipal" => crate::disable::unlink_external_principal,
     "mandate.federation.DisableOAuthClient" => crate::disable::disable_oauth_client,
@@ -113,19 +112,36 @@ mandate_types::realizes! {
 /// registry also realizes is a contradiction, and an element neither one names is an
 /// element nobody accounted for. `mandate-identity` carries the same pair for its domain.
 ///
-/// There is one, and it is not an oversight. `mandate.federation.AuthorizePublicClient` is
-/// realized here up to the STS call its accepted outcome makes;
-/// [`authorize::validate_authorization_code`] is non-consuming and returns a validation
-/// candidate carrying no event. The event that outcome declares is **not**
-/// `mandate.credential.AuthorizationCodeIssued`, which `mandate_sts::code` emits since
-/// `story:oauth-transaction`; it is this domain's own event, which the adapter that carries
-/// the validation candidate into the STS call emits. A variant for it on
-/// [`record::FederationEvent`] would be a payload nothing in this crate can fill.
-pub const ESS_UNREALIZED: &[(&str, &str)] = &[(
-    "mandate.federation.AuthorizationCodeIssued",
-    "emitted by the adapter that carries this crate's validation candidate into the STS \
-     call, not by this crate; owner story:oauth-integration",
-)];
+/// There are two, and neither is an oversight. Both are `story:oauth-integration`'s, which
+/// `decision-blocker:epoch-atomicity` holds.
+///
+/// * `mandate.federation.AuthorizePublicClient`. [`authorize::validate_authorization_code`]
+///   validates a *presented* code against a *presented* PKCE verifier, which is a
+///   redemption's check and not an authorization request's: a request carries neither, the
+///   code does not exist yet and the verifier stays with the client. The control plane's
+///   authorize adapter (`services/control-plane/src/adapters.rs`, `Deployment::authorize`)
+///   does not call it, and the conformance target answers the command `Unsupported`.
+/// * `mandate.federation.AuthorizationCodeIssued`, the event that command's accepted outcome
+///   declares. It is **not** `mandate.credential.AuthorizationCodeIssued`, which
+///   `mandate_sts::code` emits since `story:oauth-transaction`, and nothing emits it: the
+///   authorize adapter makes no validation candidate and records only the credential-domain
+///   event the STS call returns. A variant for it on [`record::FederationEvent`] would be a
+///   payload nothing in this crate can fill.
+pub const ESS_UNREALIZED: &[(&str, &str)] = &[
+    (
+        "mandate.federation.AuthorizePublicClient",
+        "validate_authorization_code checks a presented code and verifier, which a redemption \
+         carries and an authorization request does not, and the authorize adapter does not \
+         call it; owner story:oauth-integration, blocked on decision-blocker:epoch-atomicity",
+    ),
+    (
+        "mandate.federation.AuthorizationCodeIssued",
+        "emitted by nothing: the authorize adapter records only the credential-domain \
+         AuthorizationCodeIssued the STS call returns, and this crate declares no payload for \
+         this domain's event; owner story:oauth-integration, blocked on \
+         decision-blocker:epoch-atomicity",
+    ),
+];
 
 use core::fmt;
 

@@ -161,11 +161,9 @@ pub use snapshot::{Eligibility, EpochDimension, SecurityEpochSnapshot};
 // the contract's own index.
 mandate_types::realizes! {
     "mandate.identity.RevokeSession" => crate::session::revoke_session,
-    "mandate.identity.RefreshSession" => crate::session::refresh_session,
     "mandate.identity.IncrementSecurityEpoch" => crate::increment::IncrementSecurityEpoch,
     "mandate.identity.SessionOpened" => crate::session::SessionOpened,
     "mandate.identity.SessionRevoked" => crate::session::SessionRevoked,
-    "mandate.identity.SessionRefreshed" => crate::session::SessionRefreshed,
     "mandate.identity.EpochSnapshotRecorded" => crate::port::EpochSnapshotRecorded,
     "mandate.identity.SecurityEpochRecorded" => crate::port::SecurityEpochRecorded,
     "mandate.identity.SecurityEpochIncremented" => crate::increment::SecurityEpochIncremented,
@@ -200,11 +198,17 @@ mandate_types::realizes! {
 /// registry also realizes is a contradiction, and an element neither one names is an
 /// element nobody accounted for.
 ///
-/// Three groups, and none is an oversight:
+/// Four groups, and none is an oversight:
 ///
 /// * The `RefreshCredential` record, its lifecycle move and the commands that make them.
 ///   This crate folds sessions, principals and generations; that record is not projected
 ///   here.
+/// * `RefreshSession` and its event. [`refresh_session`] takes a
+///   [`SessionId`](mandate_types::SessionId), not the
+///   declared `refresh_proof`, and checks no refresh verifier; and an accepted refresh
+///   appends nothing, because [`IdentityEvent`] has no `SessionRefreshed` variant, so the log
+///   after an accepted refresh is the log after a refused one. [`SessionRefreshed`] is the
+///   value the call returns, not a recorded event. Both are `story:declared-writers`'.
 /// * The principal's *disablement*. The record itself is realized — the fold materializes
 ///   it from the seeding event `identity.yaml` declares — but no handler here decides
 ///   `DisablePrincipal`, and `mandate.identity.PrincipalDisabled` is not folded, so
@@ -215,8 +219,21 @@ mandate_types::realizes! {
 /// * The single-state lifecycles. `SecurityEpochSnapshot` and the three generation records
 ///   each declare exactly one state, `Recorded`, which no value in this crate names: there
 ///   is no transition to fold and an enum of one variant would decide nothing. The records
-///   themselves are realized.
+///   themselves are realized. Whether the epoch records' representation declares the enum
+///   anyway is `story:declared-writers`' (UNMAPPED-EPOCH), the owner
+///   `contracts/coverage.json` names for each.
 pub const ESS_UNREALIZED: &[(&str, &str)] = &[
+    (
+        "mandate.identity.RefreshSession",
+        "refresh_session takes a SessionId, not the declared refresh_proof, and checks no \
+         refresh verifier; owner story:declared-writers",
+    ),
+    (
+        "mandate.identity.SessionRefreshed",
+        "not appended: IdentityEvent has no SessionRefreshed variant, so an accepted refresh \
+         leaves the log a refused one leaves, and session::SessionRefreshed is the value \
+         refresh_session returns; owner story:declared-writers",
+    ),
     (
         "mandate.identity.DisablePrincipal",
         "no handler here decides it; the fold materializes the created record and folds no \
@@ -245,19 +262,19 @@ pub const ESS_UNREALIZED: &[(&str, &str)] = &[
     ),
     (
         "mandate.identity.SecurityEpochSnapshot.State",
-        "a single-state lifecycle: no transition to fold",
+        "a single-state lifecycle: no transition to fold; owner story:declared-writers",
     ),
     (
         "mandate.identity.PrincipalSecurityEpoch.State",
-        "a single-state lifecycle: no transition to fold",
+        "a single-state lifecycle: no transition to fold; owner story:declared-writers",
     ),
     (
         "mandate.identity.OrganizationSecurityEpoch.State",
-        "a single-state lifecycle: no transition to fold",
+        "a single-state lifecycle: no transition to fold; owner story:declared-writers",
     ),
     (
         "mandate.identity.FederationSecurityEpoch.State",
-        "a single-state lifecycle: no transition to fold",
+        "a single-state lifecycle: no transition to fold; owner story:declared-writers",
     ),
 ];
 

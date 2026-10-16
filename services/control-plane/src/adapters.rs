@@ -3978,7 +3978,9 @@ where
     /// No authority decision is asked here, and that is a gap rather than a ruling: the
     /// decision point ([`Deployment::with_authority`]) is asked about a context the adapter
     /// already holds, and an exchange's context is the one the STS validates the subject
-    /// proof to. `None` is what the shipped binary configures (`crate::authority`).
+    /// proof to. `None` is what the shipped binary configures (`crate::authority`). Asking
+    /// it is `story:constrained-exchange`'s, which is where
+    /// `contracts/obligations/sts.json` defers the declared cause's "authority" clause.
     ///
     /// # Errors
     ///

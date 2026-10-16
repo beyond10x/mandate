@@ -23,8 +23,8 @@
 //! line carries that payload, so the only way to report the event the accepted outcome
 //! declares would be to assemble `{context, decision}` here — which is precisely the
 //! manufactured expectation the acceptance forbids. An allow is therefore answered
-//! `Unsupported` against `story:coverage-map`, which owns the authorization domain's
-//! realization registry; a refusal declares no event and is reported in full.
+//! `Unsupported` against `story:declared-writers`, which owns giving that event a writer
+//! (`contracts/coverage.json`); a refusal declares no event and is reported in full.
 
 use ess_conformance::target::{SemanticCommandRequest, SemanticCommandResult, TargetError};
 use mandate_authz::event::DelegationEvent;
@@ -120,13 +120,13 @@ pub fn check(
                 &live.scenario,
                 COMMAND,
                 "event-unrealized",
-                "story:coverage-map",
+                "story:declared-writers",
             );
             Err(TargetError::unsupported(
                 format!("the event `mandate.authorization.DecisionRecorded` of `{COMMAND}`"),
                 "no type on this crate's dependency line realizes that payload, and the \
                  only other way to report it would be to assemble it here; owner \
-                 story:coverage-map",
+                 story:declared-writers",
             ))
         }
         Err(denied) => refused(COMMAND, "denied", DENIED, denied.reason),

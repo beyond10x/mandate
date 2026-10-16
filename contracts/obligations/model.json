@@ -4,8 +4,7 @@
   "domains": [
     "mandate.audit",
     "mandate.directory",
-    "mandate.tenancy",
-    "mandate.workload"
+    "mandate.tenancy"
   ],
   "commands": [
     {
@@ -19,7 +18,7 @@
     {
       "command": "mandate.audit.RedactAuditEvent",
       "status": "deferred",
-      "story": "story:audit-client",
+      "story": "story:audit-worker-delivery",
       "blocker": "decision-blocker:audit-routing",
       "clauses": [],
       "no_state_change": []

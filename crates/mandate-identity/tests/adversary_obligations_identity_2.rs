@@ -466,9 +466,12 @@ fn the_refresh_commands_deferral_names_a_story_that_owns_the_event_it_waits_on()
         .iter()
         .find(|command| command["command"] == "mandate.identity.RefreshSession")
         .expect("identity.json carries mandate.identity.RefreshSession");
+    // A command the registry defers as a whole names its story in `story`; one it carries
+    // implemented with a command-level `blocked_on` names it there.
     let deferral = refresh["blocked_on"]
         .as_str()
-        .expect("the command carries a command-level blocked_on")
+        .or_else(|| refresh["story"].as_str())
+        .expect("the command carries a command-level blocked_on or a deferred story")
         .to_owned();
     assert!(
         deferral.starts_with("story:"),

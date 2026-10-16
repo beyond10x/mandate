@@ -339,8 +339,8 @@ fn the_step_refuses_a_double_row_added_to_a_clause_a_real_row_already_covers() {
     let mut graph = document(&root, "graph");
     let at = rows(&graph["commands"])
         .iter()
-        .position(|entry| entry["command"] == "mandate.graph.WriteRelationship")
-        .expect("WriteRelationship has an entry");
+        .position(|entry| entry["command"] == "mandate.graph.RegisterResource")
+        .expect("RegisterResource has an entry");
     // The precondition is built here rather than read out of the committed document. Which
     // clauses a crate covers on the real path is a thing a ruling moves — after
     // `review-result:wave-d-obligations-graph-adversary-2` this command covers none, every
@@ -377,7 +377,7 @@ fn the_step_refuses_a_double_row_added_to_a_clause_a_real_row_already_covers() {
     let error = match run(&root) {
         Ok(report) => panic!(
             "a `double` row was added to the clause {name} of \
-             mandate.graph.WriteRelationship, which a real row already covers. The README says \
+             mandate.graph.RegisterResource, which a real row already covers. The README says \
              a double row is counted in its own column of the report and leaves the clause \
              carrying `blocked_on`; the step accepted the registry and the report did not \
              move:\n{report}"

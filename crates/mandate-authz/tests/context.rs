@@ -264,9 +264,10 @@ fn a_scope_naming_a_space_the_organization_does_not_hold_is_a_tenant_mismatch() 
 }
 
 /// The space resolves, and the resource is still not bound to it. `mandate.graph.Resource`
-/// declares `space_id` and no command writes it (`crates/mandate-model/src/graph.rs:34-41`),
-/// so today this is every scoped request: the closed direction, and the record of a
-/// contract gap that `story:event-payloads-for-folds` owns.
+/// declares `space_id` and no command writes it (`crates/mandate-model/src/graph.rs`, whose
+/// fold records `space_id: None`), so today this is every scoped request: the closed
+/// direction, and the record of a contract gap that `story:declared-writers` owns
+/// (`contracts/obligations/authz.json`, the "space binding mismatches" clause).
 #[test]
 fn a_scope_naming_a_space_the_resource_is_not_bound_to_is_a_tenant_mismatch() {
     let context = context();
