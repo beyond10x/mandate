@@ -2,11 +2,13 @@
 format: aep.planning-md/3
 id: decision-blocker:async-runtime
 kind: decision-blocker
-status: open
+status: cleared
 title: UNMAPPED-RUNTIME — no async runtime is admitted, and the event log's surface is async
 relations:
 - blocks: story:domain-folds-over-the-kit
-revision: 1
+revision: 3
+transitions:
+- {from: "open", to: "cleared", at: "2026-10-16T17:16:09Z", actor: "human:timo", revision: 3}
 ---
 # UNMAPPED-RUNTIME — no async runtime is admitted, and the event log's surface is async
 
@@ -57,3 +59,7 @@ The options are not symmetric and the operator decides between them:
 
 Until one of those is recorded, a story that proposes to persist anything is proposing a second
 mechanism.
+
+## Decided (operator, 2026-10-16)
+
+The runtime is tokio, with hyper for HTTP, as `docs/adr/0012-openid-provider.md` decides (fork F9: tokio and hyper, the eventlog kit on SQLite on a volume, one replica). The kit's async surface runs on tokio, one runtime per process. `story:domain-folds-over-the-kit` may now build the folds over the kit.
