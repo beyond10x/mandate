@@ -1,0 +1,13 @@
+{
+  "at": "2026-10-15T21:47:36Z",
+  "actor": "human:timo",
+  "artifact": "story:tooling-repin-0-73-0-60",
+  "kind": "story",
+  "revision": 3,
+  "change": {
+    "change": "evidence",
+    "kind": "test_result",
+    "source": "https://github.com/beyond10x/mandate/actions/runs/38810979367",
+    "reference": "d09831dd8e3ab429560b567de1579e251d87c537"
+  }
+}
