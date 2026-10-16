@@ -18,6 +18,11 @@ commands are registered here as reached only through their generated
 decodes nothing for them, and establishes none of their preconditions. Their product routes and
 the per-clause enumeration that comes with those routes belong to `story:protocol-adapters`.
 
+Two later additions sit beside those four. `/oauth/token` also decodes
+`mandate.credential.ExchangeCredential`, RFC 8693's subject-only token exchange, selected by its
+`grant_type`. And the OIDC relying-party flow adds three routes that bind no declared command:
+`/v1/federation/authorize`, `/v1/federation/callback` and `/v1/federation/handoff`.
+
 Nothing here clears `decision-blocker:guards`. That blocker's evidence is five items; this
 library produces three of them (the written contract, the negative case per deny clause of the
 commands it serves, and the route-disjointness proof), `story:product-listener` produces the
@@ -26,17 +31,20 @@ fourth over HTTP, and the fifth — a `TokenExchangeDenied` durable audit record
 
 ## The product route table
 
-`crates/mandate-server/src/routes.rs`. Six entries, and a listener that serves this table serves
+`crates/mandate-server/src/routes.rs`. Nine entries, and a listener that serves this table serves
 nothing else.
 
 | Method | Path | Binds | Source of the path |
 |---|---|---|---|
 | `POST` | `/v1/federation/login` | `mandate.federation.AuthenticateFederation` | A control-plane product route: it mints a session and issues no credential. `../sources/original-design.md:1784-1796` puts control-plane resources under `/v1/`; `:1871-1875` puts federation there. |
 | `GET` | `/oauth/authorize` | `mandate.federation.AuthorizePublicClient` | `../sources/original-design.md:1857`, verbatim. RFC 6749 section 3.1 requires `GET`. |
-| `POST` | `/oauth/token` | `mandate.credential.RedeemAuthorizationCode` | `../sources/original-design.md:1858`, verbatim. RFC 6749 section 3.2 requires `POST`. |
+| `POST` | `/oauth/token` | `mandate.credential.RedeemAuthorizationCode`; `decode::token_request` sends the token-exchange `grant_type` to `mandate.credential.ExchangeCredential` | `../sources/original-design.md:1858`, verbatim. RFC 6749 section 3.2 requires `POST`. |
 | `POST` | `/oauth/introspect` | `mandate.credential.IntrospectCredential` | `../sources/original-design.md:1860`, verbatim. RFC 7662 section 2 requires `POST`. |
 | `GET` | `/.well-known/oauth-authorization-server` | the RFC 8414 metadata document | `../sources/original-design.md:1855`, verbatim; RFC 8414 section 3 fixes it at the host root. |
 | `GET` | `/oauth/jwks` | the JWK Set document | `../sources/original-design.md:1862`, verbatim. |
+| `GET` | `/v1/federation/authorize` | the relying-party authorize step (`decode::begin_federation`) | Under `/v1/` with the login route; it starts the browser's sign-in at the IdP. |
+| `GET` | `/v1/federation/callback` | the relying-party callback step (`decode::complete_federation`) | The redirect URI the IdP sends the browser back to. |
+| `POST` | `/v1/federation/handoff` | the relying-party handoff step (`decode::redeem_handoff`) | Where the embedding application redeems the single-use handoff code for the session. |
 
 `../public/contracts.md:29`: generated command routes "do not implement product routes". The
 proof is `crates/mandate-server/tests/routes.rs`, which reads the 63 generated paths from
@@ -52,11 +60,14 @@ resources of `:1784-1796`.
 
 ## What every adapter on this road does, and does not
 
-The rules below hold for all four decoders (`crates/mandate-server/src/decode.rs`).
+The rules below hold for all eight decoders (`crates/mandate-server/src/decode.rs`): the four
+road commands, the token-exchange grant, and the three relying-party steps.
 
 1. **The admitted parameter set is closed.** Each endpoint declares its keys —
    `decode::LOGIN_MEMBERS`, `decode::AUTHORIZE_PARAMETERS`, `decode::TOKEN_PARAMETERS`,
-   `decode::INTROSPECT_PARAMETERS` — and anything else is refused. A caller cannot add an
+   `decode::EXCHANGE_PARAMETERS`, `decode::INTROSPECT_PARAMETERS`,
+   `decode::FEDERATION_AUTHORIZE_PARAMETERS`, `decode::FEDERATION_CALLBACK_PARAMETERS`,
+   `decode::HANDOFF_MEMBERS` — and anything else is refused. A caller cannot add an
    `organization_id`, an `audience`, a `subject` or an `actor` to a request and have it ignored;
    the request is refused. `combined.md:51` is the rule; a closed set is how it is kept.
 2. **No selector becomes authority.** No road command declares a `mandate.core.VerifiedContext`
@@ -70,14 +81,14 @@ The rules below hold for all four decoders (`crates/mandate-server/src/decode.rs
    the composition's, not this library's**: `services/control-plane` resolves the `code_id` from
    the presented `code` through a by-verifier read on the STS's authorization-code store, then
    calls `RedeemAuthorizationCode` with the identifier the server resolved. That read does not
-   exist in this crate's dependency ceiling and cannot; `story:product-listener` adds it. Until
-   then, `code_id: None` is the whole of what a decoder can honestly produce, and it is what the
-   wire form supports.
+   exist in this crate's dependency ceiling and cannot (`resolve_code_id` in
+   `services/control-plane/src/adapters.rs` performs it), so `code_id: None` is the whole of what
+   a decoder can honestly produce, and it is what the wire form supports.
 4. **A repeat is refused, not resolved.** A parameter presented twice and a header presented
    twice are both refusals. Every rule for picking one of two values is a rule an attacker can
    aim at a reader that picked the other. Every decoder reads its headers through
    `Request::single_header`, **including the two that read no `Authorization` at all**, so a
-   duplicate is refused on all four and not only where one is consumed.
+   duplicate is refused on all eight and not only where one is consumed.
 5. **A credential presented where no input declares one is refused.** `AuthenticateFederation`
    and `RedeemAuthorizationCode` declare no caller credential, so an `Authorization` header at
    `/v1/federation/login` or `/oauth/token` is caller-supplied authority the contract has
@@ -92,9 +103,9 @@ The rules below hold for all four decoders (`crates/mandate-server/src/decode.rs
    decoding to zero bytes. Otherwise the credential nobody holds reaches a handler as a
    presented credential.
 7. **Every request is measured, and the component a route does not read is refused.** One
-   helper, `decode::entry`, runs first on all four decoders and does both. The byte ceiling
+   helper, `decode::entry`, runs first on all eight decoders and does both. The byte ceiling
    `decode::MAX_BODY_BYTES` is measured first, on the body **and** the query string of **all
-   four**, before anything is parsed. Then the component that route reads nothing out of is
+   eight**, before anything is parsed. Then the component that route reads nothing out of is
    refused whole: a body presented to the authorization endpoint, which reads only the query,
    is `BodyNotAdmitted`, and a query string presented to the token, introspection or federation
    login route, which read only the body, is `QueryNotAdmitted`. It is not ignored and it is

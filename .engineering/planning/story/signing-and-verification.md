@@ -30,7 +30,7 @@ scope:
   path: deny.toml
 - confidence: cited
   path: dependency-boundaries.json
-revision: 16
+revision: 17
 transitions:
 - {from: "draft", to: "proposed", at: "2026-09-19T03:06:35Z", actor: "human:timo", revision: 9, decided_on: {"recorded":{"review_outcome":5}}, imported: true}
 - {from: "proposed", to: "active", at: "2026-09-19T03:06:36Z", actor: "human:timo", revision: 10, decided_on: {"recorded":{"review_outcome":5}}, imported: true}
@@ -118,3 +118,7 @@ The coordinator adds one `pub mod` line to each crate root — `crates/mandate-f
 - Destination rule edges (A2-2, A2-3, A2-4): both arms compare (host, port) with the scheme's default port normalized; a listed host admits only the listed port (default if none listed); the loopback guard refuses by name class (`localhost` with any trailing dot, any `*.localdomain`, every address literal). `azp` present and not a string is refused; the untrusted-audience test is membership, not count (A2-5, A2-6).
 - No environment proxy (J1): the shipped configuration sets `proxy(None)`; the JWKS fetch goes where `allowing_jwks_hosts` says and nowhere else. An explicit egress proxy is a later deployment option, documented as absent.
 - Replay of a captured ID token (J2) is the login flow's defence (the relying party's `nonce`/`state` and one-time redemption), which the verify seam cannot carry; recorded on `feature-design:federated-login` for the served-route story.
+
+## Follow-on recorded as intentional
+
+Recorded 2026-10-16 (audit G-31). The follow-on the ruling after critic round 1 left open, replacing the double in `crates/mandate-federation/tests/link.rs` and `tests/authenticate.rs`, is intentional and is not owed by this story. Both files still build their verifier with `ConstructedVerifier::admitting` (`link.rs:102`, `authenticate.rs:136`). The acceptance is met where it was placed: the eight federation cases run over the real verifier, with test-time keys and no double in the chain, in `crates/mandate-federation/tests/verifier_real.rs`. The two older files test the link and authenticate deciders and not verification, so a double there removes nothing from the acceptance. The double itself moves with `story:testkit-doubles` (draft), whose scope names `link.rs` and `authenticate.rs`; that story is the live home of the follow-on.

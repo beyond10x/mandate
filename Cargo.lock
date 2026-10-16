@@ -415,8 +415,8 @@ dependencies = [
 
 [[package]]
 name = "ess-compiler"
-version = "0.59.0"
-source = "git+https://github.com/beyond10x/ess.git?tag=0.59.0#56bd965b4a54e4f57afdcf1c1868317bcd0237b4"
+version = "0.60.0"
+source = "git+https://github.com/beyond10x/ess.git?tag=0.60.0#19d601013b867f0e6f5061f097fa81d55a734bb1"
 dependencies = [
  "ess-domain",
  "ess-primitives",
@@ -427,70 +427,93 @@ dependencies = [
 
 [[package]]
 name = "ess-conformance"
-version = "0.59.0"
-source = "git+https://github.com/beyond10x/ess.git?tag=0.59.0#56bd965b4a54e4f57afdcf1c1868317bcd0237b4"
+version = "0.60.0"
+source = "git+https://github.com/beyond10x/ess.git?tag=0.60.0#19d601013b867f0e6f5061f097fa81d55a734bb1"
 dependencies = [
  "ess-compiler",
  "ess-domain",
  "ess-gen",
  "ess-primitives",
+ "ess-yaml",
  "serde",
  "serde_json",
- "serde_yaml",
  "sha2 0.11.0",
 ]
 
 [[package]]
 name = "ess-domain"
-version = "0.59.0"
-source = "git+https://github.com/beyond10x/ess.git?tag=0.59.0#56bd965b4a54e4f57afdcf1c1868317bcd0237b4"
+version = "0.60.0"
+source = "git+https://github.com/beyond10x/ess.git?tag=0.60.0#19d601013b867f0e6f5061f097fa81d55a734bb1"
 dependencies = [
  "ess-primitives",
+ "ess-yaml",
  "schemars",
  "serde",
  "serde_json",
- "serde_yaml",
  "thiserror",
 ]
 
 [[package]]
 name = "ess-gen"
-version = "0.59.0"
-source = "git+https://github.com/beyond10x/ess.git?tag=0.59.0#56bd965b4a54e4f57afdcf1c1868317bcd0237b4"
+version = "0.60.0"
+source = "git+https://github.com/beyond10x/ess.git?tag=0.60.0#19d601013b867f0e6f5061f097fa81d55a734bb1"
+dependencies = [
+ "ess-compiler",
+ "ess-domain",
+ "ess-http",
+ "ess-primitives",
+ "ess-transport",
+ "ess-yaml",
+ "pulldown-cmark",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+]
+
+[[package]]
+name = "ess-http"
+version = "0.60.0"
+source = "git+https://github.com/beyond10x/ess.git?tag=0.60.0#19d601013b867f0e6f5061f097fa81d55a734bb1"
 dependencies = [
  "ess-compiler",
  "ess-domain",
  "ess-primitives",
- "ess-transport",
- "pulldown-cmark",
+ "ess-yaml",
  "serde",
  "serde_json",
- "serde_yaml",
  "sha2 0.11.0",
 ]
 
 [[package]]
 name = "ess-primitives"
-version = "0.59.0"
-source = "git+https://github.com/beyond10x/ess.git?tag=0.59.0#56bd965b4a54e4f57afdcf1c1868317bcd0237b4"
+version = "0.60.0"
+source = "git+https://github.com/beyond10x/ess.git?tag=0.60.0#19d601013b867f0e6f5061f097fa81d55a734bb1"
 dependencies = [
+ "ess-yaml",
  "schemars",
  "serde",
  "serde_json",
- "serde_yaml",
  "thiserror",
 ]
 
 [[package]]
 name = "ess-transport"
-version = "0.59.0"
-source = "git+https://github.com/beyond10x/ess.git?tag=0.59.0#56bd965b4a54e4f57afdcf1c1868317bcd0237b4"
+version = "0.60.0"
+source = "git+https://github.com/beyond10x/ess.git?tag=0.60.0#19d601013b867f0e6f5061f097fa81d55a734bb1"
 dependencies = [
  "ess-compiler",
  "ess-domain",
+ "ess-yaml",
  "serde",
  "serde_json",
- "serde_yaml",
+]
+
+[[package]]
+name = "ess-yaml"
+version = "0.60.0"
+source = "git+https://github.com/beyond10x/ess.git?tag=0.60.0#19d601013b867f0e6f5061f097fa81d55a734bb1"
+dependencies = [
+ "serde_norway",
 ]
 
 [[package]]
@@ -883,7 +906,7 @@ checksum = "f9f8bd3e56ce4dfc153cf470fffbfa98c7620958b312ca5c3a4b8d5181fd13c6"
 
 [[package]]
 name = "mandate"
-version = "0.9.0"
+version = "0.9.2"
 dependencies = [
  "clap",
  "sha2 0.10.9",
@@ -891,21 +914,21 @@ dependencies = [
 
 [[package]]
 name = "mandate-audit"
-version = "0.9.0"
+version = "0.9.2"
 dependencies = [
  "mandate-types",
 ]
 
 [[package]]
 name = "mandate-authorization"
-version = "0.9.0"
+version = "0.9.2"
 dependencies = [
  "clap",
 ]
 
 [[package]]
 name = "mandate-authz"
-version = "0.9.0"
+version = "0.9.2"
 dependencies = [
  "mandate-graph",
  "mandate-model",
@@ -916,7 +939,7 @@ dependencies = [
 
 [[package]]
 name = "mandate-client"
-version = "0.9.0"
+version = "0.9.2"
 dependencies = [
  "mandate-proto",
  "mandate-types",
@@ -924,7 +947,7 @@ dependencies = [
 
 [[package]]
 name = "mandate-conformance"
-version = "0.9.0"
+version = "0.9.2"
 dependencies = [
  "clap",
  "ess-conformance",
@@ -946,7 +969,7 @@ dependencies = [
 
 [[package]]
 name = "mandate-contract"
-version = "0.9.0"
+version = "0.9.2"
 dependencies = [
  "serde",
  "serde_json",
@@ -954,7 +977,7 @@ dependencies = [
 
 [[package]]
 name = "mandate-control-plane"
-version = "0.9.0"
+version = "0.9.2"
 dependencies = [
  "aws-lc-rs",
  "clap",
@@ -979,7 +1002,7 @@ dependencies = [
 
 [[package]]
 name = "mandate-federation"
-version = "0.9.0"
+version = "0.9.2"
 dependencies = [
  "aws-lc-rs",
  "jsonwebtoken",
@@ -997,7 +1020,7 @@ dependencies = [
 
 [[package]]
 name = "mandate-graph"
-version = "0.9.0"
+version = "0.9.2"
 dependencies = [
  "mandate-model",
  "mandate-types",
@@ -1005,7 +1028,7 @@ dependencies = [
 
 [[package]]
 name = "mandate-identity"
-version = "0.9.0"
+version = "0.9.2"
 dependencies = [
  "mandate-contract",
  "mandate-model",
@@ -1017,7 +1040,7 @@ dependencies = [
 
 [[package]]
 name = "mandate-model"
-version = "0.9.0"
+version = "0.9.2"
 dependencies = [
  "mandate-contract",
  "mandate-testkit",
@@ -1028,7 +1051,7 @@ dependencies = [
 
 [[package]]
 name = "mandate-policy"
-version = "0.9.0"
+version = "0.9.2"
 dependencies = [
  "mandate-model",
  "mandate-types",
@@ -1036,7 +1059,7 @@ dependencies = [
 
 [[package]]
 name = "mandate-proto"
-version = "0.9.0"
+version = "0.9.2"
 dependencies = [
  "mandate-model",
  "mandate-token",
@@ -1047,7 +1070,7 @@ dependencies = [
 
 [[package]]
 name = "mandate-provisioning"
-version = "0.9.0"
+version = "0.9.2"
 dependencies = [
  "eventlog-core",
  "mandate-identity",
@@ -1057,7 +1080,7 @@ dependencies = [
 
 [[package]]
 name = "mandate-server"
-version = "0.9.0"
+version = "0.9.2"
 dependencies = [
  "mandate-proto",
  "mandate-types",
@@ -1065,7 +1088,7 @@ dependencies = [
 
 [[package]]
 name = "mandate-sts"
-version = "0.9.0"
+version = "0.9.2"
 dependencies = [
  "aws-lc-rs",
  "clap",
@@ -1082,7 +1105,7 @@ dependencies = [
 
 [[package]]
 name = "mandate-testkit"
-version = "0.9.0"
+version = "0.9.2"
 dependencies = [
  "jsonschema",
  "mandate-authz",
@@ -1094,7 +1117,7 @@ dependencies = [
 
 [[package]]
 name = "mandate-token"
-version = "0.9.0"
+version = "0.9.2"
 dependencies = [
  "aws-lc-rs",
  "jsonwebtoken",
@@ -1108,7 +1131,7 @@ dependencies = [
 
 [[package]]
 name = "mandate-types"
-version = "0.9.0"
+version = "0.9.2"
 dependencies = [
  "mandate-contract",
  "serde",
@@ -1117,7 +1140,7 @@ dependencies = [
 
 [[package]]
 name = "mandate-worker"
-version = "0.9.0"
+version = "0.9.2"
 dependencies = [
  "clap",
  "eventlog-core",
@@ -1704,16 +1727,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde_yaml"
-version = "0.9.34+deprecated"
+name = "serde_norway"
+version = "0.9.42"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a8b1a1a2ebf674015cc02edccce75287f1a0130d394307b36743c2f5d504b47"
+checksum = "e408f29489b5fd500fab51ff1484fc859bb655f32c671f307dcd733b72e8168c"
 dependencies = [
  "indexmap",
  "itoa",
  "ryu",
  "serde",
- "unsafe-libyaml",
+ "unsafe-libyaml-norway",
 ]
 
 [[package]]
@@ -1923,10 +1946,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ab72a15cf68d77cb0987d3684aa8a45c5ef827e8cb49ee2f30bfd7ba2feb519f"
 
 [[package]]
-name = "unsafe-libyaml"
-version = "0.2.11"
+name = "unsafe-libyaml-norway"
+version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "673aac59facbab8a9007c7f6108d11f63b603f7cabff99fabf650fea5c32b861"
+checksum = "b39abd59bf32521c7f2301b52d05a6a2c975b6003521cbd0c6dc1582f0a22104"
 
 [[package]]
 name = "untrusted"
@@ -2106,7 +2129,7 @@ checksum = "1ebf944e87a7c253233ad6766e082e3cd714b5d03812acc24c318f549614536e"
 
 [[package]]
 name = "xtask"
-version = "0.9.0"
+version = "0.9.2"
 dependencies = [
  "clap",
  "serde_json",

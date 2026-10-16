@@ -222,8 +222,8 @@ fn require_revision_refuses_a_view_that_never_issued_the_revision_named() {
 ///
 /// Driven through the command itself, under a condition the shipped writer actually refuses
 /// on: the caller is verified in another organization, so
-/// [`RevocationWriter::remove_relation`] answers `TenantMismatch` before it touches the
-/// relation. The assertion is on the **whole fold** — [`GraphDouble`] is `PartialEq`, so
+/// [`RevocationWriter::remove_relation`] answers `Denied`, exactly as for a relation no fold
+/// carries, before it touches the relation. The assertion is on the **whole fold** — [`GraphDouble`] is `PartialEq`, so
 /// `graph == before` is every projection and the issued-revision list at once, not the one
 /// field this case happened to look at afterwards.
 ///
@@ -245,7 +245,7 @@ fn a_relation_removal_refused_for_tenancy_removes_nothing_and_issues_no_revision
         .remove_relation(&elsewhere(), &written.relation.id)
         .expect_err("the caller is verified in another organization");
 
-    assert_eq!(refusal, GraphError::Denied(DenialReason::TenantMismatch));
+    assert_eq!(refusal, GraphError::Denied(DenialReason::Denied));
     assert!(refusal.is_denial());
     assert_eq!(graph, before);
     assert_eq!(graph.observed(), written.revision);
@@ -267,7 +267,7 @@ fn a_grant_revocation_refused_for_tenancy_revokes_nothing_and_issues_no_revision
         .revoke_grant(&elsewhere(), &GrantId::new(uuid(6)))
         .expect_err("the caller is verified in another organization");
 
-    assert_eq!(refusal, GraphError::Denied(DenialReason::TenantMismatch));
+    assert_eq!(refusal, GraphError::Denied(DenialReason::Denied));
     assert!(refusal.is_denial());
     assert_eq!(graph, before);
     assert_eq!(graph.observed(), recorded);
@@ -315,13 +315,15 @@ fn a_relationship_write_refused_at_admission_records_no_relation_and_issues_no_r
 /// `mandate.graph.RegisterResource`: "belongs to another organization".
 ///
 /// Driven through the command. The parent id resolves, under another tenant, and the
-/// double's own registry answers `TenantMismatch` before anything is recorded — the second
-/// half of the same check refuses a re-registration of a resource another tenant holds.
+/// double's own registry answers `Denied` before anything is recorded, exactly as for a
+/// parent no fold carries, so the refusal discloses nothing about the other tenant. The
+/// second half of the same check refuses a re-registration of a resource another tenant
+/// holds; that refusal still answers `TenantMismatch` and is `story:audit-foreign-placement`'s.
 ///
 /// A `double` row: the refusal is the double's registry code, the only implementation of
 /// [`ResourceRegistry`] in the workspace.
 #[test]
-fn a_registration_under_another_organizations_parent_is_a_tenant_mismatch() {
+fn a_registration_under_another_organizations_parent_is_denied_like_an_unknown_one() {
     let mut graph = GraphDouble::new();
     graph
         .register_resource(&elsewhere(), &resource(10), None)
@@ -332,9 +334,16 @@ fn a_registration_under_another_organizations_parent_is_a_tenant_mismatch() {
         .register_resource(&context(), &resource(11), Some(&ResourceId::new(uuid(10))))
         .expect_err("the parent belongs to another organization");
 
-    assert_eq!(refusal, GraphError::Denied(DenialReason::TenantMismatch));
-    assert_eq!(refusal.denial_reason(), DenialReason::TenantMismatch);
+    assert_eq!(refusal, GraphError::Denied(DenialReason::Denied));
+    assert_eq!(refusal.denial_reason(), DenialReason::Denied);
     assert!(refusal.is_denial());
+    assert_eq!(
+        refusal,
+        graph
+            .register_resource(&context(), &resource(11), Some(&ResourceId::new(uuid(12))))
+            .expect_err("no fold carries the parent"),
+        "a foreign parent answers exactly as an unknown one"
+    );
     assert_eq!(graph, before);
 
     // The other half of the same check: the identity itself is another tenant's.
@@ -351,9 +360,9 @@ fn a_registration_under_another_organizations_parent_is_a_tenant_mismatch() {
 ///
 /// Decided by the double's own registry code, which is the only implementation of
 /// [`ResourceRegistry`] there is — hence a `double` row, deferred to the story that ships
-/// an adapter.
+/// an adapter. It answers `Denied`, exactly as for a resource no fold carries.
 #[test]
-fn a_deregistration_of_another_organizations_resource_is_a_tenant_mismatch() {
+fn a_deregistration_of_another_organizations_resource_is_denied_like_an_unknown_one() {
     let mut graph = GraphDouble::new();
     graph
         .register_resource(&elsewhere(), &resource(10), None)
@@ -363,9 +372,16 @@ fn a_deregistration_of_another_organizations_resource_is_a_tenant_mismatch() {
         .deregister_resource(&context(), &ResourceId::new(uuid(10)))
         .expect_err("this tenant does not own it");
 
-    assert_eq!(refusal, GraphError::Denied(DenialReason::TenantMismatch));
-    assert_eq!(refusal.denial_reason(), DenialReason::TenantMismatch);
+    assert_eq!(refusal, GraphError::Denied(DenialReason::Denied));
+    assert_eq!(refusal.denial_reason(), DenialReason::Denied);
     assert!(refusal.is_denial());
+    assert_eq!(
+        refusal,
+        graph
+            .deregister_resource(&context(), &ResourceId::new(uuid(12)))
+            .expect_err("no fold carries it"),
+        "a foreign resource answers exactly as an unknown one"
+    );
     graph
         .placement(&other_organization(), &resource(10))
         .expect("and its owner's record still resolves");
@@ -375,9 +391,10 @@ fn a_deregistration_of_another_organizations_resource_is_a_tenant_mismatch() {
 /// organization".
 ///
 /// Decided by the double's own revocation code, the only implementation of
-/// [`RevocationWriter`] there is.
+/// [`RevocationWriter`] there is. It answers `Denied`, exactly as for a relation no fold
+/// carries.
 #[test]
-fn a_relation_removal_in_another_organization_is_a_tenant_mismatch() {
+fn a_relation_removal_in_another_organization_is_denied_like_an_unknown_one() {
     let mut graph = seeded();
     let context = context();
     let subject = subject();
@@ -390,7 +407,7 @@ fn a_relation_removal_in_another_organization_is_a_tenant_mismatch() {
         .remove_relation(&elsewhere(), &written.relation.id)
         .expect_err("another tenant's relation");
 
-    assert_eq!(refusal, GraphError::Denied(DenialReason::TenantMismatch));
+    assert_eq!(refusal, GraphError::Denied(DenialReason::Denied));
     assert!(refusal.is_denial());
     assert_eq!(graph.relations()[0].state, RelationState::Active);
     assert_eq!(

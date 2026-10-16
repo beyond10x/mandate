@@ -1,7 +1,7 @@
 type: ess-scenario/2
 domain: mandate.credential
 scenario: sts-disabled-client-issuance
-summary: '`the client the code would be bound to is disabled`: a disabled registration is issued no new code; code.rs:435-436; corpus: none.'
+summary: '`the client the code would be bound to is disabled`: a disabled registration is issued no new code; admitted_client, ClientDisabled; corpus: none.'
 arrange:
 - instance: server
   entity: mandate.credential.ResourceServer

@@ -62,8 +62,6 @@ pub mod precedence;
 pub mod record;
 
 mandate_types::realizes! {
-    "mandate.policy.SupersedePolicy" => crate::port::PolicyAdministration,
-    "mandate.policy.SupersedeAuthorizationModel" => crate::port::PolicyAdministration,
     "mandate.policy.Policy" => crate::record::Policy,
     "mandate.policy.AuthorizationModel" => crate::record::AuthorizationModel,
     "mandate.policy.Policy.State" => crate::record::PolicyState,
@@ -73,7 +71,9 @@ mandate_types::realizes! {
     // chooses no policy engine (`story:graph-policy-adapter` does), so what it implements of
     // each supersede command is the operation's signature, its refusals and the transition
     // the projection owns. `double` is one implementation of those ports and is not the
-    // realization; an adapter is another.
+    // realization; an adapter is another. The two supersede commands are not here: only
+    // `double` implements their port, so nothing shipped supersedes a policy or a model
+    // (`ESS_UNREALIZED`).
 }
 
 /// Every declared `mandate.policy` element this crate does **not** realize, with the reason.
@@ -84,13 +84,28 @@ mandate_types::realizes! {
 /// model in both directions: an element this list names and the registry also realizes is a
 /// contradiction, and an element neither one names is an element nobody accounted for.
 ///
-/// Both are the events an accepted supersede emits, and neither is an oversight. This crate
+/// Two are the events an accepted supersede emits, and neither is an oversight. This crate
 /// declares no payload type for either: [`port::Superseded`] is what the port call returns —
 /// the projection as it now stands and whether the move was already recorded — and it
 /// carries neither the declared `context` the payload leads with nor the identity it names.
 /// Building the payload is the adapter's, with the engine `story:graph-policy-adapter`
 /// chooses.
+///
+/// Two are the commands those events answer. [`port::PolicyAdministration`] declares them,
+/// and its only implementation is [`double::PolicyDouble`]: nothing shipped supersedes a
+/// policy or a model, and the conformance target answers both `Unsupported`. They wait on
+/// the same adapter, which `decision-blocker:backend` holds.
 pub const ESS_UNREALIZED: &[(&str, &str)] = &[
+    (
+        "mandate.policy.SupersedePolicy",
+        "the PolicyAdministration port is implemented only by double::PolicyDouble; owner \
+         story:graph-policy-adapter, blocked on decision-blocker:backend",
+    ),
+    (
+        "mandate.policy.SupersedeAuthorizationModel",
+        "the PolicyAdministration port is implemented only by double::PolicyDouble; owner \
+         story:graph-policy-adapter, blocked on decision-blocker:backend",
+    ),
     (
         "mandate.policy.PolicySuperseded",
         "no event payload type is declared here: port::Superseded is a port outcome, not the \

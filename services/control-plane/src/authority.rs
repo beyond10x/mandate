@@ -103,8 +103,10 @@
 //!   one's.
 //! * **Agents, ceilings, executions and approvals are seeded, not recorded.** No command
 //!   creates them yet (`story:declared-writers`; `SupersedeAgentCapabilityCeiling` stays
-//!   deferred), so the projection starts from the records the operator configures, as
-//!   `DelegationProjection::fold(records, events)` takes them, and only delegations — and the
+//!   `declared` on `story:agent-security`, because ESS 0.59.0 cannot declare a create beside a
+//!   move in one outcome, ESS-COMMAND-009), so the projection starts from the records the
+//!   operator configures, as `DelegationProjection::fold(records, events)` takes them, and
+//!   only delegations — and the
 //!   moves the commands make on the seeded records — come from events. The seeding goes in
 //!   with the decision point, through the opt-in
 //!   [`Deployment::with_authority`](crate::adapters::Deployment::with_authority); `src/main.rs`

@@ -194,9 +194,14 @@ fn every_declared_entry_names_a_story_the_store_has_not_already_closed() {
     // `mandate.workload.Denied`, which moved from `declared` to `implemented`.
     // Amendment: story:agent-security realized five `mandate.delegation` commands, their five
     // events and `mandate.delegation.Denied`, which moved from `declared` to `implemented`.
+    // Amendment: the audit moved the rows whose work a blocker holds (the public-client
+    // authorization, the graph and policy commands, the directory records) from `declared` to
+    // `deferred` and declared `RefreshSession` and `SessionRefreshed`: 17 remained declared.
+    // Amendment: mandate-model registered `WorkloadIdentity` and its lifecycle enum, which
+    // moved from `declared` on story:declared-writers to `implemented`: 15 remain.
     assert!(
-        declared >= 23,
-        "this case found {declared} declared entries and the manifest holds 23"
+        declared >= 15,
+        "this case found {declared} declared entries and the manifest holds 15"
     );
     assert!(
         dead.is_empty(),

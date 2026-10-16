@@ -171,7 +171,13 @@ The served surface, as `crates/mandate-server/src/routes.rs` holds it.
 {"method": "GET", "path": "/oauth/jwks",
  "binds": {"document": "Jwks"},
  "statement": "…"}
+{"method": "GET", "path": "/v1/federation/callback",
+ "binds": {"relying_party": "Callback"},
+ "statement": "…"}
 ```
+
+`binds` names one of the three kinds `mandate_server::routes::Binding` has: a `command`, a
+`document`, or a `relying_party` step.
 
 A row must equal a member of `ROUTES` and bind the same thing. That comparison is made in
 `crates/mandate-server/tests/use_cases.rs`, in the crate that owns the table, because parsing Rust
@@ -267,7 +273,7 @@ not a resting place.** It is a request for a story, addressed to whoever reads t
 
 ```json
 {"use_case": "federated-login",
- "steps": 11, "routes": 6, "configuration": 33,
+ "steps": 11, "routes": 9, "configuration": 34,
  "checked": 129, "promises": 17, "unrefuted": 9, "gaps": 6, "unowned": 2,
  "evidence": {"scenarios": 25, "tests": 72},
  "standards": 12}

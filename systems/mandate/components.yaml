@@ -1,3 +1,5 @@
+# These are the declared deployment boundaries, not the running composition. Today one process, mandate-control-plane (services/control-plane), serves and hosts the mandate-sts handlers in-process; mandate-authorization is asked in-process through mandate_control_plane::authority::DecisionPoint when a deployment is configured to; services/sts, services/authorization and services/worker build scaffold binaries that serve nothing. docs/architecture/ownership.md, "Running composition", records the mapping.
+# mandate-control-plane owns mandate.directory, but dependency-boundaries.json admits mandate-provisioning to no service, so no running component links the directory behavior; the story that serves directory commands declares that boundary change in its scope.
 components:
   - component: mandate-control-plane
     owns:

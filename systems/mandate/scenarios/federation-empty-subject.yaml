@@ -1,7 +1,7 @@
 type: ess-scenario/2
 domain: mandate.federation
 scenario: federation-empty-subject
-summary: sub trims to nothing; authenticate.rs:267-268; read by mandate_conformance::external::ScenarioVerifier, the standing decode-only verifier double; residue story:signing-and-verification.
+summary: sub trims to nothing; authenticate::resolve, EmptySubject; read by external::ScenarioVerifier, the standing decode-only verifier double; residue story:testkit-doubles.
 arrange:
 - instance: conn
   entity: mandate.federation.FederationConnection

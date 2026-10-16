@@ -1,7 +1,7 @@
 type: ess-scenario/2
 domain: mandate.federation
 scenario: federation-untrimmed-subject
-summary: sub is not its own trim; authenticate.rs:274-275; read by mandate_conformance::external::ScenarioVerifier, the standing decode-only verifier double; residue story:signing-and-verification.
+summary: sub is not its own trim; authenticate::resolve, SubjectNotTrimmed; read by external::ScenarioVerifier, the standing decode-only verifier double; residue story:testkit-doubles.
 arrange:
 - instance: conn
   entity: mandate.federation.FederationConnection

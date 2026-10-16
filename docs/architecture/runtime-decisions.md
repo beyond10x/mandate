@@ -33,15 +33,15 @@ No source this document may cite names an individual for any of these decisions,
 
 | # | Blocker | Marker | Affected stories (store) |
 |---|---|---|---|
-| 1 | `decision-blocker:epoch` | UNMAPPED-EPOCH | `story:session-epochs` |
-| 2 | `decision-blocker:lifecycle` | UNMAPPED-LIFECYCLE | `story:audit-worker-delivery`, `story:domain-runtime`, `story:graph-policy-adapter` |
-| 3 | `decision-blocker:guards` | UNMAPPED-GUARDS, UNMAPPED-DENIAL-AUDIT | `story:audit-client`, `story:product-listener`, `story:protocol-adapters` |
-| 4 | `decision-blocker:epoch-atomicity` | UNMAPPED-ATOMICITY | `story:directory-provenance`, `story:oauth-integration`, `story:session-epochs` |
+| 1 | `decision-blocker:epoch` | UNMAPPED-EPOCH | `story:epoch-snapshot-generations` |
+| 2 | `decision-blocker:lifecycle` | UNMAPPED-LIFECYCLE | `story:audit-worker-delivery`, `story:graph-policy-adapter` |
+| 3 | `decision-blocker:guards` | UNMAPPED-GUARDS, UNMAPPED-DENIAL-AUDIT | `story:audit-client`, `story:credential-context-guards`, `story:protocol-adapters` |
+| 4 | `decision-blocker:epoch-atomicity` | UNMAPPED-ATOMICITY | `story:directory-provenance`, `story:domain-folds-over-the-kit`, `story:oauth-integration` |
 | 5 | `decision-blocker:backend` | UNMAPPED-BACKEND | `story:graph-policy-adapter` |
 | 6 | `decision-blocker:global-trust` | UNMAPPED-GLOBAL | `story:advanced-delegation` |
 | 7 | `decision-blocker:subject-relations` | UNMAPPED-SUBJECT-RELATIONS | `story:graph-policy-adapter` |
 | 10 | `decision-blocker:audit-routing` | UNMAPPED-AUDIT-ROUTING, UNMAPPED-AUDIT-VOCABULARY | `story:audit-client`, `story:audit-worker-delivery`, `story:constrained-exchange` |
-| 11 | `decision-blocker:worker-orchestration` | UNMAPPED-ORCHESTRATION | `story:audit-worker-delivery`, `story:directory-provenance`, `story:domain-runtime` |
+| 11 | `decision-blocker:worker-orchestration` | UNMAPPED-ORCHESTRATION | `story:audit-worker-delivery`, `story:directory-provenance` |
 
 ## 1. `decision-blocker:epoch` — epoch representation and arithmetic
 
@@ -59,7 +59,7 @@ Out of bounds, not alternatives: approximating the value with `Integer`, `String
 
 **Proposed owner.** The `mandate.identity` contract owner — `mandate-identity` and `mandate-model` in the control plane — with STS as the consuming reviewer, since STS consumes validated session and epoch information rather than owning it (`ownership.md:8`). Whether a representation is expressible at all is an ESS-version question and belongs to the owner of `systems/mandate`.
 
-**Affected stories (store).** `story:session-epochs`.
+**Affected stories (store).** `story:epoch-snapshot-generations`. `story:session-epochs`, implemented, no longer waits on it.
 
 **Exact evidence required to clear.**
 
@@ -83,7 +83,7 @@ Out of bounds: inferring any transition from `Recorded` (`combined.md:19`); rely
 
 **Proposed owner.** Joint, and it cannot be split: the control-plane owner of `mandate-model` record lifecycles (`ownership.md:8`, `:9`, `:10`) together with the `mandate-audit` retention owner (`ownership.md:18`). The domain owner cannot decide the audit-retention half alone, because the constraint that audit survives deprovisioning is what bounds the domain answer.
 
-**Affected stories (store).** `story:audit-worker-delivery`, `story:domain-runtime`, `story:graph-policy-adapter`. The register names only the second (`unmapped.md:15`).
+**Affected stories (store).** `story:audit-worker-delivery`, `story:graph-policy-adapter`. The register names `story:domain-runtime` (`unmapped.md:15`), implemented since.
 
 **Exact evidence required to clear.**
 
@@ -108,7 +108,7 @@ Out of bounds: an ESS error outcome that also emits an event (`unmapped.md:44`);
 
 **Proposed owner.** The shared transport and authentication adapter owner, `mandate-server` (`ownership.md:20`), with `mandate-audit` (`ownership.md:18`) co-owning the denial-record half. `ownership.md:20` also states the server adapter does not acquire PDP or token-issuance authority; proposing it as the guard owner does not grant it either.
 
-**Affected stories (store).** `story:audit-client`, `story:product-listener`, `story:protocol-adapters`.
+**Affected stories (store).** `story:audit-client`, `story:credential-context-guards`, `story:protocol-adapters`. `story:product-listener` no longer waits on it.
 
 **Exact evidence required to clear.**
 
@@ -132,7 +132,7 @@ Out of bounds: an asynchronous event binding as the one-use redemption mechanism
 
 **Proposed owner.** Joint: the STS deployment owner for the credential and code half (`ownership.md:15`, `:24-30`), and the control-plane directory owner for the mapping-contribution half (`ownership.md:10`). One blocker spans three stories owned across two deployments; a decision recorded by one of them alone does not bind the other.
 
-**Affected stories (store).** `story:directory-provenance`, `story:oauth-integration`, `story:session-epochs`.
+**Affected stories (store).** `story:directory-provenance`, `story:domain-folds-over-the-kit`, `story:oauth-integration`. `story:session-epochs`, implemented, no longer waits on it.
 
 **Exact evidence required to clear.**
 
@@ -325,7 +325,7 @@ Out of bounds: inferring a lifecycle or queue protocol from the deployment's nam
 
 **Proposed owner.** The worker deployment owner (`ownership.md:18`, `:32-34`), with the control-plane directory owner retaining state ownership for everything the worker invokes (`ownership.md:10`).
 
-**Affected stories (store).** `story:audit-worker-delivery`, `story:directory-provenance`, `story:domain-runtime`. The register names two (`unmapped.md:74`); `story:audit-worker-delivery` is store-only.
+**Affected stories (store).** `story:audit-worker-delivery`, `story:directory-provenance`. The register names `story:directory-provenance` and `story:domain-runtime` (`unmapped.md:74`), the latter implemented since; `story:audit-worker-delivery` is store-only.
 
 **Exact evidence required to clear.**
 

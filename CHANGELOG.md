@@ -4,6 +4,46 @@ All notable changes to Mandate are recorded here. The format follows [Keep a Cha
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-10-16
+
+The spec-conformance audit of 0.9.0: every gap it found has an owner, and the small ones are closed.
+
+### Fixed
+
+- A session revoke for another organization's session is refused as an invalid credential, exactly
+  like an unknown one; the graph and policy test doubles answer a foreign record as denied, like an
+  unknown one, instead of disclosing it with a tenant mismatch.
+- A principal or connection that no record places in an organization is no longer treated as
+  contained by it.
+- A workload refusal says whether it was denied or met a revoked identity in the wrong state.
+- The conformance target reads OAuth clients and sessions from each scenario's own records; an
+  empty client reader had refused every authorization-code issuance, so one PKCE scenario failed
+  and two passed by coincidence. Conformance: 186 scenarios, 56 passed (48 before).
+- `README.md`, the public documents and the architecture documents state what 0.9.0 ships.
+
+### Changed
+
+- `WorkloadIdentity` and its lifecycle state are realized in the model.
+- Every deferred obligation, injection row and blocked scenario names a live story that the
+  planning store holds and has not finished, and a test refuses one that does not.
+- Comments, ownership rows and scenario summaries cite symbols instead of line numbers.
+- New authored scenario `epoch-increment-commit-fails`.
+
+## [0.9.1] - 2026-10-15
+
+Wave 9: the tooling moves to the releases installed for this repository.
+
+### Changed
+
+- **ESS 0.60.0.** The specification declares `requires: ess 0.60.0` in `format: ess-inputs/2`, the
+  gate validates with `--strict-requires`, and the workspace's ESS crates are 0.60.0. The compiled
+  model is byte-identical; regenerated output differs only in the ESS version it names. The
+  conformance counts are unchanged (185 scenarios: 48 passed, 73 failed, 64 unsupported).
+- **AEP 0.73.0** for the planning store, which is already on `aep.project/5` and needed no
+  migration. CI installs `ess:0.60.0 aep:0.73.0`.
+- `serde_yaml` and `unsafe-libyaml` leave the dependency tree with ESS 0.60.0, so the scoped
+  advisory ignore in `deny.toml` is removed.
+
 ## [0.9.0] - 2026-10-13
 
 Wave 8: the second half of agent security. An execution-bound delegation is decided instead of
@@ -45,6 +85,9 @@ the wave.
 - The obligations registry files an implemented command with the crate the coverage manifest
   names as its implementer, so a command decided outside its domain's crate is admitted.
 - A branch or tag cut from a GitHub merge of `main` needs no Gates baseline move.
+- Measured at this release: conformance 185 scenarios, 48 passed (46 at 0.8.0), 73 failed,
+  64 unsupported, 0 error; coverage 297 elements, 233 implemented, 23 declared, 41 deferred;
+  denial obligations 249 clauses, 125 real, 25 double-only, 99 deferred.
 
 ## [0.8.0] - 2026-10-13
 
@@ -587,7 +630,18 @@ The planning batch ([#4](https://github.com/beyond10x/mandate/pull/4)), on top o
 
 `task check` passed, including AEP validation (72 artifacts), ESS validation and deterministic projections.
 
-[Unreleased]: https://github.com/beyond10x/mandate/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/beyond10x/mandate/compare/v0.9.2...HEAD
+[0.9.2]: https://github.com/beyond10x/mandate/compare/v0.9.1...v0.9.2
+[0.9.1]: https://github.com/beyond10x/mandate/compare/v0.9.0...v0.9.1
+[0.9.0]: https://github.com/beyond10x/mandate/compare/v0.8.0...v0.9.0
+[0.8.0]: https://github.com/beyond10x/mandate/compare/v0.7.1...v0.8.0
+[0.7.1]: https://github.com/beyond10x/mandate/compare/v0.7.0...v0.7.1
+[0.7.0]: https://github.com/beyond10x/mandate/compare/v0.6.0...v0.7.0
+[0.6.0]: https://github.com/beyond10x/mandate/compare/v0.5.1...v0.6.0
+[0.5.1]: https://github.com/beyond10x/mandate/compare/v0.5.0...v0.5.1
+[0.5.0]: https://github.com/beyond10x/mandate/compare/v0.4.0...v0.5.0
+[0.4.0]: https://github.com/beyond10x/mandate/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/beyond10x/mandate/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/beyond10x/mandate/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/beyond10x/mandate/compare/v0.1.0-alpha.4...v0.1.0
 [0.1.0-alpha.4]: https://github.com/beyond10x/mandate/compare/v0.1.0-alpha.3...v0.1.0-alpha.4

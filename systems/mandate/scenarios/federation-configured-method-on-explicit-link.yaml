@@ -1,7 +1,7 @@
 type: ess-scenario/2
 domain: mandate.federation
 scenario: federation-configured-method-on-explicit-link
-summary: '`Caller/method lacks linking authority`: the principal is linked in the connection''s organization, so the method is the first guard; link.rs:95-96; corpus: none.'
+summary: '`Caller/method lacks linking authority`: the principal is linked in the connection''s organization, so the method is the first guard; link_external_principal, LinkingAuthority; corpus: none.'
 arrange:
 - instance: conn
   entity: mandate.federation.FederationConnection

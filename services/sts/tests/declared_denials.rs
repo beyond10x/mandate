@@ -304,7 +304,7 @@ const ROWS: &[(&str, DenialClause, Source)] = &[
     (
         "mandate.credential.ExchangeCredential",
         DenialClause::ExpiryUnbounded,
-        Source::DenialPhrase("authority/expiry narrowing"),
+        Source::DenialPhrase("expiry narrowing"),
     ),
     // --- RevokeAccessCredential
     (

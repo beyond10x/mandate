@@ -122,13 +122,13 @@
     },
     {
       "port": "mandate_sts::code::OAuthClientReads",
-      "double": "mandate_sts::code::RecordedClients",
-      "why": "mandate.federation owns the OAuth client record and no command of this contract writes it into the STS's own read model"
+      "double": "mandate_conformance::external::FederationClients",
+      "why": "mandate.federation owns the OAuth client record and the STS reads it over an adapter no crate on this line supplies; this answers it from the scenario's federation fold, as the deployment's adapter answers it from the federation projection"
     },
     {
       "port": "mandate_sts::binding::SessionReads",
-      "double": "mandate_sts::binding::RecordedSessions",
-      "why": "mandate.identity owns the session record and the STS reads it over an adapter no crate on this line supplies"
+      "double": "mandate_conformance::external::IdentitySessions",
+      "why": "mandate.identity owns the session record and the STS reads it over an adapter no crate on this line supplies; this answers it from the scenario's identity log, as the deployment's adapter answers it from the identity fold"
     },
     {
       "port": "mandate_sts::store::AuthorizationCodeLog",
@@ -197,8 +197,8 @@
       "scenario": "mandate.credential.IssueAuthorizationCode/outcome/denied",
       "command": "mandate.credential.IssueAuthorizationCode",
       "port": "mandate_sts::registry::ResourceServerReads",
-      "kind": "armed-unrefused",
-      "consulted": 1
+      "kind": "input-decided",
+      "consulted": 0
     },
     {
       "scenario": "mandate.credential.IssueReferenceCredential/outcome/denied",
@@ -271,10 +271,31 @@
       "consulted": 0
     },
     {
+      "scenario": "mandate.credential/authored/pkce-code-expired",
+      "command": "mandate.identity.Session",
+      "port": "mandate_identity::IdentityLog",
+      "kind": "established-prerequisite",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.credential/authored/pkce-malformed-challenge",
+      "command": "mandate.credential.IssueAuthorizationCode",
+      "port": "mandate_sts::registry::ResourceServerReads",
+      "kind": "input-decided",
+      "consulted": 0
+    },
+    {
       "scenario": "mandate.credential/authored/pkce-malformed-challenge",
       "command": "mandate.identity.Session",
       "port": "mandate_identity::IdentityLog",
       "kind": "established-prerequisite",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.credential/authored/pkce-redirect-mismatch",
+      "command": "mandate.credential.IssueAuthorizationCode",
+      "port": "mandate_sts::registry::ResourceServerReads",
+      "kind": "input-decided",
       "consulted": 0
     },
     {
@@ -300,9 +321,23 @@
     },
     {
       "scenario": "mandate.credential/authored/pkce-wrong-org-target",
+      "command": "mandate.credential.IssueAuthorizationCode",
+      "port": "mandate_sts::registry::ResourceServerReads",
+      "kind": "input-decided",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.credential/authored/pkce-wrong-org-target",
       "command": "mandate.identity.Session",
       "port": "mandate_identity::IdentityLog",
       "kind": "established-prerequisite",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.credential/authored/sts-disabled-client-issuance",
+      "command": "mandate.credential.IssueAuthorizationCode",
+      "port": "mandate_sts::registry::ResourceServerReads",
+      "kind": "input-decided",
       "consulted": 0
     },
     {
@@ -463,8 +498,8 @@
       "scenario": "mandate.federation.RegisterOAuthClient/outcome/denied",
       "command": "mandate.federation.RegisterOAuthClient",
       "port": "mandate_federation::register_client::ClientRegistrationAdmission",
-      "kind": "input-decided",
-      "consulted": 0
+      "kind": "armed-unrefused",
+      "consulted": 1
     },
     {
       "scenario": "mandate.federation.UnlinkExternalPrincipal/outcome/denied",
@@ -596,8 +631,8 @@
       "scenario": "mandate.identity.IncrementSecurityEpoch/outcome/denied",
       "command": "mandate.identity.IncrementSecurityEpoch",
       "port": "mandate_identity::SecurityEpochWrite",
-      "kind": "armed",
-      "consulted": 2
+      "kind": "input-decided",
+      "consulted": 0
     },
     {
       "scenario": "mandate.identity.RefreshSession/outcome/denied",
@@ -618,6 +653,20 @@
       "command": "mandate.identity.RevokeSession",
       "port": "mandate_identity::IdentityRead (concrete log)",
       "kind": "refused-before-dispatch",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.identity/authored/epoch-increment-commit-fails",
+      "command": "mandate.identity.IncrementSecurityEpoch",
+      "port": "mandate_identity::SecurityEpochWrite",
+      "kind": "armed",
+      "consulted": 1
+    },
+    {
+      "scenario": "mandate.identity/authored/epoch-increment-commit-fails",
+      "command": "mandate.identity.Session",
+      "port": "mandate_identity::IdentityLog",
+      "kind": "established-prerequisite",
       "consulted": 0
     },
     {
@@ -769,12 +818,6 @@
       "blocked_on": "story:conform-gate"
     },
     {
-      "scenario": "mandate.authorization/authored/authz-unadmitted-organization",
-      "command": "",
-      "reason": "expectation-unmet",
-      "blocked_on": "story:conform-gate"
-    },
-    {
       "scenario": "mandate.credential.AccessCredential/transition/revoke/by/mandate.credential.RevokeAccessCredential/accepted",
       "command": "mandate.credential.ExchangeCredential",
       "reason": "unrealized-command",
@@ -917,30 +960,6 @@
       "command": "mandate.delegation.Agent",
       "reason": "entity-without-adapter-writer",
       "blocked_on": "story:declared-writers"
-    },
-    {
-      "scenario": "mandate.credential/authored/pkce-malformed-challenge",
-      "command": "",
-      "reason": "expectation-unmet",
-      "blocked_on": "story:conform-gate"
-    },
-    {
-      "scenario": "mandate.credential/authored/pkce-redirect-mismatch",
-      "command": "",
-      "reason": "expectation-unmet",
-      "blocked_on": "story:conform-gate"
-    },
-    {
-      "scenario": "mandate.credential/authored/pkce-wrong-org-target",
-      "command": "",
-      "reason": "expectation-unmet",
-      "blocked_on": "story:conform-gate"
-    },
-    {
-      "scenario": "mandate.credential/authored/sts-disabled-client-issuance",
-      "command": "",
-      "reason": "expectation-unmet",
-      "blocked_on": "story:conform-gate"
     },
     {
       "scenario": "mandate.delegation.CompleteExecution/outcome/wrong-state",
@@ -1135,12 +1154,6 @@
       "blocked_on": "story:conform-gate"
     },
     {
-      "scenario": "mandate.federation.DisableOAuthClient/outcome/accepted",
-      "command": "",
-      "reason": "expectation-unmet",
-      "blocked_on": "story:conform-gate"
-    },
-    {
       "scenario": "mandate.federation.DisableOAuthClient/outcome/wrong-state",
       "command": "",
       "reason": "expectation-unmet",
@@ -1165,12 +1178,6 @@
       "blocked_on": "story:conform-gate"
     },
     {
-      "scenario": "mandate.federation.OAuthClient/transition/disable/by/mandate.federation.DisableOAuthClient/accepted",
-      "command": "",
-      "reason": "expectation-unmet",
-      "blocked_on": "story:conform-gate"
-    },
-    {
       "scenario": "mandate.federation.ProvisionExternalPrincipal/outcome/accepted",
       "command": "",
       "reason": "expectation-unmet",
@@ -1178,12 +1185,6 @@
     },
     {
       "scenario": "mandate.federation.RegisterFederationConnection/outcome/accepted",
-      "command": "",
-      "reason": "expectation-unmet",
-      "blocked_on": "story:conform-gate"
-    },
-    {
-      "scenario": "mandate.federation.RegisterOAuthClient/outcome/accepted",
       "command": "",
       "reason": "expectation-unmet",
       "blocked_on": "story:conform-gate"
@@ -1295,6 +1296,12 @@
       "command": "mandate.identity.DisablePrincipal",
       "reason": "unrealized-command",
       "blocked_on": "story:declared-writers"
+    },
+    {
+      "scenario": "mandate.identity.IncrementSecurityEpoch/outcome/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
     },
     {
       "scenario": "mandate.identity.RefreshSession/outcome/accepted",

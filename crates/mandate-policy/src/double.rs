@@ -249,7 +249,7 @@ impl PolicyAdministration for PolicyDouble {
             .ok_or(PolicyError::Denied(DenialReason::Denied))?;
 
         if self.policies[position].organization_id != context.organization {
-            return Err(PolicyError::Denied(DenialReason::TenantMismatch));
+            return Err(PolicyError::Denied(DenialReason::Denied));
         }
         if !self.policies[position].current() {
             return Ok(Superseded {
@@ -286,7 +286,7 @@ impl PolicyAdministration for PolicyDouble {
             .ok_or(PolicyError::Denied(DenialReason::Denied))?;
 
         if self.models[position].organization_id != context.organization {
-            return Err(PolicyError::Denied(DenialReason::TenantMismatch));
+            return Err(PolicyError::Denied(DenialReason::Denied));
         }
         if !self.models[position].current() {
             return Ok(Superseded {

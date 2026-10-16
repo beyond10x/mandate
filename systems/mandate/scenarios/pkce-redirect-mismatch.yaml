@@ -1,7 +1,7 @@
 type: ess-scenario/2
 domain: mandate.credential
 scenario: pkce-redirect-mismatch
-summary: '`exact redirect URI`: a redirect the client''s registration does not carry byte for byte binds no code; code.rs:494-496; corpus pkce-redirect.'
+summary: '`exact redirect URI`: a redirect the client''s registration does not carry byte for byte binds no code; admitted_redirect, RedirectUnregistered; corpus pkce-redirect.'
 arrange:
 - instance: server
   entity: mandate.credential.ResourceServer

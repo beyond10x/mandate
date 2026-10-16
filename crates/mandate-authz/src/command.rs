@@ -3,9 +3,9 @@
 //! authority evaluator reads.
 //!
 //! `systems/mandate/domains/delegation.yaml` declares six commands; the sixth,
-//! `SupersedeAgentCapabilityCeiling`, stays deferred on `story:agent-security` because ESS
-//! cannot yet express a create beside a move in one outcome
-//! (`docs/plans/2026-10-13-wave-7-execution.md`, "Spec first").
+//! `SupersedeAgentCapabilityCeiling`, stays `declared` on `story:agent-security`: the command
+//! carries no replacement ceiling, and ESS 0.59.0 cannot declare a create beside a move in one
+//! outcome (ESS-COMMAND-009), so no ceiling has a writer (`crate::ESS_UNREALIZED`).
 //!
 //! # Decide, apply, fold
 //!

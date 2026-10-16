@@ -1,7 +1,7 @@
 # Execution handoff
 
-Rewritten 2026-09-22 at the close of wave H; its state sections refreshed 2026-09-23 at the 0.5.0
-release, after waves I, J and K.
+Rewritten 2026-09-22 at the close of wave H; its state sections refreshed 2026-10-15 against the
+0.9.0 release.
 
 ## Read these first
 
@@ -14,10 +14,9 @@ release, after waves I, J and K.
 
 ## Where it stands
 
-`v0.9.0` is the latest release. Seventeen waves have run — 1 to 3, A to M, 5a, 6, 7, then 8. The federated-login road runs end
-to end against the shipped binary: `mandate-control-plane serve` serves `/v1/federation/login`,
-`/oauth/authorize`, `/oauth/token`, `/oauth/introspect`, `/oauth/jwks` and
-`/.well-known/oauth-authorization-server`, a first login provisions a user just in time where the
+`v0.9.0` is the latest release. Twenty waves have run — 1 to 3, A to M, 5a, 6, 7, then 8. The federated-login road runs end
+to end against the shipped binary: `mandate-control-plane serve` serves nine routes, including the
+OIDC relying-party flow and subject-only RFC 8693 exchange at `/oauth/token`; a first login provisions a user just in time where the
 connection admits it, and a revoked link is not provisioned around.
 
 Measured at `0.9.0`: `task check` exit 0, 298 suites, 2,277 tests, 0 failed; 11 named mutants each
@@ -29,16 +28,16 @@ clause was split). The account is `docs/plans/2026-09-23-waves-i-j-k-execution.m
 
 ## In flight right now
 
-Nothing once wave 7 merges. Wave 7 (`docs/plans/2026-10-13-wave-7-execution.md`) wired `Check` to
-the evaluator's record checks and delivered five delegation commands, their fold and workload
-revocation; `story:agent-security` stays active for `SupersedeAgentCapabilityCeiling` (waiting on
-ESS), workload authentication, the approval inside `Check` and the execution binding of a
-delegation, which fails closed.
+Nothing. Wave 7 (`docs/plans/2026-10-13-wave-7-execution.md`) wired `Check` to the evaluator's
+record checks and delivered five delegation commands, their fold and workload revocation. Wave 8
+(0.9.0) delivered workload authentication, approval consumption (`CheckWithApproval`) and
+execution-bound delegations; `story:agent-security` stays active for
+`SupersedeAgentCapabilityCeiling` only.
 
 Wave 6 raised the specification to `ess/24` (181 synthesized scenarios,
 20 unobservable ones gone), moved the gate's `aep` pin to 0.71.2, and cleared
 `decision-blocker:identity-uniqueness`; its account is `docs/plans/2026-10-13-wave-6-execution.md`.
-The 15 unknown-identity scenarios wait on ESS in `story:unknown-instance-non-disclosing`: Mandate
+The 21 unknown-identity scenarios wait on ESS in `story:unknown-instance-non-disclosing`: Mandate
 answers an unknown identity like a record the caller may not see, and ESS 0.59.0 can only declare
 the case as a distinct outcome. Next: `story:agent-security`, which consumes the evaluator of wave 5a
 (`docs/plans/2026-10-12-wave-5a-execution.md`) and inherits the delegation commands.
@@ -52,9 +51,9 @@ contradicted by the connection seeding at `services/control-plane/src/adapters.r
 Two decisions, each with a written dossier, hold more of the remaining work than any amount of
 implementation does. Neither needs further analysis.
 
-**`decision-blocker:guards`** — open since 2026-09-18. 35 clause entries across five contract files
-name it in `blocked_on`. It blocks `story:protocol-adapters`, `story:audit-client` and
-`story:product-listener`, which between them are the customer-facing registration route and every
+**`decision-blocker:guards`** — open since 2026-09-18. 41 clause entries across five contract files
+name it in `blocked_on` (34 of them deferred outright). It blocks `story:protocol-adapters` and
+`story:audit-client`, which between them are the customer-facing registration route and every
 audited denial. The question, three bounded alternatives for the denial-record half, and what is out
 of bounds are in `architecture/runtime-decisions.md` § 3.
 

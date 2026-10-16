@@ -1,0 +1,35 @@
+type: ess-scenario/2
+domain: mandate.identity
+scenario: epoch-increment-commit-fails
+summary: '`atomic increment cannot commit`: a placed principal whose increment only the write port refuses; increment.rs; corpus: none.'
+arrange:
+- instance: session
+  entity: mandate.identity.Session
+  setup:
+    identity: 00000000-0000-4000-8000-0000000000f2
+    fields:
+      principal_id: 00000000-0000-4000-8000-000000000001
+      organization_id: 00000000-0000-4000-8000-0000000000a1
+      epochs: 00000000-0000-4000-8000-0000000000b2
+      expires_at: '2026-01-05T23:00:00Z'
+    state: Active
+timeline:
+- at: '2026-01-05T09:30:00Z'
+  command: mandate.identity.IncrementSecurityEpoch
+  input:
+    context:
+      subject: 00000000-0000-4000-8000-000000000001
+      organization: 00000000-0000-4000-8000-0000000000a1
+      audience: mandate
+      credential: 00000000-0000-4000-8000-0000000000c1
+      correlation: epoch-increment-commit-fails
+    target:
+      kind: principal
+      value: 00000000-0000-4000-8000-000000000001
+  outcome: denied
+  error:
+    name: mandate.identity.Denied
+    fields:
+      reason: Unavailable
+  no_events:
+  - mandate.identity.SecurityEpochIncremented

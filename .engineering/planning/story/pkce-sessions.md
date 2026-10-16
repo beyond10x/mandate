@@ -37,7 +37,7 @@ scope:
   path: crates/mandate-federation/tests/pkce.rs
 - confidence: inferred
   path: crates/mandate-federation/tests/publicclient.rs
-revision: 22
+revision: 23
 transitions:
 - {from: "draft", to: "proposed", at: "2026-09-18T21:19:30Z", actor: "human:timo", revision: 16, decided_on: {"recorded":{"review_outcome":5}}, imported: true}
 - {from: "proposed", to: "active", at: "2026-09-18T21:19:31Z", actor: "human:timo", revision: 17, decided_on: {"recorded":{"review_outcome":5}}, imported: true}
@@ -189,3 +189,7 @@ This explicit matrix answers review-result:ten-waves-acceptance-r2 after the sec
 - The seven `pkce-*` corpus cases stay owned by `story:oauth-integration`; this story underwrites their validation half only. Code consumption, credential issuance, code possession and the presented `client_id` are `RedeemAuthorizationCode`'s at STS.
 - `services/sts` cannot link workspace libraries today, so `story:oauth-integration`'s reuse of `pkce.rs` needs a boundary widening under `task:runtime-wave-integration`.
 - The CLI's parser errors never echo an argument; the verifier may arrive on stdin; a positional stays for scripts and is recorded in `argv` by the caller's choice.
+
+## Residue superseded
+
+Recorded 2026-10-16 (audit G-70). Two statements under "Not established" and "Residue after wave 3" are no longer true. A contract event now creates an `OAuthClient`: `systems/mandate/domains/federation.yaml:382` lists `mandate.federation.OAuthClientRegistered`, and its outcome summary (`:395`) says the event carries the whole `OAuthClient` record, so the federation fold materializes the client from the event alone. `Projection::clients()` is therefore no longer empty from a real log, and `story:declared-writers` delivered the creating command. `TargetRegistry` has its real source: `TargetRegistryOver` (`services/control-plane/src/adapters.rs:172`) answers from the resource-server read model, and `services/control-plane/tests/adapters.rs:191,207` drive it. The earlier text stays as the state at the end of wave 3.

@@ -867,9 +867,9 @@ fn adv_a_policy_refusal_on_one_later_pair_refuses_the_request() {
 }
 
 /// A policy refusal carries its declared reason through, as `check` does
-/// (`crates/mandate-authz/src/decision.rs:194-197`): the policy port's only implementation
-/// refuses a policy of another organization as `TenantMismatch`
-/// (`crates/mandate-policy/src/double.rs:252`), and the exchange's error declares `reason`.
+/// (`crates/mandate-authz/src/decision.rs:194-197`): a policy port's refusal may carry any
+/// declared reason — this stub answers `TenantMismatch`, which `PolicyError::Denied` can
+/// carry — and the exchange's error declares `reason`.
 #[test]
 fn adv_a_policy_refusal_keeps_its_declared_reason() {
     let policy = Except {

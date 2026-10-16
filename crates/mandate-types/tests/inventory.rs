@@ -405,14 +405,15 @@ fn the_coverage_manifest_names_exactly_what_this_crate_accounts_for() {
         }
     }
     assert_eq!(
-        folded, 24,
-        "the derived state enums a crate of this workspace folds and registers: six in \
+        folded, 25,
+        "the derived state enums a crate of this workspace folds and registers: seven in \
          mandate-model, four in the STS, three in mandate-federation, five in mandate-authz, \
-         two each in mandate-identity, mandate-graph and mandate-policy. The other twelve \
+         two each in mandate-identity, mandate-graph and mandate-policy. The other eleven \
          have no hand-written enum anywhere in this workspace and carry their record's \
          status; the count moved from 36 when wave D's correction round refused the \
          generated contract shape as an implementation, and from 19 when \
          story:agent-authority-kernel registered the three delegation lifecycles, and to 24 \
-         when story:agent-security registered the execution and approval lifecycles"
+         when story:agent-security registered the execution and approval lifecycles, and \
+         to 25 when mandate-model registered the workload identity lifecycle"
     );
 }

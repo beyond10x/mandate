@@ -11,7 +11,7 @@ relations:
 scope:
 - confidence: cited
   path: services/control-plane/tests/end_to_end.rs
-revision: 5
+revision: 6
 transitions:
 - {from: "draft", to: "proposed", at: "2026-09-21T19:09:43Z", actor: "human:timo", revision: 3, imported: true}
 - {from: "proposed", to: "active", at: "2026-09-21T19:09:45Z", actor: "human:timo", revision: 4, imported: true}
@@ -62,11 +62,9 @@ only the status cannot tell those apart.
 
 ## Acceptance
 
-`cargo test -p mandate-control-plane --locked --no-fail-fast` exits 0 with one
-new case per row above in `services/control-plane/tests/end_to_end.rs`, each
-spawning the binary, driving it over TCP, and asserting the status **and** the
-body. Every child is killed and reaped on every path. The report quotes what
-the binary answered for each.
+`cargo test -p mandate-control-plane --locked --no-fail-fast` exits 0 with one new case per row above in `services/control-plane/tests/end_to_end.rs`, each spawning the binary, driving it over TCP, and asserting the status **and** the body. Every child is killed and reaped on every path. The report quotes what the binary answered for each.
+
+Amended 2026-10-16 (audit G-33). The tenant-claim row is the one exception to "driving it over TCP". An ambiguous tenant resolution is refused as a configuration before the socket: `an_ambiguous_tenant_resolution_is_refused_as_a_configuration_before_the_socket` (`services/control-plane/tests/end_to_end.rs:1747`) starts the binary with two `--connection` documents on one issuer, binds no port, and asserts exit status 2 (`:1788`) rather than a status and body over TCP. The login-time clause `TenantAmbiguous` is still reached by a deployment whose folds came from an event log, and `two_connections_on_one_issuer_from_a_log_are_still_refused_as_ambiguous` (`services/control-plane/tests/serve.rs:2936`) covers that path. Every other row keeps the acceptance as written.
 
 ## Out of scope
 

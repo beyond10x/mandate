@@ -6,18 +6,20 @@ Mandate starts from reviewable contracts and then implements the security behavi
 |---|---|---|
 | Foundations | Combined architecture and threat model, buildable Rust scaffold, validated ESS contracts, structural acceptance corpus, and reviewed planning records. | Done |
 | Parallel core tracks | Authentication delivers federation, S256 PKCE, sessions, and epoch checks. Core authorization delivers tenancy, relationships, policy evaluation, checks, audit, and a client. Each track must satisfy its own required contracts. | Authentication: the federated-login road runs end to end against the shipped binary. Core authorization: tenancy, relationships and checks are implemented over ports; audit is not — it waits on a denial-routing decision. |
-| STS and credentials | Both cores support registered audiences, signed and reference issuance, verifier-only persistence, introspection, revocation, and constrained exchange. Authority-bearing exchange depends on both cores. | Audience registration, both credential families, introspection and revocation are implemented as a library and composed into the control plane. Constrained exchange is not started. |
+| STS and credentials | Both cores support registered audiences, signed and reference issuance, verifier-only persistence, introspection, revocation, and constrained exchange. Authority-bearing exchange depends on both cores. | Audience registration, both credential families, introspection and revocation are implemented as a library and composed into the control plane. Subject-only RFC 8693 exchange is served at `/oauth/token`; exchange with an actor or a delegation is not started. |
 | Enterprise directory | SCIM, explicit group-to-team mappings, SAML, and provisioning/deprovisioning preserve membership provenance and tenant isolation. | Not started. |
-| Services, workloads, and agents | Workload trust, ceilings, delegation, execution identity, approvals, and sender constraints satisfy containment and narrowing requirements. | Not started. |
+| Services, workloads, and agents | Workload trust, ceilings, delegation, execution identity, approvals, and sender constraints satisfy containment and narrowing requirements. | Libraries: the agent authority evaluator, ceilings, the five delegation commands, execution-bound delegations, approval consumption (`CheckWithApproval`) and workload authentication behind a trust-domain port. No route serves them, no SPIFFE verifier ships, and sender constraints are not started. |
 | Hardening | Security resets, emergency federation shutdown, key-rotation drills, revocation/load testing, and audit export have operational evidence. | Not started. |
 | Scale and interoperability | Batch/list APIs, consistency, indexing, AuthZEN, multi-region planning, and SDKs have explicit compatibility and performance criteria. | Not started. |
 | Advanced delegation — deferred | Chains, task/transaction credentials, simulation, and access review require separate design and acceptance. | Deferred by decision. |
 
 ## What runs today
 
-`mandate-control-plane serve` takes `--listen`, `--issuer` and four repeatable document flags —
-`--connection`, `--key`, `--client`, `--resource-server` — and serves six routes:
-`/v1/federation/login`, `/oauth/authorize`, `/oauth/token`, `/oauth/introspect`, `/oauth/jwks` and
+`mandate-control-plane serve` takes `--listen`, `--issuer`, `--code-lifetime`, `--session-lifetime`,
+four repeatable document flags — `--connection`, `--key`, `--client`, `--resource-server` — and a
+repeatable `--client-secret-file NAME=PATH`, and serves nine routes: `/v1/federation/login`,
+`/v1/federation/authorize`, `/v1/federation/callback`, `/v1/federation/handoff`, `/oauth/authorize`,
+`/oauth/token` (authorization code and RFC 8693 token exchange), `/oauth/introspect`, `/oauth/jwks` and
 `/.well-known/oauth-authorization-server`. A login through a configured identity provider opens a
 session, an authorization request yields a code, the token endpoint issues a credential, and
 introspection answers for it. A first-time user is provisioned just in time where the connection
@@ -75,7 +77,8 @@ are recorded with their bounded alternatives in the
 and the [unmapped register](https://github.com/beyond10x/mandate/blob/main/docs/architecture/unmapped.md):
 
 - **Guards and denial audit** — where the trusted context adapter validates, and how a denial is
-  recorded durably when the domain transaction is refused. 35 denial clauses wait on it, as do the
+  recorded durably when the domain transaction is refused. 36 denial clauses wait on it (34 on the
+  guards decision, 2 on denial audit), as do the
   product routes and the audit client.
 - **Persistence runtime** — the organization event-log kit's surface is asynchronous and this
   workspace admits no async runtime, so the event-sourced persistence this project decided on is

@@ -3,7 +3,8 @@
   "crate": "mandate-authz",
   "domains": [
     "mandate.authorization",
-    "mandate.delegation"
+    "mandate.delegation",
+    "mandate.workload"
   ],
   "commands": [
     {
@@ -418,7 +419,7 @@
               "double": "mandate_authz::command::ConfiguredDelegationAdmission"
             }
           ],
-          "blocked_on": "decision-blocker:guards"
+          "blocked_on": "story:agent-security"
         },
         {
           "clause": "execution binding fails",

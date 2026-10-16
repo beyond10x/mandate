@@ -1,10 +1,10 @@
-# Build and review the foundations
+# Build and review
 
-Mandate is a Rust 2024 workspace with 16 library crates, four service packages, a CLI, and a Rust `xtask`. Every package carries the workspace version — `0.3.0` at the last release — with `publish = false`; the lockfile is committed.
+Mandate is a Rust 2024 workspace with 16 library crates, four service packages, a CLI, and a Rust `xtask`. Every package carries the workspace version — `0.9.0` at the last release — with `publish = false`; the lockfile is committed.
 
 ## Validate locally
 
-Install Rust 1.98.1, ESS 0.59.0, AEP 0.55.0, Task, and cargo-deny, then run from the repository root:
+Install Rust 1.98.1, ESS 0.60.0, AEP 0.73.0, Task, and cargo-deny, then run from the repository root:
 
 ```bash
 task check
@@ -29,6 +29,6 @@ ESS owns all generated output. Each generator receives `generated/` as its root 
 - [Threat model](https://github.com/beyond10x/mandate/blob/main/docs/threat-model/README.md)
 - [Requirements and roadmap mapping](https://github.com/beyond10x/mandate/blob/main/docs/requirements.md)
 
-The authorization service package is `mandate-authorization` and its binary is `mandate-authz`; the `mandate-authz` library remains a separate package. `mandate-control-plane` serves the federated-login road under `serve`; the other binaries expose help and version only.
+The authorization service package is `mandate-authorization` and its binary is `mandate-authz`; the `mandate-authz` library remains a separate package. `mandate-control-plane` serves the product routes under `serve`; `mandate pkce-challenge` derives an S256 challenge locally; `mandate-conform` runs the conformance suite for the gate; the `mandate-authz`, `mandate-sts` and `mandate-worker` binaries expose help and version only.
 
 Mandate remains standalone. This milestone does not deploy services or migrate Identity.
