@@ -8,9 +8,10 @@
 //! this scenario's workload fold.
 //!
 //! An identity no record carries refuses through `denied`, exactly as one in another
-//! organization does, and never through `wrong-state`; the synthesized `wrong-state` scenario
-//! expects the unknown identity to be disclosed, and that gap is
-//! `story:unknown-instance-non-disclosing`'s.
+//! organization does, and never through `wrong-state`, which only an identity of the
+//! caller's own organization already revoked takes. The synthesized `wrong-state` scenario
+//! names an identity no record carries and so expects the unknown identity to be disclosed;
+//! that gap is `story:unknown-instance-non-disclosing`'s.
 //!
 //! `mandate_authz::workload::decide_authenticate_workload` verifies the proof through
 //! `TrustDomainVerifier` first, so its fault is placed there: the [`Substituted`] verifier
@@ -66,9 +67,12 @@ pub fn revoke_workload_identity(
         }
         Err(denied) => {
             live.workloads_unchanged()?;
-            // `mandate_model::workload::Denied` carries no discriminator between the two
-            // refusing outcomes, and an unknown identity is not disclosed: `denied`.
-            refused(COMMAND, "denied", DENIED, denied.reason)
+            refused(
+                COMMAND,
+                denied.outcome.outcome(),
+                DENIED,
+                denied.denied.reason,
+            )
         }
     }
 }

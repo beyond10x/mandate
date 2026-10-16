@@ -14,14 +14,16 @@
 //! the secret source, the identity allocator, the issuance signer, the key-material
 //! resolver, the algorithm allowlist and the code-lifetime ceiling.
 //!
-//! # Three commands read a port this target cannot fill
+//! # Two ports the scenario's own records answer
 //!
-//! `IssueAuthorizationCode` reads an `OAuthClientReads`, `RedeemAuthorizationCode` reads
-//! that and a `SessionReads`, and both are answered by `RecordedClients` and
-//! `RecordedSessions` holding nothing: no command of this contract writes either, so the
-//! records a scenario would need are ones only `establish_entity` or an authored arrangement
-//! can put there. That is not a refusal — the handlers run and decide — and it is why those
-//! scenarios deny rather than pass.
+//! `IssueAuthorizationCode` reads an `OAuthClientReads`, answered by [`FederationClients`]
+//! over the scenario's federation fold, so a client `RegisterOAuthClient` recorded earlier
+//! in the scenario is the client the STS admits, and `RedeemAuthorizationCode` reads that
+//! and a `SessionReads`, answered by [`IdentitySessions`] over the scenario's identity log.
+//! No command of this contract opens
+//! a session, so a redemption reaches a live one only when `establish_entity` or an
+//! authored arrangement opened it; otherwise the handler runs, decides, and refuses the
+//! session as unusable.
 
 use ess_conformance::target::{SemanticCommandRequest, SemanticCommandResult, TargetError};
 use mandate_sts::{code, issue, keys, redemption, registry, resolve};
@@ -29,8 +31,8 @@ use mandate_token::projection::{CredentialEvent, Denied};
 use mandate_types::{CredentialProof, VerifiedContext};
 
 use crate::Live;
-use crate::commands::{accepted, refused, standing_first};
-use crate::external::Substituted;
+use crate::commands::{Refusal, accepted, refused, standing_first};
+use crate::external::{FederationClients, IdentitySessions, Substituted};
 use crate::node;
 
 /// The declared error every refusing outcome of this domain carries.
@@ -441,37 +443,54 @@ pub fn issue_authorization_code(
     };
     let context = live.sts_context(&input.context);
     let issuance = live.code_issuance.clone();
-    let clients = live.oauth_clients.clone();
+    let federation = live.federation.clone();
+    let clients = FederationClients(&federation);
+    // Decided standing-first (`external.rs`, "An arming the input already decides"): every
+    // authored refusal of this command — a target in another organization, a disabled
+    // client, a redirect the registration does not carry — is one its own input decides
+    // once a client is registered, and a fault placed first answers a different reason. The
+    // trial runs over copies of the two allocators the issuance advances.
     let reader = Substituted::new();
     let armed = live.armed.take(COMMAND);
-    let decided = if armed.is_some() {
-        issuance.issue(
-            &input,
-            &context,
-            &reader,
-            &clients,
-            code::AuthorizationCodeParts {
-                digest: &issue::Sha256Digest,
-                secrets: &mut live.secrets,
-                allocator: &mut live.sts_ids,
-            },
-        )
-    } else {
-        issuance.issue(
-            &input,
-            &context,
-            &live.credentials,
-            &clients,
-            code::AuthorizationCodeParts {
-                digest: &issue::Sha256Digest,
-                secrets: &mut live.secrets,
-                allocator: &mut live.sts_ids,
-            },
-        )
+    let mut secrets = live.secrets.clone();
+    let mut ids = live.sts_ids.clone();
+    let standing = issuance.issue(
+        &input,
+        &context,
+        &live.credentials,
+        &clients,
+        code::AuthorizationCodeParts {
+            digest: &issue::Sha256Digest,
+            secrets: &mut secrets,
+            allocator: &mut ids,
+        },
+    );
+    let decided = match (armed, standing) {
+        (None, standing) => {
+            live.secrets = secrets;
+            live.sts_ids = ids;
+            standing
+        }
+        (Some(arming), Err(refusal)) => {
+            live.input_decided(arming, refusal.branch());
+            Err(refusal)
+        }
+        (Some(arming), Ok(_)) => {
+            let faulted = issuance.issue(
+                &input,
+                &context,
+                &reader,
+                &clients,
+                code::AuthorizationCodeParts {
+                    digest: &issue::Sha256Digest,
+                    secrets: &mut live.secrets,
+                    allocator: &mut live.sts_ids,
+                },
+            );
+            live.record_reads(arming, reader.consulted(), reader.refused());
+            faulted
+        }
     };
-    if let Some(arming) = armed {
-        live.record_reads(arming, reader.consulted(), reader.refused());
-    }
     match decided {
         Ok(issuance) => {
             live.append_code(issuance.event.clone())?;
@@ -515,8 +534,10 @@ pub fn redeem_authorization_code(
         redirect_uri: node::field(&request.input, "redirect_uri")?,
     };
     let context = live.sts_request_context();
-    let clients = live.oauth_clients.clone();
-    let sessions = live.sessions.clone();
+    let federation = live.federation.clone();
+    let clients = FederationClients(&federation);
+    let identity = live.identity.clone();
+    let sessions = IdentitySessions(&identity);
     let reader = Substituted::new();
     let armed = live.armed.take(COMMAND);
     let credentials = live.credentials.clone();

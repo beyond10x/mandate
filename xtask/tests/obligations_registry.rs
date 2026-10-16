@@ -719,12 +719,21 @@ fn a_double_only_clause_deferred_to_the_crates_binding_story_is_refused() {
     );
 }
 
-/// The one clause the registry decides in another crate: `mandate-federation`'s
-/// `AuthorizePublicClient` clause "STS code issuance", decided in `mandate-sts` and covered on
-/// the real path by a `mandate-sts` test. Exactly one — a second `decided_in` row anywhere in
-/// the directory is a new cross-crate claim, and this case is where it has to be argued for.
+/// The two clauses the registry decides in another crate, each argued here:
+///
+/// - `mandate-federation`'s `AuthorizePublicClient` clause "STS code issuance", decided in
+///   `mandate-sts` and covered on the real path by a `mandate-sts` test.
+/// - `mandate-model`'s `RevokeWorkloadIdentity` clause "revocation cannot durably stop the
+///   exchange of workload credentials presented under the binding", decided in
+///   `mandate-authz`: the exchange path that reads the workload record is `AuthenticateWorkload`,
+///   which resolves a proof only to a binding still `Recorded`, and
+///   `crates/mandate-model/src/workload.rs` ("The clause another crate decides") says so. It is
+///   covered on the real path by a `mandate-authz` test.
+///
+/// Exactly these two — a third `decided_in` row anywhere in the directory is a new cross-crate
+/// claim, and this case is where it has to be argued for.
 #[test]
-fn the_one_clause_decided_in_another_crate_is_sts_code_issuance_and_is_covered_by_its_tests() {
+fn the_clauses_decided_in_another_crate_are_the_two_argued_here_and_covered_by_their_tests() {
     let root = fixture("decided-in-committed");
     let decided: Vec<(String, String, Value)> = obligations_registry::CRATES
         .iter()
@@ -756,28 +765,41 @@ fn the_one_clause_decided_in_another_crate_is_sts_code_issuance_and_is_covered_b
             .iter()
             .map(|(command, clause, row)| (command.as_str(), clause.as_str(), &row["decided_in"]))
             .collect::<Vec<_>>(),
-        vec![(
-            "mandate.federation.AuthorizePublicClient",
-            "STS code issuance",
-            &Value::String("mandate-sts".to_owned())
-        )],
-        "exactly one clause row in the directory carries decided_in"
+        vec![
+            (
+                "mandate.federation.AuthorizePublicClient",
+                "STS code issuance",
+                &Value::String("mandate-sts".to_owned())
+            ),
+            (
+                "mandate.workload.RevokeWorkloadIdentity",
+                "revocation cannot durably stop the exchange of workload credentials presented \
+                 under the binding",
+                &Value::String("mandate-authz".to_owned())
+            ),
+        ],
+        "exactly the two argued clause rows in the directory carry decided_in"
     );
-    let clause = &decided[0].2;
-    assert!(
-        clause["blocked_on"].is_null(),
-        "covered, not deferred: {clause}"
-    );
-    let rows = clause["tests"].as_array().expect("tests");
-    assert!(
-        !rows.is_empty()
-            && rows.iter().all(|row| row["path"] == "real"
-                && row["kind"] == "denial"
-                && row["id"]
-                    .as_str()
-                    .is_some_and(|id| id.starts_with("mandate-sts::"))),
-        "every row is a real-path mandate-sts denial: {clause}"
-    );
+    for (_, _, clause) in &decided {
+        assert!(
+            clause["blocked_on"].is_null(),
+            "covered, not deferred: {clause}"
+        );
+        let prefix = format!(
+            "{}::",
+            clause["decided_in"]
+                .as_str()
+                .expect("decided_in names a crate")
+        );
+        let rows = clause["tests"].as_array().expect("tests");
+        assert!(
+            !rows.is_empty()
+                && rows.iter().all(|row| row["path"] == "real"
+                    && row["kind"] == "denial"
+                    && row["id"].as_str().is_some_and(|id| id.starts_with(&prefix))),
+            "every row is a real-path denial of the crate that decides it: {clause}"
+        );
+    }
     run(&root).expect("the committed registry is decided");
 }
 

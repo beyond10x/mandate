@@ -52,7 +52,6 @@ use mandate_authz::command::SequentialDelegationIds;
 use mandate_authz::decision::{FixedChallenge, SequentialDecisionIds};
 use mandate_authz::event::{DelegationEvent, DelegationProjection};
 use mandate_federation::record::{FederationEvent, Projection};
-use mandate_federation::register_client::ConfiguredAdmission;
 use mandate_federation::{RecordingSessionIssuer, SequentialAllocator};
 use mandate_graph::double::GraphDouble;
 use mandate_identity::IdentityLog;
@@ -60,8 +59,7 @@ use mandate_model::graph::{ResourceEvent, Topology};
 use mandate_model::tenancy::{Tenancy, TenancyEvent};
 use mandate_model::workload::{WorkloadEvent, WorkloadIdentities};
 use mandate_policy::double::PolicyDouble;
-use mandate_sts::binding::RecordedSessions;
-use mandate_sts::code::{CodeIssuance, CodeLifetime, RecordedClients};
+use mandate_sts::code::{CodeIssuance, CodeLifetime};
 use mandate_sts::issue::StaticSigner;
 use mandate_sts::keys::SigningKeyAdministration;
 use mandate_sts::store::{AuthorizationCodeEvent, InMemoryCodeLog};
@@ -124,8 +122,6 @@ pub struct Live {
     pub federation_ids: SequentialAllocator,
     /// Step 9 of the resolution order.
     pub session_issuer: RecordingSessionIssuer,
-    /// Client-administration authority, which no crate in the federation ceiling decides.
-    pub admission: ConfiguredAdmission,
     /// The identity event log and the fold over it.
     pub identity: IdentityLog,
     /// The tenancy event log; the fold is rebuilt from it.
@@ -167,10 +163,6 @@ pub struct Live {
     pub key_administration: SigningKeyAdministration,
     /// Authorization-code issuance under this deployment's lifetime ceiling.
     pub code_issuance: CodeIssuance,
-    /// The OAuth clients the STS reads, which no command of this contract writes.
-    pub oauth_clients: RecordedClients,
-    /// The sessions the STS reads, which no command of this contract writes.
-    pub sessions: RecordedSessions,
     /// The authorization-code log the STS appends to.
     pub codes: InMemoryCodeLog,
     /// The relationship graph.
@@ -203,7 +195,6 @@ impl Live {
             federation: Projection::default(),
             federation_ids: SequentialAllocator::new(),
             session_issuer: RecordingSessionIssuer::new(),
-            admission: ConfiguredAdmission::new(),
             identity: IdentityLog::new().with_as_of(Timestamp::new(FIXED_INSTANT)),
             tenancy_log: Vec::new(),
             tenancy: Tenancy::new(),
@@ -230,8 +221,6 @@ impl Live {
             code_issuance: CodeIssuance::new(CodeLifetime::new(Duration::new(
                 CODE_LIFETIME.to_owned(),
             ))),
-            oauth_clients: RecordedClients::new(),
-            sessions: RecordedSessions::new(),
             codes: InMemoryCodeLog::new(),
             graph: GraphDouble::default(),
             policy: PolicyDouble::new(),

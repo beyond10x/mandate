@@ -99,9 +99,13 @@
 //! rather than an authored reason: its synthesized input names, in
 //! `allowed_exchange_sources`, a resource server no record carries, so the standing reader
 //! already refuses it `denied` and a fault placed first decided nothing — the row read
-//! `armed` while the scenario answered identically unarmed. The other domains keep the
-//! fault-first rule: no authored scenario of theirs answers differently armed and unarmed,
-//! and every row they record `armed` changes its scenario
+//! `armed` while the scenario answered identically unarmed. So are
+//! `mandate.credential.IssueAuthorizationCode`, whose authored refusals its input decides
+//! once a client is registered, and `mandate.identity.IncrementSecurityEpoch`, whose
+//! synthesized target no record places. The other commands keep the fault-first rule. No
+//! authored scenario outside `mandate.federation` answers differently armed and unarmed
+//! except one written to reach a write port the input cannot refuse
+//! (`epoch-increment-commit-fails`), and every row recorded `armed` changes its scenario
 //! (`tests/adversary_ess_repin_1.rs`).
 //!
 //! # Every double is written down
@@ -425,15 +429,18 @@ const STANDING: &[StandingDouble] = &[
     },
     StandingDouble {
         port: "mandate_sts::code::OAuthClientReads",
-        double: "mandate_sts::code::RecordedClients",
-        why: "mandate.federation owns the OAuth client record and no command of this \
-              contract writes it into the STS's own read model",
+        double: "mandate_conformance::external::FederationClients",
+        why: "mandate.federation owns the OAuth client record and the STS reads it over an \
+              adapter no crate on this line supplies; this answers it from the scenario's \
+              federation fold, as the deployment's adapter answers it from the federation \
+              projection",
     },
     StandingDouble {
         port: "mandate_sts::binding::SessionReads",
-        double: "mandate_sts::binding::RecordedSessions",
+        double: "mandate_conformance::external::IdentitySessions",
         why: "mandate.identity owns the session record and the STS reads it over an adapter \
-              no crate on this line supplies",
+              no crate on this line supplies; this answers it from the scenario's identity \
+              log, as the deployment's adapter answers it from the identity fold",
     },
     StandingDouble {
         port: "mandate_sts::store::AuthorizationCodeLog",
@@ -792,8 +799,10 @@ impl mandate_identity::SecurityEpochWrite for Substituted {
 
 impl mandate_identity::TargetTenancy for Substituted {
     /// A port that holds no records places no target in any organization, so an
-    /// organization target is still compared by identity and every other target reaches the
-    /// substituted write port. Counted like every other read of this reader.
+    /// organization target is still compared by identity and every other target is refused
+    /// as unplaced before any write port. The armed increment therefore reads tenancy from
+    /// the standing log and substitutes only the write (`commands::identity`). Counted like
+    /// every other read of this reader.
     fn organizations_of(
         &self,
         _target: &mandate_types::SecurityEpochTarget,
@@ -1156,6 +1165,106 @@ impl mandate_sts::keys::KeyMaterialResolver for ScenarioKeys {
             rendered.push_str(&format!("{byte:02x}"));
         }
         Some(rendered)
+    }
+}
+
+/// `mandate_sts::code::OAuthClientReads` answered from the scenario's own federation fold.
+///
+/// The deployment answers this port with `mandate_control_plane::adapters::OAuthClientReadsOver`
+/// over `mandate-federation`'s projection, a crate this target's dependency line does not
+/// carry. This is the same reading over the same fold: a client `RegisterOAuthClient`
+/// recorded earlier in the scenario resolves in its organization, one `DisableOAuthClient`
+/// moved reads disabled, and an unregistered one is `None` rather than "disabled", which is
+/// the distinction `mandate_sts::code::admitted_client` fails closed on. It records nothing of
+/// its own.
+#[derive(Debug, Clone, Copy)]
+pub struct FederationClients<'a>(pub &'a mandate_federation::record::Projection);
+
+impl FederationClients<'_> {
+    fn client(
+        &self,
+        id: &mandate_types::OAuthClientId,
+    ) -> Option<mandate_federation::record::OAuthClient> {
+        mandate_federation::publicclient::OAuthClientStore::client(self.0, id)
+    }
+}
+
+impl mandate_sts::code::OAuthClientReads for FederationClients<'_> {
+    fn client_organization(
+        &self,
+        id: &mandate_types::OAuthClientId,
+    ) -> Option<mandate_types::OrganizationId> {
+        self.client(id).map(|client| client.organization_id)
+    }
+
+    fn is_enabled(&self, id: &mandate_types::OAuthClientId) -> Option<bool> {
+        self.client(id)
+            .map(|client| client.state == mandate_federation::record::OAuthClientState::Recorded)
+    }
+
+    fn is_public(&self, id: &mandate_types::OAuthClientId) -> Option<bool> {
+        self.client(id).map(|client| client.public)
+    }
+
+    /// Byte for byte, as the deployment's adapter compares: nothing is normalized.
+    fn redirect_registered(
+        &self,
+        id: &mandate_types::OAuthClientId,
+        redirect_uri: &mandate_types::RedirectUri,
+    ) -> Option<bool> {
+        self.client(id).map(|client| {
+            client.redirect_uris.iter().any(|registered| {
+                registered.as_str().as_bytes() == redirect_uri.as_str().as_bytes()
+            })
+        })
+    }
+}
+
+/// `mandate_sts::binding::SessionReads` answered from the scenario's own identity log.
+///
+/// The deployment answers this port with `mandate_control_plane::adapters::SessionReadsOver`
+/// over `mandate-identity`'s fold, a crate this target's dependency line does not carry. This
+/// is the same reading over the same fold: a session an authored arrangement opened resolves,
+/// one revoked by a command reads revoked, and the epoch verdict compares the snapshot's
+/// recorded generations with the authoritative ones, so an increment later in the scenario
+/// makes the session stale. It records nothing of its own.
+#[derive(Debug, Clone, Copy)]
+pub struct IdentitySessions<'a>(pub &'a mandate_identity::IdentityLog);
+
+impl mandate_sts::binding::SessionReads for IdentitySessions<'_> {
+    fn resolve(
+        &self,
+        id: &mandate_types::SessionId,
+    ) -> Option<mandate_sts::binding::SessionBinding> {
+        mandate_identity::IdentityRead::resolve(self.0, id).map(|session| {
+            mandate_sts::binding::SessionBinding {
+                id: *session.id(),
+                subject: *session.principal(),
+                organization: *session.organization(),
+                epochs: Some(*session.epochs()),
+                expires_at: session.expires_at().clone(),
+                revoked: !session.is_active(),
+            }
+        })
+    }
+
+    /// `None` when the log records no such snapshot, which every caller fails closed on.
+    fn epoch_standing(
+        &self,
+        snapshot: &mandate_types::EpochSnapshotRef,
+    ) -> Option<mandate_sts::binding::EpochStanding> {
+        let recorded = mandate_identity::IdentityRead::snapshot(self.0, snapshot)?;
+        for target in recorded.targets() {
+            let Some(issued_against) = recorded.recorded(&target) else {
+                continue;
+            };
+            if mandate_identity::IdentityRead::current(self.0, &target).generation()
+                != issued_against
+            {
+                return Some(mandate_sts::binding::EpochStanding::Stale(target));
+            }
+        }
+        Some(mandate_sts::binding::EpochStanding::Current)
     }
 }
 

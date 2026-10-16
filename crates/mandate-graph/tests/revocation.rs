@@ -335,8 +335,9 @@ fn removing_a_relation_twice_records_one_move_and_one_revision() {
     assert_eq!(first.revision, second.revision);
 }
 
+/// Another organization's grant answers exactly as a grant no fold carries: `Denied`.
 #[test]
-fn a_revocation_in_another_organization_is_a_tenant_mismatch() {
+fn a_revocation_in_another_organization_is_denied_like_an_unknown_one() {
     let mut graph = seeded();
     graph.record_grant(grant("editor"));
 
@@ -347,5 +348,11 @@ fn a_revocation_in_another_organization_is_a_tenant_mismatch() {
         .revoke_grant(&elsewhere, &GrantId::new(uuid(6)))
         .expect_err("another tenant's grant");
 
-    assert_eq!(refusal, GraphError::Denied(DenialReason::TenantMismatch));
+    assert_eq!(refusal, GraphError::Denied(DenialReason::Denied));
+    assert_eq!(
+        refusal,
+        graph
+            .revoke_grant(&elsewhere, &GrantId::new(uuid(14)))
+            .expect_err("no fold carries the grant"),
+    );
 }

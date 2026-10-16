@@ -138,10 +138,16 @@ fn an_unarmed_call_after_the_armed_one_leaves_the_armed_row_as_it_was() {
     );
 }
 
-/// `src/external.rs`: "The other domains keep the fault-first rule: no authored scenario of
-/// theirs answers differently armed and unarmed." Driven, not read.
+/// `src/external.rs`: "No authored scenario outside `mandate.federation` answers differently
+/// armed and unarmed except one written to reach a write port the input cannot refuse."
+/// Driven, not read.
+///
+/// One authored scenario is set aside by name, and it is checked the other way round: it
+/// exists to reach the clause of `IncrementSecurityEpoch`'s declared cause no input decides,
+/// "atomic increment cannot commit", so armed it must answer differently from unarmed.
 #[test]
 fn no_authored_scenario_outside_federation_answers_differently_unarmed() {
+    const WRITTEN_FOR_THE_FAULT: &str = "mandate.identity/authored/epoch-increment-commit-fails";
     let armed = suite();
     let mut unarmed = armed.clone();
     let mut checked = Vec::new();
@@ -150,7 +156,10 @@ fn no_authored_scenario_outside_federation_answers_differently_unarmed() {
         .expect("scenarios")
         .iter_mut()
     {
-        if !id.contains("/authored/") || id.starts_with("mandate.federation/") {
+        if !id.contains("/authored/")
+            || id.starts_with("mandate.federation/")
+            || id == WRITTEN_FOR_THE_FAULT
+        {
             continue;
         }
         let steps = scenario["steps"].as_array_mut().expect("steps");
@@ -165,6 +174,20 @@ fn no_authored_scenario_outside_federation_answers_differently_unarmed() {
         "no authored scenario outside federation is armed"
     );
     let with = terminal(&run(&armed).report);
+    let mut unarmed_fault = armed.clone();
+    steps_of(&mut unarmed_fault, WRITTEN_FOR_THE_FAULT)
+        .retain(|step| step["step"] != "configure_external_outcome");
+    let without_fault = terminal(&run(&unarmed_fault).report);
+    assert_eq!(
+        with.get(WRITTEN_FOR_THE_FAULT).map(String::as_str),
+        Some("passed"),
+        "{WRITTEN_FOR_THE_FAULT} passes armed"
+    );
+    assert_ne!(
+        with.get(WRITTEN_FOR_THE_FAULT),
+        without_fault.get(WRITTEN_FOR_THE_FAULT),
+        "{WRITTEN_FOR_THE_FAULT} answers the same unarmed, so its arming reaches no write port"
+    );
     let without = terminal(&run(&unarmed).report);
     let differ: Vec<String> = checked
         .iter()

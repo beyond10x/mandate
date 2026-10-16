@@ -18,7 +18,7 @@
           "clause": "the model is outside the verified organization",
           "tests": [
             {
-              "id": "mandate-policy::obligations::another_organizations_model_is_a_tenant_mismatch",
+              "id": "mandate-policy::obligations::another_organizations_model_answers_like_an_unknown_one",
               "kind": "denial",
               "path": "double",
               "double": "mandate_policy::double::PolicyDouble"
@@ -84,7 +84,7 @@
           "clause": "the policy is outside the verified organization",
           "tests": [
             {
-              "id": "mandate-policy::double::another_organizations_policy_is_a_tenant_mismatch",
+              "id": "mandate-policy::double::another_organizations_policy_or_model_answers_like_an_unknown_one",
               "kind": "denial",
               "path": "double",
               "double": "mandate_policy::double::PolicyDouble"

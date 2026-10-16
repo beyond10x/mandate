@@ -103,15 +103,17 @@ impl IncrementSecurityEpoch {
     /// # Errors
     ///
     /// Returns `TenantMismatch` through the declared `denied` outcome when the target lies
-    /// outside the caller's verified organization, before the write port is reached. Returns
+    /// outside the caller's verified organization, or no record places it in any, before the
+    /// write port is reached. Returns
     /// the declared refusal when the generation is at its maximum — which fails closed, with
     /// no wrap and no reuse — and when another writer advanced the same target since
     /// `expected` was read.
     ///
     /// The tenancy check is not atomic with the write: it is a read before the
-    /// compare-and-set, whose token is the target's stream version, so a placement that
-    /// commits between the two is advanced past — the transactional behaviour
-    /// `decision-blocker:epoch-atomicity` owns.
+    /// compare-and-set, whose token is the target's stream version. Because an unplaced
+    /// target refuses, a first placement committing between the two is not advanced past;
+    /// a further placement of an already placed target still can be — the transactional
+    /// behaviour `decision-blocker:epoch-atomicity` owns.
     pub fn execute<W>(
         &self,
         epochs: &mut W,
@@ -133,20 +135,26 @@ impl IncrementSecurityEpoch {
     /// Whether the target lies inside the caller's verified organization.
     ///
     /// An organization target by identity. A principal or connection by every organization
-    /// the records place it in, and one placement elsewhere refuses, whether or not any
-    /// session there is still live. The rule fails closed because the port has no
-    /// session-liveness read: forgetting a placement on a wrong "not live" answer would hand
-    /// one organization another's lever.
+    /// the records place it in: it is contained only when at least one record places it and
+    /// every placement is the caller's. One placement elsewhere refuses, whether or not any
+    /// session there is still live, and so does a target no record places at all. The rule
+    /// fails closed both ways: the port has no session-liveness read, so forgetting a
+    /// placement on a wrong "not live" answer would hand one organization another's lever,
+    /// and an unplaced target is one another organization's concurrent login may be placing
+    /// while this read runs.
     fn contained<W>(&self, epochs: &W) -> bool
     where
         W: TargetTenancy + ?Sized,
     {
         match &self.target {
             SecurityEpochTarget::Organization(id) => *id == self.context.organization,
-            SecurityEpochTarget::Principal(_) | SecurityEpochTarget::Federation(_) => epochs
-                .organizations_of(&self.target)
-                .iter()
-                .all(|organization| *organization == self.context.organization),
+            SecurityEpochTarget::Principal(_) | SecurityEpochTarget::Federation(_) => {
+                let placed = epochs.organizations_of(&self.target);
+                !placed.is_empty()
+                    && placed
+                        .iter()
+                        .all(|organization| *organization == self.context.organization)
+            }
         }
     }
 }

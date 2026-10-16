@@ -71,16 +71,35 @@ fn recorded(entries: &[(SecurityEpochTarget, i64)]) -> IdentityLog {
     log
 }
 
+/// Place `principal()` and `connection()` in `organization_a()`, the caller's, through one
+/// snapshot: `IncrementSecurityEpoch` refuses a principal or connection no record places.
+/// Every dimension the snapshot names must already be stated.
+fn place_in_callers_organization(log: &mut IdentityLog) {
+    log.try_record(IdentityEvent::EpochSnapshotRecorded(
+        EpochSnapshotRecorded {
+            id: EpochSnapshotRef::new(uuid(12)),
+            principal_id: principal(),
+            organization_id: organization_a(),
+            connection_id: Some(connection()),
+        },
+    ))
+    .expect("every dimension the snapshot names is stated");
+}
+
 #[test]
 fn epoch_overflow_an_increment_at_the_maximum_is_denied_and_the_generation_does_not_move() {
     let target = SecurityEpochTarget::Principal(principal());
-    let mut log = recorded(&[]);
+    let mut log = recorded(&[
+        (SecurityEpochTarget::Organization(organization_a()), 0),
+        (SecurityEpochTarget::Federation(connection()), 0),
+    ]);
     log.record(IdentityEvent::SecurityEpochRecorded(
         SecurityEpochRecorded {
             target: target.clone(),
             generation: Generation::MAX,
         },
     ));
+    place_in_callers_organization(&mut log);
     let before = log.current(&target);
 
     let refused = IncrementSecurityEpoch::new(context(), target.clone())
@@ -141,6 +160,7 @@ fn epoch_isolation_incrementing_a_principal_moves_no_other_dimension() {
         (organization.clone(), 7),
         (federation.clone(), 1),
     ]);
+    place_in_callers_organization(&mut log);
 
     let expected = log.current(&subject).version();
     IncrementSecurityEpoch::new(context(), subject.clone())
@@ -155,7 +175,12 @@ fn epoch_isolation_incrementing_a_principal_moves_no_other_dimension() {
 #[test]
 fn the_accepted_outcome_carries_the_verified_context_and_the_selected_target() {
     let target = SecurityEpochTarget::Federation(connection());
-    let mut log = recorded(&[(target.clone(), 1)]);
+    let mut log = recorded(&[
+        (target.clone(), 1),
+        (SecurityEpochTarget::Principal(principal()), 0),
+        (SecurityEpochTarget::Organization(organization_a()), 0),
+    ]);
+    place_in_callers_organization(&mut log);
     let command = IncrementSecurityEpoch::new(context(), target.clone());
 
     assert_eq!(command.context(), &context());
@@ -174,7 +199,12 @@ fn the_accepted_outcome_carries_the_verified_context_and_the_selected_target() {
 #[test]
 fn epoch_isolation_two_writers_at_one_expected_version_advance_the_generation_exactly_once() {
     let target = SecurityEpochTarget::Principal(principal());
-    let mut log = recorded(&[(target.clone(), 3)]);
+    let mut log = recorded(&[
+        (target.clone(), 3),
+        (SecurityEpochTarget::Organization(organization_a()), 0),
+        (SecurityEpochTarget::Federation(connection()), 0),
+    ]);
+    place_in_callers_organization(&mut log);
     let command = IncrementSecurityEpoch::new(context(), target.clone());
 
     let both_read = log.current(&target).version();
@@ -308,6 +338,20 @@ fn tenant_containment_an_organization_target_is_compared_by_identity() {
         &mut log,
         &SecurityEpochTarget::Organization(organization_b()),
     );
+}
+
+/// A principal or connection no record places in any organization is not contained in the
+/// caller's: the rule fails closed, so a first placement committing elsewhere between the
+/// tenancy read and the write is never advanced past.
+#[test]
+fn tenant_containment_a_principal_or_connection_no_record_places_is_refused() {
+    for target in [
+        SecurityEpochTarget::Principal(principal()),
+        SecurityEpochTarget::Federation(connection()),
+    ] {
+        let mut log = recorded(&[(target.clone(), 3)]);
+        refused_for_tenancy(&mut log, &target);
+    }
 }
 
 #[test]

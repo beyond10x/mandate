@@ -194,9 +194,11 @@ fn every_declared_entry_names_a_story_the_store_has_not_already_closed() {
     // `mandate.workload.Denied`, which moved from `declared` to `implemented`.
     // Amendment: story:agent-security realized five `mandate.delegation` commands, their five
     // events and `mandate.delegation.Denied`, which moved from `declared` to `implemented`.
+    // Amendment: mandate-model registered `WorkloadIdentity` and its lifecycle enum, which
+    // moved from `declared` on story:declared-writers to `implemented`.
     assert!(
-        declared >= 23,
-        "this case found {declared} declared entries and the manifest holds 23"
+        declared >= 21,
+        "this case found {declared} declared entries and the manifest holds 21"
     );
     assert!(
         dead.is_empty(),

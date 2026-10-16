@@ -21,11 +21,12 @@
       "mandate.federation/authored/federation-issuer-mismatch",
       "mandate.federation/authored/federation-malformed-proof",
       "mandate.federation/authored/federation-resolution-precedence",
-      "mandate.federation/authored/federation-untrimmed-subject"
+      "mandate.federation/authored/federation-untrimmed-subject",
+      "mandate.identity/authored/epoch-increment-commit-fails"
     ],
     "authored_sources": {
       "scenarios/authz-unadmitted-organization.yaml": {
-        "digest": "sha256:e7ebd7c845da7aa6538c932b84f72717713266e67495fd2ff127a170d105726e",
+        "digest": "sha256:9ebc466f95484af41496a9b233c011510e4692ff560dfca41a56319f939d2dab",
         "disposition": "accepted",
         "scenario": "mandate.authorization/authored/authz-unadmitted-organization"
       },
@@ -33,6 +34,11 @@
         "digest": "sha256:635c5ae5e98fafc8e63932262252fc213bbcde437b73e83a91031e715945d0f0",
         "disposition": "accepted",
         "scenario": "mandate.credential/authored/credential-revoked-twice"
+      },
+      "scenarios/epoch-increment-commit-fails.yaml": {
+        "digest": "sha256:a5ea63556f46519fcb6d6e73af4d5c0275cc8c034ae81aa1e8cef91f268ea08b",
+        "disposition": "accepted",
+        "scenario": "mandate.identity/authored/epoch-increment-commit-fails"
       },
       "scenarios/exchange-ceiling-conflict.yaml": {
         "digest": "sha256:6a04552d9fb3ef65f6ff4eab276b85f6a137e4e2a928e74e1f349fb9c0287c66",
@@ -90,7 +96,7 @@
         "scenario": "mandate.credential/authored/introspect-caller-proof-malformed"
       },
       "scenarios/pkce-code-expired.yaml": {
-        "digest": "sha256:53f681f98f618234cfd38a6ced3fbeb6951a3569f8da08c03c8ed2545207b512",
+        "digest": "sha256:749dbd2b758a5c20b198f3fcee720a6a683a22bc750d640679deeaf3ac067384",
         "disposition": "accepted",
         "scenario": "mandate.credential/authored/pkce-code-expired"
       },
@@ -131,7 +137,7 @@
       }
     },
     "counts": {
-      "authored": 21,
+      "authored": 22,
       "generated": 164,
       "outside": 0,
       "refused": 75
@@ -9548,10 +9554,6 @@
         },
         {
           "kind": "type",
-          "name": "mandate.core.OrganizationMembershipId"
-        },
-        {
-          "kind": "type",
           "name": "mandate.core.PrincipalId"
         },
         {
@@ -9580,10 +9582,6 @@
         },
         {
           "kind": "command",
-          "name": "mandate.tenancy.AddOrganizationMembership"
-        },
-        {
-          "kind": "command",
           "name": "mandate.tenancy.CreateOrganization"
         },
         {
@@ -9591,13 +9589,6 @@
           "name": {
             "command": "mandate.authorization.Check",
             "outcome": "denied"
-          }
-        },
-        {
-          "kind": "outcome",
-          "name": {
-            "command": "mandate.tenancy.AddOrganizationMembership",
-            "outcome": "accepted"
           }
         },
         {
@@ -9614,10 +9605,6 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.OrganizationCreated"
-        },
-        {
-          "kind": "event",
-          "name": "mandate.tenancy.OrganizationMembershipAdded"
         },
         {
           "kind": "error",
@@ -9710,93 +9697,6 @@
           "field": "organization_id",
           "instance": "organization",
           "step": "capture_instance"
-        },
-        {
-          "command": "mandate.tenancy.AddOrganizationMembership",
-          "input": {
-            "context": {
-              "kind": "literal",
-              "value": {
-                "audience": "mandate",
-                "correlation": "authz-unadmitted-member",
-                "credential": "00000000-0000-4000-8000-0000000000c1",
-                "organization": "00000000-0000-4000-8000-0000000000a1",
-                "subject": "00000000-0000-4000-8000-000000000001"
-              }
-            },
-            "organization_id": {
-              "instance": "organization",
-              "kind": "instance"
-            },
-            "principal_id": {
-              "kind": "literal",
-              "value": "00000000-0000-4000-8000-000000000002"
-            }
-          },
-          "step": "execute_command"
-        },
-        {
-          "outcome": {
-            "command": "mandate.tenancy.AddOrganizationMembership",
-            "outcome": "accepted"
-          },
-          "step": "expect_outcome"
-        },
-        {
-          "event": "mandate.tenancy.OrganizationMembershipAdded",
-          "payload": {
-            "principal_id": "00000000-0000-4000-8000-000000000002"
-          },
-          "shape": {
-            "context.actor": {
-              "holds": "primitive",
-              "kind": "uuid",
-              "optional": true
-            },
-            "context.audience": {
-              "holds": "primitive",
-              "kind": "string"
-            },
-            "context.correlation": {
-              "holds": "primitive",
-              "kind": "string"
-            },
-            "context.credential": {
-              "holds": "primitive",
-              "kind": "uuid"
-            },
-            "context.delegation": {
-              "holds": "primitive",
-              "kind": "uuid",
-              "optional": true
-            },
-            "context.execution": {
-              "holds": "primitive",
-              "kind": "uuid",
-              "optional": true
-            },
-            "context.organization": {
-              "holds": "primitive",
-              "kind": "uuid"
-            },
-            "context.subject": {
-              "holds": "primitive",
-              "kind": "uuid"
-            },
-            "membership_id": {
-              "holds": "primitive",
-              "kind": "uuid"
-            },
-            "organization_id": {
-              "holds": "primitive",
-              "kind": "uuid"
-            },
-            "principal_id": {
-              "holds": "primitive",
-              "kind": "uuid"
-            }
-          },
-          "step": "expect_event"
         },
         {
           "force": {
@@ -38224,7 +38124,7 @@
       ]
     },
     "mandate.credential/authored/pkce-code-expired": {
-      "purpose": "`code is expired`: the code record is seeded with the computed verifier of the code presented and an expiry the redemption has passed; redemption.rs:329-330; corpus: none.",
+      "purpose": "`code is expired`: the code expires before the redemption instant and its session is live, so the expiry clause refuses; redemption.rs:329-330; corpus: none.",
       "source": [
         {
           "kind": "domain",
@@ -38256,7 +38156,19 @@
         },
         {
           "kind": "type",
+          "name": "mandate.core.EpochSnapshotRef"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.FederationConnectionId"
+        },
+        {
+          "kind": "type",
           "name": "mandate.core.OAuthClientId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.OrganizationId"
         },
         {
           "kind": "type",
@@ -38265,6 +38177,10 @@
         {
           "kind": "type",
           "name": "mandate.core.PkceMethod"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.PrincipalId"
         },
         {
           "kind": "type",
@@ -38299,6 +38215,10 @@
           "name": "mandate.credential.AuthorizationCode"
         },
         {
+          "kind": "entity",
+          "name": "mandate.identity.Session"
+        },
+        {
           "kind": "command",
           "name": "mandate.credential.RedeemAuthorizationCode"
         },
@@ -38324,7 +38244,7 @@
           "fields": {
             "challenge": "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
             "client_id": "00000000-0000-4000-8000-0000000000c9",
-            "expires_at": "2026-01-05T09:01:00Z",
+            "expires_at": "2025-12-31T23:59:00Z",
             "method": "S256",
             "redirect_uri": "https://app.example.test/callback",
             "scope": {
@@ -38345,6 +38265,19 @@
           "identity": "00000000-0000-4000-8000-0000000000d1",
           "instance": "code",
           "state": "Issued",
+          "step": "establish_entity"
+        },
+        {
+          "entity": "mandate.identity.Session",
+          "fields": {
+            "epochs": "00000000-0000-4000-8000-0000000000b1",
+            "expires_at": "2026-01-05T23:00:00Z",
+            "organization_id": "00000000-0000-4000-8000-0000000000a1",
+            "principal_id": "00000000-0000-4000-8000-000000000001"
+          },
+          "identity": "00000000-0000-4000-8000-0000000000f1",
+          "instance": "session",
+          "state": "Active",
           "step": "establish_entity"
         },
         {
@@ -104364,6 +104297,153 @@
         },
         {
           "event": "mandate.workload.WorkloadIdentityRevoked",
+          "step": "expect_no_event"
+        }
+      ]
+    },
+    "mandate.identity/authored/epoch-increment-commit-fails": {
+      "purpose": "`atomic increment cannot commit`: a placed principal whose increment only the write port refuses; increment.rs; corpus: none.",
+      "source": [
+        {
+          "kind": "domain",
+          "name": "mandate.identity"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.Audience"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.CorrelationId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.CredentialId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.DelegationId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.DenialReason"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.EpochSnapshotRef"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.ExecutionId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.FederationConnectionId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.OrganizationId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.PrincipalId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.SecurityEpochTarget"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.SessionId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.VerifiedContext"
+        },
+        {
+          "kind": "entity",
+          "name": "mandate.identity.Session"
+        },
+        {
+          "kind": "command",
+          "name": "mandate.identity.IncrementSecurityEpoch"
+        },
+        {
+          "kind": "outcome",
+          "name": {
+            "command": "mandate.identity.IncrementSecurityEpoch",
+            "outcome": "denied"
+          }
+        },
+        {
+          "kind": "event",
+          "name": "mandate.identity.SecurityEpochIncremented"
+        },
+        {
+          "kind": "error",
+          "name": "mandate.identity.Denied"
+        }
+      ],
+      "steps": [
+        {
+          "entity": "mandate.identity.Session",
+          "fields": {
+            "epochs": "00000000-0000-4000-8000-0000000000b2",
+            "expires_at": "2026-01-05T23:00:00Z",
+            "organization_id": "00000000-0000-4000-8000-0000000000a1",
+            "principal_id": "00000000-0000-4000-8000-000000000001"
+          },
+          "identity": "00000000-0000-4000-8000-0000000000f2",
+          "instance": "session",
+          "state": "Active",
+          "step": "establish_entity"
+        },
+        {
+          "force": {
+            "command": "mandate.identity.IncrementSecurityEpoch",
+            "outcome": "denied"
+          },
+          "step": "configure_external_outcome"
+        },
+        {
+          "command": "mandate.identity.IncrementSecurityEpoch",
+          "input": {
+            "context": {
+              "kind": "literal",
+              "value": {
+                "audience": "mandate",
+                "correlation": "epoch-increment-commit-fails",
+                "credential": "00000000-0000-4000-8000-0000000000c1",
+                "organization": "00000000-0000-4000-8000-0000000000a1",
+                "subject": "00000000-0000-4000-8000-000000000001"
+              }
+            },
+            "target": {
+              "kind": "literal",
+              "value": {
+                "kind": "principal",
+                "value": "00000000-0000-4000-8000-000000000001"
+              }
+            }
+          },
+          "step": "execute_command"
+        },
+        {
+          "outcome": {
+            "command": "mandate.identity.IncrementSecurityEpoch",
+            "outcome": "denied"
+          },
+          "step": "expect_outcome"
+        },
+        {
+          "error": "mandate.identity.Denied",
+          "fields": {
+            "reason": "Unavailable"
+          },
+          "step": "expect_error"
+        },
+        {
+          "event": "mandate.identity.SecurityEpochIncremented",
           "step": "expect_no_event"
         }
       ]
