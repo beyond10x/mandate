@@ -168,7 +168,16 @@ fn ir(root: &Path) -> Result<()> {
     Ok(())
 }
 fn contracts() -> Result<()> {
-    run("ess", &["specify", "validate", "--strict-requires", "--path", "systems/mandate"])?;
+    run(
+        "ess",
+        &[
+            "specify",
+            "validate",
+            "--strict-requires",
+            "--path",
+            "systems/mandate",
+        ],
+    )?;
     let root = PathBuf::from("target/xtask-contract-regeneration");
     if root.exists() {
         fs::remove_dir_all(&root)?;
