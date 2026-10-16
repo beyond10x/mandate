@@ -7,7 +7,7 @@ title: Small code fixes the audit found
 relations:
 - decomposes: epic:foundations
 - serves: vision:mandate
-revision: 3
+revision: 5
 transitions:
 - {from: "draft", to: "proposed", at: "2026-10-15T21:16:53Z", actor: "human:timo", revision: 2}
 - {from: "proposed", to: "active", at: "2026-10-15T21:16:53Z", actor: "human:timo", revision: 3}
@@ -16,17 +16,19 @@ transitions:
 
 ## Acceptance
 
-Given each fix specified first where a scenario or outcome changes and `ess specify validate --path systems/mandate` green, when `cargo test` runs on the touched crates and `cargo xtask conform` runs, then: `IncrementSecurityEpoch` refuses a target with no recorded placement (`crates/mandate-identity/tests/adversary_tenant_containment_1.rs` inverted); revoking an already-revoked workload identity answers `wrong-state`; `revoked_binding_refuses_authentication` passes and binds its clause in `contracts/obligations/model.json`; the four PKCE and STS scenarios reach their denials with `ConfiguredAdmission` seeded; `authz-unadmitted-organization` reaches `Check` without the membership step; `pkce-code-expired` passes on the expiry clause; the subject-only exchange rows in `contracts/obligations/sts.json` are bound to `services/sts/tests/exchange.rs`; `record_delegation` takes the decided result type; unknown and foreign records refuse alike; and `WorkloadIdentity` and `WorkloadIdentityState` are registered and marked implemented.
+Given each fix specified first where a scenario or outcome changes and `ess specify validate --path systems/mandate` green, when `cargo test` runs on the touched crates and `cargo xtask conform` runs, then: `IncrementSecurityEpoch` refuses a target with no recorded placement (`crates/mandate-identity/tests/adversary_tenant_containment_1.rs` inverted); revoking an already-revoked workload identity answers `wrong-state`; `revoked_binding_refuses_authentication` passes and binds its clause in `contracts/obligations/model.json`; the four PKCE and STS scenarios reach their denials with `ConfiguredAdmission` seeded from the scenario's caller; `authz-unadmitted-organization` reaches `Check` without the membership step; `pkce-code-expired` passes on the expiry clause; the subject-only exchange rows in `contracts/obligations/sts.json` are bound to `services/sts/tests/exchange.rs`; session revoke answers `InvalidCredential` and the graph and policy doubles answer `Denied` for a foreign record exactly as for an unknown one; `WorkloadIdentity` and `WorkloadIdentityState` are registered and marked implemented; and the rows of `contracts/expected-outcomes.json` these fixes move read `passed`.
+
+The decided result type of G-46 is `story:audit-sealed-decided`; graph `placement` and `register_resource` of G-48 are `story:audit-foreign-placement` (decision-blocker:audit-small-fixes-scope).
 
 ## Scope
 
 - `crates/mandate-model/src/{workload,lib}.rs` and tests
 - `crates/mandate-identity/src/{increment,session}.rs`, `crates/mandate-identity/tests/adversary_tenant_containment_1.rs`
-- `crates/mandate-authz/src/workload.rs`, `services/control-plane/src/adapters.rs` (`record_delegation`)
+- `crates/mandate-authz/src/workload.rs`
 - `crates/mandate-graph/src/double.rs`, `crates/mandate-policy/src/double.rs`
-- `crates/mandate-conformance/src/lib.rs`, `crates/mandate-conformance/src/commands/workload.rs`
+- `crates/mandate-conformance/src/lib.rs`, `crates/mandate-conformance/src/commands/{workload,federation}.rs`
 - `systems/mandate/scenarios/{pkce-malformed-challenge,pkce-redirect-mismatch,pkce-wrong-org-target,sts-disabled-client-issuance,authz-unadmitted-organization,pkce-code-expired}.yaml`
-- `contracts/obligations/{model,sts}.json`, `contracts/coverage.json`
+- `contracts/obligations/{model,sts}.json`, `contracts/coverage.json`, `contracts/expected-outcomes.json`
 
 ## Source
 

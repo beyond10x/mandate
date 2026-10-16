@@ -7,7 +7,7 @@ title: Every gap of the 0.9.0 spec-conformance audit has an owner
 relations:
 - decomposes: epic:foundations
 - serves: vision:mandate
-revision: 1
+revision: 2
 ---
 # Every gap of the 0.9.0 spec-conformance audit has an owner
 
@@ -23,3 +23,7 @@ Given the audit of `main` at 0.9.0 (89 gaps, G-01 to G-89: 66 small and 23 story
 ## Source
 
 Audit G-01 to G-89 (stories S-01 to S-22 and the Small fixes).
+
+## Owners moved in wave 10
+
+Wave 10 moved G-46 to `story:audit-sealed-decided` and the `placement` and `register_resource` half of G-48 to `story:audit-foreign-placement` (decision-blocker:audit-small-fixes-scope); every other gap keeps the owner above.

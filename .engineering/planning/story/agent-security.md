@@ -63,7 +63,7 @@ scope:
   path: services/control-plane/src/authority.rs
 - confidence: cited
   path: systems/mandate/domains/delegation.yaml
-revision: 12
+revision: 13
 transitions:
 - {from: "draft", to: "proposed", at: "2026-10-13T06:40:19Z", actor: "human:timo", revision: 8, decided_on: {"recorded":{"review_outcome":1}}}
 - {from: "proposed", to: "active", at: "2026-10-13T06:40:19Z", actor: "human:timo", revision: 9, decided_on: {"recorded":{"review_outcome":1}}}
@@ -136,3 +136,7 @@ Still on this story after wave 8:
 - One-use approval under concurrency: two `CheckWithApproval` decisions taken over the same fold before either is applied both succeed, and the fold logs both. The contract puts this on the commit ("one-use consumption cannot commit atomically" refuses), so the event-log adapter must refuse the second `ApprovedDecisionRecorded` for one approval when persistence lands.
 - The control plane records any `DelegationEvent` it is given without re-deciding it; no route records events yet, and a served route must pass only decide-function output.
 - A SPIFFE / JWT-SVID verifier behind the trust-domain port; `SupersedeAgentCapabilityCeiling` still waits on ESS.
+
+## Wave 10
+
+The registered-audience clause of `CreateDelegation` (`contracts/obligations/authz.json`) is reached only by `ConfiguredDelegationAdmission` (`crates/mandate-authz/src/command.rs`), the configured stand-in for a directory-backed delegation admission. This story owns its replacement, so the clause defers here.
