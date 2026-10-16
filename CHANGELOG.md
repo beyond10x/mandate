@@ -4,6 +4,8 @@ All notable changes to Mandate are recorded here. The format follows [Keep a Cha
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-10-15
+
 Wave 9: the tooling moves to the releases installed for this repository.
 
 ### Changed
