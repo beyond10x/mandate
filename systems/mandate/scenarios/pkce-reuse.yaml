@@ -1,7 +1,7 @@
 type: ess-scenario/2
 domain: mandate.credential
 scenario: pkce-reuse
-summary: '`consume` starts from Issued alone: the code record is seeded with the computed verifier of the code presented and rests in Consumed; redemption.rs:320-321; corpus pkce-reuse.'
+summary: '`consume` starts from Issued alone: the code record is seeded with the computed verifier of the code presented and rests in Consumed; redemption::decide, CodeConsumed; corpus pkce-reuse.'
 arrange:
 - instance: code
   entity: mandate.credential.AuthorizationCode

@@ -1,7 +1,7 @@
 type: ess-scenario/2
 domain: mandate.credential
 scenario: pkce-code-expired
-summary: '`code is expired`: the code record is seeded with the computed verifier of the code presented and an expiry the redemption has passed; redemption.rs:329-330; corpus: none.'
+summary: '`code is expired`: the code record is seeded with the computed verifier of the code presented and an expiry the redemption has passed; redemption::decide, CodeExpired; corpus: none.'
 arrange:
 - instance: code
   entity: mandate.credential.AuthorizationCode

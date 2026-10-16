@@ -1,7 +1,7 @@
 type: ess-scenario/2
 domain: mandate.federation
 scenario: federation-malformed-proof
-summary: '`proof signature/issuer/audience/expiry is invalid`, refused at the verifier: the proof is not a compact JWS, so no double can decode it; verifier_real.rs:1281; corpus: none.'
+summary: '`proof signature/issuer/audience/expiry is invalid`, refused at the verifier: the proof is not a compact JWS, so no double can decode it; verifier_real::refused, MalformedToken; corpus: none.'
 arrange:
 - instance: conn
   entity: mandate.federation.FederationConnection
