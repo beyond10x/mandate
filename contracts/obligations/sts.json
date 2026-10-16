@@ -108,7 +108,12 @@
           "blocked_on": "story:constrained-exchange"
         },
         {
-          "clause": "authority/expiry narrowing",
+          "clause": "authority",
+          "tests": [],
+          "blocked_on": "story:constrained-exchange"
+        },
+        {
+          "clause": "expiry narrowing",
           "tests": [
             {
               "id": "mandate-sts::declared_denials::every_refusal_exchange_credential_produces_has_a_row",

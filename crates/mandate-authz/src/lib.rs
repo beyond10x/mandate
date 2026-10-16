@@ -151,14 +151,16 @@ mandate_types::realizes! {
 /// event payload type, no allocator of one, and no port that could append it.
 /// `story:check-api` recorded why — `DecisionRecorded` "changes no entity … so it is not a
 /// move-event" — and the adapter that records it is the decision point's deployment, not
-/// this library. Of `mandate.delegation` this crate realizes the five records, five commands,
-/// their five events and the domain's error; `SupersedeAgentCapabilityCeiling` and its event
-/// wait for a specification construct ESS does not yet have.
+/// this library. Giving the event a writer is `story:declared-writers`', the owner
+/// `contracts/coverage.json` names for it. Of `mandate.delegation` this crate realizes the
+/// five records, five commands, their five events and the domain's error;
+/// `SupersedeAgentCapabilityCeiling` and its event wait for a specification construct ESS does
+/// not yet have.
 pub const ESS_UNREALIZED: &[(&str, &str)] = &[
     (
         "mandate.authorization.DecisionRecorded",
         "no event payload type is declared here: [`check`] returns the decision to its caller \
-         and the recording adapter appends it; owner story:check-api",
+         and the recording adapter appends it; owner story:declared-writers",
     ),
     (
         "mandate.delegation.SupersedeAgentCapabilityCeiling",

@@ -89,81 +89,10 @@
     },
     {
       "command": "mandate.identity.RefreshSession",
-      "status": "implemented",
-      "clauses": [
-        {
-          "clause": "Refresh verifier is absent/incorrect",
-          "tests": [],
-          "blocked_on": "decision-blocker:guards"
-        },
-        {
-          "clause": "record is expired/revoked",
-          "tests": [
-            {
-              "id": "mandate-identity::refresh::a_revoked_session_is_refused_even_though_every_generation_still_matches",
-              "kind": "denial",
-              "path": "real"
-            },
-            {
-              "id": "mandate-identity::adversary_expiry::a_session_past_its_declared_expiry_does_not_refresh",
-              "kind": "denial",
-              "path": "real"
-            }
-          ]
-        },
-        {
-          "clause": "principal/session is disabled",
-          "tests": [],
-          "blocked_on": "story:declared-writers"
-        },
-        {
-          "clause": "any applicable principal/organization/federation epoch mismatches",
-          "tests": [
-            {
-              "id": "mandate-identity::refresh::epoch_principal_a_refresh_after_the_principal_generation_advanced_denies_stale_epoch",
-              "kind": "denial",
-              "path": "real"
-            },
-            {
-              "id": "mandate-identity::refresh::epoch_org_a_refresh_after_the_organization_generation_advanced_denies_stale_epoch",
-              "kind": "denial",
-              "path": "real"
-            },
-            {
-              "id": "mandate-identity::refresh::epoch_federation_a_refresh_after_the_connection_generation_advanced_denies_stale_epoch",
-              "kind": "denial",
-              "path": "real"
-            }
-          ]
-        },
-        {
-          "clause": "session binding fails",
-          "tests": [
-            {
-              "id": "mandate-identity::refresh::a_session_the_fold_does_not_record_is_refused",
-              "kind": "denial",
-              "path": "real"
-            },
-            {
-              "id": "mandate-identity::refresh::a_session_whose_snapshot_handle_resolves_to_nothing_is_refused",
-              "kind": "denial",
-              "path": "real"
-            },
-            {
-              "id": "mandate-identity::refresh::a_session_whose_snapshot_is_bound_to_another_organization_is_refused",
-              "kind": "denial",
-              "path": "real"
-            }
-          ]
-        }
-      ],
-      "no_state_change": [],
-      "blocked_on": "story:declared-writers",
-      "denial_audit": {
-        "status": "deferred",
-        "blocker": "decision-blocker:audit-routing",
-        "tests": []
-      }
+      "status": "deferred",
+      "story": "story:declared-writers",
+      "clauses": [],
+      "no_state_change": []
     },
     {
       "command": "mandate.identity.RevokeRefreshCredential",

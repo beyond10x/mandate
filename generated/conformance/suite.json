@@ -45,7 +45,7 @@
         "scenario": "mandate.federation/authored/federation-ambiguous-tenant"
       },
       "scenarios/federation-audience-mismatch.yaml": {
-        "digest": "sha256:0fa8e1888bfdbc7ff6b29bc88b949a6fa5999544f0450da0d9c6db708e65f6b5",
+        "digest": "sha256:f0b0bc529e0f1d9f3c892641bb9060d46f35af3cb6cb417d2945c8ee6ab66256",
         "disposition": "accepted",
         "scenario": "mandate.federation/authored/federation-audience-mismatch"
       },
@@ -55,17 +55,17 @@
         "scenario": "mandate.federation/authored/federation-configured-method-on-explicit-link"
       },
       "scenarios/federation-disabled-connection.yaml": {
-        "digest": "sha256:2edae1a4e879577c5ca1e1c4e91442319f5b5ddcdc7ced61de77ae4fa19b3edf",
+        "digest": "sha256:02737832ca9ef5f33874a5b4b2273b4a6d4337d9575d38cf2616c5994724ccd9",
         "disposition": "accepted",
         "scenario": "mandate.federation/authored/federation-disabled-connection"
       },
       "scenarios/federation-empty-subject.yaml": {
-        "digest": "sha256:b9f35294801dcf987360ff927864a42acd46b9b8d38394918872c0c194805cf1",
+        "digest": "sha256:a55ea70e7f919e9c80e752ada86c2db71117007380627c89ade5488d76bcda10",
         "disposition": "accepted",
         "scenario": "mandate.federation/authored/federation-empty-subject"
       },
       "scenarios/federation-issuer-mismatch.yaml": {
-        "digest": "sha256:fc652c78f8de9f440b2fbf0b9122bbb551f5fe3906f52e868e96787842460419",
+        "digest": "sha256:5a396c6c5458da199ee9c8a0cba38704c29948903aa27d89422f4e4d2d140252",
         "disposition": "accepted",
         "scenario": "mandate.federation/authored/federation-issuer-mismatch"
       },
@@ -80,7 +80,7 @@
         "scenario": "mandate.federation/authored/federation-resolution-precedence"
       },
       "scenarios/federation-untrimmed-subject.yaml": {
-        "digest": "sha256:0292663759fec1adcd4f2a496fbb4a7d077c66177434d58bfe3018e3b62b7ee4",
+        "digest": "sha256:c68256337a6e61a39dea28756afdd785c34de6f5b24a908a9758b637916ad317",
         "disposition": "accepted",
         "scenario": "mandate.federation/authored/federation-untrimmed-subject"
       },
@@ -82962,7 +82962,7 @@
       ]
     },
     "mandate.federation/authored/federation-audience-mismatch": {
-      "purpose": "aud is not the client; authenticate.rs:258-259; read by mandate_conformance::external::ScenarioVerifier, the standing decode-only verifier double; residue story:signing-and-verification.",
+      "purpose": "aud is not the client; authenticate.rs:258-259; read by mandate_conformance::external::ScenarioVerifier, the standing decode-only verifier double; residue story:testkit-doubles.",
       "source": [
         {
           "kind": "domain",
@@ -83539,7 +83539,7 @@
       ]
     },
     "mandate.federation/authored/federation-disabled-connection": {
-      "purpose": "the connection is disabled; authenticate.rs:242-243; read by mandate_conformance::external::ScenarioVerifier, the standing decode-only verifier double; residue story:signing-and-verification.",
+      "purpose": "the connection is disabled; authenticate.rs:242-243; read by mandate_conformance::external::ScenarioVerifier, the standing decode-only verifier double; residue story:testkit-doubles.",
       "source": [
         {
           "kind": "domain",
@@ -83892,7 +83892,7 @@
       ]
     },
     "mandate.federation/authored/federation-empty-subject": {
-      "purpose": "sub trims to nothing; authenticate.rs:267-268; read by mandate_conformance::external::ScenarioVerifier, the standing decode-only verifier double; residue story:signing-and-verification.",
+      "purpose": "sub trims to nothing; authenticate.rs:267-268; read by mandate_conformance::external::ScenarioVerifier, the standing decode-only verifier double; residue story:testkit-doubles.",
       "source": [
         {
           "kind": "domain",
@@ -84158,7 +84158,7 @@
       ]
     },
     "mandate.federation/authored/federation-issuer-mismatch": {
-      "purpose": "iss is not the connection's; authenticate.rs:251-252; read by mandate_conformance::external::ScenarioVerifier, the standing decode-only verifier double; residue story:signing-and-verification.",
+      "purpose": "iss is not the connection's; authenticate.rs:251-252; read by mandate_conformance::external::ScenarioVerifier, the standing decode-only verifier double; residue story:testkit-doubles.",
       "source": [
         {
           "kind": "domain",
@@ -85043,7 +85043,7 @@
       ]
     },
     "mandate.federation/authored/federation-untrimmed-subject": {
-      "purpose": "sub is not its own trim; authenticate.rs:274-275; read by mandate_conformance::external::ScenarioVerifier, the standing decode-only verifier double; residue story:signing-and-verification.",
+      "purpose": "sub is not its own trim; authenticate.rs:274-275; read by mandate_conformance::external::ScenarioVerifier, the standing decode-only verifier double; residue story:testkit-doubles.",
       "source": [
         {
           "kind": "domain",

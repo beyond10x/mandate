@@ -49,7 +49,8 @@ pub fn revoke_session(
 ///
 /// The declared input is a `refresh_proof`, and resolving a proof to a session identity is
 /// the credential domain's — "the proof that resolves a session identity is verified by the
-/// credential domain before this is reached" (`identity.yaml`).
+/// credential domain before this is reached" (`mandate_identity::refresh_session`'s own
+/// documentation, `crates/mandate-identity/src/session.rs`).
 ///
 /// **`mandate-token` being on the line did not close this.** The record a refresh proof
 /// resolves through is `mandate.identity.RefreshCredential`, and nothing projects it:
@@ -57,7 +58,7 @@ pub fn revoke_session(
 /// event, and the STS's `CredentialResolution` answers a `mandate_token` `AccessCredential`
 /// whose fields carry no session identity. There is no port to read, so a proof whose text
 /// *is* a session identity is driven through the real handler and any other proof is
-/// answered `Unsupported` against `story:session-epochs` rather than denied for a reason
+/// answered `Unsupported` against `story:declared-writers` rather than denied for a reason
 /// this target invented.
 ///
 /// # Errors

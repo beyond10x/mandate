@@ -1,7 +1,7 @@
 type: ess-scenario/2
 domain: mandate.federation
 scenario: federation-audience-mismatch
-summary: aud is not the client; authenticate.rs:258-259; read by mandate_conformance::external::ScenarioVerifier, the standing decode-only verifier double; residue story:signing-and-verification.
+summary: aud is not the client; authenticate.rs:258-259; read by mandate_conformance::external::ScenarioVerifier, the standing decode-only verifier double; residue story:testkit-doubles.
 arrange:
 - instance: conn
   entity: mandate.federation.FederationConnection

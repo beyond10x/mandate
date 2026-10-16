@@ -12,7 +12,7 @@
     {
       "party": "mandate-deployment",
       "outside": false,
-      "role": "The process this repository builds: `mandate-control-plane serve`, holding the federation, identity and credential folds and serving the six routes.",
+      "role": "The process this repository builds: `mandate-control-plane serve`, holding the federation, identity and credential folds and serving the nine routes.",
       "delivers": [
         {
           "kind": "contract",
@@ -1058,6 +1058,40 @@
         10
       ],
       "statement": "The key set the metadata document's `jwks_uri` names, carrying no private member."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/federation/authorize",
+      "binds": {
+        "relying_party": "Authorize"
+      },
+      "steps": [
+        6
+      ],
+      "statement": "The relying-party half of an external identity provider's code flow: the browser is sent to the provider's authorization endpoint from here, for a connection whose document names a `relying_party`. `GET` because a browser follows it."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/federation/callback",
+      "binds": {
+        "relying_party": "Callback"
+      },
+      "steps": [
+        6,
+        7
+      ],
+      "statement": "Where the provider returns the browser with its code. The code is redeemed server-side with the connection's client secret, and the ID token is the proof `AuthenticateFederation` validates; the browser is sent on with a single-use handoff code, never the session proof."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/federation/handoff",
+      "binds": {
+        "relying_party": "Handoff"
+      },
+      "steps": [
+        6
+      ],
+      "statement": "The embedding application exchanges the callback's single-use handoff code for the session, server to server, once, so the bearer session proof never rides a browser navigation. `POST` because it is not idempotent."
     }
   ],
   "configuration": [
@@ -1354,6 +1388,19 @@
           "statement": "The registrations admitted as exchange sources into this one. Stated rather than defaulted, and empty is the ordinary value: every member widens what may be exchanged in."
         }
       ]
+    },
+    {
+      "party": "mandate-operator",
+      "flag": "--client-secret-file",
+      "type": "argument",
+      "repeatable": true,
+      "fields": [
+        {
+          "field": "client_secret_file",
+          "required": false,
+          "statement": "`NAME=PATH`: the file an identity provider's client secret is read from, under the name a `--connection` document's `relying_party.client_secret` refers to. The flag carries where the secret is, never the secret. Read before the socket is bound: a reference no flag resolves, a name two flags give, and a file that cannot be read or is empty are each refused with exit status 2, and no refusal carries a byte of the secret. Needed only for a connection that names a `relying_party`."
+        }
+      ]
     }
   ],
   "standards": [
@@ -1521,7 +1568,7 @@
     {
       "gap": "`RegisterFederationConnection` is served by no route",
       "costs": "A customer's administrator cannot register their own identity provider. Steps 1 to 5 are not an API on this road; they are files a Mandate operator writes and a process restart.",
-      "today": "The route table holds four command routes and two document routes, and none of them binds a registration command. The `/v1/` control-plane resources are another story's.",
+      "today": "The route table holds four command routes, two document routes and three relying-party routes, and none of them binds a registration command. The `/v1/` control-plane resources are another story's.",
       "steps": [
         1,
         2,

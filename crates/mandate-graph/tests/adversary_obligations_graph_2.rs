@@ -307,7 +307,7 @@ fn the_no_state_change_rows_agree_on_what_decides_that_a_refusal_moves_nothing()
     let rows = rows_of_kind(&document, "no-state-change");
     assert_eq!(
         rows.len(),
-        5,
+        2,
         "one no-state-change row per implemented command"
     );
 

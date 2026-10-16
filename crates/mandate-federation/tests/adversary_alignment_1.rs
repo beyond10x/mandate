@@ -15,8 +15,8 @@ use mandate_federation::record::{
     Projection, RegisterFederationConnection, register_federation_connection,
 };
 use mandate_federation::{
-    ESS_REALIZATIONS, ExternalPrincipalStore, PrincipalState, RecordedPrincipals, RefusedOutcome,
-    RequestContext, SequentialAllocator,
+    ExternalPrincipalStore, PrincipalState, RecordedPrincipals, RefusedOutcome, RequestContext,
+    SequentialAllocator,
 };
 use mandate_identity::IdentityLog;
 use mandate_model::TenantResolutionRule;
@@ -89,24 +89,13 @@ fn verifier() -> CredentialProof {
     CredentialProof::from_bytes(text.into_bytes())
 }
 
-/// The element the crate's own registry names as the one a symbol realizes.
-fn realized_element(symbol_suffix: &str) -> &'static str {
-    let matches: Vec<&'static str> = ESS_REALIZATIONS
-        .iter()
-        .filter(|(_, symbol)| symbol.replace(' ', "").ends_with(symbol_suffix))
-        .map(|(element, _)| *element)
-        .collect();
-    match matches.as_slice() {
-        [single] => single,
-        other => panic!(
-            "mandate_federation::ESS_REALIZATIONS names {} elements for `{symbol_suffix}`: {other:?}",
-            other.len()
-        ),
-    }
-}
+/// The command whose outcomes the refusal is looked up on. The crate no longer registers the
+/// handler against it (`ESS_UNREALIZED` records why, owner `story:oauth-integration`), so the
+/// name is the contract's, not the registry's.
+const AUTHORIZE_PUBLIC_CLIENT: &str = "mandate.federation.AuthorizePublicClient";
 
 /// The refusal a consumed authorization code produces names an outcome the contract
-/// declares for the command this crate registers the handler against.
+/// declares for the command the handler's check belongs to.
 #[test]
 fn a_consumed_code_refusal_names_an_outcome_the_contract_declares_for_its_command() {
     let code = AuthorizationCode {
@@ -161,15 +150,12 @@ fn a_consumed_code_refusal_names_an_outcome_the_contract_declares_for_its_comman
         "a consumed code at the non-consuming validation is the declared denied outcome"
     );
 
-    // Exactly what `crates/mandate-federation/tests/emitted_events.rs`'s `refused` helper
-    // does for every other handler in this crate: look the outcome the refusal names up
-    // on the command the crate's registry says the handler realizes.
-    let command = realized_element("::validate_authorization_code");
+    // Look the outcome the refusal names up on the command the contract declares it for.
+    let command = AUTHORIZE_PUBLIC_CLIENT;
     let looked_up = check_single_emission(command, denied.outcome.ir_name(), &[]);
     assert!(
         looked_up.is_ok(),
-        "the refusal names the outcome `{}`, and {command} (the element \
-         mandate_federation::ESS_REALIZATIONS pairs with this handler) does not declare \
+        "the refusal names the outcome `{}`, and {command} does not declare \
          it: {looked_up:?}",
         denied.outcome.ir_name()
     );

@@ -37,9 +37,12 @@ model's commands has exactly one document and no command has two. A command the 
 manifest calls `implemented` must sit in the document whose `crate` that manifest names for
 it — that rule is what keeps the partition from being arbitrary where it matters. A command
 nothing implements has no crate to be checked against, and its document is a filing choice:
-`mandate.audit`, `mandate.directory` and `mandate.workload` are filed with `mandate-model`
-and `mandate.delegation` with `mandate-authz`, following the Rust-ownership column of
+`mandate.audit` and `mandate.directory` are filed with `mandate-model` and
+`mandate.delegation` with `mandate-authz`, following the Rust-ownership column of
 `docs/architecture/ownership.md` where one of these seven crates appears in it.
+`mandate.workload` is filed with `mandate-authz`, which decides `AuthenticateWorkload` over
+the agent records it folds; `RevokeWorkloadIdentity`, which `mandate-model` implements, sits
+in `model.json` by the rule above.
 
 ### A command
 
