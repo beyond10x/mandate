@@ -23,7 +23,7 @@ scope:
   path: generated/conformance/suite.json
 - confidence: cited
   path: systems/mandate/scenarios/federation-ambiguous-tenant.yaml
-revision: 9
+revision: 10
 transitions:
 - {from: "draft", to: "proposed", at: "2026-09-23T06:01:25Z", actor: "human:timo", revision: 5, imported: true}
 - {from: "proposed", to: "active", at: "2026-09-23T06:01:27Z", actor: "human:timo", revision: 6, imported: true}
@@ -61,3 +61,7 @@ federation-rule-disjointness
 - `tests/adversary_obligations_federation_1.rs`, `tests/obligations.rs` — confirmed
 - `contracts/obligations/federation.json:453` — not needed
 - not in scope but needed: `systems/mandate/scenarios/federation-ambiguous-tenant.yaml`, `generated/conformance/suite.json` and coverage receipt (regenerated), `contracts/use-cases/federated-login.json`
+
+## References at 0.9.0
+
+Recorded 2026-10-16 (audit G-70). Three references have drifted since close. `collides` is at `crates/mandate-federation/src/record.rs:954`. The test `the_admitted_pair_ends_the_incumbents_logins_on_that_issuer` (`crates/mandate-federation/tests/adversary_obligations_federation_1.rs:226`) keeps the name it had when it pinned the old behaviour; its doc comment and body now assert the opposite, that a second organization's rule on a different claim is refused and the incumbent's login keeps resolving. The name is stale and is not changed here. The multiple-match binding was re-examined as the Outcome asks: `contracts/obligations/federation.json` binds both "tenant resolution has zero or multiple matches" rows (`:48` and `:464`) to real-path denial tests, so the clause stays counted on the real path.

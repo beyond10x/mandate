@@ -20,7 +20,7 @@ scope:
   path: xtask/src/obligations_registry.rs
 - confidence: cited
   path: xtask/tests/obligations_registry.rs
-revision: 22
+revision: 23
 transitions:
 - {from: "draft", to: "proposed", at: "2026-09-19T19:06:45Z", actor: "human:timo", revision: 14, imported: true}
 - {from: "proposed", to: "active", at: "2026-09-19T19:06:46Z", actor: "human:timo", revision: 15, imported: true}
@@ -91,3 +91,7 @@ Every clause row and no-state-change row and every `addendum` row names a test o
 - Correction 1 result (2026-09-21): 138 xtask cases green after the coordinator amended adversary case c to the 2026-09-21 rule (a `cases` row may name `mandate-proto` or `mandate-server`) and applied the implementor's one-line clippy patch to the adversary file; 176 clauses (69 real / 8 double / 99 deferred) — four clauses split into seven by decider (`RegisterResource`, `IssueAuthorizationCode`, `RedeemAuthorizationCode`, and `WriteRelationship`, found by enumerating the 29 conjunctive clauses); `obligation()` refuses a clause carrying both paths; `owners` replaces `same_crate` (addendum exemption gone; `cases` bounded to the two wire packages); `coverage::terminal_rung` is `pub` and the duplicate deleted. Residue stated: `LinkExternalPrincipal` "Caller/method lacks linking authority" is real-covered on the method half; the caller half is `mandate-authz`'s and no verbatim split exists. Adversary 2 dispatched.
 
 - Correction 2 result (2026-09-21): 145 xtask cases green, all eight adversary cases; 176 clauses: 68 real / 8 double / 100 deferred; the tiling has a reader (`tiles()` walks each cause positionally, refusing a dropped, nested, overlapping or out-of-order clause and quoting the unaccounted text); a double row never defers to its own binding story (the eight double-only clauses defer to `story:graph-policy-adapter`); `RedeemAuthorizationCode`'s two undriven halves deferred to `story:obligations-sts`. Unit committed `787cded`, merged `89280c7`; wiring (`cargo xtask obligations-registry [--write]`, `check` after `coverage`) in the alignment commit that follows; the step passes on the integration head, where the seven binding stories are present in the store.
+
+## Counts at 0.9.0
+
+Recorded 2026-10-16 (audit G-70). The amended acceptance above counts 61 commands and the implementor result counts 172 clauses at the time of merge. Both moved with the later obligations stories. The seven files `contracts/obligations/{authz,federation,graph,identity,model,policy,sts}.json` now name 63 commands (9, 9, 5, 5, 21, 2 and 12), and `contracts/conformance/obligations-report.json` totals 249 clauses: 125 real-path, 25 double-only, 99 deferred. Per crate `{clauses, real_covered, double_only, deferred}`: authz 62/42/6/14, federation 41/29/3/9, graph 19/0/8/11, identity 12/5/2/5, model 45/13/0/32, policy 10/0/6/4, sts 60/36/0/24. The same totals are stated in `docs/public/roadmap.md:60` and `CHANGELOG.md:65`. The registry is per crate, `contracts/obligations/<crate>.json`; there is no single `contracts/obligations.json`.

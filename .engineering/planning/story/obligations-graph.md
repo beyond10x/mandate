@@ -14,7 +14,7 @@ scope:
   path: contracts/obligations/graph.json
 - confidence: cited
   path: crates/mandate-graph/tests/obligations.rs
-revision: 7
+revision: 8
 transitions:
 - {from: "draft", to: "proposed", at: "2026-09-20T23:45:44Z", actor: "human:timo", revision: 4, imported: true}
 - {from: "proposed", to: "active", at: "2026-09-20T23:45:45Z", actor: "human:timo", revision: 5, imported: true}
@@ -37,3 +37,7 @@ transitions:
 - Adversary pass 2 ruled (`review-result:wave-d-obligations-graph-adversary-2`): 3 blockers, 2 warnings, 2 notes. F1 and F2 were **pre-existing** — "resource tenancy mismatches" was counted `real_covered` on a `TenantMismatch` produced by a `Tree` stub in a test binary, and "the relationship is not admitted by the authorization model" on two `declared_name` cases, while `crates/mandate-graph/src/relationship.rs:10` says that refusal is `mandate-policy`'s. The second is now re-pointed to `story:cross-crate-clauses`. F3 moved the `WriteRelationship` `no_state_change` row to its four `double` siblings.
 - One rule generalised out of F4 and recorded for the whole registry: **a `double` value is a `::`-separated Rust path into a library target.** `graph.json` had shipped `"mandate-graph::relationship::Members"` — not a Rust path at all, and naming a stub inside a test binary. The step checks only that the field is non-empty; that gap is on `story:cross-crate-clauses`.
 - Two coordinator-owned registry adversary cases in `xtask/tests/` were red as a consequence of this reclassification and were corrected, not suppressed: each read a precondition out of the committed registry rather than constructing it, so any correct ruling about which clauses are `real` turned them red. The unit distinguished the red it caused from the one it inherited by measurement — reinstalling the correction-1 document, running both targets, restoring byte-identically — and enumerated the class over all eight cases in the two files.
+
+## Outcome versus result
+
+Recorded 2026-10-16 (audit G-70). The Outcome above says the binding is `contracts/obligations.json`. The registry that shipped is one file per crate under `contracts/obligations/<crate>.json`, and this story's file is the one named in its scope. The Result below, not the Outcome, is the measured state: the crate's row in `contracts/conformance/obligations-report.json` is 0 real-path, so the Outcome's claim that its rows move from `deferred` to `real_covered` was not met. The crate's row at 0.9.0 is in the totals recorded on `story:obligation-registry`.

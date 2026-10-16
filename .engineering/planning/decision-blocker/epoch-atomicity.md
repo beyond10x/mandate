@@ -5,9 +5,9 @@ kind: decision-blocker
 status: open
 title: UNMAPPED-ATOMICITY
 relations:
-- blocks: story:session-epochs
 - blocks: story:directory-provenance
 - blocks: story:oauth-integration
+- blocks: story:domain-folds-over-the-kit
 revision: 1
 ---
 Cross-record invalidation, code redemption, mapping contribution reconciliation and audit persistence need transactional behavior not captured by current single-entity transitions. Specify atomic storage boundaries and race tests before runtime acceptance.

@@ -14,7 +14,7 @@ scope:
   path: contracts/obligations/policy.json
 - confidence: cited
   path: crates/mandate-policy/tests/obligations.rs
-revision: 7
+revision: 8
 transitions:
 - {from: "draft", to: "proposed", at: "2026-09-21T01:36:03Z", actor: "human:timo", revision: 4, imported: true}
 - {from: "proposed", to: "active", at: "2026-09-21T01:36:04Z", actor: "human:timo", revision: 5, imported: true}
@@ -38,3 +38,7 @@ transitions:
 - Then `double_only` rose to 6 again for a different reason: adversary pass 2 and ruling (a) split both "no later X version is recorded for that organization" clauses into their two conditions, because `contracts/obligations/README.md` states "one clause per condition the cause enumerates" and `story:obligations-authz` had applied that rule the same week (9 clauses to 15). Two documents applying one named rule at different granularities make the registry's counts incomparable.
 - **A claim that a mutation fells a case is worth exactly what the mutation says.** Correction 1's paragraph stated that dropping either half of the later-version predicate fells its two new cases; adversary 2 ran all four mutations and dropping the `current()` half left all 76 cases green. The ruling took the fix that closes the gap rather than the one that softens the sentence: correction 2 folded an already-superseded later record into each case, and all four mutations now fell a case. The guard is real, load-bearing under test, and unreachable through any path a caller has — recorded on `story:unpublished-refusals`.
 - Four findings routed rather than fixed, all pre-existing and all measured: a published 409 `wrong-state` refusal the only implementor answers as an accepted repeat; a port refusing caller input with no clause published for it; a later-version guard deciding by fold order with `Policy::version` compared nowhere; and the finding that overturned a coordinator ruling — `mandate-policy` does not decide `mandate.graph.WriteRelationship`'s authorization-model clause either, because `AuthorizationModel::schema` is written by `record_model` and read by nothing.
+
+## Outcome versus result
+
+Recorded 2026-10-16 (audit G-70). The Outcome above says the binding is `contracts/obligations.json`. The registry that shipped is one file per crate under `contracts/obligations/<crate>.json`, and this story's file is the one named in its scope. The Result below, not the Outcome, is the measured state: the crate's row in `contracts/conformance/obligations-report.json` is 0 real-path, so the Outcome's claim that its rows move from `deferred` to `real_covered` was not met. The crate's row at 0.9.0 is in the totals recorded on `story:obligation-registry`.
