@@ -31,4 +31,29 @@ regenerates through `cargo xtask generate`, then changes the code.
 
 ## Results
 
-Filled at the close of the wave.
+| Unit | Commit | Merge | Outcome |
+|---|---|---|---|
+| U3 | `1a6c789` | `afa15fd` | comments, ownership rows and scenario summaries cite symbols, not line numbers |
+| U1 | `8be6cc7` | `cc5f70b` | every deferred clause, injection row and blocked scenario names a live story; `xtask/tests/open_work_owners.rs` refuses a finished or absent owner |
+| U2 | `bad7d9d` | `9f5a8b7` | a foreign record is answered like an unknown one; workload refusals say denied or wrong state; `WorkloadIdentity` is realized |
+
+U2 needed three changes beyond its gap list, each a consequence of a fix: the conformance target
+reads OAuth clients and sessions from the scenario's own records (an empty client reader had made
+every authorization-code issuance refuse, so one PKCE scenario failed and two passed by
+coincidence), the armed-fault handlers check the real readers first, and a new authored scenario
+`epoch-increment-commit-fails` replaces the fault anchor the containment fix removed.
+
+The merge of U2 keeps U1's deferral of the graph and policy commands to
+`story:graph-policy-adapter`, so those carry no registry rows; the still-implemented ones take
+U2's test ids.
+
+Measured on the merged head `9f5a8b7`:
+
+- `ess specify validate --strict-requires`: valid, 14 files, 22 scenarios.
+- `cargo xtask conform`: 186 scenarios (185 before), 56 passed, 66 failed, 64 unsupported, every
+  outcome matching `contracts/expected-outcomes.json` (48 passed before).
+- `cargo xtask coverage`: 297 contract elements, 227 implemented, 15 declared, 55 deferred
+  (225/17/55 before).
+- `cargo clippy --workspace --all-targets -- -D warnings`, `cargo fmt --check`: clean.
+
+The 22 story-class audit stories stay drafts for later waves.
