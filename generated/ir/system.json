@@ -98,11 +98,13 @@
         "mandate.core.ExternalSubject",
         "mandate.core.FederationConnectionId",
         "mandate.core.GrantId",
+        "mandate.core.GroupFilter",
         "mandate.core.Issuer",
         "mandate.core.KeyReference",
         "mandate.core.MembershipContributionId",
         "mandate.core.MembershipSource",
         "mandate.core.OAuthClientId",
+        "mandate.core.OAuthClientType",
         "mandate.core.OrganizationId",
         "mandate.core.OrganizationMembershipId",
         "mandate.core.PkceChallenge",
@@ -305,6 +307,7 @@
         "mandate.federation.ExternalPrincipalLinked",
         "mandate.federation.ExternalPrincipalProvisioned",
         "mandate.federation.ExternalPrincipalUnlinked",
+        "mandate.federation.ExternalProfileObserved",
         "mandate.federation.FederationAuthenticated",
         "mandate.federation.FederationConnectionCreated",
         "mandate.federation.FederationConnectionDisabled",
@@ -1356,7 +1359,8 @@
           "TenantMismatch",
           "AudienceMismatch",
           "Unavailable",
-          "StaleEpoch"
+          "StaleEpoch",
+          "InvalidClient"
         ]
       },
       "naming": {}
@@ -1483,6 +1487,35 @@
       },
       "naming": {}
     },
+    "mandate.core.GroupFilter": {
+      "name": "mandate.core.GroupFilter",
+      "body": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "allowlist",
+            "type_ref": {
+              "kind": "list",
+              "of": {
+                "kind": "primitive",
+                "name": "string"
+              }
+            },
+            "naming": {}
+          },
+          {
+            "name": "cap",
+            "type_ref": {
+              "kind": "primitive",
+              "name": "integer"
+            },
+            "naming": {}
+          }
+        ],
+        "invariants": []
+      },
+      "naming": {}
+    },
     "mandate.core.Issuer": {
       "name": "mandate.core.Issuer",
       "body": {
@@ -1539,6 +1572,17 @@
           "name": "uuid"
         },
         "invariants": []
+      },
+      "naming": {}
+    },
+    "mandate.core.OAuthClientType": {
+      "name": "mandate.core.OAuthClientType",
+      "body": {
+        "kind": "enum",
+        "variants": [
+          "Public",
+          "Confidential"
+        ]
       },
       "naming": {}
     },
@@ -1903,12 +1947,15 @@
             "naming": {}
           },
           {
-            "name": "verified_claim_value",
+            "name": "verified_claim_values",
             "type_ref": {
               "kind": "optional",
               "of": {
-                "kind": "primitive",
-                "name": "string"
+                "kind": "list",
+                "of": {
+                  "kind": "primitive",
+                  "name": "string"
+                }
               }
             },
             "naming": {}
@@ -4298,6 +4345,17 @@
             "name": "boolean"
           },
           "naming": {}
+        },
+        {
+          "name": "groups",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.GroupFilter"
+            }
+          },
+          "naming": {}
         }
       ],
       "state_type": "mandate.federation.FederationConnection.State",
@@ -4353,10 +4411,21 @@
           "naming": {}
         },
         {
-          "name": "public",
+          "name": "client_type",
           "type_ref": {
-            "kind": "primitive",
-            "name": "boolean"
+            "kind": "declared",
+            "name": "mandate.core.OAuthClientType"
+          },
+          "naming": {}
+        },
+        {
+          "name": "secret_verifiers",
+          "type_ref": {
+            "kind": "list",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.CredentialVerifier"
+            }
           },
           "naming": {}
         },
@@ -4376,6 +4445,36 @@
           "type_ref": {
             "kind": "declared",
             "name": "mandate.core.PkceMethod"
+          },
+          "naming": {}
+        },
+        {
+          "name": "pkce_required",
+          "type_ref": {
+            "kind": "primitive",
+            "name": "boolean"
+          },
+          "naming": {}
+        },
+        {
+          "name": "trusted_peers",
+          "type_ref": {
+            "kind": "list",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.OAuthClientId"
+            }
+          },
+          "naming": {}
+        },
+        {
+          "name": "post_logout_redirect_uris",
+          "type_ref": {
+            "kind": "list",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.RedirectUri"
+            }
           },
           "naming": {}
         }
@@ -4408,6 +4507,13 @@
           "target": "mandate.tenancy.Organization",
           "cardinality": "one",
           "via": "organization_id"
+        },
+        {
+          "name": "trusted_peers",
+          "kind": "references",
+          "target": "mandate.federation.OAuthClient",
+          "cardinality": "many",
+          "via": "trusted_peers"
         }
       ],
       "naming": {}
@@ -10391,9 +10497,124 @@
           },
           "test_strategy": "default_branch",
           "emits": [
-            "mandate.federation.FederationAuthenticated"
+            "mandate.federation.FederationAuthenticated",
+            "mandate.federation.ExternalProfileObserved"
           ],
           "payload": [
+            {
+              "event": "mandate.federation.ExternalProfileObserved",
+              "fields": [
+                {
+                  "target": "organization_id",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.OrganizationId"
+                  },
+                  "value": {
+                    "kind": "response_field",
+                    "field": "organization_id",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.OrganizationId"
+                    }
+                  }
+                },
+                {
+                  "target": "correlation",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.CorrelationId"
+                  },
+                  "value": {
+                    "kind": "generated"
+                  }
+                },
+                {
+                  "target": "connection_id",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.FederationConnectionId"
+                  },
+                  "value": {
+                    "kind": "input_field",
+                    "field": "connection_id",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.FederationConnectionId"
+                    }
+                  }
+                },
+                {
+                  "target": "external_principal_id",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.ExternalPrincipalId"
+                  },
+                  "value": {
+                    "kind": "generated"
+                  }
+                },
+                {
+                  "target": "email",
+                  "target_type": {
+                    "kind": "optional",
+                    "of": {
+                      "kind": "primitive",
+                      "name": "string"
+                    }
+                  },
+                  "value": {
+                    "kind": "generated"
+                  }
+                },
+                {
+                  "target": "email_verified",
+                  "target_type": {
+                    "kind": "primitive",
+                    "name": "boolean"
+                  },
+                  "value": {
+                    "kind": "generated"
+                  }
+                },
+                {
+                  "target": "name",
+                  "target_type": {
+                    "kind": "optional",
+                    "of": {
+                      "kind": "primitive",
+                      "name": "string"
+                    }
+                  },
+                  "value": {
+                    "kind": "generated"
+                  }
+                },
+                {
+                  "target": "groups",
+                  "target_type": {
+                    "kind": "list",
+                    "of": {
+                      "kind": "primitive",
+                      "name": "string"
+                    }
+                  },
+                  "value": {
+                    "kind": "generated"
+                  }
+                },
+                {
+                  "target": "observed_at",
+                  "target_type": {
+                    "kind": "primitive",
+                    "name": "timestamp"
+                  },
+                  "value": {
+                    "kind": "generated"
+                  }
+                }
+              ]
+            },
             {
               "event": "mandate.federation.FederationAuthenticated",
               "fields": [
@@ -10510,13 +10731,13 @@
               ]
             }
           ],
-          "summary": "A validated federated login mints the session, which is step 9 of the resolution order in docs/architecture/federated-login.md. FederationAuthenticated carries the whole mandate.identity.Session record — the new session identity, the principal, the resolved organization, the connection, the epoch snapshot the session is bound to and its expiry — so the identity fold materializes the session from this event alone and reads no command input or response. The audience and the correlation are carried beside the record. The principal, the organization, the epoch snapshot handle and the expiry are the ones this command resolved and returned, so the fold reads each from the response rather than from a value the implementation invented; the snapshot's own contents are recorded by the adapter through EpochSnapshotRecorded."
+          "summary": "A validated federated login mints the session, which is step 9 of the resolution order in docs/architecture/federated-login.md. FederationAuthenticated carries the whole mandate.identity.Session record — the new session identity, the principal, the resolved organization, the connection, the epoch snapshot the session is bound to and its expiry — so the identity fold materializes the session from this event alone and reads no command input or response. The audience and the correlation are carried beside the record. The principal, the organization, the epoch snapshot handle and the expiry are the ones this command resolved and returned, so the fold reads each from the response rather than from a value the implementation invented; the snapshot's own contents are recorded by the adapter through EpochSnapshotRecorded. ExternalProfileObserved records the profile of this login for later issuance (fork F13): the external principal the login resolved through its link, and the email, its verified flag, the name and the groups, each read from the validated proof and never from a caller input. An email the upstream does not mark verified is recorded with email_verified false, never true. The groups are those the connection's group filter admits: a group outside the allowlist never appears in the event, and a connection without a filter records an empty list."
         },
         {
           "name": "denied",
           "condition": {
             "kind": "external",
-            "cause": "Connection is disabled/untrusted, proof signature/issuer/audience/expiry is invalid, tenant resolution has zero or multiple matches, principal linking is absent/conflicting, or any email-domain/unverified-input fallback would be required."
+            "cause": "Connection is disabled/untrusted, proof signature/issuer/audience/expiry is invalid, tenant resolution has zero or multiple matches (a rule naming a claim matches only when the validated claim equals one of its listed values; an absent claim matches none), principal linking is absent/conflicting, the groups the connection's filter admits number more than its cap, or any email-domain/unverified-input fallback would be required. A refused login opens no session and records no profile."
           },
           "test_strategy": "inject_fault",
           "emits": [],
@@ -11504,6 +11725,17 @@
             "name": "boolean"
           },
           "naming": {}
+        },
+        {
+          "name": "groups",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.GroupFilter"
+            }
+          },
+          "naming": {}
         }
       ],
       "response": [
@@ -11635,17 +11867,38 @@
                       "name": "boolean"
                     }
                   }
+                },
+                {
+                  "target": "groups",
+                  "target_type": {
+                    "kind": "optional",
+                    "of": {
+                      "kind": "declared",
+                      "name": "mandate.core.GroupFilter"
+                    }
+                  },
+                  "value": {
+                    "kind": "input_field",
+                    "field": "groups",
+                    "type_ref": {
+                      "kind": "optional",
+                      "of": {
+                        "kind": "declared",
+                        "name": "mandate.core.GroupFilter"
+                      }
+                    }
+                  }
                 }
               ]
             }
           ],
-          "summary": "The connection is created with its provisioning setting decided here and never changed afterwards. A connection whose issuer or provisioning admission must change is disabled and registered again; there is no update command."
+          "summary": "The connection is created with its provisioning setting, its tenant rule and its group filter decided here and never changed afterwards. A tenant rule that names a validated claim lists every value that resolves (a hosted-domain list), and any one of them resolves. A connection without a group filter records no groups for any login. A connection whose issuer, provisioning admission, accepted claim values or group filter must change is disabled and registered again; there is no update command."
         },
         {
           "name": "denied",
           "condition": {
             "kind": "external",
-            "cause": "Caller lacks federation-administration authority, issuer/client/trust, tenant-resolution or just-in-time provisioning configuration is unadmitted, or organization binding is invalid."
+            "cause": "Caller lacks federation-administration authority, issuer/client/trust, tenant-resolution or just-in-time provisioning configuration is unadmitted, the tenant rule names a claim with an empty value list or values without a claim name, the group filter's cap is below one, or organization binding is invalid."
           },
           "test_strategy": "inject_fault",
           "emits": [],
@@ -11667,10 +11920,21 @@
           "naming": {}
         },
         {
-          "name": "public",
+          "name": "client_type",
           "type_ref": {
-            "kind": "primitive",
-            "name": "boolean"
+            "kind": "declared",
+            "name": "mandate.core.OAuthClientType"
+          },
+          "naming": {}
+        },
+        {
+          "name": "secret_verifiers",
+          "type_ref": {
+            "kind": "list",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.CredentialVerifier"
+            }
           },
           "naming": {}
         },
@@ -11690,6 +11954,36 @@
           "type_ref": {
             "kind": "declared",
             "name": "mandate.core.PkceMethod"
+          },
+          "naming": {}
+        },
+        {
+          "name": "pkce_required",
+          "type_ref": {
+            "kind": "primitive",
+            "name": "boolean"
+          },
+          "naming": {}
+        },
+        {
+          "name": "trusted_peers",
+          "type_ref": {
+            "kind": "list",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.OAuthClientId"
+            }
+          },
+          "naming": {}
+        },
+        {
+          "name": "post_logout_redirect_uris",
+          "type_ref": {
+            "kind": "list",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.RedirectUri"
+            }
           },
           "naming": {}
         }
@@ -11788,17 +12082,38 @@
                   }
                 },
                 {
-                  "target": "public",
+                  "target": "client_type",
                   "target_type": {
-                    "kind": "primitive",
-                    "name": "boolean"
+                    "kind": "declared",
+                    "name": "mandate.core.OAuthClientType"
                   },
                   "value": {
                     "kind": "input_field",
-                    "field": "public",
+                    "field": "client_type",
                     "type_ref": {
-                      "kind": "primitive",
-                      "name": "boolean"
+                      "kind": "declared",
+                      "name": "mandate.core.OAuthClientType"
+                    }
+                  }
+                },
+                {
+                  "target": "secret_verifiers",
+                  "target_type": {
+                    "kind": "list",
+                    "of": {
+                      "kind": "declared",
+                      "name": "mandate.core.CredentialVerifier"
+                    }
+                  },
+                  "value": {
+                    "kind": "input_field",
+                    "field": "secret_verifiers",
+                    "type_ref": {
+                      "kind": "list",
+                      "of": {
+                        "kind": "declared",
+                        "name": "mandate.core.CredentialVerifier"
+                      }
                     }
                   }
                 },
@@ -11837,17 +12152,74 @@
                       "name": "mandate.core.PkceMethod"
                     }
                   }
+                },
+                {
+                  "target": "pkce_required",
+                  "target_type": {
+                    "kind": "primitive",
+                    "name": "boolean"
+                  },
+                  "value": {
+                    "kind": "input_field",
+                    "field": "pkce_required",
+                    "type_ref": {
+                      "kind": "primitive",
+                      "name": "boolean"
+                    }
+                  }
+                },
+                {
+                  "target": "trusted_peers",
+                  "target_type": {
+                    "kind": "list",
+                    "of": {
+                      "kind": "declared",
+                      "name": "mandate.core.OAuthClientId"
+                    }
+                  },
+                  "value": {
+                    "kind": "input_field",
+                    "field": "trusted_peers",
+                    "type_ref": {
+                      "kind": "list",
+                      "of": {
+                        "kind": "declared",
+                        "name": "mandate.core.OAuthClientId"
+                      }
+                    }
+                  }
+                },
+                {
+                  "target": "post_logout_redirect_uris",
+                  "target_type": {
+                    "kind": "list",
+                    "of": {
+                      "kind": "declared",
+                      "name": "mandate.core.RedirectUri"
+                    }
+                  },
+                  "value": {
+                    "kind": "input_field",
+                    "field": "post_logout_redirect_uris",
+                    "type_ref": {
+                      "kind": "list",
+                      "of": {
+                        "kind": "declared",
+                        "name": "mandate.core.RedirectUri"
+                      }
+                    }
+                  }
                 }
               ]
             }
           ],
-          "summary": "The client is bound to the organization the verified context carries; the command takes no organization input, so no caller selects the tenant a client is registered into. OAuthClientRegistered carries the whole mandate.federation.OAuthClient record — the client identity, its organization, whether it is a public client, its exact redirect set and its PKCE method — so the federation fold materializes the client from this event alone and reads no command input or response. The identity and the organization are the ones this outcome decided and returned, read from the response rather than from a value the implementation invented. An empty redirect set is admitted and is not a denial — the client it registers is inert, because AuthorizePublicClient matches the presented redirect against the registered set exactly and an empty set matches nothing, so every authorization request to that client is refused. mandate.core.PkceMethod admits S256 and nothing else, so no registration can name another method and none is refused for naming one. A registration whose redirect surface or PKCE method must change is disabled and registered again; there is no update command."
+          "summary": "The client is bound to the organization the verified context carries; the command takes no organization input, so no caller selects the tenant a client is registered into. A confidential client authenticates with a secret, and the registration carries only the keyed verifiers derived from its secret references (fork F2), one or two so that a secret can be rotated; the secret itself is never an input, an event field or a record field. A public client states no verifier and always requires PKCE (fork F3); a confidential client may require it. Each trusted peer names another client of the same organization that may obtain tokens for this one. OAuthClientRegistered carries the whole mandate.federation.OAuthClient record — the client identity, its organization, its client type, its verifiers, its exact redirect set, its PKCE method and requirement, its trusted peers and its exact post-logout redirect set — so the federation fold materializes the client from this event alone and reads no command input or response. The identity and the organization are the ones this outcome decided and returned, read from the response rather than from a value the implementation invented. An empty redirect set is admitted and is not a denial — the client it registers is inert, because AuthorizePublicClient matches the presented redirect against the registered set exactly and an empty set matches nothing, so every authorization request to that client is refused. mandate.core.PkceMethod admits S256 and nothing else, so no registration can name another method and none is refused for naming one. A registration whose redirect surface or PKCE method must change is disabled and registered again; there is no update command."
         },
         {
           "name": "denied",
           "condition": {
             "kind": "external",
-            "cause": "Caller lacks client-administration authority, a redirect URI is unadmitted, or organization binding is invalid."
+            "cause": "Caller lacks client-administration authority, a redirect URI or post-logout redirect URI is unadmitted, a public client states a secret verifier or does not require PKCE, a confidential client states no verifier or more than two, a trusted peer names the client itself or no client registered in the verified organization, or organization binding is invalid."
           },
           "test_strategy": "inject_fault",
           "emits": [],
@@ -16676,6 +17048,94 @@
       ],
       "naming": {}
     },
+    "mandate.federation.ExternalProfileObserved": {
+      "name": "mandate.federation.ExternalProfileObserved",
+      "domain": "mandate.federation",
+      "fields": [
+        {
+          "name": "organization_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.OrganizationId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "correlation",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.CorrelationId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "connection_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.FederationConnectionId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "external_principal_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.ExternalPrincipalId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "email",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "primitive",
+              "name": "string"
+            }
+          },
+          "naming": {}
+        },
+        {
+          "name": "email_verified",
+          "type_ref": {
+            "kind": "primitive",
+            "name": "boolean"
+          },
+          "naming": {}
+        },
+        {
+          "name": "name",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "primitive",
+              "name": "string"
+            }
+          },
+          "naming": {}
+        },
+        {
+          "name": "groups",
+          "type_ref": {
+            "kind": "list",
+            "of": {
+              "kind": "primitive",
+              "name": "string"
+            }
+          },
+          "naming": {}
+        },
+        {
+          "name": "observed_at",
+          "type_ref": {
+            "kind": "primitive",
+            "name": "timestamp"
+          },
+          "naming": {}
+        }
+      ],
+      "naming": {}
+    },
     "mandate.federation.FederationAuthenticated": {
       "name": "mandate.federation.FederationAuthenticated",
       "domain": "mandate.federation",
@@ -16798,6 +17258,17 @@
             "name": "boolean"
           },
           "naming": {}
+        },
+        {
+          "name": "groups",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.GroupFilter"
+            }
+          },
+          "naming": {}
         }
       ],
       "naming": {}
@@ -16877,10 +17348,21 @@
           "naming": {}
         },
         {
-          "name": "public",
+          "name": "client_type",
           "type_ref": {
-            "kind": "primitive",
-            "name": "boolean"
+            "kind": "declared",
+            "name": "mandate.core.OAuthClientType"
+          },
+          "naming": {}
+        },
+        {
+          "name": "secret_verifiers",
+          "type_ref": {
+            "kind": "list",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.CredentialVerifier"
+            }
           },
           "naming": {}
         },
@@ -16900,6 +17382,36 @@
           "type_ref": {
             "kind": "declared",
             "name": "mandate.core.PkceMethod"
+          },
+          "naming": {}
+        },
+        {
+          "name": "pkce_required",
+          "type_ref": {
+            "kind": "primitive",
+            "name": "boolean"
+          },
+          "naming": {}
+        },
+        {
+          "name": "trusted_peers",
+          "type_ref": {
+            "kind": "list",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.OAuthClientId"
+            }
+          },
+          "naming": {}
+        },
+        {
+          "name": "post_logout_redirect_uris",
+          "type_ref": {
+            "kind": "list",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.RedirectUri"
+            }
           },
           "naming": {}
         }
@@ -17996,6 +18508,7 @@
         "mandate.federation.ExternalPrincipalLinked",
         "mandate.federation.ExternalPrincipalProvisioned",
         "mandate.federation.ExternalPrincipalUnlinked",
+        "mandate.federation.ExternalProfileObserved",
         "mandate.federation.FederationAuthenticated",
         "mandate.federation.FederationConnectionCreated",
         "mandate.federation.FederationConnectionDisabled",

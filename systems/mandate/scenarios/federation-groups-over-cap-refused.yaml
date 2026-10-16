@@ -1,0 +1,68 @@
+type: ess-scenario/2
+domain: mandate.federation
+scenario: federation-groups-over-cap-refused
+summary: '`the groups the connection''s filter admits number more than its cap`: two admitted groups, cap one; no session, no profile (F10); corpus: none.'
+arrange:
+- instance: conn
+  entity: mandate.federation.FederationConnection
+timeline:
+- at: '2026-01-05T09:00:00Z'
+  command: mandate.federation.RegisterFederationConnection
+  input:
+    context:
+      subject: 00000000-0000-4000-8000-000000000001
+      organization: 00000000-0000-4000-8000-0000000000a1
+      audience: mandate
+      credential: 00000000-0000-4000-8000-0000000000c1
+      correlation: federation-groups-over-cap-refused
+    issuer: https://idp.example.test
+    client_id: mandate-client
+    tenant_resolution:
+      configured_organization: 00000000-0000-4000-8000-0000000000a1
+      verified_claim_name: hd
+      verified_claim_values:
+      - a.example.test
+    jit_provisioning: false
+    groups:
+      allowlist:
+      - eng@a.example.test
+      - ops@a.example.test
+      cap: 1
+  outcome: accepted
+  events:
+  - event: mandate.federation.FederationConnectionCreated
+  capture:
+    instance: conn
+    event: mandate.federation.FederationConnectionCreated
+    field: connection_id
+- at: '2026-01-05T09:00:01Z'
+  command: mandate.federation.LinkExternalPrincipal
+  input:
+    context:
+      subject: 00000000-0000-4000-8000-000000000001
+      organization: 00000000-0000-4000-8000-0000000000a1
+      audience: mandate
+      credential: 00000000-0000-4000-8000-0000000000c1
+      correlation: federation-groups-over-cap-refused-link
+    connection_id:
+      $instance: conn
+    external_subject: u-1
+    principal_id: 00000000-0000-4000-8000-000000000001
+    method: Administrator
+  outcome: accepted
+  events:
+  - event: mandate.federation.ExternalPrincipalLinked
+- at: '2026-01-05T09:00:02Z'
+  command: mandate.federation.AuthenticateFederation
+  input:
+    connection_id:
+      $instance: conn
+    proof: c2NlbmFyaW8uZXlKcGMzTWlPaUpvZEhSd2N6b3ZMMmxrY0M1bGVHRnRjR3hsTG5SbGMzUWlMQ0poZFdRaU9pSnRZVzVrWVhSbExXTnNhV1Z1ZENJc0luTjFZaUk2SW5VdE1TSXNJbVY0Y0NJNk1UYzJOelkxTkRBd01Dd2lhR1FpT2lKaExtVjRZVzF3YkdVdWRHVnpkQ0lzSW1WdFlXbHNJam9pZFhObGNpNXZibVZBWVM1bGVHRnRjR3hsTG5SbGMzUWlMQ0psYldGcGJGOTJaWEpwWm1sbFpDSTZkSEoxWlN3aWJtRnRaU0k2SWxWelpYSWdUMjVsSWl3aVozSnZkWEJ6SWpwYkltVnVaMEJoTG1WNFlXMXdiR1V1ZEdWemRDSXNJbTl3YzBCaExtVjRZVzF3YkdVdWRHVnpkQ0pkZlEudW5zaWduZWQ=
+  outcome: denied
+  error:
+    name: mandate.federation.Denied
+    fields:
+      reason: Denied
+  no_events:
+  - mandate.federation.FederationAuthenticated
+  - mandate.federation.ExternalProfileObserved

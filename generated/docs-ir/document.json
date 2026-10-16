@@ -15,8 +15,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
-          "contract_digest": "90c631a420df9593ddf90b48ed18919d7a1fe6a8e477d90e737e1d4bebced13c"
+          "source_digest": "c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057",
+          "contract_digest": "be070dbac72f1ca80bb30aa603e4af439ccf8d4807be3ab530d8c42da7e0abd6"
         },
         "slice": {
           "of": "whole-model"
@@ -46,7 +46,7 @@
             {
               "block": "diagram",
               "kind": "system",
-              "source": "flowchart TB\n    subgraph unit0[\"mandate-authorization\"]\n        cmd2[\"mandate.authorization.Check\"]\n        cmd3[\"mandate.authorization.CheckWithApproval\"]\n        cmd39[\"mandate.graph.DeregisterResource\"]\n        cmd40[\"mandate.graph.RegisterResource\"]\n        cmd41[\"mandate.graph.RemoveRelation\"]\n        cmd42[\"mandate.graph.RevokeGrant\"]\n        cmd43[\"mandate.graph.WriteRelationship\"]\n        cmd49[\"mandate.policy.SupersedeAuthorizationModel\"]\n        cmd50[\"mandate.policy.SupersedePolicy\"]\n        evt7[\"mandate.authorization.ApprovedDecisionRecorded\"]\n        evt8[\"mandate.authorization.DecisionRecorded\"]\n        evt49[\"mandate.graph.GrantRevoked\"]\n        evt50[\"mandate.graph.RelationRemoved\"]\n        evt51[\"mandate.graph.RelationshipWritten\"]\n        evt52[\"mandate.graph.ResourceDeregistered\"]\n        evt53[\"mandate.graph.ResourceRegistered\"]\n        evt62[\"mandate.policy.AuthorizationModelSuperseded\"]\n        evt63[\"mandate.policy.PolicySuperseded\"]\n    end\n    subgraph unit1[\"mandate-control-plane\"]\n        cmd16[\"mandate.delegation.CompleteExecution\"]\n        cmd17[\"mandate.delegation.ConsumeApproval\"]\n        cmd18[\"mandate.delegation.CreateDelegation\"]\n        cmd19[\"mandate.delegation.RetireAgent\"]\n        cmd20[\"mandate.delegation.RevokeDelegation\"]\n        cmd21[\"mandate.delegation.SupersedeAgentCapabilityCeiling\"]\n        cmd22[\"mandate.directory.CompleteSyncJob\"]\n        cmd23[\"mandate.directory.CreateDirectoryGroupTeamMapping\"]\n        cmd24[\"mandate.directory.FailSyncJob\"]\n        cmd25[\"mandate.directory.RemoveDirectoryGroupMembership\"]\n        cmd26[\"mandate.directory.RemoveDirectoryGroupTeamMapping\"]\n        cmd27[\"mandate.directory.RemoveMembershipContribution\"]\n        cmd28[\"mandate.directory.RetireDirectoryGroup\"]\n        cmd29[\"mandate.directory.SyncDirectoryMembership\"]\n        cmd30[\"mandate.federation.AuthenticateFederation\"]\n        cmd31[\"mandate.federation.AuthorizePublicClient\"]\n        cmd32[\"mandate.federation.DisableFederationConnection\"]\n        cmd33[\"mandate.federation.DisableOAuthClient\"]\n        cmd34[\"mandate.federation.LinkExternalPrincipal\"]\n        cmd35[\"mandate.federation.ProvisionExternalPrincipal\"]\n        cmd36[\"mandate.federation.RegisterFederationConnection\"]\n        cmd37[\"mandate.federation.RegisterOAuthClient\"]\n        cmd38[\"mandate.federation.UnlinkExternalPrincipal\"]\n        cmd44[\"mandate.identity.DisablePrincipal\"]\n        cmd45[\"mandate.identity.IncrementSecurityEpoch\"]\n        cmd46[\"mandate.identity.RefreshSession\"]\n        cmd47[\"mandate.identity.RevokeRefreshCredential\"]\n        cmd48[\"mandate.identity.RevokeSession\"]\n        cmd51[\"mandate.tenancy.AddOrganizationMembership\"]\n        cmd52[\"mandate.tenancy.AddTeamMembership\"]\n        cmd53[\"mandate.tenancy.CloseOrganization\"]\n        cmd54[\"mandate.tenancy.CreateOrganization\"]\n        cmd55[\"mandate.tenancy.CreateSpace\"]\n        cmd56[\"mandate.tenancy.CreateTeam\"]\n        cmd57[\"mandate.tenancy.RemoveOrganizationMembership\"]\n        cmd58[\"mandate.tenancy.RemoveTeamMembership\"]\n        cmd59[\"mandate.tenancy.RetireSpace\"]\n        cmd60[\"mandate.tenancy.RetireTeam\"]\n        cmd61[\"mandate.workload.AuthenticateWorkload\"]\n        cmd62[\"mandate.workload.RevokeWorkloadIdentity\"]\n        evt22[\"mandate.delegation.AgentCapabilityCeilingSuperseded\"]\n        evt23[\"mandate.delegation.AgentRetired\"]\n        evt24[\"mandate.delegation.ApprovalConsumed\"]\n        evt25[\"mandate.delegation.DelegationCreated\"]\n        evt26[\"mandate.delegation.DelegationRevoked\"]\n        evt27[\"mandate.delegation.ExecutionCompleted\"]\n        evt28[\"mandate.directory.DirectoryGroupMembershipChanged\"]\n        evt29[\"mandate.directory.DirectoryGroupMembershipRecorded\"]\n        evt30[\"mandate.directory.DirectoryGroupMembershipRemoved\"]\n        evt31[\"mandate.directory.DirectoryGroupRecorded\"]\n        evt32[\"mandate.directory.DirectoryGroupRetired\"]\n        evt33[\"mandate.directory.DirectoryGroupTeamMappingCreated\"]\n        evt34[\"mandate.directory.DirectoryGroupTeamMappingRemoved\"]\n        evt35[\"mandate.directory.MembershipContributionRecorded\"]\n        evt36[\"mandate.directory.MembershipContributionRemoved\"]\n        evt37[\"mandate.directory.SyncJobCompleted\"]\n        evt38[\"mandate.directory.SyncJobFailed\"]\n        evt39[\"mandate.directory.SyncJobRecorded\"]\n        evt40[\"mandate.federation.AuthorizationCodeIssued\"]\n        evt41[\"mandate.federation.ExternalPrincipalLinked\"]\n        evt42[\"mandate.federation.ExternalPrincipalProvisioned\"]\n        evt43[\"mandate.federation.ExternalPrincipalUnlinked\"]\n        evt44[\"mandate.federation.FederationAuthenticated\"]\n        evt45[\"mandate.federation.FederationConnectionCreated\"]\n        evt46[\"mandate.federation.FederationConnectionDisabled\"]\n        evt47[\"mandate.federation.OAuthClientDisabled\"]\n        evt48[\"mandate.federation.OAuthClientRegistered\"]\n        evt54[\"mandate.identity.EpochSnapshotRecorded\"]\n        evt55[\"mandate.identity.PrincipalDisabled\"]\n        evt56[\"mandate.identity.RefreshCredentialRevoked\"]\n        evt57[\"mandate.identity.SecurityEpochIncremented\"]\n        evt58[\"mandate.identity.SecurityEpochRecorded\"]\n        evt59[\"mandate.identity.SessionOpened\"]\n        evt60[\"mandate.identity.SessionRefreshed\"]\n        evt61[\"mandate.identity.SessionRevoked\"]\n        evt64[\"mandate.tenancy.OrganizationClosed\"]\n        evt65[\"mandate.tenancy.OrganizationCreated\"]\n        evt66[\"mandate.tenancy.OrganizationMembershipAdded\"]\n        evt67[\"mandate.tenancy.OrganizationMembershipRemoved\"]\n        evt68[\"mandate.tenancy.SpaceCreated\"]\n        evt69[\"mandate.tenancy.SpaceRetired\"]\n        evt70[\"mandate.tenancy.TeamCreated\"]\n        evt71[\"mandate.tenancy.TeamMembershipAdded\"]\n        evt72[\"mandate.tenancy.TeamMembershipRemoved\"]\n        evt73[\"mandate.tenancy.TeamRetired\"]\n        evt74[\"mandate.workload.WorkloadAuthenticated\"]\n        evt75[\"mandate.workload.WorkloadIdentityRevoked\"]\n    end\n    subgraph unit2[\"mandate-sts\"]\n        cmd4[\"mandate.credential.DisableResourceServer\"]\n        cmd5[\"mandate.credential.ExchangeCredential\"]\n        cmd6[\"mandate.credential.IntrospectCredential\"]\n        cmd7[\"mandate.credential.IssueAuthorizationCode\"]\n        cmd8[\"mandate.credential.IssueReferenceCredential\"]\n        cmd9[\"mandate.credential.IssueSelfContainedCredential\"]\n        cmd10[\"mandate.credential.RedeemAuthorizationCode\"]\n        cmd11[\"mandate.credential.RegisterResourceServer\"]\n        cmd12[\"mandate.credential.RegisterSigningKey\"]\n        cmd13[\"mandate.credential.RetireSigningKey\"]\n        cmd14[\"mandate.credential.RevokeAccessCredential\"]\n        cmd15[\"mandate.credential.RevokeSigningKey\"]\n        evt9[\"mandate.credential.AccessCredentialRevoked\"]\n        evt10[\"mandate.credential.AuthorizationCodeIssued\"]\n        evt11[\"mandate.credential.AuthorizationCodeRedeemed\"]\n        evt12[\"mandate.credential.CredentialIntrospected\"]\n        evt13[\"mandate.credential.CredentialReferenceIssued\"]\n        evt14[\"mandate.credential.CredentialSelfContainedIssued\"]\n        evt15[\"mandate.credential.ResourceServerDisabled\"]\n        evt16[\"mandate.credential.ResourceServerRegistered\"]\n        evt17[\"mandate.credential.SigningKeyRegistered\"]\n        evt18[\"mandate.credential.SigningKeyRetired\"]\n        evt19[\"mandate.credential.SigningKeyRevoked\"]\n        evt20[\"mandate.credential.TokenExchangeAllowed\"]\n        evt21[\"mandate.credential.TokenExchangeDenied\"]\n    end\n    subgraph unit3[\"mandate-worker\"]\n        cmd0[\"mandate.audit.RecordAuditEvent\"]\n        cmd1[\"mandate.audit.RedactAuditEvent\"]\n        evt0[\"mandate.audit.AuditEventRecorded\"]\n        evt1[\"mandate.audit.AuditEventRedacted\"]\n        evt2[\"mandate.audit.CredentialRevoked\"]\n        evt3[\"mandate.audit.DirectoryGroupCreated\"]\n        evt4[\"mandate.audit.ExternalPrincipalUnlinked\"]\n        evt5[\"mandate.audit.FederationConnectionChanged\"]\n        evt6[\"mandate.audit.TokenExchangeDenied\"]\n    end\n    cmd0 -->|\"recorded\"| evt0\n    cmd1 -->|\"accepted\"| evt1\n    cmd2 -->|\"accepted\"| evt8\n    cmd3 -->|\"accepted\"| evt7\n    cmd4 -->|\"accepted\"| evt15\n    cmd5 -->|\"accepted\"| evt20\n    cmd6 -->|\"accepted\"| evt12\n    cmd7 -->|\"accepted\"| evt10\n    cmd8 -->|\"accepted\"| evt13\n    cmd9 -->|\"accepted\"| evt14\n    cmd10 -->|\"accepted\"| evt11\n    cmd11 -->|\"accepted\"| evt16\n    cmd12 -->|\"accepted\"| evt17\n    cmd13 -->|\"accepted\"| evt18\n    cmd14 -->|\"accepted\"| evt9\n    cmd15 -->|\"accepted\"| evt19\n    cmd16 -->|\"accepted\"| evt27\n    cmd17 -->|\"accepted\"| evt24\n    cmd18 -->|\"accepted\"| evt25\n    cmd19 -->|\"accepted\"| evt23\n    cmd20 -->|\"accepted\"| evt26\n    cmd21 -->|\"accepted\"| evt22\n    cmd22 -->|\"accepted\"| evt37\n    cmd23 -->|\"accepted\"| evt33\n    cmd24 -->|\"accepted\"| evt38\n    cmd25 -->|\"accepted\"| evt30\n    cmd26 -->|\"accepted\"| evt34\n    cmd27 -->|\"accepted\"| evt36\n    cmd28 -->|\"accepted\"| evt32\n    cmd29 -->|\"accepted\"| evt28\n    cmd30 -->|\"accepted\"| evt44\n    cmd31 -->|\"accepted\"| evt40\n    cmd32 -->|\"accepted\"| evt46\n    cmd33 -->|\"accepted\"| evt47\n    cmd34 -->|\"accepted\"| evt41\n    cmd35 -->|\"accepted\"| evt42\n    cmd36 -->|\"accepted\"| evt45\n    cmd37 -->|\"accepted\"| evt48\n    cmd38 -->|\"accepted\"| evt43\n    cmd39 -->|\"accepted\"| evt52\n    cmd40 -->|\"accepted\"| evt53\n    cmd41 -->|\"accepted\"| evt50\n    cmd42 -->|\"accepted\"| evt49\n    cmd43 -->|\"accepted\"| evt51\n    cmd44 -->|\"accepted\"| evt55\n    cmd45 -->|\"accepted\"| evt57\n    cmd46 -->|\"accepted\"| evt60\n    cmd47 -->|\"accepted\"| evt56\n    cmd48 -->|\"accepted\"| evt61\n    cmd49 -->|\"accepted\"| evt62\n    cmd50 -->|\"accepted\"| evt63\n    cmd51 -->|\"accepted\"| evt66\n    cmd52 -->|\"accepted\"| evt71\n    cmd53 -->|\"accepted\"| evt64\n    cmd54 -->|\"accepted\"| evt65\n    cmd55 -->|\"accepted\"| evt68\n    cmd56 -->|\"accepted\"| evt70\n    cmd57 -->|\"accepted\"| evt67\n    cmd58 -->|\"accepted\"| evt72\n    cmd59 -->|\"accepted\"| evt69\n    cmd60 -->|\"accepted\"| evt73\n    cmd61 -->|\"accepted\"| evt74\n    cmd62 -->|\"accepted\"| evt75"
+              "source": "flowchart TB\n    subgraph unit0[\"mandate-authorization\"]\n        cmd2[\"mandate.authorization.Check\"]\n        cmd3[\"mandate.authorization.CheckWithApproval\"]\n        cmd39[\"mandate.graph.DeregisterResource\"]\n        cmd40[\"mandate.graph.RegisterResource\"]\n        cmd41[\"mandate.graph.RemoveRelation\"]\n        cmd42[\"mandate.graph.RevokeGrant\"]\n        cmd43[\"mandate.graph.WriteRelationship\"]\n        cmd49[\"mandate.policy.SupersedeAuthorizationModel\"]\n        cmd50[\"mandate.policy.SupersedePolicy\"]\n        evt7[\"mandate.authorization.ApprovedDecisionRecorded\"]\n        evt8[\"mandate.authorization.DecisionRecorded\"]\n        evt50[\"mandate.graph.GrantRevoked\"]\n        evt51[\"mandate.graph.RelationRemoved\"]\n        evt52[\"mandate.graph.RelationshipWritten\"]\n        evt53[\"mandate.graph.ResourceDeregistered\"]\n        evt54[\"mandate.graph.ResourceRegistered\"]\n        evt63[\"mandate.policy.AuthorizationModelSuperseded\"]\n        evt64[\"mandate.policy.PolicySuperseded\"]\n    end\n    subgraph unit1[\"mandate-control-plane\"]\n        cmd16[\"mandate.delegation.CompleteExecution\"]\n        cmd17[\"mandate.delegation.ConsumeApproval\"]\n        cmd18[\"mandate.delegation.CreateDelegation\"]\n        cmd19[\"mandate.delegation.RetireAgent\"]\n        cmd20[\"mandate.delegation.RevokeDelegation\"]\n        cmd21[\"mandate.delegation.SupersedeAgentCapabilityCeiling\"]\n        cmd22[\"mandate.directory.CompleteSyncJob\"]\n        cmd23[\"mandate.directory.CreateDirectoryGroupTeamMapping\"]\n        cmd24[\"mandate.directory.FailSyncJob\"]\n        cmd25[\"mandate.directory.RemoveDirectoryGroupMembership\"]\n        cmd26[\"mandate.directory.RemoveDirectoryGroupTeamMapping\"]\n        cmd27[\"mandate.directory.RemoveMembershipContribution\"]\n        cmd28[\"mandate.directory.RetireDirectoryGroup\"]\n        cmd29[\"mandate.directory.SyncDirectoryMembership\"]\n        cmd30[\"mandate.federation.AuthenticateFederation\"]\n        cmd31[\"mandate.federation.AuthorizePublicClient\"]\n        cmd32[\"mandate.federation.DisableFederationConnection\"]\n        cmd33[\"mandate.federation.DisableOAuthClient\"]\n        cmd34[\"mandate.federation.LinkExternalPrincipal\"]\n        cmd35[\"mandate.federation.ProvisionExternalPrincipal\"]\n        cmd36[\"mandate.federation.RegisterFederationConnection\"]\n        cmd37[\"mandate.federation.RegisterOAuthClient\"]\n        cmd38[\"mandate.federation.UnlinkExternalPrincipal\"]\n        cmd44[\"mandate.identity.DisablePrincipal\"]\n        cmd45[\"mandate.identity.IncrementSecurityEpoch\"]\n        cmd46[\"mandate.identity.RefreshSession\"]\n        cmd47[\"mandate.identity.RevokeRefreshCredential\"]\n        cmd48[\"mandate.identity.RevokeSession\"]\n        cmd51[\"mandate.tenancy.AddOrganizationMembership\"]\n        cmd52[\"mandate.tenancy.AddTeamMembership\"]\n        cmd53[\"mandate.tenancy.CloseOrganization\"]\n        cmd54[\"mandate.tenancy.CreateOrganization\"]\n        cmd55[\"mandate.tenancy.CreateSpace\"]\n        cmd56[\"mandate.tenancy.CreateTeam\"]\n        cmd57[\"mandate.tenancy.RemoveOrganizationMembership\"]\n        cmd58[\"mandate.tenancy.RemoveTeamMembership\"]\n        cmd59[\"mandate.tenancy.RetireSpace\"]\n        cmd60[\"mandate.tenancy.RetireTeam\"]\n        cmd61[\"mandate.workload.AuthenticateWorkload\"]\n        cmd62[\"mandate.workload.RevokeWorkloadIdentity\"]\n        evt22[\"mandate.delegation.AgentCapabilityCeilingSuperseded\"]\n        evt23[\"mandate.delegation.AgentRetired\"]\n        evt24[\"mandate.delegation.ApprovalConsumed\"]\n        evt25[\"mandate.delegation.DelegationCreated\"]\n        evt26[\"mandate.delegation.DelegationRevoked\"]\n        evt27[\"mandate.delegation.ExecutionCompleted\"]\n        evt28[\"mandate.directory.DirectoryGroupMembershipChanged\"]\n        evt29[\"mandate.directory.DirectoryGroupMembershipRecorded\"]\n        evt30[\"mandate.directory.DirectoryGroupMembershipRemoved\"]\n        evt31[\"mandate.directory.DirectoryGroupRecorded\"]\n        evt32[\"mandate.directory.DirectoryGroupRetired\"]\n        evt33[\"mandate.directory.DirectoryGroupTeamMappingCreated\"]\n        evt34[\"mandate.directory.DirectoryGroupTeamMappingRemoved\"]\n        evt35[\"mandate.directory.MembershipContributionRecorded\"]\n        evt36[\"mandate.directory.MembershipContributionRemoved\"]\n        evt37[\"mandate.directory.SyncJobCompleted\"]\n        evt38[\"mandate.directory.SyncJobFailed\"]\n        evt39[\"mandate.directory.SyncJobRecorded\"]\n        evt40[\"mandate.federation.AuthorizationCodeIssued\"]\n        evt41[\"mandate.federation.ExternalPrincipalLinked\"]\n        evt42[\"mandate.federation.ExternalPrincipalProvisioned\"]\n        evt43[\"mandate.federation.ExternalPrincipalUnlinked\"]\n        evt44[\"mandate.federation.ExternalProfileObserved\"]\n        evt45[\"mandate.federation.FederationAuthenticated\"]\n        evt46[\"mandate.federation.FederationConnectionCreated\"]\n        evt47[\"mandate.federation.FederationConnectionDisabled\"]\n        evt48[\"mandate.federation.OAuthClientDisabled\"]\n        evt49[\"mandate.federation.OAuthClientRegistered\"]\n        evt55[\"mandate.identity.EpochSnapshotRecorded\"]\n        evt56[\"mandate.identity.PrincipalDisabled\"]\n        evt57[\"mandate.identity.RefreshCredentialRevoked\"]\n        evt58[\"mandate.identity.SecurityEpochIncremented\"]\n        evt59[\"mandate.identity.SecurityEpochRecorded\"]\n        evt60[\"mandate.identity.SessionOpened\"]\n        evt61[\"mandate.identity.SessionRefreshed\"]\n        evt62[\"mandate.identity.SessionRevoked\"]\n        evt65[\"mandate.tenancy.OrganizationClosed\"]\n        evt66[\"mandate.tenancy.OrganizationCreated\"]\n        evt67[\"mandate.tenancy.OrganizationMembershipAdded\"]\n        evt68[\"mandate.tenancy.OrganizationMembershipRemoved\"]\n        evt69[\"mandate.tenancy.SpaceCreated\"]\n        evt70[\"mandate.tenancy.SpaceRetired\"]\n        evt71[\"mandate.tenancy.TeamCreated\"]\n        evt72[\"mandate.tenancy.TeamMembershipAdded\"]\n        evt73[\"mandate.tenancy.TeamMembershipRemoved\"]\n        evt74[\"mandate.tenancy.TeamRetired\"]\n        evt75[\"mandate.workload.WorkloadAuthenticated\"]\n        evt76[\"mandate.workload.WorkloadIdentityRevoked\"]\n    end\n    subgraph unit2[\"mandate-sts\"]\n        cmd4[\"mandate.credential.DisableResourceServer\"]\n        cmd5[\"mandate.credential.ExchangeCredential\"]\n        cmd6[\"mandate.credential.IntrospectCredential\"]\n        cmd7[\"mandate.credential.IssueAuthorizationCode\"]\n        cmd8[\"mandate.credential.IssueReferenceCredential\"]\n        cmd9[\"mandate.credential.IssueSelfContainedCredential\"]\n        cmd10[\"mandate.credential.RedeemAuthorizationCode\"]\n        cmd11[\"mandate.credential.RegisterResourceServer\"]\n        cmd12[\"mandate.credential.RegisterSigningKey\"]\n        cmd13[\"mandate.credential.RetireSigningKey\"]\n        cmd14[\"mandate.credential.RevokeAccessCredential\"]\n        cmd15[\"mandate.credential.RevokeSigningKey\"]\n        evt9[\"mandate.credential.AccessCredentialRevoked\"]\n        evt10[\"mandate.credential.AuthorizationCodeIssued\"]\n        evt11[\"mandate.credential.AuthorizationCodeRedeemed\"]\n        evt12[\"mandate.credential.CredentialIntrospected\"]\n        evt13[\"mandate.credential.CredentialReferenceIssued\"]\n        evt14[\"mandate.credential.CredentialSelfContainedIssued\"]\n        evt15[\"mandate.credential.ResourceServerDisabled\"]\n        evt16[\"mandate.credential.ResourceServerRegistered\"]\n        evt17[\"mandate.credential.SigningKeyRegistered\"]\n        evt18[\"mandate.credential.SigningKeyRetired\"]\n        evt19[\"mandate.credential.SigningKeyRevoked\"]\n        evt20[\"mandate.credential.TokenExchangeAllowed\"]\n        evt21[\"mandate.credential.TokenExchangeDenied\"]\n    end\n    subgraph unit3[\"mandate-worker\"]\n        cmd0[\"mandate.audit.RecordAuditEvent\"]\n        cmd1[\"mandate.audit.RedactAuditEvent\"]\n        evt0[\"mandate.audit.AuditEventRecorded\"]\n        evt1[\"mandate.audit.AuditEventRedacted\"]\n        evt2[\"mandate.audit.CredentialRevoked\"]\n        evt3[\"mandate.audit.DirectoryGroupCreated\"]\n        evt4[\"mandate.audit.ExternalPrincipalUnlinked\"]\n        evt5[\"mandate.audit.FederationConnectionChanged\"]\n        evt6[\"mandate.audit.TokenExchangeDenied\"]\n    end\n    cmd0 -->|\"recorded\"| evt0\n    cmd1 -->|\"accepted\"| evt1\n    cmd2 -->|\"accepted\"| evt8\n    cmd3 -->|\"accepted\"| evt7\n    cmd4 -->|\"accepted\"| evt15\n    cmd5 -->|\"accepted\"| evt20\n    cmd6 -->|\"accepted\"| evt12\n    cmd7 -->|\"accepted\"| evt10\n    cmd8 -->|\"accepted\"| evt13\n    cmd9 -->|\"accepted\"| evt14\n    cmd10 -->|\"accepted\"| evt11\n    cmd11 -->|\"accepted\"| evt16\n    cmd12 -->|\"accepted\"| evt17\n    cmd13 -->|\"accepted\"| evt18\n    cmd14 -->|\"accepted\"| evt9\n    cmd15 -->|\"accepted\"| evt19\n    cmd16 -->|\"accepted\"| evt27\n    cmd17 -->|\"accepted\"| evt24\n    cmd18 -->|\"accepted\"| evt25\n    cmd19 -->|\"accepted\"| evt23\n    cmd20 -->|\"accepted\"| evt26\n    cmd21 -->|\"accepted\"| evt22\n    cmd22 -->|\"accepted\"| evt37\n    cmd23 -->|\"accepted\"| evt33\n    cmd24 -->|\"accepted\"| evt38\n    cmd25 -->|\"accepted\"| evt30\n    cmd26 -->|\"accepted\"| evt34\n    cmd27 -->|\"accepted\"| evt36\n    cmd28 -->|\"accepted\"| evt32\n    cmd29 -->|\"accepted\"| evt28\n    cmd30 -->|\"accepted\"| evt45\n    cmd30 -->|\"accepted\"| evt44\n    cmd31 -->|\"accepted\"| evt40\n    cmd32 -->|\"accepted\"| evt47\n    cmd33 -->|\"accepted\"| evt48\n    cmd34 -->|\"accepted\"| evt41\n    cmd35 -->|\"accepted\"| evt42\n    cmd36 -->|\"accepted\"| evt46\n    cmd37 -->|\"accepted\"| evt49\n    cmd38 -->|\"accepted\"| evt43\n    cmd39 -->|\"accepted\"| evt53\n    cmd40 -->|\"accepted\"| evt54\n    cmd41 -->|\"accepted\"| evt51\n    cmd42 -->|\"accepted\"| evt50\n    cmd43 -->|\"accepted\"| evt52\n    cmd44 -->|\"accepted\"| evt56\n    cmd45 -->|\"accepted\"| evt58\n    cmd46 -->|\"accepted\"| evt61\n    cmd47 -->|\"accepted\"| evt57\n    cmd48 -->|\"accepted\"| evt62\n    cmd49 -->|\"accepted\"| evt63\n    cmd50 -->|\"accepted\"| evt64\n    cmd51 -->|\"accepted\"| evt67\n    cmd52 -->|\"accepted\"| evt72\n    cmd53 -->|\"accepted\"| evt65\n    cmd54 -->|\"accepted\"| evt66\n    cmd55 -->|\"accepted\"| evt69\n    cmd56 -->|\"accepted\"| evt71\n    cmd57 -->|\"accepted\"| evt68\n    cmd58 -->|\"accepted\"| evt73\n    cmd59 -->|\"accepted\"| evt70\n    cmd60 -->|\"accepted\"| evt74\n    cmd61 -->|\"accepted\"| evt75\n    cmd62 -->|\"accepted\"| evt76"
             },
             {
               "block": "prose",
@@ -196,7 +196,7 @@
                       },
                       {
                         "inline": "text",
-                        "text": " 75 types, no entities, no views, no commands, no events, no errors and no actors."
+                        "text": " 77 types, no entities, no views, no commands, no events, no errors and no actors."
                       }
                     ]
                   }
@@ -360,7 +360,7 @@
                       },
                       {
                         "inline": "text",
-                        "text": " No types, three entities, no views, nine commands, nine events, one error and no actors."
+                        "text": " No types, three entities, no views, nine commands, 10 events, one error and no actors."
                       }
                     ]
                   }
@@ -1489,6 +1489,14 @@
                 },
                 {
                   "inline": "code",
+                  "text": "mandate.federation.ExternalProfileObserved"
+                },
+                {
+                  "inline": "text",
+                  "text": ", "
+                },
+                {
+                  "inline": "code",
                   "text": "mandate.federation.FederationAuthenticated"
                 },
                 {
@@ -2553,8 +2561,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
-          "contract_digest": "slice-sha256/2:66f54405913c442fd9581b56dd20b56fe4f6f3529c3c0a283b513560f78ba8ed"
+          "source_digest": "c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057",
+          "contract_digest": "slice-sha256/2:c5839b09c62ff54aa124aba7051f6d3608fc45bebdaba68c903e0abcad7d4bdd"
         },
         "slice": {
           "of": "constructs",
@@ -5048,8 +5056,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
-          "contract_digest": "slice-sha256/2:66f54405913c442fd9581b56dd20b56fe4f6f3529c3c0a283b513560f78ba8ed"
+          "source_digest": "c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057",
+          "contract_digest": "slice-sha256/2:c5839b09c62ff54aa124aba7051f6d3608fc45bebdaba68c903e0abcad7d4bdd"
         },
         "slice": {
           "of": "constructs",
@@ -6156,8 +6164,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
-          "contract_digest": "slice-sha256/2:206c9d8dacd7bdcb9a73b0936372e4312ee54301199bb2224162d91f9699ff66"
+          "source_digest": "c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057",
+          "contract_digest": "slice-sha256/2:76dee9460c1f2ade9bcfc6105eda767387026f5213fd17fb1fc40ad1ca0065dc"
         },
         "slice": {
           "of": "constructs",
@@ -6332,6 +6340,10 @@
             },
             {
               "kind": "type",
+              "name": "mandate.core.GroupFilter"
+            },
+            {
+              "kind": "type",
               "name": "mandate.core.Issuer"
             },
             {
@@ -6349,6 +6361,10 @@
             {
               "kind": "type",
               "name": "mandate.core.OAuthClientId"
+            },
+            {
+              "kind": "type",
+              "name": "mandate.core.OAuthClientType"
             },
             {
               "kind": "type",
@@ -8885,11 +8901,19 @@
                     },
                     {
                       "inline": "text",
-                      "text": " and "
+                      "text": ", "
                     },
                     {
                       "inline": "code",
                       "text": "StaleEpoch"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " and "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "InvalidClient"
                     },
                     {
                       "inline": "text",
@@ -9317,6 +9341,80 @@
               "title": [
                 {
                   "inline": "code",
+                  "text": "GroupFilter"
+                }
+              ],
+              "anchor": "groupfilter",
+              "about": {
+                "kind": "type",
+                "name": "mandate.core.GroupFilter"
+              },
+              "blocks": [
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "code",
+                      "text": "mandate.core.GroupFilter"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " is a record of two fields:"
+                    }
+                  ]
+                },
+                {
+                  "block": "list",
+                  "ordered": false,
+                  "items": [
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "allowlist"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "List<String>"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "cap"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Integer"
+                          }
+                        ]
+                      }
+                    ]
+                  ]
+                }
+              ]
+            },
+            {
+              "block": "section",
+              "level": 3,
+              "title": [
+                {
+                  "inline": "code",
                   "text": "Issuer"
                 }
               ],
@@ -9504,6 +9602,52 @@
                     {
                       "inline": "text",
                       "text": " and is not interchangeable with one: the whole value of naming it separately is the crossings the model then refuses."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "block": "section",
+              "level": 3,
+              "title": [
+                {
+                  "inline": "code",
+                  "text": "OAuthClientType"
+                }
+              ],
+              "anchor": "oauthclienttype",
+              "about": {
+                "kind": "type",
+                "name": "mandate.core.OAuthClientType"
+              },
+              "blocks": [
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "code",
+                      "text": "mandate.core.OAuthClientType"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " is one of "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "Public"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " and "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "Confidential"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
                     }
                   ]
                 }
@@ -10706,7 +10850,7 @@
                         "text": [
                           {
                             "inline": "code",
-                            "text": "verified_claim_value"
+                            "text": "verified_claim_values"
                           },
                           {
                             "inline": "text",
@@ -10714,7 +10858,7 @@
                           },
                           {
                             "inline": "code",
-                            "text": "Optional<String>"
+                            "text": "Optional<List<String>>"
                           },
                           {
                             "inline": "text",
@@ -11053,8 +11197,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
-          "contract_digest": "slice-sha256/2:66f54405913c442fd9581b56dd20b56fe4f6f3529c3c0a283b513560f78ba8ed"
+          "source_digest": "c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057",
+          "contract_digest": "slice-sha256/2:c5839b09c62ff54aa124aba7051f6d3608fc45bebdaba68c903e0abcad7d4bdd"
         },
         "slice": {
           "of": "constructs",
@@ -19738,8 +19882,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
-          "contract_digest": "slice-sha256/2:66f54405913c442fd9581b56dd20b56fe4f6f3529c3c0a283b513560f78ba8ed"
+          "source_digest": "c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057",
+          "contract_digest": "slice-sha256/2:c5839b09c62ff54aa124aba7051f6d3608fc45bebdaba68c903e0abcad7d4bdd"
         },
         "slice": {
           "of": "constructs",
@@ -25759,8 +25903,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
-          "contract_digest": "slice-sha256/2:66f54405913c442fd9581b56dd20b56fe4f6f3529c3c0a283b513560f78ba8ed"
+          "source_digest": "c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057",
+          "contract_digest": "slice-sha256/2:c5839b09c62ff54aa124aba7051f6d3608fc45bebdaba68c903e0abcad7d4bdd"
         },
         "slice": {
           "of": "constructs",
@@ -32846,8 +32990,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
-          "contract_digest": "slice-sha256/2:66f54405913c442fd9581b56dd20b56fe4f6f3529c3c0a283b513560f78ba8ed"
+          "source_digest": "c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057",
+          "contract_digest": "slice-sha256/2:c5839b09c62ff54aa124aba7051f6d3608fc45bebdaba68c903e0abcad7d4bdd"
         },
         "slice": {
           "of": "constructs",
@@ -32931,6 +33075,10 @@
             {
               "kind": "event",
               "name": "mandate.federation.ExternalPrincipalUnlinked"
+            },
+            {
+              "kind": "event",
+              "name": "mandate.federation.ExternalProfileObserved"
             },
             {
               "kind": "event",
@@ -33719,6 +33867,29 @@
                           }
                         ]
                       }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "groups"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Optional<mandate.core.GroupFilter>"
+                          },
+                          {
+                            "inline": "text",
+                            "text": ", which may be absent"
+                          }
+                        ]
+                      }
                     ]
                   ]
                 },
@@ -34060,7 +34231,7 @@
                         "text": [
                           {
                             "inline": "code",
-                            "text": "public"
+                            "text": "client_type"
                           },
                           {
                             "inline": "text",
@@ -34068,7 +34239,26 @@
                           },
                           {
                             "inline": "code",
-                            "text": "Boolean"
+                            "text": "mandate.core.OAuthClientType"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "secret_verifiers"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "List<mandate.core.CredentialVerifier>"
                           }
                         ]
                       }
@@ -34107,6 +34297,63 @@
                           {
                             "inline": "code",
                             "text": "mandate.core.PkceMethod"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "pkce_required"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Boolean"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "trusted_peers"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "List<mandate.core.OAuthClientId>"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "post_logout_redirect_uris"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "List<mandate.core.RedirectUri>"
                           }
                         ]
                       }
@@ -34149,6 +34396,48 @@
                     {
                       "inline": "code",
                       "text": "OAuthClient.organization_id"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    },
+                    {
+                      "inline": "text",
+                      "text": " "
+                    },
+                    {
+                      "inline": "text",
+                      "text": "It references any number of "
+                    },
+                    {
+                      "inline": "link",
+                      "to": {
+                        "target": "anchor",
+                        "page": "domains/mandate-federation",
+                        "anchor": "oauthclient"
+                      },
+                      "text": [
+                        {
+                          "inline": "code",
+                          "text": "OAuthClient"
+                        }
+                      ]
+                    },
+                    {
+                      "inline": "text",
+                      "text": ", as "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "trusted_peers"
+                    },
+                    {
+                      "inline": "text",
+                      "text": ", carried by "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "OAuthClient.trusted_peers"
                     },
                     {
                       "inline": "text",
@@ -34481,7 +34770,7 @@
                     },
                     {
                       "inline": "text",
-                      "text": "A validated federated login mints the session, which is step 9 of the resolution order in docs/architecture/federated-login.md. FederationAuthenticated carries the whole mandate.identity.Session record — the new session identity, the principal, the resolved organization, the connection, the epoch snapshot the session is bound to and its expiry — so the identity fold materializes the session from this event alone and reads no command input or response. The audience and the correlation are carried beside the record. The principal, the organization, the epoch snapshot handle and the expiry are the ones this command resolved and returned, so the fold reads each from the response rather than from a value the implementation invented; the snapshot's own contents are recorded by the adapter through EpochSnapshotRecorded. "
+                      "text": "A validated federated login mints the session, which is step 9 of the resolution order in docs/architecture/federated-login.md. FederationAuthenticated carries the whole mandate.identity.Session record — the new session identity, the principal, the resolved organization, the connection, the epoch snapshot the session is bound to and its expiry — so the identity fold materializes the session from this event alone and reads no command input or response. The audience and the correlation are carried beside the record. The principal, the organization, the epoch snapshot handle and the expiry are the ones this command resolved and returned, so the fold reads each from the response rather than from a value the implementation invented; the snapshot's own contents are recorded by the adapter through EpochSnapshotRecorded. ExternalProfileObserved records the profile of this login for later issuance (fork F13): the external principal the login resolved through its link, and the email, its verified flag, the name and the groups, each read from the validated proof and never from a caller input. An email the upstream does not mark verified is recorded with email_verified false, never true. The groups are those the connection's group filter admits: a group outside the allowlist never appears in the event, and a connection without a filter records an empty list. "
                     },
                     {
                       "inline": "text",
@@ -34545,6 +34834,14 @@
                     },
                     {
                       "inline": "text",
+                      "text": " and "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "mandate.federation.ExternalProfileObserved"
+                    },
+                    {
+                      "inline": "text",
                       "text": "."
                     },
                     {
@@ -34571,7 +34868,7 @@
                     },
                     {
                       "inline": "text",
-                      "text": "Decided outside the input: Connection is disabled/untrusted, proof signature/issuer/audience/expiry is invalid, tenant resolution has zero or multiple matches, principal linking is absent/conflicting, or any email-domain/unverified-input fallback would be required.. No predicate over the input reaches this branch, and saying "
+                      "text": "Decided outside the input: Connection is disabled/untrusted, proof signature/issuer/audience/expiry is invalid, tenant resolution has zero or multiple matches (a rule naming a claim matches only when the validated claim equals one of its listed values; an absent claim matches none), principal linking is absent/conflicting, the groups the connection's filter admits number more than its cap, or any email-domain/unverified-input fallback would be required. A refused login opens no session and records no profile.. No predicate over the input reaches this branch, and saying "
                     },
                     {
                       "inline": "code",
@@ -36310,6 +36607,29 @@
                           }
                         ]
                       }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "groups"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Optional<mandate.core.GroupFilter>"
+                          },
+                          {
+                            "inline": "text",
+                            "text": ", which may be absent"
+                          }
+                        ]
+                      }
                     ]
                   ]
                 },
@@ -36340,7 +36660,7 @@
                     },
                     {
                       "inline": "text",
-                      "text": "The connection is created with its provisioning setting decided here and never changed afterwards. A connection whose issuer or provisioning admission must change is disabled and registered again; there is no update command. "
+                      "text": "The connection is created with its provisioning setting, its tenant rule and its group filter decided here and never changed afterwards. A tenant rule that names a validated claim lists every value that resolves (a hosted-domain list), and any one of them resolves. A connection without a group filter records no groups for any login. A connection whose issuer, provisioning admission, accepted claim values or group filter must change is disabled and registered again; there is no update command. "
                     },
                     {
                       "inline": "text",
@@ -36430,7 +36750,7 @@
                     },
                     {
                       "inline": "text",
-                      "text": "Decided outside the input: Caller lacks federation-administration authority, issuer/client/trust, tenant-resolution or just-in-time provisioning configuration is unadmitted, or organization binding is invalid.. No predicate over the input reaches this branch, and saying "
+                      "text": "Decided outside the input: Caller lacks federation-administration authority, issuer/client/trust, tenant-resolution or just-in-time provisioning configuration is unadmitted, the tenant rule names a claim with an empty value list or values without a claim name, the group filter's cap is below one, or organization binding is invalid.. No predicate over the input reaches this branch, and saying "
                     },
                     {
                       "inline": "code",
@@ -36546,7 +36866,7 @@
                         "text": [
                           {
                             "inline": "code",
-                            "text": "public"
+                            "text": "client_type"
                           },
                           {
                             "inline": "text",
@@ -36554,7 +36874,26 @@
                           },
                           {
                             "inline": "code",
-                            "text": "Boolean"
+                            "text": "mandate.core.OAuthClientType"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "secret_verifiers"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "List<mandate.core.CredentialVerifier>"
                           }
                         ]
                       }
@@ -36596,6 +36935,63 @@
                           }
                         ]
                       }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "pkce_required"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Boolean"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "trusted_peers"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "List<mandate.core.OAuthClientId>"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "post_logout_redirect_uris"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "List<mandate.core.RedirectUri>"
+                          }
+                        ]
+                      }
                     ]
                   ]
                 },
@@ -36626,7 +37022,7 @@
                     },
                     {
                       "inline": "text",
-                      "text": "The client is bound to the organization the verified context carries; the command takes no organization input, so no caller selects the tenant a client is registered into. OAuthClientRegistered carries the whole mandate.federation.OAuthClient record — the client identity, its organization, whether it is a public client, its exact redirect set and its PKCE method — so the federation fold materializes the client from this event alone and reads no command input or response. The identity and the organization are the ones this outcome decided and returned, read from the response rather than from a value the implementation invented. An empty redirect set is admitted and is not a denial — the client it registers is inert, because AuthorizePublicClient matches the presented redirect against the registered set exactly and an empty set matches nothing, so every authorization request to that client is refused. mandate.core.PkceMethod admits S256 and nothing else, so no registration can name another method and none is refused for naming one. A registration whose redirect surface or PKCE method must change is disabled and registered again; there is no update command. "
+                      "text": "The client is bound to the organization the verified context carries; the command takes no organization input, so no caller selects the tenant a client is registered into. A confidential client authenticates with a secret, and the registration carries only the keyed verifiers derived from its secret references (fork F2), one or two so that a secret can be rotated; the secret itself is never an input, an event field or a record field. A public client states no verifier and always requires PKCE (fork F3); a confidential client may require it. Each trusted peer names another client of the same organization that may obtain tokens for this one. OAuthClientRegistered carries the whole mandate.federation.OAuthClient record — the client identity, its organization, its client type, its verifiers, its exact redirect set, its PKCE method and requirement, its trusted peers and its exact post-logout redirect set — so the federation fold materializes the client from this event alone and reads no command input or response. The identity and the organization are the ones this outcome decided and returned, read from the response rather than from a value the implementation invented. An empty redirect set is admitted and is not a denial — the client it registers is inert, because AuthorizePublicClient matches the presented redirect against the registered set exactly and an empty set matches nothing, so every authorization request to that client is refused. mandate.core.PkceMethod admits S256 and nothing else, so no registration can name another method and none is refused for naming one. A registration whose redirect surface or PKCE method must change is disabled and registered again; there is no update command. "
                     },
                     {
                       "inline": "text",
@@ -36716,7 +37112,7 @@
                     },
                     {
                       "inline": "text",
-                      "text": "Decided outside the input: Caller lacks client-administration authority, a redirect URI is unadmitted, or organization binding is invalid.. No predicate over the input reaches this branch, and saying "
+                      "text": "Decided outside the input: Caller lacks client-administration authority, a redirect URI or post-logout redirect URI is unadmitted, a public client states a secret verifier or does not require PKCE, a confidential client states no verifier or more than two, a trusted peer names the client itself or no client registered in the verified organization, or organization binding is invalid.. No predicate over the input reaches this branch, and saying "
                     },
                     {
                       "inline": "code",
@@ -37982,6 +38378,264 @@
               "title": [
                 {
                   "inline": "code",
+                  "text": "ExternalProfileObserved"
+                }
+              ],
+              "anchor": "externalprofileobserved",
+              "about": {
+                "kind": "event",
+                "name": "mandate.federation.ExternalProfileObserved"
+              },
+              "blocks": [
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "code",
+                      "text": "mandate.federation.ExternalProfileObserved"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    }
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "text",
+                      "text": "It carries:"
+                    }
+                  ]
+                },
+                {
+                  "block": "list",
+                  "ordered": false,
+                  "items": [
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "organization_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.OrganizationId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "correlation"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.CorrelationId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "connection_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.FederationConnectionId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "external_principal_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.ExternalPrincipalId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "email"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Optional<String>"
+                          },
+                          {
+                            "inline": "text",
+                            "text": ", which may be absent"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "email_verified"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Boolean"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "name"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Optional<String>"
+                          },
+                          {
+                            "inline": "text",
+                            "text": ", which may be absent"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "groups"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "List<String>"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "observed_at"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Timestamp"
+                          }
+                        ]
+                      }
+                    ]
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "text",
+                      "text": "Emitted by "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "mandate.federation.AuthenticateFederation"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " on its "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "accepted"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " outcome."
+                    }
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "text",
+                      "text": "Nothing in this system reacts to it."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "block": "section",
+              "level": 3,
+              "title": [
+                {
+                  "inline": "code",
                   "text": "FederationAuthenticated"
                 }
               ],
@@ -38358,6 +39012,29 @@
                           {
                             "inline": "code",
                             "text": "Boolean"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "groups"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Optional<mandate.core.GroupFilter>"
+                          },
+                          {
+                            "inline": "text",
+                            "text": ", which may be absent"
                           }
                         ]
                       }
@@ -38738,7 +39415,7 @@
                         "text": [
                           {
                             "inline": "code",
-                            "text": "public"
+                            "text": "client_type"
                           },
                           {
                             "inline": "text",
@@ -38746,7 +39423,26 @@
                           },
                           {
                             "inline": "code",
-                            "text": "Boolean"
+                            "text": "mandate.core.OAuthClientType"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "secret_verifiers"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "List<mandate.core.CredentialVerifier>"
                           }
                         ]
                       }
@@ -38785,6 +39481,63 @@
                           {
                             "inline": "code",
                             "text": "mandate.core.PkceMethod"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "pkce_required"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Boolean"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "trusted_peers"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "List<mandate.core.OAuthClientId>"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "post_logout_redirect_uris"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "List<mandate.core.RedirectUri>"
                           }
                         ]
                       }
@@ -39174,8 +39927,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
-          "contract_digest": "slice-sha256/2:66f54405913c442fd9581b56dd20b56fe4f6f3529c3c0a283b513560f78ba8ed"
+          "source_digest": "c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057",
+          "contract_digest": "slice-sha256/2:c5839b09c62ff54aa124aba7051f6d3608fc45bebdaba68c903e0abcad7d4bdd"
         },
         "slice": {
           "of": "constructs",
@@ -43118,8 +43871,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
-          "contract_digest": "slice-sha256/2:e1d57c8110be7d45cc207d92d7f56228818809673b5afdc964d9086db1e6eb87"
+          "source_digest": "c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057",
+          "contract_digest": "slice-sha256/2:446ef7851e862b1fff497b836a0c50d6158233fbd833ba25fef5d6e7cde5ecf6"
         },
         "slice": {
           "of": "constructs",
@@ -48296,8 +49049,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
-          "contract_digest": "slice-sha256/2:66f54405913c442fd9581b56dd20b56fe4f6f3529c3c0a283b513560f78ba8ed"
+          "source_digest": "c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057",
+          "contract_digest": "slice-sha256/2:c5839b09c62ff54aa124aba7051f6d3608fc45bebdaba68c903e0abcad7d4bdd"
         },
         "slice": {
           "of": "constructs",
@@ -50208,8 +50961,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
-          "contract_digest": "slice-sha256/2:66f54405913c442fd9581b56dd20b56fe4f6f3529c3c0a283b513560f78ba8ed"
+          "source_digest": "c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057",
+          "contract_digest": "slice-sha256/2:c5839b09c62ff54aa124aba7051f6d3608fc45bebdaba68c903e0abcad7d4bdd"
         },
         "slice": {
           "of": "constructs",
@@ -56949,8 +57702,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
-          "contract_digest": "slice-sha256/2:66f54405913c442fd9581b56dd20b56fe4f6f3529c3c0a283b513560f78ba8ed"
+          "source_digest": "c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057",
+          "contract_digest": "slice-sha256/2:c5839b09c62ff54aa124aba7051f6d3608fc45bebdaba68c903e0abcad7d4bdd"
         },
         "slice": {
           "of": "constructs",
@@ -58527,8 +59280,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
-          "contract_digest": "90c631a420df9593ddf90b48ed18919d7a1fe6a8e477d90e737e1d4bebced13c"
+          "source_digest": "c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057",
+          "contract_digest": "be070dbac72f1ca80bb30aa603e4af439ccf8d4807be3ab530d8c42da7e0abd6"
         },
         "slice": {
           "of": "whole-model"
@@ -59089,6 +59842,17 @@
                     "text": [
                       {
                         "inline": "code",
+                        "text": "mandate.federation.ExternalProfileObserved"
+                      }
+                    ]
+                  }
+                ],
+                [
+                  {
+                    "block": "prose",
+                    "text": [
+                      {
+                        "inline": "code",
                         "text": "mandate.federation.FederationAuthenticated"
                       }
                     ]
@@ -59458,8 +60222,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
-          "contract_digest": "90c631a420df9593ddf90b48ed18919d7a1fe6a8e477d90e737e1d4bebced13c"
+          "source_digest": "c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057",
+          "contract_digest": "be070dbac72f1ca80bb30aa603e4af439ccf8d4807be3ab530d8c42da7e0abd6"
         },
         "slice": {
           "of": "whole-model"
@@ -59537,8 +60301,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
-          "contract_digest": "90c631a420df9593ddf90b48ed18919d7a1fe6a8e477d90e737e1d4bebced13c"
+          "source_digest": "c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057",
+          "contract_digest": "be070dbac72f1ca80bb30aa603e4af439ccf8d4807be3ab530d8c42da7e0abd6"
         },
         "slice": {
           "of": "whole-model"

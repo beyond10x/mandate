@@ -31,6 +31,9 @@
     "jit_provisioning": {
       "type": "boolean"
     },
+    "groups": {
+      "$ref": "#/$defs/mandate.core.GroupFilter"
+    },
     "state": {
       "$ref": "#/$defs/mandate.federation.FederationConnection.State"
     }
@@ -48,8 +51,8 @@
   "x-ess-provenance": {
     "system": "mandate",
     "specification_version": "v1",
-    "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
-    "contract_digest": "slice-sha256/2:7ded468935cdf7442ef96b98f4761320c575eca978189b840f7beef32d74f41e",
+    "source_digest": "c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057",
+    "contract_digest": "slice-sha256/2:15defd044060c80b9f8d16540b5499d363051255618190b28ecc2ecfec181b7a",
     "regenerate": "ess generate"
   },
   "$defs": {
@@ -66,6 +69,28 @@
       "type": "string",
       "format": "uuid",
       "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.GroupFilter": {
+      "title": "GroupFilter",
+      "x-ess-name": "mandate.core.GroupFilter",
+      "x-ess-kind": "struct",
+      "type": "object",
+      "properties": {
+        "allowlist": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "cap": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "allowlist",
+        "cap"
+      ],
+      "additionalProperties": false
     },
     "mandate.core.Issuer": {
       "title": "Issuer",
@@ -93,8 +118,11 @@
         "verified_claim_name": {
           "type": "string"
         },
-        "verified_claim_value": {
-          "type": "string"
+        "verified_claim_values": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       },
       "required": [

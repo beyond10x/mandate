@@ -1,0 +1,44 @@
+type: ess-scenario/2
+domain: mandate.federation
+scenario: oidc-client-confidential-registered
+summary: 'A confidential client with one keyed verifier is registered; OAuthClientRegistered carries the verifier and no secret (F2); corpus: none.'
+arrange:
+- instance: client
+  entity: mandate.federation.OAuthClient
+timeline:
+- at: '2026-01-05T09:00:00Z'
+  command: mandate.federation.RegisterOAuthClient
+  input:
+    context:
+      subject: 00000000-0000-4000-8000-000000000001
+      organization: 00000000-0000-4000-8000-0000000000a1
+      audience: mandate
+      credential: 00000000-0000-4000-8000-0000000000c1
+      correlation: oidc-client-confidential
+    client_type: Confidential
+    secret_verifiers:
+    - kv1.app-a.c2NlbmFyaW8tdmVyaWZpZXItb25l
+    redirect_uris:
+    - https://app.example.test/callback
+    pkce_method: S256
+    pkce_required: false
+    trusted_peers: []
+    post_logout_redirect_uris:
+    - https://app.example.test/signed-out
+  outcome: accepted
+  events:
+  - event: mandate.federation.OAuthClientRegistered
+    payload:
+      client_type: Confidential
+      secret_verifiers:
+      - kv1.app-a.c2NlbmFyaW8tdmVyaWZpZXItb25l
+      redirect_uris:
+      - https://app.example.test/callback
+      pkce_required: false
+      trusted_peers: []
+      post_logout_redirect_uris:
+      - https://app.example.test/signed-out
+  capture:
+    instance: client
+    event: mandate.federation.OAuthClientRegistered
+    field: id

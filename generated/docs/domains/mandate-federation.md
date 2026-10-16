@@ -1,7 +1,7 @@
 <!--
 generated from mandate v1
-model digest 7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182
-contract digest slice-sha256/2:66f54405913c442fd9581b56dd20b56fe4f6f3529c3c0a283b513560f78ba8ed
+model digest c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057
+contract digest slice-sha256/2:c5839b09c62ff54aa124aba7051f6d3608fc45bebdaba68c903e0abcad7d4bdd
 do not edit: regenerate with `ess generate`
 -->
 
@@ -68,6 +68,7 @@ It holds:
 - `client_id` — `mandate.core.ClientId`
 - `tenant_resolution` — `mandate.core.TenantResolutionRule`
 - `jit_provisioning` — `Boolean`
+- `groups` — `Optional<mandate.core.GroupFilter>`, which may be absent
 
 It references at most one [`mandate.tenancy.Organization`](mandate-tenancy.md#organization), as `organization_id_record`, carried by `FederationConnection.organization_id`.
 
@@ -105,11 +106,15 @@ An instance is identified by `id`, a `mandate.core.OAuthClientId`. The name is p
 It holds:
 
 - `organization_id` — `mandate.core.OrganizationId`
-- `public` — `Boolean`
+- `client_type` — `mandate.core.OAuthClientType`
+- `secret_verifiers` — `List<mandate.core.CredentialVerifier>`
 - `redirect_uris` — `List<mandate.core.RedirectUri>`
 - `pkce_method` — `mandate.core.PkceMethod`
+- `pkce_required` — `Boolean`
+- `trusted_peers` — `List<mandate.core.OAuthClientId>`
+- `post_logout_redirect_uris` — `List<mandate.core.RedirectUri>`
 
-It references at most one [`mandate.tenancy.Organization`](mandate-tenancy.md#organization), as `organization_id_record`, carried by `OAuthClient.organization_id`.
+It references at most one [`mandate.tenancy.Organization`](mandate-tenancy.md#organization), as `organization_id_record`, carried by `OAuthClient.organization_id`. It references any number of [`OAuthClient`](#oauthclient), as `trusted_peers`, carried by `OAuthClient.trusted_peers`.
 
 No invariant is declared, so nothing here constrains an instance at rest.
 
@@ -149,9 +154,9 @@ It takes:
 
 It has two outcomes.
 
-**`accepted`** — A validated federated login mints the session, which is step 9 of the resolution order in docs/architecture/federated-login.md. FederationAuthenticated carries the whole mandate.identity.Session record — the new session identity, the principal, the resolved organization, the connection, the epoch snapshot the session is bound to and its expiry — so the identity fold materializes the session from this event alone and reads no command input or response. The audience and the correlation are carried beside the record. The principal, the organization, the epoch snapshot handle and the expiry are the ones this command resolved and returned, so the fold reads each from the response rather than from a value the implementation invented; the snapshot's own contents are recorded by the adapter through EpochSnapshotRecorded. The default branch, taken when no other outcome's condition matched. It creates a `mandate.identity.Session`, which starts in `Active`. The new instance's identity is published as `session_id` on `mandate.federation.FederationAuthenticated`. It emits `mandate.federation.FederationAuthenticated`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+**`accepted`** — A validated federated login mints the session, which is step 9 of the resolution order in docs/architecture/federated-login.md. FederationAuthenticated carries the whole mandate.identity.Session record — the new session identity, the principal, the resolved organization, the connection, the epoch snapshot the session is bound to and its expiry — so the identity fold materializes the session from this event alone and reads no command input or response. The audience and the correlation are carried beside the record. The principal, the organization, the epoch snapshot handle and the expiry are the ones this command resolved and returned, so the fold reads each from the response rather than from a value the implementation invented; the snapshot's own contents are recorded by the adapter through EpochSnapshotRecorded. ExternalProfileObserved records the profile of this login for later issuance (fork F13): the external principal the login resolved through its link, and the email, its verified flag, the name and the groups, each read from the validated proof and never from a caller input. An email the upstream does not mark verified is recorded with email_verified false, never true. The groups are those the connection's group filter admits: a group outside the allowlist never appears in the event, and a connection without a filter records an empty list. The default branch, taken when no other outcome's condition matched. It creates a `mandate.identity.Session`, which starts in `Active`. The new instance's identity is published as `session_id` on `mandate.federation.FederationAuthenticated`. It emits `mandate.federation.FederationAuthenticated` and `mandate.federation.ExternalProfileObserved`. A test reaches it by constructing an input that satisfies no other outcome's condition.
 
-**`denied`** — Decided outside the input: Connection is disabled/untrusted, proof signature/issuer/audience/expiry is invalid, tenant resolution has zero or multiple matches, principal linking is absent/conflicting, or any email-domain/unverified-input fallback would be required.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.federation.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
+**`denied`** — Decided outside the input: Connection is disabled/untrusted, proof signature/issuer/audience/expiry is invalid, tenant resolution has zero or multiple matches (a rule naming a claim matches only when the validated claim equals one of its listed values; an absent claim matches none), principal linking is absent/conflicting, the groups the connection's filter admits number more than its cap, or any email-domain/unverified-input fallback would be required. A refused login opens no session and records no profile.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.federation.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
 ### `AuthorizePublicClient`
 
@@ -253,12 +258,13 @@ It takes:
 - `client_id` — `mandate.core.ClientId`
 - `tenant_resolution` — `mandate.core.TenantResolutionRule`
 - `jit_provisioning` — `Boolean`
+- `groups` — `Optional<mandate.core.GroupFilter>`, which may be absent
 
 It has two outcomes.
 
-**`accepted`** — The connection is created with its provisioning setting decided here and never changed afterwards. A connection whose issuer or provisioning admission must change is disabled and registered again; there is no update command. The default branch, taken when no other outcome's condition matched. It creates a `mandate.federation.FederationConnection`, which starts in `Enabled`. The new instance's identity is published as `connection_id` on `mandate.federation.FederationConnectionCreated`. It emits `mandate.federation.FederationConnectionCreated`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+**`accepted`** — The connection is created with its provisioning setting, its tenant rule and its group filter decided here and never changed afterwards. A tenant rule that names a validated claim lists every value that resolves (a hosted-domain list), and any one of them resolves. A connection without a group filter records no groups for any login. A connection whose issuer, provisioning admission, accepted claim values or group filter must change is disabled and registered again; there is no update command. The default branch, taken when no other outcome's condition matched. It creates a `mandate.federation.FederationConnection`, which starts in `Enabled`. The new instance's identity is published as `connection_id` on `mandate.federation.FederationConnectionCreated`. It emits `mandate.federation.FederationConnectionCreated`. A test reaches it by constructing an input that satisfies no other outcome's condition.
 
-**`denied`** — Decided outside the input: Caller lacks federation-administration authority, issuer/client/trust, tenant-resolution or just-in-time provisioning configuration is unadmitted, or organization binding is invalid.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.federation.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
+**`denied`** — Decided outside the input: Caller lacks federation-administration authority, issuer/client/trust, tenant-resolution or just-in-time provisioning configuration is unadmitted, the tenant rule names a claim with an empty value list or values without a claim name, the group filter's cap is below one, or organization binding is invalid.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.federation.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
 ### `RegisterOAuthClient`
 
@@ -267,15 +273,19 @@ It has two outcomes.
 It takes:
 
 - `context` — `mandate.core.VerifiedContext`
-- `public` — `Boolean`
+- `client_type` — `mandate.core.OAuthClientType`
+- `secret_verifiers` — `List<mandate.core.CredentialVerifier>`
 - `redirect_uris` — `List<mandate.core.RedirectUri>`
 - `pkce_method` — `mandate.core.PkceMethod`
+- `pkce_required` — `Boolean`
+- `trusted_peers` — `List<mandate.core.OAuthClientId>`
+- `post_logout_redirect_uris` — `List<mandate.core.RedirectUri>`
 
 It has two outcomes.
 
-**`accepted`** — The client is bound to the organization the verified context carries; the command takes no organization input, so no caller selects the tenant a client is registered into. OAuthClientRegistered carries the whole mandate.federation.OAuthClient record — the client identity, its organization, whether it is a public client, its exact redirect set and its PKCE method — so the federation fold materializes the client from this event alone and reads no command input or response. The identity and the organization are the ones this outcome decided and returned, read from the response rather than from a value the implementation invented. An empty redirect set is admitted and is not a denial — the client it registers is inert, because AuthorizePublicClient matches the presented redirect against the registered set exactly and an empty set matches nothing, so every authorization request to that client is refused. mandate.core.PkceMethod admits S256 and nothing else, so no registration can name another method and none is refused for naming one. A registration whose redirect surface or PKCE method must change is disabled and registered again; there is no update command. The default branch, taken when no other outcome's condition matched. It creates a `mandate.federation.OAuthClient`, which starts in `Recorded`. The new instance's identity is published as `id` on `mandate.federation.OAuthClientRegistered`. It emits `mandate.federation.OAuthClientRegistered`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+**`accepted`** — The client is bound to the organization the verified context carries; the command takes no organization input, so no caller selects the tenant a client is registered into. A confidential client authenticates with a secret, and the registration carries only the keyed verifiers derived from its secret references (fork F2), one or two so that a secret can be rotated; the secret itself is never an input, an event field or a record field. A public client states no verifier and always requires PKCE (fork F3); a confidential client may require it. Each trusted peer names another client of the same organization that may obtain tokens for this one. OAuthClientRegistered carries the whole mandate.federation.OAuthClient record — the client identity, its organization, its client type, its verifiers, its exact redirect set, its PKCE method and requirement, its trusted peers and its exact post-logout redirect set — so the federation fold materializes the client from this event alone and reads no command input or response. The identity and the organization are the ones this outcome decided and returned, read from the response rather than from a value the implementation invented. An empty redirect set is admitted and is not a denial — the client it registers is inert, because AuthorizePublicClient matches the presented redirect against the registered set exactly and an empty set matches nothing, so every authorization request to that client is refused. mandate.core.PkceMethod admits S256 and nothing else, so no registration can name another method and none is refused for naming one. A registration whose redirect surface or PKCE method must change is disabled and registered again; there is no update command. The default branch, taken when no other outcome's condition matched. It creates a `mandate.federation.OAuthClient`, which starts in `Recorded`. The new instance's identity is published as `id` on `mandate.federation.OAuthClientRegistered`. It emits `mandate.federation.OAuthClientRegistered`. A test reaches it by constructing an input that satisfies no other outcome's condition.
 
-**`denied`** — Decided outside the input: Caller lacks client-administration authority, a redirect URI is unadmitted, or organization binding is invalid.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.federation.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
+**`denied`** — Decided outside the input: Caller lacks client-administration authority, a redirect URI or post-logout redirect URI is unadmitted, a public client states a secret verifier or does not require PKCE, a confidential client states no verifier or more than two, a trusted peer names the client itself or no client registered in the verified organization, or organization binding is invalid.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.federation.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
 ### `UnlinkExternalPrincipal`
 
@@ -369,6 +379,26 @@ Emitted by `mandate.federation.UnlinkExternalPrincipal` on its `accepted` outcom
 
 Nothing in this system reacts to it.
 
+### `ExternalProfileObserved`
+
+`mandate.federation.ExternalProfileObserved`.
+
+It carries:
+
+- `organization_id` — `mandate.core.OrganizationId`
+- `correlation` — `mandate.core.CorrelationId`
+- `connection_id` — `mandate.core.FederationConnectionId`
+- `external_principal_id` — `mandate.core.ExternalPrincipalId`
+- `email` — `Optional<String>`, which may be absent
+- `email_verified` — `Boolean`
+- `name` — `Optional<String>`, which may be absent
+- `groups` — `List<String>`
+- `observed_at` — `Timestamp`
+
+Emitted by `mandate.federation.AuthenticateFederation` on its `accepted` outcome.
+
+Nothing in this system reacts to it.
+
 ### `FederationAuthenticated`
 
 `mandate.federation.FederationAuthenticated`.
@@ -400,6 +430,7 @@ It carries:
 - `client_id` — `mandate.core.ClientId`
 - `tenant_resolution` — `mandate.core.TenantResolutionRule`
 - `jit_provisioning` — `Boolean`
+- `groups` — `Optional<mandate.core.GroupFilter>`, which may be absent
 
 Emitted by `mandate.federation.RegisterFederationConnection` on its `accepted` outcome.
 
@@ -440,9 +471,13 @@ It carries:
 - `context` — `mandate.core.VerifiedContext`
 - `id` — `mandate.core.OAuthClientId`
 - `organization_id` — `mandate.core.OrganizationId`
-- `public` — `Boolean`
+- `client_type` — `mandate.core.OAuthClientType`
+- `secret_verifiers` — `List<mandate.core.CredentialVerifier>`
 - `redirect_uris` — `List<mandate.core.RedirectUri>`
 - `pkce_method` — `mandate.core.PkceMethod`
+- `pkce_required` — `Boolean`
+- `trusted_peers` — `List<mandate.core.OAuthClientId>`
+- `post_logout_redirect_uris` — `List<mandate.core.RedirectUri>`
 
 Emitted by `mandate.federation.RegisterOAuthClient` on its `accepted` outcome.
 
@@ -479,4 +514,4 @@ Reported by `mandate.federation.UnlinkExternalPrincipal` on its `wrong-state` an
 
 ---
 
-Generated from mandate v1 · model digest `7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182` · contract digest `slice-sha256/2:66f54405913c442fd9581b56dd20b56fe4f6f3529c3c0a283b513560f78ba8ed`. Do not edit this file; change the specification and regenerate it with `ess generate`.
+Generated from mandate v1 · model digest `c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057` · contract digest `slice-sha256/2:c5839b09c62ff54aa124aba7051f6d3608fc45bebdaba68c903e0abcad7d4bdd`. Do not edit this file; change the specification and regenerate it with `ess generate`.

@@ -1,6 +1,6 @@
 # generated from mandate v1
-# model digest 7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182
-# contract digest slice-sha256/2:ee37311f539a501b92f7afa7450cc34896d9793fb37bbe0152c78e93188483f8
+# model digest c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057
+# contract digest slice-sha256/2:e30c4326ed5dc8ffc769ddc7ee3c80ed249d9e77331d0bdaeab766fceaf882ff
 # do not edit: regenerate with `ess generate`
 openapi: 3.1.0
 info:
@@ -14,8 +14,8 @@ info:
   x-ess-provenance:
     system: mandate
     specification_version: v1
-    source_digest: 7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182
-    contract_digest: slice-sha256/2:ee37311f539a501b92f7afa7450cc34896d9793fb37bbe0152c78e93188483f8
+    source_digest: c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057
+    contract_digest: slice-sha256/2:e30c4326ed5dc8ffc769ddc7ee3c80ed249d9e77331d0bdaeab766fceaf882ff
 tags:
 - name: credential
 paths:
@@ -717,6 +717,7 @@ components:
       - AudienceMismatch
       - Unavailable
       - StaleEpoch
+      - InvalidClient
     mandate.core.EpochSnapshotRef:
       title: EpochSnapshotRef
       x-ess-name: mandate.core.EpochSnapshotRef
