@@ -449,13 +449,12 @@ fn each_security_epoch_replays_from_its_events() {
         (SecurityEpochTarget::Organization(organization()), 7),
         (SecurityEpochTarget::Federation(connection()), 1),
     ] {
+        // Every target seeded at the generation this loop names, and the principal and
+        // connection placed in the caller's organization: an unplaced one is refused.
         let mut live = IdentityLog::new();
-        live.record(IdentityEvent::SecurityEpochRecorded(
-            SecurityEpochRecorded {
-                target: target.clone(),
-                generation: Generation::new(seeded).expect("a non-negative generation"),
-            },
-        ));
+        for event in seeded_epochs() {
+            live.record(event);
+        }
         let expected = live.current(&target).version();
         IncrementSecurityEpoch::new(context(), target.clone())
             .execute(&mut live, expected)
@@ -486,9 +485,13 @@ fn each_security_epoch_replays_from_its_events() {
     }
 
     // The maximum denies rather than wrapping, and the denial appends nothing — so the
-    // rebuild of the same log is the same record.
+    // rebuild of the same log is the same record. The principal is placed in the caller's
+    // organization, so the tenancy check passes and the maximum is what refuses.
     let target = SecurityEpochTarget::Principal(principal());
     let mut live = IdentityLog::new();
+    for event in seeded_epochs() {
+        live.record(event);
+    }
     live.record(IdentityEvent::SecurityEpochRecorded(
         SecurityEpochRecorded {
             target: target.clone(),
@@ -496,12 +499,13 @@ fn each_security_epoch_replays_from_its_events() {
         },
     ));
     let expected = live.current(&target).version();
+    let held = live.events().len();
     let denial = IncrementSecurityEpoch::new(context(), target.clone())
         .execute(&mut live, expected)
         .expect_err("`Generation::MAX` does not advance");
 
     assert_eq!(denial.reason(), DenialReason::Denied);
-    assert_eq!(live.events().len(), 1, "a refusal appends nothing");
+    assert_eq!(live.events().len(), held, "a refusal appends nothing");
     assert_eq!(
         rebuilt(&live).current(&target).generation(),
         Generation::MAX

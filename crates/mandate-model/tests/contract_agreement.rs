@@ -20,7 +20,7 @@
 //! `an_absent_optional_field_is_not_written_and_a_present_one_round_trips` is what turns
 //! red for that, and it is one of the cases kept there.
 //!
-//! Four things are decided here, for the six projections and the twelve payloads:
+//! Four things are decided here, for the seven projections and the twelve payloads:
 //!
 //! * the round trip itself, over every state each projection can hold and over the
 //!   present and absent form of every optional either side declares;
@@ -35,8 +35,8 @@
 //!   by ESS's `declaration_name` rule — the round trip cannot do this, because the six
 //!   `{context, id}` payloads are structurally identical and reproduce each other's
 //!   documents exactly;
-//! * that [`mandate_model::ESS_REALIZATIONS`] names exactly the 43 elements this crate
-//!   implements — these twenty, the six projections' lifecycle enums, the four accepted
+//! * that [`mandate_model::ESS_REALIZATIONS`] names exactly the 45 elements this crate
+//!   implements — these twenty-one, the seven projections' lifecycle enums, the four accepted
 //!   `mandate.core` records, and the eleven
 //!   commands and two refusals it decides — that each is a compiled declaration under
 //!   `generated/schema`, and that each symbol is the one its element name says it should
@@ -59,23 +59,25 @@ use mandate_model::tenancy::{
     Organization, OrganizationMembership, OrganizationMembershipState, OrganizationState, Space,
     SpaceState, Team, TeamMembership, TeamMembershipState, TeamState, TenancyEvent,
 };
-use mandate_model::workload::WorkloadEvent;
+use mandate_model::workload::{WorkloadEvent, WorkloadIdentity, WorkloadIdentityState};
 use mandate_types::{
-    Audience, CorrelationId, CredentialId, DelegationId, ExecutionId, MembershipContributionId,
-    OrganizationId, OrganizationMembershipId, PrincipalId, ResourceId, ResourceRef, ResourceType,
-    SpaceId, TeamId, TeamMembershipId, Timestamp, VerifiedContext, WorkloadIdentityId,
+    Audience, CorrelationId, CredentialId, DelegationId, ExecutionId, ExternalSubject,
+    MembershipContributionId, OrganizationId, OrganizationMembershipId, PrincipalId, ResourceId,
+    ResourceRef, ResourceType, SpaceId, TeamId, TeamMembershipId, Timestamp, TrustDomain,
+    VerifiedContext, WorkloadIdentityId,
 };
 
 const SCHEMA: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../generated/schema");
 
-/// The six entities this crate projects.
-const PROJECTED: [&str; 6] = [
+/// The seven entities this crate projects.
+const PROJECTED: [&str; 7] = [
     "mandate.tenancy.Organization",
     "mandate.tenancy.OrganizationMembership",
     "mandate.tenancy.Team",
     "mandate.tenancy.TeamMembership",
     "mandate.tenancy.Space",
     "mandate.graph.Resource",
+    "mandate.workload.WorkloadIdentity",
 ];
 
 fn uuid(tag: u16) -> String {
@@ -284,6 +286,14 @@ domain_states!(
     ResourceState,
     [ResourceState::Recorded, ResourceState::Deregistered]
 );
+domain_states!(
+    workload_identity_states,
+    WorkloadIdentityState,
+    [
+        WorkloadIdentityState::Recorded,
+        WorkloadIdentityState::Revoked
+    ]
+);
 
 /// Every projection, in every state it holds and in the present and absent form of every
 /// optional it declares.
@@ -380,6 +390,23 @@ fn projection_agreements() -> Vec<Agreement> {
                 },
             ));
         }
+    }
+
+    for state in workload_identity_states() {
+        agreements.push(projection!(
+            "mandate.workload.WorkloadIdentity",
+            entities::MandateWorkloadWorkloadIdentity,
+            WorkloadIdentity {
+                id: WorkloadIdentityId::parse(&uuid(0x200)).expect("workload identity"),
+                organization_id,
+                principal_id,
+                trust_domain: TrustDomain::new("spiffe://cluster.example"),
+                external_subject: ExternalSubject::new(
+                    "spiffe://cluster.example/ns/jobs/sa/runner"
+                ),
+                state,
+            },
+        ));
     }
 
     agreements
@@ -712,7 +739,7 @@ fn an_absent_optional_is_an_absent_key_and_never_null() {
         .into_iter()
         .chain(payload_agreements())
         .collect();
-    assert_eq!(agreements.len(), 48, "cases: {}", agreements.len());
+    assert_eq!(agreements.len(), 50, "cases: {}", agreements.len());
     for agreement in &agreements {
         assert_no_null(agreement.ess_name, "", &agreement.emitted);
         let document = schema(agreement.directory, agreement.ess_name);
@@ -765,7 +792,7 @@ fn every_pairing_is_the_generated_shape_its_element_name_derives_to() {
     // The rule has to discriminate to be evidence: two elements deriving to one Rust name
     // would make the check above pass for a swap between them. ESS refuses that itself
     // (`name_collision`, reproduced at `xtask/src/emit.rs:505-528`); this is that refusal
-    // over the twenty elements here.
+    // over the twenty-one elements here.
     let elements: BTreeSet<&str> = agreements
         .iter()
         .map(|agreement| agreement.ess_name)
@@ -774,7 +801,7 @@ fn every_pairing_is_the_generated_shape_its_element_name_derives_to() {
         .iter()
         .map(|element| declaration_name(element))
         .collect();
-    assert_eq!(elements.len(), 20, "elements paired");
+    assert_eq!(elements.len(), 21, "elements paired");
     assert_eq!(
         derived.len(),
         elements.len(),
@@ -822,17 +849,18 @@ fn the_realization_registry_names_exactly_the_projections_payloads_and_records_t
     expected.extend(WORKLOAD_COMMANDS);
     assert_eq!(
         registered, expected,
-        "the registry is not every element this crate implements: six projections and their \
-         six lifecycle enums, fourteen payloads, four accepted records, eleven commands and \
+        "the registry is not every element this crate implements: seven projections and \
+         their seven lifecycle enums, fourteen payloads, four accepted records, eleven commands and \
          two refusals",
     );
     assert_eq!(
         mandate_model::ESS_REALIZATIONS.len(),
-        43,
-        "the registry pins 43 elements: 22 as it stood, the six lifecycle enums wave D's \
+        45,
+        "the registry pins 45 elements: 22 as it stood, the six lifecycle enums wave D's \
          first correction round moved off the generated shapes, the ten tenancy commands \
          this crate decides plus the domain's refusal, registered by the second, and the \
-         workload revocation, its payload and its refusal, and the authentication payload",
+         workload revocation, its payload and its refusal, the authentication payload, and the \
+         workload identity record and its lifecycle enum",
     );
 
     let entities = schema_names("entities");

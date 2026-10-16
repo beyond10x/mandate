@@ -504,7 +504,7 @@ fn a_deferred_entry_moved_onto_a_story_the_store_reports_implemented_fails() {
     let body = manifest(&root);
     let entry = line(&body, "mandate.audit.RedactAuditEvent");
     let doctored = entry.replace(
-        "\"story\":\"story:audit-client\"",
+        "\"story\":\"story:audit-worker-delivery\"",
         "\"story\":\"story:tenancy-topology\"",
     );
     mutate(&root, "mandate.audit.RedactAuditEvent", &doctored);
@@ -523,7 +523,7 @@ fn a_state_entry_moved_off_its_records_story_fails() {
     let body = manifest(&root);
     let entry = line(&body, "mandate.directory.DirectoryGroup.State");
     let doctored = entry.replace(
-        "\"story\":\"story:declared-writers\"",
+        "\"story\":\"story:directory-provenance\"",
         "\"story\":\"story:mutation-controls\"",
     );
     mutate(&root, "mandate.directory.DirectoryGroup.State", &doctored);
@@ -617,7 +617,9 @@ fn the_receipts_manifest_digest_altered_is_refused_by_regeneration_and_not_by_th
         .as_str()
         .expect("the receipt states a manifest digest")
         .to_owned();
-    let altered = format!("0{}", &digest[1..]);
+    // A first digit that differs from the committed one, whatever the digest is.
+    let first = if digest.starts_with('0') { '1' } else { '0' };
+    let altered = format!("{first}{}", &digest[1..]);
     assert_ne!(digest, altered, "the mutation changed nothing");
     parsed["manifest_digest"] = serde_json::Value::from(altered.clone());
     fs::write(

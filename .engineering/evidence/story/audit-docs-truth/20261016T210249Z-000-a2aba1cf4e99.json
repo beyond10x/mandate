@@ -1,0 +1,13 @@
+{
+  "at": "2026-10-16T21:02:49Z",
+  "actor": "human:timo",
+  "artifact": "story:audit-docs-truth",
+  "kind": "story",
+  "revision": 3,
+  "change": {
+    "change": "evidence",
+    "kind": "test_result",
+    "source": "local full gate: cargo xtask check on the wave head, steps from documents rerun after the register and mutant re-anchor",
+    "reference": "f873b05be464afa83bc350a8671e172f33e48df8"
+  }
+}

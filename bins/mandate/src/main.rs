@@ -35,7 +35,7 @@ const VERIFIER_MINIMUM_LENGTH: usize = 43;
 /// RFC 7636 section 4.1: a code verifier is at most 128 characters.
 const VERIFIER_MAXIMUM_LENGTH: usize = 128;
 
-/// Mandate foundation scaffold; runtime capabilities are not implemented.
+/// Local, secret-free Mandate computations; this binary serves nothing.
 #[derive(Parser)]
 #[command(name = "mandate", version, arg_required_else_help = true)]
 struct Args {

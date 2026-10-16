@@ -1,7 +1,7 @@
 type: ess-scenario/2
 domain: mandate.federation
 scenario: federation-issuer-mismatch
-summary: iss is not the connection's; authenticate.rs:251-252; read by mandate_conformance::external::ScenarioVerifier, the standing decode-only verifier double; residue story:signing-and-verification.
+summary: iss is not the connection's; authenticate::resolve, IssuerMismatch; read by external::ScenarioVerifier, the standing decode-only verifier double; residue story:testkit-doubles.
 arrange:
 - instance: conn
   entity: mandate.federation.FederationConnection

@@ -423,6 +423,51 @@ fn a_revoked_workload_identity_refuses() {
     );
 }
 
+/// `workload.yaml`, `RevokeWorkloadIdentity` denied: "revocation cannot durably stop the
+/// exchange of workload credentials presented under the binding". The revocation the command
+/// accepts is the one the exchange reads: the binding authenticates before it, and the same
+/// proof is refused on the revoked clause once `decide_revoke_workload_identity`'s event is
+/// applied to the records `AuthenticateWorkload` reads.
+#[test]
+fn revoked_binding_refuses_authentication() {
+    let mut workloads = workloads();
+    decide(&verifier(), &workloads, &records(), &request(None))
+        .expect("the binding authenticates before it is revoked");
+
+    let administrator = mandate_types::VerifiedContext {
+        subject: other_agent(),
+        actor: None,
+        organization: organization(),
+        audience: mandate_types::Audience::new("mandate"),
+        credential: mandate_types::CredentialId::new(uuid(0x41)),
+        delegation: None,
+        execution: None,
+        correlation: mandate_types::CorrelationId::new("revocation"),
+    };
+    let revoked = mandate_model::workload::decide_revoke_workload_identity(
+        &workloads,
+        &administrator,
+        workload(),
+    )
+    .expect("the caller's own recorded binding is revoked");
+    workloads.apply(&revoked);
+
+    refused(
+        &verifier(),
+        &workloads,
+        &records(),
+        &request(None),
+        AuthenticationClause::WorkloadRevoked,
+    );
+    refused(
+        &verifier(),
+        &workloads,
+        &records(),
+        &request(Some(execution())),
+        AuthenticationClause::WorkloadRevoked,
+    );
+}
+
 #[test]
 fn a_binding_two_recorded_identities_carry_is_refused_as_ambiguous() {
     let ambiguous = WorkloadIdentities::holding([

@@ -77,9 +77,6 @@ pub mod revocation;
 pub mod topology;
 
 mandate_types::realizes! {
-    "mandate.graph.WriteRelationship" => crate::relationship::RelationshipWriter,
-    "mandate.graph.RemoveRelation" => crate::revocation::RevocationWriter,
-    "mandate.graph.RevokeGrant" => crate::revocation::RevocationWriter,
     "mandate.graph.RegisterResource" => crate::topology::ResourceRegistry,
     "mandate.graph.DeregisterResource" => crate::topology::ResourceRegistry,
     "mandate.graph.Relation" => crate::record::Relation,
@@ -91,7 +88,9 @@ mandate_types::realizes! {
     // chooses no storage engine (`story:graph-policy-adapter` does), so what it implements
     // of each command is the operation's signature, its refusals and the rule the graph
     // itself owns. `double` is one implementation of those ports and is not the
-    // realization; an adapter is another.
+    // realization; an adapter is another. The three relation and grant writes are not
+    // here: only `double` implements their ports, so nothing shipped writes a relation or
+    // revokes a grant (`ESS_UNREALIZED`).
 }
 
 /// Every declared `mandate.graph` element this crate does **not** realize, with the reason.
@@ -102,9 +101,9 @@ mandate_types::realizes! {
 /// model in both directions: an element this list names and the registry also realizes is a
 /// contradiction, and an element neither one names is an element nobody accounted for.
 ///
-/// Two groups, and neither is an oversight.
+/// Three groups, and none is an oversight.
 ///
-/// Four elements of this domain are realized in **another crate**. `ownership.md:13` splits
+/// Four elements of this domain are realized in **another crate**. `ownership.md:11` splits
 /// `mandate.graph` between `mandate-model`, which holds the `Resource` projection, and this
 /// crate, which holds the relation and grant projections of its own fold and the ports.
 /// [`topology`] says the same thing from this side: this crate never holds a resource as a
@@ -117,10 +116,31 @@ mandate_types::realizes! {
 /// position and whether the move was already recorded — and none carries the declared
 /// `context` an event payload leads with. Building the payload is the adapter's, with the
 /// engine `story:graph-policy-adapter` chooses.
+///
+/// Three are the commands those events answer. [`relationship::RelationshipWriter`] and
+/// [`revocation::RevocationWriter`] declare them, and the only implementation of either is
+/// [`double::GraphDouble`]: nothing shipped writes a relation, removes one or revokes a
+/// grant, and the conformance target answers all three `Unsupported`. They wait on the same
+/// adapter, which `decision-blocker:backend` holds.
 pub const ESS_UNREALIZED: &[(&str, &str)] = &[
     (
+        "mandate.graph.WriteRelationship",
+        "the RelationshipWriter port is implemented only by double::GraphDouble; owner \
+         story:graph-policy-adapter, blocked on decision-blocker:backend",
+    ),
+    (
+        "mandate.graph.RemoveRelation",
+        "the RevocationWriter port is implemented only by double::GraphDouble; owner \
+         story:graph-policy-adapter, blocked on decision-blocker:backend",
+    ),
+    (
+        "mandate.graph.RevokeGrant",
+        "the RevocationWriter port is implemented only by double::GraphDouble; owner \
+         story:graph-policy-adapter, blocked on decision-blocker:backend",
+    ),
+    (
         "mandate.graph.Resource",
-        "realized by mandate_model::graph::Resource; ownership.md:13 gives the Resource \
+        "realized by mandate_model::graph::Resource; ownership.md:11 gives the Resource \
          projection to mandate-model; owner story:tenancy-topology",
     ),
     (
@@ -131,12 +151,12 @@ pub const ESS_UNREALIZED: &[(&str, &str)] = &[
     (
         "mandate.graph.ResourceRegistered",
         "realized by mandate_model::graph::ResourceEvent::Registered; owner \
-         story:tenancy-graph-events",
+         story:tenancy-topology",
     ),
     (
         "mandate.graph.ResourceDeregistered",
         "realized by mandate_model::graph::ResourceEvent::Deregistered; owner \
-         story:tenancy-graph-events",
+         story:tenancy-topology",
     ),
     (
         "mandate.graph.RelationshipWritten",

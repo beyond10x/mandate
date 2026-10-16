@@ -1,7 +1,7 @@
 type: ess-scenario/2
 domain: mandate.credential
 scenario: pkce-wrong-org-target
-summary: '`tenant/target agreement`: a target registered in another organization than the caller''s verified one; code.rs:606-607; corpus: none.'
+summary: '`tenant/target agreement`: a target registered in another organization than the caller''s verified one; issue_authorization_code, OrganizationMismatch; corpus: none.'
 arrange:
 - instance: server
   entity: mandate.credential.ResourceServer

@@ -368,14 +368,22 @@ fn the_double_only_column_holds_the_clauses_no_real_path_row_covers() {
             .expect("the report"),
     )
     .expect("valid JSON");
+    // Both supersede commands of `mandate-policy` are deferred whole (they carry no clause),
+    // so the crate that shows the column is `mandate-graph`, whose relationship clauses are
+    // reached by `GraphDouble` alone.
     let policy = &written["crates"]["mandate-policy"];
     assert_eq!(
-        policy["real_covered"], 0,
-        "no mandate-policy clause is covered on the real path yet:\n{report}"
+        policy["clauses"], 0,
+        "the deferred supersede commands carry no clause:\n{report}"
+    );
+    let graph = &written["crates"]["mandate-graph"];
+    assert_eq!(
+        graph["real_covered"], 0,
+        "no mandate-graph clause is covered on the real path yet:\n{report}"
     );
     assert!(
-        policy["double_only"].as_u64().expect("a count") > 0,
-        "mandate-policy's supersede clauses are reached by PolicyDouble alone:\n{report}"
+        graph["double_only"].as_u64().expect("a count") > 0,
+        "mandate-graph's clauses are reached by GraphDouble alone:\n{report}"
     );
     for crate_name in obligations_registry::CRATES {
         let row = &written["crates"][crate_name];
@@ -550,14 +558,14 @@ fn a_resolution_step_whose_text_is_not_the_addendums_is_refused() {
 fn a_status_the_coverage_manifest_contradicts_is_refused() {
     let root = fixture("status-disagrees");
     let mut document = document(&root, "graph");
-    let at = command_at(&document, "mandate.graph.RevokeGrant");
+    let at = command_at(&document, "mandate.graph.RegisterResource");
     document["commands"][at]["status"] = Value::String("deferred".to_owned());
     document["commands"][at]["clauses"] = Value::Array(Vec::new());
     document["commands"][at]["story"] = Value::String("story:graph-policy".to_owned());
     write_document(&root, "graph", &document);
     let error = failure(&root);
     assert!(
-        error.contains("mandate.graph.RevokeGrant") && error.contains("implemented"),
+        error.contains("mandate.graph.RegisterResource") && error.contains("implemented"),
         "the refusal names the command and what the manifest says:\n{error}"
     );
 }
@@ -695,36 +703,31 @@ fn a_clause_list_that_leaves_the_tail_of_the_cause_unaccounted_is_refused() {
 #[test]
 fn a_double_only_clause_deferred_to_the_crates_binding_story_is_refused() {
     let root = fixture("double-deferred-to-the-binding-story");
-    let mut document = document(&root, "policy");
-    let at = command_at(&document, "mandate.policy.SupersedePolicy");
-    let clauses = document["commands"][at]["clauses"]
-        .as_array_mut()
-        .expect("clauses");
-    let double = clauses
-        .iter()
-        .position(|clause| {
-            clause["tests"]
-                .as_array()
-                .expect("tests")
-                .iter()
-                .any(|row| row["path"] == "double")
-        })
-        .expect("one double-backed clause");
-    clauses[double]["blocked_on"] = Value::String("story:obligations-policy".to_owned());
-    write_document(&root, "policy", &document);
+    let mut document = document(&root, "authz");
+    let (at, clause, _) = double_row(&document);
+    document["commands"][at]["clauses"][clause]["blocked_on"] =
+        Value::String("story:obligations-authz".to_owned());
+    write_document(&root, "authz", &document);
     let error = failure(&root);
     assert!(
-        error.contains("story:obligations-policy"),
+        error.contains("story:obligations-authz"),
         "the refusal names the story that cannot discharge it:\n{error}"
     );
 }
 
-/// The one clause the registry decides in another crate: `mandate-federation`'s
-/// `AuthorizePublicClient` clause "STS code issuance", decided in `mandate-sts` and covered on
-/// the real path by a `mandate-sts` test. Exactly one — a second `decided_in` row anywhere in
-/// the directory is a new cross-crate claim, and this case is where it has to be argued for.
+/// The one clause the registry decides in another crate, argued here: `mandate-model`'s
+/// `RevokeWorkloadIdentity` clause "revocation cannot durably stop the exchange of workload
+/// credentials presented under the binding", decided in `mandate-authz`: the exchange path that
+/// reads the workload record is `AuthenticateWorkload`, which resolves a proof only to a binding
+/// still `Recorded`, and `crates/mandate-model/src/workload.rs` ("The clause another crate
+/// decides") says so. It is covered on the real path by a `mandate-authz` test. The other that
+/// was, `mandate-federation`'s `AuthorizePublicClient` clause "STS code issuance", went with that
+/// command's deferral to `story:oauth-integration`: a deferred command carries no clause.
+///
+/// Exactly this one: a second `decided_in` row anywhere in the directory is a new cross-crate
+/// claim, and this case is where it has to be argued for.
 #[test]
-fn the_one_clause_decided_in_another_crate_is_sts_code_issuance_and_is_covered_by_its_tests() {
+fn the_clause_decided_in_another_crate_is_the_one_argued_here_and_covered_by_its_test() {
     let root = fixture("decided-in-committed");
     let decided: Vec<(String, String, Value)> = obligations_registry::CRATES
         .iter()
@@ -757,27 +760,33 @@ fn the_one_clause_decided_in_another_crate_is_sts_code_issuance_and_is_covered_b
             .map(|(command, clause, row)| (command.as_str(), clause.as_str(), &row["decided_in"]))
             .collect::<Vec<_>>(),
         vec![(
-            "mandate.federation.AuthorizePublicClient",
-            "STS code issuance",
-            &Value::String("mandate-sts".to_owned())
+            "mandate.workload.RevokeWorkloadIdentity",
+            "revocation cannot durably stop the exchange of workload credentials presented \
+             under the binding",
+            &Value::String("mandate-authz".to_owned())
         )],
-        "exactly one clause row in the directory carries decided_in"
+        "exactly the one argued clause row in the directory carries decided_in"
     );
-    let clause = &decided[0].2;
-    assert!(
-        clause["blocked_on"].is_null(),
-        "covered, not deferred: {clause}"
-    );
-    let rows = clause["tests"].as_array().expect("tests");
-    assert!(
-        !rows.is_empty()
-            && rows.iter().all(|row| row["path"] == "real"
-                && row["kind"] == "denial"
-                && row["id"]
-                    .as_str()
-                    .is_some_and(|id| id.starts_with("mandate-sts::"))),
-        "every row is a real-path mandate-sts denial: {clause}"
-    );
+    for (_, _, clause) in &decided {
+        assert!(
+            clause["blocked_on"].is_null(),
+            "covered, not deferred: {clause}"
+        );
+        let prefix = format!(
+            "{}::",
+            clause["decided_in"]
+                .as_str()
+                .expect("decided_in names a crate")
+        );
+        let rows = clause["tests"].as_array().expect("tests");
+        assert!(
+            !rows.is_empty()
+                && rows.iter().all(|row| row["path"] == "real"
+                    && row["kind"] == "denial"
+                    && row["id"].as_str().is_some_and(|id| id.starts_with(&prefix))),
+            "every row is a real-path denial of the crate that decides it: {clause}"
+        );
+    }
     run(&root).expect("the committed registry is decided");
 }
 
@@ -925,11 +934,11 @@ fn a_double_no_library_target_declares_is_refused() {
 #[test]
 fn a_double_only_clause_deferred_to_a_story_that_does_not_name_its_double_is_refused() {
     let root = fixture("double-deferred-to-a-stranger");
-    let mut document = document(&root, "policy");
+    let mut document = document(&root, "authz");
     let (at, clause, _) = double_row(&document);
     document["commands"][at]["clauses"][clause]["blocked_on"] =
         Value::String("story:declared-writers".to_owned());
-    write_document(&root, "policy", &document);
+    write_document(&root, "authz", &document);
     let error = failure(&root);
     assert!(
         error.contains("story:declared-writers"),
@@ -962,7 +971,8 @@ fn first_test_id(document: &Value) -> String {
         .expect("one bound clause")
 }
 
-/// The first clause carrying `decided_in`, by command index and clause index.
+/// The first clause carrying `decided_in`, or failing that the first clause covered on the
+/// real path, by command index and clause index.
 fn decided_clause(document: &Value) -> (usize, usize) {
     for (at, entry) in document["commands"]
         .as_array()
@@ -978,7 +988,26 @@ fn decided_clause(document: &Value) -> (usize, usize) {
             return (at, clause);
         }
     }
-    panic!("one clause carries decided_in")
+    // No clause carries `decided_in` since `AuthorizePublicClient` was deferred whole, so the
+    // cases that edit the field edit it on the first clause with a real-path denial row.
+    for (at, entry) in document["commands"]
+        .as_array()
+        .expect("commands")
+        .iter()
+        .enumerate()
+    {
+        if let Some(clause) = entry["clauses"].as_array().and_then(|clauses| {
+            clauses.iter().position(|clause| {
+                clause["blocked_on"].is_null()
+                    && clause["tests"]
+                        .as_array()
+                        .is_some_and(|rows| rows.iter().any(|row| row["path"] == "real"))
+            })
+        }) {
+            return (at, clause);
+        }
+    }
+    panic!("one clause is covered on the real path")
 }
 
 /// The first `path: double` clause row, by command, clause and row index.

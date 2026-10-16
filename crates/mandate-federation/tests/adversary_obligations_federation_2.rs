@@ -330,7 +330,7 @@ fn the_report_does_not_count_a_double_backed_clause_in_real_covered() {
     let federation = &report["crates"]["mandate-federation"];
 
     assert_eq!(
-        federation["clauses"], 41,
+        federation["clauses"], 33,
         "the clause count is not in question"
     );
     assert_eq!(
@@ -339,7 +339,7 @@ fn the_report_does_not_count_a_double_backed_clause_in_real_covered() {
             federation["double_only"].as_u64(),
             federation["deferred"].as_u64(),
         ),
-        (Some(29), Some(3), Some(9)),
+        (Some(22), Some(3), Some(8)),
         "the three `mandate.federation.RegisterOAuthClient` clauses are decided by this \
          crate's standing double for `ClientRegistrationAdmission` and belong in \
          `double_only`; published `real_covered` they make the crate's row, and the \

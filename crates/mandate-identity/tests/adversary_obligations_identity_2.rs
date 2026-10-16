@@ -123,10 +123,12 @@ impl SecurityEpochWrite for AdapterWithoutTheOverflowGuard {
     }
 }
 
-/// The stand-in holds no records, so it places no target in any organization.
+/// The stand-in places every target in the caller's organization alone, so the tenancy
+/// check passes and only the write port could refuse: a target no record places is refused
+/// as outside the caller's organization before the port is reached.
 impl TargetTenancy for AdapterWithoutTheOverflowGuard {
     fn organizations_of(&self, _target: &SecurityEpochTarget) -> Vec<OrganizationId> {
-        Vec::new()
+        vec![organization()]
     }
 }
 
@@ -466,9 +468,12 @@ fn the_refresh_commands_deferral_names_a_story_that_owns_the_event_it_waits_on()
         .iter()
         .find(|command| command["command"] == "mandate.identity.RefreshSession")
         .expect("identity.json carries mandate.identity.RefreshSession");
+    // A command the registry defers as a whole names its story in `story`; one it carries
+    // implemented with a command-level `blocked_on` names it there.
     let deferral = refresh["blocked_on"]
         .as_str()
-        .expect("the command carries a command-level blocked_on")
+        .or_else(|| refresh["story"].as_str())
+        .expect("the command carries a command-level blocked_on or a deferred story")
         .to_owned();
     assert!(
         deferral.starts_with("story:"),

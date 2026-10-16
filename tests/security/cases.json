@@ -613,7 +613,7 @@
     {
       "id": "graph-revocation",
       "category": "authority",
-      "story": "story:graph-policy",
+      "story": "story:graph-policy-adapter",
       "given": "Grant revoked at revision R",
       "action": "Check with required revision R",
       "expected": "deny after declared consistency boundary",

@@ -208,9 +208,10 @@ pub fn decide(
             };
             // An implemented command sits in the document of the crate the coverage manifest
             // names for it (rule 3), even when that crate's document does not claim the
-            // command's domain: `mandate.workload.AuthenticateWorkload` is decided by
-            // `mandate-authz`, which reads the agent records, while `mandate-model` keeps the
-            // domain. Every other command sits in its domain's document.
+            // command's domain: `mandate.workload.RevokeWorkloadIdentity` is decided by
+            // `mandate-model`, which folds the workload records, while `mandate-authz`, which
+            // decides `AuthenticateWorkload`, files the domain. Every other command sits in its
+            // domain's document.
             let implementer = realized
                 .get(command)
                 .filter(|entry| entry["status"].as_str() == Some("implemented"))

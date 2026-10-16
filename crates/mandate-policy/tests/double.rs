@@ -252,19 +252,49 @@ fn superseding_a_model_twice_records_one_move() {
     assert_eq!(double.models().len(), 2);
 }
 
+/// Another organization's policy or model answers exactly as one no record carries does:
+/// `Denied`, never `TenantMismatch`, so the refusal is no existence oracle for another
+/// tenant's records.
 #[test]
-fn another_organizations_policy_is_a_tenant_mismatch() {
+fn another_organizations_policy_or_model_answers_like_an_unknown_one() {
     let mut double = published();
     double.record_policy(policy(6, "2026-09-18.2"));
+    double.record_model(model(7, "2026-09-18.2"));
 
     let mut elsewhere = context();
     elsewhere.organization = OrganizationId::new(uuid(9));
+    let unknown = PolicyError::Denied(DenialReason::Denied);
 
     let refusal = double
         .supersede_policy(&elsewhere, &PolicyId::new(uuid(4)))
         .expect_err("another tenant's policy");
+    assert_eq!(refusal, unknown);
+    assert_eq!(
+        double
+            .supersede_policy(&elsewhere, &PolicyId::new(uuid(8)))
+            .expect_err("no such policy"),
+        unknown
+    );
 
-    assert_eq!(refusal, PolicyError::Denied(DenialReason::TenantMismatch));
+    let refusal = double
+        .supersede_authorization_model(&elsewhere, &AuthorizationModelId::new(uuid(5)))
+        .expect_err("another tenant's model");
+    assert_eq!(refusal, unknown);
+    assert_eq!(
+        double
+            .supersede_authorization_model(&elsewhere, &AuthorizationModelId::new(uuid(8)))
+            .expect_err("no such model"),
+        unknown
+    );
+
+    assert!(
+        double
+            .policies()
+            .iter()
+            .all(|policy| policy.state == PolicyState::Recorded),
+        "no refusal superseded a policy"
+    );
+    assert_eq!(double.models().len(), 2, "no refusal recorded a model");
 }
 
 #[test]

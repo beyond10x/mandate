@@ -21,18 +21,24 @@
       "mandate.federation/authored/federation-issuer-mismatch",
       "mandate.federation/authored/federation-malformed-proof",
       "mandate.federation/authored/federation-resolution-precedence",
-      "mandate.federation/authored/federation-untrimmed-subject"
+      "mandate.federation/authored/federation-untrimmed-subject",
+      "mandate.identity/authored/epoch-increment-commit-fails"
     ],
     "authored_sources": {
       "scenarios/authz-unadmitted-organization.yaml": {
-        "digest": "sha256:e7ebd7c845da7aa6538c932b84f72717713266e67495fd2ff127a170d105726e",
+        "digest": "sha256:c9d34e509f4bf771b6dc9a9e64eb4d7b3a74764330bcfe44ea7b17b05221082c",
         "disposition": "accepted",
         "scenario": "mandate.authorization/authored/authz-unadmitted-organization"
       },
       "scenarios/credential-revoked-twice.yaml": {
-        "digest": "sha256:635c5ae5e98fafc8e63932262252fc213bbcde437b73e83a91031e715945d0f0",
+        "digest": "sha256:5d1190b98e761055e6e4b4a533651daae373ddb6163cd09fddc7b3d1fe0ce163",
         "disposition": "accepted",
         "scenario": "mandate.credential/authored/credential-revoked-twice"
+      },
+      "scenarios/epoch-increment-commit-fails.yaml": {
+        "digest": "sha256:a5ea63556f46519fcb6d6e73af4d5c0275cc8c034ae81aa1e8cef91f268ea08b",
+        "disposition": "accepted",
+        "scenario": "mandate.identity/authored/epoch-increment-commit-fails"
       },
       "scenarios/exchange-ceiling-conflict.yaml": {
         "digest": "sha256:6a04552d9fb3ef65f6ff4eab276b85f6a137e4e2a928e74e1f349fb9c0287c66",
@@ -45,93 +51,93 @@
         "scenario": "mandate.federation/authored/federation-ambiguous-tenant"
       },
       "scenarios/federation-audience-mismatch.yaml": {
-        "digest": "sha256:0fa8e1888bfdbc7ff6b29bc88b949a6fa5999544f0450da0d9c6db708e65f6b5",
+        "digest": "sha256:dcc04d04a8c809af1f02187c1cbab16d3548d7be5abaf8543c258b026fc0c7d9",
         "disposition": "accepted",
         "scenario": "mandate.federation/authored/federation-audience-mismatch"
       },
       "scenarios/federation-configured-method-on-explicit-link.yaml": {
-        "digest": "sha256:efe20499a652ab317f997e63e507536d1d5f9beb4d5f9ef1f5157324d51577ca",
+        "digest": "sha256:7a229fc17ce59d0a84073c6ad4ef8a2e849b4a1925f80aaf27ee73a79b0cc9e1",
         "disposition": "accepted",
         "scenario": "mandate.federation/authored/federation-configured-method-on-explicit-link"
       },
       "scenarios/federation-disabled-connection.yaml": {
-        "digest": "sha256:2edae1a4e879577c5ca1e1c4e91442319f5b5ddcdc7ced61de77ae4fa19b3edf",
+        "digest": "sha256:727ad6d5f8ab744b7209c129d21ef87ae1c72a4de2d73656a79061d6bb5732d0",
         "disposition": "accepted",
         "scenario": "mandate.federation/authored/federation-disabled-connection"
       },
       "scenarios/federation-empty-subject.yaml": {
-        "digest": "sha256:b9f35294801dcf987360ff927864a42acd46b9b8d38394918872c0c194805cf1",
+        "digest": "sha256:52c5fa27a7954a1827c03372810d417baedfe8d3f48a3dec415b76ba6704a6e7",
         "disposition": "accepted",
         "scenario": "mandate.federation/authored/federation-empty-subject"
       },
       "scenarios/federation-issuer-mismatch.yaml": {
-        "digest": "sha256:fc652c78f8de9f440b2fbf0b9122bbb551f5fe3906f52e868e96787842460419",
+        "digest": "sha256:415e0386abe6007201dd20a8828986cda459899aa88b704aa33b35c3d1bd3afb",
         "disposition": "accepted",
         "scenario": "mandate.federation/authored/federation-issuer-mismatch"
       },
       "scenarios/federation-malformed-proof.yaml": {
-        "digest": "sha256:b8ed5e671bf18e775c5f63d1ba3655e6850516f3c80c716bb97201d78de3e2ec",
+        "digest": "sha256:3b389f8913cbca7e1b9b046e0f9fd05e56d387f0b8c3519fbb53077a0c465ec7",
         "disposition": "accepted",
         "scenario": "mandate.federation/authored/federation-malformed-proof"
       },
       "scenarios/federation-resolution-precedence.yaml": {
-        "digest": "sha256:357bb6f926d6e953c74c504ed2239ce97d5fa4f7d583441aff4d3de6476e115b",
+        "digest": "sha256:a702fcfd15127e3eba282289b921e964d0d06dde8901f2c68c0c2251b6c69980",
         "disposition": "accepted",
         "scenario": "mandate.federation/authored/federation-resolution-precedence"
       },
       "scenarios/federation-untrimmed-subject.yaml": {
-        "digest": "sha256:0292663759fec1adcd4f2a496fbb4a7d077c66177434d58bfe3018e3b62b7ee4",
+        "digest": "sha256:4a08ebdf7d483827835ddda5132d434a1942113989f01ee3ade08997e61efd2e",
         "disposition": "accepted",
         "scenario": "mandate.federation/authored/federation-untrimmed-subject"
       },
       "scenarios/introspect-caller-proof-malformed.yaml": {
-        "digest": "sha256:a7db3d7534a8bf24df2890ff3d0843e19850d284032f0b60ea0a6b3fa5e2ae3d",
+        "digest": "sha256:86ec4adf04d885525769a39d145ae5836f5949099c27ed37bb3154ad9c2fdbe0",
         "disposition": "accepted",
         "scenario": "mandate.credential/authored/introspect-caller-proof-malformed"
       },
       "scenarios/pkce-code-expired.yaml": {
-        "digest": "sha256:53f681f98f618234cfd38a6ced3fbeb6951a3569f8da08c03c8ed2545207b512",
+        "digest": "sha256:e729d765d8137393d3c7902a01756ee4c941e968ba01e5257b3abf1072130da0",
         "disposition": "accepted",
         "scenario": "mandate.credential/authored/pkce-code-expired"
       },
       "scenarios/pkce-malformed-challenge.yaml": {
-        "digest": "sha256:3c8a2d9e7a330ab493e63b95bcadddc0ee9e2b28e5338b6ba6c5f4689299191c",
+        "digest": "sha256:ec151446d602e226cb7a68deb5c4154983efde83150720660116b3608663b8a7",
         "disposition": "accepted",
         "scenario": "mandate.credential/authored/pkce-malformed-challenge"
       },
       "scenarios/pkce-redirect-mismatch.yaml": {
-        "digest": "sha256:414169b6b77f24b3d13ce092cfba2eaee753e6cd21313857de0d8435f7c14713",
+        "digest": "sha256:1da337660f6cf14bb2787cf378746626d1c0ef02f690aaf3854d97c88cc57ede",
         "disposition": "accepted",
         "scenario": "mandate.credential/authored/pkce-redirect-mismatch"
       },
       "scenarios/pkce-reuse.yaml": {
-        "digest": "sha256:2b90cbe0a4c8fc6be6d835d5220a558692fa53125316eee2221844e7ba5469f2",
+        "digest": "sha256:c31a5561af0af0e12171ac50c0dc474e2c05314f17fece18671b9634791c91ed",
         "disposition": "accepted",
         "scenario": "mandate.credential/authored/pkce-reuse"
       },
       "scenarios/pkce-wrong-org-target.yaml": {
-        "digest": "sha256:e65201ea64359993e49bffb1642a19b77fabc151257e54d6bd8b8ecba40af486",
+        "digest": "sha256:8d8eb61778f6d7dc5ad612d7ce3acb34eb20817610fd2550fd05a370dff4442c",
         "disposition": "accepted",
         "scenario": "mandate.credential/authored/pkce-wrong-org-target"
       },
       "scenarios/pkce-wrong.yaml": {
-        "digest": "sha256:5557f3959768759c204644ae71b9ad04a5008b5a5a708e271965828920197b9e",
+        "digest": "sha256:1bf2d081bf92bfcc9d5143208a2abd0b42fb0f96c668a2e4cc50269c275916b8",
         "disposition": "accepted",
         "scenario": "mandate.credential/authored/pkce-wrong"
       },
       "scenarios/sts-disabled-client-issuance.yaml": {
-        "digest": "sha256:a5f0ec66264e67408741e930901436f3a581173d11d33eb1d3247e0b5177c391",
+        "digest": "sha256:7a22c8b35aeb8cf6feb4a9c10a9d08b23f1ecc02a9acb22eea29dee6e6675a92",
         "disposition": "accepted",
         "scenario": "mandate.credential/authored/sts-disabled-client-issuance"
       },
       "scenarios/sts-disabled-registration-caller.yaml": {
-        "digest": "sha256:7af17f4eecc9417e2e45edcec915a584a394413d9b256aa861eec226748068cb",
+        "digest": "sha256:246d0e0487f28bf2af8a3fb0d3e5547a7d11e5e184c8ffa8e51415ee21114ddd",
         "disposition": "accepted",
         "scenario": "mandate.credential/authored/sts-disabled-registration-caller"
       }
     },
     "counts": {
-      "authored": 21,
+      "authored": 22,
       "generated": 164,
       "outside": 0,
       "refused": 75
@@ -9508,7 +9514,7 @@
       ]
     },
     "mandate.authorization/authored/authz-unadmitted-organization": {
-      "purpose": "`Credential-derived context is invalid/revoked/expired/stale`: a context naming an organization no CreateOrganization recorded admits no authority; context.rs:104; corpus: none.",
+      "purpose": "`Credential-derived context is invalid/revoked/expired/stale`: a context naming an organization no CreateOrganization recorded admits no authority; context::bound; corpus: none.",
       "source": [
         {
           "kind": "domain",
@@ -9548,10 +9554,6 @@
         },
         {
           "kind": "type",
-          "name": "mandate.core.OrganizationMembershipId"
-        },
-        {
-          "kind": "type",
           "name": "mandate.core.PrincipalId"
         },
         {
@@ -9580,10 +9582,6 @@
         },
         {
           "kind": "command",
-          "name": "mandate.tenancy.AddOrganizationMembership"
-        },
-        {
-          "kind": "command",
           "name": "mandate.tenancy.CreateOrganization"
         },
         {
@@ -9591,13 +9589,6 @@
           "name": {
             "command": "mandate.authorization.Check",
             "outcome": "denied"
-          }
-        },
-        {
-          "kind": "outcome",
-          "name": {
-            "command": "mandate.tenancy.AddOrganizationMembership",
-            "outcome": "accepted"
           }
         },
         {
@@ -9614,10 +9605,6 @@
         {
           "kind": "event",
           "name": "mandate.tenancy.OrganizationCreated"
-        },
-        {
-          "kind": "event",
-          "name": "mandate.tenancy.OrganizationMembershipAdded"
         },
         {
           "kind": "error",
@@ -9710,93 +9697,6 @@
           "field": "organization_id",
           "instance": "organization",
           "step": "capture_instance"
-        },
-        {
-          "command": "mandate.tenancy.AddOrganizationMembership",
-          "input": {
-            "context": {
-              "kind": "literal",
-              "value": {
-                "audience": "mandate",
-                "correlation": "authz-unadmitted-member",
-                "credential": "00000000-0000-4000-8000-0000000000c1",
-                "organization": "00000000-0000-4000-8000-0000000000a1",
-                "subject": "00000000-0000-4000-8000-000000000001"
-              }
-            },
-            "organization_id": {
-              "instance": "organization",
-              "kind": "instance"
-            },
-            "principal_id": {
-              "kind": "literal",
-              "value": "00000000-0000-4000-8000-000000000002"
-            }
-          },
-          "step": "execute_command"
-        },
-        {
-          "outcome": {
-            "command": "mandate.tenancy.AddOrganizationMembership",
-            "outcome": "accepted"
-          },
-          "step": "expect_outcome"
-        },
-        {
-          "event": "mandate.tenancy.OrganizationMembershipAdded",
-          "payload": {
-            "principal_id": "00000000-0000-4000-8000-000000000002"
-          },
-          "shape": {
-            "context.actor": {
-              "holds": "primitive",
-              "kind": "uuid",
-              "optional": true
-            },
-            "context.audience": {
-              "holds": "primitive",
-              "kind": "string"
-            },
-            "context.correlation": {
-              "holds": "primitive",
-              "kind": "string"
-            },
-            "context.credential": {
-              "holds": "primitive",
-              "kind": "uuid"
-            },
-            "context.delegation": {
-              "holds": "primitive",
-              "kind": "uuid",
-              "optional": true
-            },
-            "context.execution": {
-              "holds": "primitive",
-              "kind": "uuid",
-              "optional": true
-            },
-            "context.organization": {
-              "holds": "primitive",
-              "kind": "uuid"
-            },
-            "context.subject": {
-              "holds": "primitive",
-              "kind": "uuid"
-            },
-            "membership_id": {
-              "holds": "primitive",
-              "kind": "uuid"
-            },
-            "organization_id": {
-              "holds": "primitive",
-              "kind": "uuid"
-            },
-            "principal_id": {
-              "holds": "primitive",
-              "kind": "uuid"
-            }
-          },
-          "step": "expect_event"
         },
         {
           "force": {
@@ -37310,7 +37210,7 @@
       ]
     },
     "mandate.credential/authored/credential-revoked-twice": {
-      "purpose": "`revoke` starts from Active alone, so a credential already in the terminal Revoked state is the declared wrong-state refusal; resolve.rs:581-582; corpus: none.",
+      "purpose": "`revoke` starts from Active alone, so a credential already in the terminal Revoked state is the declared wrong-state refusal; revoke_access_credential, CredentialRevoked; corpus: none.",
       "source": [
         {
           "kind": "domain",
@@ -38147,7 +38047,7 @@
       ]
     },
     "mandate.credential/authored/introspect-caller-proof-malformed": {
-      "purpose": "`is itself invalid, revoked or expired`: an empty caller proof is refused before any registration or credential is read; resolve.rs:420-421; corpus: none.",
+      "purpose": "`is itself invalid, revoked or expired`: an empty caller proof is refused before any registration or credential is read; introspect_credential, CallerProofInvalid; corpus: none.",
       "source": [
         {
           "kind": "domain",
@@ -38224,7 +38124,7 @@
       ]
     },
     "mandate.credential/authored/pkce-code-expired": {
-      "purpose": "`code is expired`: the code record is seeded with the computed verifier of the code presented and an expiry the redemption has passed; redemption.rs:329-330; corpus: none.",
+      "purpose": "`code is expired`: the code expires before the redemption instant and its session is live, so the expiry clause refuses; redemption::decide, CodeExpired; corpus: none.",
       "source": [
         {
           "kind": "domain",
@@ -38256,7 +38156,19 @@
         },
         {
           "kind": "type",
+          "name": "mandate.core.EpochSnapshotRef"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.FederationConnectionId"
+        },
+        {
+          "kind": "type",
           "name": "mandate.core.OAuthClientId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.OrganizationId"
         },
         {
           "kind": "type",
@@ -38265,6 +38177,10 @@
         {
           "kind": "type",
           "name": "mandate.core.PkceMethod"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.PrincipalId"
         },
         {
           "kind": "type",
@@ -38299,6 +38215,10 @@
           "name": "mandate.credential.AuthorizationCode"
         },
         {
+          "kind": "entity",
+          "name": "mandate.identity.Session"
+        },
+        {
           "kind": "command",
           "name": "mandate.credential.RedeemAuthorizationCode"
         },
@@ -38324,7 +38244,7 @@
           "fields": {
             "challenge": "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
             "client_id": "00000000-0000-4000-8000-0000000000c9",
-            "expires_at": "2026-01-05T09:01:00Z",
+            "expires_at": "2025-12-31T23:59:00Z",
             "method": "S256",
             "redirect_uri": "https://app.example.test/callback",
             "scope": {
@@ -38345,6 +38265,19 @@
           "identity": "00000000-0000-4000-8000-0000000000d1",
           "instance": "code",
           "state": "Issued",
+          "step": "establish_entity"
+        },
+        {
+          "entity": "mandate.identity.Session",
+          "fields": {
+            "epochs": "00000000-0000-4000-8000-0000000000b1",
+            "expires_at": "2026-01-05T23:00:00Z",
+            "organization_id": "00000000-0000-4000-8000-0000000000a1",
+            "principal_id": "00000000-0000-4000-8000-000000000001"
+          },
+          "identity": "00000000-0000-4000-8000-0000000000f1",
+          "instance": "session",
+          "state": "Active",
           "step": "establish_entity"
         },
         {
@@ -38401,7 +38334,7 @@
       ]
     },
     "mandate.credential/authored/pkce-malformed-challenge": {
-      "purpose": "`S256 policy`: a challenge that is not the base64url of a 32-byte digest records no code; code.rs:640-641; corpus: none.",
+      "purpose": "`S256 policy`: a challenge that is not the base64url of a 32-byte digest records no code; issue_authorization_code, ChallengeMalformed; corpus: none.",
       "source": [
         {
           "kind": "domain",
@@ -38916,7 +38849,7 @@
       ]
     },
     "mandate.credential/authored/pkce-redirect-mismatch": {
-      "purpose": "`exact redirect URI`: a redirect the client's registration does not carry byte for byte binds no code; code.rs:494-496; corpus pkce-redirect.",
+      "purpose": "`exact redirect URI`: a redirect the client's registration does not carry byte for byte binds no code; admitted_redirect, RedirectUnregistered; corpus pkce-redirect.",
       "source": [
         {
           "kind": "domain",
@@ -39431,7 +39364,7 @@
       ]
     },
     "mandate.credential/authored/pkce-reuse": {
-      "purpose": "`consume` starts from Issued alone: the code record is seeded with the computed verifier of the code presented and rests in Consumed; redemption.rs:320-321; corpus pkce-reuse.",
+      "purpose": "`consume` starts from Issued alone: the code record is seeded with the computed verifier of the code presented and rests in Consumed; redemption::decide, CodeConsumed; corpus pkce-reuse.",
       "source": [
         {
           "kind": "domain",
@@ -39601,7 +39534,7 @@
       ]
     },
     "mandate.credential/authored/pkce-wrong": {
-      "purpose": "`client, redirect URI or S256 verifier mismatches`: the code record is seeded with the computed verifier of the code presented, so the PKCE verifier decides; redemption.rs:239-240; corpus pkce-wrong.",
+      "purpose": "`client, redirect URI or S256 verifier mismatches`: the code record is seeded with the computed verifier of the code presented, so the PKCE verifier decides; VerifierMismatch; corpus pkce-wrong.",
       "source": [
         {
           "kind": "domain",
@@ -39778,7 +39711,7 @@
       ]
     },
     "mandate.credential/authored/pkce-wrong-org-target": {
-      "purpose": "`tenant/target agreement`: a target registered in another organization than the caller's verified one; code.rs:606-607; corpus: none.",
+      "purpose": "`tenant/target agreement`: a target registered in another organization than the caller's verified one; issue_authorization_code, OrganizationMismatch; corpus: none.",
       "source": [
         {
           "kind": "domain",
@@ -40293,7 +40226,7 @@
       ]
     },
     "mandate.credential/authored/sts-disabled-client-issuance": {
-      "purpose": "`the client the code would be bound to is disabled`: a disabled registration is issued no new code; code.rs:435-436; corpus: none.",
+      "purpose": "`the client the code would be bound to is disabled`: a disabled registration is issued no new code; admitted_client, ClientDisabled; corpus: none.",
       "source": [
         {
           "kind": "domain",
@@ -40895,7 +40828,7 @@
       ]
     },
     "mandate.credential/authored/sts-disabled-registration-caller": {
-      "purpose": "`disable` starts from Enabled alone, so a registration already in the terminal Disabled state is the declared wrong-state refusal; registry.rs:257-258; corpus: none.",
+      "purpose": "`disable` starts from Enabled alone, so a registration already in the terminal Disabled state is the declared wrong-state refusal; disable_resource_server, ServerDisabled; corpus: none.",
       "source": [
         {
           "kind": "domain",
@@ -82962,7 +82895,7 @@
       ]
     },
     "mandate.federation/authored/federation-audience-mismatch": {
-      "purpose": "aud is not the client; authenticate.rs:258-259; read by mandate_conformance::external::ScenarioVerifier, the standing decode-only verifier double; residue story:signing-and-verification.",
+      "purpose": "aud is not the client; authenticate::resolve, AudienceBinding; read by external::ScenarioVerifier, the standing decode-only verifier double; residue story:testkit-doubles.",
       "source": [
         {
           "kind": "domain",
@@ -83228,7 +83161,7 @@
       ]
     },
     "mandate.federation/authored/federation-configured-method-on-explicit-link": {
-      "purpose": "`Caller/method lacks linking authority`: the principal is linked in the connection's organization, so the method is the first guard; link.rs:95-96; corpus: none.",
+      "purpose": "`Caller/method lacks linking authority`: the principal is linked in the connection's organization, so the method is the first guard; link_external_principal, LinkingAuthority; corpus: none.",
       "source": [
         {
           "kind": "domain",
@@ -83539,7 +83472,7 @@
       ]
     },
     "mandate.federation/authored/federation-disabled-connection": {
-      "purpose": "the connection is disabled; authenticate.rs:242-243; read by mandate_conformance::external::ScenarioVerifier, the standing decode-only verifier double; residue story:signing-and-verification.",
+      "purpose": "the connection is disabled; authenticate::resolve, ConnectionDisabled; read by external::ScenarioVerifier, the standing decode-only verifier double; residue story:testkit-doubles.",
       "source": [
         {
           "kind": "domain",
@@ -83892,7 +83825,7 @@
       ]
     },
     "mandate.federation/authored/federation-empty-subject": {
-      "purpose": "sub trims to nothing; authenticate.rs:267-268; read by mandate_conformance::external::ScenarioVerifier, the standing decode-only verifier double; residue story:signing-and-verification.",
+      "purpose": "sub trims to nothing; authenticate::resolve, EmptySubject; read by external::ScenarioVerifier, the standing decode-only verifier double; residue story:testkit-doubles.",
       "source": [
         {
           "kind": "domain",
@@ -84158,7 +84091,7 @@
       ]
     },
     "mandate.federation/authored/federation-issuer-mismatch": {
-      "purpose": "iss is not the connection's; authenticate.rs:251-252; read by mandate_conformance::external::ScenarioVerifier, the standing decode-only verifier double; residue story:signing-and-verification.",
+      "purpose": "iss is not the connection's; authenticate::resolve, IssuerMismatch; read by external::ScenarioVerifier, the standing decode-only verifier double; residue story:testkit-doubles.",
       "source": [
         {
           "kind": "domain",
@@ -84424,7 +84357,7 @@
       ]
     },
     "mandate.federation/authored/federation-malformed-proof": {
-      "purpose": "`proof signature/issuer/audience/expiry is invalid`, refused at the verifier: the proof is not a compact JWS, so no double can decode it; verifier_real.rs:1281; corpus: none.",
+      "purpose": "`proof signature/issuer/audience/expiry is invalid`, refused at the verifier: the proof is not a compact JWS, so no double can decode it; verifier_real::refused, MalformedToken; corpus: none.",
       "source": [
         {
           "kind": "domain",
@@ -84690,7 +84623,7 @@
       ]
     },
     "mandate.federation/authored/federation-resolution-precedence": {
-      "purpose": "Resolution order 1 before 3: the connection state is decided for a proof no verifier can decode, so the answer is Denied and never InvalidCredential; authenticate.rs:242-243; corpus: none.",
+      "purpose": "Resolution order 1 before 3: the connection state is decided for a proof no verifier can decode, so the answer is Denied and never InvalidCredential; resolve, ConnectionDisabled; corpus: none.",
       "source": [
         {
           "kind": "domain",
@@ -85043,7 +84976,7 @@
       ]
     },
     "mandate.federation/authored/federation-untrimmed-subject": {
-      "purpose": "sub is not its own trim; authenticate.rs:274-275; read by mandate_conformance::external::ScenarioVerifier, the standing decode-only verifier double; residue story:signing-and-verification.",
+      "purpose": "sub is not its own trim; authenticate::resolve, SubjectNotTrimmed; read by external::ScenarioVerifier, the standing decode-only verifier double; residue story:testkit-doubles.",
       "source": [
         {
           "kind": "domain",
@@ -104364,6 +104297,153 @@
         },
         {
           "event": "mandate.workload.WorkloadIdentityRevoked",
+          "step": "expect_no_event"
+        }
+      ]
+    },
+    "mandate.identity/authored/epoch-increment-commit-fails": {
+      "purpose": "`atomic increment cannot commit`: a placed principal whose increment only the write port refuses; increment.rs; corpus: none.",
+      "source": [
+        {
+          "kind": "domain",
+          "name": "mandate.identity"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.Audience"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.CorrelationId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.CredentialId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.DelegationId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.DenialReason"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.EpochSnapshotRef"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.ExecutionId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.FederationConnectionId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.OrganizationId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.PrincipalId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.SecurityEpochTarget"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.SessionId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.VerifiedContext"
+        },
+        {
+          "kind": "entity",
+          "name": "mandate.identity.Session"
+        },
+        {
+          "kind": "command",
+          "name": "mandate.identity.IncrementSecurityEpoch"
+        },
+        {
+          "kind": "outcome",
+          "name": {
+            "command": "mandate.identity.IncrementSecurityEpoch",
+            "outcome": "denied"
+          }
+        },
+        {
+          "kind": "event",
+          "name": "mandate.identity.SecurityEpochIncremented"
+        },
+        {
+          "kind": "error",
+          "name": "mandate.identity.Denied"
+        }
+      ],
+      "steps": [
+        {
+          "entity": "mandate.identity.Session",
+          "fields": {
+            "epochs": "00000000-0000-4000-8000-0000000000b2",
+            "expires_at": "2026-01-05T23:00:00Z",
+            "organization_id": "00000000-0000-4000-8000-0000000000a1",
+            "principal_id": "00000000-0000-4000-8000-000000000001"
+          },
+          "identity": "00000000-0000-4000-8000-0000000000f2",
+          "instance": "session",
+          "state": "Active",
+          "step": "establish_entity"
+        },
+        {
+          "force": {
+            "command": "mandate.identity.IncrementSecurityEpoch",
+            "outcome": "denied"
+          },
+          "step": "configure_external_outcome"
+        },
+        {
+          "command": "mandate.identity.IncrementSecurityEpoch",
+          "input": {
+            "context": {
+              "kind": "literal",
+              "value": {
+                "audience": "mandate",
+                "correlation": "epoch-increment-commit-fails",
+                "credential": "00000000-0000-4000-8000-0000000000c1",
+                "organization": "00000000-0000-4000-8000-0000000000a1",
+                "subject": "00000000-0000-4000-8000-000000000001"
+              }
+            },
+            "target": {
+              "kind": "literal",
+              "value": {
+                "kind": "principal",
+                "value": "00000000-0000-4000-8000-000000000001"
+              }
+            }
+          },
+          "step": "execute_command"
+        },
+        {
+          "outcome": {
+            "command": "mandate.identity.IncrementSecurityEpoch",
+            "outcome": "denied"
+          },
+          "step": "expect_outcome"
+        },
+        {
+          "error": "mandate.identity.Denied",
+          "fields": {
+            "reason": "Unavailable"
+          },
+          "step": "expect_error"
+        },
+        {
+          "event": "mandate.identity.SecurityEpochIncremented",
           "step": "expect_no_event"
         }
       ]

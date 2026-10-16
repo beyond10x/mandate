@@ -127,7 +127,7 @@ fn world() -> IdentityLog {
 /// `decision-blocker:guards`, whose text is about "executable cryptographic, graph or policy
 /// predicates" and a "trusted context adapter". This clause is neither: it is a
 /// `SecurityEpochTarget::Organization` compared against `VerifiedContext::organization`, which
-/// this crate already performs for `RevokeSession` at `src/session.rs:369` and for a session's
+/// this crate already performs for `RevokeSession` (`revoke_session`) and for a session's
 /// snapshot at `src/session.rs:222`.
 ///
 /// The first assertion is that capability, exercised. The second is the clause the contract
@@ -151,7 +151,7 @@ fn an_increment_naming_another_organizations_target_fails_tenant_containment() {
 
     // What this crate decides about the same predicate, on the sibling command: the caller's
     // verified organization is compared against the record's, and a caller outside it is
-    // refused. `src/session.rs:369`.
+    // refused exactly as for a session no record carries (`src/session.rs`, `revoke_session`).
     let mut sibling = log.clone();
     let elsewhere = VerifiedContext {
         organization: another_organization(),
@@ -159,7 +159,7 @@ fn an_increment_naming_another_organizations_target_fails_tenant_containment() {
     };
     let refused = revoke_session(&mut sibling, &elsewhere, session_id())
         .expect_err("RevokeSession compares the record's organization against the caller's");
-    assert_eq!(refused.reason(), DenialReason::TenantMismatch);
+    assert_eq!(refused.reason(), DenialReason::InvalidCredential);
     assert_eq!(refused.outcome(), RefusedOutcome::Denied);
 
     // The same predicate, on the command whose declared cause also publishes it.

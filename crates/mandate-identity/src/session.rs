@@ -353,8 +353,9 @@ where
 ///
 /// # Errors
 ///
-/// Returns the declared refusal through the `denied` outcome when the session does not
-/// resolve or is outside the caller's verified organization, and through the
+/// Returns the declared refusal through the `denied` outcome, with `InvalidCredential`
+/// alike, when the session does not resolve or is outside the caller's verified
+/// organization, and through the
 /// `wrong-state` outcome when it is already in the terminal `Revoked` state. The log is
 /// unchanged in each case.
 pub fn revoke_session(
@@ -365,9 +366,11 @@ pub fn revoke_session(
     let Some(session) = log.resolve(&id) else {
         return Err(Denial::new(DenialReason::InvalidCredential));
     };
-    // "session is outside the verified organization" (`identity.yaml`, `RevokeSession`).
+    // "session is outside the verified organization" (`identity.yaml`, `RevokeSession`):
+    // answered exactly as a session that does not resolve, so the refusal does not tell a
+    // caller that another organization holds the id.
     if session.organization() != &context.organization {
-        return Err(Denial::new(DenialReason::TenantMismatch));
+        return Err(Denial::new(DenialReason::InvalidCredential));
     }
     if !session.is_active() {
         return Err(Denial::wrong_state(DenialReason::Denied));

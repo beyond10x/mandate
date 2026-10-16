@@ -4,8 +4,7 @@
   "domains": [
     "mandate.audit",
     "mandate.directory",
-    "mandate.tenancy",
-    "mandate.workload"
+    "mandate.tenancy"
   ],
   "commands": [
     {
@@ -19,7 +18,7 @@
     {
       "command": "mandate.audit.RedactAuditEvent",
       "status": "deferred",
-      "story": "story:audit-client",
+      "story": "story:audit-worker-delivery",
       "blocker": "decision-blocker:audit-routing",
       "clauses": [],
       "no_state_change": []
@@ -554,18 +553,29 @@
               "id": "mandate-model::workload::a_workload_identity_of_another_organization_refuses_like_an_unknown_one",
               "kind": "denial",
               "path": "real"
+            },
+            {
+              "id": "mandate-model::workload::a_revoked_identity_of_another_organization_answers_denied_like_an_unknown_one",
+              "kind": "denial",
+              "path": "real"
             }
           ]
         },
         {
           "clause": "revocation cannot durably stop the exchange of workload credentials presented under the binding",
-          "tests": [],
-          "blocked_on": "story:agent-security"
+          "decided_in": "mandate-authz",
+          "tests": [
+            {
+              "id": "mandate-authz::workload_authentication::revoked_binding_refuses_authentication",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
         }
       ],
       "no_state_change": [
         {
-          "id": "mandate-model::workload::a_second_revocation_refuses_and_emits_nothing",
+          "id": "mandate-model::workload::a_second_revocation_answers_wrong_state_and_emits_nothing",
           "kind": "no-state-change",
           "path": "real"
         }

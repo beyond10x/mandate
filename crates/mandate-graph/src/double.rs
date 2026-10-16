@@ -252,7 +252,7 @@ impl ResourceRegistry for GraphDouble {
                     .filter(|entry| entry.state == ResourceState::Recorded)
                     .ok_or(GraphError::Denied(DenialReason::Denied))?;
                 if entry.organization != context.organization {
-                    return Err(GraphError::Denied(DenialReason::TenantMismatch));
+                    return Err(GraphError::Denied(DenialReason::Denied));
                 }
                 Some(entry.resource.clone())
             }
@@ -309,7 +309,7 @@ impl ResourceRegistry for GraphDouble {
             .ok_or(GraphError::Denied(DenialReason::Denied))?;
 
         if entry.organization != context.organization {
-            return Err(GraphError::Denied(DenialReason::TenantMismatch));
+            return Err(GraphError::Denied(DenialReason::Denied));
         }
         if entry.state == ResourceState::Deregistered {
             return Ok(Deregistration {
@@ -413,7 +413,7 @@ impl RevocationWriter for GraphDouble {
             .ok_or(GraphError::Denied(DenialReason::Denied))?;
 
         if self.relations[position].organization_id != context.organization {
-            return Err(GraphError::Denied(DenialReason::TenantMismatch));
+            return Err(GraphError::Denied(DenialReason::Denied));
         }
 
         let outcome = self.relations[position].remove();
@@ -443,7 +443,7 @@ impl RevocationWriter for GraphDouble {
             .ok_or(GraphError::Denied(DenialReason::Denied))?;
 
         if self.grants[position].organization_id != context.organization {
-            return Err(GraphError::Denied(DenialReason::TenantMismatch));
+            return Err(GraphError::Denied(DenialReason::Denied));
         }
 
         let outcome = self.grants[position].revoke();

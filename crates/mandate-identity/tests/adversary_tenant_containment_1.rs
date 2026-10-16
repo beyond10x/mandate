@@ -19,8 +19,8 @@ use mandate_identity::{
     StreamVersion, TargetTenancy,
 };
 use mandate_types::{
-    Audience, CorrelationId, CredentialId, EpochSnapshotRef, OrganizationId, PrincipalId,
-    SecurityEpochTarget, SessionId, Timestamp, Uuid, VerifiedContext,
+    Audience, CorrelationId, CredentialId, DenialReason, EpochSnapshotRef, OrganizationId,
+    PrincipalId, SecurityEpochTarget, SessionId, Timestamp, Uuid, VerifiedContext,
 };
 
 fn uuid(tag: u8) -> Uuid {
@@ -86,14 +86,13 @@ impl SecurityEpochWrite for Interleaved {
     }
 }
 
-/// Pinned by the coordinator (correction round 1, F1) to the shipped behaviour: the tenancy read
-/// and the compare-and-set are two port calls with no shared token, so the interleaved increment
-/// is accepted and the generation moves 0 → 1. Making the check atomic with the write is the
-/// transactional behaviour `decision-blocker:epoch-atomicity` owns; this case flips to a
-/// `TenantMismatch` refusal with an unmoved generation when that blocker is answered.
+/// The tenancy read and the compare-and-set are still two port calls with no shared token
+/// (`decision-blocker:epoch-atomicity`), but a target no record places anywhere is not contained
+/// in the caller's organization: containment fails closed on an empty placement list. So the
+/// interleaved login cannot be advanced past: the read sees no placement, the increment refuses
+/// with `TenantMismatch` before the write, and the generation stays at 0.
 #[test]
-fn a_placement_committing_between_the_tenancy_read_and_the_compare_and_set_is_advanced_past_until_epoch_atomicity()
- {
+fn a_placement_committing_between_the_tenancy_read_and_the_compare_and_set_is_not_advanced_past() {
     let target = SecurityEpochTarget::Principal(principal());
     let mut log = IdentityLog::new().with_as_of(Timestamp::new("2026-09-18T00:00:00Z"));
     for stated in [
@@ -138,32 +137,33 @@ fn a_placement_committing_between_the_tenancy_read_and_the_compare_and_set_is_ad
         .map_err(|denial| denial.reason());
 
     assert_eq!(
-        port.log.organizations_of(&target),
-        vec![other_organization()],
-        "the concurrent login placed the principal in the other organization"
+        decided.map(|_| ()),
+        Err(DenialReason::TenantMismatch),
+        "a target no record places anywhere is not contained in the caller's organization"
     );
+    assert_eq!(
+        port.landing.len(),
+        2,
+        "the refusal comes from the tenancy read, before the compare-and-set is reached"
+    );
+    assert_eq!(
+        port.log.current(&target).generation(),
+        Generation::ZERO,
+        "the refused increment leaves the generation unmoved"
+    );
+
+    // The other organization's login then commits; its fresh session is bound to the generation
+    // the refused increment left in place.
+    for event in std::mem::take(&mut port.landing) {
+        port.log
+            .try_record(event)
+            .expect("the concurrent login is well-formed and ordered");
+    }
     let bound = port
         .log
         .snapshot(&snapshot_ref())
         .expect("the snapshot is recorded")
         .recorded(&target)
         .expect("the snapshot names the principal");
-    assert_eq!(
-        bound,
-        Generation::ZERO,
-        "the fresh session is bound to generation 0"
-    );
-    assert!(
-        decided.is_ok(),
-        "the interleaved increment was refused ({decided:?}); the tenancy read is now covered \
-         by the write's token, so decision-blocker:epoch-atomicity has been answered and this \
-         pin must flip to a TenantMismatch refusal with an unmoved generation"
-    );
-    assert_eq!(
-        port.log.current(&target).generation(),
-        Generation::new(1).expect("a non-negative generation"),
-        "the interleaved increment advanced the generation 0 -> 1 past the other organization's \
-         fresh session; this is the unatomic check decision-blocker:epoch-atomicity owns, and the \
-         assertion flips when that blocker is answered"
-    );
+    assert_eq!(bound, port.log.current(&target).generation());
 }

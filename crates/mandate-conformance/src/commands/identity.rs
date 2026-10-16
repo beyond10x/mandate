@@ -49,7 +49,8 @@ pub fn revoke_session(
 ///
 /// The declared input is a `refresh_proof`, and resolving a proof to a session identity is
 /// the credential domain's — "the proof that resolves a session identity is verified by the
-/// credential domain before this is reached" (`identity.yaml`).
+/// credential domain before this is reached" (`mandate_identity::refresh_session`'s own
+/// documentation, `crates/mandate-identity/src/session.rs`).
 ///
 /// **`mandate-token` being on the line did not close this.** The record a refresh proof
 /// resolves through is `mandate.identity.RefreshCredential`, and nothing projects it:
@@ -57,7 +58,7 @@ pub fn revoke_session(
 /// event, and the STS's `CredentialResolution` answers a `mandate_token` `AccessCredential`
 /// whose fields carry no session identity. There is no port to read, so a proof whose text
 /// *is* a session identity is driven through the real handler and any other proof is
-/// answered `Unsupported` against `story:session-epochs` rather than denied for a reason
+/// answered `Unsupported` against `story:declared-writers` rather than denied for a reason
 /// this target invented.
 ///
 /// # Errors
@@ -113,7 +114,37 @@ pub fn refresh_session(
     }
 }
 
+/// The fault an armed increment places: the tenancy read is the standing log's, and only the
+/// write — "atomic increment cannot commit", the one clause of the declared cause no input
+/// decides — is the substituted, refusing port.
+struct RefusingWrite<'a> {
+    standing: &'a mandate_identity::IdentityLog,
+    write: &'a mut Substituted,
+}
+
+impl mandate_identity::TargetTenancy for RefusingWrite<'_> {
+    fn organizations_of(&self, target: &SecurityEpochTarget) -> Vec<mandate_types::OrganizationId> {
+        mandate_identity::TargetTenancy::organizations_of(self.standing, target)
+    }
+}
+
+impl mandate_identity::SecurityEpochWrite for RefusingWrite<'_> {
+    fn increment(
+        &mut self,
+        context: &VerifiedContext,
+        target: &SecurityEpochTarget,
+        expected: mandate_identity::StreamVersion,
+    ) -> Result<mandate_identity::EpochState, mandate_identity::Denial> {
+        mandate_identity::SecurityEpochWrite::increment(&mut *self.write, context, target, expected)
+    }
+}
+
 /// `mandate.identity.IncrementSecurityEpoch`.
+///
+/// Decided standing-first (`external.rs`, "An arming the input already decides"): a target
+/// outside the caller's organization, or one no record places, is refused by its input, and
+/// the arming then places no fault. Only an increment the standing log would admit is decided
+/// again, with the write port refusing.
 ///
 /// # Errors
 ///
@@ -130,8 +161,19 @@ pub fn increment_security_epoch(
     let expected = mandate_identity::IdentityRead::current(&live.identity, &target).version();
     let input = IncrementSecurityEpoch::new(context, target);
     if let Some(arming) = live.armed.take(COMMAND) {
+        let mut trial = live.identity.clone();
+        if let Err(denial) = input.execute(&mut trial, expected) {
+            live.input_decided(arming, denial.outcome().ir_name());
+            return refused(COMMAND, denial.outcome().ir_name(), DENIED, denial.reason());
+        }
         let mut refusing = Substituted::new();
-        let decided = input.execute(&mut refusing, expected);
+        let decided = input.execute(
+            &mut RefusingWrite {
+                standing: &live.identity,
+                write: &mut refusing,
+            },
+            expected,
+        );
         live.record_reads(arming, refusing.consulted(), refusing.refused());
         live.identity_unchanged(&before)?;
         return match decided {

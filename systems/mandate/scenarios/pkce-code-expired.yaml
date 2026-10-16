@@ -1,7 +1,7 @@
 type: ess-scenario/2
 domain: mandate.credential
 scenario: pkce-code-expired
-summary: '`code is expired`: the code record is seeded with the computed verifier of the code presented and an expiry the redemption has passed; redemption.rs:329-330; corpus: none.'
+summary: '`code is expired`: the code expires before the redemption instant and its session is live, so the expiry clause refuses; redemption::decide, CodeExpired; corpus: none.'
 arrange:
 - instance: code
   entity: mandate.credential.AuthorizationCode
@@ -14,7 +14,7 @@ arrange:
       challenge: E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM
       method: S256
       redirect_uri: https://app.example.test/callback
-      expires_at: '2026-01-05T09:01:00Z'
+      expires_at: '2025-12-31T23:59:00Z'
       target: 00000000-0000-4000-8000-0000000000e9
       scope:
         actions:
@@ -23,6 +23,16 @@ arrange:
         - resource_type: document
           resource_id: 00000000-0000-4000-8000-000000000071
     state: Issued
+- instance: session
+  entity: mandate.identity.Session
+  setup:
+    identity: 00000000-0000-4000-8000-0000000000f1
+    fields:
+      principal_id: 00000000-0000-4000-8000-000000000001
+      organization_id: 00000000-0000-4000-8000-0000000000a1
+      epochs: 00000000-0000-4000-8000-0000000000b1
+      expires_at: '2026-01-05T23:00:00Z'
+    state: Active
 timeline:
 - at: '2026-01-05T09:30:00Z'
   command: mandate.credential.RedeemAuthorizationCode

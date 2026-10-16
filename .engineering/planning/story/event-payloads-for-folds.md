@@ -33,7 +33,7 @@ scope:
   path: systems/mandate/domains/identity.yaml
 - confidence: cited
   path: systems/mandate/domains/tenancy.yaml
-revision: 13
+revision: 14
 transitions:
 - {from: "draft", to: "proposed", at: "2026-09-18T21:19:31Z", actor: "human:timo", revision: 7, decided_on: {"recorded":{"review_outcome":1}}, imported: true}
 - {from: "proposed", to: "active", at: "2026-09-18T21:19:32Z", actor: "human:timo", revision: 8, decided_on: {"recorded":{"review_outcome":1}}, imported: true}
@@ -44,6 +44,8 @@ transitions:
 ## Acceptance
 
 Given the event log alone, when the projections for every entity with a declared transition are rebuilt by folding, then each projection row can be produced from its events without reading any command input or response.
+
+Amended 2026-10-16 (audit G-30). The acceptance as worded is not met for every entity, and it is not claimed to be. Ten entities with a declared transition still cannot be rebuilt from the event log, and `crates/mandate-types/tests/adversary_fold_inputs.rs:399-410` (`UNFOLDABLE`) pins exactly that set, with the field each one is missing: `mandate.delegation.Agent` (`agent_type`), `mandate.delegation.AgentCapabilityCeiling` (`agent_id`), `mandate.delegation.Approval` (`subject`), `mandate.delegation.Execution` (`agent_id`), `mandate.graph.Grant` (`subject`), `mandate.graph.Resource` (`space_id`), `mandate.identity.RefreshCredential` (`principal_id`), `mandate.policy.AuthorizationModel` (`version`), `mandate.policy.Policy` (`version`) and `mandate.workload.WorkloadIdentity` (`principal_id`). The case `the_entities_no_event_can_rebuild_are_exactly_the_pinned_residue` (`:413`) fails if an entity enters or leaves that set, or stays in it for another reason. The ten supersede the fourteen listed under "Residue after wave 3" below, which is history and no longer the count.
 
 ## Required observations
 

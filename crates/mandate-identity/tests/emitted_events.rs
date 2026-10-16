@@ -183,6 +183,22 @@ fn a_refused_increment_emits_nothing_and_leaves_the_log_unchanged() {
             generation: Generation::MAX,
         },
     ));
+    // Placed in the caller's organization, so the tenancy check passes and the maximum is
+    // what refuses.
+    at_maximum.record(IdentityEvent::SecurityEpochRecorded(
+        SecurityEpochRecorded {
+            target: SecurityEpochTarget::Organization(organization()),
+            generation: Generation::ZERO,
+        },
+    ));
+    at_maximum.record(IdentityEvent::EpochSnapshotRecorded(
+        EpochSnapshotRecorded {
+            id: handle(),
+            principal_id: principal(),
+            organization_id: organization(),
+            connection_id: None,
+        },
+    ));
     let held = at_maximum.clone();
     let expected = at_maximum.current(&target).version();
 
@@ -224,15 +240,24 @@ fn a_refused_revocation_emits_nothing_and_leaves_the_log_unchanged() {
     assert_eq!(unknown.outcome(), RefusedOutcome::Denied);
     refused(REVOKE, &unknown);
 
-    // The declared `denied` outcome: the session is outside the verified organization.
+    // The declared `denied` outcome: the session is outside the verified organization. It
+    // answers exactly as a session no record carries does, so a caller cannot tell "not
+    // yours" from "no such session".
     let elsewhere = VerifiedContext {
         organization: OrganizationId::new(uuid(3)),
         ..context()
     };
     let outside = revoke_session(&mut log, &elsewhere, session_id())
         .expect_err("the session belongs to another organization");
-    assert_eq!(outside.reason(), DenialReason::TenantMismatch);
+    assert_eq!(outside.reason(), DenialReason::InvalidCredential);
     assert_eq!(outside.outcome(), RefusedOutcome::Denied);
+    let unknown_elsewhere = revoke_session(&mut log, &elsewhere, SessionId::new(uuid(99)))
+        .expect_err("no such session, from the same caller");
+    assert_eq!(
+        (outside.reason(), outside.outcome()),
+        (unknown_elsewhere.reason(), unknown_elsewhere.outcome()),
+        "a foreign session and an unknown one are indistinguishable"
+    );
     refused(REVOKE, &outside);
 
     assert_eq!(log, held, "a refusal appends nothing");

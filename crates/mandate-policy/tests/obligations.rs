@@ -29,7 +29,8 @@
 //! Two of the six `double` rows the registry already carried named a case that never calls
 //! the command's own path. `mandate.policy.SupersedeAuthorizationModel`'s tenant and
 //! no-later-version clauses both named
-//! `mandate-policy::double::another_organizations_policy_is_a_tenant_mismatch` and
+//! `mandate-policy::double::another_organizations_policy_is_a_tenant_mismatch` (now
+//! `another_organizations_policy_or_model_answers_like_an_unknown_one`) and
 //! `mandate-policy::double::a_version_with_no_later_version_recorded_cannot_be_superseded`,
 //! and both of those drive [`PolicyAdministration::supersede_policy`] — the *policy*
 //! command. `supersede_authorization_model` reaches its own guards, at `src/double.rs:288`
@@ -189,9 +190,10 @@ fn published() -> PolicyDouble {
 /// comparison — the policy command's guard at `src/double.rs:251` reads a different list and
 /// answers for a different id. A later version is recorded here so that the call would
 /// otherwise be accepted: what refuses it is the organization the context carries and
-/// nothing else.
+/// nothing else. It answers `Denied`, exactly as for a model no record carries, so the
+/// refusal is no existence oracle for another tenant's models.
 #[test]
-fn another_organizations_model_is_a_tenant_mismatch() {
+fn another_organizations_model_answers_like_an_unknown_one() {
     let mut double = published();
     double.record_model(model(6, "2026-09-18.2"));
 
@@ -202,11 +204,18 @@ fn another_organizations_model_is_a_tenant_mismatch() {
         .supersede_authorization_model(&elsewhere, &AuthorizationModelId::new(uuid(5)))
         .expect_err("another tenant's authorization model");
 
-    assert_eq!(refusal, PolicyError::Denied(DenialReason::TenantMismatch));
-    assert_eq!(refusal.denial_reason(), DenialReason::TenantMismatch);
+    assert_eq!(refusal, PolicyError::Denied(DenialReason::Denied));
+    assert_eq!(refusal.denial_reason(), DenialReason::Denied);
     assert!(
         refusal.is_denial(),
         "the caller is told a decision, not an absence"
+    );
+    assert_eq!(
+        refusal,
+        double
+            .supersede_authorization_model(&elsewhere, &AuthorizationModelId::new(uuid(8)))
+            .expect_err("no record carries the model"),
+        "another tenant's model answers exactly as an unknown one"
     );
 }
 
@@ -238,13 +247,15 @@ fn a_refused_policy_supersede_leaves_the_policy_fold_unmoved() {
     let mut elsewhere = context();
     elsewhere.organization = OrganizationId::new(uuid(9));
 
-    for (context, id, reason) in [
-        (context(), uuid(4), DenialReason::Denied),
-        (elsewhere, uuid(4), DenialReason::TenantMismatch),
-        (context(), uuid(3), DenialReason::Denied),
+    // The foreign case records a later version, so only the organization refuses it.
+    for (context, id, later) in [
+        (context(), uuid(4), false),
+        (elsewhere, uuid(4), true),
+        (context(), uuid(3), false),
     ] {
+        let reason = DenialReason::Denied;
         let mut double = published();
-        if reason == DenialReason::TenantMismatch {
+        if later {
             double.record_policy(policy(6, "2026-09-18.2"));
         }
         let before = double.clone();
@@ -265,13 +276,15 @@ fn a_refused_model_supersede_leaves_the_model_fold_unmoved() {
     let mut elsewhere = context();
     elsewhere.organization = OrganizationId::new(uuid(9));
 
-    for (context, id, reason) in [
-        (context(), uuid(5), DenialReason::Denied),
-        (elsewhere, uuid(5), DenialReason::TenantMismatch),
-        (context(), uuid(3), DenialReason::Denied),
+    // The foreign case records a later version, so only the organization refuses it.
+    for (context, id, later) in [
+        (context(), uuid(5), false),
+        (elsewhere, uuid(5), true),
+        (context(), uuid(3), false),
     ] {
+        let reason = DenialReason::Denied;
         let mut double = published();
-        if reason == DenialReason::TenantMismatch {
+        if later {
             double.record_model(model(6, "2026-09-18.2"));
         }
         let before = double.clone();

@@ -5,7 +5,6 @@ kind: decision-blocker
 status: open
 title: UNMAPPED-LIFECYCLE
 relations:
-- blocks: story:domain-runtime
 - blocks: story:audit-worker-delivery
 - blocks: story:graph-policy-adapter
 revision: 1

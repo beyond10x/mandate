@@ -6,7 +6,6 @@ status: open
 title: UNMAPPED-ORCHESTRATION
 relations:
 - blocks: story:directory-provenance
-- blocks: story:domain-runtime
 - blocks: story:audit-worker-delivery
 revision: 1
 ---

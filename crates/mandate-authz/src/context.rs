@@ -168,10 +168,11 @@ fn bound<L: ResourceLookup + ?Sized>(
             }
             // The resource's own space, as the projection records it. No command in
             // `systems/mandate` writes `mandate.graph.Resource.space_id`
-            // (`crates/mandate-model/src/graph.rs:34-41`), so a request that names a
-            // space binds to nothing today and is refused. That is the closed
-            // direction, and inventing an input the contract does not declare to open
-            // it is `story:event-payloads-for-folds`'s to fix at the contract.
+            // (`crates/mandate-model/src/graph.rs`, whose fold records `space_id: None`), so
+            // a request that names a space binds to nothing today and is refused. That is
+            // the closed direction, and giving the field a declared writer, rather than
+            // inventing an input the contract does not declare, is `story:declared-writers`'
+            // (`contracts/obligations/authz.json`, the "space binding mismatches" clause).
             let recorded = topology
                 .resolve(context, binding.resource.resource_id)
                 .and_then(|resource| resource.space_id);

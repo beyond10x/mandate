@@ -12,8 +12,9 @@
 //!
 //! The target is decided through [`TargetRegistry`], a read port, for the same reason the
 //! client is: `mandate.credential.ResourceServer` is another domain's record and this
-//! crate holds no fold of it. `story:credential-profiles` supplies the real registry; the
-//! double until then is [`crate::publicclient::RecordedClients`], which answers this port
+//! crate holds no fold of it. The control plane answers it over the recorded resource
+//! servers (`TargetRegistryOver` in `services/control-plane/src/adapters.rs`); the
+//! in-crate double is [`crate::publicclient::RecordedClients`], which answers this port
 //! and the client one together the way [`crate::RecordedPrincipals`] answers three.
 //!
 //! It is **non-consuming**. No code is consumed, no credential is created, no redemption
@@ -92,7 +93,8 @@ pub trait TargetRegistry {
 /// — and what it answers is the truth about itself: `mandate.credential.ResourceServer` is
 /// another domain's record, this fold holds none, and so it decides nothing about a
 /// target. Every request it is asked about is refused `Unavailable`, never `Denied`.
-/// `story:credential-profiles` supplies the registry that can answer.
+/// The registry that answers is the control plane's `TargetRegistryOver`, over the
+/// recorded resource servers.
 impl TargetRegistry for Projection {
     fn target_organization(&self, id: &ResourceServerId) -> Option<OrganizationId> {
         let _ = id;

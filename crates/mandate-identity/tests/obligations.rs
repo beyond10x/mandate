@@ -12,7 +12,7 @@
 //! # What is bound here, and on which path
 //!
 //! * `RevokeSession`, "session is outside the verified organization" — the **real** path.
-//!   `crates/mandate-identity/src/session.rs:369` is handler code over the fold, and the one
+//!   `crates/mandate-identity/src/session.rs:372` is handler code over the fold, and the one
 //!   place in this crate that compares a record's organization against the caller's verified
 //!   one.
 //! * `IncrementSecurityEpoch`, "atomic increment cannot commit" **and** "the exact unsigned
@@ -36,7 +36,7 @@
 //! * `IncrementSecurityEpoch`, "tenant containment fails" — the **real** path.
 //!   `IncrementSecurityEpoch::execute` compares the target's organization with the caller's
 //!   verified one before it reaches the write port — the comparison `RevokeSession` makes at
-//!   `src/session.rs:369` — and refuses with `TenantMismatch`. The port only supplies which
+//!   `src/session.rs:372` — and refuses with `TenantMismatch`. The port only supplies which
 //!   organizations its records place the target in (`TargetTenancy`), so the row is `real`:
 //!   what is classified is the code that decides, not the code that holds the data.
 //! * `IncrementSecurityEpoch`'s `no_state_change` obligation follows the two double-backed
@@ -233,7 +233,9 @@ fn a_session_outside_the_verified_organization_is_refused_at_revoke() {
     let denied = revoke_session(&mut log, &elsewhere, session_id())
         .expect_err("the session is contained in another organization than the caller's");
 
-    assert_eq!(denied.reason(), DenialReason::TenantMismatch);
+    // Answered exactly as an unresolved session is: the refusal discloses nothing about a
+    // session of another organization.
+    assert_eq!(denied.reason(), DenialReason::InvalidCredential);
     assert_eq!(denied.outcome(), RefusedOutcome::Denied);
     assert_eq!(log, held, "the refused revocation appends nothing");
     assert!(
@@ -259,7 +261,7 @@ fn a_session_outside_the_verified_organization_is_refused_at_revoke() {
 /// above is unreadable to a reviewer only until the suite runs.
 const CITED: &[(&str, &[&str])] = &[
     (
-        "crates/mandate-identity/src/session.rs:369",
+        "crates/mandate-identity/src/session.rs:372",
         &["session.organization() != &context.organization"],
     ),
     (
@@ -287,7 +289,7 @@ const CITED: &[(&str, &[&str])] = &[
         &["is not made here; the verified context is carried through to the event."],
     ),
     (
-        "src/session.rs:369",
+        "src/session.rs:372",
         &["session.organization() != &context.organization"],
     ),
     (

@@ -445,10 +445,15 @@ pub mod conformance {
 }
 
 // Every ESS element this crate realizes: the four accepted `mandate.core` records, the
-// six projections, and the twelve payloads that write them. 22 in total, and the count
-// matters — `cargo xtask coverage` reads this list and reports what nothing realizes, so
-// an element this crate implements and does not register is reported as realized by
-// nothing, which is the same report an unimplemented element gets.
+// six projections, their six lifecycle enums, the twelve payloads that write them, the ten
+// tenancy commands and the tenancy refusal, and in `mandate.workload` the record and its
+// lifecycle enum, the revocation command, its payload, the authentication payload and the
+// refusal. 45 in total, pinned in
+// `tests/contract_agreement.rs` by
+// `the_realization_registry_names_exactly_the_projections_payloads_and_records_this_crate_writes`.
+// The count matters — `cargo xtask coverage` reads this list and reports what nothing
+// realizes, so an element this crate implements and does not register is reported as
+// realized by nothing, which is the same report an unimplemented element gets.
 //
 // Each entry becomes an anonymous import of the symbol on its right, so an element paired
 // with a record, a projection, an event enum or a variant that was renamed, moved or
@@ -458,7 +463,7 @@ pub mod conformance {
 //
 // `crates/mandate-model/tests/contract_agreement.rs` decides this list against
 // `generated/schema`: every element named here is a compiled declaration, the set is
-// exactly the four records, six entities and twelve payloads that file covers, and each
+// exactly the 45 elements that file enumerates, and each
 // record's symbol is the one its element name says it should be. An event's symbol is a
 // variant, whose name ESS does not derive, so only its module and enum are decided by
 // name; which variant realizes which payload is decided by `ess_name` and the pairing
@@ -503,6 +508,7 @@ mandate_types::realizes! {
     "mandate.tenancy.TeamMembership.State" => crate::tenancy::TeamMembershipState,
     "mandate.tenancy.Space.State" => crate::tenancy::SpaceState,
     "mandate.graph.Resource.State" => crate::graph::ResourceState,
+    "mandate.workload.WorkloadIdentity.State" => crate::workload::WorkloadIdentityState,
     "mandate.tenancy.CreateOrganization" => crate::tenancy::Tenancy,
     "mandate.tenancy.CloseOrganization" => @ crate::tenancy::Tenancy::decide_close_organization,
     "mandate.tenancy.AddOrganizationMembership" => @ crate::tenancy::Tenancy::decide_add_organization_membership,
@@ -514,10 +520,12 @@ mandate_types::realizes! {
     "mandate.tenancy.CreateSpace" => crate::tenancy::Tenancy,
     "mandate.tenancy.RetireSpace" => @ crate::tenancy::Tenancy::decide_retire_space,
     "mandate.tenancy.Denied" => crate::tenancy::Denied,
-    // `mandate.workload`: the revocation, its event and the domain's refusal. The record and
-    // its lifecycle enum are not registered: no command creates a `WorkloadIdentity`, so the
-    // record has no declared writer and stays on `story:declared-writers`
-    // (`crate::workload`, "The record is read through a port").
+    // `mandate.workload`: the record, the revocation, its events and the domain's refusal.
+    // The record is projected here even though no command creates one: the projection starts
+    // from the records it is handed and folds the revocations over them (`crate::workload`,
+    // "The record is read through a port"); its lifecycle enum is registered with the others
+    // above.
+    "mandate.workload.WorkloadIdentity" => crate::workload::WorkloadIdentity,
     "mandate.workload.RevokeWorkloadIdentity" => crate::workload::decide_revoke_workload_identity,
     "mandate.workload.WorkloadIdentityRevoked" => crate::workload::WorkloadEvent::IdentityRevoked,
     "mandate.workload.WorkloadAuthenticated" => crate::workload::WorkloadEvent::Authenticated,

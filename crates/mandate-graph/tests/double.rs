@@ -9,12 +9,12 @@ use mandate_graph::double::GraphDouble;
 use mandate_graph::port::{GraphError, GraphQuery, GraphRead, MutationOutcome, Unanswered};
 use mandate_graph::record::Grant;
 use mandate_graph::relationship::{RelationshipWrite, RelationshipWriter, SubjectAdmission};
-use mandate_graph::revocation::RevisionView;
+use mandate_graph::revocation::{RevisionView, RevocationWriter};
 use mandate_graph::topology::{Placement, ResourceLookup, ResourceRegistry};
 use mandate_types::{
     Action, Audience, AuthorityScope, AuthoritySubject, AuthzRevision, CorrelationId, CredentialId,
-    DenialReason, GrantId, OrganizationId, PrincipalId, ResourceId, ResourceRef, ResourceType,
-    TeamId, Uuid, VerifiedContext,
+    DenialReason, GrantId, OrganizationId, PrincipalId, RelationId, ResourceId, ResourceRef,
+    ResourceType, TeamId, Uuid, VerifiedContext,
 };
 
 fn uuid(byte: u8) -> Uuid {
@@ -129,6 +129,89 @@ fn a_resource_registered_by_another_organization_is_a_tenant_mismatch() {
         .expect_err("nor can it be looked up");
 
     assert_eq!(lookup, GraphError::Denied(DenialReason::TenantMismatch));
+}
+
+/// A record held under another organization answers every mutation exactly as a record no
+/// fold carries does: `Denied`, never `TenantMismatch`, so no refusal is an existence oracle
+/// for another tenant's resources, relations or grants.
+#[test]
+fn a_foreign_record_answers_every_mutation_exactly_as_an_unknown_one() {
+    let mut graph = GraphDouble::new();
+    let mut elsewhere = context();
+    elsewhere.organization = OrganizationId::new(uuid(9));
+    graph.admit_subject(elsewhere.organization, subject());
+    graph
+        .register_resource(&elsewhere, &resource(10), None)
+        .expect("the other tenant registers its resource");
+    let written = graph
+        .write_relationship(&RelationshipWrite {
+            context: &elsewhere,
+            subject: &subject(),
+            resource: &resource(10),
+            relation: "viewer",
+        })
+        .expect("the other tenant writes its relation");
+    graph.record_grant(grant_of(
+        elsewhere.organization,
+        subject(),
+        "editor",
+        resource(10),
+    ));
+    let before = graph.observed();
+    let context = context();
+
+    let unknown = GraphError::Denied(DenialReason::Denied);
+    assert_eq!(
+        graph
+            .register_resource(&context, &resource(11), Some(&ResourceId::new(uuid(10))))
+            .expect_err("a foreign parent"),
+        graph
+            .register_resource(&context, &resource(11), Some(&ResourceId::new(uuid(12))))
+            .expect_err("an unknown parent"),
+    );
+    assert_eq!(
+        graph
+            .register_resource(&context, &resource(11), Some(&ResourceId::new(uuid(10))))
+            .expect_err("a foreign parent"),
+        unknown
+    );
+    assert_eq!(
+        graph
+            .deregister_resource(&context, &ResourceId::new(uuid(10)))
+            .expect_err("a foreign resource"),
+        unknown
+    );
+    assert_eq!(
+        graph
+            .deregister_resource(&context, &ResourceId::new(uuid(12)))
+            .expect_err("an unknown resource"),
+        unknown
+    );
+    assert_eq!(
+        graph
+            .remove_relation(&context, &written.relation.id)
+            .expect_err("a foreign relation"),
+        unknown
+    );
+    assert_eq!(
+        graph
+            .remove_relation(&context, &RelationId::new(uuid(13)))
+            .expect_err("an unknown relation"),
+        unknown
+    );
+    assert_eq!(
+        graph
+            .revoke_grant(&context, &GrantId::new(uuid(6)))
+            .expect_err("a foreign grant"),
+        unknown
+    );
+    assert_eq!(
+        graph
+            .revoke_grant(&context, &GrantId::new(uuid(14)))
+            .expect_err("an unknown grant"),
+        unknown
+    );
+    assert_eq!(graph.observed(), before, "no refusal moved the fold");
 }
 
 #[test]

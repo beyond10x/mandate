@@ -27,7 +27,7 @@ scope:
   path: crates/mandate-conformance/src/node.rs
 - confidence: inferred
   path: crates/mandate-conformance/tests/target.rs
-revision: 27
+revision: 28
 transitions:
 - {from: "draft", to: "proposed", at: "2026-09-19T12:23:51Z", actor: "human:timo", revision: 14, imported: true}
 - {from: "proposed", to: "active", at: "2026-09-19T12:23:51Z", actor: "human:timo", revision: 15, imported: true}
@@ -94,3 +94,7 @@ Coordinator, wave D enforcement track, 2026-09-19.
 ## Acceptance — amended 2026-09-19 (replaces the Acceptance above where they differ)
 
 `mandate-conform --suite <the 146-scenario format-5 suite> --impl-digest <12hex> --out <dir>` writes `report.json` (report/2) with counts `total 146, passed 29, failed 54, error 0, unsupported 63, skipped 0`, `run.json` and `injections.json`, byte-identical across two runs; every non-passed scenario carries a `blocked_on` story that is not on a terminal rung; every `Unsupported` answer names a permanent property of the target (an unrealized command, a non-substitutable port, an unrealized input shape); every executed scenario ran the real handler, with the doubles and armings it met recorded as rows. The 29 / 54 / 63 partition moves only when a handler, a scenario or a realization changes, and the change is recorded on this story.
+
+## Counts at 0.9.0
+
+Recorded 2026-10-16 (audit G-70). The amended acceptance above names the 146-scenario format-5 suite and the partition 29 / 54 / 63. That is the count at the time of writing. It moves, as the acceptance says it may, whenever a handler, a scenario or a realization changes. At 0.9.0 the suite holds 185 scenarios under ESS 0.59.0 (`ess/24`): 48 passed, 73 failed, 0 error, 64 unsupported (`docs/public/roadmap.md:59`, `CHANGELOG.md:63-65`). The earlier figures stay here as history of the wave that shipped the target.
