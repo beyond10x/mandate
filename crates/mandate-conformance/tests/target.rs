@@ -374,43 +374,49 @@ fn one_mutated_expectation_fails_that_scenario_and_nothing_else() {
         "no scenario passed, so nothing can show that a wrong answer would be noticed"
     );
 
-    let mut document: serde_json::Value = serde_json::from_str(&suite).expect("the suite is JSON");
-    let mut chosen = None;
-    let scenarios = document["scenarios"]
-        .as_object_mut()
-        .expect("a suite carries an object of scenarios");
-    for (id, scenario) in scenarios.iter_mut() {
-        if chosen.is_some() || !before.contains(id) {
+    // A text field whose schema admits only some values (an enum) is refused by the suite's
+    // own validation before anything runs, which is not a wrong answer the target could
+    // notice: such a candidate is passed over for the next one.
+    let original: serde_json::Value = serde_json::from_str(&suite).expect("the suite is JSON");
+    let mut candidates = Vec::new();
+    for (id, scenario) in original["scenarios"]
+        .as_object()
+        .expect("a suite carries an object of scenarios")
+    {
+        if !before.contains(id) {
             continue;
         }
-        for step in scenario["steps"]
-            .as_array_mut()
+        for (index, step) in scenario["steps"]
+            .as_array()
             .expect("a scenario carries steps")
+            .iter()
+            .enumerate()
         {
             if step["step"] != "expect_event" {
                 continue;
             }
-            let Some(payload) = step["payload"].as_object_mut() else {
+            let Some(payload) = step["payload"].as_object() else {
                 continue;
             };
-            let Some(field) = payload
-                .iter()
-                .find(|(_, value)| value.is_string())
-                .map(|(name, _)| name.clone())
-            else {
-                continue;
-            };
-            payload.insert(
-                field,
-                serde_json::Value::String("a value no command was given".to_owned()),
-            );
-            chosen = Some(id.clone());
-            break;
+            for (name, value) in payload {
+                if value.is_string() {
+                    candidates.push((id.clone(), index, name.clone()));
+                }
+            }
         }
     }
-    let chosen = chosen.expect("a passing scenario asserts a text field of an event payload");
+    let (chosen, corrupted) = candidates
+        .into_iter()
+        .find_map(|(id, index, field)| {
+            let mut document = original.clone();
+            document["scenarios"][&id]["steps"][index]["payload"][&field] =
+                serde_json::Value::String("a value no command was given".to_owned());
+            Executed::of(&document.to_string(), DIGEST)
+                .ok()
+                .map(|executed| (id, executed))
+        })
+        .expect("a passing scenario asserts a free-text field of an event payload");
 
-    let corrupted = Executed::of(&document.to_string(), DIGEST).expect("the suite executes");
     let corrupted: serde_json::Value = serde_json::from_str(&corrupted.report).expect("report/2");
     let after: BTreeSet<String> = corrupted["outcomes"]["passed"]
         .as_array()
@@ -618,7 +624,13 @@ fn an_armed_row_says_what_its_substituted_reader_did() {
     // armed row carries a consultation count, and a row still spelled `armed` is one whose
     // substituted reader answered something the standing reader could not have. A row whose
     // reader was never consulted cannot be `armed`.
-    let suite = suite_json("armed7");
+    //
+    // Read over the gated suite, authored scenarios included: every synthesized refusal a
+    // fault could answer is now decided by its own input first, and the one forced denial
+    // left is the authored `epoch-increment-commit-fails`.
+    let path = repository().join("generated/conformance/suite.json");
+    let suite = std::fs::read_to_string(&path)
+        .unwrap_or_else(|error| panic!("{}: {error}", path.display()));
     let executed = Executed::of(&suite, DIGEST).expect("the suite executes");
     let injections: serde_json::Value =
         serde_json::from_str(&executed.injections).expect("the injection record is JSON");
@@ -765,6 +777,54 @@ fn an_authored_refusal_the_input_decides_is_answered_by_the_handler_not_by_a_fau
         wrong.is_empty(),
         "an authored refusal the input decides must be the handler's answer, and its row must \
          say no fault was placed: {wrong:#?}"
+    );
+}
+
+/// `pkce-code-expired` passes on the expiry clause and on nothing else: the code it arranges
+/// expires before the instant the target redeems at ([`mandate_conformance::FIXED_INSTANT`]),
+/// and every other record the redemption reads before the client is in place. So the same
+/// scenario with only the code's expiry moved after that instant stops passing — the
+/// redemption then reaches a later clause, which does not answer the `InvalidCredential` the
+/// scenario expects.
+#[test]
+fn the_expired_code_scenario_passes_on_the_expiry_clause() {
+    const SCENARIO: &str = "mandate.credential/authored/pkce-code-expired";
+    let path = repository().join("generated/conformance/suite.json");
+    let suite = std::fs::read_to_string(&path)
+        .unwrap_or_else(|error| panic!("{}: {error}", path.display()));
+    let passed = |suite: &str| -> bool {
+        let executed = Executed::of(suite, DIGEST).expect("the suite executes");
+        let report: serde_json::Value =
+            serde_json::from_str(&executed.report).expect("the report is JSON");
+        report["outcomes"]["passed"]
+            .as_array()
+            .expect("the report lists its passed scenarios")
+            .iter()
+            .any(|id| id == SCENARIO)
+    };
+    assert!(passed(&suite), "{SCENARIO} passes as authored");
+
+    let mut document: serde_json::Value = serde_json::from_str(&suite).expect("the suite is JSON");
+    let code = document["scenarios"][SCENARIO]["steps"]
+        .as_array_mut()
+        .expect("the scenario carries steps")
+        .iter_mut()
+        .find(|step| step["step"] == "establish_entity" && step["instance"] == "code")
+        .expect("the scenario arranges the code it redeems");
+    let expiry = code["fields"]["expires_at"]
+        .as_str()
+        .expect("the arranged code states its expiry")
+        .to_owned();
+    assert!(
+        expiry.as_str() < mandate_conformance::FIXED_INSTANT,
+        "the arranged code expires at {expiry}, which the redemption at {} has not passed",
+        mandate_conformance::FIXED_INSTANT
+    );
+    code["fields"]["expires_at"] = serde_json::Value::String("2026-01-05T09:01:00Z".to_owned());
+    assert!(
+        !passed(&document.to_string()),
+        "{SCENARIO} still passes with an unexpired code, so it is not the expiry clause that \
+         refuses it"
     );
 }
 

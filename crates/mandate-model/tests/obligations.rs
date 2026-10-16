@@ -84,7 +84,7 @@
 //!   `AddTeamMembership`, "the principal is disabled" — [`Tenancy`] holds five
 //!   projections and no principal (`src/tenancy.rs:548-554`), so an unresolved principal
 //!   is unobservable here; and `mandate.identity.PrincipalDisabled` is folded nowhere in
-//!   the workspace (`crates/mandate-identity/src/lib.rs:219-226`,
+//!   the workspace (`crates/mandate-identity/src/lib.rs:236-243`,
 //!   `crates/mandate-conformance/src/commands/mod.rs:179`), so no world presents a
 //!   disabled one. `story:declared-writers`.
 //!
@@ -694,7 +694,7 @@ const CITED: &[(&str, &[&str])] = &[
         &["the **reason** channel is closed"],
     ),
     (
-        "crates/mandate-identity/src/lib.rs:219-226",
+        "crates/mandate-identity/src/lib.rs:236-243",
         &["\"mandate.identity.PrincipalDisabled\""],
     ),
     (

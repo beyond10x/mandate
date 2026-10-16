@@ -18,6 +18,7 @@ specification:
 scenarios:
 - scenarios/authz-unadmitted-organization.yaml
 - scenarios/credential-revoked-twice.yaml
+- scenarios/epoch-increment-commit-fails.yaml
 - scenarios/exchange-ceiling-conflict.yaml
 - scenarios/federation-ambiguous-tenant.yaml
 - scenarios/federation-audience-mismatch.yaml

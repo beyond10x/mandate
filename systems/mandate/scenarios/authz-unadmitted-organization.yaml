@@ -26,23 +26,6 @@ timeline:
     event: mandate.tenancy.OrganizationCreated
     field: organization_id
 - at: '2026-01-05T09:00:01Z'
-  command: mandate.tenancy.AddOrganizationMembership
-  input:
-    context:
-      subject: 00000000-0000-4000-8000-000000000001
-      organization: 00000000-0000-4000-8000-0000000000a1
-      audience: mandate
-      credential: 00000000-0000-4000-8000-0000000000c1
-      correlation: authz-unadmitted-member
-    organization_id:
-      $instance: organization
-    principal_id: 00000000-0000-4000-8000-000000000002
-  outcome: accepted
-  events:
-  - event: mandate.tenancy.OrganizationMembershipAdded
-    payload:
-      principal_id: 00000000-0000-4000-8000-000000000002
-- at: '2026-01-05T09:00:02Z'
   command: mandate.authorization.Check
   input:
     context:

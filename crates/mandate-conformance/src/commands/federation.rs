@@ -18,7 +18,7 @@
 use ess_conformance::target::{SemanticCommandRequest, SemanticCommandResult, TargetError};
 use mandate_federation::record::FederationEvent;
 use mandate_federation::{RequestContext, disable, link, record, register_client};
-use mandate_types::{CorrelationId, CredentialId, Timestamp};
+use mandate_types::{CorrelationId, CredentialId, Timestamp, VerifiedContext};
 
 use crate::Live;
 use crate::commands::{accepted, refused, standing_first};
@@ -425,6 +425,26 @@ pub fn disable_oauth_client(
     finish(live, COMMAND, decided)
 }
 
+/// The standing registration admission: the verified subject administers clients, its own
+/// organization admits registration, and every redirect URI the command names is admitted
+/// for that organization.
+///
+/// Seeded from the caller on each call, as the delegation commands seed theirs: a scenario's
+/// context is known only from the command input, so a standing admission built before the
+/// first command could hold nobody's authority, and every registration would refuse before
+/// the scenario reached the refusal it is about.
+fn standing_admission(
+    context: &VerifiedContext,
+    redirect_uris: &[mandate_types::RedirectUri],
+) -> register_client::ConfiguredAdmission {
+    redirect_uris.iter().fold(
+        register_client::ConfiguredAdmission::new()
+            .with_administrator(context.subject)
+            .with_organization(context.organization),
+        |admission, uri| admission.with_redirect_uri(context.organization, uri.clone()),
+    )
+}
+
 /// `mandate.federation.RegisterOAuthClient`.
 ///
 /// # Errors
@@ -442,16 +462,17 @@ pub fn register_oauth_client(
         redirect_uris: node::field(&request.input, "redirect_uris")?,
         pkce_method: node::field(&request.input, "pkce_method")?,
     };
+    let standing = standing_admission(&input.context, &input.redirect_uris);
     let reader = Substituted::new();
     let decided = standing_first(
         live,
         COMMAND,
         ids,
-        |live, ids, faulted| {
+        |_, ids, faulted| {
             if faulted {
                 register_client::register_o_auth_client(&input, &reader, ids)
             } else {
-                register_client::register_o_auth_client(&input, &live.admission, ids)
+                register_client::register_o_auth_client(&input, &standing, ids)
             }
         },
         || (reader.consulted(), reader.refused()),

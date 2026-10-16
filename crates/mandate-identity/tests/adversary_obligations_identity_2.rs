@@ -123,10 +123,12 @@ impl SecurityEpochWrite for AdapterWithoutTheOverflowGuard {
     }
 }
 
-/// The stand-in holds no records, so it places no target in any organization.
+/// The stand-in places every target in the caller's organization alone, so the tenancy
+/// check passes and only the write port could refuse: a target no record places is refused
+/// as outside the caller's organization before the port is reached.
 impl TargetTenancy for AdapterWithoutTheOverflowGuard {
     fn organizations_of(&self, _target: &SecurityEpochTarget) -> Vec<OrganizationId> {
-        Vec::new()
+        vec![organization()]
     }
 }
 

@@ -794,33 +794,78 @@
     },
     {
       "case": "exchange-expiry",
-      "tests": [],
-      "blocked_on": "story:constrained-exchange"
+      "tests": [
+        {
+          "id": "mandate-sts::exchange::the_exchanged_credential_expires_no_later_than_the_subject_credential",
+          "kind": "accepted",
+          "path": "real"
+        },
+        {
+          "id": "mandate-sts::exchange::an_expired_subject_credential_is_refused_and_draws_nothing",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
     },
     {
       "case": "exchange-organization",
-      "tests": [],
-      "blocked_on": "story:constrained-exchange"
+      "tests": [
+        {
+          "id": "mandate-sts::exchange::an_audience_no_registration_of_the_subjects_organization_holds_is_refused_and_recorded",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
     },
     {
       "case": "exchange-revoked",
-      "tests": [],
-      "blocked_on": "story:constrained-exchange"
+      "tests": [
+        {
+          "id": "mandate-sts::exchange::a_revoked_subject_credential_is_refused_and_draws_nothing",
+          "kind": "denial",
+          "path": "real"
+        },
+        {
+          "id": "mandate-sts::exchange::an_actor_or_a_delegation_is_refused_because_the_exchange_is_subject_only",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
     },
     {
       "case": "exchange-space",
-      "tests": [],
-      "blocked_on": "story:constrained-exchange"
+      "tests": [
+        {
+          "id": "mandate-sts::exchange::a_scope_in_another_space_than_the_subject_credential_is_refused",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
     },
     {
       "case": "exchange-subject",
-      "tests": [],
-      "blocked_on": "story:constrained-exchange"
+      "tests": [
+        {
+          "id": "mandate-sts::exchange::a_scope_wider_than_the_subject_credential_is_refused_and_draws_nothing",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
     },
     {
       "case": "exchange-target",
-      "tests": [],
-      "blocked_on": "story:constrained-exchange"
+      "tests": [
+        {
+          "id": "mandate-sts::exchange::an_unknown_target_is_refused_and_draws_nothing",
+          "kind": "denial",
+          "path": "real"
+        },
+        {
+          "id": "mandate-sts::exchange::a_source_the_target_does_not_admit_is_refused_and_draws_nothing",
+          "kind": "denial",
+          "path": "real"
+        }
+      ]
     },
     {
       "case": "pkce-missing",

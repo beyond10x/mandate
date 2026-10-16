@@ -7,9 +7,9 @@
       "implemented": 43
     },
     "entity": {
-      "declared": 2,
+      "declared": 1,
       "deferred": 6,
-      "implemented": 28
+      "implemented": 29
     },
     "error": {
       "deferred": 2,
@@ -21,14 +21,14 @@
       "implemented": 46
     },
     "type": {
-      "declared": 6,
+      "declared": 5,
       "deferred": 6,
-      "implemented": 99
+      "implemented": 100
     }
   },
   "ess_version": "ess 0.60.0",
   "format": "mandate-coverage-receipt/1",
   "ir_digest": "570126bdf4d3cb52da5fa38a78b0ad43e24cc584c9d77f729094d69109696a10",
-  "manifest_digest": "65d32572217710412d2765524c9e2e6c9144bbe6dd644e49bcbd6b1c2d317640",
-  "source_digest": "a541f6d1b0b0a0d36d77456a34b4a0e54debfc026e7169ade87476366ee8b11e"
+  "manifest_digest": "cdd4cddbd5d04ca8acd33394b76139e5357b8682d516487cdccc5506ac89c345",
+  "source_digest": "fd2fd64a1a1b03812204f8e30d09cf1776c60cde623068661dc80774498822fe"
 }

@@ -7,8 +7,8 @@
 //! authority is `mandate-authz`'s and is never decided here.
 
 use mandate_model::workload::{
-    Denied, WorkloadEvent, WorkloadIdentities, WorkloadIdentity, WorkloadIdentityRead,
-    WorkloadIdentityState, decide_revoke_workload_identity,
+    Denied, Refused, RefusedAs, WorkloadEvent, WorkloadIdentities, WorkloadIdentity,
+    WorkloadIdentityRead, WorkloadIdentityState, decide_revoke_workload_identity,
 };
 use mandate_types::{
     Audience, CorrelationId, CredentialId, DenialReason, ExternalSubject, OrganizationId,
@@ -115,9 +115,10 @@ fn a_recorded_workload_identity_is_revoked_and_the_record_is_kept_in_revoked() {
 }
 
 /// `workload.yaml`: `Revoked` is terminal, and `revoke` leaves only `Recorded`. A second
-/// revocation refuses, emits nothing and moves no record.
+/// revocation of an identity of the caller's own organization takes the declared `wrong-state`
+/// branch, emits nothing and moves no record.
 #[test]
-fn a_second_revocation_refuses_and_emits_nothing() {
+fn a_second_revocation_answers_wrong_state_and_emits_nothing() {
     let acme = organization(1);
     let id = workload(0x30);
     let mut identities = WorkloadIdentities::holding([recorded(id, acme)]);
@@ -130,11 +131,37 @@ fn a_second_revocation_refuses_and_emits_nothing() {
         .expect_err("a revoked identity is not revoked again");
     assert_eq!(
         refused,
-        Denied {
-            reason: DenialReason::Denied
+        Refused {
+            outcome: RefusedAs::WrongState,
+            denied: Denied {
+                reason: DenialReason::Denied
+            },
         }
     );
+    assert_eq!(refused.outcome.outcome(), "wrong-state");
     assert_eq!(identities, before, "a refusal moves no record");
+}
+
+/// The `wrong-state` branch is the caller's own organization's alone: a revoked identity of
+/// another organization answers `denied`, exactly as an identity no record carries does, so the
+/// branch discloses nothing about records elsewhere.
+#[test]
+fn a_revoked_identity_of_another_organization_answers_denied_like_an_unknown_one() {
+    let acme = organization(1);
+    let other = organization(2);
+    let id = workload(0x30);
+    let mut identities = WorkloadIdentities::holding([recorded(id, acme)]);
+    let first = decide_revoke_workload_identity(&identities, &context(acme), id).expect("first");
+    identities.apply(&first);
+
+    let outsider = context(other);
+    let elsewhere = decide_revoke_workload_identity(&identities, &outsider, id)
+        .expect_err("a revoked identity in another organization");
+    let unrecorded = decide_revoke_workload_identity(&identities, &outsider, workload(0x31))
+        .expect_err("an identity no record carries");
+    assert_eq!(elsewhere, unrecorded);
+    assert_eq!(elsewhere.outcome, RefusedAs::Denied);
+    assert_eq!(elsewhere.outcome.outcome(), "denied");
 }
 
 /// `workload.yaml`, RevokeWorkloadIdentity denied: "the identity is outside the verified
@@ -154,7 +181,8 @@ fn a_workload_identity_of_another_organization_refuses_like_an_unknown_one() {
     let unrecorded = decide_revoke_workload_identity(&identities, &outsider, workload(0x31))
         .expect_err("an identity no record carries");
     assert_eq!(elsewhere, unrecorded);
-    assert_eq!(elsewhere.reason, DenialReason::Denied);
+    assert_eq!(elsewhere.outcome, RefusedAs::Denied);
+    assert_eq!(elsewhere.denied.reason, DenialReason::Denied);
     assert_eq!(identities, before, "a refusal moves no record");
     assert_eq!(
         identities

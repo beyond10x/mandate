@@ -114,7 +114,37 @@ pub fn refresh_session(
     }
 }
 
+/// The fault an armed increment places: the tenancy read is the standing log's, and only the
+/// write — "atomic increment cannot commit", the one clause of the declared cause no input
+/// decides — is the substituted, refusing port.
+struct RefusingWrite<'a> {
+    standing: &'a mandate_identity::IdentityLog,
+    write: &'a mut Substituted,
+}
+
+impl mandate_identity::TargetTenancy for RefusingWrite<'_> {
+    fn organizations_of(&self, target: &SecurityEpochTarget) -> Vec<mandate_types::OrganizationId> {
+        mandate_identity::TargetTenancy::organizations_of(self.standing, target)
+    }
+}
+
+impl mandate_identity::SecurityEpochWrite for RefusingWrite<'_> {
+    fn increment(
+        &mut self,
+        context: &VerifiedContext,
+        target: &SecurityEpochTarget,
+        expected: mandate_identity::StreamVersion,
+    ) -> Result<mandate_identity::EpochState, mandate_identity::Denial> {
+        mandate_identity::SecurityEpochWrite::increment(&mut *self.write, context, target, expected)
+    }
+}
+
 /// `mandate.identity.IncrementSecurityEpoch`.
+///
+/// Decided standing-first (`external.rs`, "An arming the input already decides"): a target
+/// outside the caller's organization, or one no record places, is refused by its input, and
+/// the arming then places no fault. Only an increment the standing log would admit is decided
+/// again, with the write port refusing.
 ///
 /// # Errors
 ///
@@ -131,8 +161,19 @@ pub fn increment_security_epoch(
     let expected = mandate_identity::IdentityRead::current(&live.identity, &target).version();
     let input = IncrementSecurityEpoch::new(context, target);
     if let Some(arming) = live.armed.take(COMMAND) {
+        let mut trial = live.identity.clone();
+        if let Err(denial) = input.execute(&mut trial, expected) {
+            live.input_decided(arming, denial.outcome().ir_name());
+            return refused(COMMAND, denial.outcome().ir_name(), DENIED, denial.reason());
+        }
         let mut refusing = Substituted::new();
-        let decided = input.execute(&mut refusing, expected);
+        let decided = input.execute(
+            &mut RefusingWrite {
+                standing: &live.identity,
+                write: &mut refusing,
+            },
+            expected,
+        );
         live.record_reads(arming, refusing.consulted(), refusing.refused());
         live.identity_unchanged(&before)?;
         return match decided {

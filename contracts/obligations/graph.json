@@ -18,7 +18,7 @@
           "clause": "the resource is outside the verified organization",
           "tests": [
             {
-              "id": "mandate-graph::obligations::a_deregistration_of_another_organizations_resource_is_a_tenant_mismatch",
+              "id": "mandate-graph::obligations::a_deregistration_of_another_organizations_resource_is_denied_like_an_unknown_one",
               "kind": "denial",
               "path": "double",
               "double": "mandate_graph::double::GraphDouble"
@@ -84,7 +84,7 @@
           "clause": "belongs to another organization",
           "tests": [
             {
-              "id": "mandate-graph::obligations::a_registration_under_another_organizations_parent_is_a_tenant_mismatch",
+              "id": "mandate-graph::obligations::a_registration_under_another_organizations_parent_is_denied_like_an_unknown_one",
               "kind": "denial",
               "path": "double",
               "double": "mandate_graph::double::GraphDouble"

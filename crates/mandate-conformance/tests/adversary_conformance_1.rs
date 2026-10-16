@@ -247,7 +247,12 @@ fn every_blocked_on_story_is_live() {
 /// the scenario as `armed` at `mandate_graph::port::GraphRead` regardless.
 #[test]
 fn every_armed_injection_changes_the_scenario_it_was_armed_for() {
-    let suite = suite_json("armed");
+    // The gated suite, authored scenarios included: the forced denial this case is anchored
+    // on is the authored `epoch-increment-commit-fails`, which a synthesis without
+    // `--scenarios` does not carry.
+    let path = repository().join("generated/conformance/suite.json");
+    let suite = std::fs::read_to_string(&path)
+        .unwrap_or_else(|error| panic!("{}: {error}", path.display()));
     let executed = Executed::of(&suite, DIGEST).expect("the suite executes");
     let injections: serde_json::Value =
         serde_json::from_str(&executed.injections).expect("the injection record is JSON");
@@ -306,7 +311,7 @@ fn every_armed_injection_changes_the_scenario_it_was_armed_for() {
         .into_iter()
         .partition(|(scenario, _)| named.contains(scenario.as_str()));
     assert!(
-        armed.contains_key("mandate.identity.IncrementSecurityEpoch/outcome/denied"),
+        armed.contains_key("mandate.identity/authored/epoch-increment-commit-fails"),
         "the forced denial this case is anchored on is no longer recorded `armed` (set aside: \
          {set_aside:?}, checked: {armed:?})"
     );

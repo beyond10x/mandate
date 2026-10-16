@@ -25,7 +25,7 @@
 //! The same split as `crate::tenancy` and `crate::graph`:
 //!
 //! * [`decide_revoke_workload_identity`] reads the port and returns the declared event or
-//!   [`Denied`]. It writes nothing.
+//!   [`Refused`]. It writes nothing.
 //! * [`WorkloadIdentities::apply`] writes an event. It cannot refuse and re-checks nothing.
 //! * [`WorkloadIdentities::fold`] applies a whole log to the starting records.
 //!
@@ -34,18 +34,20 @@
 //! `workload.yaml` gives the command one `denied` clause — "Caller lacks workload-identity
 //! administration authority, the identity is outside the verified organization, or
 //! revocation cannot durably stop the exchange of workload credentials presented under the
-//! binding" — and one error carrying one [`mandate_types::DenialReason`]. An identity no
-//! record carries, one recorded in another organization and one already revoked refuse with
-//! the same value, so a caller cannot tell "no such identity" from "not yours" by reading a
-//! refusal. That is the repository's non-disclosure rule, and it is why an unknown identity
-//! does not take the declared `wrong-state` branch: answering `wrong-state` for an unknown
-//! identity and `denied` for a foreign one would disclose which identities exist elsewhere
-//! (`story:unknown-instance-non-disclosing`).
+//! binding" — a `wrong-state` branch, and one error carrying one
+//! [`mandate_types::DenialReason`]. [`Refused`] names the branch beside that error.
+//!
+//! An identity no record carries and one recorded in another organization — in any state —
+//! refuse through `denied` with the same value, so a caller cannot tell "no such identity"
+//! from "not yours" by reading a refusal (`story:unknown-instance-non-disclosing`). Only an
+//! identity of the caller's own organization already in the terminal `Revoked` state takes
+//! `wrong-state`: the caller can already see that record, so naming its state discloses
+//! nothing about another organization.
 //!
 //! # Every denial clause this fold does not realize
 //!
-//! Two of the three clauses, each quoted verbatim from the declared cause and grouped by what
-//! owes it; `contracts/obligations/model.json` carries the same two as `blocked_on` rows.
+//! One of the three clauses, quoted verbatim from the declared cause and grouped by what owes
+//! it; `contracts/obligations/model.json` carries it as a `blocked_on` row.
 //!
 //! ## Owed to `decision-blocker:guards` — one
 //!
@@ -55,13 +57,12 @@
 //! * `mandate.workload.RevokeWorkloadIdentity` — "Caller lacks workload-identity
 //!   administration authority"
 //!
-//! ## Owed to `story:agent-security` — one
+//! # The clause another crate decides
 //!
-//! Stopping the exchange needs the exchange path that reads this record, which is workload
-//! authentication and stays on that story.
-//!
-//! * `mandate.workload.RevokeWorkloadIdentity` — "revocation cannot durably stop the exchange
-//!   of workload credentials presented under the binding"
+//! "revocation cannot durably stop the exchange of workload credentials presented under the
+//! binding" is the exchange path that reads this record: `mandate-authz`'s
+//! `AuthenticateWorkload` resolves a proof only to a binding still `Recorded`, so a revoked
+//! binding authenticates nothing. `contracts/obligations/model.json` binds the clause there.
 
 use std::collections::BTreeMap;
 
@@ -87,6 +88,55 @@ impl Denied {
     const fn refusal() -> Self {
         Self {
             reason: DenialReason::Denied,
+        }
+    }
+}
+
+/// The declared branch a refusal is answered through.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RefusedAs {
+    /// `denied`.
+    Denied,
+    /// `wrong-state`: an identity of the caller's own organization already `Revoked`.
+    WrongState,
+}
+
+impl RefusedAs {
+    /// The outcome's name in the compiled contract.
+    #[must_use]
+    pub const fn outcome(self) -> &'static str {
+        match self {
+            Self::Denied => "denied",
+            Self::WrongState => "wrong-state",
+        }
+    }
+}
+
+/// A refusal of `mandate.workload.RevokeWorkloadIdentity`: the declared branch it is
+/// answered through, and the declared error it carries.
+///
+/// The branch is a crate-local discriminator, not a contract field: what crosses the wire is
+/// [`Denied`] alone.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Refused {
+    /// The declared outcome.
+    pub outcome: RefusedAs,
+    /// The declared error.
+    pub denied: Denied,
+}
+
+impl Refused {
+    const fn as_denied() -> Self {
+        Self {
+            outcome: RefusedAs::Denied,
+            denied: Denied::refusal(),
+        }
+    }
+
+    const fn as_wrong_state() -> Self {
+        Self {
+            outcome: RefusedAs::WrongState,
+            denied: Denied::refusal(),
         }
     }
 }
@@ -201,19 +251,23 @@ impl WorkloadEvent {
 ///
 /// # Errors
 ///
-/// Refuses, with one reason, an identity no record carries, one recorded in an organization
-/// other than the verified one, and one already revoked.
+/// Refuses through `denied`, with one value, an identity no record carries and one recorded
+/// in an organization other than the verified one, whatever its state; through
+/// `wrong-state`, with the same error, an identity of the verified organization already
+/// revoked.
 pub fn decide_revoke_workload_identity(
     read: &dyn WorkloadIdentityRead,
     context: &VerifiedContext,
     id: WorkloadIdentityId,
-) -> Result<WorkloadEvent, Denied> {
-    let admitted = read.workload_identity(&id).is_some_and(|record| {
-        record.organization_id == context.organization
-            && record.state == WorkloadIdentityState::Recorded
-    });
-    if !admitted {
-        return Err(Denied::refusal());
+) -> Result<WorkloadEvent, Refused> {
+    let Some(record) = read
+        .workload_identity(&id)
+        .filter(|record| record.organization_id == context.organization)
+    else {
+        return Err(Refused::as_denied());
+    };
+    if record.state != WorkloadIdentityState::Recorded {
+        return Err(Refused::as_wrong_state());
     }
     Ok(WorkloadEvent::IdentityRevoked {
         context: context.clone(),

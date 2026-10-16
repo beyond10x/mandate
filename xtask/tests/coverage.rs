@@ -453,11 +453,12 @@ fn the_receipt_is_byte_identical_across_two_runs() {
         assert_eq!(value.len(), 64, "{digest} is not a SHA-256 digest: {value}");
     }
     assert_eq!(
-        parsed["counts"]["type"]["implemented"], 99,
-        "the receipt states the per-kind counts; 99 — the 93 wave D left, \
+        parsed["counts"]["type"]["implemented"], 100,
+        "the receipt states the per-kind counts; 100 — the 93 wave D left, \
          `mandate.core.SigningKeyWindow`, the three delegation lifecycles mandate-authz \
          registers for story:agent-authority-kernel, and the execution and approval \
-         lifecycles it registers for story:agent-security — and not the 108 this pin first carried, \
+         lifecycles it registers for story:agent-security, and the workload identity lifecycle \
+         mandate-model registers — and not the 108 this pin first carried, \
          because wave D's correction round refused a generated contract shape as an \
          implementation and the 23 derived `.State` entries that named one now follow their \
          records — six to mandate-model's own enums, two to mandate-token's authored types, \

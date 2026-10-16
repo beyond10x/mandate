@@ -715,15 +715,21 @@ fn a_double_only_clause_deferred_to_the_crates_binding_story_is_refused() {
     );
 }
 
-/// No clause row of the directory is decided in another crate. The one that was,
-/// `mandate-federation`'s `AuthorizePublicClient` clause "STS code issuance", went with that
-/// command's deferral to `story:oauth-integration`: a deferred command carries no clause. A
-/// `decided_in` row anywhere in the directory is a new cross-crate claim, and this case is where
-/// it has to be argued for.
+/// The one clause the registry decides in another crate, argued here: `mandate-model`'s
+/// `RevokeWorkloadIdentity` clause "revocation cannot durably stop the exchange of workload
+/// credentials presented under the binding", decided in `mandate-authz`: the exchange path that
+/// reads the workload record is `AuthenticateWorkload`, which resolves a proof only to a binding
+/// still `Recorded`, and `crates/mandate-model/src/workload.rs` ("The clause another crate
+/// decides") says so. It is covered on the real path by a `mandate-authz` test. The other that
+/// was, `mandate-federation`'s `AuthorizePublicClient` clause "STS code issuance", went with that
+/// command's deferral to `story:oauth-integration`: a deferred command carries no clause.
+///
+/// Exactly this one: a second `decided_in` row anywhere in the directory is a new cross-crate
+/// claim, and this case is where it has to be argued for.
 #[test]
-fn no_clause_row_of_the_directory_is_decided_in_another_crate() {
+fn the_clause_decided_in_another_crate_is_the_one_argued_here_and_covered_by_its_test() {
     let root = fixture("decided-in-committed");
-    let decided: Vec<(String, String)> = obligations_registry::CRATES
+    let decided: Vec<(String, String, Value)> = obligations_registry::CRATES
         .iter()
         .map(|crate_name| document(&root, crate_name.trim_start_matches("mandate-")))
         .flat_map(|document| {
@@ -741,16 +747,46 @@ fn no_clause_row_of_the_directory_is_decided_in_another_crate() {
                             (
                                 entry["command"].as_str().unwrap_or_default().to_owned(),
                                 clause["clause"].as_str().unwrap_or_default().to_owned(),
+                                clause.clone(),
                             )
                         })
                 })
                 .collect::<Vec<_>>()
         })
         .collect();
-    assert!(
-        decided.is_empty(),
-        "no clause row in the directory carries decided_in: {decided:?}"
+    assert_eq!(
+        decided
+            .iter()
+            .map(|(command, clause, row)| (command.as_str(), clause.as_str(), &row["decided_in"]))
+            .collect::<Vec<_>>(),
+        vec![(
+            "mandate.workload.RevokeWorkloadIdentity",
+            "revocation cannot durably stop the exchange of workload credentials presented \
+             under the binding",
+            &Value::String("mandate-authz".to_owned())
+        )],
+        "exactly the one argued clause row in the directory carries decided_in"
     );
+    for (_, _, clause) in &decided {
+        assert!(
+            clause["blocked_on"].is_null(),
+            "covered, not deferred: {clause}"
+        );
+        let prefix = format!(
+            "{}::",
+            clause["decided_in"]
+                .as_str()
+                .expect("decided_in names a crate")
+        );
+        let rows = clause["tests"].as_array().expect("tests");
+        assert!(
+            !rows.is_empty()
+                && rows.iter().all(|row| row["path"] == "real"
+                    && row["kind"] == "denial"
+                    && row["id"].as_str().is_some_and(|id| id.starts_with(&prefix))),
+            "every row is a real-path denial of the crate that decides it: {clause}"
+        );
+    }
     run(&root).expect("the committed registry is decided");
 }
 
