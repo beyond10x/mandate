@@ -74,7 +74,8 @@
       "mandate-contract",
       "mandate-testkit",
       "jsonwebtoken",
-      "aws-lc-rs"
+      "aws-lc-rs",
+      "eventlog-core", "eventlog-sqlite", "tokio", "time"
     ],
     "mandate-provisioning": [
       "mandate-types",
