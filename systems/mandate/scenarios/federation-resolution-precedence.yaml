@@ -1,7 +1,7 @@
 type: ess-scenario/2
 domain: mandate.federation
 scenario: federation-resolution-precedence
-summary: 'Resolution order 1 before 3: the connection state is decided for a proof no verifier can decode, so the answer is Denied and never InvalidCredential; authenticate.rs:242-243; corpus: none.'
+summary: 'Resolution order 1 before 3: the connection state is decided for a proof no verifier can decode, so the answer is Denied and never InvalidCredential; resolve, ConnectionDisabled; corpus: none.'
 arrange:
 - instance: conn
   entity: mandate.federation.FederationConnection

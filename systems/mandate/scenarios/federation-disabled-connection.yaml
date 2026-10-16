@@ -1,7 +1,7 @@
 type: ess-scenario/2
 domain: mandate.federation
 scenario: federation-disabled-connection
-summary: the connection is disabled; authenticate.rs:242-243; read by mandate_conformance::external::ScenarioVerifier, the standing decode-only verifier double; residue story:signing-and-verification.
+summary: the connection is disabled; authenticate::resolve, ConnectionDisabled; read by external::ScenarioVerifier, the standing decode-only verifier double; residue story:signing-and-verification.
 arrange:
 - instance: conn
   entity: mandate.federation.FederationConnection

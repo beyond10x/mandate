@@ -1,7 +1,7 @@
 type: ess-scenario/2
 domain: mandate.credential
 scenario: pkce-wrong
-summary: '`client, redirect URI or S256 verifier mismatches`: the code record is seeded with the computed verifier of the code presented, so the PKCE verifier decides; redemption.rs:239-240; corpus pkce-wrong.'
+summary: '`client, redirect URI or S256 verifier mismatches`: the code record is seeded with the computed verifier of the code presented, so the PKCE verifier decides; VerifierMismatch; corpus pkce-wrong.'
 arrange:
 - instance: code
   entity: mandate.credential.AuthorizationCode

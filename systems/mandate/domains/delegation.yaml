@@ -3,7 +3,7 @@
 # An execution is never expired by a recorded move: eligibility is read from expires_at, and completion is the only declared transition.
 # An approval is one-use and is never reinstated: it is consumed by exactly one decision, or it expires by its own expires_at with no recorded move.
 # A ceiling has its own identity. organization_id absent means a platform ceiling; present means a tenant ceiling. All applicable platform/tenant ceilings intersect.
-# The ceiling key is (agent_id, organization_id); organization_id absent is the platform key. The current ceiling for a key is the latest recorded one, still in Recorded: an earlier ceiling on the same key is superseded, never edited. A ceiling recorded for another organization applies to no request made in this one.
+# The ceiling key is (agent_id, organization_id); organization_id absent is the platform key. A key's current ceilings are those still in Recorded; a ceiling that is no longer current was superseded, never edited. A key with exactly one current ceiling contributes it, and recording order never picks one of several: a later record does not displace an earlier one until the earlier one is superseded. A ceiling recorded for another organization applies to no request made in this one.
 # Two current ceilings on one key are a declared denial (mandate.credential.ExchangeCredential: "two current capability ceilings share one agent and organization-or-platform key"). The fold records the conflict and the decision path denies; no evaluator picks one of the two.
 # UNMAPPED-UNIQUENESS: a storage unique index on the ceiling key waits for persistence; trusted Agent-kind and organization checks are the evaluator's.
 # CreateDelegation fixes transitive=false; the entity invariant also refuses transitive declarations.
@@ -384,6 +384,7 @@ commands:
       - name: wrong-state
         wrong_state: true
         error: mandate.delegation.Denied
+      # "Agent runtime" here is the holder of the execution: the application agent named by the execution's agent_id, acting as the caller's actor (or subject when no actor is present). It is not the workload runtime principal of mandate.workload.AuthenticateWorkload, which authenticates on an agent's behalf and is never the agent itself.
       - name: denied
         external: Caller is not the agent runtime that holds this execution, the execution is outside the verified organization, or completion cannot durably stop further tool calls bound to it.
         error: mandate.delegation.Denied

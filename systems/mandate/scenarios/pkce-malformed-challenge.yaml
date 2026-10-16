@@ -1,7 +1,7 @@
 type: ess-scenario/2
 domain: mandate.credential
 scenario: pkce-malformed-challenge
-summary: '`S256 policy`: a challenge that is not the base64url of a 32-byte digest records no code; code.rs:640-641; corpus: none.'
+summary: '`S256 policy`: a challenge that is not the base64url of a 32-byte digest records no code; issue_authorization_code, ChallengeMalformed; corpus: none.'
 arrange:
 - instance: server
   entity: mandate.credential.ResourceServer

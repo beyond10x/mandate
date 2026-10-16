@@ -1,7 +1,7 @@
 type: ess-scenario/2
 domain: mandate.authorization
 scenario: authz-unadmitted-organization
-summary: '`Credential-derived context is invalid/revoked/expired/stale`: a context naming an organization no CreateOrganization recorded admits no authority; context.rs:104; corpus: none.'
+summary: '`Credential-derived context is invalid/revoked/expired/stale`: a context naming an organization no CreateOrganization recorded admits no authority; context::bound; corpus: none.'
 arrange:
 - instance: organization
   entity: mandate.tenancy.Organization

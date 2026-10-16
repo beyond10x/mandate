@@ -9,10 +9,9 @@
 //!
 //! Steps 1, 2 and 5-9 of the mandated resolution order
 //! (`docs/architecture/federated-login.md`) are pure domain logic and live here.
-//! Signature verification is step 3; no dependency in this crate's ceiling can perform
-//! it, so it sits behind [`FederationVerifier`] with the double
-//! [`verifier::ConstructedVerifier`], which admits or refuses by construction.
-//! `story:signing-and-verification` attaches a real implementation at that trait.
+//! Signature verification is step 3 and sits behind [`FederationVerifier`]:
+//! [`verifier_real::RealVerifier`] performs it over the key set the issuer publishes, and
+//! the double [`verifier::ConstructedVerifier`] admits or refuses by construction.
 //!
 //! # Why the doubles are `pub`
 //!
@@ -180,8 +179,8 @@ impl RefusedOutcome {
 /// crate-local discriminator that names *which* declared denial condition fired; it is
 /// not a contract field and no wire form carries it. It exists because two conditions
 /// the adapter sequence must tell apart — an absent link and a conflicting one — both
-/// surface as `DenialReason::Denied`, which `story:federation-linking` records as a
-/// contract change for `story:domain-runtime` to weigh.
+/// surface as `DenialReason::Denied`, and `mandate.core.DenialReason` declares no reason
+/// that tells them apart.
 ///
 /// [`Denied::outcome`] is the declared outcome the refusal *is*, which the caller needs
 /// to render the refusal the contract's way; see [`RefusedOutcome`].
@@ -728,8 +727,7 @@ pub enum PrincipalState {
 ///
 /// A fixture, never a shipped implementation: a real allocator does not mint from a
 /// counter. It is `pub` and lives here because every file under `tests/` compiles as its
-/// own crate; the move to `crates/mandate-testkit` is a later story the coordinator
-/// files. Each kind of identity is minted from its own prefix, so a principal and an
+/// own crate; `story:testkit-doubles` moves it into `crates/mandate-testkit`. Each kind of identity is minted from its own prefix, so a principal and an
 /// external principal never share a wire form.
 #[derive(Debug, Clone, Default)]
 pub struct SequentialAllocator {

@@ -445,10 +445,14 @@ pub mod conformance {
 }
 
 // Every ESS element this crate realizes: the four accepted `mandate.core` records, the
-// six projections, and the twelve payloads that write them. 22 in total, and the count
-// matters — `cargo xtask coverage` reads this list and reports what nothing realizes, so
-// an element this crate implements and does not register is reported as realized by
-// nothing, which is the same report an unimplemented element gets.
+// six projections, their six lifecycle enums, the twelve payloads that write them, the ten
+// tenancy commands and the tenancy refusal, and in `mandate.workload` the revocation
+// command, its payload, the authentication payload and the refusal. 43 in total, pinned in
+// `tests/contract_agreement.rs` by
+// `the_realization_registry_names_exactly_the_projections_payloads_and_records_this_crate_writes`.
+// The count matters — `cargo xtask coverage` reads this list and reports what nothing
+// realizes, so an element this crate implements and does not register is reported as
+// realized by nothing, which is the same report an unimplemented element gets.
 //
 // Each entry becomes an anonymous import of the symbol on its right, so an element paired
 // with a record, a projection, an event enum or a variant that was renamed, moved or
@@ -458,7 +462,7 @@ pub mod conformance {
 //
 // `crates/mandate-model/tests/contract_agreement.rs` decides this list against
 // `generated/schema`: every element named here is a compiled declaration, the set is
-// exactly the four records, six entities and twelve payloads that file covers, and each
+// exactly the 43 elements that file enumerates, and each
 // record's symbol is the one its element name says it should be. An event's symbol is a
 // variant, whose name ESS does not derive, so only its module and enum are decided by
 // name; which variant realizes which payload is decided by `ess_name` and the pairing

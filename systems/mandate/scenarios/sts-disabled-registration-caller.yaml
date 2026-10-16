@@ -1,7 +1,7 @@
 type: ess-scenario/2
 domain: mandate.credential
 scenario: sts-disabled-registration-caller
-summary: '`disable` starts from Enabled alone, so a registration already in the terminal Disabled state is the declared wrong-state refusal; registry.rs:257-258; corpus: none.'
+summary: '`disable` starts from Enabled alone, so a registration already in the terminal Disabled state is the declared wrong-state refusal; disable_resource_server, ServerDisabled; corpus: none.'
 arrange:
 - instance: server
   entity: mandate.credential.ResourceServer
