@@ -30,6 +30,8 @@ scenarios:
 - scenarios/federation-resolution-precedence.yaml
 - scenarios/federation-untrimmed-subject.yaml
 - scenarios/introspect-caller-proof-malformed.yaml
+- scenarios/oidc-retire-without-successor-refused.yaml
+- scenarios/oidc-sign-with-retired-key-refused.yaml
 - scenarios/pkce-code-expired.yaml
 - scenarios/pkce-malformed-challenge.yaml
 - scenarios/pkce-redirect-mismatch.yaml

@@ -166,6 +166,7 @@ components:
         - mandate.credential.SigningKeyRegistered
         - mandate.credential.SigningKeyRetired
         - mandate.credential.SigningKeyRevoked
+        - mandate.credential.IdentityTokenIssued
   - component: mandate-worker
     owns:
       domains:

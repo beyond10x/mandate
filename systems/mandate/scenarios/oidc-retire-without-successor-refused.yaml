@@ -1,0 +1,49 @@
+type: ess-scenario/2
+domain: mandate.credential
+scenario: oidc-retire-without-successor-refused
+summary: '`no overlapping replacement key is published`: the only recorded key is not retired; keys::retire_signing_key, NoReplacementKey; corpus: none.'
+arrange:
+- instance: key
+  entity: mandate.credential.SigningKey
+timeline:
+- at: '2026-01-05T09:00:00Z'
+  command: mandate.credential.RegisterSigningKey
+  input:
+    context:
+      subject: 00000000-0000-4000-8000-000000000001
+      organization: 00000000-0000-4000-8000-0000000000a1
+      audience: mandate
+      credential: 00000000-0000-4000-8000-0000000000c1
+      correlation: oidc-retire-without-successor-register
+    key_reference: secret/signing/only
+    algorithm: ES256
+    window:
+      not_before: '2026-01-05T08:00:00Z'
+      expires_at: '2026-04-05T08:00:00Z'
+  outcome: accepted
+  events:
+  - event: mandate.credential.SigningKeyRegistered
+    payload:
+      algorithm: ES256
+  capture:
+    instance: key
+    event: mandate.credential.SigningKeyRegistered
+    field: id
+- at: '2026-01-05T09:00:01Z'
+  command: mandate.credential.RetireSigningKey
+  input:
+    id:
+      $instance: key
+    context:
+      subject: 00000000-0000-4000-8000-000000000001
+      organization: 00000000-0000-4000-8000-0000000000a1
+      audience: mandate
+      credential: 00000000-0000-4000-8000-0000000000c1
+      correlation: oidc-retire-without-successor-retire
+  outcome: denied
+  error:
+    name: mandate.credential.Denied
+    fields:
+      reason: Denied
+  no_events:
+  - mandate.credential.SigningKeyRetired
