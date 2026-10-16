@@ -1,0 +1,29 @@
+type: ess-scenario/2
+domain: mandate.federation
+scenario: oidc-client-public-pkce-optional-refused
+summary: '`a public client does not require PKCE`: PKCE is optional only for a confidential client, so a public registration with pkce_required false is refused and records no client (fork F3); corpus: none.'
+timeline:
+- at: '2026-01-05T09:00:00Z'
+  command: mandate.federation.RegisterOAuthClient
+  input:
+    context:
+      subject: 00000000-0000-4000-8000-000000000001
+      organization: 00000000-0000-4000-8000-0000000000a1
+      audience: mandate
+      credential: 00000000-0000-4000-8000-0000000000c1
+      correlation: oidc-client-public-pkce-optional
+    client_type: Public
+    secret_verifiers: []
+    redirect_uris:
+    - https://app.example.test/callback
+    pkce_method: S256
+    pkce_required: false
+    trusted_peers: []
+    post_logout_redirect_uris: []
+  outcome: denied
+  error:
+    name: mandate.federation.Denied
+    fields:
+      reason: Denied
+  no_events:
+  - mandate.federation.OAuthClientRegistered

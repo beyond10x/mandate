@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$ref": "#/$defs/mandate.core.GroupFilter",
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057",
+    "contract_digest": "slice-sha256/2:61d90fd08aba14d9a1aad37497d7ce391e9343545e25a264ee7e4d53c30828ff",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.core.GroupFilter": {
+      "title": "GroupFilter",
+      "x-ess-name": "mandate.core.GroupFilter",
+      "x-ess-kind": "struct",
+      "type": "object",
+      "properties": {
+        "allowlist": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "cap": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "allowlist",
+        "cap"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

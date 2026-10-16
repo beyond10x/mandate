@@ -1,6 +1,6 @@
 # generated from mandate v1
-# model digest 7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182
-# contract digest slice-sha256/2:d28c95ca735aa99aeee2acc242e347d5cadf7fe69dda065ece5954dd1ee4a439
+# model digest c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057
+# contract digest slice-sha256/2:8a18b88a4ee4851c807fae41d45e719293272f2a32208b2eb8e0bce09b304228
 # do not edit: regenerate with `ess generate`
 openapi: 3.1.0
 info:
@@ -14,8 +14,8 @@ info:
   x-ess-provenance:
     system: mandate
     specification_version: v1
-    source_digest: 7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182
-    contract_digest: slice-sha256/2:d28c95ca735aa99aeee2acc242e347d5cadf7fe69dda065ece5954dd1ee4a439
+    source_digest: c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057
+    contract_digest: slice-sha256/2:8a18b88a4ee4851c807fae41d45e719293272f2a32208b2eb8e0bce09b304228
 tags:
 - name: delegation
 - name: directory
@@ -1960,6 +1960,11 @@ components:
       type: string
       pattern: ^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$
       contentEncoding: base64
+    mandate.core.CredentialVerifier:
+      title: CredentialVerifier
+      x-ess-name: mandate.core.CredentialVerifier
+      x-ess-kind: newtype
+      type: string
     mandate.core.DelegationId:
       title: DelegationId
       x-ess-name: mandate.core.DelegationId
@@ -1980,6 +1985,7 @@ components:
       - AudienceMismatch
       - Unavailable
       - StaleEpoch
+      - InvalidClient
     mandate.core.DirectoryGroupId:
       title: DirectoryGroupId
       x-ess-name: mandate.core.DirectoryGroupId
@@ -2045,6 +2051,22 @@ components:
       type: string
       format: uuid
       pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.GroupFilter:
+      title: GroupFilter
+      x-ess-name: mandate.core.GroupFilter
+      x-ess-kind: struct
+      type: object
+      properties:
+        allowlist:
+          type: array
+          items:
+            type: string
+        cap:
+          type: integer
+      required:
+      - allowlist
+      - cap
+      additionalProperties: false
     mandate.core.Issuer:
       title: Issuer
       x-ess-name: mandate.core.Issuer
@@ -2064,6 +2086,14 @@ components:
       type: string
       format: uuid
       pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.OAuthClientType:
+      title: OAuthClientType
+      x-ess-name: mandate.core.OAuthClientType
+      x-ess-kind: enum
+      type: string
+      enum:
+      - Public
+      - Confidential
     mandate.core.OrganizationId:
       title: OrganizationId
       x-ess-name: mandate.core.OrganizationId
@@ -2239,8 +2269,10 @@ components:
           $ref: '#/components/schemas/mandate.core.OrganizationId'
         verified_claim_name:
           type: string
-        verified_claim_value:
-          type: string
+        verified_claim_values:
+          type: array
+          items:
+            type: string
       required:
       - configured_organization
       additionalProperties: false
@@ -3758,7 +3790,7 @@ components:
       additionalProperties: false
     mandate.federation.AuthenticateFederation.accepted.Response:
       additionalProperties: false
-      description: A validated federated login mints the session, which is step 9 of the resolution order in docs/architecture/federated-login.md. FederationAuthenticated carries the whole mandate.identity.Session record — the new session identity, the principal, the resolved organization, the connection, the epoch snapshot the session is bound to and its expiry — so the identity fold materializes the session from this event alone and reads no command input or response. The audience and the correlation are carried beside the record. The principal, the organization, the epoch snapshot handle and the expiry are the ones this command resolved and returned, so the fold reads each from the response rather than from a value the implementation invented; the snapshot's own contents are recorded by the adapter through EpochSnapshotRecorded. Taken when no other outcome's condition matched. A `mandate.identity.Session` now exists, in `Active`. Its identity is published as `session_id` on `mandate.federation.FederationAuthenticated`. Emits `FederationAuthenticated`, published to consumers and listed under `published`.
+      description: 'A validated federated login mints the session, which is step 9 of the resolution order in docs/architecture/federated-login.md. FederationAuthenticated carries the whole mandate.identity.Session record — the new session identity, the principal, the resolved organization, the connection, the epoch snapshot the session is bound to and its expiry — so the identity fold materializes the session from this event alone and reads no command input or response. The audience and the correlation are carried beside the record. The principal, the organization, the epoch snapshot handle and the expiry are the ones this command resolved and returned, so the fold reads each from the response rather than from a value the implementation invented; the snapshot''s own contents are recorded by the adapter through EpochSnapshotRecorded. ExternalProfileObserved records the profile of this login for later issuance (fork F13): the external principal the login resolved through its link, and the email, its verified flag, the name and the groups, each read from the validated proof and never from a caller input. An email the upstream does not mark verified is recorded with email_verified false, never true. The groups are those the connection''s group filter admits: a group outside the allowlist never appears in the event, and a connection without a filter records an empty list. Taken when no other outcome''s condition matched. A `mandate.identity.Session` now exists, in `Active`. Its identity is published as `session_id` on `mandate.federation.FederationAuthenticated`. Emits `FederationAuthenticated` and `ExternalProfileObserved`, published to consumers and listed under `published`.'
       properties:
         outcome:
           const: accepted
@@ -3766,8 +3798,8 @@ components:
         published:
           description: 'Every event this branch published, in publication order: its qualified name and its payload.'
           items: false
-          maxItems: 1
-          minItems: 1
+          maxItems: 2
+          minItems: 2
           prefixItems:
           - additionalProperties: false
             properties:
@@ -3780,6 +3812,17 @@ components:
             - event
             - payload
             type: object
+          - additionalProperties: false
+            properties:
+              event:
+                const: mandate.federation.ExternalProfileObserved
+                type: string
+              payload:
+                $ref: '#/components/schemas/mandate.federation.ExternalProfileObserved.Event'
+            required:
+            - event
+            - payload
+            type: object
           type: array
       required:
       - outcome
@@ -3787,7 +3830,7 @@ components:
       type: object
     mandate.federation.AuthenticateFederation.denied.Response:
       additionalProperties: false
-      description: 'Decided outside the request: Connection is disabled/untrusted, proof signature/issuer/audience/expiry is invalid, tenant resolution has zero or multiple matches, principal linking is absent/conflicting, or any email-domain/unverified-input fallback would be required..'
+      description: 'Decided outside the request: Connection is disabled/untrusted, proof signature/issuer/audience/expiry is invalid, tenant resolution has zero or multiple matches (a rule naming a claim matches only when the validated claim equals one of its listed values; an absent claim matches none), principal linking is absent/conflicting, the groups the connection''s filter admits number more than its cap, or any email-domain/unverified-input fallback would be required. A refused login opens no session and records no profile..'
       properties:
         error:
           const: mandate.federation.Denied
@@ -4204,6 +4247,42 @@ components:
       - context
       - id
       additionalProperties: false
+    mandate.federation.ExternalProfileObserved.Event:
+      title: ExternalProfileObserved payload
+      x-ess-name: mandate.federation.ExternalProfileObserved
+      x-ess-kind: event-payload
+      type: object
+      properties:
+        organization_id:
+          $ref: '#/components/schemas/mandate.core.OrganizationId'
+        correlation:
+          $ref: '#/components/schemas/mandate.core.CorrelationId'
+        connection_id:
+          $ref: '#/components/schemas/mandate.core.FederationConnectionId'
+        external_principal_id:
+          $ref: '#/components/schemas/mandate.core.ExternalPrincipalId'
+        email:
+          type: string
+        email_verified:
+          type: boolean
+        name:
+          type: string
+        groups:
+          type: array
+          items:
+            type: string
+        observed_at:
+          type: string
+          format: date-time
+      required:
+      - organization_id
+      - correlation
+      - connection_id
+      - external_principal_id
+      - email_verified
+      - groups
+      - observed_at
+      additionalProperties: false
     mandate.federation.FederationAuthenticated.Event:
       title: FederationAuthenticated payload
       x-ess-name: mandate.federation.FederationAuthenticated
@@ -4255,6 +4334,8 @@ components:
           $ref: '#/components/schemas/mandate.core.TenantResolutionRule'
         jit_provisioning:
           type: boolean
+        groups:
+          $ref: '#/components/schemas/mandate.core.GroupFilter'
       required:
       - context
       - connection_id
@@ -4378,21 +4459,39 @@ components:
           $ref: '#/components/schemas/mandate.core.OAuthClientId'
         organization_id:
           $ref: '#/components/schemas/mandate.core.OrganizationId'
-        public:
-          type: boolean
+        client_type:
+          $ref: '#/components/schemas/mandate.core.OAuthClientType'
+        secret_verifiers:
+          type: array
+          items:
+            $ref: '#/components/schemas/mandate.core.CredentialVerifier'
         redirect_uris:
           type: array
           items:
             $ref: '#/components/schemas/mandate.core.RedirectUri'
         pkce_method:
           $ref: '#/components/schemas/mandate.core.PkceMethod'
+        pkce_required:
+          type: boolean
+        trusted_peers:
+          type: array
+          items:
+            $ref: '#/components/schemas/mandate.core.OAuthClientId'
+        post_logout_redirect_uris:
+          type: array
+          items:
+            $ref: '#/components/schemas/mandate.core.RedirectUri'
       required:
       - context
       - id
       - organization_id
-      - public
+      - client_type
+      - secret_verifiers
       - redirect_uris
       - pkce_method
+      - pkce_required
+      - trusted_peers
+      - post_logout_redirect_uris
       additionalProperties: false
     mandate.federation.ProvisionExternalPrincipal.Input:
       title: ProvisionExternalPrincipal input
@@ -4476,6 +4575,8 @@ components:
           $ref: '#/components/schemas/mandate.core.TenantResolutionRule'
         jit_provisioning:
           type: boolean
+        groups:
+          $ref: '#/components/schemas/mandate.core.GroupFilter'
       required:
       - context
       - issuer
@@ -4485,7 +4586,7 @@ components:
       additionalProperties: false
     mandate.federation.RegisterFederationConnection.accepted.Response:
       additionalProperties: false
-      description: The connection is created with its provisioning setting decided here and never changed afterwards. A connection whose issuer or provisioning admission must change is disabled and registered again; there is no update command. Taken when no other outcome's condition matched. A `mandate.federation.FederationConnection` now exists, in `Enabled`. Its identity is published as `connection_id` on `mandate.federation.FederationConnectionCreated`. Emits `FederationConnectionCreated`, published to consumers and listed under `published`.
+      description: The connection is created with its provisioning setting, its tenant rule and its group filter decided here and never changed afterwards. A tenant rule that names a validated claim lists every value that resolves (a hosted-domain list), and any one of them resolves. A connection without a group filter records no groups for any login. A connection whose issuer, provisioning admission, accepted claim values or group filter must change is disabled and registered again; there is no update command. Taken when no other outcome's condition matched. A `mandate.federation.FederationConnection` now exists, in `Enabled`. Its identity is published as `connection_id` on `mandate.federation.FederationConnectionCreated`. Emits `FederationConnectionCreated`, published to consumers and listed under `published`.
       properties:
         outcome:
           const: accepted
@@ -4514,7 +4615,7 @@ components:
       type: object
     mandate.federation.RegisterFederationConnection.denied.Response:
       additionalProperties: false
-      description: 'Decided outside the request: Caller lacks federation-administration authority, issuer/client/trust, tenant-resolution or just-in-time provisioning configuration is unadmitted, or organization binding is invalid..'
+      description: 'Decided outside the request: Caller lacks federation-administration authority, issuer/client/trust, tenant-resolution or just-in-time provisioning configuration is unadmitted, the tenant rule names a claim with an empty value list or values without a claim name, the group filter''s cap is below one, or organization binding is invalid..'
       properties:
         error:
           const: mandate.federation.Denied
@@ -4543,23 +4644,41 @@ components:
       properties:
         context:
           $ref: '#/components/schemas/mandate.core.VerifiedContext'
-        public:
-          type: boolean
+        client_type:
+          $ref: '#/components/schemas/mandate.core.OAuthClientType'
+        secret_verifiers:
+          type: array
+          items:
+            $ref: '#/components/schemas/mandate.core.CredentialVerifier'
         redirect_uris:
           type: array
           items:
             $ref: '#/components/schemas/mandate.core.RedirectUri'
         pkce_method:
           $ref: '#/components/schemas/mandate.core.PkceMethod'
+        pkce_required:
+          type: boolean
+        trusted_peers:
+          type: array
+          items:
+            $ref: '#/components/schemas/mandate.core.OAuthClientId'
+        post_logout_redirect_uris:
+          type: array
+          items:
+            $ref: '#/components/schemas/mandate.core.RedirectUri'
       required:
       - context
-      - public
+      - client_type
+      - secret_verifiers
       - redirect_uris
       - pkce_method
+      - pkce_required
+      - trusted_peers
+      - post_logout_redirect_uris
       additionalProperties: false
     mandate.federation.RegisterOAuthClient.accepted.Response:
       additionalProperties: false
-      description: The client is bound to the organization the verified context carries; the command takes no organization input, so no caller selects the tenant a client is registered into. OAuthClientRegistered carries the whole mandate.federation.OAuthClient record — the client identity, its organization, whether it is a public client, its exact redirect set and its PKCE method — so the federation fold materializes the client from this event alone and reads no command input or response. The identity and the organization are the ones this outcome decided and returned, read from the response rather than from a value the implementation invented. An empty redirect set is admitted and is not a denial — the client it registers is inert, because AuthorizePublicClient matches the presented redirect against the registered set exactly and an empty set matches nothing, so every authorization request to that client is refused. mandate.core.PkceMethod admits S256 and nothing else, so no registration can name another method and none is refused for naming one. A registration whose redirect surface or PKCE method must change is disabled and registered again; there is no update command. Taken when no other outcome's condition matched. A `mandate.federation.OAuthClient` now exists, in `Recorded`. Its identity is published as `id` on `mandate.federation.OAuthClientRegistered`. Emits `OAuthClientRegistered`, published to consumers and listed under `published`.
+      description: The client is bound to the organization the verified context carries; the command takes no organization input, so no caller selects the tenant a client is registered into. A confidential client authenticates with a secret, and the registration carries only the keyed verifiers derived from its secret references (fork F2), one or two so that a secret can be rotated; the secret itself is never an input, an event field or a record field. A public client states no verifier and always requires PKCE (fork F3); a confidential client may require it. Each trusted peer names another client of the same organization that may obtain tokens for this one. OAuthClientRegistered carries the whole mandate.federation.OAuthClient record — the client identity, its organization, its client type, its verifiers, its exact redirect set, its PKCE method and requirement, its trusted peers and its exact post-logout redirect set — so the federation fold materializes the client from this event alone and reads no command input or response. The identity and the organization are the ones this outcome decided and returned, read from the response rather than from a value the implementation invented. An empty redirect set is admitted and is not a denial — the client it registers is inert, because AuthorizePublicClient matches the presented redirect against the registered set exactly and an empty set matches nothing, so every authorization request to that client is refused. mandate.core.PkceMethod admits S256 and nothing else, so no registration can name another method and none is refused for naming one. A registration whose redirect surface or PKCE method must change is disabled and registered again; there is no update command. Taken when no other outcome's condition matched. A `mandate.federation.OAuthClient` now exists, in `Recorded`. Its identity is published as `id` on `mandate.federation.OAuthClientRegistered`. Emits `OAuthClientRegistered`, published to consumers and listed under `published`.
       properties:
         outcome:
           const: accepted
@@ -4588,7 +4707,7 @@ components:
       type: object
     mandate.federation.RegisterOAuthClient.denied.Response:
       additionalProperties: false
-      description: 'Decided outside the request: Caller lacks client-administration authority, a redirect URI is unadmitted, or organization binding is invalid..'
+      description: 'Decided outside the request: Caller lacks client-administration authority, a redirect URI or post-logout redirect URI is unadmitted, a public client states a secret verifier or does not require PKCE, a confidential client states no verifier or more than two, a trusted peer names the client itself or no client registered in the verified organization, or organization binding is invalid..'
       properties:
         error:
           const: mandate.federation.Denied
@@ -6466,6 +6585,22 @@ x-ess-entities:
     type: string
     format: uuid
     pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.GroupFilter:
+    title: GroupFilter
+    x-ess-name: mandate.core.GroupFilter
+    x-ess-kind: struct
+    type: object
+    properties:
+      allowlist:
+        type: array
+        items:
+          type: string
+      cap:
+        type: integer
+    required:
+    - allowlist
+    - cap
+    additionalProperties: false
   mandate.core.Issuer:
     title: Issuer
     x-ess-name: mandate.core.Issuer
@@ -6493,6 +6628,14 @@ x-ess-entities:
     type: string
     format: uuid
     pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.OAuthClientType:
+    title: OAuthClientType
+    x-ess-name: mandate.core.OAuthClientType
+    x-ess-kind: enum
+    type: string
+    enum:
+    - Public
+    - Confidential
   mandate.core.OrganizationId:
     title: OrganizationId
     x-ess-name: mandate.core.OrganizationId
@@ -6619,8 +6762,10 @@ x-ess-entities:
         $ref: '#/x-ess-entities/mandate.core.OrganizationId'
       verified_claim_name:
         type: string
-      verified_claim_value:
-        type: string
+      verified_claim_values:
+        type: array
+        items:
+          type: string
     required:
     - configured_organization
     additionalProperties: false
@@ -7348,6 +7493,8 @@ x-ess-entities:
         $ref: '#/x-ess-entities/mandate.core.TenantResolutionRule'
       jit_provisioning:
         type: boolean
+      groups:
+        $ref: '#/x-ess-entities/mandate.core.GroupFilter'
       state:
         $ref: '#/x-ess-entities/mandate.federation.FederationConnection.State'
     required:
@@ -7385,22 +7532,48 @@ x-ess-entities:
           cardinality: one
           via: organization_id
           $ref: '#/x-ess-entities/mandate.tenancy.Organization'
-      public:
-        type: boolean
+      client_type:
+        $ref: '#/x-ess-entities/mandate.core.OAuthClientType'
+      secret_verifiers:
+        type: array
+        items:
+          $ref: '#/x-ess-entities/mandate.core.CredentialVerifier'
       redirect_uris:
         type: array
         items:
           $ref: '#/x-ess-entities/mandate.core.RedirectUri'
       pkce_method:
         $ref: '#/x-ess-entities/mandate.core.PkceMethod'
+      pkce_required:
+        type: boolean
+      trusted_peers:
+        type: array
+        items:
+          $ref: '#/x-ess-entities/mandate.core.OAuthClientId'
+        x-ess-relation:
+          name: trusted_peers
+          kind: references
+          source: mandate.federation.OAuthClient
+          target: mandate.federation.OAuthClient
+          cardinality: many
+          via: trusted_peers
+          $ref: '#/x-ess-entities/mandate.federation.OAuthClient'
+      post_logout_redirect_uris:
+        type: array
+        items:
+          $ref: '#/x-ess-entities/mandate.core.RedirectUri'
       state:
         $ref: '#/x-ess-entities/mandate.federation.OAuthClient.State'
     required:
     - id
     - organization_id
-    - public
+    - client_type
+    - secret_verifiers
     - redirect_uris
     - pkce_method
+    - pkce_required
+    - trusted_peers
+    - post_logout_redirect_uris
     - state
     additionalProperties: false
   mandate.federation.OAuthClient.State:

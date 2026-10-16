@@ -83,6 +83,7 @@ components:
         - mandate.federation.ExternalPrincipalProvisioned
         - mandate.federation.OAuthClientRegistered
         - mandate.federation.OAuthClientDisabled
+        - mandate.federation.ExternalProfileObserved
         - mandate.directory.DirectoryGroupRecorded
         - mandate.directory.SyncJobRecorded
         - mandate.directory.DirectoryGroupMembershipRecorded
