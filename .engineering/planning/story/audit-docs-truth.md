@@ -2,15 +2,16 @@
 format: aep.planning-md/3
 id: story:audit-docs-truth
 kind: story
-status: active
+status: implemented
 title: Public and architecture documents state what 0.9.0 ships
 relations:
 - decomposes: epic:foundations
 - serves: vision:mandate
-revision: 3
+revision: 4
 transitions:
 - {from: "draft", to: "proposed", at: "2026-10-16T20:19:46Z", actor: "human:timo", revision: 2}
 - {from: "proposed", to: "active", at: "2026-10-16T20:19:46Z", actor: "human:timo", revision: 3}
+- {from: "active", to: "implemented", at: "2026-10-16T21:02:49Z", actor: "human:timo", revision: 4, decided_on: {"recorded":{"test_result":1}}}
 ---
 # Public and architecture documents state what 0.9.0 ships
 

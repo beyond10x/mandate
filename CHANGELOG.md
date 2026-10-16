@@ -4,6 +4,29 @@ All notable changes to Mandate are recorded here. The format follows [Keep a Cha
 
 ## [Unreleased]
 
+The spec-conformance audit of 0.9.0: every gap it found has an owner, and the small ones are closed.
+
+### Fixed
+
+- A session revoke for another organization's session is refused as an invalid credential, exactly
+  like an unknown one; the graph and policy test doubles answer a foreign record as denied, like an
+  unknown one, instead of disclosing it with a tenant mismatch.
+- A principal or connection that no record places in an organization is no longer treated as
+  contained by it.
+- A workload refusal says whether it was denied or met a revoked identity in the wrong state.
+- The conformance target reads OAuth clients and sessions from each scenario's own records; an
+  empty client reader had refused every authorization-code issuance, so one PKCE scenario failed
+  and two passed by coincidence. Conformance: 186 scenarios, 56 passed (48 before).
+- `README.md`, the public documents and the architecture documents state what 0.9.0 ships.
+
+### Changed
+
+- `WorkloadIdentity` and its lifecycle state are realized in the model.
+- Every deferred obligation, injection row and blocked scenario names a live story that the
+  planning store holds and has not finished, and a test refuses one that does not.
+- Comments, ownership rows and scenario summaries cite symbols instead of line numbers.
+- New authored scenario `epoch-increment-commit-fails`.
+
 ## [0.9.1] - 2026-10-15
 
 Wave 9: the tooling moves to the releases installed for this repository.
