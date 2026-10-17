@@ -36,9 +36,10 @@ use mandate_token::CredentialProfile;
 use mandate_token::projection::{CredentialEvent, DenialClause, Denied, Projection};
 use mandate_types::{
     Audience, AuthorityScope, CorrelationId, CredentialId, CredentialKind, CredentialProof,
-    DenialReason, Duration, EpochSnapshotRef, Issuer, OAuthClientId, OrganizationId, PkceChallenge,
-    PkceMethod, PrincipalId, RedirectUri, ResourceServerId, RevocationGuarantee, SessionId,
-    Timestamp, Transient, Uuid, VerifiedContext,
+    DenialReason, Duration, EpochSnapshotRef, Issuer, KeyReference, OAuthClientId, OrganizationId,
+    PkceChallenge, PkceMethod, PrincipalId, RedirectUri, ResourceServerId, RevocationGuarantee,
+    SessionId, SigningAlgorithm, SigningKeyId, SigningKeyWindow, Timestamp, Transient, Uuid,
+    VerifiedContext,
 };
 
 /// About 7 118 years: refused from `3000-01-01`; the refusal line is `2881-06-10T00:00:00Z`.
@@ -119,17 +120,48 @@ fn register(profile: CredentialProfile) -> Result<(Projection, ResourceServerId)
     })
 }
 
-/// A record carrying `profile`, as `adversary_lifetime_bounds_1.rs` builds it.
+/// The recorded signing key a self-contained issuance here signs under: a self-contained
+/// credential is issued only under a key the records admit for signing at the request's
+/// instant, and the signer names it by its record's identity.
+fn signing_key_id() -> SigningKeyId {
+    SigningKeyId::new(uuid(0x6b))
+}
+
+/// [`signing_key_id`]'s registration: `Recorded`, its window open across every request
+/// instant the self-contained cases here serve, from `2881-06-10T00:00:00Z` to
+/// `9999-12-31T00:00:00Z`.
+fn signing_key_registered() -> CredentialEvent {
+    CredentialEvent::SigningKeyRegistered {
+        context: context(),
+        id: signing_key_id(),
+        key_reference: KeyReference::new("kms://lifetime"),
+        thumbprint: "thumb-lifetime".to_owned(),
+        algorithm: SigningAlgorithm::new("ES256"),
+        window: SigningKeyWindow {
+            not_before: Timestamp::new("2881-01-01T00:00:00Z"),
+            expires_at: Timestamp::new("9999-12-31T23:59:59Z"),
+        },
+    }
+}
+
+/// A record carrying `profile`, as `adversary_lifetime_bounds_1.rs` builds it, and the
+/// signing key a self-contained issuance under it signs with.
 fn recorded(profile: CredentialProfile) -> (Projection, ResourceServerId) {
     let id = ResourceServerId::new(uuid(0x40));
-    let log = vec![CredentialEvent::ResourceServerRegistered {
-        context: context(),
+    let log = vec![
+        CredentialEvent::ResourceServerRegistered {
+            context: context(),
+            id,
+            audience: Audience::new("api-a"),
+            credential_profile: profile,
+            allowed_exchange_sources: Vec::new(),
+        },
+        signing_key_registered(),
+    ];
+    (
+        Projection::fold(&log).expect("one creation and one signing key"),
         id,
-        audience: Audience::new("api-a"),
-        credential_profile: profile,
-        allowed_exchange_sources: Vec::new(),
-    }];
-    (Projection::fold(&log).expect("one creation"), id)
+    )
 }
 
 /// A reference issuance under `target` at `at`: the expiry, and the secrets minted.
@@ -166,7 +198,7 @@ fn issue_self_contained(
     ttl_seconds: u64,
     at: &str,
 ) -> Result<Timestamp, Denied> {
-    let signer = StaticSigner::new("kid-one", ttl_seconds);
+    let signer = StaticSigner::new(signing_key_id().to_string(), ttl_seconds);
     issue_self_contained_credential(
         &IssueSelfContainedCredential {
             context: context(),

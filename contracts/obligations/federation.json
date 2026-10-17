@@ -109,7 +109,7 @@
       }
     },
     {
-      "command": "mandate.federation.AuthorizePublicClient",
+      "command": "mandate.federation.AuthorizeClient",
       "status": "deferred",
       "story": "story:oauth-integration",
       "blocker": "decision-blocker:epoch-atomicity",
@@ -491,8 +491,15 @@
         },
         {
           "clause": "post-logout redirect URI is unadmitted",
-          "tests": [],
-          "blocked_on": "story:oidc-static-client-registry"
+          "tests": [
+            {
+              "id": "mandate-federation::obligations::a_post_logout_redirect_uri_the_deployment_does_not_admit_is_refused",
+              "kind": "denial",
+              "path": "double",
+              "double": "mandate_federation::register_client::ConfiguredAdmission"
+            }
+          ],
+          "blocked_on": "decision-blocker:guards"
         },
         {
           "clause": "a public client states a secret verifier or does not require PKCE",

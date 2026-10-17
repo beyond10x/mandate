@@ -106,7 +106,7 @@ pub struct Obligation {
 /// The four commands the customer login road serves, in the order the road runs them.
 pub const ROAD_COMMANDS: &[&str] = &[
     "mandate.federation.AuthenticateFederation",
-    "mandate.federation.AuthorizePublicClient",
+    "mandate.federation.AuthorizeClient",
     "mandate.credential.RedeemAuthorizationCode",
     "mandate.credential.IntrospectCredential",
 ];
@@ -144,8 +144,8 @@ const AUTHENTICATE_FEDERATION: &[Clause] = &[
     },
 ];
 
-/// `mandate.federation.AuthorizePublicClient`'s declared denial, clause by clause.
-const AUTHORIZE_PUBLIC_CLIENT: &[Clause] = &[
+/// `mandate.federation.AuthorizeClient`'s declared denial, clause by clause.
+const AUTHORIZE_CLIENT: &[Clause] = &[
     Clause {
         phrase: "Session proof is invalid/stale",
         establishes: Establishes::Handler,
@@ -276,14 +276,14 @@ pub const OBLIGATIONS: &[Obligation] = &[
         clauses: AUTHENTICATE_FEDERATION,
     },
     Obligation {
-        command: "mandate.federation.AuthorizePublicClient",
+        command: "mandate.federation.AuthorizeClient",
         wire: Wire::Product {
             method: Method::Get,
             path: "/oauth/authorize",
             body: BodyForm::Query,
         },
-        decoder: Some("decode::authorize_public_client"),
-        clauses: AUTHORIZE_PUBLIC_CLIENT,
+        decoder: Some("decode::authorize_client"),
+        clauses: AUTHORIZE_CLIENT,
     },
     Obligation {
         command: "mandate.credential.RedeemAuthorizationCode",

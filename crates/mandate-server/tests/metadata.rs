@@ -37,7 +37,7 @@ fn an_advertised_endpoint_is_the_route_table_s_own_path_and_not_a_second_copy() 
     for (advertised, command) in [
         (
             &document.authorization_endpoint,
-            "mandate.federation.AuthorizePublicClient",
+            "mandate.federation.AuthorizeClient",
         ),
         (
             &document.token_endpoint,
@@ -149,7 +149,7 @@ fn openid_configuration_members() {
     let command = |name: &str| format!("{ISSUER}{}", routes::route_for_command(name).unwrap().path);
     assert_eq!(
         document.authorization_server.authorization_endpoint,
-        command("mandate.federation.AuthorizePublicClient")
+        command("mandate.federation.AuthorizeClient")
     );
     assert_eq!(
         document.authorization_server.token_endpoint,

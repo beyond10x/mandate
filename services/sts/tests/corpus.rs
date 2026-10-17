@@ -12,7 +12,7 @@
 //!
 //! - `mandate.authorization.Check`, named by all five credential entries, belongs to
 //!   `story:check-api` and is realized by no crate in this workspace yet.
-//! - `mandate.federation.AuthorizePublicClient`, named by all four `pkce` entries, is
+//! - `mandate.federation.AuthorizeClient`, named by all four `pkce` entries, is
 //!   realized by `crates/mandate-federation` and is unreachable from here:
 //!   `dependency-boundaries.json` admits no `mandate-federation` to `mandate-sts`, and the
 //!   command is non-consuming — it validates and stops at the `IssueAuthorizationCode` input
@@ -55,8 +55,9 @@ use mandate_token::verifier::{CredentialDomain, verifier_for, verifier_in};
 use mandate_types::{
     Audience, AuthorityScope, AuthorizationCodeId, CorrelationId, CredentialId, CredentialKind,
     CredentialProof, CredentialVerifier, DenialReason, Duration, EpochSnapshotRef, Issuer,
-    OAuthClientId, OrganizationId, PkceChallenge, PkceMethod, PrincipalId, RedirectUri,
-    ResourceServerId, RevocationGuarantee, SessionId, Timestamp, Transient, Uuid, VerifiedContext,
+    KeyReference, OAuthClientId, OrganizationId, PkceChallenge, PkceMethod, PrincipalId,
+    RedirectUri, ResourceServerId, RevocationGuarantee, SessionId, SigningAlgorithm, SigningKeyId,
+    SigningKeyWindow, Timestamp, Transient, Uuid, VerifiedContext,
 };
 use serde_json::Value;
 
@@ -74,7 +75,7 @@ const REDEEM_CODE: &str = "mandate.credential.RedeemAuthorizationCode";
 const CHECK: &str = "mandate.authorization.Check";
 /// `crates/mandate-federation`'s command. Named by every `pkce` case here and driven by none
 /// of them; see the module documentation.
-const AUTHORIZE: &str = "mandate.federation.AuthorizePublicClient";
+const AUTHORIZE: &str = "mandate.federation.AuthorizeClient";
 
 /// One corpus entry, read out of the file by id.
 fn case(id: &str) -> Value {
@@ -155,6 +156,34 @@ fn context(principal: PrincipalId) -> VerifiedContext {
         delegation: None,
         execution: None,
         correlation: CorrelationId::new("corpus"),
+    }
+}
+
+/// The recorded signing key a self-contained issuance here signs under: a self-contained
+/// credential is issued only under a key the records admit for signing at the request's
+/// instant, and the signer names it by its record's identity.
+fn signing_key_id() -> SigningKeyId {
+    SigningKeyId::new(uuid(0x6b))
+}
+
+/// The `kid` a signer writes for [`signing_key_id`].
+fn kid() -> String {
+    signing_key_id().to_string()
+}
+
+/// [`signing_key_id`]'s registration: `Recorded`, its window open across every instant the
+/// cases here serve a request at.
+fn signing_key_registered() -> CredentialEvent {
+    CredentialEvent::SigningKeyRegistered {
+        context: context(PrincipalId::new(uuid(0x51))),
+        id: signing_key_id(),
+        key_reference: KeyReference::new("kms://corpus"),
+        thumbprint: "thumb-corpus".to_owned(),
+        algorithm: SigningAlgorithm::new("ES256"),
+        window: SigningKeyWindow {
+            not_before: Timestamp::new("2026-09-01T00:00:00Z"),
+            expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+        },
     }
 }
 
@@ -599,16 +628,17 @@ fn profile_offline_bound() {
     );
 
     let mut deployment = Deployment::new();
+    deployment.log.push(signing_key_registered());
     let target = deployment.register("api-b", self_contained_profile());
 
     // The bound, from the other side: a signer configured beyond `PT15M` is refused rather
     // than silently shortened, because the token would outlive whatever the descriptor said.
-    let beyond = StaticSigner::new("kid-one", 901);
+    let beyond = StaticSigner::new(kid(), 901);
     let denied = deployment.sign(target, PrincipalId::new(uuid(0x52)), &beyond);
     let denied = denied.expect_err("the signer would outlive the profile's documented bound");
     assert_eq!(denied.clause, DenialClause::ExpiryUnbounded);
 
-    let signer = StaticSigner::new("kid-one", 900);
+    let signer = StaticSigner::new(kid(), 900);
     let caller = deployment
         .sign(target, PrincipalId::new(uuid(0x51)), &signer)
         .expect("a registered, enabled target of the caller's organization");
@@ -618,7 +648,7 @@ fn profile_offline_bound() {
     let issued = deployment
         .sign(target, PrincipalId::new(uuid(0x52)), &signer)
         .expect("a registered, enabled target of the caller's organization");
-    assert_eq!(issued.kid.as_deref(), Some("kid-one"));
+    assert_eq!(issued.kid.as_deref(), Some(kid().as_str()));
     assert_eq!(
         issued.descriptor.expires_at,
         Timestamp::new("2026-09-19T00:15:00Z"),
@@ -862,7 +892,7 @@ fn presented(code_id: AuthorizationCodeId, proof: &CredentialProof) -> RedeemAut
 /// `pkce-valid`: "S256 challenge, matching verifier, exact redirect, fresh code and
 /// state/nonce" → "one credential; code consumed atomically".
 ///
-/// The state and the nonce are `AuthorizePublicClient`'s inputs and neither STS command takes
+/// The state and the nonce are `AuthorizeClient`'s inputs and neither STS command takes
 /// one, so the half of the `given` this crate can execute is the challenge, the verifier, the
 /// redirect and the freshness. "Atomically" is the append: one group on the code's own
 /// stream, compare-and-set on the version the decision was read at.

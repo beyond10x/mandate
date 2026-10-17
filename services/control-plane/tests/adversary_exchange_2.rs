@@ -127,7 +127,6 @@ fn deployment(clock: FixedClock) -> (Wired, Targets) {
             issuer: ISSUER.to_owned(),
             code_lifetime: CodeLifetime::new(Duration::new("PT5M")),
             session_lifetime: Duration::new("PT8H"),
-            keys: Vec::new(),
         },
         ConstructedVerifier::admitting(
             &[SigningAlgorithm::new("ES256")],
@@ -241,7 +240,7 @@ fn code_flow_credential(deployment: &mut Wired, target: ResourceServerId) -> Str
         .expect("the login opens a session");
     let authorization = deployment
         .authorize(
-            &decode::authorize_public_client(
+            &decode::authorize_client(
                 &Request::new(
                     "GET",
                     &format!(

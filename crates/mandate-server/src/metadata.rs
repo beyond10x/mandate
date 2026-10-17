@@ -17,7 +17,7 @@
 //! # What is advertised is what is enforced
 //!
 //! `code_challenge_methods_supported` is `["S256"]` because `mandate.core.PkceMethod` declares
-//! exactly one variant and `crate::decode::authorize_public_client` refuses every other
+//! exactly one variant and `crate::decode::authorize_client` refuses every other
 //! `code_challenge_method`. `token_endpoint_auth_methods_supported` is
 //! [`TOKEN_ENDPOINT_AUTH_METHODS`] because `crate::decode::redeem_authorization_code` reads a
 //! secret from `Authorization: Basic` or from the `client_secret` parameter, and a public
@@ -225,7 +225,7 @@ pub fn openid_configuration(issuer: &str) -> OpenIdConfiguration {
 pub fn authorization_server_metadata(issuer: &str) -> AuthorizationServerMetadata {
     let issuer = issuer.trim_end_matches('/').to_owned();
     AuthorizationServerMetadata {
-        authorization_endpoint: endpoint(&issuer, "mandate.federation.AuthorizePublicClient"),
+        authorization_endpoint: endpoint(&issuer, "mandate.federation.AuthorizeClient"),
         token_endpoint: endpoint(&issuer, "mandate.credential.RedeemAuthorizationCode"),
         introspection_endpoint: endpoint(&issuer, "mandate.credential.IntrospectCredential"),
         jwks_uri: format!(
@@ -476,17 +476,14 @@ impl Health {
         Self::Live
     }
 
-    /// The readiness answer for a deployment that admitted `keys` signing keys.
+    /// The readiness answer for a deployment whose signer `signs` or does not.
     ///
-    /// Zero keys is not ready. The count is the keys admitted from the `--key` documents until
-    /// the signer is wired into the composition, which then answers for the key it signs with.
+    /// The composition answers for the key it signs with: ready while its signer holds an
+    /// active key whose `SigningKey` record admits signing now, and not ready otherwise — no
+    /// key mounted, or the one it holds retired, revoked or outside its window.
     #[must_use]
-    pub const fn ready(keys: usize) -> Self {
-        if keys == 0 {
-            Self::NotReady
-        } else {
-            Self::Ready
-        }
+    pub const fn ready(signs: bool) -> Self {
+        if signs { Self::Ready } else { Self::NotReady }
     }
 
     /// The HTTP status this answer is served with.

@@ -167,7 +167,7 @@ parent that does not resolve and only the tenant half produces the declared deni
 ```
 
 A clause a command of one crate publishes may be answered by another crate's code, reached
-through a composition: `mandate.federation.AuthorizePublicClient` is refused when the
+through a composition: `mandate.federation.AuthorizeClient` is refused when the
 `mandate-sts` code issuance it hands its validated input to refuses. No test the entry's crate
 can write binds such a clause, so the row names the deciding crate in `decided_in` and the
 same-crate rule holds that row to the named crate instead of the entry's. The field sits on a

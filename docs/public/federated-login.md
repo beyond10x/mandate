@@ -54,7 +54,7 @@ One case it deliberately does not cover: an external subject whose link was expl
 | RFC 7636 — PKCE | Required, `S256` only. `mandate.core.PkceMethod` declares one variant, the authorization decoder refuses any other `code_challenge_method`, and each registered client states its `pkce_method`. A verifier that does not match the challenge is refused `invalid_grant`. |
 | RFC 8414 — Authorization server metadata | `GET /.well-known/oauth-authorization-server` publishes nine members. Every endpoint URL is the configured `issuer` joined with a path read from the same route table the listener dispatches, so the document cannot advertise a path nothing serves. A member naming an endpoint this deployment does not serve — `revocation_endpoint`, `registration_endpoint`, `device_authorization_endpoint` — is absent rather than empty. |
 | RFC 7662 — Introspection | `POST /oauth/introspect`, taking `token` and optional `token_type_hint`, and requiring the calling resource server's own credential as a bearer token. Answers `active`, and where the credential resolves, `credential_id`, `aud` and `sub`. A refusal about the *caller* is `401 invalid_client`; anything about the presented token is `200 {"active": false}`. |
-| RFC 7517 — JWKS | `GET /oauth/jwks` publishes the key set the `--key` documents configure. The member set is closed: `kty`, `kid`, `use`, `alg`, plus `n`, `e`, `crv`, `x`, `y`. RFC 7517 section 9.2's private members are refused at construction, as is a repeated `kid` anywhere in the set. |
+| RFC 7517 — JWKS | `GET /oauth/jwks` publishes the public half of the signing keys `--signing-key` mounts, each under the identity of its `SigningKey` record as `kid`, and only while that record admits verification: a revoked key leaves the set at once, and a key rotated out stays published for the overlap. The member set is closed: `kty`, `kid`, `use`, `alg`, plus `n`, `e`, `crv`, `x`, `y`. RFC 7517 section 9.2's private members are refused at construction, as is a repeated `kid` anywhere in the set. |
 | OpenID Connect Discovery 1.0 | Published and consumed. `GET /.well-known/openid-configuration` publishes the OpenID Provider configuration: the RFC 8414 document's nine members with the same values, built by the same builder from the same route table, plus `subject_types_supported` (`public`), `id_token_signing_alg_values_supported` (`RS256`), `scopes_supported` and `claims_supported`. `userinfo_endpoint` and `end_session_endpoint` are absent because nothing serves them. To find a connection's key set, Mandate fetches that connection's `{issuer}/.well-known/openid-configuration` and reads `jwks_uri`; the document is read once per issuer and held. |
 
 Three further standards are named in this repository's design sources, in [the combined architecture](https://github.com/beyond10x/mandate/blob/main/docs/architecture/combined.md) and the preserved design snapshots. Two are implemented in part, and one is not:
@@ -95,7 +95,7 @@ Responses carrying credentials are sent `no-store`.
 ```text
 mandate-control-plane serve --listen <addr> --issuer <url>
     [--code-lifetime <ISO 8601 duration>] [--session-lifetime <ISO 8601 duration>]
-    [--connection <path>]... [--key <path>]... [--client <path>]... [--resource-server <path>]...
+    [--connection <path>]... [--signing-key <NAME=PATH>]... [--client <path>]... [--resource-server <path>]...
     [--client-secret-file <NAME=PATH>]...
 ```
 
@@ -106,10 +106,10 @@ mandate-control-plane serve --listen <addr> --issuer <url>
 | `--code-lifetime` | The longest life of an authorization code. Default `PT5M`. |
 | `--session-lifetime` | The longest life of a federated session. Default `PT8H`. |
 | `--connection` | A federation connection. Repeatable. |
-| `--key` | A public JWK the key set publishes. Repeatable. |
-| `--client` | A registered OAuth public client. Repeatable. |
+| `--client` | A registered OAuth client, confidential or public. Repeatable. |
+| `--signing-key` | `NAME=PATH`: a PEM private key the deployment signs with, registered as a signing-key record. The flag carries where the key is, never the key. Repeatable; a name given twice exits **2**. |
 | `--resource-server` | A registered resource server. Repeatable. |
-| `--client-secret-file` | `NAME=PATH`: the file holding the IdP client secret that a connection's `relying_party.client_secret` names. The flag carries where the secret is, never the secret. Repeatable; a name given twice exits **2**. |
+| `--client-secret-file` | `NAME=PATH`: a file holding a secret, named by a connection's `relying_party.client_secret` (the IdP client secret) or by a client's `secret_ref` (that client's own secret). The flag carries where the secret is, never the secret. Repeatable; a name given twice exits **2**. |
 
 Each document is JSON, one per file, and unknown members are refused. A document that configures no deployment exits **2** before the socket is bound, naming the file; a listener that cannot bind exits **1**.
 
@@ -143,26 +143,50 @@ Each document is JSON, one per file, and unknown members are refused. A document
 
 `jwks_hosts` is what lets an issuer publish its key set on a second host, as Google and Okta do: Google's discovery document is served by `accounts.google.com` and names a key set on `www.googleapis.com`. With no entry, the issuer's own origin is admitted and nothing else — the discovery document is served by the issuer and is not permitted to introduce a destination the deployment never named. An entry is admitted only over `https`, and never for a literal address or the loopback interface.
 
-### `--key`
+### `--signing-key`
 
-One public JWK, published verbatim in the key set. Private members are refused, and two documents naming one `kid` are refused together.
+`NAME=PATH` names one PEM private key: `PRIVATE KEY` (PKCS#8) for ES256 or RS256, or `RSA PRIVATE KEY` for RS256. The algorithm is read from the material. The file is read before the socket is bound; a file that cannot be read, or that is not exactly one admitted private key, exits **2** naming the file and never a byte of its content.
 
-```json
-{ "kty": "EC", "kid": "login-key-1", "use": "sig", "alg": "ES256",
-  "crv": "P-256", "x": "f83OJ3D2xF1Bg8vub9tLe1gHMzV76e8Tus9uPHvRVEU",
-  "y": "x_FEzRu9m36HLN_tue659LNpXW6pCyStikYjKIWI5a0" }
+```text
+mandate-control-plane serve … --signing-key current=/run/secrets/mandate/signing-current.pem
 ```
 
-This composition holds no signer. The keys are published for readers; the credential the token endpoint issues under a `Reference` profile is minted from the host CSPRNG and is not a JWT signed with a published key.
+Each mounted key is registered as a `SigningKey` record, in the order given, with `NAME` as its key reference and a window opening at startup. The record's identity is the `kid` the key signs and is published under, and it is printed. The signer follows the records: the newest key whose record admits signing is the one it signs with, a key it rotated away from stays in the key set for the overlap, and a revoked key leaves the key set at once and is never installed again. `GET /healthz/ready` answers `200` only while the signer holds a key its record admits for signing.
+
+The credential the token endpoint issues under a `Reference` profile is still minted from the host CSPRNG and is not a JWT.
+
+In a `--config-dir`, a `signing-keys/` directory holds one PEM file per key, and the file name is `NAME`.
 
 ### `--client`
 
+Adding an app is one client document and one secret file:
+
 ```json
-{ "client_id": "…", "organization": "0a0a…", "public": true,
-  "redirect_uris": ["https://client.example/callback"], "pkce_method": "S256" }
+{ "client_id": "…", "organization": "0a0a…", "name": "App A",
+  "client_type": "confidential", "secret_ref": "app-a",
+  "redirect_uris": ["https://app-a.example/oauth2/callback"], "pkce_method": "S256",
+  "post_logout_redirect_uris": ["https://app-a.example/"] }
 ```
 
-`public` is stated, never defaulted. `redirect_uris` are compared byte for byte: a URI written with a trailing slash the client does not send is a URI the client has not registered.
+```text
+openssl rand -base64 32 > app-a.secret
+mandate-control-plane serve … --client app-a.json --client-secret-file app-a=app-a.secret
+```
+
+| Member | Required | Meaning |
+|---|---|---|
+| `client_id` | no | Stated, or allocated and printed. |
+| `organization` | yes | The organization the client is bound to: the one the connection resolves to. |
+| `name` | no | A label printed beside the client's identity. It is not recorded. |
+| `client_type` | yes | `confidential` or `public`. Stated, never defaulted. |
+| `secret_ref` | confidential only | A `--client-secret-file` name, or a list of two during a rotation. A public client states none. |
+| `redirect_uris` | yes | Compared byte for byte: a URI written with a trailing slash the client does not send is a URI the client has not registered. A URI with a fragment exits **2**. |
+| `pkce_method` | yes | `S256`, the one method the contract declares. |
+| `pkce_required` | no | Default `true`. Only a confidential client may state `false`. |
+| `trusted_peers` | no | Client identities of the same organization that may obtain tokens for this client. Each must be a client this process seeds. |
+| `post_logout_redirect_uris` | no | Where the client may send the browser after logout, compared byte for byte. A URI with a fragment exits **2**. |
+
+The secret file is read once at start. The process derives a keyed verifier from it (HMAC-SHA-256 under a key drawn from the host CSPRNG at start) and records only the verifier: the secret appears in no output, no event and no record. A reference no `--client-secret-file` resolves, or a secret under 128 bits of estimated entropy, exits **2** naming the client document; `openssl rand -base64 32` clears the floor. To rotate a secret, list both names in `secret_ref`, restart, move the app to the new secret, then drop the old name and restart again.
 
 ### `--resource-server`
 
@@ -193,7 +217,7 @@ The process prints the connection, client and resource-server identities to stdo
 |---|---|---|---|
 | Customer's IdP | Signed proofs (JWT), an OpenID Connect discovery document, and a reachable JWK Set | A client registration for Mandate, whose identifier appears in each proof's `aud` | Being the only issuer its connection accepts; its `iss` and `aud` are never taken from a request |
 | Customer's administrator | The organization the connection is bound to and the tenant rule that selects it | Whether the connection admits just-in-time provisioning; any pre-existing links | Zero or ambiguous tenant matches deny rather than resolve; email equality never links an account |
-| Relying application | A public OAuth client | Its registered redirection URIs and `S256` PKCE | Its `state` returned exactly as sent; its code bound to its own client, redirection URI and verifier |
+| Relying application | An OAuth client, confidential with a secret file or public | Its registered redirection URIs, its secret file when confidential, and `S256` PKCE unless a confidential client states `pkce_required: false` | Its `state` returned exactly as sent; its code bound to its own client, redirection URI and verifier |
 | Resource server | Its registration, audience and credential profile | Its audience, and its own credential for calling introspection | Credentials bound to its audience; introspection answering `active` without it ever seeing the customer's IdP |
 | Mandate operator | The running process and its metadata | Every document above, TLS termination, and the process lifetime that bounds all state | A configuration it cannot serve being refused before the socket, not at every login |
 

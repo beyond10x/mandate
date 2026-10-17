@@ -95,6 +95,7 @@ use mandate_federation::record::{
     Projection as FederationProjection, RegisterFederationConnection,
     register_federation_connection,
 };
+use mandate_federation::register_client::decide_client_type;
 use mandate_federation::verifier_real::{AlgorithmPolicyError, Clock, JwksSource, RealVerifier};
 use mandate_federation::{
     ConnectionStore, DenialClause as FederationClause, Denied as FederationDenied,
@@ -120,6 +121,10 @@ use mandate_sts::exchange::{
     ExchangeParts, ExchangeRequest, ExchangeTarget, exchange_request, seconds_between,
 };
 use mandate_sts::issue::Sha256Digest;
+use mandate_sts::keys::{
+    KeyMaterialResolver, KeyProvider, RecordedSigner, RegisterSigningKey, SignerRefused,
+    SigningKeyAdministration,
+};
 use mandate_sts::redemption::{
     BoundReads, RedeemAuthorizationCode, RedemptionParts, RedemptionRefused, redeem_and_consume,
 };
@@ -136,15 +141,17 @@ use mandate_token::projection::{
     CredentialEvent, DenialClause as CredentialClause, Denied as CredentialDenied,
     FoldError as CredentialFoldError, Projection as CredentialProjection,
 };
+use mandate_token::signing_real::{SigningError, SigningKeyMaterial, SystemClock as SigningClock};
 use mandate_token::verifier::{CredentialDigest, CredentialDomain, matches, verifier_in};
 use mandate_token::{CredentialDescriptor, CredentialProfile};
 use mandate_types::{
-    Action, Audience, AuthorizationCodeId, ClientId, CorrelationId, CredentialId, CredentialProof,
-    CredentialSecret, CredentialVerifier, DenialReason, Duration, EpochSnapshotRef,
-    ExternalLinkMethod, ExternalPrincipalId, ExternalSubject, FederationConnectionId, Issuer,
-    OAuthClientId, OAuthClientSecret, OrganizationId, PkceMethod, PrincipalId, RedirectUri,
-    ResourceId, ResourceRef, ResourceServerId, ResourceType, SecurityEpochTarget, SessionId,
-    SigningAlgorithm, SigningKeyId, Timestamp, Transient, Uuid, VerifiedContext, VerifierKey,
+    Action, Audience, AuthorizationCodeId, ClientId, ClientSecretError, CorrelationId,
+    CredentialId, CredentialProof, CredentialSecret, CredentialVerifier, DenialReason, Duration,
+    EpochSnapshotRef, ExternalLinkMethod, ExternalPrincipalId, ExternalSubject,
+    FederationConnectionId, Issuer, KeyReference, OAuthClientId, OAuthClientSecret,
+    OAuthClientType, OrganizationId, PkceMethod, PrincipalId, RedirectUri, ResourceId, ResourceRef,
+    ResourceServerId, ResourceType, SecurityEpochTarget, SessionId, SigningAlgorithm, SigningKeyId,
+    SigningKeyWindow, Timestamp, Transient, Uuid, VerifiedContext, VerifierKey,
     client_secret_presents,
 };
 use serde::Deserialize;
@@ -340,7 +347,7 @@ pub fn session_proof_verifier<T: Transient + ?Sized>(
 
 /// The session a presented proof names, by verifier.
 ///
-/// `AuthorizePublicClient` declares a `session_proof` and *not* a session: "resolving one to
+/// `AuthorizeClient` declares a `session_proof` and *not* a session: "resolving one to
 /// a session is the trusted adapter's work" (`crates/mandate-federation/src/authorize.rs`),
 /// and this is that adapter's half of it. Nothing here records the proof — what is kept is
 /// the non-reversible verifier of it, the way every other credential on this road is kept —
@@ -476,7 +483,7 @@ pub enum AuthorizationRefusal {
 /// The accepted outcome of `mandate.federation.AuthenticateFederation`, and the proof.
 ///
 /// The five declared response fields, plus the session proof the composition minted. The
-/// proof is **not** a declared response field: `AuthorizePublicClient` declares a
+/// proof is **not** a declared response field: `AuthorizeClient` declares a
 /// `session_proof` input and nothing in the contract says how a client comes to hold one, so
 /// the adapter that opens the session is the thing that can hand it over. A cookie-borne
 /// session adapter is `story:protocol-adapters`' named residue
@@ -497,7 +504,7 @@ pub struct Login {
     pub session_proof: CredentialSecret,
 }
 
-/// The accepted outcome of `mandate.federation.AuthorizePublicClient`.
+/// The accepted outcome of `mandate.federation.AuthorizeClient`.
 #[derive(Debug, Clone)]
 pub struct Authorization {
     /// The declared `code_id` response.
@@ -594,8 +601,6 @@ pub struct Configuration {
     pub code_lifetime: CodeLifetime,
     /// The longest lifetime a session opened by a federated login is usable for.
     pub session_lifetime: Duration,
-    /// The public keys the JWK Set document publishes.
-    pub keys: Vec<Jwk>,
 }
 
 impl Configuration {
@@ -637,11 +642,6 @@ impl Configuration {
     ///
     /// Returns [`ConfigurationRefused`] naming the value that is not servable.
     pub fn checked(self) -> Result<Self, ConfigurationRefused> {
-        // A `kid` naming two keys is a set no reader resolves a signature against, and
-        // `Jwks::new` is the one place that says so. Decided here rather than at the JWK Set
-        // request: a deployment that serves and answers 500 to every reader of its own key
-        // set has published nothing, and the operator learns it from a client.
-        Jwks::new(self.keys.clone()).map_err(ConfigurationRefused::Keys)?;
         if servable_lifetime(self.code_lifetime.as_duration()).is_none() {
             return Err(ConfigurationRefused::CodeLifetimeUnbounded);
         }
@@ -778,8 +778,6 @@ enum Host<'a> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum ConfigurationRefused {
-    /// The published key set names one `kid` twice, or carries an unadmitted member.
-    Keys(JwkRefusal),
     /// The configured code lifetime names no positive span, so every code it bounded would
     /// expire at the instant it was issued.
     CodeLifetimeUnbounded,
@@ -822,7 +820,6 @@ impl core::fmt::Display for IssuerRefused {
 impl core::fmt::Display for ConfigurationRefused {
     fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            Self::Keys(refusal) => write!(formatter, "{refusal}"),
             Self::CodeLifetimeUnbounded => {
                 formatter.write_str("the code lifetime names no positive span")
             }
@@ -1667,12 +1664,13 @@ impl<F: FnMut() -> Uuid> FederationIdentityAllocator for StatedIdentities<'_, F>
 /// `src/main.rs`'s header states the rule for all four flags — "the documents are decided
 /// together, by the commands they are the inputs of … a set this process cannot serve is
 /// refused before the socket — not seeded, printed as seeded, and then denied at every
-/// login". `--connection` and `--key` were routed through
-/// [`ConnectionSeeding::admit`] and [`key_set`]; `--client` was added afterwards and went
-/// through neither, so two documents naming one `client_id` were both seeded and both
-/// printed. The federation fold answers `Ok(())` for an `OAuthClientRegistered` whose id it
-/// already holds (`crates/mandate-federation/src/record.rs:638`), so the second document's
-/// redirect URIs were registered nowhere and every authorization naming one was denied.
+/// login". `--connection` and the retired `--key` were routed through
+/// [`ConnectionSeeding::admit`] and a repeated-`kid` check; `--client` was added
+/// afterwards and went through neither, so two documents naming one `client_id` were both
+/// seeded and both printed. The federation fold answers `Ok(())` for an
+/// `OAuthClientRegistered` whose id it already holds
+/// (`crates/mandate-federation/src/record.rs:638`), so the second document's redirect URIs
+/// were registered nowhere and every authorization naming one was denied.
 ///
 /// **It does not run `register_o_auth_client`, and that is deliberate.** That command's
 /// three guards are all questions about a *caller* —
@@ -1686,9 +1684,49 @@ impl<F: FnMut() -> Uuid> FederationIdentityAllocator for StatedIdentities<'_, F>
 /// between two of them, and that is what is refused. A `--client` document whose redirect
 /// set a deployment policy would reject is admitted here, exactly as a seeded link's
 /// `principal_id` is trusted and for the same reason.
+///
+/// What the documents alone *do* decide is decided here, by the command's own functions where
+/// it has one: the client-type phrases through
+/// [`mandate_federation::register_client::decide_client_type`], a trusted peer that names the
+/// client itself or no seeded client of its organization ([`ClientSeeding::settled`]), and a
+/// redirect or post-logout redirect URI carrying a fragment, which RFC 6749 section 3.1.2
+/// forbids and which no deployment policy could admit.
+///
+/// # Secret references
+///
+/// A confidential client's `secret_ref` names `--client-secret-file` entries. Each file is
+/// read once, admitted only above the entropy floor
+/// ([`mandate_types::OAuthClientSecret::configured`]), and turned into a keyed
+/// [`CredentialVerifier`] under the seeding's [`VerifierKey`]; the event carries the
+/// verifier and the secret is dropped. No refusal carries a byte of it.
+#[derive(Debug)]
 pub struct ClientSeeding {
     projection: FederationProjection,
     admitted: Vec<(PathBuf, OAuthClientId)>,
+    secrets: BTreeMap<String, PathBuf>,
+    key: Option<VerifierKey>,
+}
+
+/// A fresh client-secret [`VerifierKey`] drawn from a secret source: the deployment key every
+/// seeded confidential client's verifiers are derived under (fork F2 A).
+///
+/// Per process, because nothing is durable: the folds are seeded from the documents at every
+/// start, so every verifier is derived again under the new key.
+///
+/// # Panics
+///
+/// When the source answers nothing in [`mandate_types::VERIFIER_KEY_MIN_BYTES`] draws:
+/// there is no weaker key to fall back to. [`SystemSecrets`] answers 32 bytes of the host
+/// CSPRNG per draw.
+pub fn verifier_key(secrets: &mut impl SecretSource) -> VerifierKey {
+    let mut material = Vec::new();
+    for _ in 0..mandate_types::VERIFIER_KEY_MIN_BYTES {
+        if material.len() >= mandate_types::VERIFIER_KEY_MIN_BYTES {
+            break;
+        }
+        material.extend_from_slice(secrets.next_secret().expose_bytes());
+    }
+    VerifierKey::from_bytes(material).expect("the secret source answers key material")
 }
 
 impl Default for ClientSeeding {
@@ -1698,13 +1736,106 @@ impl Default for ClientSeeding {
 }
 
 impl ClientSeeding {
-    /// A seeding holding no client.
+    /// A seeding holding no client and resolving no secret reference: a confidential client
+    /// is refused as [`SeedRefused::ClientSecretUnresolved`].
     #[must_use]
     pub fn new() -> Self {
         Self {
             projection: FederationProjection::default(),
             admitted: Vec::new(),
+            secrets: BTreeMap::new(),
+            key: None,
         }
+    }
+
+    /// A seeding that resolves `secret_ref` names through `secrets` (every
+    /// `--client-secret-file`, by name) and derives verifiers under `key`.
+    #[must_use]
+    pub fn with_secrets(key: VerifierKey, secrets: BTreeMap<String, PathBuf>) -> Self {
+        Self {
+            key: Some(key),
+            secrets,
+            ..Self::new()
+        }
+    }
+
+    /// The verifiers a document's `secret_ref` names derive, in the order it names them.
+    fn verifiers(
+        &self,
+        path: &Path,
+        seed: &ClientSeed,
+    ) -> Result<Vec<CredentialVerifier>, SeedRefused> {
+        let mut verifiers = Vec::with_capacity(seed.secret_ref.len());
+        for (index, reference) in seed.secret_ref.iter().enumerate() {
+            if seed.secret_ref[..index].contains(reference) {
+                return Err(SeedRefused::ClientSecretRepeated {
+                    path: path.to_path_buf(),
+                    reference: reference.clone(),
+                });
+            }
+            let unresolved = || SeedRefused::ClientSecretUnresolved {
+                path: path.to_path_buf(),
+                reference: reference.clone(),
+            };
+            let (Some(file), Some(key)) = (self.secrets.get(reference), &self.key) else {
+                return Err(unresolved());
+            };
+            let read = ClientSecret::read(file).map_err(|error| SeedRefused::Unreadable {
+                path: file.clone(),
+                error,
+            })?;
+            let secret =
+                OAuthClientSecret::configured(read.expose_bytes().to_vec()).map_err(|error| {
+                    SeedRefused::ClientSecretWeak {
+                        path: path.to_path_buf(),
+                        reference: reference.clone(),
+                        error,
+                    }
+                })?;
+            verifiers.push(secret.verifier(key));
+        }
+        Ok(verifiers)
+    }
+
+    /// The deployment key the seeded verifiers were derived under, consumed with the seeding.
+    ///
+    /// The token endpoint authenticates a confidential client against those verifiers, so the
+    /// deployment is handed this same key ([`Deployment::with_client_verifier_key`]); a seeding
+    /// built without secrets has none.
+    #[must_use]
+    pub fn into_key(self) -> Option<VerifierKey> {
+        self.key
+    }
+
+    /// Decide what the whole set decides: every trusted peer names a seeded client of the
+    /// same organization.
+    ///
+    /// After the last [`Self::admit`], because two documents may name each other and a
+    /// directory is read in file-name order, which no operator chose for this.
+    ///
+    /// # Errors
+    ///
+    /// [`SeedRefused::UnregistrableClient`] with
+    /// [`FederationClause::TrustedPeerUnknown`], naming the document that lists the peer.
+    pub fn settled(&self) -> Result<(), SeedRefused> {
+        for client in self.projection.clients() {
+            for peer in &client.trusted_peers {
+                let placed = self
+                    .projection
+                    .client(peer)
+                    .is_some_and(|held| held.organization_id == client.organization_id);
+                if !placed {
+                    return Err(SeedRefused::UnregistrableClient {
+                        path: self.incumbent_of(client.id),
+                        denied: FederationDenied::new(
+                            DenialReason::Denied,
+                            FederationClause::TrustedPeerUnknown,
+                        ),
+                    });
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Admit one document against the ones already admitted, and answer the events it
@@ -1717,8 +1848,14 @@ impl ClientSeeding {
     /// # Errors
     ///
     /// Returns [`SeedRefused::RepeatedClientId`] naming both files when two documents state
-    /// one identity, and [`SeedRefused::Unseedable`] when the events are not a history the
-    /// fold reads.
+    /// one identity; [`SeedRefused::RedirectUriFragment`] for a redirect or post-logout
+    /// redirect URI with a fragment; [`SeedRefused::UnregistrableClient`] when
+    /// `decide_client_type` refuses the client type, verifier count and PKCE requirement,
+    /// or a trusted peer names the client itself; [`SeedRefused::ClientSecretUnresolved`],
+    /// [`SeedRefused::ClientSecretRepeated`], [`SeedRefused::Unreadable`] or
+    /// [`SeedRefused::ClientSecretWeak`] for a secret reference; and
+    /// [`SeedRefused::Unseedable`] when the events are not a history the fold reads. Every
+    /// one is decided before an identity is allocated except the self-peer, which needs it.
     pub fn admit(
         &mut self,
         path: &Path,
@@ -1734,7 +1871,34 @@ impl ClientSeeding {
                 client_id: stated,
             });
         }
-        let client = seed.events(allocate);
+        if seed
+            .redirect_uris
+            .iter()
+            .chain(&seed.post_logout_redirect_uris)
+            .any(|uri| uri.as_str().contains('#'))
+        {
+            return Err(SeedRefused::RedirectUriFragment {
+                path: path.to_path_buf(),
+            });
+        }
+        let unregistrable = |denied| SeedRefused::UnregistrableClient {
+            path: path.to_path_buf(),
+            denied,
+        };
+        decide_client_type(
+            seed.client_type.contract(),
+            seed.secret_ref.len(),
+            seed.pkce_required,
+        )
+        .map_err(unregistrable)?;
+        let verifiers = self.verifiers(path, seed)?;
+        let client = seed.events(verifiers, allocate);
+        if seed.trusted_peers.contains(&client.client_id) {
+            return Err(unregistrable(FederationDenied::new(
+                DenialReason::Denied,
+                FederationClause::TrustedPeerSelf,
+            )));
+        }
         // One event today, applied to a copy anyway: the loop admits more, and a document
         // the fold refuses part of must leave nothing behind, as at
         // `ConnectionSeeding::admit`.
@@ -2034,44 +2198,22 @@ pub fn configure_verifier<S: JwksSource, C: Clock>(
         })
 }
 
-/// The key set these `--key` documents publish, or why they publish none.
-///
-/// [`Jwks::new`] refuses a repeated `kid` and is the rule; it is decided here because only
-/// the flags know which **file** each key was read from, and
-/// `two keys of the set carry the same kid` with neither file named is a refusal an operator
-/// cannot act on. [`Configuration::checked`] still runs the same check on whatever it is
-/// given, for a caller that is not this binary.
-///
-/// # Errors
-///
-/// Returns [`SeedRefused::RepeatedKeyId`] naming both files.
-pub fn key_set(documents: Vec<(PathBuf, Jwk)>) -> Result<Vec<Jwk>, SeedRefused> {
-    let mut held: Vec<(PathBuf, Jwk)> = Vec::with_capacity(documents.len());
-    for (path, key) in documents {
-        if let Some((incumbent, _)) = held.iter().find(|(_, carried)| carried.kid == key.kid) {
-            return Err(SeedRefused::RepeatedKeyId {
-                path,
-                incumbent: incumbent.clone(),
-                kid: key.kid,
-            });
-        }
-        held.push((path, key));
-    }
-    Ok(held.into_iter().map(|(_, key)| key).collect())
-}
-
 /// The `--client` document: a registered `mandate.federation.OAuthClient`.
 ///
 /// The authorization endpoint reads this record after the session — the client must be
 /// registered, enabled, **public**, in the session's own organization, and have registered
 /// the exact redirection URI the request presents
 /// (`crates/mandate-federation/src/publicclient.rs`). A process configured from
-/// `--connection` and `--key` alone holds no such record and refuses every
+/// `--connection` and `--signing-key` alone holds no such record and refuses every
 /// `GET /oauth/authorize`, which is what this flag closes.
 ///
-/// `public` is stated rather than defaulted, for the reason `jit_provisioning` is: a
+/// `client_type` is stated rather than defaulted, for the reason `jit_provisioning` is: a
 /// confidential client authenticates at the token endpoint and a public one does not, and a
-/// security-relevant value nobody wrote is not a value an operator chose.
+/// security-relevant value nobody wrote is not a value an operator chose. `pkce_required`
+/// *is* defaulted, to the safe value `true` (fork F3 B).
+///
+/// The document carries secret *references*, never a secret, so `Debug` renders nothing a
+/// log may not hold.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ClientSeed {
@@ -2085,8 +2227,17 @@ pub struct ClientSeed {
     /// authorization endpoint refuses a client whose organization is not the authenticated
     /// session's — so this is the same organization the `--connection` document resolves to.
     pub organization: OrganizationId,
-    /// Whether this client is a public client.
-    pub public: bool,
+    /// A label printed beside the client's identity. The contract's `OAuthClient` declares
+    /// no name, so it is not recorded.
+    #[serde(default)]
+    pub name: Option<String>,
+    /// Whether this client is confidential or public.
+    pub client_type: ClientTypeSeed,
+    /// The `--client-secret-file` names whose secrets this confidential client
+    /// authenticates with: one, or two while a secret rotates (fork F2 A). A single name
+    /// may be written as a string.
+    #[serde(default, deserialize_with = "one_or_many")]
+    pub secret_ref: Vec<String>,
     /// The redirection endpoint URIs this client registers.
     ///
     /// Compared byte for byte and normalized in no way at all
@@ -2095,6 +2246,56 @@ pub struct ClientSeed {
     pub redirect_uris: Vec<RedirectUri>,
     /// The PKCE method this client's authorization requests must use.
     pub pkce_method: PkceMethod,
+    /// Whether this client's authorization requests must carry PKCE. Default `true`; only a
+    /// confidential client may state `false` (fork F3 B).
+    #[serde(default = "pkce_required_by_default")]
+    pub pkce_required: bool,
+    /// Clients of the same organization that may obtain tokens for this one.
+    #[serde(default)]
+    pub trusted_peers: Vec<OAuthClientId>,
+    /// Where this client may send the browser after logout, compared byte for byte.
+    #[serde(default)]
+    pub post_logout_redirect_uris: Vec<RedirectUri>,
+}
+
+/// A `--client` document's `client_type`, in the lower-case form a configuration file
+/// writes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ClientTypeSeed {
+    /// A client that authenticates with PKCE alone.
+    Public,
+    /// A client that authenticates with a secret at the token endpoint.
+    Confidential,
+}
+
+impl ClientTypeSeed {
+    /// The contract's `mandate.core.OAuthClientType`.
+    #[must_use]
+    pub const fn contract(self) -> OAuthClientType {
+        match self {
+            Self::Public => OAuthClientType::Public,
+            Self::Confidential => OAuthClientType::Confidential,
+        }
+    }
+}
+
+const fn pkce_required_by_default() -> bool {
+    true
+}
+
+/// A string, or a list of strings.
+fn one_or_many<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Vec<String>, D::Error> {
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum OneOrMany {
+        One(String),
+        Many(Vec<String>),
+    }
+    Ok(match OneOrMany::deserialize(deserializer)? {
+        OneOrMany::One(name) => vec![name],
+        OneOrMany::Many(names) => names,
+    })
 }
 
 /// The client one document seeds, and the events that seed it.
@@ -2110,8 +2311,13 @@ pub struct SeededClient {
 }
 
 impl ClientSeed {
-    /// The events this document seeds, allocating the identity it states none for.
-    pub fn events(&self, allocate: &mut impl FnMut() -> Uuid) -> SeededClient {
+    /// The events this document seeds, with the verifiers its secret references derived,
+    /// allocating the identity it states none for.
+    pub fn events(
+        &self,
+        secret_verifiers: Vec<CredentialVerifier>,
+        allocate: &mut impl FnMut() -> Uuid,
+    ) -> SeededClient {
         let client_id = self
             .client_id
             .unwrap_or_else(|| OAuthClientId::new(allocate()));
@@ -2121,17 +2327,13 @@ impl ClientSeed {
                 context: seeded_context(self.organization),
                 id: client_id,
                 organization_id: self.organization,
-                client_type: if self.public {
-                    mandate_types::OAuthClientType::Public
-                } else {
-                    mandate_types::OAuthClientType::Confidential
-                },
-                secret_verifiers: Vec::new(),
+                client_type: self.client_type.contract(),
+                secret_verifiers,
                 redirect_uris: self.redirect_uris.clone(),
                 pkce_method: self.pkce_method,
-                pkce_required: self.public,
-                trusted_peers: Vec::new(),
-                post_logout_redirect_uris: Vec::new(),
+                pkce_required: self.pkce_required,
+                trusted_peers: self.trusted_peers.clone(),
+                post_logout_redirect_uris: self.post_logout_redirect_uris.clone(),
             }],
         }
     }
@@ -2233,92 +2435,7 @@ fn seeded_context(organization: OrganizationId) -> VerifiedContext {
 /// process's own configuration is not one that says a client presented a credential for it.
 const SEEDED_CONFIGURATION_AUDIENCE: &str = "mandate.control-plane.configuration";
 
-/// The declared members of a JWK document, and everything else it carries.
-///
-/// # Why this is not `#[serde(flatten)]` into a map
-///
-/// It was, into a `BTreeMap<String, String>`, and a map holds one value per name: a document
-/// stating `"crv":"P-256","crv":"P-521"` was read as `P-521` and **published** as `P-521`,
-/// with the first value dropped in silence — a key that states a curve the document's own
-/// first line did not. `serde_json` parses the repeat happily; the map is where it is lost.
-///
-/// So the members are collected **in document order, repeats and all**, and handed to
-/// [`Jwk::new`] as they were written. That constructor already refuses a repeat
-/// ([`JwkRefusal::DuplicateParameter`]) and a parameter colliding with a declared member
-/// ([`JwkRefusal::DeclaredMemberCollision`]); this reader's job is to stop deciding on the
-/// document's behalf which of two values it meant. A declared member stated twice reaches
-/// the constructor the same way — the first occurrence fills the field and the second is
-/// carried on as a parameter, where it collides with the member it repeats.
-#[derive(Debug, Clone)]
-struct KeySeed {
-    kty: String,
-    kid: String,
-    key_use: String,
-    alg: String,
-    /// Every member that is not the first occurrence of one of the declared four, in the
-    /// order the document wrote them, repeats preserved.
-    parameters: Vec<(String, String)>,
-}
-
-impl<'de> Deserialize<'de> for KeySeed {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        struct Members;
-
-        impl<'de> serde::de::Visitor<'de> for Members {
-            type Value = Vec<(String, String)>;
-
-            fn expecting(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-                formatter.write_str("a JWK object whose members are all text")
-            }
-
-            fn visit_map<M: serde::de::MapAccess<'de>>(
-                self,
-                mut map: M,
-            ) -> Result<Self::Value, M::Error> {
-                let mut members = Vec::new();
-                while let Some((name, value)) = map.next_entry::<String, String>()? {
-                    members.push((name, value));
-                }
-                Ok(members)
-            }
-        }
-
-        let members = deserializer.deserialize_map(Members)?;
-        let mut declared: BTreeMap<&'static str, String> = BTreeMap::new();
-        let mut parameters = Vec::new();
-        for (name, value) in members {
-            match Jwk::DECLARED_MEMBERS.iter().find(|held| **held == name) {
-                // The *first* occurrence fills the declared field; a second is carried on
-                // rather than dropped, and `Jwk::new` refuses it as a collision.
-                Some(held) if !declared.contains_key(held) => {
-                    declared.insert(held, value);
-                }
-                _ => parameters.push((name, value)),
-            }
-        }
-        let kty = declared
-            .remove("kty")
-            .ok_or_else(|| serde::de::Error::missing_field("kty"))?;
-        let kid = declared
-            .remove("kid")
-            .ok_or_else(|| serde::de::Error::missing_field("kid"))?;
-        let key_use = declared
-            .remove("use")
-            .ok_or_else(|| serde::de::Error::missing_field("use"))?;
-        let alg = declared
-            .remove("alg")
-            .ok_or_else(|| serde::de::Error::missing_field("alg"))?;
-        Ok(Self {
-            kty,
-            kid,
-            key_use,
-            alg,
-            parameters,
-        })
-    }
-}
-
-/// Why a document named by `--connection`, `--key`, `--client` or `--resource-server`
+/// Why a document named by `--connection`, `--signing-key`, `--client` or `--resource-server`
 /// configures no deployment.
 ///
 /// Every variant carries the path, because an operator running a process with several of
@@ -2340,12 +2457,42 @@ pub enum SeedRefused {
         /// The reader's own error.
         error: serde_json::Error,
     },
-    /// The body is a JSON object, and not a key this deployment publishes.
-    Key {
+    /// A `--signing-key` file is not exactly one private key this deployment signs with.
+    ///
+    /// The refusal is the signer's own, which names the form and never a byte of the key.
+    SigningKey {
         /// The file that was read.
         path: PathBuf,
-        /// Which member `Jwk::new` refused.
-        refusal: JwkRefusal,
+        /// Why the material was refused.
+        error: SigningError,
+    },
+    /// Two `--signing-key` flags mount keys under one name.
+    ///
+    /// The name is the key's reference, the handle its `SigningKey` record resolves its
+    /// material through, so one name for two files is a reference that resolves to whichever
+    /// a reader happens to pick.
+    RepeatedSigningKeyName {
+        /// The file that was read.
+        path: PathBuf,
+        /// The file the incumbent key was read from.
+        incumbent: PathBuf,
+        /// The name both were mounted under.
+        name: String,
+    },
+    /// `mandate.credential.RegisterSigningKey` refuses a mounted key — above all, the same
+    /// material mounted under a second name, which the contract's uniqueness clause refuses.
+    UnregistrableSigningKey {
+        /// The file that was read.
+        path: PathBuf,
+        /// The command's own refusal.
+        denied: CredentialDenied,
+    },
+    /// The signer could not take up a registered key.
+    UnsignableKey {
+        /// The file that was read.
+        path: PathBuf,
+        /// Why the signer did not follow the records.
+        refused: SignerRefused,
     },
     /// The events the document seeds are not a history the fold reads.
     Unseedable {
@@ -2394,23 +2541,9 @@ pub enum SeedRefused {
         /// The command's own denial.
         denied: FederationDenied,
     },
-    /// Two `--key` documents publish one `kid`.
-    ///
-    /// A `kid` names at most one key in a set, so a reader resolving a signature's `kid`
-    /// against the published document resolves it to one key or to none ([`Jwks::new`]).
-    /// Decided here rather than there because only the flags know which **files** the two
-    /// keys were read from, and a refusal an operator cannot act on is not a refusal.
-    RepeatedKeyId {
-        /// The file that was read.
-        path: PathBuf,
-        /// The file the incumbent key was read from.
-        incumbent: PathBuf,
-        /// The `kid` both state.
-        kid: String,
-    },
     /// Two `--connection` documents state one `connection_id`.
     ///
-    /// For [`SeedRefused::RepeatedKeyId`]'s reason, one level up: the login route selects a
+    /// For [`SeedRefused::RepeatedSigningKeyName`]'s reason, one level up: the login route selects a
     /// connection by this id, so the fold answers with the first document's record and the
     /// second document's issuer, client and link are configured into a connection nothing
     /// can reach. Both ids are printed as seeded, so nothing anywhere says which one won.
@@ -2539,13 +2672,44 @@ pub enum SeedRefused {
         /// The registration that does not hold it.
         resource_server_id: ResourceServerId,
     },
-    /// A `--connection` document's `relying_party.client_secret` names a reference no
-    /// `--client-secret-file` gives a file.
+    /// A `--connection` document's `relying_party.client_secret`, or a `--client` document's
+    /// `secret_ref`, names a reference no `--client-secret-file` gives a file.
     ClientSecretUnresolved {
-        /// The connection document that was read.
+        /// The connection or client document that was read.
         path: PathBuf,
         /// The reference it names. A name, never the secret.
         reference: String,
+    },
+    /// A `--client` document's `secret_ref` names one reference twice: two equal verifiers
+    /// are one secret, not a rotation.
+    ClientSecretRepeated {
+        /// The client document that was read.
+        path: PathBuf,
+        /// The reference it names twice.
+        reference: String,
+    },
+    /// The secret a `--client` document's `secret_ref` names is under the entropy floor.
+    ClientSecretWeak {
+        /// The client document that was read.
+        path: PathBuf,
+        /// The reference whose secret is weak. A name, never the secret.
+        reference: String,
+        /// The estimate and the floor; never material.
+        error: ClientSecretError,
+    },
+    /// A `--client` document's redirect or post-logout redirect URI carries a fragment,
+    /// which RFC 6749 section 3.1.2 forbids a redirection endpoint to include.
+    RedirectUriFragment {
+        /// The client document that was read.
+        path: PathBuf,
+    },
+    /// `mandate.federation.RegisterOAuthClient`'s input-decided phrases refuse a `--client`
+    /// document: its client type, verifier count and PKCE requirement, or a trusted peer.
+    UnregistrableClient {
+        /// The client document that was read.
+        path: PathBuf,
+        /// The command's own denial.
+        denied: FederationDenied,
     },
     /// A `--connection` document's `relying_party.return_uri` cannot carry a handoff code:
     /// not absolute `https` (or loopback `http`), a fragment, a control or whitespace byte,
@@ -2563,12 +2727,14 @@ impl SeedRefused {
         match self {
             Self::Unreadable { path, .. }
             | Self::Malformed { path, .. }
-            | Self::Key { path, .. }
+            | Self::SigningKey { path, .. }
+            | Self::RepeatedSigningKeyName { path, .. }
+            | Self::UnregistrableSigningKey { path, .. }
+            | Self::UnsignableKey { path, .. }
             | Self::Unseedable { path, .. }
             | Self::UnseedableCredential { path, .. }
             | Self::Algorithm { path, .. }
             | Self::Unregistrable { path, .. }
-            | Self::RepeatedKeyId { path, .. }
             | Self::RepeatedConnectionId { path, .. }
             | Self::PrincipalAcrossOrganizations { path, .. }
             | Self::UnregistrableTarget { path, .. }
@@ -2577,6 +2743,10 @@ impl SeedRefused {
             | Self::RepeatedClientId { path, .. }
             | Self::AudienceConflicted { path, .. }
             | Self::ClientSecretUnresolved { path, .. }
+            | Self::ClientSecretRepeated { path, .. }
+            | Self::ClientSecretWeak { path, .. }
+            | Self::RedirectUriFragment { path }
+            | Self::UnregistrableClient { path, .. }
             | Self::ReturnUriUnusable { path } => path,
         }
     }
@@ -2589,7 +2759,7 @@ impl SeedRefused {
     #[must_use]
     pub fn incumbent(&self) -> Option<&Path> {
         match self {
-            Self::RepeatedKeyId { incumbent, .. }
+            Self::RepeatedSigningKeyName { incumbent, .. }
             | Self::RepeatedConnectionId { incumbent, .. }
             | Self::PrincipalAcrossOrganizations { incumbent, .. }
             | Self::RepeatedAudience { incumbent, .. }
@@ -2607,7 +2777,13 @@ impl core::fmt::Display for SeedRefused {
         match self {
             Self::Unreadable { error, .. } => write!(formatter, "{path}: {error}"),
             Self::Malformed { error, .. } => write!(formatter, "{path}: {error}"),
-            Self::Key { refusal, .. } => write!(formatter, "{path}: {refusal}"),
+            Self::SigningKey { error, .. } => write!(formatter, "{path}: {error}"),
+            Self::UnregistrableSigningKey { denied, .. } => write!(
+                formatter,
+                "{path}: mandate.credential.RegisterSigningKey refuses this key ({:?}, {:?})",
+                denied.clause, denied.reason
+            ),
+            Self::UnsignableKey { refused, .. } => write!(formatter, "{path}: {refused}"),
             Self::Unseedable { error, .. } => write!(formatter, "{path}: {error:?}"),
             Self::UnseedableCredential { error, .. } => write!(formatter, "{path}: {error:?}"),
             Self::Algorithm { error, .. } => write!(formatter, "{path}: {error}"),
@@ -2617,9 +2793,11 @@ impl core::fmt::Display for SeedRefused {
                  ({:?}, {:?})",
                 denied.clause, denied.reason
             ),
-            Self::RepeatedKeyId { incumbent, kid, .. } => write!(
+            Self::RepeatedSigningKeyName {
+                incumbent, name, ..
+            } => write!(
                 formatter,
-                "{path}: the kid `{kid}` is already published from {}",
+                "{path}: the signing key name `{name}` is already mounted from {}",
                 incumbent.display()
             ),
             Self::RepeatedConnectionId {
@@ -2696,6 +2874,26 @@ impl core::fmt::Display for SeedRefused {
                 formatter,
                 "{path}: the client secret `{reference}` is named by no --client-secret-file"
             ),
+            Self::ClientSecretRepeated { reference, .. } => write!(
+                formatter,
+                "{path}: secret_ref names the client secret `{reference}` twice"
+            ),
+            Self::ClientSecretWeak {
+                reference, error, ..
+            } => write!(
+                formatter,
+                "{path}: the client secret `{reference}` is refused: {error}"
+            ),
+            Self::RedirectUriFragment { .. } => write!(
+                formatter,
+                "{path}: a redirect or post-logout redirect URI carries a fragment"
+            ),
+            Self::UnregistrableClient { denied, .. } => write!(
+                formatter,
+                "{path}: mandate.federation.RegisterOAuthClient refuses these inputs \
+                 ({:?}, {:?})",
+                denied.clause, denied.reason
+            ),
             Self::ReturnUriUnusable { .. } => write!(
                 formatter,
                 "{path}: relying_party.return_uri cannot carry a handoff code in a redirect"
@@ -2745,30 +2943,209 @@ pub fn read_resource_server_seed(path: &Path) -> Result<ResourceServerSeed, Seed
     })
 }
 
-/// The public JWK at this path.
+/// The algorithms a mounted key is read under, in the order they are tried.
+///
+/// A PKCS#8 `PRIVATE KEY` envelope is legal for both families, so the label does not say
+/// which one a file holds; the DER does, and each family's reader refuses the other's.
+const MOUNTED_KEY_ALGORITHMS: [&str; 2] = ["ES256", "RS256"];
+
+/// One `--signing-key`: the name it was mounted under, the file it was read from, and the
+/// private key that file holds.
+///
+/// The PEM text is held rather than a loaded key because the `kid` a key signs under is the
+/// identity its `SigningKey` record is given at registration — known only after the file has
+/// been read — and [`SigningKeyMaterial`] is built under its `kid`. The text is never
+/// rendered: [`core::fmt::Debug`] names the key and its file and nothing else.
+#[derive(Clone)]
+pub struct MountedKey {
+    name: String,
+    path: PathBuf,
+    pem: String,
+    algorithm: SigningAlgorithm,
+    thumbprint: String,
+}
+
+impl MountedKey {
+    /// The name the key was mounted under, which is its `SigningKey` record's key reference.
+    #[must_use]
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// The file the key was read from.
+    #[must_use]
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    /// The algorithm the material was read as.
+    #[must_use]
+    pub const fn algorithm(&self) -> &SigningAlgorithm {
+        &self.algorithm
+    }
+
+    /// The RFC 7638 thumbprint of the public half.
+    #[must_use]
+    pub fn thumbprint(&self) -> &str {
+        &self.thumbprint
+    }
+}
+
+impl core::fmt::Debug for MountedKey {
+    fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        formatter
+            .debug_struct("MountedKey")
+            .field("name", &self.name)
+            .field("path", &self.path)
+            .field("algorithm", &self.algorithm)
+            .field("thumbprint", &self.thumbprint)
+            .finish_non_exhaustive()
+    }
+}
+
+/// The `--signing-key` file at this path, mounted under `name`.
+///
+/// The file is read now, before a socket is bound, and must be exactly one PEM private key
+/// this deployment signs with: `PRIVATE KEY` (PKCS#8) for ES256 or RS256, or `RSA PRIVATE
+/// KEY` for RS256. The algorithm is the material's own — ES256 is tried first, then RS256.
 ///
 /// # Errors
 ///
-/// Returns [`SeedRefused`] naming the file when it does not open, is not a JSON object of
-/// text, or carries a member [`Jwk::new`] refuses — RFC 7517 section 9.2's private members
-/// among them.
-pub fn read_key(path: &Path) -> Result<Jwk, SeedRefused> {
-    let seed: KeySeed =
-        serde_json::from_str(&read_document(path)?).map_err(|error| SeedRefused::Malformed {
-            path: path.to_path_buf(),
-            error,
-        })?;
-    let parameters: Vec<(&str, &str)> = seed
-        .parameters
-        .iter()
-        .map(|(name, value)| (name.as_str(), value.as_str()))
-        .collect();
-    Jwk::new(&seed.kty, &seed.kid, &seed.key_use, &seed.alg, &parameters).map_err(|refusal| {
-        SeedRefused::Key {
-            path: path.to_path_buf(),
-            refusal,
+/// Returns [`SeedRefused::Unreadable`] when the file does not open as text, and
+/// [`SeedRefused::SigningKey`] — the ES256 reader's refusal — when neither family reads it.
+pub fn read_signing_key(name: &str, path: &Path) -> Result<MountedKey, SeedRefused> {
+    let pem = read_document(path)?;
+    let mut first_refusal = None;
+    for algorithm in MOUNTED_KEY_ALGORITHMS.map(SigningAlgorithm::new) {
+        match SigningKeyMaterial::from_pem(name, &algorithm, &pem) {
+            Ok(material) => {
+                return Ok(MountedKey {
+                    name: name.to_owned(),
+                    path: path.to_path_buf(),
+                    thumbprint: material.thumbprint(),
+                    algorithm,
+                    pem,
+                });
+            }
+            Err(error) => {
+                first_refusal.get_or_insert(error);
+            }
         }
+    }
+    Err(SeedRefused::SigningKey {
+        path: path.to_path_buf(),
+        error: first_refusal.unwrap_or(SigningError::MalformedPem),
     })
+}
+
+/// Every mounted signing key, by name: the deployment's key provider.
+///
+/// It answers both ports a `SigningKey` record's reference is resolved through — the public
+/// half's thumbprint at registration ([`KeyMaterialResolver`]) and the material itself when
+/// the signer takes the key up ([`KeyProvider`]) — from the same files, so the material the
+/// signer loads is the material the record was registered over.
+#[derive(Debug, Clone, Default)]
+pub struct MountedKeys {
+    keys: Vec<MountedKey>,
+}
+
+impl MountedKeys {
+    /// These keys, each under its own name.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SeedRefused::RepeatedSigningKeyName`] naming both files when two keys are
+    /// mounted under one name.
+    pub fn new(keys: Vec<MountedKey>) -> Result<Self, SeedRefused> {
+        for (nth, key) in keys.iter().enumerate() {
+            if let Some(incumbent) = keys[..nth].iter().find(|held| held.name == key.name) {
+                return Err(SeedRefused::RepeatedSigningKeyName {
+                    path: key.path.clone(),
+                    incumbent: incumbent.path.clone(),
+                    name: key.name.clone(),
+                });
+            }
+        }
+        Ok(Self { keys })
+    }
+
+    /// The keys, in the order they were mounted.
+    #[must_use]
+    pub fn keys(&self) -> &[MountedKey] {
+        &self.keys
+    }
+
+    fn named(&self, reference: &KeyReference) -> Option<&MountedKey> {
+        self.keys.iter().find(|key| key.name == reference.as_str())
+    }
+}
+
+impl KeyMaterialResolver for MountedKeys {
+    fn thumbprint(&self, reference: &KeyReference) -> Option<String> {
+        self.named(reference).map(|key| key.thumbprint.clone())
+    }
+}
+
+impl KeyProvider for MountedKeys {
+    fn load(
+        &self,
+        reference: &KeyReference,
+        kid: &str,
+        algorithm: &SigningAlgorithm,
+    ) -> Option<SigningKeyMaterial> {
+        let key = self.named(reference)?;
+        if key.algorithm != *algorithm {
+            return None;
+        }
+        SigningKeyMaterial::from_pem(kid, algorithm, &key.pem).ok()
+    }
+}
+
+/// How long a mounted key's record admits it, from the startup that registered it: ninety
+/// days, the rotation period a key set is expected to turn over within.
+pub const MOUNTED_KEY_WINDOW_SECONDS: i64 = 90 * 86_400;
+
+/// The lifetime of a credential the deployment's signer signs, in seconds.
+pub const SIGNED_TTL_SECONDS: u64 = 3_600;
+
+/// How long a key the signer rotated away from stays published, in seconds: a day, no
+/// shorter than any credential it signed lives — an ID token lives a day at most.
+pub const SIGNING_OVERLAP_SECONDS: u64 = 86_400;
+
+/// The deployment's signer and the keys it was mounted with.
+struct Signing {
+    signer: RecordedSigner<SigningClock>,
+    keys: MountedKeys,
+}
+
+/// The JWK Set member the signer published, as the closed shape this deployment publishes.
+///
+/// Every member must be text: a member of another type is refused rather than rendered as
+/// something it was not, and [`Jwk::new`] refuses any name outside the public members.
+fn published_jwk(value: &serde_json::Value) -> Result<Jwk, JwkRefusal> {
+    let members = value.as_object().ok_or(JwkRefusal::UndeclaredParameter)?;
+    let mut text = Vec::with_capacity(members.len());
+    for (name, member) in members {
+        let member = member.as_str().ok_or(JwkRefusal::UndeclaredParameter)?;
+        text.push((name.as_str(), member));
+    }
+    let declared = |wanted: &str| {
+        text.iter()
+            .find(|(name, _)| *name == wanted)
+            .map_or("", |(_, member)| *member)
+    };
+    let parameters: Vec<(&str, &str)> = text
+        .iter()
+        .filter(|(name, _)| !Jwk::DECLARED_MEMBERS.contains(name))
+        .copied()
+        .collect();
+    Jwk::new(
+        declared("kty"),
+        declared("kid"),
+        declared("use"),
+        declared("alg"),
+        &parameters,
+    )
 }
 
 fn read_document(path: &Path) -> Result<String, SeedRefused> {
@@ -2824,6 +3201,9 @@ pub struct Deployment<V, C, X, A> {
     /// `None` authenticates no confidential client: the token endpoint answers such a client
     /// `Unavailable` rather than deciding a comparison it has no key for.
     client_key: Option<VerifierKey>,
+    /// The signer and the keys it was mounted with, once [`Deployment::mount_signing_keys`]
+    /// has registered them. `None` publishes an empty key set and is not ready.
+    signing: Option<Signing>,
 }
 
 impl<V, C, X, A> Deployment<V, C, X, A>
@@ -2878,6 +3258,7 @@ where
             authority: None,
             relying_party: None,
             client_key: None,
+            signing: None,
         })
     }
 
@@ -3053,11 +3434,103 @@ where
     /// # Errors
     ///
     /// Returns [`CredentialFoldError`] when the event is not a history that fold can read.
+    ///
+    /// # The signer follows a key event at once
+    ///
+    /// After a `SigningKey` event the signer is brought in line with the fold
+    /// ([`RecordedSigner::sync`]): a revoked key stops signing and leaves the key set before
+    /// this returns, and a newer key takes issuance over. A key whose material cannot be
+    /// taken up leaves the signer where it was — the revocation half is applied before that
+    /// can be reached — and [`Deployment::ready`] answers for it: issuance itself asks the
+    /// records, never the signer, so nothing the records do not admit is signed meanwhile.
     pub fn record_credential(
         &mut self,
         event: &CredentialEvent,
     ) -> Result<(), CredentialFoldError> {
-        self.credentials.apply(event)
+        self.credentials.apply(event)?;
+        if matches!(
+            event,
+            CredentialEvent::SigningKeyRegistered { .. }
+                | CredentialEvent::SigningKeyRetired { .. }
+                | CredentialEvent::SigningKeyRevoked { .. }
+        ) {
+            let now = self.seconds();
+            if let Some(signing) = self.signing.as_mut() {
+                // Refused material is answered by readiness, as the header says.
+                let _unsynced = signing.signer.sync(&self.credentials, &signing.keys, now);
+            }
+        }
+        Ok(())
+    }
+
+    /// Register every mounted key as a `mandate.credential.SigningKey` record, in the order
+    /// mounted, and hand the signer to this deployment.
+    ///
+    /// Each key goes through `mandate.credential.RegisterSigningKey` itself, under the
+    /// configuration's own context: its name is the key reference, its window opens now and
+    /// closes [`MOUNTED_KEY_WINDOW_SECONDS`] later, and its identity is allocated here and is
+    /// the `kid` it signs and is published under. After each, the signer follows the records
+    /// ([`RecordedSigner::sync`]), so a later key takes issuance over from an earlier one and
+    /// the earlier one stays published for the overlap.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SeedRefused`] naming the key's file when the command refuses it — the same
+    /// material under two names above all — or when the signer cannot take it up.
+    pub fn mount_signing_keys(
+        &mut self,
+        administration: &SigningKeyAdministration,
+        mut signer: RecordedSigner<SigningClock>,
+        keys: MountedKeys,
+    ) -> Result<Vec<(String, SigningKeyId)>, SeedRefused> {
+        let now = self.seconds();
+        let window = SigningKeyWindow {
+            not_before: instant::at(now),
+            expires_at: instant::at(now.saturating_add(MOUNTED_KEY_WINDOW_SECONDS)),
+        };
+        let mut registered = Vec::with_capacity(keys.keys().len());
+        for key in keys.keys() {
+            let recorded = administration
+                .register(
+                    &RegisterSigningKey {
+                        context: seeded_context(OrganizationId::new(Uuid::from_bytes([0; 16]))),
+                        key_reference: KeyReference::new(key.name()),
+                        algorithm: key.algorithm().clone(),
+                        window: window.clone(),
+                    },
+                    &self.credentials,
+                    &keys,
+                    &mut self.allocator,
+                )
+                .map_err(|denied| SeedRefused::UnregistrableSigningKey {
+                    path: key.path().to_path_buf(),
+                    denied,
+                })?;
+            self.credentials.apply(&recorded.event).map_err(|error| {
+                SeedRefused::UnseedableCredential {
+                    path: key.path().to_path_buf(),
+                    error,
+                }
+            })?;
+            signer
+                .sync(&self.credentials, &keys, now)
+                .map_err(|refused| SeedRefused::UnsignableKey {
+                    path: key.path().to_path_buf(),
+                    refused,
+                })?;
+            registered.push((key.name().to_owned(), recorded.id));
+        }
+        self.signing = Some(Signing { signer, keys });
+        Ok(registered)
+    }
+
+    /// Whether this deployment can sign now: its signer holds an active key whose
+    /// `SigningKey` record admits signing at this instant ([`RecordedSigner::ready`]).
+    #[must_use]
+    pub fn ready(&self) -> bool {
+        self.signing
+            .as_ref()
+            .is_some_and(|signing| signing.signer.ready(&self.credentials, self.seconds()))
     }
 
     /// The `mandate.credential` read model this deployment folds.
@@ -3085,13 +3558,26 @@ where
         authorization_server_metadata(self.issuer())
     }
 
-    /// The JWK Set document this deployment publishes.
+    /// The JWK Set document this deployment publishes: the signer's own key set
+    /// ([`RecordedSigner::published_keys`]) — the active key and the keys still in their
+    /// overlap, public parts only — narrowed to the keys whose records admit verification
+    /// now, so a revoked key is absent from the next read. Empty while no key is mounted.
     ///
     /// # Errors
     ///
-    /// Returns [`JwkRefusal::RepeatedKeyId`] when the configured set names one `kid` twice.
+    /// Returns [`JwkRefusal`] when the signer published a member this deployment's closed
+    /// JWK shape does not admit, or one `kid` twice.
     pub fn jwks(&self) -> Result<Jwks, JwkRefusal> {
-        Jwks::new(self.configuration.keys.clone())
+        let Some(signing) = self.signing.as_ref() else {
+            return Ok(Jwks::empty());
+        };
+        let keys = signing
+            .signer
+            .published_keys(&self.credentials, self.seconds())
+            .iter()
+            .map(published_jwk)
+            .collect::<Result<Vec<_>, _>>()?;
+        Jwks::new(keys)
     }
 
     /// The instant this request is being served at.
@@ -3385,7 +3871,7 @@ where
         })
     }
 
-    /// Realize `mandate.federation.AuthorizePublicClient` up to the STS call its accepted
+    /// Realize `mandate.federation.AuthorizeClient` up to the STS call its accepted
     /// outcome makes, and make it.
     ///
     /// The order is the one `crates/mandate-federation/src/authorize.rs` states for its own
@@ -3407,7 +3893,7 @@ where
     /// Returns [`AuthorizationRefusal`], which says whether the refusal may be redirected.
     pub fn authorize(
         &mut self,
-        input: &decode::AuthorizePublicClient,
+        input: &decode::AuthorizeClient,
     ) -> Result<Authorization, AuthorizationRefusal> {
         use mandate_federation::DenialClause as FederationClause;
 
@@ -3514,7 +4000,7 @@ where
         // admits an expiry no later than `request.at` plus the code lifetime, and a read a
         // second later than `at` lands one second past that ceiling ([`Deployment::now`]).
         let expires_at = instant::at(seconds.saturating_add(self.code_lifetime));
-        // The value `AuthorizePublicClient`'s accepted outcome stops at, assembled from
+        // The value `AuthorizeClient`'s accepted outcome stops at, assembled from
         // validated facts and handed to the STS by value.
         let assembled = IssueAuthorizationCodeInput {
             context: mandate_types::VerifiedContext {
@@ -4169,7 +4655,7 @@ fn identity_event_of(event: &FederationEvent) -> Option<IdentityEvent> {
         .map(IdentityEvent::ExternalPrincipalProvisioned)
 }
 
-/// The value `mandate.federation.AuthorizePublicClient` stops at, as
+/// The value `mandate.federation.AuthorizeClient` stops at, as
 /// `mandate.credential.IssueAuthorizationCode`'s declared input.
 ///
 /// Field for field: the two crates declare the same nine values and neither may name the

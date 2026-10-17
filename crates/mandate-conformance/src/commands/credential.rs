@@ -189,7 +189,10 @@ pub fn issue_self_contained_credential(
     };
     let context = live.sts_context(&input.context);
     let issuer = live.issuer.clone();
-    let signer = live.signer.clone();
+    // The double signs under the key the records admit for issuance now, as the deployment's
+    // `RecordedSigner` does, and under the standing `kid` when they admit none — which names
+    // no record, so the handler's own key check is what refuses.
+    let signer = live.issuing_signer(&context);
     let reader = Substituted::new();
     let armed = live.armed.take(COMMAND);
     let decided = if armed.is_some() {

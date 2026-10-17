@@ -297,7 +297,7 @@
       ],
       "commands": [
         "mandate.federation.AuthenticateFederation",
-        "mandate.federation.AuthorizePublicClient",
+        "mandate.federation.AuthorizeClient",
         "mandate.federation.DisableFederationConnection",
         "mandate.federation.DisableOAuthClient",
         "mandate.federation.LinkExternalPrincipal",
@@ -11501,8 +11501,8 @@
       ],
       "naming": {}
     },
-    "mandate.federation.AuthorizePublicClient": {
-      "name": "mandate.federation.AuthorizePublicClient",
+    "mandate.federation.AuthorizeClient": {
+      "name": "mandate.federation.AuthorizeClient",
       "domain": "mandate.federation",
       "input": [
         {
@@ -12968,7 +12968,7 @@
               ]
             }
           ],
-          "summary": "The client is bound to the organization the verified context carries; the command takes no organization input, so no caller selects the tenant a client is registered into. A confidential client authenticates with a secret, and the registration carries only the keyed verifiers derived from its secret references (fork F2), one or two so that a secret can be rotated; the secret itself is never an input, an event field or a record field. A public client states no verifier and always requires PKCE (fork F3); a confidential client may require it. Each trusted peer names another client of the same organization that may obtain tokens for this one. OAuthClientRegistered carries the whole mandate.federation.OAuthClient record — the client identity, its organization, its client type, its verifiers, its exact redirect set, its PKCE method and requirement, its trusted peers and its exact post-logout redirect set — so the federation fold materializes the client from this event alone and reads no command input or response. The identity and the organization are the ones this outcome decided and returned, read from the response rather than from a value the implementation invented. An empty redirect set is admitted and is not a denial — the client it registers is inert, because AuthorizePublicClient matches the presented redirect against the registered set exactly and an empty set matches nothing, so every authorization request to that client is refused. mandate.core.PkceMethod admits S256 and nothing else, so no registration can name another method and none is refused for naming one. A registration whose redirect surface or PKCE method must change is disabled and registered again; there is no update command."
+          "summary": "The client is bound to the organization the verified context carries; the command takes no organization input, so no caller selects the tenant a client is registered into. A confidential client authenticates with a secret, and the registration carries only the keyed verifiers derived from its secret references (fork F2), one or two so that a secret can be rotated; the secret itself is never an input, an event field or a record field. A public client states no verifier and always requires PKCE (fork F3); a confidential client may require it. Each trusted peer names another client of the same organization that may obtain tokens for this one. OAuthClientRegistered carries the whole mandate.federation.OAuthClient record — the client identity, its organization, its client type, its verifiers, its exact redirect set, its PKCE method and requirement, its trusted peers and its exact post-logout redirect set — so the federation fold materializes the client from this event alone and reads no command input or response. The identity and the organization are the ones this outcome decided and returned, read from the response rather than from a value the implementation invented. An empty redirect set is admitted and is not a denial — the client it registers is inert, because AuthorizeClient matches the presented redirect against the registered set exactly and an empty set matches nothing, so every authorization request to that client is refused. mandate.core.PkceMethod admits S256 and nothing else, so no registration can name another method and none is refused for naming one. A registration whose redirect surface or PKCE method must change is disabled and registered again; there is no update command."
         },
         {
           "name": "denied",
@@ -20456,7 +20456,7 @@
         "mandate.directory.RetireDirectoryGroup",
         "mandate.directory.SyncDirectoryMembership",
         "mandate.federation.AuthenticateFederation",
-        "mandate.federation.AuthorizePublicClient",
+        "mandate.federation.AuthorizeClient",
         "mandate.federation.DisableFederationConnection",
         "mandate.federation.DisableOAuthClient",
         "mandate.federation.LinkExternalPrincipal",

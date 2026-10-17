@@ -1,11 +1,11 @@
 //! The nine `mandate.federation` commands, one function each — eight of them driven
 //! through a real handler and the ninth refusing by name.
 //!
-//! `mandate.federation.AuthorizePublicClient` is the ninth. The crate realizes
+//! `mandate.federation.AuthorizeClient` is the ninth. The crate realizes
 //! `authorize::validate_authorization_code`, and that function validates a *redemption*:
 //! its input is a whole `AuthorizationCode` record, which the declared command input does
 //! not carry. There is no decoding from the one to the other, so
-//! [`authorize_public_client`] answers `Unsupported` against `story:oauth-integration` —
+//! [`authorize_client`] answers `Unsupported` against `story:oauth-integration` —
 //! the story that owns the adapter carrying the validation candidate into the STS call —
 //! rather than calling the handler with an argument this target would have to invent. It
 //! keeps a dispatch arm rather than a registry row because the gap is in the *shape* of one
@@ -305,16 +305,16 @@ pub fn provision_external_principal(
     }
 }
 
-/// `mandate.federation.AuthorizePublicClient`, which this target cannot drive.
+/// `mandate.federation.AuthorizeClient`, which this target cannot drive.
 ///
 /// # Errors
 ///
 /// Always [`TargetError::Unsupported`]: see the module documentation.
-pub fn authorize_public_client(
+pub fn authorize_client(
     live: &mut Live,
     _request: &SemanticCommandRequest,
 ) -> Result<SemanticCommandResult, TargetError> {
-    const COMMAND: &str = "mandate.federation.AuthorizePublicClient";
+    const COMMAND: &str = "mandate.federation.AuthorizeClient";
     live.ledger.block(
         &live.scenario,
         COMMAND,
@@ -442,6 +442,7 @@ pub fn disable_oauth_client(
 fn standing_admission(
     context: &VerifiedContext,
     redirect_uris: &[mandate_types::RedirectUri],
+    post_logout_redirect_uris: &[mandate_types::RedirectUri],
     registered: &record::Projection,
 ) -> register_client::ConfiguredAdmission {
     let admission = redirect_uris.iter().fold(
@@ -450,6 +451,11 @@ fn standing_admission(
             .with_organization(context.organization),
         |admission, uri| admission.with_redirect_uri(context.organization, uri.clone()),
     );
+    let admission = post_logout_redirect_uris
+        .iter()
+        .fold(admission, |admission, uri| {
+            admission.with_post_logout_redirect_uri(context.organization, uri.clone())
+        });
     registered
         .clients()
         .iter()
@@ -479,7 +485,12 @@ pub fn register_oauth_client(
         trusted_peers: node::field(&request.input, "trusted_peers")?,
         post_logout_redirect_uris: node::field(&request.input, "post_logout_redirect_uris")?,
     };
-    let standing = standing_admission(&input.context, &input.redirect_uris, &live.federation);
+    let standing = standing_admission(
+        &input.context,
+        &input.redirect_uris,
+        &input.post_logout_redirect_uris,
+        &live.federation,
+    );
     let reader = Substituted::new();
     let decided = standing_first(
         live,

@@ -419,7 +419,10 @@ const STANDING: &[StandingDouble] = &[
     StandingDouble {
         port: "mandate_sts::issue::IssuanceSigner",
         double: "mandate_sts::issue::StaticSigner",
-        why: "the signing key material is the deployment's and no scenario supplies one",
+        why: "the signing key material is the deployment's and no scenario supplies one; \
+              the double signs under the `kid` of the key the scenario's own `SigningKey` \
+              records admit for issuance at the request's instant, and under a `kid` naming \
+              no record when they admit none, so the records, not the double, decide issuance",
     },
     StandingDouble {
         port: "mandate_sts::keys::KeyMaterialResolver",
@@ -472,7 +475,7 @@ pub const PORTS: &[(&str, &str)] = &[
         "mandate_federation::FederationVerifier",
     ),
     (
-        "mandate.federation.AuthorizePublicClient",
+        "mandate.federation.AuthorizeClient",
         "mandate_federation::publicclient::OAuthClientStore",
     ),
     (
@@ -939,7 +942,7 @@ impl mandate_sts::keys::SigningKeyReads for Substituted {
 }
 
 impl mandate_federation::register_client::ClientRegistrationAdmission for Substituted {
-    /// The same four answers `ConfiguredAdmission::new()` gives — it admits nothing by
+    /// The same five answers `ConfiguredAdmission::new()` gives — it admits nothing by
     /// construction. The standing admission is seeded from the caller on each call
     /// (`commands/federation.rs`, `standing_admission`) and admits the caller's own
     /// registration, so an arming at this port places a fault whenever the input would
@@ -955,6 +958,16 @@ impl mandate_federation::register_client::ClientRegistrationAdmission for Substi
     }
 
     fn admits_redirect_uri(
+        &self,
+        _organization_id: &mandate_types::OrganizationId,
+        _uri: &mandate_types::RedirectUri,
+    ) -> bool {
+        self.read();
+        false
+    }
+
+    /// Overridden only so that the read is counted: the provided answer is `false` too.
+    fn admits_post_logout_redirect_uri(
         &self,
         _organization_id: &mandate_types::OrganizationId,
         _uri: &mandate_types::RedirectUri,

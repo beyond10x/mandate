@@ -58,11 +58,16 @@ const PROOF_TTL: u64 = 300;
 /// How long a case waits for the child to bind before giving up on it.
 const LISTEN_DEADLINE: HostDuration = HostDuration::from_secs(30);
 
-/// The public EC JWK the `--key` flag publishes, copied from `tests/end_to_end.rs` so that
-/// the deployment this file stands up is the deployment that file stands up.
-const AS_KEY_DOCUMENT: &str = r#"{"kty":"EC","kid":"login-key-1","use":"sig","alg":"ES256",
-  "crv":"P-256","x":"f83OJ3D2xF1Bg8vub9tLe1gHMzV76e8Tus9uPHvRVEU",
-  "y":"x_FEzRu9m36HLN_tue659LNpXW6pCyStikYjKIWI5a0"}"#;
+/// The deployment's own signing key, generated now as the PKCS#8 PEM `--signing-key` mounts.
+/// No private key byte is written into this file.
+fn as_signing_key() -> String {
+    let pkcs8 = aws_lc_rs::signature::EcdsaKeyPair::generate_pkcs8(
+        &aws_lc_rs::signature::ECDSA_P256_SHA256_FIXED_SIGNING,
+        &aws_lc_rs::rand::SystemRandom::new(),
+    )
+    .expect("a P-256 key is generated");
+    pem_of(pkcs8.as_ref())
+}
 
 fn uuid(tag: u8) -> Uuid {
     Uuid::from_bytes([tag; 16])
@@ -403,7 +408,7 @@ impl ConnectionDocument {
 
 fn client_document() -> String {
     format!(
-        r#"{{"client_id":"{client}","organization":"{organization}","public":true,
+        r#"{{"client_id":"{client}","organization":"{organization}","client_type":"public",
           "redirect_uris":["{REDIRECT}"],"pkce_method":"S256"}}"#,
         client = client(),
         organization = organization(),
@@ -464,11 +469,9 @@ impl Served {
             arguments.push("--connection".to_owned());
             arguments.push(stated(connection).to_owned());
         }
-        for (flag, path) in [
-            ("--key", key),
-            ("--client", client_path),
-            ("--resource-server", target),
-        ] {
+        arguments.push("--signing-key".to_owned());
+        arguments.push(format!("login={}", stated(key)));
+        for (flag, path) in [("--client", client_path), ("--resource-server", target)] {
             arguments.push(flag.to_owned());
             arguments.push(stated(path).to_owned());
         }
@@ -684,7 +687,7 @@ fn stand_up(case: &str, connections: &[String]) -> Result<(SocketAddr, Served), 
         .enumerate()
         .map(|(nth, body)| document(case, &format!("connection-{nth}.json"), body))
         .collect();
-    let key_path = document(case, "key.json", AS_KEY_DOCUMENT);
+    let key_path = document(case, "signing-key.pem", &as_signing_key());
     let client_path = document(case, "client.json", &client_document());
     let target_path = document(case, "resource-server.json", &resource_server_document());
 

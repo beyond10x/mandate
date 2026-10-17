@@ -175,7 +175,7 @@ pub struct OAuthClient {
 /// with no variant here: no handler in this crate emits it. `crate::authorize` is
 /// non-consuming and returns a validation candidate that carries no event, and the STS
 /// transaction that issues the code owns the emission (`federation.yaml`,
-/// `AuthorizePublicClient`). A variant for it would be a payload nothing in this crate can
+/// `AuthorizeClient`). A variant for it would be a payload nothing in this crate can
 /// fill.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(untagged)]

@@ -52,7 +52,7 @@
           "method": "GET",
           "path": "/oauth/authorize",
           "binds": {
-            "command": "mandate.federation.AuthorizePublicClient"
+            "command": "mandate.federation.AuthorizeClient"
           },
           "statement": "The authorization endpoint, reached with a session proof."
         },
@@ -137,10 +137,10 @@
         },
         {
           "kind": "configuration",
-          "flag": "--key",
+          "flag": "--signing-key",
           "type": "argument",
-          "field": "keys",
-          "statement": "The public key set this deployment publishes is the operator's, one document per key, each carrying a distinct `kid`."
+          "field": "signing_key",
+          "statement": "The keys this deployment signs with are the operator's, one mounted private key per name; each is registered as a `SigningKey` record, and the key set publishes only the public half of the keys those records admit."
         }
       ]
     },
@@ -333,7 +333,7 @@
           "method": "GET",
           "path": "/oauth/authorize",
           "binds": {
-            "command": "mandate.federation.AuthorizePublicClient"
+            "command": "mandate.federation.AuthorizeClient"
           },
           "statement": "`GET`, as RFC 6749 section 3.1 requires, at an unversioned path the metadata document advertises."
         },
@@ -804,7 +804,7 @@
     {
       "step": 8,
       "actor": "relying-application",
-      "command": "mandate.federation.AuthorizePublicClient",
+      "command": "mandate.federation.AuthorizeClient",
       "when": "once per authorization request",
       "addendum_steps": [
         5
@@ -1004,7 +1004,7 @@
       "method": "GET",
       "path": "/oauth/authorize",
       "binds": {
-        "command": "mandate.federation.AuthorizePublicClient"
+        "command": "mandate.federation.AuthorizeClient"
       },
       "steps": [
         8,
@@ -1147,44 +1147,14 @@
     },
     {
       "party": "mandate-operator",
-      "flag": "--key",
+      "flag": "--signing-key",
       "type": "argument",
       "repeatable": true,
-      "example": {
-        "kty": "EC",
-        "kid": "login-key-1",
-        "use": "sig",
-        "alg": "ES256",
-        "crv": "P-256",
-        "x": "f83OJ3D2xF1Bg8vub9tLe1gHMzV76e8Tus9uPHvRVEU",
-        "y": "x_FEzRu9m36HLN_tue659LNpXW6pCyStikYjKIWI5a0"
-      },
       "fields": [
         {
-          "field": "kid",
-          "required": true,
-          "statement": "The key identifier. Two documents naming one `kid` are refused before the socket, naming both files."
-        },
-        {
-          "field": "kty",
-          "required": true,
-          "statement": "The key type, as RFC 7517 names it."
-        },
-        {
-          "field": "alg",
-          "required": true,
-          "statement": "The algorithm the key is published for."
-        },
-        {
-          "field": "use",
+          "field": "signing_key",
           "required": false,
-          "statement": "The public use, rendered under RFC 7517's own member name."
-        },
-        {
-          "field": "d",
-          "required": false,
-          "admitted": false,
-          "statement": "The private member is not one a published document may carry, and the constructor refuses every private member rather than dropping it."
+          "statement": "`NAME=PATH`: a PEM private key the deployment signs with, `PRIVATE KEY` (PKCS#8) for ES256 or RS256, or `RSA PRIVATE KEY` for RS256. The flag carries where the key is, never the key. Read before the socket is bound and registered as a `SigningKey` record whose identity is the `kid` the key is published under; `NAME` is the record's key reference. A name given twice, a file that cannot be read, and material that is not one admitted private key are each refused with exit status 2, and no refusal carries a byte of the key. The key set publishes the public half of each key whose record admits verification; readiness is the signer holding a key its record admits for signing."
         }
       ]
     },
@@ -1580,7 +1550,7 @@
     {
       "gap": "step 8 has no conformance scenario",
       "costs": "The authorization step is the one step of the road that the synthesized corpus does not execute at all. Its evidence is crate-level and end-to-end cases only, so a contract-level regression in its declared outcomes would not be caught by the conformance gate.",
-      "today": "Both of `mandate.federation.AuthorizePublicClient`'s scenarios report `unsupported`, recorded in the injections ledger as `input-shape-unrealized`.",
+      "today": "Both of `mandate.federation.AuthorizeClient`'s scenarios report `unsupported`, recorded in the injections ledger as `input-shape-unrealized`.",
       "steps": [
         8
       ],

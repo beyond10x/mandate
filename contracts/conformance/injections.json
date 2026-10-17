@@ -113,7 +113,7 @@
     {
       "port": "mandate_sts::issue::IssuanceSigner",
       "double": "mandate_sts::issue::StaticSigner",
-      "why": "the signing key material is the deployment's and no scenario supplies one"
+      "why": "the signing key material is the deployment's and no scenario supplies one; the double signs under the `kid` of the key the scenario's own `SigningKey` records admit for issuance at the request's instant, and under a `kid` naming no record when they admit none, so the records, not the double, decide issuance"
     },
     {
       "port": "mandate_sts::keys::KeyMaterialResolver",
@@ -495,8 +495,8 @@
       "consulted": 0
     },
     {
-      "scenario": "mandate.federation.AuthorizePublicClient/outcome/denied",
-      "command": "mandate.federation.AuthorizePublicClient",
+      "scenario": "mandate.federation.AuthorizeClient/outcome/denied",
+      "command": "mandate.federation.AuthorizeClient",
       "port": "mandate_federation::publicclient::OAuthClientStore",
       "kind": "armed-unreached",
       "consulted": 0
@@ -1207,12 +1207,6 @@
       "blocked_on": "story:constrained-exchange"
     },
     {
-      "scenario": "mandate.credential/authored/oidc-sign-with-retired-key-refused",
-      "command": "",
-      "reason": "expectation-unmet",
-      "blocked_on": "story:conform-gate"
-    },
-    {
       "scenario": "mandate.delegation.CompleteExecution/outcome/wrong-state",
       "command": "",
       "reason": "expectation-unmet",
@@ -1381,14 +1375,14 @@
       "blocked_on": "story:conform-gate"
     },
     {
-      "scenario": "mandate.federation.AuthorizePublicClient/outcome/accepted",
-      "command": "mandate.federation.AuthorizePublicClient",
+      "scenario": "mandate.federation.AuthorizeClient/outcome/accepted",
+      "command": "mandate.federation.AuthorizeClient",
       "reason": "input-shape-unrealized",
       "blocked_on": "story:oauth-integration"
     },
     {
-      "scenario": "mandate.federation.AuthorizePublicClient/outcome/denied",
-      "command": "mandate.federation.AuthorizePublicClient",
+      "scenario": "mandate.federation.AuthorizeClient/outcome/denied",
+      "command": "mandate.federation.AuthorizeClient",
       "reason": "input-shape-unrealized",
       "blocked_on": "story:oauth-integration"
     },

@@ -162,7 +162,7 @@ fn a_content_type_is_read_without_its_parameters() {
     assert!(decode::authenticate_federation(&request).is_ok());
 }
 
-// ------------------------------------------------- AuthorizePublicClient, query string
+// ------------------------------------------------- AuthorizeClient, query string
 
 fn authorize_query() -> String {
     format!(
@@ -179,7 +179,7 @@ fn authorize(query: &str) -> Request {
 
 #[test]
 fn an_authorization_request_decodes_the_nine_inputs_the_contract_declares() {
-    let input = decode::authorize_public_client(&authorize(&authorize_query())).unwrap();
+    let input = decode::authorize_client(&authorize(&authorize_query())).unwrap();
     assert_eq!(input.client_id.to_string(), UUID);
     assert_eq!(input.redirect_uri.as_str(), REDIRECT);
     assert_eq!(input.challenge.as_str(), CHALLENGE);
@@ -207,7 +207,7 @@ fn an_authorization_request_decodes_the_nine_inputs_the_contract_declares() {
 fn an_authorization_request_refuses_an_undeclared_parameter() {
     let query = format!("{}&organization_id={UUID}", authorize_query());
     assert_eq!(
-        decode::authorize_public_client(&authorize(&query)).unwrap_err(),
+        decode::authorize_client(&authorize(&query)).unwrap_err(),
         Refusal::UndeclaredField
     );
 }
@@ -216,7 +216,7 @@ fn an_authorization_request_refuses_an_undeclared_parameter() {
 fn an_authorization_request_refuses_a_repeated_parameter() {
     let query = format!("{}&state=other", authorize_query());
     assert_eq!(
-        decode::authorize_public_client(&authorize(&query)).unwrap_err(),
+        decode::authorize_client(&authorize(&query)).unwrap_err(),
         Refusal::DuplicateField
     );
 }
@@ -240,7 +240,7 @@ fn an_authorization_request_refuses_every_missing_declared_parameter() {
             .collect::<Vec<_>>()
             .join("&");
         assert!(
-            decode::authorize_public_client(&authorize(&query)).is_err(),
+            decode::authorize_client(&authorize(&query)).is_err(),
             "{key} was not required"
         );
     }
@@ -251,7 +251,7 @@ fn an_authorization_request_refuses_every_missing_declared_parameter() {
 fn pkce_plain_is_refused_at_the_authorization_endpoint() {
     let query =
         authorize_query().replace("code_challenge_method=S256", "code_challenge_method=plain");
-    let refused = decode::authorize_public_client(&authorize(&query)).unwrap_err();
+    let refused = decode::authorize_client(&authorize(&query)).unwrap_err();
     assert_eq!(refused, Refusal::PkceMethodUnsupported);
     assert_eq!(refused.error_code(), ErrorCode::InvalidRequest);
     assert_eq!(refused.body().error, ErrorCode::InvalidRequest);
@@ -262,7 +262,7 @@ fn an_authorization_request_refuses_a_challenge_that_is_not_in_the_s256_shape() 
     for challenge in ["short", "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-c/"] {
         let query = authorize_query().replace(CHALLENGE, challenge);
         assert_eq!(
-            decode::authorize_public_client(&authorize(&query)).unwrap_err(),
+            decode::authorize_client(&authorize(&query)).unwrap_err(),
             Refusal::ChallengeMalformed,
             "{challenge}"
         );
@@ -272,7 +272,7 @@ fn an_authorization_request_refuses_a_challenge_that_is_not_in_the_s256_shape() 
 #[test]
 fn an_authorization_request_refuses_a_response_type_this_endpoint_does_not_serve() {
     let query = authorize_query().replace("response_type=code", "response_type=token");
-    let refused = decode::authorize_public_client(&authorize(&query)).unwrap_err();
+    let refused = decode::authorize_client(&authorize(&query)).unwrap_err();
     assert_eq!(refused, Refusal::UnsupportedResponseType);
     assert_eq!(refused.error_code(), ErrorCode::UnsupportedResponseType);
 }
@@ -281,17 +281,17 @@ fn an_authorization_request_refuses_a_response_type_this_endpoint_does_not_serve
 fn an_authorization_request_refuses_an_absent_or_malformed_session_proof() {
     let bare = Request::new("GET", &format!("/oauth/authorize?{}", authorize_query()));
     assert_eq!(
-        decode::authorize_public_client(&bare).unwrap_err(),
+        decode::authorize_client(&bare).unwrap_err(),
         Refusal::MissingSessionProof
     );
     let wrong_scheme = bare.clone().with_header("Authorization", "Basic Zm9v");
     assert_eq!(
-        decode::authorize_public_client(&wrong_scheme).unwrap_err(),
+        decode::authorize_client(&wrong_scheme).unwrap_err(),
         Refusal::MalformedSessionProof
     );
     let not_base64 = bare.with_header("Authorization", "Bearer not base64");
     assert_eq!(
-        decode::authorize_public_client(&not_base64).unwrap_err(),
+        decode::authorize_client(&not_base64).unwrap_err(),
         Refusal::MalformedSessionProof
     );
 }
@@ -300,7 +300,7 @@ fn an_authorization_request_refuses_an_absent_or_malformed_session_proof() {
 fn a_bearer_scheme_is_matched_without_regard_to_case() {
     let request = Request::new("GET", &format!("/oauth/authorize?{}", authorize_query()))
         .with_header("Authorization", "bEaReR Zm9v");
-    assert!(decode::authorize_public_client(&request).is_ok());
+    assert!(decode::authorize_client(&request).is_ok());
 }
 
 // -------------------------------------------- RedeemAuthorizationCode, the token endpoint
@@ -549,7 +549,7 @@ fn every_decoder() -> Vec<Decoder> {
         decode::authenticate_federation(request).map(|_| ())
     }
     fn authorize_of(request: &Request) -> Result<(), Refusal> {
-        decode::authorize_public_client(request).map(|_| ())
+        decode::authorize_client(request).map(|_| ())
     }
     fn token_of(request: &Request) -> Result<(), Refusal> {
         decode::redeem_authorization_code(request).map(|_| ())
@@ -564,7 +564,7 @@ fn every_decoder() -> Vec<Decoder> {
             decode: login_of,
         },
         Decoder {
-            name: "authorize_public_client",
+            name: "authorize_client",
             request: authorize(&authorize_query()),
             decode: authorize_of,
         },
@@ -672,7 +672,7 @@ fn a_presented_client_credential_is_refused_wherever_no_input_declares_one() {
         );
     }
     // The two routes that *do* declare one still read it.
-    assert!(decode::authorize_public_client(&authorize(&authorize_query())).is_ok());
+    assert!(decode::authorize_client(&authorize(&authorize_query())).is_ok());
     assert!(decode::introspect_credential(&introspect("token=Zm9v")).is_ok());
 }
 
@@ -717,7 +717,7 @@ fn no_credential_field_admits_the_empty_or_zero_byte_credential() {
     let empty_session = Request::new("GET", &format!("/oauth/authorize?{}", authorize_query()))
         .with_header("Authorization", "Bearer ");
     assert_eq!(
-        decode::authorize_public_client(&empty_session).unwrap_err(),
+        decode::authorize_client(&empty_session).unwrap_err(),
         Refusal::MalformedSessionProof
     );
 }
@@ -748,7 +748,7 @@ fn every_free_text_parameter_is_bounded_and_carries_no_control_character() {
             let query = authorize_query()
                 .replace(&format!("{key}={present}"), &format!("{key}={injected}"));
             assert_eq!(
-                decode::authorize_public_client(&authorize(&query)).unwrap_err(),
+                decode::authorize_client(&authorize(&query)).unwrap_err(),
                 Refusal::ControlCharacter,
                 "{key} carrying {injected}"
             );
@@ -757,7 +757,7 @@ fn every_free_text_parameter_is_bounded_and_carries_no_control_character() {
         let query =
             authorize_query().replace(&format!("{key}={present}"), &format!("{key}={long}"));
         assert_eq!(
-            decode::authorize_public_client(&authorize(&query)).unwrap_err(),
+            decode::authorize_client(&authorize(&query)).unwrap_err(),
             Refusal::TextTooLong,
             "{key} over the bound"
         );
@@ -766,7 +766,7 @@ fn every_free_text_parameter_is_bounded_and_carries_no_control_character() {
         let query =
             authorize_query().replace(&format!("{key}={present}"), &format!("{key}={at_bound}"));
         assert!(
-            decode::authorize_public_client(&authorize(&query)).is_ok(),
+            decode::authorize_client(&authorize(&query)).is_ok(),
             "{key} at the bound"
         );
     }
@@ -779,7 +779,7 @@ fn the_authorization_endpoint_refuses_a_body_it_would_never_read() {
     let with_body =
         authorize(&authorize_query()).with_body(b"grant_type=authorization_code".to_vec());
     assert_eq!(
-        decode::authorize_public_client(&with_body).unwrap_err(),
+        decode::authorize_client(&with_body).unwrap_err(),
         Refusal::BodyNotAdmitted
     );
 }

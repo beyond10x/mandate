@@ -2,7 +2,7 @@
 //!
 //! # The call the control plane assembles and never makes
 //!
-//! `mandate.federation.AuthorizePublicClient` validates the authorization request and stops
+//! `mandate.federation.AuthorizeClient` validates the authorization request and stops
 //! at an `IssueAuthorizationCodeInput` it carries on its candidate
 //! (`crates/mandate-federation/src/authorize.rs`): "this crate declares no port for that
 //! command, and the call belongs to the STS transaction". This is that command, satisfied

@@ -31,7 +31,7 @@ sequenceDiagram
     CP->>CP: 7 resolve ExternalPrincipal · 8 organization context
   end
   CP-->>U: 9 session_id
-  U->>CP: AuthorizePublicClient(client_id, redirect_uri, S256 challenge, state, nonce, session_proof, target, scope)
+  U->>CP: AuthorizeClient(client_id, redirect_uri, S256 challenge, state, nonce, session_proof, target, scope)
   CP->>STS: IssueAuthorizationCode
   STS-->>CP: code
   CP-->>U: code
@@ -48,7 +48,7 @@ sequenceDiagram
 | Link an external account to a principal (administrative path) | `LinkExternalPrincipal(context, connection_id, external_subject, principal_id, method)` → `external_principal_id` | `federation.yaml`, command `mandate.federation.LinkExternalPrincipal` |
 | Record one link on first login, the `ExternalPrincipal` (JIT path, new) | `ProvisionExternalPrincipal(connection_id, proof)` → `external_principal_id`, `principal_id`, `organization_id`, `subject` | `federation.yaml`, command `mandate.federation.ProvisionExternalPrincipal`; the Principal record's writer is declared in `identity.yaml`'s header — the same `ExternalPrincipalProvisioned` seeds it, and the identity fold materializes it (`crates/mandate-identity/src/port.rs`) |
 | Validate the proof and mint a session | `AuthenticateFederation(connection_id, proof)` → `session_id`, `principal_id`, `organization_id`, `epochs`, `expires_at` | `federation.yaml`, command `mandate.federation.AuthenticateFederation` |
-| Turn the session into an authorization code | `AuthorizePublicClient(…)` → `code_id`, `code` | `federation.yaml`, command `mandate.federation.AuthorizePublicClient`; the code record is created by `mandate.credential.IssueAuthorizationCode` behind the STS port |
+| Turn the session into an authorization code | `AuthorizeClient(…)` → `code_id`, `code` | `federation.yaml`, command `mandate.federation.AuthorizeClient`; the code record is created by `mandate.credential.IssueAuthorizationCode` behind the STS port |
 | Consume the code, issue the credential | `RedeemAuthorizationCode(code_id, client_id, code, pkce_verifier, redirect_uri)` → `credential`, `credential_id`, `target`, `epochs`, `descriptor` | `../../systems/mandate/domains/credential.yaml`, command `mandate.credential.RedeemAuthorizationCode` |
 | A resource server trusts the Mandate credential, never the customer IdP | `IntrospectCredential` | `credential.yaml`, command `mandate.credential.IntrospectCredential` |
 

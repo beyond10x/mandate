@@ -16,8 +16,8 @@ Mandate starts from reviewable contracts and then implements the security behavi
 ## What runs today
 
 `mandate-control-plane serve` takes `--listen`, `--issuer`, `--code-lifetime`, `--session-lifetime`,
-four repeatable document flags — `--connection`, `--key`, `--client`, `--resource-server` — and a
-repeatable `--client-secret-file NAME=PATH`, and serves twelve routes: `/v1/federation/login`,
+three repeatable document flags — `--connection`, `--client`, `--resource-server` — and two
+repeatable `NAME=PATH` flags, `--signing-key` and `--client-secret-file`, and serves twelve routes: `/v1/federation/login`,
 `/v1/federation/authorize`, `/v1/federation/callback`, `/v1/federation/handoff`, `/oauth/authorize`,
 `/oauth/token` (authorization code and RFC 8693 token exchange), `/oauth/introspect`, `/oauth/jwks`,
 `/.well-known/oauth-authorization-server`, `/.well-known/openid-configuration`, `/healthz/live` and

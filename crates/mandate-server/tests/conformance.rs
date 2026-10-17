@@ -48,8 +48,8 @@ fn every_road_decoder_builds_exactly_the_members_the_generated_input_declares() 
             decode::AuthenticateFederation::DECLARED_INPUTS,
         ),
         (
-            "mandate.federation.AuthorizePublicClient",
-            decode::AuthorizePublicClient::DECLARED_INPUTS,
+            "mandate.federation.AuthorizeClient",
+            decode::AuthorizeClient::DECLARED_INPUTS,
         ),
         (
             "mandate.credential.RedeemAuthorizationCode",
@@ -87,11 +87,11 @@ fn an_authorization_request_round_trips_into_the_declared_input() {
     );
     let request = Request::new("GET", &format!("/oauth/authorize?{query}"))
         .with_header("Authorization", "Bearer Zm9v");
-    let route = routes::route_for_command("mandate.federation.AuthorizePublicClient").unwrap();
+    let route = routes::route_for_command("mandate.federation.AuthorizeClient").unwrap();
     assert_eq!(request.method, route.method.as_str());
     assert_eq!(request.route_path(), route.path);
 
-    let input = decode::authorize_public_client(&request).unwrap();
+    let input = decode::authorize_client(&request).unwrap();
     assert_eq!(input.client_id.to_string(), UUID);
     assert_eq!(input.redirect_uri.as_str(), REDIRECT);
     assert_eq!(input.challenge.as_str(), CHALLENGE);
