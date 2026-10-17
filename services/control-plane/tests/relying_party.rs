@@ -627,6 +627,16 @@ struct Stood {
 const RETURN_URI: &str = "https://app.example/signed-in";
 
 fn stand(case: &str, tamper: Tamper, secret_in_file: &str) -> Stood {
+    stand_with(case, tamper, secret_in_file, &[])
+}
+
+/// [`stand`], with more flag documents: each a flag, a file name and the document's body.
+fn stand_with(
+    case: &str,
+    tamper: Tamper,
+    secret_in_file: &str,
+    documents: &[(&str, &str, String)],
+) -> Stood {
     let idp = TestIdp::start(tamper);
     let scratch = Scratch::new(case);
     let connection_document = format!(
@@ -644,7 +654,7 @@ fn stand(case: &str, tamper: Tamper, secret_in_file: &str) -> Stood {
     let connection_path = scratch.write("connection.json", &connection_document);
     let key_path = scratch.write("key.json", AS_KEY_DOCUMENT);
     let secret_path = scratch.write("client-secret", &format!("{secret_in_file}\n"));
-    let arguments = vec![
+    let mut arguments = vec![
         "serve".to_owned(),
         "--listen".to_owned(),
         "127.0.0.1:0".to_owned(),
@@ -660,6 +670,11 @@ fn stand(case: &str, tamper: Tamper, secret_in_file: &str) -> Stood {
             secret_path.to_str().expect("UTF-8")
         ),
     ];
+    for (flag, name, body) in documents {
+        let path = scratch.write(name, body);
+        arguments.push((*flag).to_owned());
+        arguments.push(path.to_str().expect("UTF-8").to_owned());
+    }
     let mut served = Served::spawn(&arguments);
     let address = served.address();
     Stood {
@@ -1333,4 +1348,309 @@ fn the_endpoint_hosts_are_the_relying_partys_own_and_never_the_key_hosts() {
             "{unusable}"
         );
     }
+}
+
+// ------------------------------------------- the authorization endpoint, as a browser
+
+/// A public client of the connection's organization, and the resource server whose
+/// `client_id` names it, so an OpenID Connect request naming no target resolves to it.
+const OIDC_CLIENT: &str = "c1c1c1c1-c1c1-4c1c-8c1c-c1c1c1c1c1c1";
+const OIDC_RESOURCE_SERVER: &str = "e5e5e5e5-e5e5-4e5e-8e5e-e5e5e5e5e5e5";
+const OIDC_REDIRECT: &str = "https://client.example/callback";
+/// RFC 7636 appendix B's challenge: the client keeps the verifier.
+const OIDC_CHALLENGE: &str = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM";
+/// A state the client chose, with a byte that must come back percent-encoded and exact.
+const OIDC_STATE: &str = "af0ifjsldkj&x";
+const SESSION_COOKIE: &str = "__Host-mandate-session";
+/// `--session-lifetime`'s default, PT8H, in seconds: how long the session cookie is kept.
+const SESSION_SECONDS: &str = "28800";
+
+/// [`stand`], with the relying application's client and its resource server seeded.
+fn stand_browser(case: &str) -> Stood {
+    let client = format!(
+        r#"{{"client_id":"{OIDC_CLIENT}","organization":"{organization}","client_type":"public",
+          "redirect_uris":["{OIDC_REDIRECT}"],"pkce_method":"S256"}}"#,
+        organization = organization(),
+    );
+    let target = format!(
+        r#"{{"resource_server_id":"{OIDC_RESOURCE_SERVER}","organization":"{organization}",
+          "audience":"https://client.example",
+          "profile":{{"name":"reference","kind":"Reference","revocation":"ImmediateOnline",
+            "max_ttl":"PT1H","positive_cache_ttl":"PT30S",
+            "requires_online_authorization":true}},
+          "allowed_exchange_sources":[],"client_id":"{OIDC_CLIENT}"}}"#,
+        organization = organization(),
+    );
+    stand_with(
+        case,
+        Tamper::None,
+        IDP_SECRET,
+        &[
+            ("--client", "client.json", client),
+            ("--resource-server", "resource-server.json", target),
+        ],
+    )
+}
+
+/// `GET /oauth/authorize` as the relying application's redirect sends a browser there: an
+/// OpenID Connect request naming no target, with this `prompt` and holding this cookie.
+fn authorize_as_browser(stood: &Stood, prompt: Option<&str>, cookie: Option<&str>) -> Response {
+    let prompted = prompt.map_or_else(String::new, |value| format!("&prompt={value}"));
+    let headers: Vec<(&str, &str)> = cookie.map(|c| ("Cookie", c)).into_iter().collect();
+    send(
+        stood.address,
+        "GET",
+        &format!(
+            "/oauth/authorize?response_type=code&client_id={OIDC_CLIENT}&redirect_uri={}\
+             &code_challenge={OIDC_CHALLENGE}&code_challenge_method=S256&state={}\
+             &nonce=n-0S6_WzA2Mj&scope=openid+email{prompted}",
+            percent_encode(OIDC_REDIRECT),
+            percent_encode(OIDC_STATE),
+        ),
+        &headers,
+        None,
+    )
+}
+
+/// Every `Set-Cookie` a response carries, in order.
+fn set_cookies(response: &Response) -> Vec<&str> {
+    response
+        .headers
+        .iter()
+        .filter(|(name, _)| name.eq_ignore_ascii_case("Set-Cookie"))
+        .map(|(_, value)| value.as_str())
+        .collect()
+}
+
+/// The `Set-Cookie` that sets `name`, whole, if the response carries one.
+fn set_cookie_named<'r>(response: &'r Response, name: &str) -> Option<&'r str> {
+    set_cookies(response)
+        .into_iter()
+        .find(|value| value.starts_with(&format!("{name}=")))
+}
+
+/// The `name=value` pair a browser presents back for that `Set-Cookie`.
+fn presented(set_cookie: &str) -> String {
+    set_cookie
+        .split(';')
+        .next()
+        .expect("a name=value pair")
+        .trim()
+        .to_owned()
+}
+
+/// The response parameters a redirect to the client's registered redirect URI carries, if the
+/// response is one.
+fn at_the_client(response: &Response) -> Option<BTreeMap<String, String>> {
+    if response.status != 302 {
+        return None;
+    }
+    let location = response.header("Location")?;
+    location
+        .strip_prefix(&format!("{OIDC_REDIRECT}?"))
+        .map(form)
+}
+
+/// Whether the response sends the browser to the IdP's authorization endpoint.
+fn sent_upstream(stood: &Stood, response: &Response) -> bool {
+    response.status == 302
+        && response.header("Location").is_some_and(|location| {
+            location.starts_with(&format!("{}/authorize?", stood.idp.issuer()))
+        })
+}
+
+/// A browser without a session: `/oauth/authorize`, out to the IdP, and back to the callback.
+/// Answers what the callback answered.
+fn upstream_and_back(stood: &Stood, prompt: Option<&str>, cookie: Option<&str>) -> Response {
+    let started = authorize_as_browser(stood, prompt, cookie);
+    assert!(
+        sent_upstream(stood, &started),
+        "the browser is sent to the IdP: {} {:?} {}",
+        started.status,
+        started.header("Location"),
+        started.body
+    );
+    let binding = presented(
+        set_cookie_named(&started, BINDING_COOKIE).expect("the sign-in binds the browser"),
+    );
+    assert!(
+        set_cookie_named(&started, SESSION_COOKIE).is_none(),
+        "no session is set before one is opened"
+    );
+    let location = started.header("Location").expect("a Location").to_owned();
+    let at_idp = get(stood.idp.address, &target_of(&location));
+    assert_eq!(at_idp.status, 302);
+    let back = at_idp.header("Location").expect("a Location").to_owned();
+    let query = back
+        .strip_prefix(&format!("{CALLBACK}?"))
+        .expect("the IdP returns to the registered redirect URI")
+        .to_owned();
+    callback(stood, &query, Some(&binding))
+}
+
+/// Fork F4 B: a browser with no session at Mandate is sent upstream, and the callback sends it
+/// to the client's redirect URI with a code and the exact state, holding the host-only
+/// session cookie.
+#[test]
+fn browser_without_session_is_sent_upstream_and_returns_with_code() {
+    let mut stood = stand_browser("browser-upstream");
+    let completed = upstream_and_back(&stood, None, None);
+    let parameters = at_the_client(&completed).unwrap_or_else(|| {
+        panic!(
+            "the callback sends the browser to the client: {} {:?} {}",
+            completed.status,
+            completed.header("Location"),
+            completed.body
+        )
+    });
+    assert!(
+        parameters.get("code").is_some_and(|code| !code.is_empty()),
+        "{parameters:?}"
+    );
+    assert_eq!(
+        parameters.get("state").map(String::as_str),
+        Some(OIDC_STATE)
+    );
+    assert!(!parameters.contains_key("error"), "{parameters:?}");
+    assert_eq!(completed.header("Cache-Control"), Some("no-store"));
+    assert!(
+        !completed.body.contains("handoff")
+            && !completed
+                .header("Location")
+                .unwrap_or_default()
+                .contains("handoff"),
+        "a resumed sign-in answers no handoff"
+    );
+
+    let session = set_cookie_named(&completed, SESSION_COOKIE).expect("the session cookie is set");
+    let attributes: Vec<&str> = session.split(';').map(str::trim).collect();
+    for required in ["Path=/", "Secure", "HttpOnly", "SameSite=Lax"] {
+        assert!(attributes.contains(&required), "{required} in {session}");
+    }
+    assert!(
+        attributes.contains(&format!("Max-Age={SESSION_SECONDS}").as_str()),
+        "the cookie lives as long as the session: {session}"
+    );
+    assert!(
+        !attributes.iter().any(|a| a.starts_with("Domain")),
+        "a __Host- cookie names no Domain: {session}"
+    );
+    let (_, value) = presented(session)
+        .split_once('=')
+        .map(|(name, value)| (name.to_owned(), value.to_owned()))
+        .expect("name=value");
+    assert!(value.len() >= 22, "an unguessable session proof");
+    let cleared = set_cookie_named(&completed, BINDING_COOKIE).expect("the binding is cleared");
+    assert!(cleared.contains("Max-Age=0"), "{cleared}");
+    assert_eq!(stood.idp.held().token_calls, 1);
+
+    let (out, err) = stood.served.output();
+    assert!(
+        !out.contains(&value) && !err.contains(&value),
+        "the session proof is in no output"
+    );
+}
+
+/// A browser holding the session cookie is answered the code with no upstream round trip;
+/// `prompt=login` sends it upstream anyway; `prompt=none` with no session answers
+/// `login_required` at the redirect URI, and a cookie naming no session is no session.
+#[test]
+fn session_cookie_skips_upstream() {
+    let stood = stand_browser("browser-session");
+    let completed = upstream_and_back(&stood, None, None);
+    let session =
+        presented(set_cookie_named(&completed, SESSION_COOKIE).expect("the session cookie is set"));
+    let (sign_ins, redemptions) = {
+        let held = stood.idp.held();
+        (held.issued, held.token_calls)
+    };
+
+    // The cookie, presented beside another site's: the code, at once.
+    let again = authorize_as_browser(&stood, None, Some(&format!("theme=dark; {session}")));
+    let parameters = at_the_client(&again).unwrap_or_else(|| {
+        panic!(
+            "a code: {} {:?} {}",
+            again.status,
+            again.header("Location"),
+            again.body
+        )
+    });
+    assert!(parameters.get("code").is_some_and(|code| !code.is_empty()));
+    assert_eq!(
+        parameters.get("state").map(String::as_str),
+        Some(OIDC_STATE)
+    );
+    assert!(
+        set_cookie_named(&again, BINDING_COOKIE).is_none(),
+        "no sign-in was started"
+    );
+    // `prompt=none` with a session is the same answer.
+    let silent = authorize_as_browser(&stood, Some("none"), Some(&session));
+    assert!(
+        at_the_client(&silent).is_some_and(|parameters| parameters.contains_key("code")),
+        "{} {:?}",
+        silent.status,
+        silent.header("Location")
+    );
+    {
+        let held = stood.idp.held();
+        assert_eq!(held.issued, sign_ins, "no upstream sign-in");
+        assert_eq!(held.token_calls, redemptions, "no upstream redemption");
+    }
+
+    // `prompt=login`: a fresh upstream sign-in, whatever the cookie says.
+    let forced = authorize_as_browser(&stood, Some("login"), Some(&session));
+    assert!(
+        sent_upstream(&stood, &forced),
+        "{} {:?}",
+        forced.status,
+        forced.header("Location")
+    );
+    let relogged = upstream_and_back(&stood, Some("login"), Some(&session));
+    assert!(
+        at_the_client(&relogged).is_some_and(|parameters| parameters.contains_key("code")),
+        "{} {:?}",
+        relogged.status,
+        relogged.header("Location")
+    );
+
+    // `prompt=none` without a session: `login_required` at the redirect, nothing upstream.
+    let before = stood.idp.held().issued;
+    let refused = authorize_as_browser(&stood, Some("none"), None);
+    let parameters = at_the_client(&refused).unwrap_or_else(|| {
+        panic!(
+            "login_required at the client: {} {:?} {}",
+            refused.status,
+            refused.header("Location"),
+            refused.body
+        )
+    });
+    assert_eq!(
+        parameters.get("error").map(String::as_str),
+        Some("login_required")
+    );
+    assert_eq!(
+        parameters.get("state").map(String::as_str),
+        Some(OIDC_STATE)
+    );
+    assert!(!parameters.contains_key("code"));
+    assert!(set_cookie_named(&refused, BINDING_COOKIE).is_none());
+    assert_eq!(stood.idp.held().issued, before, "prompt=none goes nowhere");
+
+    // A cookie that names no session this deployment opened is a browser to sign in again.
+    let stale = format!(
+        "{SESSION_COOKIE}={}",
+        encode_base64(b"no session was opened for this")
+    );
+    assert!(sent_upstream(
+        &stood,
+        &authorize_as_browser(&stood, None, Some(&stale))
+    ));
+    let stale_silent = authorize_as_browser(&stood, Some("none"), Some(&stale));
+    assert_eq!(
+        at_the_client(&stale_silent)
+            .and_then(|parameters| parameters.get("error").cloned())
+            .as_deref(),
+        Some("login_required")
+    );
 }

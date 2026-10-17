@@ -53,10 +53,12 @@ use mandate_server::metadata::Health;
 use mandate_server::routes::{self, Binding, Document, Method, RelyingPartyStep, Route};
 use mandate_sts::redemption::RedemptionRefused;
 use mandate_sts::{IdentityAllocator, SecretSource};
+use mandate_types::CredentialSecret;
 use mandate_types::value::encode_base64;
 
 use crate::adapters::{
-    AuthorizationRefusal, Deployment, PENDING_LIFETIME, Refusal, return_redirect,
+    Authorization, AuthorizationRefusal, BrowserAuthorization, Completed, Deployment,
+    PENDING_LIFETIME, Refusal, Started, return_redirect,
 };
 
 /// What this listener will read from one connection, and how long it waits for it.
@@ -577,48 +579,34 @@ where
             }
         }
         Binding::Command("mandate.federation.AuthorizeClient") => {
-            match decode::authorize_client(request) {
+            // A browser's request (fork F4 B): the session is the host-only cookie, a bearer
+            // credential, or none, and none sends the browser upstream.
+            match decode::authorize_browser(request) {
                 Err(refused) => Response::refused(&refused),
-                Ok(input) => match deployment.authorize(&input) {
-                    Ok(authorization) => {
-                        match redirect_to(
-                            &authorization.redirect_uri.to_string(),
-                            &[
-                                ("code", &encode_base64(authorization.code.expose_bytes())),
-                                ("state", &authorization.state),
-                            ],
-                        ) {
-                            Ok(location) => Response::redirect(&location),
-                            // The code was issued and is now unreachable: the registration
-                            // this deployment holds cannot carry it. Nothing is redirected.
-                            Err(refused) => redirect_unusable(refused),
-                        }
+                Ok(input) => match deployment.authorize_browser(&input) {
+                    Ok(BrowserAuthorization::Authorized(authorization)) => {
+                        code_redirect(&authorization)
                     }
-                    Err(AuthorizationRefusal::InPlace(refusal)) => {
-                        Response::denied("mandate.federation.AuthorizeClient", &refusal)
-                    }
-                    Err(AuthorizationRefusal::AtRedirect {
-                        refusal,
+                    Ok(BrowserAuthorization::Upstream(started)) => sign_in_redirect(&started),
+                    Ok(BrowserAuthorization::LoginRequired {
                         redirect_uri,
                         state,
                     }) => {
-                        // Recorded here too: a refusal that leaves as a redirect is still a
-                        // refusal, and it is the one an operator is least able to see —
-                        // nothing of it reaches this process's own output otherwise.
-                        record_refusal("mandate.federation.AuthorizeClient", &refusal.clause);
-                        let code = oauth::code_for_denial(&refusal.clause, refusal.reason);
+                        record_refusal("mandate.federation.AuthorizeClient", LOGIN_REQUIRED);
                         match redirect_to(
                             &redirect_uri.to_string(),
-                            &[("error", code.as_str()), ("state", &state)],
+                            &[("error", LOGIN_REQUIRED), ("state", &state)],
                         ) {
                             Ok(location) => Response::redirect(&location),
-                            // RFC 6749 section 4.1.2.1's redirect is impossible, so the
-                            // refusal is rendered — and it names the registration rather
-                            // than the denial, because the registration is what a reader of
-                            // this response can fix.
                             Err(refused) => redirect_unusable(refused),
                         }
                     }
+                    // What the bearer decoder answered a request without a session before
+                    // this deployment served browsers, and still does where it signs none in.
+                    Ok(BrowserAuthorization::SessionRequired) => {
+                        Response::refused(&DecodeRefusal::MissingSessionProof)
+                    }
+                    Err(refusal) => authorization_refused(refusal),
                 },
             }
         }
@@ -672,15 +660,7 @@ where
             match decode::begin_federation(request) {
                 Err(refused) => Response::refused(&refused),
                 Ok(input) => match deployment.begin_federation(&input) {
-                    // The binding cookie is set on the one response that starts the sign-in,
-                    // and nowhere else: a refused authorize sets nothing, and neither does a
-                    // redirect `Response::redirect` refused to write.
-                    Ok(started) => match Response::redirect(&started.location) {
-                        redirect if redirect.status == 302 => {
-                            redirect.with_header("Set-Cookie", &binding_cookie(&started.bindings))
-                        }
-                        unwritable => unwritable,
-                    },
+                    Ok(started) => sign_in_redirect(&started),
                     Err(refusal) => Response::denied("relying-party authorize", &refusal),
                 },
             }
@@ -693,7 +673,20 @@ where
                 Ok(input) => {
                     let answer = deployment.complete_federation(&input);
                     let answered = match answer.outcome {
-                        Ok(handoff) => {
+                        // A sign-in `/oauth/authorize` started: that request's own answer, and
+                        // the session cookie, set whatever the request answered — the sign-in
+                        // itself succeeded and the session is open.
+                        Ok(Completed::Resumed(resumed)) => {
+                            let answered = match resumed.outcome {
+                                Ok(authorization) => code_redirect(&authorization),
+                                Err(refusal) => authorization_refused(refusal),
+                            };
+                            answered.with_header(
+                                "Set-Cookie",
+                                &session_cookie(&resumed.session_proof, resumed.max_age),
+                            )
+                        }
+                        Ok(Completed::Handoff(handoff)) => {
                             let mut parameters = vec![("handoff", handoff.code.as_str())];
                             if let Some(app_state) = &handoff.app_state {
                                 parameters.push(("app_state", app_state.as_str()));
@@ -1196,4 +1189,82 @@ fn binding_cookie(bindings: &[String]) -> String {
         "{}={joined}; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age={max_age}",
         decode::FEDERATION_BINDING_COOKIE
     )
+}
+
+/// The `Set-Cookie` value carrying a browser's session proof (fork F4 B): host-only by its
+/// `__Host-` prefix, never readable by script, sent on a top-level navigation from another
+/// site (the relying application's redirect here) and on nothing else cross-site, and kept no
+/// longer than the session it names.
+fn session_cookie(session_proof: &CredentialSecret, max_age: u64) -> String {
+    format!(
+        "{}={}; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age={max_age}",
+        decode::SESSION_COOKIE,
+        encode_base64(session_proof.expose_bytes())
+    )
+}
+
+/// OIDC Core section 3.1.2.6: `prompt=none` and no usable session. Not one of RFC 6749's
+/// codes, so it is not among `mandate_proto::oauth::ErrorCode`'s; this listener is the only
+/// place it is written.
+const LOGIN_REQUIRED: &str = "login_required";
+
+/// The code, sent to the client's validated redirect with the exact state received.
+fn code_redirect(authorization: &Authorization) -> Response {
+    match redirect_to(
+        &authorization.redirect_uri.to_string(),
+        &[
+            ("code", &encode_base64(authorization.code.expose_bytes())),
+            ("state", &authorization.state),
+        ],
+    ) {
+        Ok(location) => Response::redirect(&location),
+        // The code was issued and is now unreachable: the registration this deployment holds
+        // cannot carry it. Nothing is redirected.
+        Err(refused) => redirect_unusable(refused),
+    }
+}
+
+/// An `AuthorizeClient` refusal: rendered in place before the redirect is validated, and
+/// RFC 6749 section 4.1.2.1's redirect after.
+fn authorization_refused(refusal: AuthorizationRefusal) -> Response {
+    match refusal {
+        AuthorizationRefusal::InPlace(refusal) => {
+            Response::denied("mandate.federation.AuthorizeClient", &refusal)
+        }
+        AuthorizationRefusal::AtRedirect {
+            refusal,
+            redirect_uri,
+            state,
+        } => {
+            // Recorded here too: a refusal that leaves as a redirect is still a refusal, and
+            // it is the one an operator is least able to see — nothing of it reaches this
+            // process's own output otherwise.
+            record_refusal("mandate.federation.AuthorizeClient", &refusal.clause);
+            let code = oauth::code_for_denial(&refusal.clause, refusal.reason);
+            match redirect_to(
+                &redirect_uri.to_string(),
+                &[("error", code.as_str()), ("state", &state)],
+            ) {
+                Ok(location) => Response::redirect(&location),
+                // RFC 6749 section 4.1.2.1's redirect is impossible, so the refusal is
+                // rendered — and it names the registration rather than the denial, because
+                // the registration is what a reader of this response can fix.
+                Err(refused) => redirect_unusable(refused),
+            }
+        }
+    }
+}
+
+/// The redirect that sends a browser to its IdP, with the binding cookie.
+///
+/// The binding cookie is set on the one response that starts the sign-in, and nowhere else: a
+/// refused authorize sets nothing, and neither does a redirect `Response::redirect` refused
+/// to write.
+fn sign_in_redirect(started: &Started) -> Response {
+    match Response::redirect(&started.location) {
+        redirect if redirect.status == 302 => {
+            redirect.with_header("Set-Cookie", &binding_cookie(&started.bindings))
+        }
+        unwritable => unwritable,
+    }
 }

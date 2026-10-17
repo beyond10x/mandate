@@ -4,6 +4,19 @@ All notable changes to Mandate are recorded here. The format follows [Keep a Cha
 
 ## [Unreleased]
 
+### Added
+
+- `/oauth/authorize` serves browsers: the session is the host-only `__Host-mandate-session`
+  cookie, a bearer proof, or none. A browser without a session is signed in through its client
+  organization's relying-party connection and the authorization request resumes at the callback,
+  which sets the cookie. `prompt=login` forces the upstream sign-in and `prompt=none` without a
+  session answers `login_required`.
+- An OpenID Connect authorization request names no target: its code is for the resource server
+  whose `client_id` names the client. Identity scopes are read off `scope`, and a request without
+  `openid` and without a target is refused `invalid_scope`.
+- `RegisterResourceServer` refuses a named client that is unresolved, disabled or in another
+  organization; `--resource-server` documents resolve it against the `--client` documents.
+
 ## [0.10.0] - 2026-10-17
 
 ### Breaking

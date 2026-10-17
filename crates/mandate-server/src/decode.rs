@@ -947,12 +947,47 @@ pub struct AuthorizeBrowser {
     pub identity_scopes: Option<Vec<IdentityScope>>,
     /// The session proof the request carried, from the [`SESSION_COOKIE`] or an
     /// `Authorization: Bearer`, never both.
-    pub session: Option<CredentialProof>,
+    pub session: Option<PresentedSession>,
     /// The `prompt`, when one was named.
     pub prompt: Option<Prompt>,
+    /// The bindings the browser's [`FEDERATION_BINDING_COOKIE`] carries, which an upstream
+    /// sign-in this request starts keeps beside its own.
+    pub bindings: Vec<String>,
+}
+
+/// A session proof an authorization request presented, and how.
+///
+/// The two are told apart because they fail differently: a bearer credential is a caller's
+/// deliberate presentation, and one that names no usable session is refused; a cookie is what
+/// a browser happens to hold, and one that names no usable session is a browser to sign in
+/// again.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PresentedSession {
+    /// `Authorization: Bearer` (RFC 6750 section 2.1).
+    Bearer(CredentialProof),
+    /// The [`SESSION_COOKIE`].
+    Cookie(CredentialProof),
+}
+
+impl PresentedSession {
+    /// The proof, however it was presented.
+    #[must_use]
+    pub const fn proof(&self) -> &CredentialProof {
+        match self {
+            Self::Bearer(proof) | Self::Cookie(proof) => proof,
+        }
+    }
 }
 
 impl AuthorizeBrowser {
+    /// The command's input with the session proof the request presented, or `None` when it
+    /// presented none.
+    #[must_use]
+    pub fn presented(self) -> Option<AuthorizeClient> {
+        let proof = self.session.as_ref()?.proof().clone();
+        Some(self.with_session(proof))
+    }
+
     /// The command's input, with this session proof in place of the one the request carried.
     #[must_use]
     pub fn with_session(self, session_proof: CredentialProof) -> AuthorizeClient {
@@ -995,18 +1030,19 @@ pub fn authorize_browser(request: &Request) -> Result<AuthorizeBrowser, Refusal>
         .and_then(|cookies| cookie(cookies, SESSION_COOKIE));
     let session = match (bearer_presented, cookie_value) {
         (true, Some(_)) => return Err(Refusal::MalformedSessionProof),
-        (true, None) => Some(bearer(
+        (true, None) => Some(PresentedSession::Bearer(bearer(
             request,
             Refusal::MissingSessionProof,
             Refusal::MalformedSessionProof,
-        )?),
-        (false, Some(value)) => {
-            Some(credential(&value).map_err(|_| Refusal::MalformedSessionProof)?)
-        }
+        )?)),
+        (false, Some(value)) => Some(PresentedSession::Cookie(
+            credential(&value).map_err(|_| Refusal::MalformedSessionProof)?,
+        )),
         (false, None) => None,
     };
     let mut parameters = authorize_parameters(request)?;
     parameters.session = session;
+    parameters.bindings = bindings(request)?;
     Ok(parameters)
 }
 
@@ -1059,6 +1095,7 @@ fn authorize_parameters(request: &Request) -> Result<AuthorizeBrowser, Refusal> 
         identity_scopes,
         session: None,
         prompt,
+        bindings: Vec::new(),
     })
 }
 

@@ -12,8 +12,10 @@
 //! these cases admit is one a deciding handler has not yet seen.
 
 use mandate_proto::oauth::ErrorCode;
-use mandate_server::decode::{self, MAX_BODY_BYTES, MAX_TEXT_BYTES, Refusal, Request};
-use mandate_types::PkceMethod;
+use mandate_server::decode::{
+    self, MAX_BODY_BYTES, MAX_TEXT_BYTES, PresentedSession, Prompt, Refusal, Request,
+};
+use mandate_types::{IdentityScope, PkceMethod};
 
 const UUID: &str = "1b4e28ba-2fa1-4d8e-b1b0-8c1d4e5f6a7b";
 const OTHER_UUID: &str = "2c5f39cb-3fb2-4e9f-c2c1-9d2e5f607b8c";
@@ -301,6 +303,199 @@ fn a_bearer_scheme_is_matched_without_regard_to_case() {
     let request = Request::new("GET", &format!("/oauth/authorize?{}", authorize_query()))
         .with_header("Authorization", "bEaReR Zm9v");
     assert!(decode::authorize_client(&request).is_ok());
+}
+
+// ------------------------------------- the OpenID Connect request a browser makes
+
+/// An OpenID Connect relying application's request: no target, `openid` and two identity
+/// scopes, a token no one understands, and no bearer credential.
+fn oidc_query() -> String {
+    format!(
+        "response_type=code&client_id={UUID}&redirect_uri={ENCODED_REDIRECT}\
+         &code_challenge={CHALLENGE}&code_challenge_method=S256&state=xyz&nonce=abc\
+         &scope=openid+email+groups+unknown"
+    )
+}
+
+fn browser(query: &str) -> Request {
+    Request::new("GET", &format!("/oauth/authorize?{query}"))
+}
+
+/// OIDC Core section 3.1.2.1: with no target named, the identity scopes are read and a
+/// token that names none is ignored rather than taken as an action of an authority nobody
+/// named; with a target, every other token is an action, as before.
+#[test]
+fn authorize_oidc_scope() {
+    let input = decode::authorize_client(&authorize(&oidc_query())).unwrap();
+    assert_eq!(input.target, None);
+    assert_eq!(
+        input.identity_scopes,
+        Some(vec![
+            IdentityScope::OpenId,
+            IdentityScope::Email,
+            IdentityScope::Groups,
+        ])
+    );
+    assert!(input.requested_scope.actions.is_empty());
+
+    // A repeated identity scope is recorded once.
+    let repeated = oidc_query().replace("scope=openid+email", "scope=openid+openid+email");
+    assert_eq!(
+        decode::authorize_client(&authorize(&repeated))
+            .unwrap()
+            .identity_scopes,
+        Some(vec![
+            IdentityScope::OpenId,
+            IdentityScope::Email,
+            IdentityScope::Groups,
+        ])
+    );
+
+    // With a target, the identity scopes are still split off and the rest are actions.
+    let targeted = format!(
+        "{}&target={OTHER_UUID}",
+        oidc_query().replace("+unknown", "+read")
+    );
+    let input = decode::authorize_client(&authorize(&targeted)).unwrap();
+    assert_eq!(
+        input
+            .requested_scope
+            .actions
+            .iter()
+            .map(|action| action.as_str().to_owned())
+            .collect::<Vec<_>>(),
+        vec!["read".to_owned()]
+    );
+    assert_eq!(
+        input.identity_scopes.as_ref().map(Vec::len),
+        Some(3),
+        "the identity scopes are not actions"
+    );
+}
+
+/// An identity scope without `openid`, and a request that names neither a target nor
+/// `openid`, are `invalid_scope`.
+#[test]
+fn authorize_oidc_scope_without_openid_is_invalid_scope() {
+    for scope in ["email+groups", "unknown", "read+write"] {
+        let query = oidc_query().replace("openid+email+groups+unknown", scope);
+        let refused = decode::authorize_client(&authorize(&query)).unwrap_err();
+        assert_eq!(refused, Refusal::ScopeWithoutOpenId, "{scope}");
+        assert_eq!(refused.error_code(), ErrorCode::InvalidScope, "{scope}");
+    }
+}
+
+/// PKCE is offered whole or not at all: neither is admitted (the handler decides whether the
+/// client may omit it), one without the other is refused.
+#[test]
+fn authorize_pkce_is_both_or_neither() {
+    let neither = oidc_query().replace(
+        &format!("&code_challenge={CHALLENGE}&code_challenge_method=S256"),
+        "",
+    );
+    let input = decode::authorize_client(&authorize(&neither)).unwrap();
+    assert_eq!(input.challenge, None);
+    assert_eq!(input.method, None);
+
+    let challenge_only = oidc_query().replace("&code_challenge_method=S256", "");
+    let method_only = oidc_query().replace(&format!("&code_challenge={CHALLENGE}"), "");
+    for query in [challenge_only, method_only] {
+        assert_eq!(
+            decode::authorize_client(&authorize(&query)).unwrap_err(),
+            Refusal::PkceIncomplete,
+            "{query}"
+        );
+    }
+}
+
+/// A browser presents its session in the host-only cookie, or presents none at all; a bearer
+/// credential is still read, and the two together are refused.
+#[test]
+fn authorize_browser_reads_the_session_cookie_or_the_bearer_or_none() {
+    let none = decode::authorize_browser(&browser(&oidc_query())).unwrap();
+    assert_eq!(none.session, None);
+    assert_eq!(none.prompt, None);
+
+    let cookie = browser(&oidc_query()).with_header(
+        "Cookie",
+        &format!("other=1; {}=Zm9v", decode::SESSION_COOKIE),
+    );
+    let input = decode::authorize_browser(&cookie).unwrap();
+    assert!(matches!(
+        &input.session,
+        Some(PresentedSession::Cookie(proof)) if proof.expose_bytes() == b"foo"
+    ));
+    // The command's input carries the cookie's proof as its session proof.
+    assert_eq!(
+        input.presented().unwrap().session_proof.expose_bytes(),
+        b"foo"
+    );
+
+    let bearer = browser(&oidc_query()).with_header("Authorization", "Bearer Zm9v");
+    assert!(matches!(
+        decode::authorize_browser(&bearer).unwrap().session,
+        Some(PresentedSession::Bearer(_))
+    ));
+
+    let both = bearer.with_header("Cookie", &format!("{}=Zm9v", decode::SESSION_COOKIE));
+    assert_eq!(
+        decode::authorize_browser(&both).unwrap_err(),
+        Refusal::MalformedSessionProof
+    );
+
+    let malformed = browser(&oidc_query())
+        .with_header("Cookie", &format!("{}=not base64", decode::SESSION_COOKIE));
+    assert_eq!(
+        decode::authorize_browser(&malformed).unwrap_err(),
+        Refusal::MalformedSessionProof
+    );
+}
+
+/// A cookie the header names twice is not presented: a rule picking one of two values is a
+/// rule an attacker can aim.
+#[test]
+fn authorize_browser_reads_a_session_cookie_named_twice_as_none() {
+    let twice = browser(&oidc_query()).with_header(
+        "Cookie",
+        &format!("{name}=Zm9v; {name}=YmFy", name = decode::SESSION_COOKIE),
+    );
+    assert_eq!(decode::authorize_browser(&twice).unwrap().session, None);
+}
+
+/// `prompt` is `login` or `none`; anything else is refused, since this endpoint implements no
+/// other interaction. The bearer decoder admits it too.
+#[test]
+fn authorize_browser_admits_prompt_login_and_none_only() {
+    for (value, expected) in [("login", Prompt::Login), ("none", Prompt::None)] {
+        let query = format!("{}&prompt={value}", oidc_query());
+        assert_eq!(
+            decode::authorize_browser(&browser(&query)).unwrap().prompt,
+            Some(expected)
+        );
+        assert!(decode::authorize_client(&authorize(&query)).is_ok());
+    }
+    for value in ["consent", "select_account", "login+none", ""] {
+        let query = format!("{}&prompt={value}", oidc_query());
+        assert_eq!(
+            decode::authorize_browser(&browser(&query)).unwrap_err(),
+            Refusal::MalformedField,
+            "prompt={value}"
+        );
+    }
+}
+
+/// The relying-party binding cookie travels with the request, so an upstream sign-in it
+/// starts keeps the browser's other sign-ins.
+#[test]
+fn authorize_browser_carries_the_relying_party_bindings() {
+    let request = browser(&oidc_query()).with_header(
+        "Cookie",
+        &format!("{}=aaa.bbb", decode::FEDERATION_BINDING_COOKIE),
+    );
+    assert_eq!(
+        decode::authorize_browser(&request).unwrap().bindings,
+        vec!["aaa".to_owned(), "bbb".to_owned()]
+    );
 }
 
 // -------------------------------------------- RedeemAuthorizationCode, the token endpoint
