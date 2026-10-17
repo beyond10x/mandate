@@ -143,6 +143,7 @@ pub mod conformance;
 pub mod inventory;
 pub mod value;
 
+mod client_secret;
 mod credential;
 mod enumeration;
 mod identifier;
@@ -151,6 +152,11 @@ mod record;
 mod text;
 mod union;
 
+pub use client_secret::{
+    CLIENT_SECRET_DOMAIN, CLIENT_SECRET_ENTROPY_FLOOR_BITS, CLIENT_SECRET_VERIFIER_PREFIX,
+    ClientSecretError, OAuthClientSecret, VERIFIER_KEY_MIN_BYTES, VerifierKey,
+    client_secret_presents, constant_time_eq,
+};
 pub use credential::{CredentialProof, CredentialSecret};
 pub use enumeration::{
     CredentialKind, DecisionReason, DenialReason, ExternalLinkMethod, MembershipSource,
