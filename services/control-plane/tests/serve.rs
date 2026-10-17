@@ -612,6 +612,51 @@ fn the_metadata_document_lists_only_product_routes() {
 }
 
 #[test]
+fn the_openid_configuration_is_served_with_the_metadata_document_s_values() {
+    let (address, _) = serving();
+    let served = exchange(address, &get("/.well-known/openid-configuration", &[]));
+    assert_eq!(served.status, 200);
+    let discovery: serde_json::Value =
+        serde_json::from_str(&served.body).expect("OpenID Connect Discovery 1.0's JSON");
+    assert_eq!(
+        discovery.get("issuer").and_then(serde_json::Value::as_str),
+        Some(ISSUER)
+    );
+
+    let metadata = exchange(
+        address,
+        &get("/.well-known/oauth-authorization-server", &[]),
+    );
+    let metadata: serde_json::Value =
+        serde_json::from_str(&metadata.body).expect("RFC 8414 section 2's JSON");
+    for (name, value) in metadata.as_object().expect("an object") {
+        assert_eq!(discovery.get(name), Some(value), "{name}");
+    }
+    for name in [
+        "subject_types_supported",
+        "id_token_signing_alg_values_supported",
+        "scopes_supported",
+        "claims_supported",
+    ] {
+        assert!(
+            discovery.get(name).is_some_and(serde_json::Value::is_array),
+            "{name} in {}",
+            served.body
+        );
+    }
+    let refused = exchange(
+        address,
+        &post(
+            "/.well-known/openid-configuration",
+            "application/json",
+            "{}",
+            &[],
+        ),
+    );
+    assert_eq!(refused.status, 405, "the document answers `GET` alone");
+}
+
+#[test]
 fn the_jwks_document_is_served_and_carries_no_private_member() {
     let (address, _) = serving();
     let served = exchange(address, &get("/oauth/jwks", &[]));

@@ -885,6 +885,7 @@ fn presented(code_id: AuthorizationCodeId, proof: &CredentialProof) -> RedeemAut
         code: CredentialProof::from_bytes(proof.expose_material().to_vec()),
         pkce_verifier: CredentialProof::from_bytes(PKCE_VERIFIER.as_bytes().to_vec()),
         redirect_uri: authorized_redirect_uri(),
+        client_secret: None,
     }
 }
 

@@ -17,10 +17,11 @@ Mandate starts from reviewable contracts and then implements the security behavi
 
 `mandate-control-plane serve` takes `--listen`, `--issuer`, `--code-lifetime`, `--session-lifetime`,
 three repeatable document flags — `--connection`, `--client`, `--resource-server` — and two
-repeatable `NAME=PATH` flags, `--signing-key` and `--client-secret-file`, and serves nine routes: `/v1/federation/login`,
+repeatable `NAME=PATH` flags, `--signing-key` and `--client-secret-file`, and serves twelve routes: `/v1/federation/login`,
 `/v1/federation/authorize`, `/v1/federation/callback`, `/v1/federation/handoff`, `/oauth/authorize`,
-`/oauth/token` (authorization code and RFC 8693 token exchange), `/oauth/introspect`, `/oauth/jwks` and
-`/.well-known/oauth-authorization-server`. A login through a configured identity provider opens a
+`/oauth/token` (authorization code and RFC 8693 token exchange), `/oauth/introspect`, `/oauth/jwks`,
+`/.well-known/oauth-authorization-server`, `/.well-known/openid-configuration`, `/healthz/live` and
+`/healthz/ready`. A login through a configured identity provider opens a
 session, an authorization request yields a code, the token endpoint issues a credential, and
 introspection answers for it. A first-time user is provisioned just in time where the connection
 admits it, and a revoked link is not provisioned around.

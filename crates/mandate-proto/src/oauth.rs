@@ -224,10 +224,10 @@ pub enum ErrorCode {
     /// otherwise malformed.
     InvalidRequest,
     /// Token endpoint: client authentication failed. Section 5.2 obliges an HTTP 401 for it,
-    /// so it is answered only where a caller did present a credential that could have failed —
-    /// on this road, RFC 7662 section 2.1's introspection caller proof. A client *redeeming a
-    /// code* never authenticates (`token_endpoint_auth_methods_supported: ["none"]`), so no
-    /// clause reachable from a redemption answers this; see [`CLAUSE_CODES`].
+    /// so it is answered only where a caller did present a credential that could have failed:
+    /// RFC 7662 section 2.1's introspection caller proof, and a confidential client's secret
+    /// at the token endpoint ([`CLIENT_AUTHENTICATION_CLAUSES`]). No other clause reachable
+    /// from a redemption answers this; see [`CLAUSE_CODES`].
     InvalidClient,
     /// Token endpoint: the grant presented is invalid, expired, revoked, was issued to another
     /// client, or does not match this request.
@@ -426,9 +426,9 @@ pub fn require_s256_challenge_method(form: &Form) -> Result<(), ErrorBody> {
 /// * `invalid_client` — "**Client authentication failed** (unknown client, no client
 ///   authentication included, or unsupported authentication method)." A refusal sits here only
 ///   where the caller presented a credential that could have failed, which on this road is the
-///   introspection endpoint's caller proof and nothing else: the metadata advertises
-///   `token_endpoint_auth_methods_supported: ["none"]`, so no client redeeming a code
-///   authenticates and no refusal on that path can be an authentication failure. Adversary
+///   introspection endpoint's caller proof and a redeeming client's secret
+///   ([`CLIENT_AUTHENTICATION_CLAUSES`]); no other refusal on the redemption path is an
+///   authentication failure. Adversary
 ///   pass 2 (F1) found the four client clauses of `services/sts/src/code.rs::admitted_client`
 ///   here — `binding::bound_client` calls that function on **every** redemption, so all four
 ///   are reachable from one, and section 5.2 obliges an HTTP 401 for the code they answered
@@ -518,6 +518,23 @@ pub const CLAUSE_CODES: &[(DenialClause, ErrorCode)] = &[
         ErrorCode::InvalidRequest,
     ),
     (DenialClause::SubjectTokenInvalid, ErrorCode::InvalidGrant),
+    // Client authentication at the token endpoint: RFC 6749 section 5.2.
+    (DenialClause::ClientSecretMissing, ErrorCode::InvalidClient),
+    (DenialClause::ClientSecretMismatch, ErrorCode::InvalidClient),
+    (
+        DenialClause::ClientSecretFromPublic,
+        ErrorCode::InvalidClient,
+    ),
+];
+
+/// The clauses a redemption refuses **about the client's authentication**, which RFC 6749
+/// section 5.2 answers `invalid_client`: a confidential client that presented no secret or a
+/// wrong one, and a public client that presented one. No other clause a redemption raises
+/// answers `invalid_client`.
+pub const CLIENT_AUTHENTICATION_CLAUSES: &[DenialClause] = &[
+    DenialClause::ClientSecretMissing,
+    DenialClause::ClientSecretMismatch,
+    DenialClause::ClientSecretFromPublic,
 ];
 
 /// The clauses a token exchange refuses **about its target**, which it answers RFC 8693

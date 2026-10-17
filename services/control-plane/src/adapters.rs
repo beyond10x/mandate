@@ -132,7 +132,10 @@ use mandate_sts::registry::{
     RegisterResourceServer, ResourceServerReads, register_resource_server,
 };
 use mandate_sts::resolve::{IntrospectCredential, IntrospectionParts, introspect_credential};
-use mandate_sts::store::{AuthorizationCodeLog, AuthorizationCodeReads, InMemoryCodeLog};
+use mandate_sts::store::{
+    AppendRefused, AuthorizationCodeEvent, AuthorizationCodeLog, AuthorizationCodeReads,
+    InMemoryCodeLog,
+};
 use mandate_sts::{IdentityAllocator, RequestContext as StsRequest, SecretSource};
 use mandate_token::projection::{
     CredentialEvent, DenialClause as CredentialClause, Denied as CredentialDenied,
@@ -149,6 +152,7 @@ use mandate_types::{
     OAuthClientType, OrganizationId, PkceMethod, PrincipalId, RedirectUri, ResourceId, ResourceRef,
     ResourceServerId, ResourceType, SecurityEpochTarget, SessionId, SigningAlgorithm, SigningKeyId,
     SigningKeyWindow, Timestamp, Transient, Uuid, VerifiedContext, VerifierKey,
+    client_secret_presents,
 };
 use serde::Deserialize;
 
@@ -210,13 +214,21 @@ impl<R: ResourceServerReads> TargetRegistry for TargetRegistryOver<'_, R> {
 /// "registered and confidential" (`Some(false)`), which is the distinction
 /// `mandate_sts::code::admitted_client` fails closed on.
 #[derive(Debug, Clone, Copy)]
-pub struct OAuthClientReadsOver<'a, C: OAuthClientStore>(&'a C);
+pub struct OAuthClientReadsOver<'a, C: OAuthClientStore>(&'a C, Option<&'a VerifierKey>);
 
 impl<'a, C: OAuthClientStore> OAuthClientReadsOver<'a, C> {
-    /// The port, over this client read model.
+    /// The port, over this client read model, holding no key: it authenticates no
+    /// confidential client ([`OAuthClientReads::secret_authenticates`] answers `None`).
     #[must_use]
     pub const fn over(clients: &'a C) -> Self {
-        Self(clients)
+        Self(clients, None)
+    }
+
+    /// The same port, deriving presented secrets under the deployment's `key`, when it
+    /// holds one.
+    #[must_use]
+    pub const fn keyed(self, key: Option<&'a VerifierKey>) -> Self {
+        Self(self.0, key)
     }
 }
 
@@ -246,6 +258,22 @@ impl<C: OAuthClientStore> OAuthClientReads for OAuthClientReadsOver<'_, C> {
                 registered.as_str().as_bytes() == redirect_uri.as_str().as_bytes()
             })
         })
+    }
+
+    /// Derived under the deployment's key and compared with every recorded verifier in
+    /// constant time ([`mandate_types::client_secret_presents`]). No key, no answer.
+    fn secret_authenticates(
+        &self,
+        id: &OAuthClientId,
+        presented: &CredentialProof,
+    ) -> Option<bool> {
+        let client = self.0.client(id)?;
+        let key = self.1?;
+        Some(client_secret_presents(
+            key,
+            &client.secret_verifiers,
+            &OAuthClientSecret::presented(presented.expose_material().to_vec()),
+        ))
     }
 }
 
@@ -1769,6 +1797,16 @@ impl ClientSeeding {
         Ok(verifiers)
     }
 
+    /// The deployment key the seeded verifiers were derived under, consumed with the seeding.
+    ///
+    /// The token endpoint authenticates a confidential client against those verifiers, so the
+    /// deployment is handed this same key ([`Deployment::with_client_verifier_key`]); a seeding
+    /// built without secrets has none.
+    #[must_use]
+    pub fn into_key(self) -> Option<VerifierKey> {
+        self.key
+    }
+
     /// Decide what the whole set decides: every trusted peer names a seeded client of the
     /// same organization.
     ///
@@ -3157,6 +3195,12 @@ pub struct Deployment<V, C, X, A> {
     /// The relying party toward external OIDC IdPs, when the deployment signs browsers in
     /// through one. `None` answers both relying-party routes with a refusal.
     relying_party: Option<RelyingParty>,
+    /// The deployment key every confidential client's secret verifier is derived under
+    /// (ADR 0012 fork F2 A), when the deployment holds one.
+    ///
+    /// `None` authenticates no confidential client: the token endpoint answers such a client
+    /// `Unavailable` rather than deciding a comparison it has no key for.
+    client_key: Option<VerifierKey>,
     /// The signer and the keys it was mounted with, once [`Deployment::mount_signing_keys`]
     /// has registered them. `None` publishes an empty key set and is not ready.
     signing: Option<Signing>,
@@ -3213,8 +3257,38 @@ where
             exchanges: Vec::new(),
             authority: None,
             relying_party: None,
+            client_key: None,
             signing: None,
         })
+    }
+
+    /// The same deployment, authenticating confidential clients at the token endpoint
+    /// against verifiers derived under `key`.
+    #[must_use]
+    pub fn with_client_verifier_key(mut self, key: VerifierKey) -> Self {
+        self.client_key = Some(key);
+        self
+    }
+
+    /// Seed one `mandate.credential` authorization-code event into the code log, at the
+    /// version its stream is at.
+    ///
+    /// The seeding sibling of [`Deployment::record_credential`] and
+    /// [`Deployment::record_federation`]: the authorization endpoint is the only writer of
+    /// this log on the served road.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`AppendRefused`] when the event is not a history the code fold can read.
+    pub fn record_authorization_code(
+        &mut self,
+        event: &AuthorizationCodeEvent,
+    ) -> Result<(), AppendRefused> {
+        let stream = *event.code_id();
+        let expected = AuthorizationCodeLog::version(&self.codes, &stream);
+        self.codes
+            .append(&stream, expected, std::slice::from_ref(event))
+            .map(|_| ())
     }
 
     /// The same deployment, signing browsers in through `relying_party`'s IdPs.
@@ -4073,7 +4147,7 @@ where
             at: at.clone(),
             epochs: None,
         };
-        let clients = OAuthClientReadsOver::over(&self.federation);
+        let clients = OAuthClientReadsOver::over(&self.federation).keyed(self.client_key.as_ref());
         let sessions = SessionReadsOver::over(&self.identity);
         let redeemed = redeem_and_consume(
             &RedeemAuthorizationCode {
@@ -4082,6 +4156,7 @@ where
                 code: input.code.clone(),
                 pkce_verifier: input.pkce_verifier.clone(),
                 redirect_uri: input.redirect_uri.clone(),
+                client_secret: input.client_secret.clone(),
             },
             &request,
             &mut self.codes,

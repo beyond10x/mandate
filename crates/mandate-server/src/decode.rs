@@ -236,6 +236,14 @@ pub enum Refusal {
     ChallengeMalformed,
     /// The `code_verifier` is not in the RFC 7636 section 4.1 form.
     VerifierMalformed,
+    /// The token request authenticated its client twice: `Authorization: Basic` and a
+    /// `client_secret` parameter at once, or a `client_id` parameter naming another client
+    /// than the `Basic` credential (RFC 6749 section 2.3: one method per request).
+    ClientCredentialAmbiguous,
+    /// The client credential is not `client_secret_basic` or `client_secret_post` in its
+    /// declared form: another `Authorization` scheme, an undecodable `Basic` credential, or an
+    /// empty secret.
+    MalformedClientCredential,
     /// A free-text parameter is over [`MAX_TEXT_BYTES`].
     TextTooLong,
     /// A free-text parameter carries a character in Unicode general category `Cc`: the C0
@@ -280,6 +288,8 @@ impl Refusal {
         Self::PkceMethodUnsupported,
         Self::ChallengeMalformed,
         Self::VerifierMalformed,
+        Self::ClientCredentialAmbiguous,
+        Self::MalformedClientCredential,
         Self::TextTooLong,
         Self::ControlCharacter,
     ];
@@ -290,7 +300,10 @@ impl Refusal {
         match self {
             Self::UnsupportedGrantType => ErrorCode::UnsupportedGrantType,
             Self::UnsupportedResponseType => ErrorCode::UnsupportedResponseType,
-            Self::MissingCallerProof | Self::MalformedCallerProof => ErrorCode::InvalidClient,
+            Self::MissingCallerProof
+            | Self::MalformedCallerProof
+            | Self::ClientCredentialAmbiguous
+            | Self::MalformedClientCredential => ErrorCode::InvalidClient,
             _ => ErrorCode::InvalidRequest,
         }
     }
@@ -349,6 +362,12 @@ impl Refusal {
             Self::PkceMethodUnsupported => "code_challenge_method must be S256",
             Self::ChallengeMalformed => "code_challenge is not an S256 challenge",
             Self::VerifierMalformed => "code_verifier is not in the form RFC 7636 declares",
+            Self::ClientCredentialAmbiguous => {
+                "the token request authenticates its client by more than one method"
+            }
+            Self::MalformedClientCredential => {
+                "the client credential is not client_secret_basic or client_secret_post in its declared form"
+            }
             Self::TextTooLong => "a parameter is longer than this endpoint reads",
             Self::ControlCharacter => "a parameter carries a control character",
         }
@@ -446,6 +465,9 @@ pub struct RedeemAuthorizationCode {
     pub pkce_verifier: CredentialProof,
     /// The declared `redirect_uri`.
     pub redirect_uri: RedirectUri,
+    /// The declared `client_secret`: the secret `client_secret_basic` or
+    /// `client_secret_post` presented, as its text's bytes, or `None` when neither did.
+    pub client_secret: Option<CredentialProof>,
 }
 
 impl RedeemAuthorizationCode {
@@ -456,6 +478,7 @@ impl RedeemAuthorizationCode {
         "code",
         "pkce_verifier",
         "redirect_uri",
+        "client_secret",
     ];
 }
 
@@ -553,12 +576,14 @@ pub const TOKEN_PARAMETERS: &[&str] = &[
     "code",
     "code_verifier",
     "redirect_uri",
+    "client_secret",
 ];
 
 /// The parameters the token endpoint admits on the token-exchange grant, and nothing else.
 ///
-/// RFC 8693 section 2.1's request, less client authentication, because this is the
-/// public-client road (`token_endpoint_auth_methods_supported: ["none"]`). `actor_token` and
+/// RFC 8693 section 2.1's request, less client authentication: the exchange grant
+/// authenticates by its subject token and reads no client credential, which
+/// [`exchange_credential`] refuses. `actor_token` and
 /// `actor_token_type` are admitted so that an actor reaches the handler and is refused there,
 /// recorded (see [`ExchangeCredential::actor_proof`]). `scope` is required rather than
 /// optional: the declared `requested_scope` is not optional, and an absent one has no
@@ -899,20 +924,26 @@ pub fn authorize_client(request: &Request) -> Result<AuthorizeClient, Refusal> {
 
 /// Decode `mandate.credential.RedeemAuthorizationCode` from the token endpoint's form body.
 ///
+/// The client authenticates by at most one of RFC 6749 section 2.3.1's two methods:
+/// `client_secret_basic` (`Authorization: Basic` over the form-urlencoded identifier and
+/// secret), or `client_secret_post` (`client_id` and `client_secret` in the body). A public
+/// client presents neither and names itself by `client_id`. Whether the client the code is
+/// bound to must present a secret, and whether the secret is its own, is the command's
+/// decision, not the decoder's.
+///
 /// # Errors
 ///
 /// Returns [`Refusal`] for another method or media type, an oversized or non-UTF-8 body, a
-/// presented client credential, a malformed or repeated parameter, an undeclared parameter, a
-/// caller-presented `code_id`, a missing parameter, a `grant_type` other than
-/// `authorization_code`, an absent `code_verifier` (case `pkce-missing`), a verifier outside
-/// RFC 7636's form, or a value outside the lexical form its declared type admits.
+/// client credential presented by both methods or naming two clients, an `Authorization`
+/// header that is not a `Basic` credential in its declared form, an empty secret, a
+/// malformed or repeated parameter, an undeclared parameter, a caller-presented `code_id`, a
+/// missing parameter, a `grant_type` other than `authorization_code`, an absent
+/// `code_verifier` (case `pkce-missing`), a verifier outside RFC 7636's form, or a value
+/// outside the lexical form its declared type admits.
 pub fn redeem_authorization_code(request: &Request) -> Result<RedeemAuthorizationCode, Refusal> {
     entry(request, "POST", Reads::Body)?;
     let body = require_body(request, FORM_MEDIA_TYPE)?;
-    // RFC 6749 section 2.3.1 makes `Authorization: Basic` the *preferred* presentation of a
-    // client secret and the body parameter the fallback. Refusing only the fallback would leave
-    // `token_endpoint_auth_methods_supported: ["none"]` enforced against one of two forms.
-    no_presented_credential(request)?;
+    let basic = basic_client_credential(request)?;
     let form = oauth::decode_form(body)?;
     if form.get("code_id").is_some() {
         return Err(Refusal::ServerResolvedField);
@@ -925,13 +956,36 @@ pub fn redeem_authorization_code(request: &Request) -> Result<RedeemAuthorizatio
     if !verifier_has_rfc7636_shape(verifier) {
         return Err(Refusal::VerifierMalformed);
     }
+    let posted_id = form.get("client_id");
+    let posted_secret = form.get("client_secret");
+    let (client_id, client_secret) = match basic {
+        Some((basic_id, basic_secret)) => {
+            if posted_secret.is_some() {
+                return Err(Refusal::ClientCredentialAmbiguous);
+            }
+            // A `client_id` parameter beside `Basic` is admitted only when it names the same
+            // client: a request naming two is not authenticating either.
+            if posted_id.is_some_and(|posted| posted != basic_id) {
+                return Err(Refusal::ClientCredentialAmbiguous);
+            }
+            (basic_id, Some(basic_secret))
+        }
+        None => {
+            let secret = match posted_secret {
+                Some("") => return Err(Refusal::MalformedClientCredential),
+                Some(secret) => Some(secret.to_owned()),
+                None => None,
+            };
+            (field(&form, "client_id")?.to_owned(), secret)
+        }
+    };
     Ok(RedeemAuthorizationCode {
         code_id: None,
-        client_id: OAuthClientId::parse(field(&form, "client_id")?)
-            .map_err(|_| Refusal::MalformedField)?,
+        client_id: OAuthClientId::parse(&client_id).map_err(|_| Refusal::MalformedField)?,
         code: credential(field(&form, "code")?)?,
         pkce_verifier: CredentialProof::from_bytes(verifier.as_bytes().to_vec()),
         redirect_uri: RedirectUri::new(free_text(&form, "redirect_uri")?),
+        client_secret: client_secret.map(|secret| CredentialProof::from_bytes(secret.into_bytes())),
     })
 }
 
@@ -1224,6 +1278,33 @@ fn no_presented_credential(request: &Request) -> Result<(), Refusal> {
         return Err(Refusal::UndeclaredField);
     }
     Ok(())
+}
+
+/// The `client_secret_basic` credential the request presented, as its identifier and secret
+/// text, or `None` when it presented no `Authorization` header.
+///
+/// RFC 6749 section 2.3.1: the identifier and the secret are each form-urlencoded, joined
+/// by `:`, and the whole is base64 under the `Basic` scheme (RFC 7617). The scheme name is
+/// matched without regard to case. Any other scheme, an undecodable credential, no `:`, an
+/// undecodable half, or an empty half is [`Refusal::MalformedClientCredential`].
+fn basic_client_credential(request: &Request) -> Result<Option<(String, String)>, Refusal> {
+    let Some(presented) = request.single_header("Authorization")? else {
+        return Ok(None);
+    };
+    let malformed = Refusal::MalformedClientCredential;
+    let (scheme, material) = presented.split_once(' ').ok_or(malformed)?;
+    if !scheme.eq_ignore_ascii_case("Basic") {
+        return Err(malformed);
+    }
+    let decoded = mandate_types::value::decode_base64(material.trim()).map_err(|_| malformed)?;
+    let decoded = String::from_utf8(decoded).map_err(|_| malformed)?;
+    let (id, secret) = decoded.split_once(':').ok_or(malformed)?;
+    let id = oauth::percent_decode(id).map_err(|_| malformed)?;
+    let secret = oauth::percent_decode(secret).map_err(|_| malformed)?;
+    if id.is_empty() || secret.is_empty() {
+        return Err(malformed);
+    }
+    Ok(Some((id, secret)))
 }
 
 /// The body as text, once the media type holds. The ceiling is [`entry`]'s.

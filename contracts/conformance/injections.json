@@ -264,6 +264,34 @@
       "consulted": 0
     },
     {
+      "scenario": "mandate.credential/authored/oidc-redeem-client-auth-failed",
+      "command": "mandate.credential.RedeemAuthorizationCode",
+      "port": "mandate_sts::registry::ResourceServerReads",
+      "kind": "armed-unreached",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.credential/authored/oidc-redeem-client-auth-failed",
+      "command": "mandate.identity.Session",
+      "port": "mandate_identity::IdentityLog",
+      "kind": "established-prerequisite",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.credential/authored/oidc-redeem-public-with-secret-refused",
+      "command": "mandate.credential.RedeemAuthorizationCode",
+      "port": "mandate_sts::registry::ResourceServerReads",
+      "kind": "armed-unreached",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.credential/authored/oidc-redeem-public-with-secret-refused",
+      "command": "mandate.identity.Session",
+      "port": "mandate_identity::IdentityLog",
+      "kind": "established-prerequisite",
+      "consulted": 0
+    },
+    {
       "scenario": "mandate.credential/authored/oidc-retire-without-successor-refused",
       "command": "mandate.credential.RetireSigningKey",
       "port": "mandate_sts::keys::SigningKeyReads",
@@ -1177,18 +1205,6 @@
       "command": "mandate.credential.ExchangeCredential",
       "reason": "unrealized-command",
       "blocked_on": "story:constrained-exchange"
-    },
-    {
-      "scenario": "mandate.credential/authored/oidc-redeem-client-auth-failed",
-      "command": "mandate.credential.ResourceServer",
-      "reason": "entity-without-adapter-writer",
-      "blocked_on": "story:declared-writers"
-    },
-    {
-      "scenario": "mandate.credential/authored/oidc-redeem-public-with-secret-refused",
-      "command": "mandate.credential.ResourceServer",
-      "reason": "entity-without-adapter-writer",
-      "blocked_on": "story:declared-writers"
     },
     {
       "scenario": "mandate.delegation.CompleteExecution/outcome/wrong-state",

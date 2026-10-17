@@ -50,12 +50,12 @@ One case it deliberately does not cover: an external subject whose link was expl
 
 | Standard | What is implemented |
 |---|---|
-| RFC 6749 — OAuth 2.0 | The authorization code grant, and RFC 8693 token exchange at the same endpoint. `GET /oauth/authorize` answers `302` with `code` and the exact `state` received; `POST /oauth/token` answers the credential. Every refusal is an RFC 6749 error object of exactly two members, `error` and `error_description`; no description carries a byte the caller sent. |
+| RFC 6749 — OAuth 2.0 | The authorization code grant, and RFC 8693 token exchange at the same endpoint. `GET /oauth/authorize` answers `302` with `code` and the exact `state` received; `POST /oauth/token` answers the credential. A confidential client authenticates there by `client_secret_basic` or `client_secret_post` (one method per request), a public client by neither; a missing or wrong secret, a secret from a public client, or both methods at once answer `401 invalid_client` with `WWW-Authenticate: Basic`. Every refusal is an RFC 6749 error object of exactly two members, `error` and `error_description`; no description carries a byte the caller sent. |
 | RFC 7636 — PKCE | Required, `S256` only. `mandate.core.PkceMethod` declares one variant, the authorization decoder refuses any other `code_challenge_method`, and each registered client states its `pkce_method`. A verifier that does not match the challenge is refused `invalid_grant`. |
 | RFC 8414 — Authorization server metadata | `GET /.well-known/oauth-authorization-server` publishes nine members. Every endpoint URL is the configured `issuer` joined with a path read from the same route table the listener dispatches, so the document cannot advertise a path nothing serves. A member naming an endpoint this deployment does not serve — `revocation_endpoint`, `registration_endpoint`, `device_authorization_endpoint` — is absent rather than empty. |
 | RFC 7662 — Introspection | `POST /oauth/introspect`, taking `token` and optional `token_type_hint`, and requiring the calling resource server's own credential as a bearer token. Answers `active`, and where the credential resolves, `credential_id`, `aud` and `sub`. A refusal about the *caller* is `401 invalid_client`; anything about the presented token is `200 {"active": false}`. |
 | RFC 7517 — JWKS | `GET /oauth/jwks` publishes the public half of the signing keys `--signing-key` mounts, each under the identity of its `SigningKey` record as `kid`, and only while that record admits verification: a revoked key leaves the set at once, and a key rotated out stays published for the overlap. The member set is closed: `kty`, `kid`, `use`, `alg`, plus `n`, `e`, `crv`, `x`, `y`. RFC 7517 section 9.2's private members are refused at construction, as is a repeated `kid` anywhere in the set. |
-| OpenID Connect Discovery | Consumed, not published. To find a connection's key set, Mandate fetches `{issuer}/.well-known/openid-configuration` and reads `jwks_uri`; the document is read once per issuer and held. Mandate publishes **no** `/.well-known/openid-configuration` of its own — no OpenID Connect command is declared, and the route table has no such path. Mandate is not an OpenID Provider. |
+| OpenID Connect Discovery 1.0 | Published and consumed. `GET /.well-known/openid-configuration` publishes the OpenID Provider configuration: the RFC 8414 document's nine members with the same values, built by the same builder from the same route table, plus `subject_types_supported` (`public`), `id_token_signing_alg_values_supported` (`RS256`), `scopes_supported` and `claims_supported`. `userinfo_endpoint` and `end_session_endpoint` are absent because nothing serves them. To find a connection's key set, Mandate fetches that connection's `{issuer}/.well-known/openid-configuration` and reads `jwks_uri`; the document is read once per issuer and held. |
 
 Three further standards are named in this repository's design sources, in [the combined architecture](https://github.com/beyond10x/mandate/blob/main/docs/architecture/combined.md) and the preserved design snapshots. Two are implemented in part, and one is not:
 
@@ -69,7 +69,7 @@ Token revocation is likewise not on this road: there is no `/oauth/revoke`.
 
 ## The endpoints
 
-Nine routes. A path not in this table is a path nothing serves — including the generated `/<domain>/commands/<Command>` projections, which are refused like any other unknown path.
+Twelve routes. A path not in this table is a path nothing serves — including the generated `/<domain>/commands/<Command>` projections, which are refused like any other unknown path.
 
 | Method | Path | Takes | Answers |
 |---|---|---|---|
@@ -78,10 +78,13 @@ Nine routes. A path not in this table is a path nothing serves — including the
 | `GET` | `/v1/federation/callback` | The IdP's `code` (or `error`), `state` and optional `iss`; the binding cookie | `302` to the connection's `return_uri` with a single-use `handoff`, or the handoff as JSON when no `return_uri` is configured |
 | `POST` | `/v1/federation/handoff` | `application/json`: `handoff`, optional `app_state` | `200` with the same members as the login answer, including `session_proof`; a handoff redeems once |
 | `GET` | `/oauth/authorize` | Query: `response_type=code`, `client_id`, `redirect_uri`, `code_challenge`, `code_challenge_method=S256`, `state`, `nonce`, `target`, `scope`. Header: `Authorization: Bearer <session_proof>` | `302` with `Location: <redirect_uri>?code=…&state=…` |
-| `POST` | `/oauth/token` | `application/x-www-form-urlencoded`: `grant_type=authorization_code`, `client_id`, `code`, `code_verifier`, `redirect_uri`; or the token-exchange grant: `subject_token`, `subject_token_type`, `audience` or `resource`, `scope`, optional `requested_token_type` | `200` with `access_token`, `token_type: "Bearer"`, `credential_id`; for exchange `access_token`, `issued_token_type`, `token_type`, `expires_in` |
+| `POST` | `/oauth/token` | `application/x-www-form-urlencoded`: `grant_type=authorization_code`, `client_id`, `code`, `code_verifier`, `redirect_uri`, and for a confidential client `client_secret` or instead `Authorization: Basic`; or the token-exchange grant: `subject_token`, `subject_token_type`, `audience` or `resource`, `scope`, optional `requested_token_type` | `200` with `access_token`, `token_type: "Bearer"`, `credential_id`; for exchange `access_token`, `issued_token_type`, `token_type`, `expires_in` |
 | `POST` | `/oauth/introspect` | `application/x-www-form-urlencoded`: `token`, `token_type_hint`. Header: `Authorization: Bearer <caller's own credential>` | `200` with `active`, and where it resolves `credential_id`, `aud`, `sub` |
 | `GET` | `/.well-known/oauth-authorization-server` | nothing | `200` with the RFC 8414 document |
+| `GET` | `/.well-known/openid-configuration` | nothing | `200` with the OpenID Connect Discovery 1.0 document |
 | `GET` | `/oauth/jwks` | nothing | `200` with the RFC 7517 key set |
+| `GET` | `/healthz/live` | nothing | `200` with `{"status":"ok"}` while the process answers |
+| `GET` | `/healthz/ready` | nothing | `200` once a signing key is admitted, `503` until then |
 
 `expires_in` is absent from the authorization-code grant's response: it is RECOMMENDED rather than required by RFC 6749 section 5.1, and the contract's response does not declare it. Introspection does not answer the expiry either today; it answers `active`, `credential_id`, `aud` and `sub`. The token-exchange response does carry `expires_in`, as RFC 8693 section 2.2.1 describes.
 

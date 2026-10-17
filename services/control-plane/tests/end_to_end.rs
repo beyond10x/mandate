@@ -2986,3 +2986,444 @@ fn ready_reflects_signing_key() {
     );
     assert_eq!(post_refused.status, 405, "{}", post_refused.body);
 }
+
+// ------------------------------------------ client authentication at the token endpoint
+
+/// The in-process deployment the two client-authentication cases below serve.
+///
+/// **In-process, unlike every case above, and why.** These cases need a confidential client
+/// holding a recorded secret verifier and an authorization code bound to it. The binary can
+/// seed neither yet: `--client` registers a client with no verifier
+/// (`story:oidc-static-client-registry`), and the authorization endpoint resolves public
+/// clients only (`story:oidc-discovery-and-code-flow` part b). So the client is registered
+/// through [`Deployment::record_federation`], the code is seeded through
+/// [`Deployment::record_authorization_code`] under a session the login road really opened,
+/// and the token endpoint is reached over a socket exactly as the binary serves it. What the
+/// cases decide is the token endpoint's: the decoder's two presentations, the STS's
+/// comparison and the `401` the listener answers.
+mod client_auth {
+    use std::net::SocketAddr;
+    use std::time::Duration as HostDuration;
+
+    use mandate_control_plane::adapters::{Configuration, Deployment};
+    use mandate_control_plane::serve::{Limits, Listener};
+    use mandate_federation::record::FederationEvent;
+    use mandate_federation::verifier::{ConstructedVerifier, VerifiedProof};
+    use mandate_federation::verifier_real::FixedClock;
+    use mandate_sts::code::CodeLifetime;
+    use mandate_sts::issue::Sha256Digest;
+    use mandate_sts::registry::{RegisterResourceServer, register_resource_server};
+    use mandate_sts::store::AuthorizationCodeEvent;
+    use mandate_sts::{CountingSecrets, SequentialAllocator};
+    use mandate_token::CredentialProfile;
+    use mandate_token::projection::Projection as CredentialProjection;
+    use mandate_token::verifier::{CredentialDomain, verifier_in};
+    use mandate_types::value::{Uuid, encode_base64};
+    use mandate_types::{
+        Action, Audience, AuthorityScope, AuthorizationCodeId, ClientId, CorrelationId,
+        CredentialId, CredentialKind, CredentialProof, Duration, ExternalLinkMethod,
+        ExternalPrincipalId, ExternalSubject, FederationConnectionId, Issuer, OAuthClientId,
+        OAuthClientSecret, OAuthClientType, OrganizationId, PkceChallenge, PkceMethod, PrincipalId,
+        RedirectUri, ResourceServerId, RevocationGuarantee, SigningAlgorithm, Timestamp,
+        VerifiedContext, VerifierKey,
+    };
+
+    use super::{CHALLENGE, REDIRECT, Response, VERIFIER, encoded, exchange, member, post};
+
+    /// The served instant, and the instant every seeded code expires at, five minutes on.
+    const NOW: u64 = 1_789_084_800;
+    const CODE_EXPIRES_AT: &str = "2026-09-11T00:05:00Z";
+
+    /// The confidential client's configured secret: 43 characters of RFC 3986's unreserved
+    /// set, well over `OAuthClientSecret::configured`'s entropy floor.
+    const SECRET: &str = "q7Vx2mLp9RtZ4wKc8NbY3hJf6GdS1aEu5oTi0XyWrQe";
+
+    /// A secret in the same form that is not [`SECRET`].
+    const WRONG_SECRET: &str = "q7Vx2mLp9RtZ4wKc8NbY3hJf6GdS1aEu5oTi0XyWrQf";
+
+    fn uuid(tag: u8) -> Uuid {
+        Uuid::from_bytes([tag; 16])
+    }
+
+    fn organization() -> OrganizationId {
+        OrganizationId::new(uuid(0x0a))
+    }
+
+    fn principal() -> PrincipalId {
+        PrincipalId::new(uuid(0x51))
+    }
+
+    fn connection() -> FederationConnectionId {
+        FederationConnectionId::new(uuid(0xc0))
+    }
+
+    /// The registered public client.
+    fn public_client() -> OAuthClientId {
+        OAuthClientId::new(uuid(0x0c))
+    }
+
+    /// The registered confidential client.
+    fn confidential_client() -> OAuthClientId {
+        OAuthClientId::new(uuid(0x0d))
+    }
+
+    fn verifier_key() -> VerifierKey {
+        VerifierKey::from_bytes((0u8..32).map(|byte| byte.wrapping_mul(37) ^ 0xa5).collect())
+            .expect("a key of the minimum length")
+    }
+
+    fn context() -> VerifiedContext {
+        VerifiedContext {
+            subject: principal(),
+            actor: None,
+            organization: organization(),
+            audience: Audience::new("mandate"),
+            credential: CredentialId::new(uuid(0xcd)),
+            delegation: None,
+            execution: None,
+            correlation: CorrelationId::new("client-auth"),
+        }
+    }
+
+    fn reference_profile() -> CredentialProfile {
+        CredentialProfile {
+            name: "reference".to_owned(),
+            kind: CredentialKind::Reference,
+            revocation: RevocationGuarantee::ImmediateOnline,
+            max_ttl: Duration::new("PT1H"),
+            positive_cache_ttl: Duration::new("PT30S"),
+            requires_online_authorization: true,
+        }
+    }
+
+    type Wired = Deployment<ConstructedVerifier, FixedClock, CountingSecrets, SequentialAllocator>;
+
+    fn client_registered(id: OAuthClientId, client_type: OAuthClientType) -> FederationEvent {
+        let secret_verifiers = match client_type {
+            OAuthClientType::Confidential => vec![
+                OAuthClientSecret::configured(SECRET.as_bytes().to_vec())
+                    .expect("a secret over the entropy floor")
+                    .verifier(&verifier_key()),
+            ],
+            _ => Vec::new(),
+        };
+        FederationEvent::OAuthClientRegistered {
+            context: context(),
+            id,
+            organization_id: organization(),
+            client_type,
+            secret_verifiers,
+            pkce_required: true,
+            trusted_peers: Vec::new(),
+            post_logout_redirect_uris: Vec::new(),
+            redirect_uris: vec![RedirectUri::new(REDIRECT)],
+            pkce_method: PkceMethod::S256,
+        }
+    }
+
+    /// A deployment holding one public and one confidential client, the target, and the
+    /// federation the login road opens a session through.
+    fn deployment() -> (Wired, ResourceServerId) {
+        let registered = register_resource_server(
+            &RegisterResourceServer {
+                context: context(),
+                audience: Audience::new("https://api.example"),
+                profile: reference_profile(),
+                allowed_exchange_sources: Vec::new(),
+            },
+            &CredentialProjection::default(),
+            &mut SequentialAllocator::new(),
+        )
+        .expect("a free audience in the caller's own organization");
+        let verifier = ConstructedVerifier::admitting(
+            &[SigningAlgorithm::new("ES256")],
+            VerifiedProof::new(
+                Issuer::new("https://idp.example"),
+                ExternalSubject::new("subject-1"),
+                ClientId::new("mandate-at-idp"),
+            ),
+        )
+        .expect("a non-empty algorithm allowlist");
+        let mut deployment = Deployment::new(
+            Configuration {
+                issuer: super::AS_ISSUER.to_owned(),
+                code_lifetime: CodeLifetime::new(Duration::new("PT5M")),
+                session_lifetime: Duration::new("PT8H"),
+            },
+            verifier,
+            FixedClock::at(NOW),
+            CountingSecrets::new(),
+            SequentialAllocator::new(),
+        )
+        .expect("a configuration this deployment serves")
+        .with_client_verifier_key(verifier_key());
+        deployment
+            .record_credential(&registered.event)
+            .expect("a readable credential history");
+        for event in [
+            FederationEvent::FederationConnectionCreated {
+                context: context(),
+                connection_id: connection(),
+                issuer: Issuer::new("https://idp.example"),
+                client_id: ClientId::new("mandate-at-idp"),
+                tenant_resolution: mandate_model::TenantResolutionRule {
+                    configured_organization: organization(),
+                    verified_claim_name: None,
+                    verified_claim_values: None,
+                },
+                jit_provisioning: false,
+            },
+            FederationEvent::ExternalPrincipalLinked {
+                context: context(),
+                connection_id: connection(),
+                principal_id: principal(),
+                external_principal_id: ExternalPrincipalId::new(uuid(0xe1)),
+                subject: ExternalSubject::new("subject-1"),
+                link_method: ExternalLinkMethod::ConfiguredFederation,
+                linked_at: Timestamp::new("2026-09-01T00:00:00Z"),
+            },
+            client_registered(public_client(), OAuthClientType::Public),
+            client_registered(confidential_client(), OAuthClientType::Confidential),
+        ] {
+            deployment
+                .record_federation(&event)
+                .expect("a readable federation history");
+        }
+        (deployment, registered.resource_server_id)
+    }
+
+    /// Serve `deployment` on an ephemeral loopback port, on a thread of its own.
+    fn serving(mut deployment: Wired) -> SocketAddr {
+        let listener = Listener::bind(
+            "127.0.0.1:0",
+            Limits {
+                read_timeout: HostDuration::from_millis(400),
+                ..Limits::default()
+            },
+        )
+        .expect("an ephemeral port on the loopback");
+        let address = listener.local_addr().expect("the bound address");
+        std::thread::spawn(move || {
+            let _ = listener.serve(&mut deployment);
+        });
+        address
+    }
+
+    /// Open a session through the login command and seed one code per client under it:
+    /// `(public code, confidential code)`, each the base64 text the token endpoint reads.
+    fn with_codes(mut deployment: Wired, target: ResourceServerId) -> (Wired, String, String) {
+        let login = deployment
+            .authenticate(&mandate_server::decode::AuthenticateFederation {
+                connection_id: connection(),
+                proof: CredentialProof::from_bytes(b"an idp proof".to_vec()),
+            })
+            .unwrap_or_else(|refused| panic!("the login opens a session, got {refused:?}"));
+        let mut seeded = Vec::new();
+        for (tag, client_id) in [(0xa1u8, public_client()), (0xa2, confidential_client())] {
+            let code = [tag; 32];
+            deployment
+                .record_authorization_code(&AuthorizationCodeEvent::AuthorizationCodeIssued {
+                    context: context(),
+                    code_id: AuthorizationCodeId::new(uuid(tag)),
+                    client_id,
+                    session_id: login.session_id,
+                    verifier: verifier_in(
+                        &Sha256Digest,
+                        CredentialDomain::AuthorizationCodeVerifier,
+                        &CredentialProof::from_bytes(code.to_vec()),
+                    ),
+                    challenge: PkceChallenge::new(CHALLENGE),
+                    method: PkceMethod::S256,
+                    redirect_uri: RedirectUri::new(REDIRECT),
+                    expires_at: Timestamp::new(CODE_EXPIRES_AT),
+                    target,
+                    scope: AuthorityScope {
+                        actions: vec![Action::new("read")],
+                        resources: Vec::new(),
+                        space: None,
+                    },
+                })
+                .expect("a fresh code stream");
+            seeded.push(encode_base64(&code));
+        }
+        let confidential = seeded.pop().expect("two codes");
+        let public = seeded.pop().expect("two codes");
+        (deployment, public, confidential)
+    }
+
+    /// RFC 6749 section 2.3.1: `Basic` over the form-urlencoded identifier and secret.
+    fn basic(client_id: &str, secret: &str) -> String {
+        format!(
+            "Basic {}",
+            encode_base64(format!("{}:{}", encoded(client_id), encoded(secret)).as_bytes())
+        )
+    }
+
+    /// The authorization-code grant's body, with whatever client parameters `extra` adds.
+    fn token_body(code: &str, extra: &str) -> String {
+        format!(
+            "grant_type=authorization_code&code={}&code_verifier={VERIFIER}&redirect_uri={}{extra}",
+            encoded(code),
+            encoded(REDIRECT)
+        )
+    }
+
+    fn token(address: SocketAddr, body: &str, headers: &[(&str, &str)]) -> Response {
+        exchange(
+            address,
+            &post(
+                "/oauth/token",
+                "application/x-www-form-urlencoded",
+                body,
+                headers,
+            ),
+        )
+    }
+
+    /// `401 invalid_client` with a `WWW-Authenticate: Basic` challenge (RFC 6749 section
+    /// 5.2), and nothing issued.
+    fn invalid_client(step: &str, response: &Response) {
+        super::answered(step, response);
+        assert_eq!(response.status, 401, "{step}: {}", response.body);
+        assert_eq!(
+            member(&response.body, "error"),
+            "invalid_client",
+            "{step}: {}",
+            response.body
+        );
+        assert!(
+            response
+                .header("WWW-Authenticate")
+                .is_some_and(|challenge| challenge.starts_with("Basic")),
+            "{step}: RFC 6749 section 5.2 answers a 401 with the scheme the client used; \
+             headers {:?}",
+            response.headers
+        );
+        assert!(
+            !response.body.contains("access_token"),
+            "{step}: {}",
+            response.body
+        );
+    }
+
+    fn issued(step: &str, response: &Response) {
+        super::answered(step, response);
+        assert_eq!(response.status, 200, "{step}: {}", response.body);
+        assert!(
+            !member(&response.body, "access_token").is_empty(),
+            "{step}: {}",
+            response.body
+        );
+    }
+
+    /// `client_secret_basic`: the confidential client authenticates with `Authorization:
+    /// Basic`, and is refused `invalid_client` when it presents the secret twice, a wrong
+    /// one, or none; a public client presenting a secret is refused the same way.
+    pub(super) fn token_client_secret_basic() {
+        let (deployment, target) = deployment();
+        let (deployment, public_code, code) = with_codes(deployment, target);
+        let address = serving(deployment);
+        let id = confidential_client().to_string();
+        let right = basic(&id, SECRET);
+
+        invalid_client(
+            "basic and post at once",
+            &token(
+                address,
+                &token_body(&code, &format!("&client_secret={}", encoded(SECRET))),
+                &[("Authorization", &right)],
+            ),
+        );
+        invalid_client(
+            "a wrong secret",
+            &token(
+                address,
+                &token_body(&code, ""),
+                &[("Authorization", &basic(&id, WRONG_SECRET))],
+            ),
+        );
+        invalid_client(
+            "no secret from a confidential client",
+            &token(
+                address,
+                &token_body(&code, &format!("&client_id={id}")),
+                &[],
+            ),
+        );
+        invalid_client(
+            "a secret from a public client",
+            &token(
+                address,
+                &token_body(&public_code, ""),
+                &[(
+                    "Authorization",
+                    &basic(&public_client().to_string(), SECRET),
+                )],
+            ),
+        );
+        issued(
+            "the right secret, by basic",
+            &token(
+                address,
+                &token_body(&code, ""),
+                &[("Authorization", &right)],
+            ),
+        );
+    }
+
+    /// `client_secret_post`: the confidential client authenticates with `client_id` and
+    /// `client_secret` in the body, under the same refusals as `client_secret_basic`.
+    pub(super) fn token_client_secret_post() {
+        let (deployment, target) = deployment();
+        let (deployment, public_code, code) = with_codes(deployment, target);
+        let address = serving(deployment);
+        let id = confidential_client().to_string();
+        let posted = |secret: &str| format!("&client_id={id}&client_secret={}", encoded(secret));
+
+        invalid_client(
+            "post and basic at once",
+            &token(
+                address,
+                &token_body(&code, &posted(SECRET)),
+                &[("Authorization", &basic(&id, SECRET))],
+            ),
+        );
+        invalid_client(
+            "a wrong secret",
+            &token(address, &token_body(&code, &posted(WRONG_SECRET)), &[]),
+        );
+        invalid_client(
+            "a secret from a public client",
+            &token(
+                address,
+                &token_body(
+                    &public_code,
+                    &format!(
+                        "&client_id={}&client_secret={}",
+                        public_client(),
+                        encoded(SECRET)
+                    ),
+                ),
+                &[],
+            ),
+        );
+        issued(
+            "the right secret, by post",
+            &token(address, &token_body(&code, &posted(SECRET)), &[]),
+        );
+    }
+}
+
+/// `story:oidc-discovery-and-code-flow`: `client_secret_basic` authenticates a confidential
+/// client; both presentations at once, a wrong secret, or a secret from a public client
+/// answer `401 invalid_client` with `WWW-Authenticate: Basic`. See [`client_auth`].
+#[test]
+fn token_client_secret_basic() {
+    client_auth::token_client_secret_basic();
+}
+
+/// The same for `client_secret_post`. See [`client_auth`].
+#[test]
+fn token_client_secret_post() {
+    client_auth::token_client_secret_post();
+}

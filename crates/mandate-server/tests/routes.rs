@@ -20,8 +20,8 @@ use mandate_server::routes::{self, Binding, Document, Method, ROUTES, RelyingPar
 const OPENAPI: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../generated/openapi");
 
 #[test]
-fn the_table_carries_the_four_road_routes_the_four_documents_and_the_three_relying_party_steps() {
-    assert_eq!(ROUTES.len(), 11);
+fn the_table_carries_the_four_road_routes_the_five_documents_and_the_three_relying_party_steps() {
+    assert_eq!(ROUTES.len(), 12);
     let commands: Vec<&str> = ROUTES
         .iter()
         .filter_map(|route| match route.binds {
@@ -49,6 +49,7 @@ fn the_table_carries_the_four_road_routes_the_four_documents_and_the_three_relyi
         documents,
         vec![
             Document::AuthorizationServerMetadata,
+            Document::OpenIdConfiguration,
             Document::Jwks,
             Document::HealthLive,
             Document::HealthReady
@@ -117,7 +118,7 @@ fn no_method_and_path_pair_is_declared_twice() {
 }
 
 #[test]
-fn the_two_document_paths_are_entries_of_this_table() {
+fn the_three_discovery_document_paths_are_entries_of_this_table() {
     // Correction (c) at the wave D opening: the served documents' paths are entries of this
     // table, so the disjointness proof below covers them too.
     assert_eq!(
@@ -125,6 +126,13 @@ fn the_two_document_paths_are_entries_of_this_table() {
             .unwrap()
             .path,
         "/.well-known/oauth-authorization-server"
+    );
+    // OpenID Connect Discovery 1.0 section 4 fixes the discovery path under the issuer.
+    assert_eq!(
+        routes::route_for_document(Document::OpenIdConfiguration)
+            .unwrap()
+            .path,
+        "/.well-known/openid-configuration"
     );
     assert_eq!(
         routes::route_for_document(Document::Jwks).unwrap().path,

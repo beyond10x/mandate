@@ -534,6 +534,10 @@ where
         Binding::Document(Document::AuthorizationServerMetadata) => {
             Response::json(200, deployment.metadata().to_json())
         }
+        Binding::Document(Document::OpenIdConfiguration) => Response::json(
+            200,
+            mandate_server::metadata::openid_configuration(deployment.issuer()).to_json(),
+        ),
         Binding::Document(Document::HealthLive) => {
             Response::json(Health::live().status(), Health::live().to_json()).no_store()
         }
@@ -625,7 +629,14 @@ where
         // is read first, and each grant is decoded against its own closed parameter set.
         Binding::Command("mandate.credential.RedeemAuthorizationCode") => {
             match decode::token_request(request) {
-                Err(refused) => Response::refused(&refused).no_store(),
+                Err(refused) => {
+                    let response = Response::refused(&refused).no_store();
+                    if refused.error_code() == ErrorCode::InvalidClient {
+                        response.basic_challenge()
+                    } else {
+                        response
+                    }
+                }
                 Ok(decode::TokenRequest::AuthorizationCode(input)) => redeemed(deployment, &input),
                 Ok(decode::TokenRequest::TokenExchange(input)) => exchanged(deployment, &input),
             }
@@ -794,11 +805,16 @@ where
                 &format!("{:?}", denied.clause),
             );
             let code = oauth::code_for_clause(denied.clause);
-            Response::error(
+            let response = Response::error(
                 status_for(code),
                 ErrorBody::new(code, "the grant was refused"),
             )
-            .no_store()
+            .no_store();
+            if code == ErrorCode::InvalidClient {
+                response.basic_challenge()
+            } else {
+                response
+            }
         }
         Err(RedemptionRefused::Append(_)) => Response::error(
             503,
@@ -1111,6 +1127,13 @@ impl Response {
     fn with_header(mut self, name: &str, value: &str) -> Self {
         self.headers.push((name.to_owned(), value.to_owned()));
         self
+    }
+
+    /// RFC 6749 section 5.2: a `401` from the token endpoint carries a `WWW-Authenticate`
+    /// challenge naming the scheme a client authenticates with, which is `Basic`
+    /// (`client_secret_basic`). Fixed text: nothing a caller sent is written into it.
+    fn basic_challenge(self) -> Self {
+        self.with_header("WWW-Authenticate", "Basic realm=\"mandate\"")
     }
 
     /// RFC 6749 section 5.1: a response carrying a credential is not cached.

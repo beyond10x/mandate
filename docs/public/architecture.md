@@ -11,7 +11,7 @@ Mandate separates establishing identity from deciding access and issuing constra
 | Security Token Service (STS) | Credential issuance, resolution and introspection, exchange, and revocation. |
 | Worker | Asynchronous provisioning, synchronization, and other background work. |
 
-Of the four, the control plane runs: `mandate-control-plane serve` composes the control plane and the STS in one process and serves nine routes: the federated-login road, the OIDC relying-party flow, the OAuth endpoints including RFC 8693 token exchange, and the metadata and key-set documents. The STS and the authorization decision point are consumed as libraries rather than run as services; the authorization, STS and worker binaries expose help and version information only. The boundaries below describe the intended integration rather than four running services.
+Of the four, the control plane runs: `mandate-control-plane serve` composes the control plane and the STS in one process and serves twelve routes: the federated-login road, the OIDC relying-party flow, the OAuth endpoints including RFC 8693 token exchange, the RFC 8414 metadata, OpenID Connect discovery and key-set documents, and two health probes. The STS and the authorization decision point are consumed as libraries rather than run as services; the authorization, STS and worker binaries expose help and version information only. The boundaries below describe the intended integration rather than four running services.
 
 ```mermaid
 flowchart LR

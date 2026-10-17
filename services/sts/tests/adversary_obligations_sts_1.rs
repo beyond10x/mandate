@@ -599,6 +599,7 @@ fn a_redemption_whose_narrowed_expiry_would_fall_before_the_year_zero_is_refused
             code: CredentialProof::from_bytes(code.code.expose_material().to_vec()),
             pkce_verifier: CredentialProof::from_bytes(VERIFIER.as_bytes().to_vec()),
             redirect_uri: RedirectUri::new(REDIRECT),
+            client_secret: None,
         },
         &early,
         &codes,

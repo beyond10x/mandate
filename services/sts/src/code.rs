@@ -117,6 +117,20 @@ pub trait OAuthClientReads {
     /// `https://client.example/callback` does not carry `https://client.example/callback/`.
     /// `None` fails closed for the reason [`OAuthClientReads::is_public`] does.
     fn redirect_registered(&self, id: &OAuthClientId, redirect_uri: &RedirectUri) -> Option<bool>;
+
+    /// Whether `presented` authenticates a registered **confidential** client: whether it
+    /// derives one of the client's recorded secret verifiers. `None` when the reader cannot
+    /// answer — the client is not registered, or the reader holds no key to derive under.
+    ///
+    /// A port answer rather than a comparison here, for the reason the port exists: the
+    /// verifiers are `mandate-federation`'s record, and the key they are derived under is the
+    /// deployment's (ADR 0012 fork F2 A). Neither enters this crate; only the verdict does.
+    /// The comparison behind it is constant-time
+    /// (`mandate_types::client_secret_presents`). `None` fails closed with
+    /// `DenialReason::Unavailable`, the crate-wide reading
+    /// [`OAuthClientReads::is_public`] takes.
+    fn secret_authenticates(&self, id: &OAuthClientId, presented: &CredentialProof)
+    -> Option<bool>;
 }
 
 /// An [`OAuthClientReads`] that answers for the clients it was told about.
@@ -144,6 +158,8 @@ struct RecordedClient {
     enabled: bool,
     public: Option<bool>,
     redirects: Vec<RedirectUri>,
+    /// The secret a confidential client was registered with, when the double was told one.
+    secret: Option<Vec<u8>>,
 }
 
 impl RecordedClients {
@@ -190,6 +206,19 @@ impl RecordedClients {
         self
     }
 
+    /// Record the secret a recorded client authenticates with.
+    ///
+    /// The double keeps the secret itself where a deployment keeps a keyed verifier
+    /// (`mandate_types::OAuthClientSecret::verifier`); the answer it gives is the same
+    /// comparison's, in constant time.
+    #[must_use]
+    pub fn secret(mut self, id: OAuthClientId, secret: &[u8]) -> Self {
+        if let Some(client) = self.clients.iter_mut().find(|client| client.id == id) {
+            client.secret = Some(secret.to_vec());
+        }
+        self
+    }
+
     fn record(
         mut self,
         id: OAuthClientId,
@@ -203,6 +232,7 @@ impl RecordedClients {
             enabled,
             public,
             redirects: Vec::new(),
+            secret: None,
         });
         self
     }
@@ -235,6 +265,19 @@ impl OAuthClientReads for RecordedClients {
                 registered.as_str().as_bytes() == redirect_uri.as_str().as_bytes()
             }),
         )
+    }
+
+    /// `None` for a client the double knows no secret for: it cannot answer.
+    fn secret_authenticates(
+        &self,
+        id: &OAuthClientId,
+        presented: &CredentialProof,
+    ) -> Option<bool> {
+        let recorded = self.recorded(id)?.secret.as_deref()?;
+        Some(mandate_types::constant_time_eq(
+            recorded,
+            presented.expose_material(),
+        ))
     }
 }
 

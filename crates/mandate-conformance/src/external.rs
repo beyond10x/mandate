@@ -1244,7 +1244,30 @@ impl mandate_sts::code::OAuthClientReads for FederationClients<'_> {
             })
         })
     }
+
+    /// Against the recorded verifiers under [`CONFORMANCE_VERIFIER_KEY`], through the same
+    /// constant-time comparison the deployment's adapter makes.
+    fn secret_authenticates(
+        &self,
+        id: &mandate_types::OAuthClientId,
+        presented: &mandate_types::CredentialProof,
+    ) -> Option<bool> {
+        use mandate_types::Transient;
+        let client = self.client(id)?;
+        let key = mandate_types::VerifierKey::from_bytes(CONFORMANCE_VERIFIER_KEY.to_vec()).ok()?;
+        Some(mandate_types::client_secret_presents(
+            &key,
+            &client.secret_verifiers,
+            &mandate_types::OAuthClientSecret::presented(presented.expose_material().to_vec()),
+        ))
+    }
 }
+
+/// The deployment key this target derives client-secret verifiers under.
+///
+/// A fixed test key, never a deployment's: a scenario records verifiers as literals, so the
+/// key decides only whether a presented secret derives one of them.
+pub const CONFORMANCE_VERIFIER_KEY: &[u8; 32] = b"mandate-conformance-verifier-key";
 
 /// `mandate_sts::binding::SessionReads` answered from the scenario's own identity log.
 ///
