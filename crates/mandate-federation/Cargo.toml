@@ -19,6 +19,10 @@ jsonwebtoken = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 ureq = { workspace = true }
+eventlog-core = { workspace = true }
+eventlog-sqlite = { workspace = true }
+tokio = { workspace = true }
+time = { workspace = true }
 
 [dev-dependencies]
 aws-lc-rs = { workspace = true }
