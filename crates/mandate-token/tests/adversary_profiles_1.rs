@@ -175,6 +175,7 @@ fn the_other_two_records_keep_their_terminal_state_under_the_same_redelivery() {
             audience: Audience::new("api-a"),
             credential_profile: profile,
             allowed_exchange_sources: Vec::new(),
+            client_id: None,
         },
         CredentialEvent::ResourceServerDisabled {
             context: context(),

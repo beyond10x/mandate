@@ -62,6 +62,7 @@ fn register(max_ttl: &str) -> Result<(), Denied> {
             audience: Audience::new("api-a"),
             profile: profile(max_ttl),
             allowed_exchange_sources: Vec::new(),
+            client_id: None,
         },
         &Projection::default(),
         &mut SequentialAllocator::new(),
@@ -128,6 +129,7 @@ fn a_profile_the_registration_refuses_issues_readably_until_9999_minus_its_bound
         audience: Audience::new("api-a"),
         credential_profile: profile(max_ttl),
         allowed_exchange_sources: Vec::new(),
+        client_id: None,
     }];
     let servers = Projection::fold(&log).expect("one creation");
 

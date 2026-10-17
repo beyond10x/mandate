@@ -22,7 +22,7 @@
 //!
 //! # The bound on the class, stated rather than implied
 //!
-//! The per-clause enumeration covers the **four road commands**, 29 clauses. The other 61 rows
+//! The per-clause enumeration covers the **four road commands**, 35 clauses. The other 61 rows
 //! state, in whole, that this adapter establishes none of their preconditions and decodes
 //! nothing for them: they are reached only through their generated
 //! `POST /<domain>/commands/<Command>` projection, which `docs/public/contracts.md:29` says
@@ -151,7 +151,7 @@ const AUTHORIZE_CLIENT: &[Clause] = &[
         establishes: Establishes::Handler,
     },
     Clause {
-        phrase: "client is not a registered public client",
+        phrase: "client is not a registered client",
         establishes: Establishes::Handler,
     },
     Clause {
@@ -162,15 +162,46 @@ const AUTHORIZE_CLIENT: &[Clause] = &[
         phrase: "exact redirect URI or state/applicable nonce binding fails",
         establishes: Establishes::Handler,
     },
-    // Absent, mis-shaped, or offered under a method other than S256: each is decided by the
-    // request alone. Case `pkce-plain` is the third.
+    // Whether the client requires PKCE is on its registration record (`pkce_required`, and
+    // always for a public client), which only the handler reads.
     Clause {
-        phrase: "S256 challenge is absent/invalid",
+        phrase: "PKCE is absent where the client requires it",
+        establishes: Establishes::Handler,
+    },
+    // A challenge without its method, or a method without its challenge, is decided by the
+    // request alone.
+    Clause {
+        phrase: "only one of challenge and method is given",
+        establishes: Establishes::Adapter,
+    },
+    // Mis-shaped, or offered under a method other than S256: each is decided by the request
+    // alone. Case `pkce-plain` is the second.
+    Clause {
+        phrase: "the S256 challenge is invalid",
         establishes: Establishes::Adapter,
     },
     Clause {
         phrase: "target is unregistered/outside tenant",
         establishes: Establishes::Handler,
+    },
+    Clause {
+        phrase: "a named target is backed by a client that does not list this client as a trusted peer",
+        establishes: Establishes::Handler,
+    },
+    // Wave 12 decision 4: the target of an OIDC authorization is the resource server whose
+    // `client_id` names the client, which only the registry knows.
+    Clause {
+        phrase: "no target is named and no registered resource server backs the client",
+        establishes: Establishes::Handler,
+    },
+    // The `scope` parameter alone decides both: `decode::authorize_client`.
+    Clause {
+        phrase: "identity scopes are requested without OpenId",
+        establishes: Establishes::Adapter,
+    },
+    Clause {
+        phrase: "no target is named and OpenId is not requested",
+        establishes: Establishes::Adapter,
     },
     Clause {
         phrase: "STS code issuance/narrowing is refused",

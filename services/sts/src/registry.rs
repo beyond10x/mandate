@@ -140,6 +140,10 @@ pub struct RegisterResourceServer {
     pub profile: CredentialProfile,
     /// The declared `allowed_exchange_sources`.
     pub allowed_exchange_sources: Vec<ResourceServerId>,
+    /// The declared `client_id`: the client this registration is the audience of, when it
+    /// backs one (fork F11). Recorded as stated: resolving the client is the registrar's.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub client_id: Option<mandate_types::OAuthClientId>,
 }
 
 /// The accepted outcome of [`RegisterResourceServer`].
@@ -257,6 +261,7 @@ pub fn register_resource_server(
             audience: input.audience.clone(),
             credential_profile: input.profile.clone(),
             allowed_exchange_sources: input.allowed_exchange_sources.clone(),
+            client_id: input.client_id,
         },
     })
 }

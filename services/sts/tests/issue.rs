@@ -116,6 +116,7 @@ fn registered_target(
             audience: Audience::new(audience),
             profile,
             allowed_exchange_sources: Vec::new(),
+            client_id: None,
         },
         &Projection::default(),
         &mut allocator,
@@ -324,6 +325,7 @@ fn an_unregistered_disabled_or_foreign_target_is_refused() {
             audience: Audience::new("api-a"),
             credential_profile: reference_profile(),
             allowed_exchange_sources: Vec::new(),
+            client_id: None,
         },
         CredentialEvent::ResourceServerDisabled {
             context: context(organization(10)),

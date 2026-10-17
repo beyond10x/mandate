@@ -89,7 +89,7 @@ use mandate_federation::idp_token::{
     ClientSecret, CodeRedemption, IdpEndpoints, IdpTokenEndpoint, TokenRefusal,
     authorization_request, base64url, endpoints, nonce_matches,
 };
-use mandate_federation::publicclient::{OAuthClientStore, registered_public_client};
+use mandate_federation::publicclient::{OAuthClientStore, registered_client};
 use mandate_federation::record::{
     FederationEvent, FoldError as FederationFoldError, OAuthClientState,
     Projection as FederationProjection, RegisterFederationConnection,
@@ -1976,6 +1976,7 @@ impl TargetSeeding {
                 audience: seed.audience.clone(),
                 profile: seed.profile.clone(),
                 allowed_exchange_sources: seed.allowed_exchange_sources.clone(),
+                client_id: seed.client_id,
             },
             &self.projection,
             &mut StatedResourceServerIdentity {
@@ -2364,6 +2365,11 @@ pub struct ResourceServerSeed {
     /// may be exchanged into this target, and a list nobody wrote is not a list an operator
     /// chose.
     pub allowed_exchange_sources: Vec<ResourceServerId>,
+    /// The client this registration is the audience of, when it backs one: the resource
+    /// server an OpenID Connect authorization from that client targets when it names none
+    /// (fork F11). Absent for a registration no client is bound to.
+    #[serde(default, deserialize_with = "mandate_types::value::present")]
+    pub client_id: Option<OAuthClientId>,
 }
 
 /// The registration one document seeds, and the events that seed it.
@@ -2392,6 +2398,7 @@ impl ResourceServerSeed {
                 audience: self.audience.clone(),
                 credential_profile: self.profile.clone(),
                 allowed_exchange_sources: self.allowed_exchange_sources.clone(),
+                client_id: self.client_id,
             }],
         }
     }
@@ -3681,11 +3688,12 @@ where
         // The organization is the authenticated session's, never a caller-supplied selector.
         // Every refusal to here is rendered rather than redirected: the client and its
         // registered redirect have not been validated, so there is nowhere to send one.
-        let client = registered_public_client(
+        let client = registered_client(
             &self.federation,
             &input.client_id,
             &input.redirect_uri,
             session.organization(),
+            input.challenge.is_some(),
         )
         .map_err(|denied| AuthorizationRefusal::InPlace(Refusal::from(&denied)))?;
 
@@ -3700,14 +3708,36 @@ where
                 redirect_uri: input.redirect_uri.clone(),
                 state: input.state.clone(),
             };
+        // The target is the one the request names or, for an OpenID Connect request that
+        // names none, the resource server whose `client_id` names this client (decision 4,
+        // fork F11).
+        let target = match input.target {
+            Some(named) => named,
+            None => self
+                .credentials
+                .resource_servers()
+                .iter()
+                .find(|server| server.client_id == Some(client.id))
+                .map(|server| server.id)
+                .ok_or_else(|| redirected(FederationClause::TargetUnknown, DenialReason::Denied))?,
+        };
+        // The STS records a challenge on every code at this stage: a client that may omit PKCE
+        // (`pkce_required` false) is admitted above and refused here until the code carries
+        // none (scenario `oidc-authorize-confidential-without-pkce`, a later stage).
+        let (Some(challenge), Some(method)) = (input.challenge.clone(), input.method) else {
+            return Err(redirected(
+                FederationClause::ChallengeAbsent,
+                DenialReason::Denied,
+            ));
+        };
         let targets = TargetRegistryOver::over(&self.credentials);
-        if !targets.can_answer(&input.target) {
+        if !targets.can_answer(&target) {
             return Err(redirected(
                 FederationClause::TargetUnanswerable,
                 DenialReason::Unavailable,
             ));
         }
-        match targets.target_organization(&input.target) {
+        match targets.target_organization(&target) {
             None => {
                 return Err(redirected(
                     FederationClause::TargetUnknown,
@@ -3738,7 +3768,7 @@ where
                 // and never from a caller-supplied selector.
                 audience: self
                     .credentials
-                    .resource_server(&input.target)
+                    .resource_server(&target)
                     .map_or_else(|| self.audience(), |server| server.audience),
                 credential: CredentialId::new(Uuid::from_bytes([0; 16])),
                 delegation: None,
@@ -3747,10 +3777,10 @@ where
             },
             client_id: client.id,
             session_id,
-            target: input.target,
+            target,
             requested_scope: input.requested_scope.clone(),
-            challenge: input.challenge.clone(),
-            method: input.method,
+            challenge,
+            method,
             redirect_uri: input.redirect_uri.clone(),
             expires_at,
         };
@@ -3769,7 +3799,7 @@ where
             let action = Action::new(ISSUE_AUTHORIZATION_CODE);
             let resource = ResourceRef {
                 resource_type: ResourceType::new(RESOURCE_SERVER),
-                resource_id: ResourceId::new(*input.target.as_uuid()),
+                resource_id: ResourceId::new(*target.as_uuid()),
             };
             // The expectation is the context's own audience, and `context::bind`'s
             // `AudienceMismatch` arm is therefore **unreachable from here**: both values

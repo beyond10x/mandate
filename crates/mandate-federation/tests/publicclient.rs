@@ -6,7 +6,7 @@
 //! registered one is refused. Nothing here consumes a code or creates a credential.
 
 use mandate_federation::publicclient::{
-    OAuthClientStore, RecordedClients, registered_public_client,
+    OAuthClientStore, RecordedClients, registered_client, registered_public_client,
 };
 use mandate_federation::record::{OAuthClient, OAuthClientState, Projection};
 use mandate_federation::register_client::{
@@ -276,4 +276,86 @@ fn a_client_registered_through_the_real_command_is_what_the_port_resolves() {
     .expect_err("a redirect the registration did not record is not admitted");
 
     assert_eq!(denied.clause, DenialClause::RedirectMismatch);
+}
+
+// ------------------------------------------------- registered_client (AuthorizeClient)
+
+#[test]
+fn a_confidential_client_that_does_not_require_pkce_is_admitted_without_a_challenge() {
+    let mut confidential = client(false, OAuthClientState::Recorded);
+    confidential.pkce_required = false;
+    let clients = RecordedClients::new().with_client(confidential);
+
+    let resolved = registered_client(
+        &clients,
+        &client_id(0x0c),
+        &redirect(REGISTERED),
+        &organization(10),
+        false,
+    )
+    .expect("a confidential client that does not require PKCE admits a request without one");
+    assert_eq!(resolved.id, client_id(0x0c));
+}
+
+#[test]
+fn a_client_that_requires_pkce_is_refused_a_request_without_a_challenge() {
+    // A public client always requires it, even with `pkce_required` recorded false; a
+    // confidential one requires it when its registration says so.
+    let mut lax_public = client(true, OAuthClientState::Recorded);
+    lax_public.pkce_required = false;
+    let strict_confidential = {
+        let mut record = client(false, OAuthClientState::Recorded);
+        record.pkce_required = true;
+        record
+    };
+    for record in [lax_public, strict_confidential] {
+        let clients = RecordedClients::new().with_client(record);
+        let denied = registered_client(
+            &clients,
+            &client_id(0x0c),
+            &redirect(REGISTERED),
+            &organization(10),
+            false,
+        )
+        .expect_err("a request without a challenge is refused");
+        assert_eq!(denied.reason, DenialReason::Denied);
+        assert_eq!(denied.clause, DenialClause::ChallengeAbsent);
+        assert!(
+            registered_client(
+                &clients,
+                &client_id(0x0c),
+                &redirect(REGISTERED),
+                &organization(10),
+                true,
+            )
+            .is_ok(),
+            "the same request with a challenge is admitted"
+        );
+    }
+}
+
+#[test]
+fn registered_client_keeps_the_registration_refusals() {
+    let clients = recorded();
+    let other_organization = registered_client(
+        &clients,
+        &client_id(0x0c),
+        &redirect(REGISTERED),
+        &organization(11),
+        true,
+    )
+    .expect_err("another organization's client");
+    assert_eq!(
+        other_organization.clause,
+        DenialClause::OrganizationMismatch
+    );
+    let unregistered = registered_client(
+        &clients,
+        &client_id(0x0c),
+        &redirect("https://elsewhere.example/cb"),
+        &organization(10),
+        true,
+    )
+    .expect_err("an unregistered redirect");
+    assert_eq!(unregistered.clause, DenialClause::RedirectMismatch);
 }

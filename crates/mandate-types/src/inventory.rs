@@ -577,14 +577,20 @@ pub const DERIVED_STATE_ENUMS: &[&str] = &[
     "mandate.workload.WorkloadIdentity.State",
 ];
 
+/// The authored types a domain other than `mandate.core` declares which this crate realizes,
+/// each with its Rust symbol. They are outside [`ACCEPTED`], which is the `mandate.core` set
+/// exactly; `tests/inventory.rs` decides each one's variants against its compiled schema.
+/// The crate of the type's domain registers it (`services/sts/src/lib.rs` for
+/// `mandate.credential.IdentityScope`), and the coverage manifest names that crate.
+pub const DOMAIN_TYPES_REALIZED: &[(&str, &str)] = &[(
+    "mandate.credential.IdentityScope",
+    "mandate_types::IdentityScope",
+)];
+
 /// The authored types a domain other than `mandate.core` declares, which no crate realizes
 /// yet. Each is named with the story that gives it a Rust representation.
-/// `services/sts/src/lib.rs` (`ESS_UNREALIZED`) states why for the three credential types.
+/// `services/sts/src/lib.rs` (`ESS_UNREALIZED`) states why for the two credential types.
 pub const DOMAIN_TYPES_UNREALIZED: &[(&str, &str)] = &[
-    (
-        "mandate.credential.IdentityScope",
-        "story:oidc-discovery-and-code-flow",
-    ),
     (
         "mandate.credential.IdentityTokenId",
         "story:oidc-signed-tokens-and-key-rotation",

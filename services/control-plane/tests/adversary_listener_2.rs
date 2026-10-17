@@ -125,6 +125,7 @@ fn deployment_with(
                 audience: Audience::new(audience),
                 profile: reference_profile(),
                 allowed_exchange_sources: Vec::new(),
+                client_id: None,
             },
             &credentials,
             &mut allocator,

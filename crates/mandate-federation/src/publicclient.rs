@@ -73,6 +73,47 @@ pub fn registered_public_client(
     redirect_uri: &RedirectUri,
     organization_id: &OrganizationId,
 ) -> Result<OAuthClient, Denied> {
+    resolved_client(clients, client_id, redirect_uri, organization_id, true)
+}
+
+/// Resolve the registered client of either type that an authorization request names, or
+/// refuse, and decide whether the request may omit PKCE.
+///
+/// The same questions as [`registered_public_client`], minus "is public": client unknown,
+/// disabled, another organization's, or an unregistered redirect. Then PKCE: a public client
+/// always requires it, and a confidential one when its registration says `pkce_required`
+/// (`mandate.federation.OAuthClient`). A request that offers no challenge to a client that
+/// requires one is [`DenialClause::ChallengeAbsent`].
+///
+/// # Errors
+///
+/// Returns [`Denied`] for what [`registered_public_client`] refuses but a confidential client,
+/// and for an absent challenge where the client requires one.
+pub fn registered_client(
+    clients: &impl OAuthClientStore,
+    client_id: &OAuthClientId,
+    redirect_uri: &RedirectUri,
+    organization_id: &OrganizationId,
+    challenge_presented: bool,
+) -> Result<OAuthClient, Denied> {
+    let client = resolved_client(clients, client_id, redirect_uri, organization_id, false)?;
+    let required = client.client_type == OAuthClientType::Public || client.pkce_required;
+    if required && !challenge_presented {
+        return Err(Denied::new(
+            DenialReason::Denied,
+            DenialClause::ChallengeAbsent,
+        ));
+    }
+    Ok(client)
+}
+
+fn resolved_client(
+    clients: &impl OAuthClientStore,
+    client_id: &OAuthClientId,
+    redirect_uri: &RedirectUri,
+    organization_id: &OrganizationId,
+    public_required: bool,
+) -> Result<OAuthClient, Denied> {
     let client = clients
         .client(client_id)
         .ok_or_else(|| Denied::new(DenialReason::Denied, DenialClause::ClientUnknown))?;
@@ -85,7 +126,7 @@ pub fn registered_public_client(
             ));
         }
     }
-    if client.client_type != OAuthClientType::Public {
+    if public_required && client.client_type != OAuthClientType::Public {
         return Err(Denied::new(
             DenialReason::Denied,
             DenialClause::ClientNotPublic,

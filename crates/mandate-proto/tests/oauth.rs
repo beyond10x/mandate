@@ -578,6 +578,30 @@ fn a_client_the_authorization_endpoint_does_not_admit_answers_unauthorized_clien
     );
 }
 
+/// A request that offers no `code_challenge` to a client that requires PKCE answers
+/// `invalid_request` (RFC 7636 section 4.4.1), not `access_denied`.
+///
+/// The name is read from the source that raises it, and the answer holds whatever reason the
+/// refusal carries.
+#[test]
+fn a_missing_required_challenge_answers_invalid_request_whatever_the_reason() {
+    let raised = fs::read_to_string(PUBLIC_CLIENT).expect("the public-client source");
+    assert_eq!(oauth::INVALID_REQUEST_CLAUSES, ["ChallengeAbsent"]);
+    for clause in oauth::INVALID_REQUEST_CLAUSES {
+        assert!(
+            raised.contains(&format!("DenialClause::{clause}")),
+            "{clause} is no longer raised by registered_client"
+        );
+        for reason in DenialReason::VARIANTS {
+            assert_eq!(
+                oauth::code_for_denial(clause, *reason),
+                ErrorCode::InvalidRequest,
+                "{clause} with {reason:?}"
+            );
+        }
+    }
+}
+
 /// Every other clause of that crate falls back to the reason, and the fallback is the mapping
 /// that was already there.
 #[test]

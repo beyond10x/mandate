@@ -14,8 +14,8 @@
 //! `mandate-sts`, also outside the ceiling. Both were considered; both are unreachable here.
 //!
 //! What is reachable is the projection itself. Each `.Input` schema in
-//! `generated/openapi/*.yaml` lists its `required` members in declaration order, and that list
-//! is compared with the decoded value's own `DECLARED_INPUTS`. It decides the same thing a
+//! `generated/openapi/*.yaml` lists its members in declaration order, the `required` ones among
+//! them, and that list is compared with the decoded value's own `DECLARED_INPUTS`. It decides the same thing a
 //! compile against `mandate_contract` would — that the decoder builds exactly the declared
 //! input, member for member, in order — against the projection the contract publishes rather
 //! than against a Rust type this crate cannot name. When `story:product-listener` composes
@@ -60,7 +60,22 @@ fn every_road_decoder_builds_exactly_the_members_the_generated_input_declares() 
             decode::IntrospectCredential::DECLARED_INPUTS,
         ),
     ] {
-        assert_eq!(required_members(command), declared.to_vec(), "{command}");
+        let (members, required) = input_members(command);
+        // Every name the decoder declares is a member of the generated input, in its order.
+        let in_order: Vec<&str> = members
+            .iter()
+            .copied()
+            .filter(|member| declared.contains(member))
+            .collect();
+        assert_eq!(in_order, declared.to_vec(), "{command}");
+        // And every required member is one the decoder builds; an optional member the road
+        // does not carry may be left out.
+        for member in &required {
+            assert!(
+                declared.contains(member),
+                "{command}: required {member} is not decoded"
+            );
+        }
     }
 }
 
@@ -94,12 +109,12 @@ fn an_authorization_request_round_trips_into_the_declared_input() {
     let input = decode::authorize_client(&request).unwrap();
     assert_eq!(input.client_id.to_string(), UUID);
     assert_eq!(input.redirect_uri.as_str(), REDIRECT);
-    assert_eq!(input.challenge.as_str(), CHALLENGE);
-    assert_eq!(input.method, mandate_types::PkceMethod::S256);
+    assert_eq!(input.challenge.as_ref().unwrap().as_str(), CHALLENGE);
+    assert_eq!(input.method, Some(mandate_types::PkceMethod::S256));
     assert_eq!(input.state, "xyz");
     assert_eq!(input.nonce, "abc");
     assert_eq!(input.session_proof.expose_bytes(), b"foo");
-    assert_eq!(input.target.to_string(), OTHER_UUID);
+    assert_eq!(input.target.unwrap().to_string(), OTHER_UUID);
     assert_eq!(input.requested_scope.actions.len(), 2);
 }
 
@@ -214,10 +229,11 @@ fn the_metadata_advertises_the_paths_a_client_would_then_reach() {
     }
 }
 
-/// The `required` members of a command's generated input schema, in declaration order.
-fn required_members(command: &str) -> Vec<&'static str> {
+/// The members of a command's generated input schema in declaration order, and the `required`
+/// ones among them.
+fn input_members(command: &str) -> (Vec<&'static str>, Vec<&'static str>) {
     let heading = format!("    {command}.Input:");
-    let mut found: Option<Vec<&'static str>> = None;
+    let mut found: Option<(Vec<&'static str>, Vec<&'static str>)> = None;
     for entry in fs::read_dir(OPENAPI).expect("the generated openapi directory") {
         let path = entry.expect("a generated document").path();
         if path.extension().is_none_or(|extension| extension != "yaml") {
@@ -231,23 +247,42 @@ fn required_members(command: &str) -> Vec<&'static str> {
         let Some(block) = text.split_once(&format!("{heading}\n")) else {
             continue;
         };
+        // Every declared member, optional ones included: the `properties` keys at the first
+        // nesting level, in declaration order, up to the `required` list that closes them.
         let mut members = Vec::new();
+        let mut required = Vec::new();
         let mut reading = false;
+        let mut in_required = false;
         for line in block.1.lines() {
-            if line == "      required:" {
+            if line == "      properties:" {
                 reading = true;
                 continue;
             }
-            if reading {
+            if line == "      required:" {
+                reading = false;
+                in_required = true;
+                continue;
+            }
+            if in_required {
                 match line.strip_prefix("      - ") {
-                    Some(member) => members.push(member),
+                    Some(member) => required.push(member),
                     None => break,
+                }
+                continue;
+            }
+            if reading {
+                if let Some(member) = line
+                    .strip_prefix("        ")
+                    .and_then(|rest| rest.strip_suffix(':'))
+                    .filter(|rest| !rest.starts_with(' '))
+                {
+                    members.push(member);
                 }
             }
         }
-        assert!(!members.is_empty(), "{command} declares no required member");
+        assert!(!members.is_empty(), "{command} declares no member");
         assert!(found.is_none(), "{command} is declared in two documents");
-        found = Some(members);
+        found = Some((members, required));
     }
     found.unwrap_or_else(|| panic!("{command} has no generated input schema"))
 }

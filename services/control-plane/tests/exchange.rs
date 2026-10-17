@@ -115,6 +115,7 @@ fn deployment(clock: FixedClock) -> (Wired, Targets) {
                 audience: Audience::new(audience),
                 profile: reference_profile(),
                 allowed_exchange_sources: sources,
+                client_id: None,
             },
             &registrations,
             &mut allocator,

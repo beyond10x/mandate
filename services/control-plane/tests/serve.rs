@@ -142,6 +142,7 @@ fn deployment_configured(
             audience: Audience::new("https://api.example"),
             profile: reference_profile(),
             allowed_exchange_sources: Vec::new(),
+            client_id: None,
         },
         &CredentialProjection::default(),
         &mut allocator,
@@ -1599,6 +1600,7 @@ fn deployment_from_documents(
             audience: Audience::new("https://api.example"),
             profile: reference_profile(),
             allowed_exchange_sources: Vec::new(),
+            client_id: None,
         },
         &CredentialProjection::default(),
         &mut allocator,
@@ -3195,6 +3197,7 @@ fn a_fold_already_holding_a_conflicted_audience_is_refused_before_the_socket() {
                 audience: Audience::new("https://api.example"),
                 profile: reference_profile(),
                 allowed_exchange_sources: Vec::new(),
+                client_id: None,
             },
             // The empty fold each time, so the guard cannot see the other registration —
             // which is what two writers each reading a free key looks like.

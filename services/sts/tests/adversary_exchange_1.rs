@@ -108,6 +108,7 @@ impl World {
                 audience: Audience::new(audience),
                 profile: profile(max_ttl),
                 allowed_exchange_sources: sources,
+                client_id: None,
             },
             &self.held,
             &mut self.allocator,

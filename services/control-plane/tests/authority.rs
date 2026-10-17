@@ -285,6 +285,7 @@ fn deployment() -> (Wired, ResourceServerId) {
         audience: Audience::new("https://api.example"),
         profile: reference_profile(),
         allowed_exchange_sources: Vec::new(),
+        client_id: None,
     }
     .events(&mut || {
         allocator += 1;
@@ -365,12 +366,15 @@ fn authorize_input(login: &Login, target: ResourceServerId) -> decode::Authorize
     decode::AuthorizeClient {
         client_id: client(),
         redirect_uri: RedirectUri::new(REDIRECT),
-        challenge: PkceChallenge::new("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"),
-        method: PkceMethod::S256,
+        challenge: Some(PkceChallenge::new(
+            "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+        )),
+        method: Some(PkceMethod::S256),
         state: "state-1".to_owned(),
         nonce: "nonce-1".to_owned(),
         session_proof: CredentialProof::from_bytes(login.session_proof.expose_material().to_vec()),
-        target,
+        target: Some(target),
+        identity_scopes: None,
         requested_scope: AuthorityScope {
             actions: Vec::new(),
             resources: Vec::new(),

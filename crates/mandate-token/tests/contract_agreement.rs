@@ -213,6 +213,7 @@ fn folded_events(carried: bool) -> Vec<CredentialEvent> {
             } else {
                 Vec::new()
             },
+            client_id: None,
         },
         CredentialEvent::ResourceServerDisabled {
             context: context.clone(),
@@ -373,6 +374,7 @@ fn the_resource_server_record_round_trips_in_every_declared_state() {
                 audience: Audience::new("api-a"),
                 credential_profile: profile(),
                 allowed_exchange_sources: sources,
+                client_id: None,
                 state,
             };
             let document = agrees::<_, entities::MandateCredentialResourceServer>(

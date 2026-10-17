@@ -404,12 +404,7 @@ const ROWS: &[(&str, DenialClause, Source)] = &[
     (
         "mandate.credential.IssueAuthorizationCode",
         DenialClause::ClientUnregistered,
-        Source::DenialPhrase("registered public client"),
-    ),
-    (
-        "mandate.credential.IssueAuthorizationCode",
-        DenialClause::ClientNotPublic,
-        Source::DenialPhrase("registered public client"),
+        Source::DenialPhrase("registered client"),
     ),
     (
         "mandate.credential.IssueAuthorizationCode",
@@ -765,6 +760,7 @@ fn registered_target() -> (Projection, ResourceServerId) {
             audience: Audience::new("api-a"),
             profile: reference_profile(),
             allowed_exchange_sources: Vec::new(),
+            client_id: None,
         },
         &Projection::default(),
         &mut allocator,
@@ -829,6 +825,7 @@ fn every_refusal_issue_authorization_code_produces_has_a_row() {
                 audience: Audience::new("api-a"),
                 profile: reference_profile(),
                 allowed_exchange_sources: Vec::new(),
+                client_id: None,
             },
             &Projection::default(),
             &mut allocator,
@@ -854,6 +851,7 @@ fn every_refusal_issue_authorization_code_produces_has_a_row() {
                     requires_online_authorization: false,
                 },
                 allowed_exchange_sources: Vec::new(),
+                client_id: None,
             },
             &Projection::default(),
             &mut allocator,
@@ -904,13 +902,6 @@ fn every_refusal_issue_authorization_code_produces_has_a_row() {
             &code_input(self_contained.1),
         ),
         refuse(&servers, &RecordedClients::new(), &code_input(target)),
-        refuse(
-            &servers,
-            &RecordedClients::new()
-                .confidential(client(), organization(10))
-                .redirect(client(), redirect()),
-            &code_input(target),
-        ),
         refuse(
             &servers,
             &RecordedClients::new()
@@ -1344,6 +1335,7 @@ fn other_tenant_target(target: ResourceServerId) -> Projection {
         audience: Audience::new("api-a"),
         credential_profile: reference_profile(),
         allowed_exchange_sources: Vec::new(),
+        client_id: None,
     }])
     .expect("one creation")
 }
@@ -1363,6 +1355,7 @@ fn unbounded_profile_target(target: ResourceServerId) -> Projection {
             ..reference_profile()
         },
         allowed_exchange_sources: Vec::new(),
+        client_id: None,
     }])
     .expect("one creation")
 }
@@ -1564,6 +1557,7 @@ fn registration(
         audience: Audience::new(audience),
         credential_profile: profile,
         allowed_exchange_sources: Vec::new(),
+        client_id: None,
     }
 }
 
@@ -1667,6 +1661,7 @@ fn every_refusal_register_resource_server_produces_has_a_row() {
         audience: Audience::new(audience),
         profile: reference_profile(),
         allowed_exchange_sources: sources,
+        client_id: None,
     };
 
     let observed = vec![
@@ -2218,6 +2213,7 @@ fn exchange_registration(
         audience: Audience::new(audience),
         credential_profile: profile,
         allowed_exchange_sources: sources,
+        client_id: None,
     }
 }
 

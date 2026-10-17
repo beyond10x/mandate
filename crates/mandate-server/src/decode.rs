@@ -47,7 +47,7 @@
 use mandate_proto::oauth::{self, ErrorBody, ErrorCode, Form, FormError};
 use mandate_types::{
     Action, Audience, AuthorityScope, AuthorizationCodeId, CredentialProof, DelegationId,
-    FederationConnectionId, OAuthClientId, PkceChallenge, PkceMethod, RedirectUri,
+    FederationConnectionId, IdentityScope, OAuthClientId, PkceChallenge, PkceMethod, RedirectUri,
     ResourceServerId,
 };
 
@@ -232,10 +232,16 @@ pub enum Refusal {
     /// `tests/security/cases.json`, case `pkce-plain`: a `code_challenge_method` other than
     /// `S256`, or none.
     PkceMethodUnsupported,
+    /// Only one of `code_challenge` and `code_challenge_method` was presented: PKCE is offered
+    /// whole or not at all.
+    PkceIncomplete,
     /// The `code_challenge` is not in the S256 shape.
     ChallengeMalformed,
     /// The `code_verifier` is not in the RFC 7636 section 4.1 form.
     VerifierMalformed,
+    /// The `scope` names an identity scope without `openid`, or names no target and no
+    /// `openid` (OIDC Core section 3.1.2.1).
+    ScopeWithoutOpenId,
     /// A free-text parameter is over [`MAX_TEXT_BYTES`].
     TextTooLong,
     /// A free-text parameter carries a character in Unicode general category `Cc`: the C0
@@ -278,8 +284,10 @@ impl Refusal {
         Self::MalformedCallerProof,
         Self::PkceMissing,
         Self::PkceMethodUnsupported,
+        Self::PkceIncomplete,
         Self::ChallengeMalformed,
         Self::VerifierMalformed,
+        Self::ScopeWithoutOpenId,
         Self::TextTooLong,
         Self::ControlCharacter,
     ];
@@ -291,6 +299,7 @@ impl Refusal {
             Self::UnsupportedGrantType => ErrorCode::UnsupportedGrantType,
             Self::UnsupportedResponseType => ErrorCode::UnsupportedResponseType,
             Self::MissingCallerProof | Self::MalformedCallerProof => ErrorCode::InvalidClient,
+            Self::ScopeWithoutOpenId => ErrorCode::InvalidScope,
             _ => ErrorCode::InvalidRequest,
         }
     }
@@ -347,8 +356,14 @@ impl Refusal {
             }
             Self::PkceMissing => "the token request carries no code_verifier",
             Self::PkceMethodUnsupported => "code_challenge_method must be S256",
+            Self::PkceIncomplete => {
+                "code_challenge and code_challenge_method are presented together or not at all"
+            }
             Self::ChallengeMalformed => "code_challenge is not an S256 challenge",
             Self::VerifierMalformed => "code_verifier is not in the form RFC 7636 declares",
+            Self::ScopeWithoutOpenId => {
+                "scope names openid where it names an identity scope or no target is named"
+            }
             Self::TextTooLong => "a parameter is longer than this endpoint reads",
             Self::ControlCharacter => "a parameter carries a control character",
         }
@@ -397,20 +412,32 @@ pub struct AuthorizeClient {
     pub client_id: OAuthClientId,
     /// The declared `redirect_uri`.
     pub redirect_uri: RedirectUri,
-    /// The declared `challenge`.
-    pub challenge: PkceChallenge,
-    /// The declared `method`.
-    pub method: PkceMethod,
+    /// The declared `challenge`: absent when the request offers no PKCE, which the handler
+    /// decides against the client's `pkce_required`.
+    pub challenge: Option<PkceChallenge>,
+    /// The declared `method`: present exactly when `challenge` is.
+    pub method: Option<PkceMethod>,
     /// The declared `state`.
     pub state: String,
     /// The declared `nonce`.
     pub nonce: String,
     /// The declared `session_proof`.
     pub session_proof: CredentialProof,
-    /// The declared `target`.
-    pub target: ResourceServerId,
-    /// The declared `requested_scope`.
+    /// The declared `target`: absent when the request names none, and then the handler
+    /// resolves the resource server whose `client_id` names the client.
+    ///
+    /// Why (wave 12 decision 4, fork F11): an OpenID Connect relying application asks for
+    /// `openid` and names no resource, and the code it gets is for the one registration that
+    /// client is the audience of, which `mandate.credential.ResourceServer.client_id` records
+    /// (`credential.yaml`). A request that names a target is an OAuth request for that
+    /// registration, as before. This module decides neither: it cannot see a registration.
+    pub target: Option<ResourceServerId>,
+    /// The declared `requested_scope`: the `scope` tokens that are actions, which is every
+    /// token that names no identity scope, and only when a target is named.
     pub requested_scope: AuthorityScope,
+    /// The declared `identity_scopes`: the `scope` tokens that name an OpenID Connect scope,
+    /// absent when the request names none.
+    pub identity_scopes: Option<Vec<IdentityScope>>,
 }
 
 impl AuthorizeClient {
@@ -425,6 +452,7 @@ impl AuthorizeClient {
         "session_proof",
         "target",
         "requested_scope",
+        "identity_scopes",
     ];
 }
 
@@ -543,6 +571,7 @@ pub const AUTHORIZE_PARAMETERS: &[&str] = &[
     "nonce",
     "target",
     "scope",
+    "prompt",
 ];
 
 /// The parameters the token endpoint admits on the authorization-code grant, and nothing
@@ -863,8 +892,10 @@ fn cookie(header: &str, name: &str) -> Option<String> {
 /// Returns [`Refusal`] for another method, an oversized query or body, a presented body, a
 /// malformed or repeated parameter, an undeclared parameter, a missing parameter, a free-text
 /// parameter that is too long or carries a control character, a `response_type` other than
-/// `code`, a `code_challenge_method` other than `S256` (case `pkce-plain`), a challenge
-/// outside the S256 shape, or an absent or malformed session proof.
+/// `code`, only one of `code_challenge` and `code_challenge_method`, a
+/// `code_challenge_method` other than `S256` (case `pkce-plain`), a challenge outside the
+/// S256 shape, a `scope` that breaks [`authorize_scope`]'s rule, or an absent or malformed
+/// session proof.
 pub fn authorize_client(request: &Request) -> Result<AuthorizeClient, Refusal> {
     entry(request, "GET", Reads::Query)?;
     let session_proof = bearer(
@@ -872,28 +903,162 @@ pub fn authorize_client(request: &Request) -> Result<AuthorizeClient, Refusal> {
         Refusal::MissingSessionProof,
         Refusal::MalformedSessionProof,
     )?;
+    Ok(authorize_parameters(request)?.with_session(session_proof))
+}
+
+/// What `prompt` asks of the authorization endpoint (OIDC Core section 3.1.2.1), as far as
+/// this endpoint admits it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Prompt {
+    /// `prompt=login`: the end user signs in again, so a session presented does not skip the
+    /// upstream sign-in.
+    Login,
+    /// `prompt=none`: no interaction, so a request without a usable session is answered
+    /// `login_required` at the client's redirect and nothing is sent upstream.
+    None,
+}
+
+/// The name of the session cookie a browser presents to the authorization endpoint, and
+/// which the callback of a resumed sign-in sets. The `__Host-` prefix pins it to this host,
+/// `Secure` and `Path=/`.
+pub const SESSION_COOKIE: &str = "__Host-mandate-session";
+
+/// `mandate.federation.AuthorizeClient` as a browser presents it: every declared input but
+/// the session proof, which is the cookie or bearer the request carries, and may be absent.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AuthorizeBrowser {
+    /// The declared `client_id`.
+    pub client_id: OAuthClientId,
+    /// The declared `redirect_uri`.
+    pub redirect_uri: RedirectUri,
+    /// The declared `challenge`, when PKCE is offered.
+    pub challenge: Option<PkceChallenge>,
+    /// The declared `method`, present exactly when `challenge` is.
+    pub method: Option<PkceMethod>,
+    /// The declared `state`.
+    pub state: String,
+    /// The declared `nonce`.
+    pub nonce: String,
+    /// The declared `target`, when one is named.
+    pub target: Option<ResourceServerId>,
+    /// The declared `requested_scope`.
+    pub requested_scope: AuthorityScope,
+    /// The declared `identity_scopes`.
+    pub identity_scopes: Option<Vec<IdentityScope>>,
+    /// The session proof the request carried, from the [`SESSION_COOKIE`] or an
+    /// `Authorization: Bearer`, never both.
+    pub session: Option<CredentialProof>,
+    /// The `prompt`, when one was named.
+    pub prompt: Option<Prompt>,
+}
+
+impl AuthorizeBrowser {
+    /// The command's input, with this session proof in place of the one the request carried.
+    #[must_use]
+    pub fn with_session(self, session_proof: CredentialProof) -> AuthorizeClient {
+        AuthorizeClient {
+            client_id: self.client_id,
+            redirect_uri: self.redirect_uri,
+            challenge: self.challenge,
+            method: self.method,
+            state: self.state,
+            nonce: self.nonce,
+            session_proof,
+            target: self.target,
+            requested_scope: self.requested_scope,
+            identity_scopes: self.identity_scopes,
+        }
+    }
+}
+
+/// Decode the authorization endpoint's request as a browser makes it: the session proof is
+/// the [`SESSION_COOKIE`] or a bearer credential, and may be absent, which sends the browser
+/// upstream (or answers `prompt=none` with `login_required`).
+///
+/// A cookie and a bearer credential presented together are refused
+/// ([`Refusal::MalformedSessionProof`]): the request names two sessions and a rule that picks
+/// one is a rule an attacker can aim. A cookie the header names twice is not presented
+/// ([`cookie`]'s rule), and one that is not a credential is refused.
+///
+/// `prompt` is `login` or `none` exactly; a list, another value or an empty one is refused
+/// ([`Refusal::MalformedField`]), since this endpoint implements no other interaction.
+///
+/// # Errors
+///
+/// Returns [`Refusal`] for everything [`authorize_client`] refuses but an absent session
+/// proof, and for two session proofs or a `prompt` outside the two it admits.
+pub fn authorize_browser(request: &Request) -> Result<AuthorizeBrowser, Refusal> {
+    entry(request, "GET", Reads::Query)?;
+    let bearer_presented = request.single_header("Authorization")?.is_some();
+    let cookie_value = request
+        .single_header("Cookie")?
+        .and_then(|cookies| cookie(cookies, SESSION_COOKIE));
+    let session = match (bearer_presented, cookie_value) {
+        (true, Some(_)) => return Err(Refusal::MalformedSessionProof),
+        (true, None) => Some(bearer(
+            request,
+            Refusal::MissingSessionProof,
+            Refusal::MalformedSessionProof,
+        )?),
+        (false, Some(value)) => {
+            Some(credential(&value).map_err(|_| Refusal::MalformedSessionProof)?)
+        }
+        (false, None) => None,
+    };
+    let mut parameters = authorize_parameters(request)?;
+    parameters.session = session;
+    Ok(parameters)
+}
+
+/// The query of an authorization request, decoded; the session proof is left to the caller.
+fn authorize_parameters(request: &Request) -> Result<AuthorizeBrowser, Refusal> {
     let form = oauth::decode_form(request.query())?;
     closed(&form, AUTHORIZE_PARAMETERS)?;
     if field(&form, "response_type")? != CODE_RESPONSE_TYPE {
         return Err(Refusal::UnsupportedResponseType);
     }
-    oauth::require_s256_challenge_method(&form).map_err(|_| Refusal::PkceMethodUnsupported)?;
-    let challenge = field(&form, "code_challenge")?;
-    if !challenge_has_s256_shape(challenge) {
-        return Err(Refusal::ChallengeMalformed);
-    }
-    Ok(AuthorizeClient {
+    // PKCE is offered whole or not at all; whether this client may omit it is on its
+    // registration (`pkce_required`, always for a public client), which the handler reads.
+    let (challenge, method) = match (
+        form.get("code_challenge"),
+        form.get("code_challenge_method"),
+    ) {
+        (None, None) => (None, None),
+        (Some(_), None) | (None, Some(_)) => return Err(Refusal::PkceIncomplete),
+        (Some(challenge), Some(_)) => {
+            oauth::require_s256_challenge_method(&form)
+                .map_err(|_| Refusal::PkceMethodUnsupported)?;
+            if !challenge_has_s256_shape(challenge) {
+                return Err(Refusal::ChallengeMalformed);
+            }
+            (Some(PkceChallenge::new(challenge)), Some(PkceMethod::S256))
+        }
+    };
+    let target = form
+        .get("target")
+        .map(|target| ResourceServerId::parse(target).map_err(|_| Refusal::MalformedField))
+        .transpose()?;
+    let (requested_scope, identity_scopes) =
+        authorize_scope(&free_text(&form, "scope")?, target.is_some())?;
+    let prompt = match form.get("prompt") {
+        None => None,
+        Some("login") => Some(Prompt::Login),
+        Some("none") => Some(Prompt::None),
+        Some(_) => return Err(Refusal::MalformedField),
+    };
+    Ok(AuthorizeBrowser {
         client_id: OAuthClientId::parse(field(&form, "client_id")?)
             .map_err(|_| Refusal::MalformedField)?,
         redirect_uri: RedirectUri::new(free_text(&form, "redirect_uri")?),
-        challenge: PkceChallenge::new(challenge),
-        method: PkceMethod::S256,
+        challenge,
+        method,
         state: free_text(&form, "state")?,
         nonce: free_text(&form, "nonce")?,
-        session_proof,
-        target: ResourceServerId::parse(field(&form, "target")?)
-            .map_err(|_| Refusal::MalformedField)?,
-        requested_scope: requested_scope(&free_text(&form, "scope")?),
+        target,
+        requested_scope,
+        identity_scopes,
+        session: None,
+        prompt,
     })
 }
 
@@ -1094,6 +1259,47 @@ fn requested_scope(scope: &str) -> AuthorityScope {
         resources: Vec::new(),
         space: None,
     }
+}
+
+/// The authorization endpoint's `scope`, split into actions and OpenID Connect scopes.
+///
+/// The rule, written once here:
+///
+/// - `openid`, `email`, `profile`, `groups` and `offline_access` name a
+///   `mandate.credential.IdentityScope` and are never actions.
+/// - With a target named, every other token is an action of the requested authority
+///   ([`requested_scope`]'s reading of RFC 6749 section 3.3).
+/// - With no target named, every other token is **ignored**: OIDC Core section 3.1.2.1 says
+///   scope values used that are not understood by an implementation SHOULD be ignored, and
+///   the client's own resource server, which the handler resolves, defines no actions a
+///   bare token could name.
+/// - An identity scope without `openid` is refused, and so is a request that names no target
+///   and no `openid`: neither is an OpenID Connect request, and the second is no OAuth one
+///   either ([`Refusal::ScopeWithoutOpenId`], `invalid_scope`).
+///
+/// The identity scopes are absent, not empty, when the request names none.
+fn authorize_scope(
+    scope: &str,
+    targeted: bool,
+) -> Result<(AuthorityScope, Option<Vec<IdentityScope>>), Refusal> {
+    let mut identity: Vec<IdentityScope> = Vec::new();
+    let mut actions: Vec<&str> = Vec::new();
+    for token in scope.split(' ').filter(|token| !token.is_empty()) {
+        match IdentityScope::from_token(token) {
+            Some(named) if !identity.contains(&named) => identity.push(named),
+            Some(_) => {}
+            None if targeted => actions.push(token),
+            None => {}
+        }
+    }
+    let openid = identity.contains(&IdentityScope::OpenId);
+    if (!identity.is_empty() || !targeted) && !openid {
+        return Err(Refusal::ScopeWithoutOpenId);
+    }
+    Ok((
+        requested_scope(&actions.join(" ")),
+        (!identity.is_empty()).then_some(identity),
+    ))
 }
 
 /// Which component of the request a route reads its parameters from.

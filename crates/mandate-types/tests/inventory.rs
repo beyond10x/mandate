@@ -5,8 +5,8 @@
 //! the account cannot drift from the contract without this suite failing.
 
 use mandate_types::inventory::{
-    ACCEPTED, DERIVED_STATE_ENUMS, DOMAIN_TYPES_UNREALIZED, EXCLUDED_ENTITIES, EXCLUDED_SEMANTICS,
-    Kind, Owner,
+    ACCEPTED, DERIVED_STATE_ENUMS, DOMAIN_TYPES_REALIZED, DOMAIN_TYPES_UNREALIZED,
+    EXCLUDED_ENTITIES, EXCLUDED_SEMANTICS, Kind, Owner,
 };
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -52,18 +52,79 @@ fn the_compiled_type_index_splits_into_authored_types_and_derived_state_enums() 
         if !name.starts_with("mandate.core.") && !name.starts_with("mandate.guard.") {
             assert!(
                 name.ends_with(".State")
-                    || DOMAIN_TYPES_UNREALIZED
+                    || DOMAIN_TYPES_REALIZED
                         .iter()
-                        .any(|(unrealized, _)| unrealized == name),
+                        .chain(DOMAIN_TYPES_UNREALIZED)
+                        .any(|(domain_type, _)| domain_type == name),
                 "unaccounted type entry {name}"
             );
         }
     }
     assert_eq!(
-        names.len() - authored.len() - guard - DOMAIN_TYPES_UNREALIZED.len(),
+        names.len()
+            - authored.len()
+            - guard
+            - DOMAIN_TYPES_REALIZED.len()
+            - DOMAIN_TYPES_UNREALIZED.len(),
         36,
         "derived state enums"
     );
+}
+
+/// A domain type is realized or it is not, and the one realized here renders exactly the
+/// variants its compiled schema declares, in declaration order, and admits nothing else.
+#[test]
+fn the_realized_domain_types_render_their_declared_variants() {
+    for (realized, _) in DOMAIN_TYPES_REALIZED {
+        assert!(
+            !DOMAIN_TYPES_UNREALIZED
+                .iter()
+                .any(|(unrealized, _)| unrealized == realized),
+            "{realized} is named both realized and unrealized"
+        );
+    }
+    assert_eq!(
+        DOMAIN_TYPES_REALIZED,
+        &[(
+            "mandate.credential.IdentityScope",
+            "mandate_types::IdentityScope"
+        )]
+    );
+    let path = format!("{SCHEMA}/types/mandate.credential.IdentityScope.schema.json");
+    let text = std::fs::read_to_string(&path).unwrap_or_else(|error| panic!("{path}: {error}"));
+    let schema: serde_json::Value = serde_json::from_str(&text).expect("schema JSON");
+    let declared: Vec<String> = schema["$defs"]["mandate.credential.IdentityScope"]["enum"]
+        .as_array()
+        .expect("declared variants")
+        .iter()
+        .map(|variant| variant.as_str().expect("variant name").to_owned())
+        .collect();
+    let rendered: Vec<String> = mandate_types::IdentityScope::VARIANTS
+        .iter()
+        .map(|scope| {
+            serde_json::to_value(scope)
+                .expect("encode")
+                .as_str()
+                .expect("a variant renders as a string")
+                .to_owned()
+        })
+        .collect();
+    assert_eq!(rendered, declared);
+    for variant in &declared {
+        let wire = serde_json::Value::String(variant.clone());
+        let decoded: mandate_types::IdentityScope =
+            serde_json::from_value(wire).expect("a declared variant decodes");
+        assert_eq!(
+            serde_json::to_value(decoded).expect("encode"),
+            serde_json::Value::String(variant.clone())
+        );
+    }
+    for rejected in ["\"openid\"", "\"\"", "0", "null", "{}"] {
+        assert!(
+            serde_json::from_str::<mandate_types::IdentityScope>(rejected).is_err(),
+            "{rejected} decoded as an IdentityScope"
+        );
+    }
 }
 
 #[test]
@@ -388,6 +449,14 @@ fn the_coverage_manifest_names_exactly_what_this_crate_accounts_for() {
         70,
         "the share of the authored types this crate owns"
     );
+    // A domain type realized here is registered by the crate of its domain, which the
+    // manifest names (the STS for `mandate.credential.IdentityScope`), never by this one.
+    for (ess_name, _) in DOMAIN_TYPES_REALIZED {
+        assert!(
+            !claimed.contains_key(*ess_name),
+            "{ess_name}: registered by its domain's crate and claimed by this one"
+        );
+    }
     assert_eq!(
         claimed, expected,
         "the coverage manifest's entries for this crate are not the account it keeps"

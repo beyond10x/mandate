@@ -68,8 +68,8 @@ use serde::Serialize;
 
 use mandate_types::{
     Audience, AuthorityScope, AuthorizationCodeId, CredentialId, CredentialVerifier, DenialReason,
-    EpochSnapshotRef, KeyReference, OrganizationId, PersistedValue, ResourceServerId,
-    SigningAlgorithm, SigningKeyId, SigningKeyWindow, Timestamp, VerifiedContext,
+    EpochSnapshotRef, KeyReference, OAuthClientId, OrganizationId, PersistedValue,
+    ResourceServerId, SigningAlgorithm, SigningKeyId, SigningKeyWindow, Timestamp, VerifiedContext,
 };
 
 use crate::{CredentialDescriptor, CredentialProfile};
@@ -116,6 +116,10 @@ pub struct ResourceServer {
     pub credential_profile: CredentialProfile,
     /// The servers whose credentials may be exchanged for this one's.
     pub allowed_exchange_sources: Vec<ResourceServerId>,
+    /// The client this registration is the audience of, when it backs one (fork F11): the
+    /// resource server an OpenID Connect authorization from that client targets.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub client_id: Option<OAuthClientId>,
     /// The lifecycle state.
     pub state: ResourceServerState,
 }
@@ -231,6 +235,9 @@ pub enum CredentialEvent {
         credential_profile: CredentialProfile,
         /// The declared `allowed_exchange_sources`.
         allowed_exchange_sources: Vec<ResourceServerId>,
+        /// The declared `client_id`: the client this registration is the audience of.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        client_id: Option<OAuthClientId>,
     },
     /// `mandate.credential.ResourceServerDisabled`.
     ResourceServerDisabled {
@@ -656,14 +663,14 @@ pub enum DenialClause {
     CodeConsumed,
     /// "client ... mismatches": the presented client is not the one the code is bound to.
     ClientMismatch,
-    /// `IssueAuthorizationCode`: "registered public client" — the client the code would be
+    /// `IssueAuthorizationCode`: "registered client" — the client the code would be
     /// bound to is registered nowhere this deployment can read.
     /// `RedeemAuthorizationCode`: the same fact, under "client ... mismatches".
     ClientUnregistered,
-    /// `IssueAuthorizationCode`: "registered public client" — the registry does not answer
-    /// that this client is a public one, or cannot answer at all. The authorization-code
-    /// road with PKCE is the public-client road, and the STS is the second line behind the
-    /// adapter that has already decided it.
+    /// The registry does not answer that this client is a public one, or cannot answer at
+    /// all, to a caller that admits public clients only (`admitted_client` with
+    /// `public_client_required`). `IssueAuthorizationCode` admits either type since fork F3
+    /// and no longer produces it.
     ClientNotPublic,
     /// "the client the code would be bound to is disabled" / "the bound client is disabled".
     ClientDisabled,
@@ -816,6 +823,7 @@ impl Projection {
                 audience,
                 credential_profile,
                 allowed_exchange_sources,
+                client_id,
             } => {
                 if self.resource_server(id).is_some() {
                     return Ok(());
@@ -829,6 +837,7 @@ impl Projection {
                     audience: audience.clone(),
                     credential_profile: credential_profile.clone(),
                     allowed_exchange_sources: allowed_exchange_sources.clone(),
+                    client_id: *client_id,
                     state: ResourceServerState::Enabled,
                 });
             }
@@ -1271,12 +1280,14 @@ const _: () = {
                 audience,
                 credential_profile,
                 allowed_exchange_sources,
+                client_id,
             } => {
                 persistable(context);
                 persistable(id);
                 persistable(audience);
                 persistable(credential_profile);
                 persistable(allowed_exchange_sources);
+                persistable(client_id);
             }
             CredentialEvent::ResourceServerDisabled { context, id } => {
                 persistable(context);

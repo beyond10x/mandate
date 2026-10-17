@@ -124,6 +124,7 @@ mandate_types::realizes! {
     "mandate.credential.SigningKey.State" => mandate_token::projection::SigningKeyState,
     "mandate.credential.AuthorizationCode.State" => crate::store::AuthorizationCodeState,
     "mandate.credential.Denied" => mandate_token::projection::Denied,
+    "mandate.credential.IdentityScope" => mandate_types::IdentityScope,
 }
 
 /// Every declared `mandate.credential` element nothing realizes yet, with the reason and
@@ -141,8 +142,8 @@ mandate_types::realizes! {
 /// authorization-code road left it when `story:oauth-transaction` landed it.
 ///
 /// What the OpenID Provider contract added (`docs/adr/0012-openid-provider.md`) is here until
-/// the story that implements it lands: the identity token and its event, the scopes a code
-/// records, and the subject token type an exchange names.
+/// the story that implements it lands: the identity token and its event, and the subject token
+/// type an exchange names. The scopes a code records are `mandate_types::IdentityScope`.
 pub const ESS_UNREALIZED: &[(&str, &str)] = &[
     (
         "mandate.credential.IdentityTokenIssued",
@@ -153,11 +154,6 @@ pub const ESS_UNREALIZED: &[(&str, &str)] = &[
         "mandate.credential.IdentityTokenId",
         "the identifier of an identity token, which nothing issues yet; owner \
          story:oidc-signed-tokens-and-key-rotation",
-    ),
-    (
-        "mandate.credential.IdentityScope",
-        "no authorization records OpenID Connect scopes on a code yet; owner \
-         story:oidc-discovery-and-code-flow",
     ),
     (
         "mandate.credential.SubjectTokenType",

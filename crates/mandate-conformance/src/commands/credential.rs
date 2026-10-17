@@ -59,6 +59,7 @@ pub fn register_resource_server(
         audience: node::field(&request.input, "audience")?,
         profile: node::field(&request.input, "profile")?,
         allowed_exchange_sources: node::field(&request.input, "allowed_exchange_sources")?,
+        client_id: node::optional(&request.input, "client_id")?,
     };
     // Decided standing-first (`external.rs`, "An arming the input already decides"): the
     // synthesized input names an exchange source no record carries, so the standing reader

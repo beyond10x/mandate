@@ -24,6 +24,7 @@ use mandate_server::obligations::{
     self, BodyForm, Establishes, OBLIGATIONS, Obligation, ROAD_COMMANDS, Wire,
 };
 use mandate_server::routes::{self, Binding};
+use mandate_types::IdentityScope;
 
 const OPENAPI: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../generated/openapi");
 const OBLIGATIONS_TABLE: &str = concat!(
@@ -202,15 +203,15 @@ fn every_road_command_records_exactly_the_clauses_its_declared_denial_carries() 
 }
 
 #[test]
-fn the_four_road_commands_declare_twenty_nine_clauses_between_them() {
+fn the_four_road_commands_declare_thirty_five_clauses_between_them() {
     let total: usize = ROAD_COMMANDS
         .iter()
         .map(|command| obligations::obligation(command).unwrap().clauses.len())
         .sum();
-    assert_eq!(total, 29);
+    assert_eq!(total, 35);
 }
 
-/// One case per declared deny clause of the four road commands — 29 of them.
+/// One case per declared deny clause of the four road commands — 35 of them.
 ///
 /// The case a clause gets is decided by which party the registry records as establishing it,
 /// and the rule is uniform:
@@ -233,7 +234,7 @@ fn a_case_for_every_declared_deny_clause_of_the_road_commands() {
             covered += 1;
         }
     }
-    assert_eq!(covered, 29);
+    assert_eq!(covered, 35);
 }
 
 fn drive(command: &str, phrase: &str, establishes: Establishes) {
@@ -286,13 +287,17 @@ fn drive(command: &str, phrase: &str, establishes: Establishes) {
         }
         // ---- mandate.federation.AuthorizeClient
         ("mandate.federation.AuthorizeClient", "Session proof is invalid/stale")
-        | ("mandate.federation.AuthorizeClient", "client is not a registered public client")
+        | ("mandate.federation.AuthorizeClient", "client is not a registered client")
         | ("mandate.federation.AuthorizeClient", "the client is disabled")
         | (
             "mandate.federation.AuthorizeClient",
             "exact redirect URI or state/applicable nonce binding fails",
         )
         | ("mandate.federation.AuthorizeClient", "target is unregistered/outside tenant")
+        | (
+            "mandate.federation.AuthorizeClient",
+            "a named target is backed by a client that does not list this client as a trusted peer",
+        )
         | ("mandate.federation.AuthorizeClient", "STS code issuance/narrowing is refused") => {
             assert_eq!(establishes, Establishes::Handler, "{phrase}");
             let input = decode::authorize_client(&authorize(&authorize_query()))
@@ -302,17 +307,65 @@ fn drive(command: &str, phrase: &str, establishes: Establishes) {
             assert!(!decode::AUTHORIZE_PARAMETERS.contains(&"audience"));
             assert!(!decode::AUTHORIZE_PARAMETERS.contains(&"session_id"));
         }
-        ("mandate.federation.AuthorizeClient", "S256 challenge is absent/invalid") => {
-            assert_eq!(establishes, Establishes::Adapter, "{phrase}");
-            let absent = authorize_query()
-                .split('&')
-                .filter(|pair| !pair.starts_with("code_challenge="))
-                .collect::<Vec<_>>()
-                .join("&");
-            assert_eq!(
-                decode::authorize_client(&authorize(&absent)).unwrap_err(),
-                Refusal::MissingField
+        ("mandate.federation.AuthorizeClient", "PKCE is absent where the client requires it") => {
+            // Whether this client requires PKCE is on its record: the decoder admits a request
+            // with neither parameter and leaves both absent for the handler to decide.
+            assert_eq!(establishes, Establishes::Handler, "{phrase}");
+            let absent = without(
+                &authorize_query(),
+                &["code_challenge=", "code_challenge_method="],
             );
+            let input = decode::authorize_client(&authorize(&absent))
+                .unwrap_or_else(|refusal| panic!("{phrase}: {refusal}"));
+            assert_eq!(input.challenge, None);
+            assert_eq!(input.method, None);
+        }
+        ("mandate.federation.AuthorizeClient", "only one of challenge and method is given") => {
+            assert_eq!(establishes, Establishes::Adapter, "{phrase}");
+            for dropped in ["code_challenge=", "code_challenge_method="] {
+                assert_eq!(
+                    decode::authorize_client(&authorize(&without(&authorize_query(), &[dropped])))
+                        .unwrap_err(),
+                    Refusal::PkceIncomplete,
+                    "{dropped}"
+                );
+            }
+        }
+        (
+            "mandate.federation.AuthorizeClient",
+            "no target is named and no registered resource server backs the client",
+        ) => {
+            // The client's resource server is the registry's to resolve: the decoder admits
+            // an OpenID request that names no target and leaves the target absent.
+            assert_eq!(establishes, Establishes::Handler, "{phrase}");
+            let untargeted = without(&authorize_query(), &["target="])
+                .replace("scope=read+write", "scope=openid");
+            let input = decode::authorize_client(&authorize(&untargeted))
+                .unwrap_or_else(|refusal| panic!("{phrase}: {refusal}"));
+            assert_eq!(input.target, None);
+            assert_eq!(input.identity_scopes, Some(vec![IdentityScope::OpenId]));
+        }
+        ("mandate.federation.AuthorizeClient", "identity scopes are requested without OpenId") => {
+            assert_eq!(establishes, Establishes::Adapter, "{phrase}");
+            let query = authorize_query().replace("scope=read+write", "scope=read+email");
+            assert_eq!(
+                decode::authorize_client(&authorize(&query)).unwrap_err(),
+                Refusal::ScopeWithoutOpenId
+            );
+        }
+        (
+            "mandate.federation.AuthorizeClient",
+            "no target is named and OpenId is not requested",
+        ) => {
+            assert_eq!(establishes, Establishes::Adapter, "{phrase}");
+            let query = without(&authorize_query(), &["target="]);
+            assert_eq!(
+                decode::authorize_client(&authorize(&query)).unwrap_err(),
+                Refusal::ScopeWithoutOpenId
+            );
+        }
+        ("mandate.federation.AuthorizeClient", "the S256 challenge is invalid") => {
+            assert_eq!(establishes, Establishes::Adapter, "{phrase}");
             let invalid = authorize_query().replace(CHALLENGE, "too-short");
             assert_eq!(
                 decode::authorize_client(&authorize(&invalid)).unwrap_err(),
@@ -443,7 +496,7 @@ fn drive(command: &str, phrase: &str, establishes: Establishes) {
 }
 
 #[test]
-fn the_clauses_the_adapter_establishes_are_the_five_the_wire_form_decides() {
+fn the_clauses_the_adapter_establishes_are_the_eight_the_wire_form_decides() {
     let adapter: Vec<(&str, &str)> = OBLIGATIONS
         .iter()
         .flat_map(|obligation: &Obligation| {
@@ -454,7 +507,7 @@ fn the_clauses_the_adapter_establishes_are_the_five_the_wire_form_decides() {
                 .map(|clause| (obligation.command, clause.phrase))
         })
         .collect();
-    assert_eq!(adapter.len(), 5, "{adapter:?}");
+    assert_eq!(adapter.len(), 8, "{adapter:?}");
 }
 
 // ----------------------------------------------------------------------------- fixtures
@@ -471,6 +524,15 @@ fn authorize_query() -> String {
          &code_challenge={CHALLENGE}&code_challenge_method=S256&state=xyz&nonce=abc\
          &target={OTHER_UUID}&scope=read+write"
     )
+}
+
+/// The query with every `&`-separated pair that starts with one of `prefixes` removed.
+fn without(query: &str, prefixes: &[&str]) -> String {
+    query
+        .split('&')
+        .filter(|pair| !prefixes.iter().any(|prefix| pair.starts_with(prefix)))
+        .collect::<Vec<_>>()
+        .join("&")
 }
 
 fn authorize(query: &str) -> Request {

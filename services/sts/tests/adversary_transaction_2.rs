@@ -130,6 +130,7 @@ fn two_organizations_sharing_an_audience() -> (Projection, ResourceServerId) {
             audience: Audience::new("api-a"),
             credential_profile: reference_profile(),
             allowed_exchange_sources: Vec::new(),
+            client_id: None,
         },
         CredentialEvent::ResourceServerRegistered {
             context: context(organization(11)),
@@ -137,6 +138,7 @@ fn two_organizations_sharing_an_audience() -> (Projection, ResourceServerId) {
             audience: Audience::new("api-a"),
             credential_profile: reference_profile(),
             allowed_exchange_sources: Vec::new(),
+            client_id: None,
         },
         CredentialEvent::CredentialReferenceIssued {
             context: context(organization(10)),

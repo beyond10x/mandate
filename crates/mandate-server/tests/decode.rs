@@ -182,12 +182,12 @@ fn an_authorization_request_decodes_the_nine_inputs_the_contract_declares() {
     let input = decode::authorize_client(&authorize(&authorize_query())).unwrap();
     assert_eq!(input.client_id.to_string(), UUID);
     assert_eq!(input.redirect_uri.as_str(), REDIRECT);
-    assert_eq!(input.challenge.as_str(), CHALLENGE);
-    assert_eq!(input.method, PkceMethod::S256);
+    assert_eq!(input.challenge.as_ref().unwrap().as_str(), CHALLENGE);
+    assert_eq!(input.method, Some(PkceMethod::S256));
     assert_eq!(input.state, "xyz");
     assert_eq!(input.nonce, "abc");
     assert_eq!(input.session_proof.expose_bytes(), b"foo");
-    assert_eq!(input.target.to_string(), OTHER_UUID);
+    assert_eq!(input.target.unwrap().to_string(), OTHER_UUID);
     assert_eq!(
         input
             .requested_scope
