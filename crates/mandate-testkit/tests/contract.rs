@@ -41,6 +41,10 @@ const CREATE_DELEGATION: &str = "mandate.delegation.CreateDelegation";
 const DELEGATION_CREATED: &str = "mandate.delegation.DelegationCreated";
 const INTROSPECT_CREDENTIAL: &str = "mandate.credential.IntrospectCredential";
 const CREDENTIAL_INTROSPECTED: &str = "mandate.credential.CredentialIntrospected";
+const REDEEM_AUTHORIZATION_CODE: &str = "mandate.credential.RedeemAuthorizationCode";
+const WITH_IDENTITY_TOKEN: &str = "accepted-with-identity-token";
+const AUTHORIZATION_CODE_REDEEMED: &str = "mandate.credential.AuthorizationCodeRedeemed";
+const IDENTITY_TOKEN_ISSUED: &str = "mandate.credential.IdentityTokenIssued";
 
 fn uuid(byte: u8) -> Uuid {
     Uuid::from_bytes([byte; 16])
@@ -202,6 +206,61 @@ fn two_emissions_for_an_accepted_outcome_fail() {
     .expect_err("an accepted outcome emits exactly one event");
     assert!(message.contains(REVOKE_SESSION), "{message}");
     assert!(message.contains(SESSION_REVOKED), "{message}");
+}
+
+/// `RedeemAuthorizationCode`'s `accepted-with-identity-token` declares two events, and
+/// emitting exactly those two, in the declared order, is what the contract says.
+#[test]
+fn the_declared_two_emissions_pass_in_declared_order() {
+    let payload = json!({});
+    check_single_emission(
+        REDEEM_AUTHORIZATION_CODE,
+        WITH_IDENTITY_TOKEN,
+        &[
+            (AUTHORIZATION_CODE_REDEEMED, &payload),
+            (IDENTITY_TOKEN_ISSUED, &payload),
+        ],
+    )
+    .unwrap_or_else(|message| panic!("{message}"));
+}
+
+/// One of two declared events is a missing emission, named by the refusal.
+#[test]
+fn one_of_two_declared_emissions_fails_naming_the_missing_one() {
+    let payload = json!({});
+    let message = check_single_emission(
+        REDEEM_AUTHORIZATION_CODE,
+        WITH_IDENTITY_TOKEN,
+        &[(AUTHORIZATION_CODE_REDEEMED, &payload)],
+    )
+    .expect_err("the identity token was declared and not emitted");
+    assert!(message.contains(IDENTITY_TOKEN_ISSUED), "{message}");
+    assert!(message.contains(WITH_IDENTITY_TOKEN), "{message}");
+}
+
+/// The declared events in another order, or one of them twice, are not the declaration.
+#[test]
+fn two_declared_emissions_out_of_order_or_repeated_fail() {
+    let payload = json!({});
+    check_single_emission(
+        REDEEM_AUTHORIZATION_CODE,
+        WITH_IDENTITY_TOKEN,
+        &[
+            (IDENTITY_TOKEN_ISSUED, &payload),
+            (AUTHORIZATION_CODE_REDEEMED, &payload),
+        ],
+    )
+    .expect_err("the declared order is the emission order");
+    check_single_emission(
+        REDEEM_AUTHORIZATION_CODE,
+        WITH_IDENTITY_TOKEN,
+        &[
+            (AUTHORIZATION_CODE_REDEEMED, &payload),
+            (IDENTITY_TOKEN_ISSUED, &payload),
+            (IDENTITY_TOKEN_ISSUED, &payload),
+        ],
+    )
+    .expect_err("a third emission is not declared");
 }
 
 #[test]
@@ -632,6 +691,7 @@ fn every_declared_payload_source_is_satisfied_by_the_declared_shape() {
     let mut checked = 0usize;
     for (command, node) in commands {
         for outcome in node["outcomes"].as_array().expect("outcomes are a list") {
+            let outcome_name = outcome["name"].as_str().expect("an outcome has a name");
             let Some(entries) = outcome["payload"].as_array() else {
                 continue;
             };
@@ -640,8 +700,15 @@ fn every_declared_payload_source_is_satisfied_by_the_declared_shape() {
                 let fields = entry["fields"].as_array().expect("fields are a list");
                 let (input, response, event) = declared_shape(command, event_name, fields);
                 checked += fields.len();
-                check_payload_sources(command, &input, Some(&response), event_name, &event)
-                    .unwrap_or_else(|message| panic!("{command}/{event_name}: {message}"));
+                check_outcome_payload_sources(
+                    command,
+                    outcome_name,
+                    &input,
+                    Some(&response),
+                    event_name,
+                    &event,
+                )
+                .unwrap_or_else(|message| panic!("{command}/{event_name}: {message}"));
             }
         }
     }
@@ -665,6 +732,7 @@ fn every_declared_mapping_decides_absence_by_its_declared_target_type() {
     let mut wrong: Vec<String> = Vec::new();
     for (command, node) in commands {
         for outcome in node["outcomes"].as_array().expect("outcomes are a list") {
+            let outcome_name = outcome["name"].as_str().expect("an outcome has a name");
             let Some(entries) = outcome["payload"].as_array() else {
                 continue;
             };
@@ -699,8 +767,14 @@ fn every_declared_mapping_decides_absence_by_its_declared_target_type() {
                     } else {
                         required += 1;
                     }
-                    let decided =
-                        check_payload_sources(command, &input, Some(&response), event_name, &event);
+                    let decided = check_outcome_payload_sources(
+                        command,
+                        outcome_name,
+                        &input,
+                        Some(&response),
+                        event_name,
+                        &event,
+                    );
                     let named = format!("{command}/{event_name} `{target}` from `{from}`");
                     match (is_optional, decided) {
                         (true, Ok(())) => {}

@@ -215,13 +215,6 @@
       "consulted": 1
     },
     {
-      "scenario": "mandate.credential.RedeemAuthorizationCode/outcome/denied",
-      "command": "mandate.credential.RedeemAuthorizationCode",
-      "port": "mandate_sts::registry::ResourceServerReads",
-      "kind": "armed-unreached",
-      "consulted": 0
-    },
-    {
       "scenario": "mandate.credential.RegisterResourceServer/outcome/denied",
       "command": "mandate.credential.RegisterResourceServer",
       "port": "mandate_sts::registry::ResourceServerReads",
@@ -262,6 +255,34 @@
       "port": "mandate_sts::resolve::CredentialResolution",
       "kind": "armed-unreached",
       "consulted": 0
+    },
+    {
+      "scenario": "mandate.credential/authored/oidc-peer-cross-organization-refused",
+      "command": "mandate.credential.ExchangeCredential",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.credential/authored/oidc-peer-exchange-not-trusted-refused",
+      "command": "mandate.credential.ExchangeCredential",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.credential/authored/oidc-retire-without-successor-refused",
+      "command": "mandate.credential.RetireSigningKey",
+      "port": "mandate_sts::keys::SigningKeyReads",
+      "kind": "armed-unrefused",
+      "consulted": 1
+    },
+    {
+      "scenario": "mandate.credential/authored/oidc-sign-with-retired-key-refused",
+      "command": "mandate.credential.IssueSelfContainedCredential",
+      "port": "mandate_sts::registry::ResourceServerReads",
+      "kind": "armed-unrefused",
+      "consulted": 1
     },
     {
       "scenario": "mandate.credential/authored/pkce-code-expired",
@@ -873,6 +894,12 @@
       "blocked_on": "story:constrained-exchange"
     },
     {
+      "scenario": "mandate.credential.AuthorizationCode/state/Consumed/refuses/mandate.credential.RedeemAuthorizationCode",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
       "scenario": "mandate.credential.AuthorizationCode/transition/consume/by/mandate.credential.RedeemAuthorizationCode/accepted",
       "command": "",
       "reason": "expectation-unmet",
@@ -928,6 +955,12 @@
     },
     {
       "scenario": "mandate.credential.RedeemAuthorizationCode/outcome/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.credential.RedeemAuthorizationCode/outcome/denied",
       "command": "",
       "reason": "expectation-unmet",
       "blocked_on": "story:conform-gate"
@@ -1009,6 +1042,54 @@
       "command": "mandate.delegation.Agent",
       "reason": "entity-without-adapter-writer",
       "blocked_on": "story:declared-writers"
+    },
+    {
+      "scenario": "mandate.credential/authored/oidc-id-token-issued-on-openid",
+      "command": "mandate.credential.ResourceServer",
+      "reason": "entity-without-adapter-writer",
+      "blocked_on": "story:declared-writers"
+    },
+    {
+      "scenario": "mandate.credential/authored/oidc-no-id-token-without-openid",
+      "command": "mandate.credential.ResourceServer",
+      "reason": "entity-without-adapter-writer",
+      "blocked_on": "story:declared-writers"
+    },
+    {
+      "scenario": "mandate.credential/authored/oidc-peer-cross-organization-refused",
+      "command": "mandate.credential.ExchangeCredential",
+      "reason": "unrealized-command",
+      "blocked_on": "story:constrained-exchange"
+    },
+    {
+      "scenario": "mandate.credential/authored/oidc-peer-exchange-allowed",
+      "command": "mandate.credential.ExchangeCredential",
+      "reason": "unrealized-command",
+      "blocked_on": "story:constrained-exchange"
+    },
+    {
+      "scenario": "mandate.credential/authored/oidc-peer-exchange-not-trusted-refused",
+      "command": "mandate.credential.ExchangeCredential",
+      "reason": "unrealized-command",
+      "blocked_on": "story:constrained-exchange"
+    },
+    {
+      "scenario": "mandate.credential/authored/oidc-redeem-client-auth-failed",
+      "command": "mandate.credential.ResourceServer",
+      "reason": "entity-without-adapter-writer",
+      "blocked_on": "story:declared-writers"
+    },
+    {
+      "scenario": "mandate.credential/authored/oidc-redeem-public-with-secret-refused",
+      "command": "mandate.credential.ResourceServer",
+      "reason": "entity-without-adapter-writer",
+      "blocked_on": "story:declared-writers"
+    },
+    {
+      "scenario": "mandate.credential/authored/oidc-sign-with-retired-key-refused",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
     },
     {
       "scenario": "mandate.delegation.CompleteExecution/outcome/wrong-state",

@@ -104,8 +104,9 @@ pub fn assert_event_conforms(ess_name: &str, payload: &Value) {
 
 /// Check what an outcome emitted against what the contract declares it emits.
 ///
-/// Reads `generated/ir/system.json`. An accepted outcome declares exactly one event and
-/// must have emitted exactly that one; an error outcome declares none and must have
+/// Reads `generated/ir/system.json`. An accepted outcome declares at least one event and
+/// must have emitted exactly those, in the declared order (`RedeemAuthorizationCode`'s
+/// `accepted-with-identity-token` declares two); an error outcome declares none and must have
 /// emitted none. `emitted` carries the event names and their payloads in emission
 /// order; only the names and the count are decided here, the payloads are for
 /// [`check_event_conforms`].
@@ -141,12 +142,26 @@ pub fn check_single_emission(
             listed(&actual)
         ));
     }
-    let [single] = declared.as_slice() else {
-        return Err(format!(
-            "{command}/{outcome}: an accepted outcome emits exactly one event, but {IR_NAME} declares {}: {}",
-            declared.len(),
-            listed(&declared)
-        ));
+    let single = match declared.as_slice() {
+        [] => {
+            return Err(format!(
+                "{command}/{outcome}: an accepted outcome emits at least one event, but {IR_NAME} declares none"
+            ));
+        }
+        [single] => single,
+        several => {
+            return if actual == several {
+                Ok(())
+            } else {
+                Err(format!(
+                    "{command}/{outcome}: the contract declares exactly {} events, in this order: {}, but {} emitted: {}",
+                    several.len(),
+                    listed(several),
+                    counted(actual.len()),
+                    listed(&actual)
+                ))
+            };
+        }
     };
     match actual.as_slice() {
         [one] if one == single => Ok(()),
