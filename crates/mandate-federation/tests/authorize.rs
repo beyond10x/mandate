@@ -121,7 +121,11 @@ fn clients() -> RecordedClients {
         .with_client(OAuthClient {
             id: client_id(),
             organization_id: organization(),
-            public: true,
+            client_type: mandate_types::OAuthClientType::Public,
+            secret_verifiers: Vec::new(),
+            pkce_required: true,
+            trusted_peers: Vec::new(),
+            post_logout_redirect_uris: Vec::new(),
             redirect_uris: vec![
                 RedirectUri::new(REGISTERED),
                 RedirectUri::new(SECOND_REGISTERED),
@@ -639,7 +643,11 @@ fn a_client_bound_to_another_organization_than_the_session_is_refused() {
     let clients = RecordedClients::new().with_client(OAuthClient {
         id: client_id(),
         organization_id: OrganizationId::new(uuid(11)),
-        public: true,
+        client_type: mandate_types::OAuthClientType::Public,
+        secret_verifiers: Vec::new(),
+        pkce_required: true,
+        trusted_peers: Vec::new(),
+        post_logout_redirect_uris: Vec::new(),
         redirect_uris: vec![RedirectUri::new(REGISTERED)],
         pkce_method: PkceMethod::S256,
         state: OAuthClientState::Recorded,
@@ -895,7 +903,11 @@ fn every_phrase_of_the_declared_denial_is_decided_here_or_assigned_to_sts() {
         .with_client(OAuthClient {
             id: client_id(),
             organization_id: organization(),
-            public: true,
+            client_type: mandate_types::OAuthClientType::Public,
+            secret_verifiers: Vec::new(),
+            pkce_required: true,
+            trusted_peers: Vec::new(),
+            post_logout_redirect_uris: Vec::new(),
             redirect_uris: vec![RedirectUri::new(REGISTERED)],
             pkce_method: PkceMethod::S256,
             state: OAuthClientState::Disabled,
@@ -1165,7 +1177,11 @@ fn a_client_registered_through_the_real_command_is_what_the_validation_reads() {
     let registered = register_o_auth_client(
         &RegisterOAuthClient {
             context: identity_context(),
-            public: true,
+            client_type: mandate_types::OAuthClientType::Public,
+            secret_verifiers: Vec::new(),
+            pkce_required: true,
+            trusted_peers: Vec::new(),
+            post_logout_redirect_uris: Vec::new(),
             redirect_uris: vec![RedirectUri::new(REGISTERED)],
             pkce_method: PkceMethod::S256,
         },

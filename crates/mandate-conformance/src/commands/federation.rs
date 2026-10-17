@@ -458,9 +458,13 @@ pub fn register_oauth_client(
     const COMMAND: &str = "mandate.federation.RegisterOAuthClient";
     let input = register_client::RegisterOAuthClient {
         context: node::field(&request.input, "context")?,
-        public: node::field(&request.input, "public")?,
+        client_type: node::field(&request.input, "client_type")?,
+        secret_verifiers: node::field(&request.input, "secret_verifiers")?,
         redirect_uris: node::field(&request.input, "redirect_uris")?,
         pkce_method: node::field(&request.input, "pkce_method")?,
+        pkce_required: node::field(&request.input, "pkce_required")?,
+        trusted_peers: node::field(&request.input, "trusted_peers")?,
+        post_logout_redirect_uris: node::field(&request.input, "post_logout_redirect_uris")?,
     };
     let standing = standing_admission(&input.context, &input.redirect_uris);
     let reader = Substituted::new();

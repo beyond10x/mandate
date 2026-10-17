@@ -153,6 +153,7 @@ pub const fn declared(reason: DenialReason) -> DecisionReason {
         DenialReason::AudienceMismatch => DecisionReason::AudienceMismatch,
         DenialReason::Unavailable => DecisionReason::Unavailable,
         DenialReason::StaleEpoch => DecisionReason::StaleEpoch,
+        DenialReason::InvalidClient => DecisionReason::InvalidClient,
     }
 }
 

@@ -75,7 +75,7 @@ fn populated_rule() -> TenantResolutionRule {
     TenantResolutionRule {
         configured_organization: OrganizationId::new(uuid(3)),
         verified_claim_name: Some("tenant".to_owned()),
-        verified_claim_value: Some("acme".to_owned()),
+        verified_claim_values: Some(vec!["acme".to_owned()]),
     }
 }
 
@@ -84,7 +84,7 @@ fn bare_rule() -> TenantResolutionRule {
     TenantResolutionRule {
         configured_organization: OrganizationId::new(uuid(3)),
         verified_claim_name: None,
-        verified_claim_value: None,
+        verified_claim_values: None,
     }
 }
 
@@ -209,7 +209,11 @@ fn events(context: &VerifiedContext, rule: &TenantResolutionRule) -> Vec<Federat
             context: context.clone(),
             id: client(),
             organization_id: OrganizationId::new(uuid(3)),
-            public: true,
+            client_type: mandate_types::OAuthClientType::Public,
+            secret_verifiers: Vec::new(),
+            pkce_required: true,
+            trusted_peers: Vec::new(),
+            post_logout_redirect_uris: Vec::new(),
             redirect_uris: vec![RedirectUri::new("https://app.example/callback")],
             pkce_method: PkceMethod::S256,
         },
@@ -608,7 +612,11 @@ fn every_command_input_round_trips_into_its_generated_shape() {
         ] {
             let register_client = RegisterOAuthClient {
                 context: context.clone(),
-                public: true,
+                client_type: mandate_types::OAuthClientType::Public,
+                secret_verifiers: Vec::new(),
+                pkce_required: true,
+                trusted_peers: Vec::new(),
+                post_logout_redirect_uris: Vec::new(),
                 redirect_uris,
                 pkce_method: PkceMethod::S256,
             };
@@ -686,7 +694,11 @@ fn every_entity_record_round_trips_into_its_generated_shape_in_every_declared_st
         let oauth_client = OAuthClient {
             id: client(),
             organization_id: OrganizationId::new(uuid(3)),
-            public: true,
+            client_type: mandate_types::OAuthClientType::Public,
+            secret_verifiers: Vec::new(),
+            pkce_required: true,
+            trusted_peers: Vec::new(),
+            post_logout_redirect_uris: Vec::new(),
             redirect_uris: vec![RedirectUri::new("https://app.example/callback")],
             pkce_method: PkceMethod::S256,
             state,
@@ -806,7 +818,7 @@ fn coverage_manifest_claims() -> std::collections::BTreeMap<String, (String, Str
             ),
         );
     }
-    assert_eq!(claims.len(), 297, "the coverage manifest's element count");
+    assert_eq!(claims.len(), 300, "the coverage manifest's element count");
     claims
 }
 

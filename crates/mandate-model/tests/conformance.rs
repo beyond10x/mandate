@@ -75,7 +75,7 @@ fn the_realized_set_is_exactly_the_share_this_crate_owns() {
         .collect();
     owned.sort_unstable();
     assert_eq!(realized, owned);
-    assert_eq!(realized.len(), 4);
+    assert_eq!(realized.len(), 5);
 }
 
 fn audit_record() -> AuditRecord {
@@ -178,7 +178,7 @@ fn a_tenant_rule_keeps_its_configured_organization_required() {
     let rule = TenantResolutionRule {
         configured_organization: OrganizationId::parse(SAMPLE_UUID).expect("organization"),
         verified_claim_name: None,
-        verified_claim_value: None,
+        verified_claim_values: None,
     };
     let encoded = serde_json::to_string(&rule).expect("encode");
     assert_eq!(

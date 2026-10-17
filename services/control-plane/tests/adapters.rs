@@ -128,7 +128,15 @@ fn recorded_client(public: bool, state: OAuthClientState) -> Projection {
         context: context(),
         id: client(),
         organization_id: organization(),
-        public,
+        client_type: if public {
+            mandate_types::OAuthClientType::Public
+        } else {
+            mandate_types::OAuthClientType::Confidential
+        },
+        secret_verifiers: Vec::new(),
+        pkce_required: public,
+        trusted_peers: Vec::new(),
+        post_logout_redirect_uris: Vec::new(),
         redirect_uris: vec![redirect()],
         pkce_method: PkceMethod::S256,
     })
@@ -763,7 +771,7 @@ fn a_just_in_time_login_records_the_principal_its_event_declares() {
             tenant_resolution: mandate_model::TenantResolutionRule {
                 configured_organization: organization(),
                 verified_claim_name: None,
-                verified_claim_value: None,
+                verified_claim_values: None,
             },
             jit_provisioning: true,
         })

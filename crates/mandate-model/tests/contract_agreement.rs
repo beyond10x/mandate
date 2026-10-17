@@ -850,13 +850,13 @@ fn the_realization_registry_names_exactly_the_projections_payloads_and_records_t
     assert_eq!(
         registered, expected,
         "the registry is not every element this crate implements: seven projections and \
-         their seven lifecycle enums, fourteen payloads, four accepted records, eleven commands and \
+         their seven lifecycle enums, fourteen payloads, five accepted records, eleven commands and \
          two refusals",
     );
     assert_eq!(
         mandate_model::ESS_REALIZATIONS.len(),
-        45,
-        "the registry pins 45 elements: 22 as it stood, the six lifecycle enums wave D's \
+        46,
+        "the registry pins 46 elements: 23 as it stood, the six lifecycle enums wave D's \
          first correction round moved off the generated shapes, the ten tenancy commands \
          this crate decides plus the domain's refusal, registered by the second, and the \
          workload revocation, its payload and its refusal, the authentication payload, and the \

@@ -51,8 +51,8 @@
 use serde::Serialize;
 
 use mandate_types::{
-    DenialReason, OAuthClientId, OrganizationId, PkceMethod, PrincipalId, RedirectUri,
-    VerifiedContext,
+    CredentialVerifier, DenialReason, OAuthClientId, OAuthClientType, OrganizationId, PkceMethod,
+    PrincipalId, RedirectUri, VerifiedContext,
 };
 
 use crate::record::FederationEvent;
@@ -66,12 +66,20 @@ use crate::{DenialClause, Denied, IdentityAllocator};
 pub struct RegisterOAuthClient {
     /// The declared `context`.
     pub context: VerifiedContext,
-    /// The declared `public`.
-    pub public: bool,
+    /// The declared `client_type`.
+    pub client_type: OAuthClientType,
+    /// The declared `secret_verifiers`.
+    pub secret_verifiers: Vec<CredentialVerifier>,
     /// The declared `redirect_uris`: the exact set that will be admitted.
     pub redirect_uris: Vec<RedirectUri>,
     /// The declared `pkce_method`.
     pub pkce_method: PkceMethod,
+    /// The declared `pkce_required`.
+    pub pkce_required: bool,
+    /// The declared `trusted_peers`.
+    pub trusted_peers: Vec<OAuthClientId>,
+    /// The declared `post_logout_redirect_uris`.
+    pub post_logout_redirect_uris: Vec<RedirectUri>,
 }
 
 /// The accepted outcome of [`RegisterOAuthClient`].
@@ -169,9 +177,13 @@ pub fn register_o_auth_client(
             context: input.context.clone(),
             id,
             organization_id,
-            public: input.public,
+            client_type: input.client_type,
+            secret_verifiers: input.secret_verifiers.clone(),
             redirect_uris: input.redirect_uris.clone(),
             pkce_method: input.pkce_method,
+            pkce_required: input.pkce_required,
+            trusted_peers: input.trusted_peers.clone(),
+            post_logout_redirect_uris: input.post_logout_redirect_uris.clone(),
         },
     })
 }

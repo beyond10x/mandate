@@ -14,7 +14,7 @@ fn every_accepted_type_carries_a_wire_contract() {
     let mut accepted: Vec<&str> = ACCEPTED.iter().map(|entry| entry.ess_name).collect();
     accepted.sort_unstable();
     assert_eq!(wired, accepted, "an accepted type with no wire contract");
-    assert_eq!(wired.len(), 75);
+    assert_eq!(wired.len(), 77);
 }
 
 /// The six records `mandate-model` and `mandate-token` declare are on the wire by the
@@ -37,12 +37,12 @@ fn the_records_owned_by_other_crates_cross_the_wire_through_this_one() {
             covered += 1;
         }
     }
-    assert_eq!(covered, 6);
+    assert_eq!(covered, 7);
 
     let record = mandate_model::TenantResolutionRule {
         configured_organization: OrganizationId::parse(SAMPLE_UUID).expect("organization"),
         verified_claim_name: None,
-        verified_claim_value: None,
+        verified_claim_values: None,
     };
     let wire = record.to_wire().expect("encode");
     assert_eq!(

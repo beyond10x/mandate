@@ -99,7 +99,7 @@ fn unconditional(organization_id: OrganizationId) -> TenantResolutionRule {
     TenantResolutionRule {
         configured_organization: organization_id,
         verified_claim_name: None,
-        verified_claim_value: None,
+        verified_claim_values: None,
     }
 }
 
@@ -464,7 +464,11 @@ fn an_oauth_client_replays_from_its_events() {
     let registered = register_o_auth_client(
         &RegisterOAuthClient {
             context: context(organization(10)),
-            public: true,
+            client_type: mandate_types::OAuthClientType::Public,
+            secret_verifiers: Vec::new(),
+            pkce_required: true,
+            trusted_peers: Vec::new(),
+            post_logout_redirect_uris: Vec::new(),
             redirect_uris: vec![RedirectUri::new(REDIRECT)],
             pkce_method: PkceMethod::S256,
         },
@@ -491,7 +495,11 @@ fn an_oauth_client_replays_from_its_events() {
         [OAuthClient {
             id: registered.id,
             organization_id: organization(10),
-            public: true,
+            client_type: mandate_types::OAuthClientType::Public,
+            secret_verifiers: Vec::new(),
+            pkce_required: true,
+            trusted_peers: Vec::new(),
+            post_logout_redirect_uris: Vec::new(),
             redirect_uris: vec![RedirectUri::new(REDIRECT)],
             pkce_method: PkceMethod::S256,
             state: OAuthClientState::Disabled,

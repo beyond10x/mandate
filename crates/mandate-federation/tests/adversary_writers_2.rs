@@ -115,7 +115,7 @@ fn connection_created(organization_id: OrganizationId) -> FederationEvent {
         tenant_resolution: TenantResolutionRule {
             configured_organization: organization_id,
             verified_claim_name: None,
-            verified_claim_value: None,
+            verified_claim_values: None,
         },
         jit_provisioning: true,
     }
@@ -170,7 +170,15 @@ fn registered(
 ) -> (RegisterOAuthClient, OAuthClientRegistered) {
     let input = RegisterOAuthClient {
         context: context(organization_id),
-        public,
+        client_type: if public {
+            mandate_types::OAuthClientType::Public
+        } else {
+            mandate_types::OAuthClientType::Confidential
+        },
+        secret_verifiers: Vec::new(),
+        pkce_required: public,
+        trusted_peers: Vec::new(),
+        post_logout_redirect_uris: Vec::new(),
         redirect_uris: vec![RedirectUri::new(REDIRECT)],
         pkce_method: PkceMethod::S256,
     };
@@ -269,14 +277,14 @@ fn probe_a_confidential_client_is_registrable_and_refused_at_authorization() {
     )
     .expect("every payload field is the source the contract declares for it");
     assert_eq!(
-        payload.get("public"),
-        Some(&Value::Bool(false)),
+        payload.get("client_type"),
+        Some(&json!("Confidential")),
         "the event carries the `public` the input named, not a literal"
     );
 
     let fold = Projection::fold(&[outcome.event]).expect("one creation");
     assert!(
-        !fold.clients()[0].public,
+        fold.clients()[0].client_type == mandate_types::OAuthClientType::Confidential,
         "the fold materializes the `public` the event carried"
     );
 
@@ -310,7 +318,11 @@ fn probe_a_second_registration_under_one_identity_leaves_the_first_record_standi
         context: context(organization(11)),
         id: first.id,
         organization_id: organization(11),
-        public: false,
+        client_type: mandate_types::OAuthClientType::Confidential,
+        secret_verifiers: Vec::new(),
+        pkce_required: false,
+        trusted_peers: Vec::new(),
+        post_logout_redirect_uris: Vec::new(),
         redirect_uris: vec![RedirectUri::new("https://other.example/callback")],
         pkce_method: PkceMethod::S256,
     };
@@ -330,7 +342,7 @@ fn probe_a_second_registration_under_one_identity_leaves_the_first_record_standi
     );
     let standing: &OAuthClient = &replayed.clients()[0];
     assert_eq!(standing.organization_id, organization(10));
-    assert!(standing.public);
+    assert_eq!(standing.client_type, mandate_types::OAuthClientType::Public);
     assert_eq!(standing.redirect_uris, vec![RedirectUri::new(REDIRECT)]);
 }
 
@@ -346,7 +358,11 @@ fn probe_a_denied_registration_burns_no_client_identity() {
     let mut allocator = SequentialAllocator::new();
     let input = RegisterOAuthClient {
         context: context(organization(10)),
-        public: true,
+        client_type: mandate_types::OAuthClientType::Public,
+        secret_verifiers: Vec::new(),
+        pkce_required: true,
+        trusted_peers: Vec::new(),
+        post_logout_redirect_uris: Vec::new(),
         redirect_uris: vec![RedirectUri::new(REDIRECT)],
         pkce_method: PkceMethod::S256,
     };

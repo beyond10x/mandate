@@ -175,7 +175,7 @@ fn deployment_configured(
             tenant_resolution: mandate_model::TenantResolutionRule {
                 configured_organization: organization(),
                 verified_claim_name: None,
-                verified_claim_value: None,
+                verified_claim_values: None,
             },
             jit_provisioning: false,
         })
@@ -196,7 +196,11 @@ fn deployment_configured(
             context: context(),
             id: client(),
             organization_id: organization(),
-            public: true,
+            client_type: mandate_types::OAuthClientType::Public,
+            secret_verifiers: Vec::new(),
+            pkce_required: true,
+            trusted_peers: Vec::new(),
+            post_logout_redirect_uris: Vec::new(),
             redirect_uris: vec![RedirectUri::new(redirect)],
             pkce_method: PkceMethod::S256,
         })
@@ -1639,7 +1643,11 @@ fn deployment_from_documents(
             context: context(),
             id: client(),
             organization_id: organization(),
-            public: true,
+            client_type: mandate_types::OAuthClientType::Public,
+            secret_verifiers: Vec::new(),
+            pkce_required: true,
+            trusted_peers: Vec::new(),
+            post_logout_redirect_uris: Vec::new(),
             redirect_uris: vec![RedirectUri::new(REDIRECT)],
             pkce_method: PkceMethod::S256,
         })
@@ -2050,7 +2058,7 @@ fn deployment_verified_by<V: FederationVerifier>(
             tenant_resolution: mandate_model::TenantResolutionRule {
                 configured_organization: organization(),
                 verified_claim_name: None,
-                verified_claim_value: None,
+                verified_claim_values: None,
             },
             jit_provisioning,
         })
@@ -2947,7 +2955,7 @@ fn two_connections_on_one_issuer_from_a_log_are_still_refused_as_ambiguous() {
             tenant_resolution: mandate_model::TenantResolutionRule {
                 configured_organization: other_organization(),
                 verified_claim_name: None,
-                verified_claim_value: None,
+                verified_claim_values: None,
             },
             jit_provisioning: false,
         })

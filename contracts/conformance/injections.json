@@ -558,6 +558,34 @@
       "consulted": 0
     },
     {
+      "scenario": "mandate.federation/authored/federation-groups-over-cap-refused",
+      "command": "mandate.federation.AuthenticateFederation",
+      "port": "mandate_federation::FederationVerifier",
+      "kind": "input-decided",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.federation/authored/federation-hosted-domain-unlisted-refused",
+      "command": "mandate.federation.AuthenticateFederation",
+      "port": "mandate_federation::FederationVerifier",
+      "kind": "input-decided",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.federation/authored/federation-hosted-domain-unlisted-refused",
+      "command": "mandate.federation.AuthenticateFederation",
+      "port": "mandate_federation::FederationVerifier",
+      "kind": "input-decided",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.federation/authored/federation-hosted-domain-unlisted-refused",
+      "command": "mandate.federation.ProvisionExternalPrincipal",
+      "port": "mandate_federation::FederationVerifier",
+      "kind": "input-decided",
+      "consulted": 0
+    },
+    {
       "scenario": "mandate.federation/authored/federation-issuer-mismatch",
       "command": "mandate.federation.AuthenticateFederation",
       "port": "mandate_federation::FederationVerifier",
@@ -584,6 +612,27 @@
       "port": "mandate_federation::FederationVerifier",
       "kind": "input-decided",
       "consulted": 0
+    },
+    {
+      "scenario": "mandate.federation/authored/oidc-client-peer-unknown-refused",
+      "command": "mandate.federation.RegisterOAuthClient",
+      "port": "mandate_federation::register_client::ClientRegistrationAdmission",
+      "kind": "armed-unrefused",
+      "consulted": 1
+    },
+    {
+      "scenario": "mandate.federation/authored/oidc-client-public-pkce-optional-refused",
+      "command": "mandate.federation.RegisterOAuthClient",
+      "port": "mandate_federation::register_client::ClientRegistrationAdmission",
+      "kind": "armed-unrefused",
+      "consulted": 1
+    },
+    {
+      "scenario": "mandate.federation/authored/oidc-client-public-with-secret-refused",
+      "command": "mandate.federation.RegisterOAuthClient",
+      "port": "mandate_federation::register_client::ClientRegistrationAdmission",
+      "kind": "armed-unrefused",
+      "consulted": 1
     },
     {
       "scenario": "mandate.graph.DeregisterResource/outcome/denied",
@@ -1197,6 +1246,36 @@
     },
     {
       "scenario": "mandate.federation.UnlinkExternalPrincipal/outcome/wrong-state",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.federation/authored/federation-groups-over-cap-refused",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.federation/authored/federation-hosted-domain-listed",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.federation/authored/federation-hosted-domain-unlisted-refused",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.federation/authored/federation-profile-groups-filtered",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.federation/authored/federation-profile-observed-on-login",
       "command": "",
       "reason": "expectation-unmet",
       "blocked_on": "story:conform-gate"

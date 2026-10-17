@@ -112,7 +112,7 @@ mandate_types::realizes! {
 /// registry also realizes is a contradiction, and an element neither one names is an
 /// element nobody accounted for. `mandate-identity` carries the same pair for its domain.
 ///
-/// There are two, and neither is an oversight. Both are `story:oauth-integration`'s, which
+/// There are three, and none is an oversight. The first two are `story:oauth-integration`'s, which
 /// `decision-blocker:epoch-atomicity` holds.
 ///
 /// * `mandate.federation.AuthorizePublicClient`. [`authorize::validate_authorization_code`]
@@ -140,6 +140,11 @@ pub const ESS_UNREALIZED: &[(&str, &str)] = &[
          AuthorizationCodeIssued the STS call returns, and this crate declares no payload for \
          this domain's event; owner story:oauth-integration, blocked on \
          decision-blocker:epoch-atomicity",
+    ),
+    (
+        "mandate.federation.ExternalProfileObserved",
+        "AuthenticateFederation declares it beside FederationAuthenticated, and this crate emits \
+         the first alone; owner story:oidc-google-upstream",
     ),
 ];
 

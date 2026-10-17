@@ -105,7 +105,11 @@ fn context() -> VerifiedContext {
 fn a_registration(redirect_uris: Vec<RedirectUri>) -> RegisterOAuthClient {
     RegisterOAuthClient {
         context: context(),
-        public: true,
+        client_type: mandate_types::OAuthClientType::Public,
+        secret_verifiers: Vec::new(),
+        pkce_required: true,
+        trusted_peers: Vec::new(),
+        post_logout_redirect_uris: Vec::new(),
         redirect_uris,
         pkce_method: PkceMethod::S256,
     }

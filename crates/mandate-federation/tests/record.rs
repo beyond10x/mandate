@@ -72,7 +72,7 @@ fn unconditional(organization_id: OrganizationId) -> TenantResolutionRule {
     TenantResolutionRule {
         configured_organization: organization_id,
         verified_claim_name: None,
-        verified_claim_value: None,
+        verified_claim_values: None,
     }
 }
 
@@ -542,7 +542,7 @@ fn a_connection_is_unadmitted_where_another_organization_resolves_the_issuer_unc
         tenant_resolution: TenantResolutionRule {
             configured_organization: organization(11),
             verified_claim_name: Some(String::from("org")),
-            verified_claim_value: Some(String::from("eleven")),
+            verified_claim_values: Some(vec![String::from("eleven")]),
         },
         jit_provisioning: false,
     };
@@ -671,7 +671,7 @@ fn a_conditional_rule_another_organization_already_holds_is_unadmitted() {
         tenant_resolution: TenantResolutionRule {
             configured_organization: organization(10),
             verified_claim_name: Some(String::from("org")),
-            verified_claim_value: Some(String::from("acme")),
+            verified_claim_values: Some(vec![String::from("acme")]),
         },
         jit_provisioning: false,
     }];
@@ -684,7 +684,7 @@ fn a_conditional_rule_another_organization_already_holds_is_unadmitted() {
         tenant_resolution: TenantResolutionRule {
             configured_organization: organization(11),
             verified_claim_name: Some(String::from("org")),
-            verified_claim_value: Some(String::from("acme")),
+            verified_claim_values: Some(vec![String::from("acme")]),
         },
         jit_provisioning: false,
     };
@@ -709,7 +709,7 @@ fn a_rule_on_a_different_claim_name_on_a_shared_issuer_is_unadmitted() {
         tenant_resolution: TenantResolutionRule {
             configured_organization: organization(10),
             verified_claim_name: Some(String::from("org")),
-            verified_claim_value: Some(String::from("acme")),
+            verified_claim_values: Some(vec![String::from("acme")]),
         },
         jit_provisioning: false,
     }];
@@ -724,7 +724,7 @@ fn a_rule_on_a_different_claim_name_on_a_shared_issuer_is_unadmitted() {
             tenant_resolution: TenantResolutionRule {
                 configured_organization: organization(11),
                 verified_claim_name: Some(String::from(name)),
-                verified_claim_value: Some(String::from(value)),
+                verified_claim_values: Some(vec![String::from(value)]),
             },
             jit_provisioning: false,
         };
@@ -754,7 +754,7 @@ fn a_different_claim_value_on_a_shared_issuer_is_admitted() {
         tenant_resolution: TenantResolutionRule {
             configured_organization: organization(10),
             verified_claim_name: Some(String::from("org")),
-            verified_claim_value: Some(String::from("acme")),
+            verified_claim_values: Some(vec![String::from("acme")]),
         },
         jit_provisioning: false,
     }];
@@ -765,12 +765,12 @@ fn a_different_claim_value_on_a_shared_issuer_is_admitted() {
         TenantResolutionRule {
             configured_organization: organization(11),
             verified_claim_name: Some(String::from("org")),
-            verified_claim_value: Some(String::from("beta")),
+            verified_claim_values: Some(vec![String::from("beta")]),
         },
         TenantResolutionRule {
             configured_organization: organization(11),
             verified_claim_name: Some(String::from("org")),
-            verified_claim_value: Some(String::from("ACME")),
+            verified_claim_values: Some(vec![String::from("ACME")]),
         },
     ] {
         let input = RegisterFederationConnection {
@@ -996,7 +996,11 @@ fn an_oauth_client_registration_materializes_the_record_the_event_carries() {
         context: context(organization(11)),
         id: OAuthClientId::new(uuid(0x0c)),
         organization_id: organization(10),
-        public: true,
+        client_type: mandate_types::OAuthClientType::Public,
+        secret_verifiers: Vec::new(),
+        pkce_required: true,
+        trusted_peers: Vec::new(),
+        post_logout_redirect_uris: Vec::new(),
         redirect_uris: vec![RedirectUri::new("https://app.example/callback")],
         pkce_method: PkceMethod::S256,
     }];
@@ -1008,7 +1012,11 @@ fn an_oauth_client_registration_materializes_the_record_the_event_carries() {
         [OAuthClient {
             id: OAuthClientId::new(uuid(0x0c)),
             organization_id: organization(10),
-            public: true,
+            client_type: mandate_types::OAuthClientType::Public,
+            secret_verifiers: Vec::new(),
+            pkce_required: true,
+            trusted_peers: Vec::new(),
+            post_logout_redirect_uris: Vec::new(),
             redirect_uris: vec![RedirectUri::new("https://app.example/callback")],
             pkce_method: PkceMethod::S256,
             state: OAuthClientState::Recorded,

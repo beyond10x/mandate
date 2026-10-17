@@ -225,7 +225,9 @@ impl<C: OAuthClientStore> OAuthClientReads for OAuthClientReadsOver<'_, C> {
     }
 
     fn is_public(&self, id: &OAuthClientId) -> Option<bool> {
-        self.0.client(id).map(|client| client.public)
+        self.0
+            .client(id)
+            .map(|client| client.client_type == mandate_types::OAuthClientType::Public)
     }
 
     /// Byte for byte, and nothing is normalized — not a trailing slash, not the case of a
@@ -2091,9 +2093,17 @@ impl ClientSeed {
                 context: seeded_context(self.organization),
                 id: client_id,
                 organization_id: self.organization,
-                public: self.public,
+                client_type: if self.public {
+                    mandate_types::OAuthClientType::Public
+                } else {
+                    mandate_types::OAuthClientType::Confidential
+                },
+                secret_verifiers: Vec::new(),
                 redirect_uris: self.redirect_uris.clone(),
                 pkce_method: self.pkce_method,
+                pkce_required: self.public,
+                trusted_peers: Vec::new(),
+                post_logout_redirect_uris: Vec::new(),
             }],
         }
     }

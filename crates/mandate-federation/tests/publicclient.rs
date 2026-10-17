@@ -47,7 +47,15 @@ fn client(public: bool, state: OAuthClientState) -> OAuthClient {
     OAuthClient {
         id: client_id(0x0c),
         organization_id: organization(10),
-        public,
+        client_type: if public {
+            mandate_types::OAuthClientType::Public
+        } else {
+            mandate_types::OAuthClientType::Confidential
+        },
+        secret_verifiers: Vec::new(),
+        pkce_required: public,
+        trusted_peers: Vec::new(),
+        post_logout_redirect_uris: Vec::new(),
         redirect_uris: vec![redirect(REGISTERED), redirect(SECOND_REGISTERED)],
         pkce_method: PkceMethod::S256,
         state,
@@ -211,7 +219,11 @@ fn a_client_registered_through_the_real_command_is_what_the_port_resolves() {
             execution: None,
             correlation: CorrelationId::new("declared-writers"),
         },
-        public: true,
+        client_type: mandate_types::OAuthClientType::Public,
+        secret_verifiers: Vec::new(),
+        pkce_required: true,
+        trusted_peers: Vec::new(),
+        post_logout_redirect_uris: Vec::new(),
         redirect_uris: vec![redirect(REGISTERED), redirect(SECOND_REGISTERED)],
         pkce_method: PkceMethod::S256,
     };
@@ -242,7 +254,11 @@ fn a_client_registered_through_the_real_command_is_what_the_port_resolves() {
             OAuthClient {
                 id: registered.id,
                 organization_id: organization(10),
-                public: true,
+                client_type: mandate_types::OAuthClientType::Public,
+                secret_verifiers: Vec::new(),
+                pkce_required: true,
+                trusted_peers: Vec::new(),
+                post_logout_redirect_uris: Vec::new(),
                 redirect_uris: vec![redirect(REGISTERED), redirect(SECOND_REGISTERED)],
                 pkce_method: PkceMethod::S256,
                 state: OAuthClientState::Recorded,

@@ -140,6 +140,7 @@ fn the_conformance_registry_is_still_exactly_the_four_records_wave_one_realized(
         realized,
         vec![
             "mandate.core.TenantResolutionRule",
+            "mandate.core.GroupFilter",
             "mandate.core.DecisionChallenge",
             "mandate.core.Decision",
             "mandate.core.AuditRecord",
@@ -154,7 +155,7 @@ fn the_model_owned_share_of_the_accepted_account_is_still_four() {
         .filter(|accepted| accepted.owner == Owner::Model)
         .map(|accepted| accepted.ess_name)
         .collect();
-    assert_eq!(owned.len(), 4, "accepted types owned by mandate-model");
+    assert_eq!(owned.len(), 5, "accepted types owned by mandate-model");
     for name in &owned {
         assert!(
             name.starts_with("mandate.core."),
