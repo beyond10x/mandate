@@ -187,15 +187,15 @@ fn every_element_the_model_declares_is_emitted_exactly_once() {
     }
 
     // The figures this wave measured, so a silently shrinking emission is a failure here too.
-    assert_eq!(declarations(&files["events.rs"]).len(), 76);
+    assert_eq!(declarations(&files["events.rs"]).len(), 79);
     assert_eq!(declarations(&files["entities.rs"]).len(), 72); // 36 entities and 36 state enums
-    assert_eq!(declarations(&files["commands.rs"]).len(), 102); // 63 inputs, 28 responses, 11 errors
-    assert_eq!(declarations(&files["types.rs"]).len(), 76); // 111 types less 36 states, and Presence
+    assert_eq!(declarations(&files["commands.rs"]).len(), 104); // 64 inputs, 29 responses, 11 errors
+    assert_eq!(declarations(&files["types.rs"]).len(), 77); // 112 types less 36 states, and Presence
 }
 
 /// A response is emitted for the command that declares one, and only for it.
 ///
-/// 35 of the 63 commands carry no `response` key at all. An emitter that answered them with an
+/// 35 of the 64 commands carry no `response` key at all. An emitter that answered them with an
 /// empty record would be inventing a declaration the contract does not make, and every reader
 /// of the crate would then take the silence for a shape.
 #[test]
@@ -207,7 +207,7 @@ fn only_a_command_that_declares_a_response_is_given_one() {
         .values()
         .filter(|command| command.get("response").is_some())
         .count();
-    assert_eq!(declared, 28);
+    assert_eq!(declared, 29);
     assert_eq!(
         declarations(&files["commands.rs"])
             .iter()

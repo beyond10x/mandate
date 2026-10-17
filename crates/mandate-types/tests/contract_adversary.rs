@@ -171,8 +171,8 @@ fn the_reader_sees_the_contract_it_claims_to_see() {
     );
     assert_eq!(
         contract.commands.len(),
-        63,
-        "the compiled model holds 63 commands"
+        64,
+        "the compiled model holds 64 commands"
     );
 
     let key = contract
@@ -703,13 +703,13 @@ fn the_second_reader_sees_the_contract_it_claims_to_see() {
     );
     assert_eq!(
         model.operations.len(),
-        63,
-        "the compiled model holds 63 commands"
+        64,
+        "the compiled model holds 64 commands"
     );
     assert_eq!(
         model.notices.len(),
-        76,
-        "the compiled model holds 76 events"
+        79,
+        "the compiled model holds 79 events"
     );
 
     let client = model.record("mandate.federation.OAuthClient");

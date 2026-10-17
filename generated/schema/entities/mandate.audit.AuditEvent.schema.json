@@ -128,8 +128,8 @@
   "x-ess-provenance": {
     "system": "mandate",
     "specification_version": "v1",
-    "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
-    "contract_digest": "slice-sha256/2:c619c48c1e739443252c488384f8f2fb9f34f108878c9f3dd7e7d716ad11894a",
+    "source_digest": "39c2e76bf7f91b5354f0f5a59eb7e9ccc33cca0652d30f18fe8e396164e689ce",
+    "contract_digest": "slice-sha256/2:6b4431956ee856750eeb2db95afc008c653e56a82d50ff6b9f40ef68c0a03c7c",
     "regenerate": "ess generate"
   },
   "$defs": {

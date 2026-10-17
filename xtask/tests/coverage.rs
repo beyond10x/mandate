@@ -94,7 +94,7 @@ fn the_committed_manifest_agrees_with_the_compiled_contract_the_store_and_the_te
         assert!(report.contains(kind), "the table states {kind}:\n{report}");
     }
     assert!(
-        report.contains("297"),
+        report.contains("302"),
         "the table states the element total:\n{report}"
     );
 }
@@ -590,7 +590,7 @@ fn no_entry_of_the_committed_manifest_names_a_generated_contract_symbol() {
     let entries = parsed["entries"]
         .as_array()
         .expect("the manifest's entries");
-    assert_eq!(entries.len(), 297, "the manifest's element count");
+    assert_eq!(entries.len(), 302, "the manifest's element count");
     let mut claimed = Vec::new();
     for entry in entries {
         for symbol in entry["impl"].as_array().map(Vec::as_slice).unwrap_or(&[]) {

@@ -8,7 +8,17 @@
 # SessionOpened carries the same six Session fields for a session opened without federation. No command in this contract declares such an open, so no outcome emits it today, and it is reserved rather than dead: the writer is the mandate-control-plane component that publishes it (components.yaml). The two events name the record's identity differently — SessionOpened by id, FederationAuthenticated by session_id — and the two are one opening rule: a session identity any recorded event names has been opened once, so a second open by either event, after either event, is refused at append and never reaches the fold (mandate-identity IdentityLog::try_record, through IdentityLog::refusal). That refusal is the adapter's: this file declares none, because no invariant, view, open command or outcome in the compiled model could carry one.
 # mandate.identity.Principal is seeded by mandate.federation.ExternalPrincipalProvisioned, which carries principal_id, kind and display_name — the whole Principal record — and the identity fold materializes the principal from that event alone. No command in this contract declares the Principal's creation: ProvisionExternalPrincipal's accepted outcome spends its one subject on mandate.federation.ExternalPrincipal, and an ESS outcome declares one creates/moves/updates, so the writer is declared here rather than by a second creates:. A principal named by LinkExternalPrincipal rather than provisioned is seeded by no event today and has no record until a command creates one; that command is story:declared-writers' remaining unit, not this file's. The seeding event binds kind to the literal User, so this contract declares a writer for User principals alone: Agent, Service and ServiceAccount principals of mandate.core.PrincipalKind have none, and mandate.delegation.Agent and mandate.workload.WorkloadIdentity are records of principals that are not users. The three scenarios ess verify conform synthesize refuses for mandate.identity.Principal stay refused until a RegisterPrincipal command lands (story:declared-writers, a later wave); this declaration closes the federated first login and nothing else.
 # EpochSnapshotRecorded and SecurityEpochRecorded are the seeding events for the snapshot and the generation each dimension held. No command outcome creates a snapshot or a generation record and no outcome emits either event, so the adapter writes one per record it seeds and the identity fold consumes them. AuthenticateFederation mints the snapshot handle the session is bound to; the snapshot's own contents arrive on EpochSnapshotRecorded. Precedent for a declared event no command outcome emits: domains/audit.yaml, published by mandate-worker.
+# mandate.identity.RefreshCredential is seeded by RefreshCredentialIssued, which carries the whole record of a family's first member — id, family_id, client_id, principal_id, organization_id, session_id, verifier, epochs, issued_at, expires_at — and the identity fold materializes it Active, with no predecessor, no last_used_at and no sibling spent. No command in this contract declares that issuance: the STS issues the first member at code redemption when offline_access was granted (story:oidc-refresh-and-logout, runtime half), and mandate.credential.RedeemAuthorizationCode spends its one subject on the code it consumes. Precedent for a declared event no command outcome emits: EpochSnapshotRecorded above.
+# RotateRefreshCredential's rotated and grace-sibling outcomes spend their one subject on the presented credential, so the successor (or sibling) is seeded by RefreshCredentialRotated, which carries its whole record with predecessor set to the presented credential and the family's absolute expires_at; the fold materializes it Active. RotateRefreshCredential.id is resolved by the trusted adapter from the presented refresh token, as RedeemAuthorizationCode.code_id is (domains/credential.yaml); it is not a selector a caller chooses.
+# RefreshFamilyRevoked also revokes the Session it names: the identity fold moves that session to Revoked when it folds the event. An affects: entry cannot select the session by its identity — `where: id == subject.session_id` is refused as "`id` reads `id`, which is not a declared observable root" (ESS-COMMAND-003, unobservable_fact) — so the session half of fork F6's reuse rule is declared here, and the family half is the reuse-detected outcome's affects:.
+# Reuse is an accepting outcome, not a refusal: ESS admits no event and no affects: on a refusal (refusal_mutated_state, ESS-COMMAND-004; compensates: true admits neither), and reuse must publish RefreshFamilyRevoked and revoke the family. reuse-detected returns no response, and the token endpoint answers it as invalid_grant.
 domain: mandate.identity
+types:
+  - name: mandate.identity.RefreshFamilyId
+    kind: newtype
+    of: Uuid
+    naming:
+      summary: The rotation family of refresh credentials minted from one issuance.
 entities:
   - name: mandate.identity.Principal
     identity:
@@ -96,19 +106,53 @@ entities:
         type: mandate.core.EpochSnapshotRef
       - name: expires_at
         type: Timestamp
+      - name: family_id
+        type: mandate.identity.RefreshFamilyId
+        summary: The rotation family. Every credential rotated or sibled from one issued credential carries the family its first member was issued under; reuse revokes the family as one.
+      - name: client_id
+        type: mandate.core.OAuthClientId
+        summary: The client the credential was issued to. Only that client may present it.
+      - name: predecessor
+        type: Optional<mandate.core.RefreshCredentialId>
+        summary: The credential whose rotation minted this one; absent on the family's first member.
+      - name: issued_at
+        type: Timestamp
+      - name: last_used_at
+        type: Optional<Timestamp>
+        summary: When the credential was first presented and rotated; absent while it is Active. The two-second grace window is measured from it.
+      - name: grace_sibling_issued
+        type: Boolean
+        summary: Whether a presentation inside the grace window has already minted the one sibling a Rotated credential may yield.
     lifecycle:
       initial: Active
       states:
         - Active
+        - Rotated
         - Revoked
       terminal:
+        - Rotated
         - Revoked
       transitions:
+        - name: rotate
+          from:
+            - Active
+          to: Rotated
         - name: revoke
           from:
             - Active
+            - Rotated
           to: Revoked
     relations:
+      - name: client_id_record
+        kind: references
+        target: mandate.federation.OAuthClient
+        cardinality: one
+        via: client_id
+      - name: predecessor_record
+        kind: references
+        target: mandate.identity.RefreshCredential
+        cardinality: one
+        via: predecessor
       - name: principal_id_record
         kind: references
         target: mandate.identity.Principal
@@ -246,6 +290,11 @@ commands:
             id: input.id
         moves: mandate.identity.Session.revoke
         instance: id
+        affects:
+          - entity: mandate.identity.RefreshCredential
+            where: session_id == input.id
+            moves: mandate.identity.RefreshCredential.revoke
+        summary: Ending the session (RP-initiated logout, fork F7) revokes it and every refresh credential bound to it, Active or Rotated, so no family of the session can be rotated again.
       - name: wrong-state
         wrong_state: true
         error: mandate.identity.Denied
@@ -274,6 +323,126 @@ commands:
       - name: denied
         external: Caller lacks authority over the resolved refresh credential, tenant/session binding mismatches, or durable revocation fails.
         error: mandate.identity.Denied
+  - name: mandate.identity.RotateRefreshCredential
+    naming:
+      summary: Present a refresh credential at the token endpoint and receive its successor (fork F6). The id is resolved by the trusted adapter from the presented refresh token; it is not a selector a caller chooses.
+    input:
+      - name: id
+        type: mandate.core.RefreshCredentialId
+      - name: refresh_proof
+        type: mandate.core.CredentialProof
+      - name: client_id
+        type: mandate.core.OAuthClientId
+    outcomes:
+      - name: wrong-client
+        when_subject:
+          predicate: client_id != input.client_id
+        error: mandate.identity.Denied
+        summary: Another client's refresh credential is refused and left exactly as it was; the family is not revoked, because the presenter is not the holder.
+      - name: rotated
+        when_subject:
+          predicate: state == Active
+        moves: mandate.identity.RefreshCredential.rotate
+        instance: id
+        sets:
+          last_used_at:
+            generated: true
+        returns: true
+        emits:
+          - mandate.identity.RefreshCredentialRotated
+        payload:
+          mandate.identity.RefreshCredentialRotated:
+            predecessor: input.id
+            id:
+              response: refresh_credential_id
+            family_id:
+              subject: family_id
+            client_id:
+              subject: client_id
+            principal_id:
+              subject: principal_id
+            organization_id:
+              subject: organization_id
+            session_id:
+              subject: session_id
+            verifier:
+              generated: true
+            epochs:
+              subject: epochs
+            issued_at:
+              generated: true
+            expires_at:
+              subject: expires_at
+        summary: The presented credential rests in Rotated with the moment it was used; its successor, Active in the same family with the presented credential as predecessor and the family's absolute expiry, is the record RefreshCredentialRotated carries.
+      - name: grace-sibling
+        when_subject:
+          predicate:
+            all:
+              - state == Rotated
+              - grace_sibling_issued == false
+              - last_used_at > now - 2s
+        updates: mandate.identity.RefreshCredential
+        instance: id
+        sets:
+          grace_sibling_issued: true
+        returns: true
+        emits:
+          - mandate.identity.RefreshCredentialRotated
+        payload:
+          mandate.identity.RefreshCredentialRotated:
+            predecessor: input.id
+            id:
+              response: refresh_credential_id
+            family_id:
+              subject: family_id
+            client_id:
+              subject: client_id
+            principal_id:
+              subject: principal_id
+            organization_id:
+              subject: organization_id
+            session_id:
+              subject: session_id
+            verifier:
+              generated: true
+            epochs:
+              subject: epochs
+            issued_at:
+              generated: true
+            expires_at:
+              subject: expires_at
+        summary: A Rotated credential presented within two seconds of its rotation (a client that lost the first answer) yields exactly one sibling in its family; the credential stays Rotated and records that its sibling is spent.
+      - name: reuse-detected
+        moves: mandate.identity.RefreshCredential.revoke
+        instance: id
+        emits:
+          - mandate.identity.RefreshFamilyRevoked
+        payload:
+          mandate.identity.RefreshFamilyRevoked:
+            id: input.id
+            family_id:
+              subject: family_id
+            session_id:
+              subject: session_id
+        affects:
+          - entity: mandate.identity.RefreshCredential
+            where: family_id == subject.family_id
+            moves: mandate.identity.RefreshCredential.revoke
+        summary: A Rotated credential presented after the grace window, or a second time within it, is reuse. No credential is returned; the presented credential and every other Active or Rotated member of its family are Revoked, and the session RefreshFamilyRevoked names is revoked by the identity fold (this file's header). The token endpoint answers it as a refusal (invalid_grant).
+      - name: wrong-state
+        wrong_state: true
+        error: mandate.identity.Denied
+        summary: A Revoked credential is refused and nothing moves.
+      - name: denied
+        external: The refresh proof does not match the server-resolved id's verifier, the credential's absolute lifetime is past, client authentication failed, the bound client is disabled, or the principal or session is disabled.
+        error: mandate.identity.Denied
+    response:
+      - name: refresh_credential_id
+        type: mandate.core.RefreshCredentialId
+      - name: refresh_credential
+        type: mandate.core.CredentialSecret
+      - name: session_id
+        type: mandate.core.SessionId
   - name: mandate.identity.RefreshSession
     input:
       - name: refresh_proof
@@ -329,6 +498,60 @@ events:
         type: mandate.core.VerifiedContext
       - name: id
         type: mandate.core.RefreshCredentialId
+  - name: mandate.identity.RefreshCredentialIssued
+    fields:
+      - name: id
+        type: mandate.core.RefreshCredentialId
+      - name: family_id
+        type: mandate.identity.RefreshFamilyId
+      - name: client_id
+        type: mandate.core.OAuthClientId
+      - name: principal_id
+        type: mandate.core.PrincipalId
+      - name: organization_id
+        type: mandate.core.OrganizationId
+      - name: session_id
+        type: mandate.core.SessionId
+      - name: verifier
+        type: mandate.core.CredentialVerifier
+      - name: epochs
+        type: mandate.core.EpochSnapshotRef
+      - name: issued_at
+        type: Timestamp
+      - name: expires_at
+        type: Timestamp
+  - name: mandate.identity.RefreshCredentialRotated
+    fields:
+      - name: predecessor
+        type: mandate.core.RefreshCredentialId
+      - name: id
+        type: mandate.core.RefreshCredentialId
+      - name: family_id
+        type: mandate.identity.RefreshFamilyId
+      - name: client_id
+        type: mandate.core.OAuthClientId
+      - name: principal_id
+        type: mandate.core.PrincipalId
+      - name: organization_id
+        type: mandate.core.OrganizationId
+      - name: session_id
+        type: mandate.core.SessionId
+      - name: verifier
+        type: mandate.core.CredentialVerifier
+      - name: epochs
+        type: mandate.core.EpochSnapshotRef
+      - name: issued_at
+        type: Timestamp
+      - name: expires_at
+        type: Timestamp
+  - name: mandate.identity.RefreshFamilyRevoked
+    fields:
+      - name: id
+        type: mandate.core.RefreshCredentialId
+      - name: family_id
+        type: mandate.identity.RefreshFamilyId
+      - name: session_id
+        type: mandate.core.SessionId
   - name: mandate.identity.SessionRefreshed
     fields:
       - name: session_id

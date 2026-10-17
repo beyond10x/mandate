@@ -473,7 +473,7 @@ pub const ACCEPTED: &[Accepted] = &[
 ///
 /// `tests/conformance.rs` pairs every name on this list with the generated
 /// `mandate_contract::entities::<Entity>State` shape — by ESS's own `declaration_name`
-/// derivation, because 23 of the 36 share a variant list and a literal pairing among those
+/// derivation, because 22 of the 36 share a variant list and a literal pairing among those
 /// is not evidence — and puts each declared variant through the same schema account the 75
 /// authored types go through. `tests/inventory.rs` asserts this list is exactly the `.State`
 /// half of the compiled index. A `.State` enum the contract adds therefore fails the
@@ -566,6 +566,13 @@ pub const DERIVED_STATE_ENUMS: &[&str] = &[
     "mandate.tenancy.TeamMembership.State",
     "mandate.workload.WorkloadIdentity.State",
 ];
+
+/// The authored types a domain other than `mandate.core` declares, which no crate realizes
+/// yet. Each is named with the story that gives it a Rust representation.
+pub const DOMAIN_TYPES_UNREALIZED: &[(&str, &str)] = &[(
+    "mandate.identity.RefreshFamilyId",
+    "story:oidc-refresh-and-logout",
+)];
 
 /// The excluded model entities.
 ///

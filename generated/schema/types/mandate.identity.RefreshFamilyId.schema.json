@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$ref": "#/$defs/mandate.identity.RefreshFamilyId",
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "39c2e76bf7f91b5354f0f5a59eb7e9ccc33cca0652d30f18fe8e396164e689ce",
+    "contract_digest": "slice-sha256/2:2a4ab166d78670ff662a66a18dd0675b63a54bddd8b7178dd90e5bd436c6e8d4",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.identity.RefreshFamilyId": {
+      "title": "RefreshFamilyId",
+      "description": "The rotation family of refresh credentials minted from one issuance.",
+      "x-ess-name": "mandate.identity.RefreshFamilyId",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    }
+  }
+}

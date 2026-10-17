@@ -15,8 +15,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
-          "contract_digest": "90c631a420df9593ddf90b48ed18919d7a1fe6a8e477d90e737e1d4bebced13c"
+          "source_digest": "39c2e76bf7f91b5354f0f5a59eb7e9ccc33cca0652d30f18fe8e396164e689ce",
+          "contract_digest": "0fffa74e30f6d15f8379a37acbefb9716d9b11f250d807f4709cd27abb4400b6"
         },
         "slice": {
           "of": "whole-model"
@@ -46,7 +46,7 @@
             {
               "block": "diagram",
               "kind": "system",
-              "source": "flowchart TB\n    subgraph unit0[\"mandate-authorization\"]\n        cmd2[\"mandate.authorization.Check\"]\n        cmd3[\"mandate.authorization.CheckWithApproval\"]\n        cmd39[\"mandate.graph.DeregisterResource\"]\n        cmd40[\"mandate.graph.RegisterResource\"]\n        cmd41[\"mandate.graph.RemoveRelation\"]\n        cmd42[\"mandate.graph.RevokeGrant\"]\n        cmd43[\"mandate.graph.WriteRelationship\"]\n        cmd49[\"mandate.policy.SupersedeAuthorizationModel\"]\n        cmd50[\"mandate.policy.SupersedePolicy\"]\n        evt7[\"mandate.authorization.ApprovedDecisionRecorded\"]\n        evt8[\"mandate.authorization.DecisionRecorded\"]\n        evt49[\"mandate.graph.GrantRevoked\"]\n        evt50[\"mandate.graph.RelationRemoved\"]\n        evt51[\"mandate.graph.RelationshipWritten\"]\n        evt52[\"mandate.graph.ResourceDeregistered\"]\n        evt53[\"mandate.graph.ResourceRegistered\"]\n        evt62[\"mandate.policy.AuthorizationModelSuperseded\"]\n        evt63[\"mandate.policy.PolicySuperseded\"]\n    end\n    subgraph unit1[\"mandate-control-plane\"]\n        cmd16[\"mandate.delegation.CompleteExecution\"]\n        cmd17[\"mandate.delegation.ConsumeApproval\"]\n        cmd18[\"mandate.delegation.CreateDelegation\"]\n        cmd19[\"mandate.delegation.RetireAgent\"]\n        cmd20[\"mandate.delegation.RevokeDelegation\"]\n        cmd21[\"mandate.delegation.SupersedeAgentCapabilityCeiling\"]\n        cmd22[\"mandate.directory.CompleteSyncJob\"]\n        cmd23[\"mandate.directory.CreateDirectoryGroupTeamMapping\"]\n        cmd24[\"mandate.directory.FailSyncJob\"]\n        cmd25[\"mandate.directory.RemoveDirectoryGroupMembership\"]\n        cmd26[\"mandate.directory.RemoveDirectoryGroupTeamMapping\"]\n        cmd27[\"mandate.directory.RemoveMembershipContribution\"]\n        cmd28[\"mandate.directory.RetireDirectoryGroup\"]\n        cmd29[\"mandate.directory.SyncDirectoryMembership\"]\n        cmd30[\"mandate.federation.AuthenticateFederation\"]\n        cmd31[\"mandate.federation.AuthorizePublicClient\"]\n        cmd32[\"mandate.federation.DisableFederationConnection\"]\n        cmd33[\"mandate.federation.DisableOAuthClient\"]\n        cmd34[\"mandate.federation.LinkExternalPrincipal\"]\n        cmd35[\"mandate.federation.ProvisionExternalPrincipal\"]\n        cmd36[\"mandate.federation.RegisterFederationConnection\"]\n        cmd37[\"mandate.federation.RegisterOAuthClient\"]\n        cmd38[\"mandate.federation.UnlinkExternalPrincipal\"]\n        cmd44[\"mandate.identity.DisablePrincipal\"]\n        cmd45[\"mandate.identity.IncrementSecurityEpoch\"]\n        cmd46[\"mandate.identity.RefreshSession\"]\n        cmd47[\"mandate.identity.RevokeRefreshCredential\"]\n        cmd48[\"mandate.identity.RevokeSession\"]\n        cmd51[\"mandate.tenancy.AddOrganizationMembership\"]\n        cmd52[\"mandate.tenancy.AddTeamMembership\"]\n        cmd53[\"mandate.tenancy.CloseOrganization\"]\n        cmd54[\"mandate.tenancy.CreateOrganization\"]\n        cmd55[\"mandate.tenancy.CreateSpace\"]\n        cmd56[\"mandate.tenancy.CreateTeam\"]\n        cmd57[\"mandate.tenancy.RemoveOrganizationMembership\"]\n        cmd58[\"mandate.tenancy.RemoveTeamMembership\"]\n        cmd59[\"mandate.tenancy.RetireSpace\"]\n        cmd60[\"mandate.tenancy.RetireTeam\"]\n        cmd61[\"mandate.workload.AuthenticateWorkload\"]\n        cmd62[\"mandate.workload.RevokeWorkloadIdentity\"]\n        evt22[\"mandate.delegation.AgentCapabilityCeilingSuperseded\"]\n        evt23[\"mandate.delegation.AgentRetired\"]\n        evt24[\"mandate.delegation.ApprovalConsumed\"]\n        evt25[\"mandate.delegation.DelegationCreated\"]\n        evt26[\"mandate.delegation.DelegationRevoked\"]\n        evt27[\"mandate.delegation.ExecutionCompleted\"]\n        evt28[\"mandate.directory.DirectoryGroupMembershipChanged\"]\n        evt29[\"mandate.directory.DirectoryGroupMembershipRecorded\"]\n        evt30[\"mandate.directory.DirectoryGroupMembershipRemoved\"]\n        evt31[\"mandate.directory.DirectoryGroupRecorded\"]\n        evt32[\"mandate.directory.DirectoryGroupRetired\"]\n        evt33[\"mandate.directory.DirectoryGroupTeamMappingCreated\"]\n        evt34[\"mandate.directory.DirectoryGroupTeamMappingRemoved\"]\n        evt35[\"mandate.directory.MembershipContributionRecorded\"]\n        evt36[\"mandate.directory.MembershipContributionRemoved\"]\n        evt37[\"mandate.directory.SyncJobCompleted\"]\n        evt38[\"mandate.directory.SyncJobFailed\"]\n        evt39[\"mandate.directory.SyncJobRecorded\"]\n        evt40[\"mandate.federation.AuthorizationCodeIssued\"]\n        evt41[\"mandate.federation.ExternalPrincipalLinked\"]\n        evt42[\"mandate.federation.ExternalPrincipalProvisioned\"]\n        evt43[\"mandate.federation.ExternalPrincipalUnlinked\"]\n        evt44[\"mandate.federation.FederationAuthenticated\"]\n        evt45[\"mandate.federation.FederationConnectionCreated\"]\n        evt46[\"mandate.federation.FederationConnectionDisabled\"]\n        evt47[\"mandate.federation.OAuthClientDisabled\"]\n        evt48[\"mandate.federation.OAuthClientRegistered\"]\n        evt54[\"mandate.identity.EpochSnapshotRecorded\"]\n        evt55[\"mandate.identity.PrincipalDisabled\"]\n        evt56[\"mandate.identity.RefreshCredentialRevoked\"]\n        evt57[\"mandate.identity.SecurityEpochIncremented\"]\n        evt58[\"mandate.identity.SecurityEpochRecorded\"]\n        evt59[\"mandate.identity.SessionOpened\"]\n        evt60[\"mandate.identity.SessionRefreshed\"]\n        evt61[\"mandate.identity.SessionRevoked\"]\n        evt64[\"mandate.tenancy.OrganizationClosed\"]\n        evt65[\"mandate.tenancy.OrganizationCreated\"]\n        evt66[\"mandate.tenancy.OrganizationMembershipAdded\"]\n        evt67[\"mandate.tenancy.OrganizationMembershipRemoved\"]\n        evt68[\"mandate.tenancy.SpaceCreated\"]\n        evt69[\"mandate.tenancy.SpaceRetired\"]\n        evt70[\"mandate.tenancy.TeamCreated\"]\n        evt71[\"mandate.tenancy.TeamMembershipAdded\"]\n        evt72[\"mandate.tenancy.TeamMembershipRemoved\"]\n        evt73[\"mandate.tenancy.TeamRetired\"]\n        evt74[\"mandate.workload.WorkloadAuthenticated\"]\n        evt75[\"mandate.workload.WorkloadIdentityRevoked\"]\n    end\n    subgraph unit2[\"mandate-sts\"]\n        cmd4[\"mandate.credential.DisableResourceServer\"]\n        cmd5[\"mandate.credential.ExchangeCredential\"]\n        cmd6[\"mandate.credential.IntrospectCredential\"]\n        cmd7[\"mandate.credential.IssueAuthorizationCode\"]\n        cmd8[\"mandate.credential.IssueReferenceCredential\"]\n        cmd9[\"mandate.credential.IssueSelfContainedCredential\"]\n        cmd10[\"mandate.credential.RedeemAuthorizationCode\"]\n        cmd11[\"mandate.credential.RegisterResourceServer\"]\n        cmd12[\"mandate.credential.RegisterSigningKey\"]\n        cmd13[\"mandate.credential.RetireSigningKey\"]\n        cmd14[\"mandate.credential.RevokeAccessCredential\"]\n        cmd15[\"mandate.credential.RevokeSigningKey\"]\n        evt9[\"mandate.credential.AccessCredentialRevoked\"]\n        evt10[\"mandate.credential.AuthorizationCodeIssued\"]\n        evt11[\"mandate.credential.AuthorizationCodeRedeemed\"]\n        evt12[\"mandate.credential.CredentialIntrospected\"]\n        evt13[\"mandate.credential.CredentialReferenceIssued\"]\n        evt14[\"mandate.credential.CredentialSelfContainedIssued\"]\n        evt15[\"mandate.credential.ResourceServerDisabled\"]\n        evt16[\"mandate.credential.ResourceServerRegistered\"]\n        evt17[\"mandate.credential.SigningKeyRegistered\"]\n        evt18[\"mandate.credential.SigningKeyRetired\"]\n        evt19[\"mandate.credential.SigningKeyRevoked\"]\n        evt20[\"mandate.credential.TokenExchangeAllowed\"]\n        evt21[\"mandate.credential.TokenExchangeDenied\"]\n    end\n    subgraph unit3[\"mandate-worker\"]\n        cmd0[\"mandate.audit.RecordAuditEvent\"]\n        cmd1[\"mandate.audit.RedactAuditEvent\"]\n        evt0[\"mandate.audit.AuditEventRecorded\"]\n        evt1[\"mandate.audit.AuditEventRedacted\"]\n        evt2[\"mandate.audit.CredentialRevoked\"]\n        evt3[\"mandate.audit.DirectoryGroupCreated\"]\n        evt4[\"mandate.audit.ExternalPrincipalUnlinked\"]\n        evt5[\"mandate.audit.FederationConnectionChanged\"]\n        evt6[\"mandate.audit.TokenExchangeDenied\"]\n    end\n    cmd0 -->|\"recorded\"| evt0\n    cmd1 -->|\"accepted\"| evt1\n    cmd2 -->|\"accepted\"| evt8\n    cmd3 -->|\"accepted\"| evt7\n    cmd4 -->|\"accepted\"| evt15\n    cmd5 -->|\"accepted\"| evt20\n    cmd6 -->|\"accepted\"| evt12\n    cmd7 -->|\"accepted\"| evt10\n    cmd8 -->|\"accepted\"| evt13\n    cmd9 -->|\"accepted\"| evt14\n    cmd10 -->|\"accepted\"| evt11\n    cmd11 -->|\"accepted\"| evt16\n    cmd12 -->|\"accepted\"| evt17\n    cmd13 -->|\"accepted\"| evt18\n    cmd14 -->|\"accepted\"| evt9\n    cmd15 -->|\"accepted\"| evt19\n    cmd16 -->|\"accepted\"| evt27\n    cmd17 -->|\"accepted\"| evt24\n    cmd18 -->|\"accepted\"| evt25\n    cmd19 -->|\"accepted\"| evt23\n    cmd20 -->|\"accepted\"| evt26\n    cmd21 -->|\"accepted\"| evt22\n    cmd22 -->|\"accepted\"| evt37\n    cmd23 -->|\"accepted\"| evt33\n    cmd24 -->|\"accepted\"| evt38\n    cmd25 -->|\"accepted\"| evt30\n    cmd26 -->|\"accepted\"| evt34\n    cmd27 -->|\"accepted\"| evt36\n    cmd28 -->|\"accepted\"| evt32\n    cmd29 -->|\"accepted\"| evt28\n    cmd30 -->|\"accepted\"| evt44\n    cmd31 -->|\"accepted\"| evt40\n    cmd32 -->|\"accepted\"| evt46\n    cmd33 -->|\"accepted\"| evt47\n    cmd34 -->|\"accepted\"| evt41\n    cmd35 -->|\"accepted\"| evt42\n    cmd36 -->|\"accepted\"| evt45\n    cmd37 -->|\"accepted\"| evt48\n    cmd38 -->|\"accepted\"| evt43\n    cmd39 -->|\"accepted\"| evt52\n    cmd40 -->|\"accepted\"| evt53\n    cmd41 -->|\"accepted\"| evt50\n    cmd42 -->|\"accepted\"| evt49\n    cmd43 -->|\"accepted\"| evt51\n    cmd44 -->|\"accepted\"| evt55\n    cmd45 -->|\"accepted\"| evt57\n    cmd46 -->|\"accepted\"| evt60\n    cmd47 -->|\"accepted\"| evt56\n    cmd48 -->|\"accepted\"| evt61\n    cmd49 -->|\"accepted\"| evt62\n    cmd50 -->|\"accepted\"| evt63\n    cmd51 -->|\"accepted\"| evt66\n    cmd52 -->|\"accepted\"| evt71\n    cmd53 -->|\"accepted\"| evt64\n    cmd54 -->|\"accepted\"| evt65\n    cmd55 -->|\"accepted\"| evt68\n    cmd56 -->|\"accepted\"| evt70\n    cmd57 -->|\"accepted\"| evt67\n    cmd58 -->|\"accepted\"| evt72\n    cmd59 -->|\"accepted\"| evt69\n    cmd60 -->|\"accepted\"| evt73\n    cmd61 -->|\"accepted\"| evt74\n    cmd62 -->|\"accepted\"| evt75"
+              "source": "flowchart TB\n    subgraph unit0[\"mandate-authorization\"]\n        cmd2[\"mandate.authorization.Check\"]\n        cmd3[\"mandate.authorization.CheckWithApproval\"]\n        cmd39[\"mandate.graph.DeregisterResource\"]\n        cmd40[\"mandate.graph.RegisterResource\"]\n        cmd41[\"mandate.graph.RemoveRelation\"]\n        cmd42[\"mandate.graph.RevokeGrant\"]\n        cmd43[\"mandate.graph.WriteRelationship\"]\n        cmd50[\"mandate.policy.SupersedeAuthorizationModel\"]\n        cmd51[\"mandate.policy.SupersedePolicy\"]\n        evt7[\"mandate.authorization.ApprovedDecisionRecorded\"]\n        evt8[\"mandate.authorization.DecisionRecorded\"]\n        evt49[\"mandate.graph.GrantRevoked\"]\n        evt50[\"mandate.graph.RelationRemoved\"]\n        evt51[\"mandate.graph.RelationshipWritten\"]\n        evt52[\"mandate.graph.ResourceDeregistered\"]\n        evt53[\"mandate.graph.ResourceRegistered\"]\n        evt65[\"mandate.policy.AuthorizationModelSuperseded\"]\n        evt66[\"mandate.policy.PolicySuperseded\"]\n    end\n    subgraph unit1[\"mandate-control-plane\"]\n        cmd16[\"mandate.delegation.CompleteExecution\"]\n        cmd17[\"mandate.delegation.ConsumeApproval\"]\n        cmd18[\"mandate.delegation.CreateDelegation\"]\n        cmd19[\"mandate.delegation.RetireAgent\"]\n        cmd20[\"mandate.delegation.RevokeDelegation\"]\n        cmd21[\"mandate.delegation.SupersedeAgentCapabilityCeiling\"]\n        cmd22[\"mandate.directory.CompleteSyncJob\"]\n        cmd23[\"mandate.directory.CreateDirectoryGroupTeamMapping\"]\n        cmd24[\"mandate.directory.FailSyncJob\"]\n        cmd25[\"mandate.directory.RemoveDirectoryGroupMembership\"]\n        cmd26[\"mandate.directory.RemoveDirectoryGroupTeamMapping\"]\n        cmd27[\"mandate.directory.RemoveMembershipContribution\"]\n        cmd28[\"mandate.directory.RetireDirectoryGroup\"]\n        cmd29[\"mandate.directory.SyncDirectoryMembership\"]\n        cmd30[\"mandate.federation.AuthenticateFederation\"]\n        cmd31[\"mandate.federation.AuthorizePublicClient\"]\n        cmd32[\"mandate.federation.DisableFederationConnection\"]\n        cmd33[\"mandate.federation.DisableOAuthClient\"]\n        cmd34[\"mandate.federation.LinkExternalPrincipal\"]\n        cmd35[\"mandate.federation.ProvisionExternalPrincipal\"]\n        cmd36[\"mandate.federation.RegisterFederationConnection\"]\n        cmd37[\"mandate.federation.RegisterOAuthClient\"]\n        cmd38[\"mandate.federation.UnlinkExternalPrincipal\"]\n        cmd44[\"mandate.identity.DisablePrincipal\"]\n        cmd45[\"mandate.identity.IncrementSecurityEpoch\"]\n        cmd46[\"mandate.identity.RefreshSession\"]\n        cmd47[\"mandate.identity.RevokeRefreshCredential\"]\n        cmd48[\"mandate.identity.RevokeSession\"]\n        cmd49[\"mandate.identity.RotateRefreshCredential\"]\n        cmd52[\"mandate.tenancy.AddOrganizationMembership\"]\n        cmd53[\"mandate.tenancy.AddTeamMembership\"]\n        cmd54[\"mandate.tenancy.CloseOrganization\"]\n        cmd55[\"mandate.tenancy.CreateOrganization\"]\n        cmd56[\"mandate.tenancy.CreateSpace\"]\n        cmd57[\"mandate.tenancy.CreateTeam\"]\n        cmd58[\"mandate.tenancy.RemoveOrganizationMembership\"]\n        cmd59[\"mandate.tenancy.RemoveTeamMembership\"]\n        cmd60[\"mandate.tenancy.RetireSpace\"]\n        cmd61[\"mandate.tenancy.RetireTeam\"]\n        cmd62[\"mandate.workload.AuthenticateWorkload\"]\n        cmd63[\"mandate.workload.RevokeWorkloadIdentity\"]\n        evt22[\"mandate.delegation.AgentCapabilityCeilingSuperseded\"]\n        evt23[\"mandate.delegation.AgentRetired\"]\n        evt24[\"mandate.delegation.ApprovalConsumed\"]\n        evt25[\"mandate.delegation.DelegationCreated\"]\n        evt26[\"mandate.delegation.DelegationRevoked\"]\n        evt27[\"mandate.delegation.ExecutionCompleted\"]\n        evt28[\"mandate.directory.DirectoryGroupMembershipChanged\"]\n        evt29[\"mandate.directory.DirectoryGroupMembershipRecorded\"]\n        evt30[\"mandate.directory.DirectoryGroupMembershipRemoved\"]\n        evt31[\"mandate.directory.DirectoryGroupRecorded\"]\n        evt32[\"mandate.directory.DirectoryGroupRetired\"]\n        evt33[\"mandate.directory.DirectoryGroupTeamMappingCreated\"]\n        evt34[\"mandate.directory.DirectoryGroupTeamMappingRemoved\"]\n        evt35[\"mandate.directory.MembershipContributionRecorded\"]\n        evt36[\"mandate.directory.MembershipContributionRemoved\"]\n        evt37[\"mandate.directory.SyncJobCompleted\"]\n        evt38[\"mandate.directory.SyncJobFailed\"]\n        evt39[\"mandate.directory.SyncJobRecorded\"]\n        evt40[\"mandate.federation.AuthorizationCodeIssued\"]\n        evt41[\"mandate.federation.ExternalPrincipalLinked\"]\n        evt42[\"mandate.federation.ExternalPrincipalProvisioned\"]\n        evt43[\"mandate.federation.ExternalPrincipalUnlinked\"]\n        evt44[\"mandate.federation.FederationAuthenticated\"]\n        evt45[\"mandate.federation.FederationConnectionCreated\"]\n        evt46[\"mandate.federation.FederationConnectionDisabled\"]\n        evt47[\"mandate.federation.OAuthClientDisabled\"]\n        evt48[\"mandate.federation.OAuthClientRegistered\"]\n        evt54[\"mandate.identity.EpochSnapshotRecorded\"]\n        evt55[\"mandate.identity.PrincipalDisabled\"]\n        evt56[\"mandate.identity.RefreshCredentialIssued\"]\n        evt57[\"mandate.identity.RefreshCredentialRevoked\"]\n        evt58[\"mandate.identity.RefreshCredentialRotated\"]\n        evt59[\"mandate.identity.RefreshFamilyRevoked\"]\n        evt60[\"mandate.identity.SecurityEpochIncremented\"]\n        evt61[\"mandate.identity.SecurityEpochRecorded\"]\n        evt62[\"mandate.identity.SessionOpened\"]\n        evt63[\"mandate.identity.SessionRefreshed\"]\n        evt64[\"mandate.identity.SessionRevoked\"]\n        evt67[\"mandate.tenancy.OrganizationClosed\"]\n        evt68[\"mandate.tenancy.OrganizationCreated\"]\n        evt69[\"mandate.tenancy.OrganizationMembershipAdded\"]\n        evt70[\"mandate.tenancy.OrganizationMembershipRemoved\"]\n        evt71[\"mandate.tenancy.SpaceCreated\"]\n        evt72[\"mandate.tenancy.SpaceRetired\"]\n        evt73[\"mandate.tenancy.TeamCreated\"]\n        evt74[\"mandate.tenancy.TeamMembershipAdded\"]\n        evt75[\"mandate.tenancy.TeamMembershipRemoved\"]\n        evt76[\"mandate.tenancy.TeamRetired\"]\n        evt77[\"mandate.workload.WorkloadAuthenticated\"]\n        evt78[\"mandate.workload.WorkloadIdentityRevoked\"]\n    end\n    subgraph unit2[\"mandate-sts\"]\n        cmd4[\"mandate.credential.DisableResourceServer\"]\n        cmd5[\"mandate.credential.ExchangeCredential\"]\n        cmd6[\"mandate.credential.IntrospectCredential\"]\n        cmd7[\"mandate.credential.IssueAuthorizationCode\"]\n        cmd8[\"mandate.credential.IssueReferenceCredential\"]\n        cmd9[\"mandate.credential.IssueSelfContainedCredential\"]\n        cmd10[\"mandate.credential.RedeemAuthorizationCode\"]\n        cmd11[\"mandate.credential.RegisterResourceServer\"]\n        cmd12[\"mandate.credential.RegisterSigningKey\"]\n        cmd13[\"mandate.credential.RetireSigningKey\"]\n        cmd14[\"mandate.credential.RevokeAccessCredential\"]\n        cmd15[\"mandate.credential.RevokeSigningKey\"]\n        evt9[\"mandate.credential.AccessCredentialRevoked\"]\n        evt10[\"mandate.credential.AuthorizationCodeIssued\"]\n        evt11[\"mandate.credential.AuthorizationCodeRedeemed\"]\n        evt12[\"mandate.credential.CredentialIntrospected\"]\n        evt13[\"mandate.credential.CredentialReferenceIssued\"]\n        evt14[\"mandate.credential.CredentialSelfContainedIssued\"]\n        evt15[\"mandate.credential.ResourceServerDisabled\"]\n        evt16[\"mandate.credential.ResourceServerRegistered\"]\n        evt17[\"mandate.credential.SigningKeyRegistered\"]\n        evt18[\"mandate.credential.SigningKeyRetired\"]\n        evt19[\"mandate.credential.SigningKeyRevoked\"]\n        evt20[\"mandate.credential.TokenExchangeAllowed\"]\n        evt21[\"mandate.credential.TokenExchangeDenied\"]\n    end\n    subgraph unit3[\"mandate-worker\"]\n        cmd0[\"mandate.audit.RecordAuditEvent\"]\n        cmd1[\"mandate.audit.RedactAuditEvent\"]\n        evt0[\"mandate.audit.AuditEventRecorded\"]\n        evt1[\"mandate.audit.AuditEventRedacted\"]\n        evt2[\"mandate.audit.CredentialRevoked\"]\n        evt3[\"mandate.audit.DirectoryGroupCreated\"]\n        evt4[\"mandate.audit.ExternalPrincipalUnlinked\"]\n        evt5[\"mandate.audit.FederationConnectionChanged\"]\n        evt6[\"mandate.audit.TokenExchangeDenied\"]\n    end\n    cmd0 -->|\"recorded\"| evt0\n    cmd1 -->|\"accepted\"| evt1\n    cmd2 -->|\"accepted\"| evt8\n    cmd3 -->|\"accepted\"| evt7\n    cmd4 -->|\"accepted\"| evt15\n    cmd5 -->|\"accepted\"| evt20\n    cmd6 -->|\"accepted\"| evt12\n    cmd7 -->|\"accepted\"| evt10\n    cmd8 -->|\"accepted\"| evt13\n    cmd9 -->|\"accepted\"| evt14\n    cmd10 -->|\"accepted\"| evt11\n    cmd11 -->|\"accepted\"| evt16\n    cmd12 -->|\"accepted\"| evt17\n    cmd13 -->|\"accepted\"| evt18\n    cmd14 -->|\"accepted\"| evt9\n    cmd15 -->|\"accepted\"| evt19\n    cmd16 -->|\"accepted\"| evt27\n    cmd17 -->|\"accepted\"| evt24\n    cmd18 -->|\"accepted\"| evt25\n    cmd19 -->|\"accepted\"| evt23\n    cmd20 -->|\"accepted\"| evt26\n    cmd21 -->|\"accepted\"| evt22\n    cmd22 -->|\"accepted\"| evt37\n    cmd23 -->|\"accepted\"| evt33\n    cmd24 -->|\"accepted\"| evt38\n    cmd25 -->|\"accepted\"| evt30\n    cmd26 -->|\"accepted\"| evt34\n    cmd27 -->|\"accepted\"| evt36\n    cmd28 -->|\"accepted\"| evt32\n    cmd29 -->|\"accepted\"| evt28\n    cmd30 -->|\"accepted\"| evt44\n    cmd31 -->|\"accepted\"| evt40\n    cmd32 -->|\"accepted\"| evt46\n    cmd33 -->|\"accepted\"| evt47\n    cmd34 -->|\"accepted\"| evt41\n    cmd35 -->|\"accepted\"| evt42\n    cmd36 -->|\"accepted\"| evt45\n    cmd37 -->|\"accepted\"| evt48\n    cmd38 -->|\"accepted\"| evt43\n    cmd39 -->|\"accepted\"| evt52\n    cmd40 -->|\"accepted\"| evt53\n    cmd41 -->|\"accepted\"| evt50\n    cmd42 -->|\"accepted\"| evt49\n    cmd43 -->|\"accepted\"| evt51\n    cmd44 -->|\"accepted\"| evt55\n    cmd45 -->|\"accepted\"| evt60\n    cmd46 -->|\"accepted\"| evt63\n    cmd47 -->|\"accepted\"| evt57\n    cmd48 -->|\"accepted\"| evt64\n    cmd49 -->|\"rotated\"| evt58\n    cmd49 -->|\"grace-sibling\"| evt58\n    cmd49 -->|\"reuse-detected\"| evt59\n    cmd50 -->|\"accepted\"| evt65\n    cmd51 -->|\"accepted\"| evt66\n    cmd52 -->|\"accepted\"| evt69\n    cmd53 -->|\"accepted\"| evt74\n    cmd54 -->|\"accepted\"| evt67\n    cmd55 -->|\"accepted\"| evt68\n    cmd56 -->|\"accepted\"| evt71\n    cmd57 -->|\"accepted\"| evt73\n    cmd58 -->|\"accepted\"| evt70\n    cmd59 -->|\"accepted\"| evt75\n    cmd60 -->|\"accepted\"| evt72\n    cmd61 -->|\"accepted\"| evt76\n    cmd62 -->|\"accepted\"| evt77\n    cmd63 -->|\"accepted\"| evt78"
             },
             {
               "block": "prose",
@@ -450,7 +450,7 @@
                       },
                       {
                         "inline": "text",
-                        "text": " No types, seven entities, no views, five commands, eight events, one error and no actors."
+                        "text": " One type, seven entities, no views, six commands, 11 events, one error and no actors."
                       }
                     ]
                   }
@@ -1213,6 +1213,14 @@
                 },
                 {
                   "inline": "code",
+                  "text": "mandate.identity.RotateRefreshCredential"
+                },
+                {
+                  "inline": "text",
+                  "text": ", "
+                },
+                {
+                  "inline": "code",
                   "text": "mandate.tenancy.AddOrganizationMembership"
                 },
                 {
@@ -1545,7 +1553,31 @@
                 },
                 {
                   "inline": "code",
+                  "text": "mandate.identity.RefreshCredentialIssued"
+                },
+                {
+                  "inline": "text",
+                  "text": ", "
+                },
+                {
+                  "inline": "code",
                   "text": "mandate.identity.RefreshCredentialRevoked"
+                },
+                {
+                  "inline": "text",
+                  "text": ", "
+                },
+                {
+                  "inline": "code",
+                  "text": "mandate.identity.RefreshCredentialRotated"
+                },
+                {
+                  "inline": "text",
+                  "text": ", "
+                },
+                {
+                  "inline": "code",
+                  "text": "mandate.identity.RefreshFamilyRevoked"
                 },
                 {
                   "inline": "text",
@@ -2553,8 +2585,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
-          "contract_digest": "slice-sha256/2:66f54405913c442fd9581b56dd20b56fe4f6f3529c3c0a283b513560f78ba8ed"
+          "source_digest": "39c2e76bf7f91b5354f0f5a59eb7e9ccc33cca0652d30f18fe8e396164e689ce",
+          "contract_digest": "slice-sha256/2:de08b52371d450ee0bdb33499175e23d0038f979128c1b7647195ea4061b1d63"
         },
         "slice": {
           "of": "constructs",
@@ -5048,8 +5080,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
-          "contract_digest": "slice-sha256/2:66f54405913c442fd9581b56dd20b56fe4f6f3529c3c0a283b513560f78ba8ed"
+          "source_digest": "39c2e76bf7f91b5354f0f5a59eb7e9ccc33cca0652d30f18fe8e396164e689ce",
+          "contract_digest": "slice-sha256/2:de08b52371d450ee0bdb33499175e23d0038f979128c1b7647195ea4061b1d63"
         },
         "slice": {
           "of": "constructs",
@@ -6156,8 +6188,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
-          "contract_digest": "slice-sha256/2:206c9d8dacd7bdcb9a73b0936372e4312ee54301199bb2224162d91f9699ff66"
+          "source_digest": "39c2e76bf7f91b5354f0f5a59eb7e9ccc33cca0652d30f18fe8e396164e689ce",
+          "contract_digest": "slice-sha256/2:d3b289266623996d728d7106d21e4af2c9ff96f4dbdc383f4420799600dfd89f"
         },
         "slice": {
           "of": "constructs",
@@ -11053,8 +11085,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
-          "contract_digest": "slice-sha256/2:66f54405913c442fd9581b56dd20b56fe4f6f3529c3c0a283b513560f78ba8ed"
+          "source_digest": "39c2e76bf7f91b5354f0f5a59eb7e9ccc33cca0652d30f18fe8e396164e689ce",
+          "contract_digest": "slice-sha256/2:de08b52371d450ee0bdb33499175e23d0038f979128c1b7647195ea4061b1d63"
         },
         "slice": {
           "of": "constructs",
@@ -19738,8 +19770,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
-          "contract_digest": "slice-sha256/2:66f54405913c442fd9581b56dd20b56fe4f6f3529c3c0a283b513560f78ba8ed"
+          "source_digest": "39c2e76bf7f91b5354f0f5a59eb7e9ccc33cca0652d30f18fe8e396164e689ce",
+          "contract_digest": "slice-sha256/2:de08b52371d450ee0bdb33499175e23d0038f979128c1b7647195ea4061b1d63"
         },
         "slice": {
           "of": "constructs",
@@ -25759,8 +25791,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
-          "contract_digest": "slice-sha256/2:66f54405913c442fd9581b56dd20b56fe4f6f3529c3c0a283b513560f78ba8ed"
+          "source_digest": "39c2e76bf7f91b5354f0f5a59eb7e9ccc33cca0652d30f18fe8e396164e689ce",
+          "contract_digest": "slice-sha256/2:de08b52371d450ee0bdb33499175e23d0038f979128c1b7647195ea4061b1d63"
         },
         "slice": {
           "of": "constructs",
@@ -32846,8 +32878,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
-          "contract_digest": "slice-sha256/2:66f54405913c442fd9581b56dd20b56fe4f6f3529c3c0a283b513560f78ba8ed"
+          "source_digest": "39c2e76bf7f91b5354f0f5a59eb7e9ccc33cca0652d30f18fe8e396164e689ce",
+          "contract_digest": "slice-sha256/2:de08b52371d450ee0bdb33499175e23d0038f979128c1b7647195ea4061b1d63"
         },
         "slice": {
           "of": "constructs",
@@ -39174,8 +39206,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
-          "contract_digest": "slice-sha256/2:66f54405913c442fd9581b56dd20b56fe4f6f3529c3c0a283b513560f78ba8ed"
+          "source_digest": "39c2e76bf7f91b5354f0f5a59eb7e9ccc33cca0652d30f18fe8e396164e689ce",
+          "contract_digest": "slice-sha256/2:de08b52371d450ee0bdb33499175e23d0038f979128c1b7647195ea4061b1d63"
         },
         "slice": {
           "of": "constructs",
@@ -43118,8 +43150,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
-          "contract_digest": "slice-sha256/2:e1d57c8110be7d45cc207d92d7f56228818809673b5afdc964d9086db1e6eb87"
+          "source_digest": "39c2e76bf7f91b5354f0f5a59eb7e9ccc33cca0652d30f18fe8e396164e689ce",
+          "contract_digest": "slice-sha256/2:43f7999245cfd295131f5679d29e717c490399d630d59a16b964551a4e2247f2"
         },
         "slice": {
           "of": "constructs",
@@ -43147,6 +43179,10 @@
             {
               "kind": "type",
               "name": "mandate.identity.RefreshCredential.State"
+            },
+            {
+              "kind": "type",
+              "name": "mandate.identity.RefreshFamilyId"
             },
             {
               "kind": "type",
@@ -43205,6 +43241,10 @@
               "name": "mandate.identity.RevokeSession"
             },
             {
+              "kind": "command",
+              "name": "mandate.identity.RotateRefreshCredential"
+            },
+            {
               "kind": "event",
               "name": "mandate.identity.EpochSnapshotRecorded"
             },
@@ -43214,7 +43254,19 @@
             },
             {
               "kind": "event",
+              "name": "mandate.identity.RefreshCredentialIssued"
+            },
+            {
+              "kind": "event",
               "name": "mandate.identity.RefreshCredentialRevoked"
+            },
+            {
+              "kind": "event",
+              "name": "mandate.identity.RefreshCredentialRotated"
+            },
+            {
+              "kind": "event",
+              "name": "mandate.identity.RefreshFamilyRevoked"
             },
             {
               "kind": "event",
@@ -43296,6 +43348,57 @@
             {
               "inline": "text",
               "text": "."
+            }
+          ]
+        },
+        {
+          "block": "section",
+          "level": 2,
+          "title": [
+            {
+              "inline": "text",
+              "text": "Types"
+            }
+          ],
+          "anchor": "types",
+          "blocks": [
+            {
+              "block": "section",
+              "level": 3,
+              "title": [
+                {
+                  "inline": "code",
+                  "text": "RefreshFamilyId"
+                }
+              ],
+              "anchor": "refreshfamilyid",
+              "about": {
+                "kind": "type",
+                "name": "mandate.identity.RefreshFamilyId"
+              },
+              "blocks": [
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "code",
+                      "text": "mandate.identity.RefreshFamilyId"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " wraps "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "Uuid"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " and is not interchangeable with one: the whole value of naming it separately is the crossings the model then refuses."
+                    }
+                  ]
+                }
+              ]
             }
           ]
         },
@@ -44400,12 +44503,218 @@
                           }
                         ]
                       }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "family_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.identity.RefreshFamilyId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "client_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.OAuthClientId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "predecessor"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Optional<mandate.core.RefreshCredentialId>"
+                          },
+                          {
+                            "inline": "text",
+                            "text": ", which may be absent"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "issued_at"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Timestamp"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "last_used_at"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Optional<Timestamp>"
+                          },
+                          {
+                            "inline": "text",
+                            "text": ", which may be absent"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "grace_sibling_issued"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Boolean"
+                          }
+                        ]
+                      }
                     ]
                   ]
                 },
                 {
                   "block": "prose",
                   "text": [
+                    {
+                      "inline": "text",
+                      "text": "It references at most one "
+                    },
+                    {
+                      "inline": "link",
+                      "to": {
+                        "target": "anchor",
+                        "page": "domains/mandate-federation",
+                        "anchor": "oauthclient"
+                      },
+                      "text": [
+                        {
+                          "inline": "code",
+                          "text": "mandate.federation.OAuthClient"
+                        }
+                      ]
+                    },
+                    {
+                      "inline": "text",
+                      "text": ", as "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "client_id_record"
+                    },
+                    {
+                      "inline": "text",
+                      "text": ", carried by "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "RefreshCredential.client_id"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    },
+                    {
+                      "inline": "text",
+                      "text": " "
+                    },
+                    {
+                      "inline": "text",
+                      "text": "It references at most one "
+                    },
+                    {
+                      "inline": "link",
+                      "to": {
+                        "target": "anchor",
+                        "page": "domains/mandate-identity",
+                        "anchor": "refreshcredential"
+                      },
+                      "text": [
+                        {
+                          "inline": "code",
+                          "text": "RefreshCredential"
+                        }
+                      ]
+                    },
+                    {
+                      "inline": "text",
+                      "text": ", as "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "predecessor_record"
+                    },
+                    {
+                      "inline": "text",
+                      "text": ", carried by "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "RefreshCredential.predecessor"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    },
+                    {
+                      "inline": "text",
+                      "text": " "
+                    },
                     {
                       "inline": "text",
                       "text": "It references at most one "
@@ -44602,11 +44911,19 @@
                     },
                     {
                       "inline": "text",
-                      "text": " and "
+                      "text": ", "
                     },
                     {
                       "inline": "code",
                       "text": "Revoked"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " and "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "Rotated"
                     },
                     {
                       "inline": "text",
@@ -44639,14 +44956,22 @@
                     },
                     {
                       "inline": "text",
-                      "text": " is terminal, so an instance may rest there forever. That is declared rather than inferred from having no way out: an entity that cannot leave a state is either finished or stuck, and only its author knows which."
+                      "text": " and "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "Rotated"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " are terminal, so an instance may rest there forever. That is declared rather than inferred from having no way out: an entity that cannot leave a state is either finished or stuck, and only its author knows which."
                     }
                   ]
                 },
                 {
                   "block": "diagram",
                   "kind": "lifecycle",
-                  "source": "stateDiagram-v2\n    [*] --> Active\n    Active --> Revoked: revoke (RevokeRefreshCredential)\n    Revoked --> [*]"
+                  "source": "stateDiagram-v2\n    [*] --> Active\n    Active --> Rotated: rotate (RotateRefreshCredential)\n    Active --> Revoked: revoke (RevokeRefreshCredential, RotateRefreshCredential)\n    Rotated --> Revoked: revoke (RevokeRefreshCredential, RotateRefreshCredential)\n    Revoked --> [*]\n    Rotated --> [*]"
                 },
                 {
                   "block": "prose",
@@ -44675,6 +45000,37 @@
                         "text": [
                           {
                             "inline": "code",
+                            "text": "rotate"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — taken by "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.identity.RotateRefreshCredential"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " on its "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "rotated"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " outcome"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
                             "text": "revoke"
                           },
                           {
@@ -44692,6 +45048,26 @@
                           {
                             "inline": "code",
                             "text": "accepted"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " outcome"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " and "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.identity.RotateRefreshCredential"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " on its "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "reuse-detected"
                           },
                           {
                             "inline": "text",
@@ -44731,6 +45107,44 @@
                           {
                             "inline": "code",
                             "text": "Revoked"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " may not become "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Active"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "Revoked"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " may not become "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Rotated"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "Rotated"
                           },
                           {
                             "inline": "text",
@@ -46517,6 +46931,14 @@
                     },
                     {
                       "inline": "text",
+                      "text": " and "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "Rotated"
+                    },
+                    {
+                      "inline": "text",
                       "text": " to "
                     },
                     {
@@ -46823,6 +47245,10 @@
                     },
                     {
                       "inline": "text",
+                      "text": "Ending the session (RP-initiated logout, fork F7) revokes it and every refresh credential bound to it, Active or Rotated, so no family of the session can be rotated again. "
+                    },
+                    {
+                      "inline": "text",
                       "text": "The default branch, taken when no other outcome's condition matched."
                     },
                     {
@@ -46880,6 +47306,46 @@
                     {
                       "inline": "text",
                       "text": "."
+                    },
+                    {
+                      "inline": "text",
+                      "text": " Beside its subject, it moves every "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "mandate.identity.RefreshCredential"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " the filter "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "session_id == input.id"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " selects to "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "Revoked"
+                    },
+                    {
+                      "inline": "text",
+                      "text": ", along the declared move "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "revoke"
+                    },
+                    {
+                      "inline": "text",
+                      "text": ", the subject itself excepted"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "; a selected row resting outside the move's starting states is left as it is."
                     },
                     {
                       "inline": "text",
@@ -46996,6 +47462,709 @@
                     {
                       "inline": "text",
                       "text": "Decided outside the input: Caller lacks authority over this session, session is outside the verified organization, or revocation cannot be durably observed under the applicable profile.. No predicate over the input reaches this branch, and saying "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "when: false"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " instead would have claimed it is unreachable, which is a different and false statement."
+                    },
+                    {
+                      "inline": "text",
+                      "text": " "
+                    },
+                    {
+                      "inline": "text",
+                      "text": "No entity in this specification changes."
+                    },
+                    {
+                      "inline": "text",
+                      "text": " It reports "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "mandate.identity.Denied"
+                    },
+                    {
+                      "inline": "text",
+                      "text": ", carrying "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "reason"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    },
+                    {
+                      "inline": "text",
+                      "text": " It emits nothing."
+                    },
+                    {
+                      "inline": "text",
+                      "text": " A test reaches it by injecting the declared fault, because no input can."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "block": "section",
+              "level": 3,
+              "title": [
+                {
+                  "inline": "code",
+                  "text": "RotateRefreshCredential"
+                }
+              ],
+              "anchor": "rotaterefreshcredential",
+              "about": {
+                "kind": "command",
+                "name": "mandate.identity.RotateRefreshCredential"
+              },
+              "blocks": [
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "code",
+                      "text": "mandate.identity.RotateRefreshCredential"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    }
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "text",
+                      "text": "It takes:"
+                    }
+                  ]
+                },
+                {
+                  "block": "list",
+                  "ordered": false,
+                  "items": [
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.RefreshCredentialId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "refresh_proof"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.CredentialProof"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "client_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.OAuthClientId"
+                          }
+                        ]
+                      }
+                    ]
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "text",
+                      "text": "It has six outcomes."
+                    }
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "strong",
+                      "text": [
+                        {
+                          "inline": "code",
+                          "text": "wrong-client"
+                        }
+                      ]
+                    },
+                    {
+                      "inline": "text",
+                      "text": " — "
+                    },
+                    {
+                      "inline": "text",
+                      "text": "Another client's refresh credential is refused and left exactly as it was; the family is not revoked, because the presenter is not the holder. "
+                    },
+                    {
+                      "inline": "text",
+                      "text": "Taken when the existing subject's stored fields satisfy "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "client_id != input.client_id"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    },
+                    {
+                      "inline": "text",
+                      "text": " "
+                    },
+                    {
+                      "inline": "text",
+                      "text": "No entity in this specification changes."
+                    },
+                    {
+                      "inline": "text",
+                      "text": " It reports "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "mandate.identity.Denied"
+                    },
+                    {
+                      "inline": "text",
+                      "text": ", carrying "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "reason"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    },
+                    {
+                      "inline": "text",
+                      "text": " It emits nothing."
+                    },
+                    {
+                      "inline": "text",
+                      "text": " A test establishes and independently observes the subject enum fact before selecting this branch."
+                    }
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "strong",
+                      "text": [
+                        {
+                          "inline": "code",
+                          "text": "rotated"
+                        }
+                      ]
+                    },
+                    {
+                      "inline": "text",
+                      "text": " — "
+                    },
+                    {
+                      "inline": "text",
+                      "text": "The presented credential rests in Rotated with the moment it was used; its successor, Active in the same family with the presented credential as predecessor and the family's absolute expiry, is the record RefreshCredentialRotated carries. "
+                    },
+                    {
+                      "inline": "text",
+                      "text": "Taken when the existing subject's stored fields satisfy "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "state == Active"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    },
+                    {
+                      "inline": "text",
+                      "text": " "
+                    },
+                    {
+                      "inline": "text",
+                      "text": "It moves a "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "mandate.identity.RefreshCredential"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " from "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "Active"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " to "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "Rotated"
+                    },
+                    {
+                      "inline": "text",
+                      "text": ", along the declared move "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "rotate"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    },
+                    {
+                      "inline": "text",
+                      "text": " "
+                    },
+                    {
+                      "inline": "text",
+                      "text": "The instance is the one named by the input field "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "id"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    },
+                    {
+                      "inline": "text",
+                      "text": " It emits "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "mandate.identity.RefreshCredentialRotated"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    },
+                    {
+                      "inline": "text",
+                      "text": " It sets "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "last_used_at"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " from "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "implementation-generated"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    },
+                    {
+                      "inline": "text",
+                      "text": " A test establishes and independently observes the subject enum fact before selecting this branch."
+                    }
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "strong",
+                      "text": [
+                        {
+                          "inline": "code",
+                          "text": "grace-sibling"
+                        }
+                      ]
+                    },
+                    {
+                      "inline": "text",
+                      "text": " — "
+                    },
+                    {
+                      "inline": "text",
+                      "text": "A Rotated credential presented within two seconds of its rotation (a client that lost the first answer) yields exactly one sibling in its family; the credential stays Rotated and records that its sibling is spent. "
+                    },
+                    {
+                      "inline": "text",
+                      "text": "Taken when the existing subject's stored fields satisfy "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "(state == Rotated and grace_sibling_issued == false and last_used_at > now - 2s)"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    },
+                    {
+                      "inline": "text",
+                      "text": " "
+                    },
+                    {
+                      "inline": "text",
+                      "text": "It changes a "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "mandate.identity.RefreshCredential"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " without moving it along its lifecycle."
+                    },
+                    {
+                      "inline": "text",
+                      "text": " "
+                    },
+                    {
+                      "inline": "text",
+                      "text": "The instance is the one named by the input field "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "id"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    },
+                    {
+                      "inline": "text",
+                      "text": " It emits "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "mandate.identity.RefreshCredentialRotated"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    },
+                    {
+                      "inline": "text",
+                      "text": " It sets "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "grace_sibling_issued"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " from "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "\"true\""
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    },
+                    {
+                      "inline": "text",
+                      "text": " A test establishes and independently observes the subject enum fact before selecting this branch."
+                    }
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "strong",
+                      "text": [
+                        {
+                          "inline": "code",
+                          "text": "reuse-detected"
+                        }
+                      ]
+                    },
+                    {
+                      "inline": "text",
+                      "text": " — "
+                    },
+                    {
+                      "inline": "text",
+                      "text": "A Rotated credential presented after the grace window, or a second time within it, is reuse. No credential is returned; the presented credential and every other Active or Rotated member of its family are Revoked, and the session RefreshFamilyRevoked names is revoked by the identity fold (this file's header). The token endpoint answers it as a refusal (invalid_grant). "
+                    },
+                    {
+                      "inline": "text",
+                      "text": "The default branch, taken when no other outcome's condition matched."
+                    },
+                    {
+                      "inline": "text",
+                      "text": " "
+                    },
+                    {
+                      "inline": "text",
+                      "text": "It moves a "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "mandate.identity.RefreshCredential"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " from "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "Active"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " and "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "Rotated"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " to "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "Revoked"
+                    },
+                    {
+                      "inline": "text",
+                      "text": ", along the declared move "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "revoke"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    },
+                    {
+                      "inline": "text",
+                      "text": " "
+                    },
+                    {
+                      "inline": "text",
+                      "text": "The instance is the one named by the input field "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "id"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    },
+                    {
+                      "inline": "text",
+                      "text": " Beside its subject, it moves every "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "mandate.identity.RefreshCredential"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " the filter "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "family_id == subject.family_id"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " selects to "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "Revoked"
+                    },
+                    {
+                      "inline": "text",
+                      "text": ", along the declared move "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "revoke"
+                    },
+                    {
+                      "inline": "text",
+                      "text": ", the subject itself excepted"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "; a selected row resting outside the move's starting states is left as it is."
+                    },
+                    {
+                      "inline": "text",
+                      "text": " It emits "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "mandate.identity.RefreshFamilyRevoked"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    },
+                    {
+                      "inline": "text",
+                      "text": " A test reaches it by constructing an input that satisfies no other outcome's condition."
+                    }
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "strong",
+                      "text": [
+                        {
+                          "inline": "code",
+                          "text": "wrong-state"
+                        }
+                      ]
+                    },
+                    {
+                      "inline": "text",
+                      "text": " — "
+                    },
+                    {
+                      "inline": "text",
+                      "text": "A Revoked credential is refused and nothing moves. "
+                    },
+                    {
+                      "inline": "text",
+                      "text": "Taken when the subject is resting in a state none of this command's moves start from"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " — a "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "mandate.identity.RefreshCredential"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " in "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "Revoked"
+                    },
+                    {
+                      "inline": "text",
+                      "text": ", which is what is left of the lifecycle once this command's own moves are taken away. The document lists none of it."
+                    },
+                    {
+                      "inline": "text",
+                      "text": " "
+                    },
+                    {
+                      "inline": "text",
+                      "text": "No entity in this specification changes."
+                    },
+                    {
+                      "inline": "text",
+                      "text": " It reports "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "mandate.identity.Denied"
+                    },
+                    {
+                      "inline": "text",
+                      "text": ", carrying "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "reason"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    },
+                    {
+                      "inline": "text",
+                      "text": " It emits nothing."
+                    },
+                    {
+                      "inline": "text",
+                      "text": " A test reaches it by driving an instance into one of those states and then issuing the command, because no input selects this branch."
+                    }
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "strong",
+                      "text": [
+                        {
+                          "inline": "code",
+                          "text": "denied"
+                        }
+                      ]
+                    },
+                    {
+                      "inline": "text",
+                      "text": " — "
+                    },
+                    {
+                      "inline": "text",
+                      "text": "Decided outside the input: The refresh proof does not match the server-resolved id's verifier, the credential's absolute lifetime is past, client authentication failed, the bound client is disabled, or the principal or session is disabled.. No predicate over the input reaches this branch, and saying "
                     },
                     {
                       "inline": "code",
@@ -47324,6 +48493,259 @@
               "title": [
                 {
                   "inline": "code",
+                  "text": "RefreshCredentialIssued"
+                }
+              ],
+              "anchor": "refreshcredentialissued",
+              "about": {
+                "kind": "event",
+                "name": "mandate.identity.RefreshCredentialIssued"
+              },
+              "blocks": [
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "code",
+                      "text": "mandate.identity.RefreshCredentialIssued"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    }
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "text",
+                      "text": "It carries:"
+                    }
+                  ]
+                },
+                {
+                  "block": "list",
+                  "ordered": false,
+                  "items": [
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.RefreshCredentialId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "family_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.identity.RefreshFamilyId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "client_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.OAuthClientId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "principal_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.PrincipalId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "organization_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.OrganizationId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "session_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.SessionId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "verifier"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.CredentialVerifier"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "epochs"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.EpochSnapshotRef"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "issued_at"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Timestamp"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "expires_at"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Timestamp"
+                          }
+                        ]
+                      }
+                    ]
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "text",
+                      "text": "No command in this system emits it, so something outside the specification does."
+                    }
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "text",
+                      "text": "Nothing in this system reacts to it."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "block": "section",
+              "level": 3,
+              "title": [
+                {
+                  "inline": "code",
                   "text": "RefreshCredentialRevoked"
                 }
               ],
@@ -47417,6 +48839,438 @@
                     {
                       "inline": "code",
                       "text": "accepted"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " outcome."
+                    }
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "text",
+                      "text": "Nothing in this system reacts to it."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "block": "section",
+              "level": 3,
+              "title": [
+                {
+                  "inline": "code",
+                  "text": "RefreshCredentialRotated"
+                }
+              ],
+              "anchor": "refreshcredentialrotated",
+              "about": {
+                "kind": "event",
+                "name": "mandate.identity.RefreshCredentialRotated"
+              },
+              "blocks": [
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "code",
+                      "text": "mandate.identity.RefreshCredentialRotated"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    }
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "text",
+                      "text": "It carries:"
+                    }
+                  ]
+                },
+                {
+                  "block": "list",
+                  "ordered": false,
+                  "items": [
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "predecessor"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.RefreshCredentialId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.RefreshCredentialId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "family_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.identity.RefreshFamilyId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "client_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.OAuthClientId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "principal_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.PrincipalId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "organization_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.OrganizationId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "session_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.SessionId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "verifier"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.CredentialVerifier"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "epochs"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.EpochSnapshotRef"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "issued_at"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Timestamp"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "expires_at"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Timestamp"
+                          }
+                        ]
+                      }
+                    ]
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "text",
+                      "text": "Emitted by "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "mandate.identity.RotateRefreshCredential"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " on its "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "rotated"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " and "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "grace-sibling"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " outcomes."
+                    }
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "text",
+                      "text": "Nothing in this system reacts to it."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "block": "section",
+              "level": 3,
+              "title": [
+                {
+                  "inline": "code",
+                  "text": "RefreshFamilyRevoked"
+                }
+              ],
+              "anchor": "refreshfamilyrevoked",
+              "about": {
+                "kind": "event",
+                "name": "mandate.identity.RefreshFamilyRevoked"
+              },
+              "blocks": [
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "code",
+                      "text": "mandate.identity.RefreshFamilyRevoked"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    }
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "text",
+                      "text": "It carries:"
+                    }
+                  ]
+                },
+                {
+                  "block": "list",
+                  "ordered": false,
+                  "items": [
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.RefreshCredentialId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "family_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.identity.RefreshFamilyId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "session_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.SessionId"
+                          }
+                        ]
+                      }
+                    ]
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "text",
+                      "text": "Emitted by "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "mandate.identity.RotateRefreshCredential"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " on its "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "reuse-detected"
                     },
                     {
                       "inline": "text",
@@ -48268,6 +50122,47 @@
                       "text": " outcomes."
                     }
                   ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "text",
+                      "text": "Reported by "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "mandate.identity.RotateRefreshCredential"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " on its "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "wrong-client"
+                    },
+                    {
+                      "inline": "text",
+                      "text": ", "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "wrong-state"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " and "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "denied"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " outcomes."
+                    }
+                  ]
                 }
               ]
             }
@@ -48296,8 +50191,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
-          "contract_digest": "slice-sha256/2:66f54405913c442fd9581b56dd20b56fe4f6f3529c3c0a283b513560f78ba8ed"
+          "source_digest": "39c2e76bf7f91b5354f0f5a59eb7e9ccc33cca0652d30f18fe8e396164e689ce",
+          "contract_digest": "slice-sha256/2:de08b52371d450ee0bdb33499175e23d0038f979128c1b7647195ea4061b1d63"
         },
         "slice": {
           "of": "constructs",
@@ -50208,8 +52103,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
-          "contract_digest": "slice-sha256/2:66f54405913c442fd9581b56dd20b56fe4f6f3529c3c0a283b513560f78ba8ed"
+          "source_digest": "39c2e76bf7f91b5354f0f5a59eb7e9ccc33cca0652d30f18fe8e396164e689ce",
+          "contract_digest": "slice-sha256/2:de08b52371d450ee0bdb33499175e23d0038f979128c1b7647195ea4061b1d63"
         },
         "slice": {
           "of": "constructs",
@@ -56949,8 +58844,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
-          "contract_digest": "slice-sha256/2:66f54405913c442fd9581b56dd20b56fe4f6f3529c3c0a283b513560f78ba8ed"
+          "source_digest": "39c2e76bf7f91b5354f0f5a59eb7e9ccc33cca0652d30f18fe8e396164e689ce",
+          "contract_digest": "slice-sha256/2:de08b52371d450ee0bdb33499175e23d0038f979128c1b7647195ea4061b1d63"
         },
         "slice": {
           "of": "constructs",
@@ -58527,8 +60422,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
-          "contract_digest": "90c631a420df9593ddf90b48ed18919d7a1fe6a8e477d90e737e1d4bebced13c"
+          "source_digest": "39c2e76bf7f91b5354f0f5a59eb7e9ccc33cca0652d30f18fe8e396164e689ce",
+          "contract_digest": "0fffa74e30f6d15f8379a37acbefb9716d9b11f250d807f4709cd27abb4400b6"
         },
         "slice": {
           "of": "whole-model"
@@ -59221,7 +61116,40 @@
                     "text": [
                       {
                         "inline": "code",
+                        "text": "mandate.identity.RefreshCredentialIssued"
+                      }
+                    ]
+                  }
+                ],
+                [
+                  {
+                    "block": "prose",
+                    "text": [
+                      {
+                        "inline": "code",
                         "text": "mandate.identity.RefreshCredentialRevoked"
+                      }
+                    ]
+                  }
+                ],
+                [
+                  {
+                    "block": "prose",
+                    "text": [
+                      {
+                        "inline": "code",
+                        "text": "mandate.identity.RefreshCredentialRotated"
+                      }
+                    ]
+                  }
+                ],
+                [
+                  {
+                    "block": "prose",
+                    "text": [
+                      {
+                        "inline": "code",
+                        "text": "mandate.identity.RefreshFamilyRevoked"
                       }
                     ]
                   }
@@ -59458,8 +61386,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
-          "contract_digest": "90c631a420df9593ddf90b48ed18919d7a1fe6a8e477d90e737e1d4bebced13c"
+          "source_digest": "39c2e76bf7f91b5354f0f5a59eb7e9ccc33cca0652d30f18fe8e396164e689ce",
+          "contract_digest": "0fffa74e30f6d15f8379a37acbefb9716d9b11f250d807f4709cd27abb4400b6"
         },
         "slice": {
           "of": "whole-model"
@@ -59537,8 +61465,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
-          "contract_digest": "90c631a420df9593ddf90b48ed18919d7a1fe6a8e477d90e737e1d4bebced13c"
+          "source_digest": "39c2e76bf7f91b5354f0f5a59eb7e9ccc33cca0652d30f18fe8e396164e689ce",
+          "contract_digest": "0fffa74e30f6d15f8379a37acbefb9716d9b11f250d807f4709cd27abb4400b6"
         },
         "slice": {
           "of": "whole-model"

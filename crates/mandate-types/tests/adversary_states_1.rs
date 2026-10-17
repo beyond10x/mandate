@@ -116,7 +116,7 @@ fn the_state_account_rebuilt_from_the_compiled_index_is_the_account_the_crate_de
         .iter()
         .map(|name| declared_variants(name).len())
         .sum();
-    assert_eq!(variants, 70, "declared variants across the derived half");
+    assert_eq!(variants, 71, "declared variants across the derived half");
 }
 
 /// A declared element is decided through the generated enum that realizes it and no other.

@@ -5,7 +5,8 @@
 //! the account cannot drift from the contract without this suite failing.
 
 use mandate_types::inventory::{
-    ACCEPTED, DERIVED_STATE_ENUMS, EXCLUDED_ENTITIES, EXCLUDED_SEMANTICS, Kind, Owner,
+    ACCEPTED, DERIVED_STATE_ENUMS, DOMAIN_TYPES_UNREALIZED, EXCLUDED_ENTITIES, EXCLUDED_SEMANTICS,
+    Kind, Owner,
 };
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -34,7 +35,7 @@ fn schema_kind(ess_name: &str) -> String {
 #[test]
 fn the_compiled_type_index_splits_into_authored_types_and_derived_state_enums() {
     let names = schema_names("types");
-    assert_eq!(names.len(), 111, "compiled type entries");
+    assert_eq!(names.len(), 112, "compiled type entries");
     let authored: BTreeSet<&String> = names
         .iter()
         .filter(|name| name.starts_with("mandate.core."))
@@ -42,10 +43,20 @@ fn the_compiled_type_index_splits_into_authored_types_and_derived_state_enums() 
     assert_eq!(authored.len(), 75, "authored model types");
     for name in &names {
         if !name.starts_with("mandate.core.") {
-            assert!(name.ends_with(".State"), "unaccounted type entry {name}");
+            assert!(
+                name.ends_with(".State")
+                    || DOMAIN_TYPES_UNREALIZED
+                        .iter()
+                        .any(|(unrealized, _)| unrealized == name),
+                "unaccounted type entry {name}"
+            );
         }
     }
-    assert_eq!(names.len() - authored.len(), 36, "derived state enums");
+    assert_eq!(
+        names.len() - authored.len() - DOMAIN_TYPES_UNREALIZED.len(),
+        36,
+        "derived state enums"
+    );
 }
 
 #[test]
@@ -271,7 +282,7 @@ const MANIFEST: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../contracts/cov
 
 /// The coverage manifest's account of this crate is exactly the account this crate keeps.
 ///
-/// `contracts/coverage.json` maps all 111 compiled type declarations, and the eight registrar
+/// `contracts/coverage.json` maps all 112 compiled type declarations, and the eight registrar
 /// crates reconcile their own entries against a `mandate_types::realizes!` registry the
 /// compiler touches. This crate has no such registry and is not given one: the ruling for
 /// `story:coverage-map` is that the authored types are accounted here through the conformance
@@ -326,7 +337,7 @@ fn the_coverage_manifest_names_exactly_what_this_crate_accounts_for() {
             "{element}: two entries name this element"
         );
     }
-    assert_eq!(entries.len(), 297, "the coverage manifest's element count");
+    assert_eq!(entries.len(), 302, "the coverage manifest's element count");
 
     let mut claimed: BTreeMap<String, String> = BTreeMap::new();
     for (element, entry) in &entries {

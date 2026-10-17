@@ -30,6 +30,11 @@ scenarios:
 - scenarios/federation-resolution-precedence.yaml
 - scenarios/federation-untrimmed-subject.yaml
 - scenarios/introspect-caller-proof-malformed.yaml
+- scenarios/oidc-end-session-revokes.yaml
+- scenarios/oidc-refresh-grace-sibling-once.yaml
+- scenarios/oidc-refresh-reuse-revokes-family.yaml
+- scenarios/oidc-refresh-rotates.yaml
+- scenarios/oidc-refresh-wrong-client-refused.yaml
 - scenarios/pkce-code-expired.yaml
 - scenarios/pkce-malformed-challenge.yaml
 - scenarios/pkce-redirect-mismatch.yaml
@@ -62,3 +67,9 @@ scenarios:
 #   AccessCredential.target; mandate.credential.AccessCredential declares no target field,
 #   so `setup:` cannot seed one (ESS-AUTHOR-015). Authored as the reachable first guard,
 #   introspect-caller-proof-malformed. Routed to story:declared-writers.
+# One case of story:oidc-refresh-and-logout is not authored as the story names it.
+# oidc-refresh-epoch-mismatch-refused: a principal epoch advanced since issuance must deny
+#   RotateRefreshCredential, and mandate.identity.SecurityEpochSnapshot declares principal_id,
+#   organization_id and connection_id and no generation, so `setup:` cannot establish a
+#   snapshot that is behind its principal's generation. Routed to
+#   story:epoch-snapshot-generations.

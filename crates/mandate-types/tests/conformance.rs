@@ -3,8 +3,9 @@
 //! Every case is decided against `generated/schema/types`, the ESS projection that
 //! `cargo xtask contracts` byte-compares. Nothing here asserts runtime enforcement.
 //!
-//! The index holds 111 entries: the 75 authored `mandate.core` types, which
-//! `mandate_types::conformance::cases()` realizes and the cases below decide, and the 36
+//! The index holds 112 entries: the 75 authored `mandate.core` types, which
+//! `mandate_types::conformance::cases()` realizes and the cases below decide; one authored
+//! `mandate.identity` type no crate realizes yet (`DOMAIN_TYPES_UNREALIZED`); and the 36
 //! derived `<Entity>.State` enums, which join the same account at the end of this file.
 //!
 //! # The rule the state account applies, and exactly what it covers
@@ -64,7 +65,7 @@
 //! which `tests/inventory.rs` asserts is exactly the `.State` half of the compiled index;
 //! and each pair is asserted to be the type its element name *derives* to under ESS's own
 //! `declaration_name` rule, because the procedure alone cannot tell paired enums apart —
-//! 23 of the 36 declarations share a variant list with another, and every cross-pairing
+//! 22 of the 36 declarations share a variant list with another, and every cross-pairing
 //! among them passes every other assertion here unchanged.
 
 use std::collections::BTreeSet;
@@ -507,7 +508,7 @@ fn through_generated_shape<T: serde::Serialize + serde::de::DeserializeOwned>(
 ///
 /// The table is a literal, and a literal pairing is a claim, not evidence: the procedure
 /// reads the variants out of the file named on the left and pushes them through the type
-/// named on the right, and where two declarations carry the same variant list — 23 of the
+/// named on the right, and where two declarations carry the same variant list — 22 of the
 /// 36 do — the right side can name another element's enum with nothing failing. So the
 /// Rust name is captured here and
 /// `every_derived_state_enum_joins_the_per_type_schema_account` asserts it is the name the
@@ -644,7 +645,7 @@ fn every_derived_state_enum_joins_the_per_type_schema_account() {
         );
     }
     assert_eq!(enums.len(), 36, "derived state enums decided");
-    assert_eq!(decided, 70, "declared variants decided");
+    assert_eq!(decided, 71, "declared variants decided");
 
     // The rule has to discriminate to be evidence: two declarations deriving to one Rust
     // name would leave a swap between them undetectable. ESS refuses that itself
