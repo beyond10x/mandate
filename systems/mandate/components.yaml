@@ -184,3 +184,14 @@ components:
       commands:
         - mandate.audit.RecordAuditEvent
         - mandate.audit.RedactAuditEvent
+  - component: mandate-guard
+    owns:
+      domains:
+        - mandate.guard
+    summary: The token guard of docs/adr/0013-token-guard.md. Today the library alone, verify in crates/mandate-client; the sidecar binary and its chart are planned under story:token-guard.
+    accepts:
+      commands:
+        - mandate.guard.AdmitRequest
+    publishes:
+      events:
+        - mandate.guard.RequestAdmitted

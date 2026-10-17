@@ -1,0 +1,30 @@
+type: ess-scenario/2
+domain: mandate.guard
+scenario: guard-issuer-mismatch-refused
+summary: 'iss is another issuer than the policy names; verify::claims, IssuerMismatch; a decode-only verifier double knows kid k1 alone; residue story:token-guard.'
+timeline:
+- at: '2026-01-05T09:00:00Z'
+  command: mandate.guard.AdmitRequest
+  input:
+    policy:
+      issuer: https://idp.example.test
+      audiences:
+      - orders
+      allow:
+        emails:
+        - ada@example.test
+        domains:
+        - example.test
+      limits:
+        per_minute: 60
+        burst: 10
+        queue: 32
+      clock_skew: PT30S
+    token: c2NlbmFyaW8uZXlKcmFXUWlPaUpyTVNJc0ltbHpjeUk2SW1oMGRIQnpPaTh2YjNSb1pYSXVaWGhoYlhCc1pTNTBaWE4wSWl3aVlYVmtJam9pYjNKa1pYSnpJaXdpYzNWaUlqb2lkUzB4SWl3aVpXMWhhV3dpT2lKaFpHRkFaWGhoYlhCc1pTNTBaWE4wSWl3aVpXMWhhV3hmZG1WeWFXWnBaV1FpT25SeWRXVXNJbWxoZENJNk1UYzJOell3TXpBd01Dd2libUptSWpveE56WTNOakF6TURBd0xDSmxlSEFpT2pFM05qYzJNRGN5TURCOS51bnNpZ25lZA==
+  outcome: issuer-mismatch
+  error:
+    name: mandate.guard.Refused
+    fields:
+      reason: IssuerMismatch
+  no_events:
+  - mandate.guard.RequestAdmitted

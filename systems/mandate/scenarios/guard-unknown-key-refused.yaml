@@ -1,0 +1,30 @@
+type: ess-scenario/2
+domain: mandate.guard
+scenario: guard-unknown-key-refused
+summary: 'kid k9 (payload claim of the scenario literal) is in no JWK Set, cached or refetched; verify::key, UnknownKey; a decode-only verifier double knows kid k1 alone; residue story:token-guard.'
+timeline:
+- at: '2026-01-05T09:00:00Z'
+  command: mandate.guard.AdmitRequest
+  input:
+    policy:
+      issuer: https://idp.example.test
+      audiences:
+      - orders
+      allow:
+        emails:
+        - ada@example.test
+        domains:
+        - example.test
+      limits:
+        per_minute: 60
+        burst: 10
+        queue: 32
+      clock_skew: PT30S
+    token: c2NlbmFyaW8uZXlKcmFXUWlPaUpyT1NJc0ltbHpjeUk2SW1oMGRIQnpPaTh2YVdSd0xtVjRZVzF3YkdVdWRHVnpkQ0lzSW1GMVpDSTZJbTl5WkdWeWN5SXNJbk4xWWlJNkluVXRNU0lzSW1WdFlXbHNJam9pWVdSaFFHVjRZVzF3YkdVdWRHVnpkQ0lzSW1WdFlXbHNYM1psY21sbWFXVmtJanAwY25WbExDSnBZWFFpT2pFM05qYzJNRE13TURBc0ltNWlaaUk2TVRjMk56WXdNekF3TUN3aVpYaHdJam94TnpZM05qQTNNakF3ZlEudW5zaWduZWQ=
+  outcome: unknown-key
+  error:
+    name: mandate.guard.Refused
+    fields:
+      reason: UnknownKey
+  no_events:
+  - mandate.guard.RequestAdmitted

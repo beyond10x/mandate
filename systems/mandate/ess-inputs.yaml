@@ -15,6 +15,7 @@ specification:
 - domains/workload.yaml
 - domains/audit.yaml
 - domains/authorization.yaml
+- domains/guard.yaml
 scenarios:
 - scenarios/authz-unadmitted-organization.yaml
 - scenarios/credential-revoked-twice.yaml
@@ -29,6 +30,12 @@ scenarios:
 - scenarios/federation-malformed-proof.yaml
 - scenarios/federation-resolution-precedence.yaml
 - scenarios/federation-untrimmed-subject.yaml
+- scenarios/guard-audience-mismatch-refused.yaml
+- scenarios/guard-expired-refused.yaml
+- scenarios/guard-identity-allowed-admitted.yaml
+- scenarios/guard-identity-not-allowed-refused.yaml
+- scenarios/guard-issuer-mismatch-refused.yaml
+- scenarios/guard-unknown-key-refused.yaml
 - scenarios/introspect-caller-proof-malformed.yaml
 - scenarios/pkce-code-expired.yaml
 - scenarios/pkce-malformed-challenge.yaml
