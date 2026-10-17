@@ -270,14 +270,13 @@ fn input_members(command: &str) -> (Vec<&'static str>, Vec<&'static str>) {
                 }
                 continue;
             }
-            if reading {
-                if let Some(member) = line
+            if reading
+                && let Some(member) = line
                     .strip_prefix("        ")
                     .and_then(|rest| rest.strip_suffix(':'))
                     .filter(|rest| !rest.starts_with(' '))
-                {
-                    members.push(member);
-                }
+            {
+                members.push(member);
             }
         }
         assert!(!members.is_empty(), "{command} declares no member");
