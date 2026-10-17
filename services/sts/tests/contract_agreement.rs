@@ -231,6 +231,7 @@ fn each_input_agrees(context: &VerifiedContext) -> Vec<Value> {
                     b"dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk".to_vec(),
                 ),
                 redirect_uri: RedirectUri::new("https://client.example/callback"),
+                client_secret: None,
             },
             "mandate.credential.RedeemAuthorizationCode",
         ),

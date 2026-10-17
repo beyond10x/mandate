@@ -302,8 +302,12 @@ fn every_clause_reachable_from_a_redemption_by_call_answers_neither_scope_nor_cl
         if !reached.contains(name) {
             continue;
         }
+        // The three client-secret clauses are the one exception: RFC 6749 section 5.2's
+        // "client authentication failed" is exactly what they decide at the token endpoint.
+        let authenticates = oauth::CLIENT_AUTHENTICATION_CLAUSES.contains(clause);
         assert!(
-            *answered != ErrorCode::InvalidClient && *answered != ErrorCode::InvalidScope,
+            (authenticates || *answered != ErrorCode::InvalidClient)
+                && *answered != ErrorCode::InvalidScope,
             "{name} is reachable from a redemption by call and answers {answered}, which \
              adapter-contract.md forbids for any redemption-reachable clause"
         );

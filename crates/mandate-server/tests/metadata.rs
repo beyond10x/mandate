@@ -73,11 +73,15 @@ fn the_metadata_declares_the_policy_this_deployment_actually_enforces() {
         document.code_challenge_methods_supported,
         vec!["S256".to_owned()]
     );
-    // The login road is the public-client road: `AuthorizePublicClient`, and a token endpoint
-    // that refuses `client_secret` as an undeclared parameter.
+    // A confidential client by either RFC 6749 section 2.3.1 presentation, a public client by
+    // none (`story:oidc-discovery-and-code-flow`).
     assert_eq!(
         document.token_endpoint_auth_methods_supported,
-        vec!["none".to_owned()]
+        vec![
+            "client_secret_basic".to_owned(),
+            "client_secret_post".to_owned(),
+            "none".to_owned()
+        ]
     );
 }
 
@@ -105,7 +109,7 @@ fn the_metadata_renders_the_nine_declared_members_and_no_more() {
             r#""jwks_uri":"https://mandate.example/oauth/jwks","#,
             r#""response_types_supported":["code"],"#,
             r#""token_endpoint":"https://mandate.example/oauth/token","#,
-            r#""token_endpoint_auth_methods_supported":["none"]}"#
+            r#""token_endpoint_auth_methods_supported":["client_secret_basic","client_secret_post","none"]}"#
         )
     );
 }
@@ -205,13 +209,16 @@ fn openid_configuration_members() {
             .code_challenge_methods_supported,
         vec!["S256".to_owned()]
     );
-    // What the token endpoint authenticates today; the two secret methods join it in the
-    // same change that teaches `decode::token_request` to read them.
+    // What the token endpoint authenticates: the story's three methods, from the one builder.
     assert_eq!(
         document
             .authorization_server
             .token_endpoint_auth_methods_supported,
-        vec!["none".to_owned()]
+        vec![
+            "client_secret_basic".to_owned(),
+            "client_secret_post".to_owned(),
+            "none".to_owned()
+        ]
     );
 
     // The rendering, member for member: the thirteen this deployment can state truthfully.
@@ -233,7 +240,7 @@ fn openid_configuration_members() {
             r#""scopes_supported":["openid","email","profile","groups","offline_access"],"#,
             r#""subject_types_supported":["public"],"#,
             r#""token_endpoint":"https://mandate.example/oauth/token","#,
-            r#""token_endpoint_auth_methods_supported":["none"]}"#
+            r#""token_endpoint_auth_methods_supported":["client_secret_basic","client_secret_post","none"]}"#
         )
     );
     for absent in ["userinfo_endpoint", "end_session_endpoint"] {

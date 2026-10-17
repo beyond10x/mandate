@@ -96,24 +96,20 @@ fn a_repeated_authorization_header_is_admitted_at_the_token_endpoint() {
     );
 }
 
-/// `adapter-contract.md:119-121`: "`client_secret` is not an admitted parameter: this is the
-/// public-client road, and the metadata document advertises
-/// `token_endpoint_auth_methods_supported: [\"none\"]` **because the decoder refuses it**."
-///
 /// RFC 6749 section 2.3.1 makes the `Authorization: Basic` form the *preferred* presentation of
-/// a client secret and the body parameter the fallback. The decoder refuses the fallback and
-/// admits the preferred form, so `["none"]` is enforced against one of the two presentations
-/// the RFC declares.
+/// a client secret and the body parameter the fallback. Once the token endpoint advertised
+/// `client_secret_basic` (`story:oidc-discovery-and-code-flow`), the property this case keeps
+/// is the original finding's other half: a `Basic` credential is never silently dropped. It
+/// either names the body's client and is carried to the STS, or it is refused `invalid_client`.
 #[test]
 fn the_token_endpoint_admits_the_rfc_6749_basic_client_credential() {
-    // base64("client:secret")
+    // base64("client:secret"): an identifier that is not the body's `client_id`.
     let authenticated =
         token(&token_form()).with_header("Authorization", "Basic Y2xpZW50OnNlY3JldA==");
     assert_eq!(
         decode::redeem_authorization_code(&authenticated).map(|_| ()),
-        Err(Refusal::UndeclaredField),
-        "metadata.rs:19-22 rests `token_endpoint_auth_methods_supported: [\"none\"]` on the \
-         decoder refusing a presented client credential"
+        Err(Refusal::ClientCredentialAmbiguous),
+        "a Basic credential naming another client than the body is refused, not dropped"
     );
 }
 
@@ -257,7 +253,8 @@ fn a_jwk_parameter_silently_replaces_the_declared_member_it_collides_with() {
 /// case above vacuous.
 #[test]
 fn the_closed_parameter_sets_are_the_ones_the_cases_above_assume() {
-    assert!(!decode::TOKEN_PARAMETERS.contains(&"client_secret"));
+    // client_secret is declared since confidential-client authentication (RFC 6749 2.3.1).
+    assert!(decode::TOKEN_PARAMETERS.contains(&"client_secret"));
     assert!(!decode::TOKEN_PARAMETERS.contains(&"scope"));
     assert!(decode::INTROSPECT_PARAMETERS.contains(&"token"));
     assert!(decode::AUTHORIZE_PARAMETERS.contains(&"state"));

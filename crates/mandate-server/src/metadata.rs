@@ -18,9 +18,11 @@
 //!
 //! `code_challenge_methods_supported` is `["S256"]` because `mandate.core.PkceMethod` declares
 //! exactly one variant and `crate::decode::authorize_public_client` refuses every other
-//! `code_challenge_method`. `token_endpoint_auth_methods_supported` is `["none"]` because the
-//! login road is the public-client road and `crate::decode::redeem_authorization_code` refuses
-//! `client_secret` as an undeclared parameter. `response_types_supported` is the single value
+//! `code_challenge_method`. `token_endpoint_auth_methods_supported` is
+//! [`TOKEN_ENDPOINT_AUTH_METHODS`] because `crate::decode::redeem_authorization_code` reads a
+//! secret from `Authorization: Basic` or from the `client_secret` parameter, and a public
+//! client presents neither (RFC 6749 section 2.3.1); the STS decides which the client the code
+//! is bound to must present. `response_types_supported` is the single value
 //! the authorization decoder admits, and `grant_types_supported` is
 //! `crate::decode::TOKEN_GRANTS`, the list `crate::decode::token_request` dispatches on — the
 //! authorization code and RFC 8693 token exchange. A metadata document
@@ -189,6 +191,12 @@ pub const IDENTITY_CLAIMS: [&str; 13] = [
 /// The ID-token signing algorithms advertised. RS256 is the default (fork F8).
 pub const ID_TOKEN_SIGNING_ALGORITHMS: [&str; 1] = ["RS256"];
 
+/// The token-endpoint client authentication methods advertised, in both documents: a
+/// confidential client's two RFC 6749 section 2.3.1 presentations, and `none` for a public
+/// client.
+pub const TOKEN_ENDPOINT_AUTH_METHODS: [&str; 3] =
+    ["client_secret_basic", "client_secret_post", "none"];
+
 /// Build the OpenID Provider configuration document for an issuer.
 ///
 /// # Panics
@@ -233,7 +241,10 @@ pub fn authorization_server_metadata(issuer: &str) -> AuthorizationServerMetadat
             .map(|grant| (*grant).to_owned())
             .collect(),
         code_challenge_methods_supported: vec![mandate_proto::oauth::S256_METHOD.to_owned()],
-        token_endpoint_auth_methods_supported: vec!["none".to_owned()],
+        token_endpoint_auth_methods_supported: TOKEN_ENDPOINT_AUTH_METHODS
+            .iter()
+            .map(|method| (*method).to_owned())
+            .collect(),
     }
 }
 

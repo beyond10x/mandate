@@ -110,6 +110,11 @@ pub struct RedeemAuthorizationCode {
     pub pkce_verifier: CredentialProof,
     /// The declared `redirect_uri`.
     pub redirect_uri: RedirectUri,
+    /// The declared `client_secret`: the secret the adapter read from `client_secret_basic`
+    /// or `client_secret_post` (RFC 6749 section 2.3.1), or `None` when the request presented
+    /// neither. Required of a confidential client and refused from a public one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub client_secret: Option<CredentialProof>,
 }
 
 /// The accepted outcome of [`RedeemAuthorizationCode`].
@@ -373,6 +378,11 @@ where
         &session.organization,
         bound.clients,
     )?;
+    authenticated_client(
+        &input.client_id,
+        input.client_secret.as_ref(),
+        bound.clients,
+    )?;
     let server = target_in_tenant(&code, bound.servers, &session.organization)?;
 
     let unbounded = || Denied::new(DenialReason::Denied, DenialClause::ExpiryUnbounded);
@@ -389,6 +399,50 @@ where
         server,
         expires_at,
     })
+}
+
+/// The bound client authenticates as its registration requires.
+///
+/// "a confidential client presents no secret or one matching none of its recorded
+/// verifiers; a public client presents a secret" (`credential.yaml`, the declared denial).
+/// Decided after [`bound_client`], so the client is already the code's own, registered,
+/// enabled and inside the session's organization: every refusal here is about the secret,
+/// and each answers `invalid_client`. A reader that cannot say whether the client is
+/// public, or cannot decide the comparison, has authenticated nobody and fails closed with
+/// `Unavailable`.
+fn authenticated_client<O: OAuthClientReads>(
+    client_id: &OAuthClientId,
+    presented: Option<&CredentialProof>,
+    clients: &O,
+) -> Result<(), Denied> {
+    let public = clients.is_public(client_id).ok_or_else(|| {
+        Denied::new(
+            DenialReason::Unavailable,
+            DenialClause::ClientSecretMismatch,
+        )
+    })?;
+    match (public, presented) {
+        (true, None) => Ok(()),
+        (true, Some(_)) => Err(Denied::new(
+            DenialReason::InvalidClient,
+            DenialClause::ClientSecretFromPublic,
+        )),
+        (false, None) => Err(Denied::new(
+            DenialReason::InvalidClient,
+            DenialClause::ClientSecretMissing,
+        )),
+        (false, Some(secret)) => match clients.secret_authenticates(client_id, secret) {
+            Some(true) => Ok(()),
+            Some(false) => Err(Denied::new(
+                DenialReason::InvalidClient,
+                DenialClause::ClientSecretMismatch,
+            )),
+            None => Err(Denied::new(
+                DenialReason::Unavailable,
+                DenialClause::ClientSecretMismatch,
+            )),
+        },
+    }
 }
 
 /// The draw, and no refusal: the secret, its verifier, the identity, and the event that

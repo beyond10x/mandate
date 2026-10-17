@@ -138,6 +138,7 @@ fn redemption(code_id: AuthorizationCodeId, proof: &CredentialProof) -> RedeemAu
         code: CredentialProof::from_bytes(proof.expose_material().to_vec()),
         pkce_verifier: CredentialProof::from_bytes(VERIFIER.as_bytes().to_vec()),
         redirect_uri: redirect(),
+        client_secret: None,
     }
 }
 

@@ -243,9 +243,16 @@ fn the_clauses_a_redemption_refuses_with_map_onto_the_grant_and_the_client() {
     // `invalid_client` is "client authentication failed", so it survives only where a caller
     // on this road actually authenticates: RFC 7662 section 2.1's introspection endpoint, whose
     // caller presents a bearer credential. Neither clause is reachable from a redemption.
+    // And at the token endpoint once a confidential client authenticates there
+    // (`story:oidc-discovery-and-code-flow`): the three client-secret clauses are the only
+    // redemption clauses about client authentication, and RFC 6749 section 5.2 answers them
+    // `invalid_client`.
     for clause in [
         DenialClause::CallerProofInvalid,
         DenialClause::IntrospectionAuthority,
+        DenialClause::ClientSecretMissing,
+        DenialClause::ClientSecretMismatch,
+        DenialClause::ClientSecretFromPublic,
     ] {
         assert_eq!(
             oauth::code_for_clause(clause),
@@ -361,7 +368,8 @@ fn declared_clause_names() -> BTreeSet<String> {
 
 // ------------------------------------- adversary pass 1, F1/F2: the class behind the five
 
-/// **No clause reachable from a redemption may answer `invalid_scope` or `invalid_client`.**
+/// **No clause reachable from a redemption may answer `invalid_scope`, and only the client
+/// authentication clauses answer `invalid_client`.**
 ///
 /// This is the rule adversary pass 1 found five clauses on the wrong side of, written as a
 /// check rather than as five corrections. Both halves come from RFC 6749 section 5.2 and from
@@ -370,9 +378,11 @@ fn declared_clause_names() -> BTreeSet<String> {
 /// * `invalid_scope` is "**the requested scope** is invalid ...", and the token request on this
 ///   road declares no `scope` parameter at all (`decode::TOKEN_PARAMETERS`), so there is no
 ///   requested scope for a refusal to be about.
-/// * `invalid_client` is "**client authentication failed** ...", and the metadata advertises
-///   `token_endpoint_auth_methods_supported: ["none"]`, so no client on this road ever
-///   authenticates.
+/// * `invalid_client` is "**client authentication failed** ...". A confidential client
+///   authenticates at the token endpoint (`client_secret_basic`, `client_secret_post`;
+///   `story:oidc-discovery-and-code-flow`), so exactly
+///   [`oauth::CLIENT_AUTHENTICATION_CLAUSES`] answer it, and every other clause is about the
+///   grant. Before that story no client authenticated here and the set was empty.
 ///
 /// The reachable set is followed **by call** from `redemption::redeem_authorization_code`
 /// through the STS crate's modules — see [`token_endpoint_clauses`] — rather than read from a
@@ -399,14 +409,27 @@ fn no_clause_a_redemption_can_raise_answers_with_a_scope_or_an_authentication_co
              reaching nothing"
         );
     }
+    for clause in oauth::CLIENT_AUTHENTICATION_CLAUSES {
+        assert!(
+            reachable.contains(&format!("{clause:?}")),
+            "{clause:?} is a client-authentication clause the redemption raises; the traversal \
+             no longer reaches it"
+        );
+    }
     assert!(reachable.len() >= 15, "read {} clauses", reachable.len());
     for (clause, code) in oauth::CLAUSE_CODES {
         if !reachable.contains(&format!("{clause:?}")) {
             continue;
         }
         assert!(
-            *code != ErrorCode::InvalidScope && *code != ErrorCode::InvalidClient,
+            *code != ErrorCode::InvalidScope,
             "{clause:?} is reachable from a redemption and answers {code}"
+        );
+        assert_eq!(
+            *code == ErrorCode::InvalidClient,
+            oauth::CLIENT_AUTHENTICATION_CLAUSES.contains(clause),
+            "{clause:?} is reachable from a redemption and answers {code}: invalid_client is \
+             for client authentication alone"
         );
         assert!(
             ErrorCode::TOKEN_ENDPOINT.contains(code),

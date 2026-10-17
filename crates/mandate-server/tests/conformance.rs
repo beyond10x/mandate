@@ -14,7 +14,7 @@
 //! `mandate-sts`, also outside the ceiling. Both were considered; both are unreachable here.
 //!
 //! What is reachable is the projection itself. Each `.Input` schema in
-//! `generated/openapi/*.yaml` lists its `required` members in declaration order, and that list
+//! `generated/openapi/*.yaml` lists its `properties` in declaration order, and that list
 //! is compared with the decoded value's own `DECLARED_INPUTS`. It decides the same thing a
 //! compile against `mandate_contract` would — that the decoder builds exactly the declared
 //! input, member for member, in order — against the projection the contract publishes rather
@@ -60,7 +60,7 @@ fn every_road_decoder_builds_exactly_the_members_the_generated_input_declares() 
             decode::IntrospectCredential::DECLARED_INPUTS,
         ),
     ] {
-        assert_eq!(required_members(command), declared.to_vec(), "{command}");
+        assert_eq!(declared_members(command), declared.to_vec(), "{command}");
     }
 }
 
@@ -221,8 +221,8 @@ fn the_metadata_advertises_the_paths_a_client_would_then_reach() {
     }
 }
 
-/// The `required` members of a command's generated input schema, in declaration order.
-fn required_members(command: &str) -> Vec<&'static str> {
+/// Every member of a command's generated input schema (optional ones too), in declaration order.
+fn declared_members(command: &str) -> Vec<&'static str> {
     let heading = format!("    {command}.Input:");
     let mut found: Option<Vec<&'static str>> = None;
     for entry in fs::read_dir(OPENAPI).expect("the generated openapi directory") {
@@ -240,19 +240,26 @@ fn required_members(command: &str) -> Vec<&'static str> {
         };
         let mut members = Vec::new();
         let mut reading = false;
+        // Every declared member, optional ones included: the decoder builds the whole input.
         for line in block.1.lines() {
-            if line == "      required:" {
+            if line == "      properties:" {
                 reading = true;
                 continue;
             }
             if reading {
-                match line.strip_prefix("      - ") {
+                if line.starts_with("          ") {
+                    continue;
+                }
+                match line
+                    .strip_prefix("        ")
+                    .and_then(|member| member.strip_suffix(':'))
+                {
                     Some(member) => members.push(member),
                     None => break,
                 }
             }
         }
-        assert!(!members.is_empty(), "{command} declares no required member");
+        assert!(!members.is_empty(), "{command} declares no member");
         assert!(found.is_none(), "{command} is declared in two documents");
         found = Some(members);
     }

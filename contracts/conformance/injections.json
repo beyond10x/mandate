@@ -267,8 +267,8 @@
       "scenario": "mandate.credential/authored/oidc-redeem-client-auth-failed",
       "command": "mandate.credential.RedeemAuthorizationCode",
       "port": "mandate_sts::registry::ResourceServerReads",
-      "kind": "armed-unrefused",
-      "consulted": 1
+      "kind": "armed-unreached",
+      "consulted": 0
     },
     {
       "scenario": "mandate.credential/authored/oidc-redeem-client-auth-failed",
@@ -281,8 +281,8 @@
       "scenario": "mandate.credential/authored/oidc-redeem-public-with-secret-refused",
       "command": "mandate.credential.RedeemAuthorizationCode",
       "port": "mandate_sts::registry::ResourceServerReads",
-      "kind": "armed-unrefused",
-      "consulted": 1
+      "kind": "armed-unreached",
+      "consulted": 0
     },
     {
       "scenario": "mandate.credential/authored/oidc-redeem-public-with-secret-refused",
@@ -1205,18 +1205,6 @@
       "command": "mandate.credential.ExchangeCredential",
       "reason": "unrealized-command",
       "blocked_on": "story:constrained-exchange"
-    },
-    {
-      "scenario": "mandate.credential/authored/oidc-redeem-client-auth-failed",
-      "command": "",
-      "reason": "expectation-unmet",
-      "blocked_on": "story:conform-gate"
-    },
-    {
-      "scenario": "mandate.credential/authored/oidc-redeem-public-with-secret-refused",
-      "command": "",
-      "reason": "expectation-unmet",
-      "blocked_on": "story:conform-gate"
     },
     {
       "scenario": "mandate.credential/authored/oidc-sign-with-retired-key-refused",

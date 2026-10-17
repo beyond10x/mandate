@@ -532,6 +532,7 @@ pub fn redeem_authorization_code(
         code: node::field(&request.input, "code")?,
         pkce_verifier: node::field(&request.input, "pkce_verifier")?,
         redirect_uri: node::field(&request.input, "redirect_uri")?,
+        client_secret: node::optional(&request.input, "client_secret")?,
     };
     let context = live.sts_request_context();
     let federation = live.federation.clone();

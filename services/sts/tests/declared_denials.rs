@@ -106,6 +106,7 @@ enum Source {
 /// Read from `services/sts/src/{registry,issue,resolve,keys,code,redemption}.rs` and
 /// `crates/mandate-token/src/projection.rs`'s `admits_audience`, which
 /// `register_resource_server` refuses through.
+#[rustfmt::skip]
 const ROWS: &[(&str, DenialClause, Source)] = &[
     // --- RegisterResourceServer
     (
@@ -476,6 +477,21 @@ const ROWS: &[(&str, DenialClause, Source)] = &[
         "mandate.credential.RedeemAuthorizationCode",
         DenialClause::ClientDisabled,
         Source::DenialPhrase("the bound client is disabled"),
+    ),
+    (
+        "mandate.credential.RedeemAuthorizationCode",
+        DenialClause::ClientSecretMissing,
+        Source::DenialPhrase("a confidential client presents no secret or one matching none of its recorded verifiers"),
+    ),
+    (
+        "mandate.credential.RedeemAuthorizationCode",
+        DenialClause::ClientSecretMismatch,
+        Source::DenialPhrase("a confidential client presents no secret or one matching none of its recorded verifiers"),
+    ),
+    (
+        "mandate.credential.RedeemAuthorizationCode",
+        DenialClause::ClientSecretFromPublic,
+        Source::DenialPhrase("a public client presents a secret"),
     ),
     (
         "mandate.credential.RedeemAuthorizationCode",
@@ -959,6 +975,11 @@ fn every_refusal_issue_authorization_code_produces_has_a_row() {
 fn every_refusal_redeem_authorization_code_produces_has_a_row() {
     let (servers, target) = registered_target();
     let clients = registered_client();
+    // The same client read as confidential, with the secret it authenticates by.
+    let confidential = RecordedClients::new()
+        .confidential(client(), organization(10))
+        .redirect(client(), redirect())
+        .secret(client(), b"the-secret");
     let session = SessionBinding {
         id: SessionId::new(uuid(0x5e)),
         subject: PrincipalId::new(uuid(0x51)),
@@ -1005,6 +1026,7 @@ fn every_refusal_redeem_authorization_code_produces_has_a_row() {
             b"dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk".to_vec(),
         ),
         redirect_uri: redirect(),
+        client_secret: None,
     };
 
     let refuse_at = |at: &str,
@@ -1065,6 +1087,7 @@ fn every_refusal_redeem_authorization_code_produces_has_a_row() {
         code: CredentialProof::from_bytes(input.code.expose_material().to_vec()),
         pkce_verifier: CredentialProof::from_bytes(input.pkce_verifier.expose_material().to_vec()),
         redirect_uri: input.redirect_uri.clone(),
+        client_secret: None,
     };
 
     // The consumed code, folded from the real redemption's own event.
@@ -1260,6 +1283,29 @@ fn every_refusal_redeem_authorization_code_produces_has_a_row() {
             &clients,
             &sessions,
             &clone(&base),
+        ),
+        // Client authentication: the code's own client, read as confidential, presenting no
+        // secret and then a wrong one; and the public client presenting one.
+        refuse(&codes, &servers, &confidential, &sessions, &clone(&base)),
+        refuse(
+            &codes,
+            &servers,
+            &confidential,
+            &sessions,
+            &present(RedeemAuthorizationCode {
+                client_secret: Some(CredentialProof::from_bytes(b"not-the-secret".to_vec())),
+                ..clone(&base)
+            }),
+        ),
+        refuse(
+            &codes,
+            &servers,
+            &clients,
+            &sessions,
+            &present(RedeemAuthorizationCode {
+                client_secret: Some(CredentialProof::from_bytes(b"the-secret".to_vec())),
+                ..clone(&base)
+            }),
         ),
     ];
 

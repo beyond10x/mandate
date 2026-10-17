@@ -715,6 +715,16 @@ pub enum DenialClause {
     /// caller's failed authentication and answers `invalid_client`, and the subject token of
     /// an exchange is the grant presented, not a client credential (correction round 2).
     SubjectTokenInvalid,
+    /// `RedeemAuthorizationCode`: "a confidential client presents no secret" — the client the
+    /// code is bound to is confidential and the request authenticated it by no secret.
+    ClientSecretMissing,
+    /// The same clause: "or one matching none of its recorded verifiers" — the presented
+    /// secret derives none of the confidential client's recorded verifiers, or the
+    /// deployment holds no key to derive under.
+    ClientSecretMismatch,
+    /// `RedeemAuthorizationCode`: "a public client presents a secret" — a public client has
+    /// no secret, so one presented for it authenticates nothing.
+    ClientSecretFromPublic,
 }
 
 /// `mandate.credential.Denied`: fail closed; no credential, authority or lifecycle mutation

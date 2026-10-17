@@ -312,6 +312,7 @@ fn a_redemption_under_a_refused_bound_issues_the_codes_own_expiry() {
             code: CredentialProof::from_bytes(code.code.expose_material().to_vec()),
             pkce_verifier: CredentialProof::from_bytes(VERIFIER.as_bytes().to_vec()),
             redirect_uri: RedirectUri::new(REDIRECT),
+            client_secret: None,
         },
         &late,
         &codes,

@@ -615,6 +615,7 @@ fn the_authorization_code_and_the_credential_it_issues_are_rebuilt_from_their_ev
             code: proof,
             pkce_verifier: CredentialProof::from_bytes(PKCE_VERIFIER.as_bytes().to_vec()),
             redirect_uri: RedirectUri::new("https://client.example/callback"),
+            client_secret: None,
         },
         &request(),
         &mut codes,
