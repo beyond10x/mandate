@@ -939,7 +939,7 @@ impl mandate_sts::keys::SigningKeyReads for Substituted {
 }
 
 impl mandate_federation::register_client::ClientRegistrationAdmission for Substituted {
-    /// The same three answers `ConfiguredAdmission::new()` gives — it admits nothing by
+    /// The same four answers `ConfiguredAdmission::new()` gives — it admits nothing by
     /// construction. The standing admission is seeded from the caller on each call
     /// (`commands/federation.rs`, `standing_admission`) and admits the caller's own
     /// registration, so an arming at this port places a fault whenever the input would
@@ -958,6 +958,16 @@ impl mandate_federation::register_client::ClientRegistrationAdmission for Substi
         &self,
         _organization_id: &mandate_types::OrganizationId,
         _uri: &mandate_types::RedirectUri,
+    ) -> bool {
+        self.read();
+        false
+    }
+
+    /// Overridden only so that the read is counted: the provided answer is `false` too.
+    fn admits_trusted_peer(
+        &self,
+        _organization_id: &mandate_types::OrganizationId,
+        _peer: &mandate_types::OAuthClientId,
     ) -> bool {
         self.read();
         false

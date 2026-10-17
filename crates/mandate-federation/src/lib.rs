@@ -315,6 +315,23 @@ pub enum DenialClause {
     /// policy, admitted through the same port; compare [`DenialClause::RedirectMismatch`],
     /// which is the *presented* redirect failing the registered set at authorization.
     RedirectUriUnadmitted,
+    /// `RegisterOAuthClient`: "a public client states a secret verifier". A public client
+    /// authenticates with PKCE alone (fork F2), so the input decides this.
+    PublicClientVerifier,
+    /// `RegisterOAuthClient`: "a public client ... does not require PKCE". PKCE is
+    /// optional only for a confidential client (fork F3), so the input decides this.
+    PublicClientPkceOptional,
+    /// `RegisterOAuthClient`: "a confidential client states no verifier".
+    ConfidentialVerifierAbsent,
+    /// `RegisterOAuthClient`: "a confidential client states ... more than two" verifiers.
+    /// Two are admitted so that a secret can be rotated (fork F2), and no more.
+    ConfidentialVerifierExcess,
+    /// `RegisterOAuthClient`: "a trusted peer names the client itself".
+    TrustedPeerSelf,
+    /// `RegisterOAuthClient`: "a trusted peer names ... no client registered in the
+    /// verified organization", answered through
+    /// [`register_client::ClientRegistrationAdmission::admits_trusted_peer`].
+    TrustedPeerUnknown,
     /// `AuthorizePublicClient`: "S256 challenge is absent/invalid": the recorded
     /// challenge is not in the declared S256 form.
     ChallengeMalformed,

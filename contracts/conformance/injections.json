@@ -257,13 +257,6 @@
       "consulted": 0
     },
     {
-      "scenario": "mandate.credential/authored/oidc-peer-cross-organization-refused",
-      "command": "mandate.credential.ExchangeCredential",
-      "port": "none",
-      "kind": "unsupported-command",
-      "consulted": 0
-    },
-    {
       "scenario": "mandate.credential/authored/oidc-peer-exchange-not-trusted-refused",
       "command": "mandate.credential.ExchangeCredential",
       "port": "none",
@@ -519,8 +512,8 @@
       "scenario": "mandate.federation.RegisterOAuthClient/outcome/denied",
       "command": "mandate.federation.RegisterOAuthClient",
       "port": "mandate_federation::register_client::ClientRegistrationAdmission",
-      "kind": "armed-unrefused",
-      "consulted": 1
+      "kind": "input-decided",
+      "consulted": 0
     },
     {
       "scenario": "mandate.federation.UnlinkExternalPrincipal/outcome/denied",
@@ -638,22 +631,22 @@
       "scenario": "mandate.federation/authored/oidc-client-peer-unknown-refused",
       "command": "mandate.federation.RegisterOAuthClient",
       "port": "mandate_federation::register_client::ClientRegistrationAdmission",
-      "kind": "armed-unrefused",
-      "consulted": 1
+      "kind": "input-decided",
+      "consulted": 0
     },
     {
       "scenario": "mandate.federation/authored/oidc-client-public-pkce-optional-refused",
       "command": "mandate.federation.RegisterOAuthClient",
       "port": "mandate_federation::register_client::ClientRegistrationAdmission",
-      "kind": "armed-unrefused",
-      "consulted": 1
+      "kind": "input-decided",
+      "consulted": 0
     },
     {
       "scenario": "mandate.federation/authored/oidc-client-public-with-secret-refused",
       "command": "mandate.federation.RegisterOAuthClient",
       "port": "mandate_federation::register_client::ClientRegistrationAdmission",
-      "kind": "armed-unrefused",
-      "consulted": 1
+      "kind": "input-decided",
+      "consulted": 0
     },
     {
       "scenario": "mandate.graph.DeregisterResource/outcome/denied",
@@ -1169,9 +1162,9 @@
     },
     {
       "scenario": "mandate.credential/authored/oidc-peer-cross-organization-refused",
-      "command": "mandate.credential.ExchangeCredential",
-      "reason": "unrealized-command",
-      "blocked_on": "story:constrained-exchange"
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
     },
     {
       "scenario": "mandate.credential/authored/oidc-peer-exchange-allowed",
@@ -1396,6 +1389,12 @@
       "blocked_on": "story:conform-gate"
     },
     {
+      "scenario": "mandate.federation.DisableOAuthClient/outcome/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
       "scenario": "mandate.federation.DisableOAuthClient/outcome/wrong-state",
       "command": "",
       "reason": "expectation-unmet",
@@ -1420,6 +1419,12 @@
       "blocked_on": "story:conform-gate"
     },
     {
+      "scenario": "mandate.federation.OAuthClient/transition/disable/by/mandate.federation.DisableOAuthClient/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
       "scenario": "mandate.federation.ProvisionExternalPrincipal/outcome/accepted",
       "command": "",
       "reason": "expectation-unmet",
@@ -1427,6 +1432,12 @@
     },
     {
       "scenario": "mandate.federation.RegisterFederationConnection/outcome/accepted",
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.federation.RegisterOAuthClient/outcome/accepted",
       "command": "",
       "reason": "expectation-unmet",
       "blocked_on": "story:conform-gate"

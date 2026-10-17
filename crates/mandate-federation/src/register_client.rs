@@ -19,9 +19,9 @@
 //!
 //! # What is decided here and what is admitted through a port
 //!
-//! Every phrase of the declared denial is decided, and the two that are judgements no
-//! crate in this crate's dependency ceiling can make are admitted through
-//! [`ClientRegistrationAdmission`]:
+//! The phrases of the declared denial that are judgements no crate in this crate's
+//! dependency ceiling can make, or reads of records this handler does not hold, are
+//! admitted through [`ClientRegistrationAdmission`]:
 //!
 //! * "Caller lacks client-administration authority" — an authorization decision, the same
 //!   boundary `register_federation_connection` and `crate::disable` keep.
@@ -30,6 +30,22 @@
 //!   does not read.
 //! * "a redirect URI is unadmitted" — a deployment's redirect policy. Which URIs are
 //!   admitted is configuration, not a property of the input, and the fold cannot answer it.
+//! * "a trusted peer names ... no client registered in the verified organization" — a read
+//!   of the registered clients, which this decide-only handler does not hold. The port
+//!   answers it per peer, and fails closed by default
+//!   ([`ClientRegistrationAdmission::admits_trusted_peer`]).
+//!
+//! The phrases the input alone decides are decided here, before any identity is allocated:
+//!
+//! * "a public client states a secret verifier or does not require PKCE" — a public client
+//!   authenticates with PKCE alone (forks F2 and F3).
+//! * "a confidential client states no verifier or more than two" — one, or two so that a
+//!   secret can be rotated (fork F2).
+//! * "a trusted peer names the client itself" — compared against the identity this outcome
+//!   allocates, so it holds even for an admission that would answer for that identity.
+//!
+//! "a post-logout redirect URI is unadmitted" is **not** decided here yet: the port asks
+//! only about login redirect URIs, and post-logout URIs are a separate deployment policy.
 //!
 //! The rest is decided here, because the contract decides it:
 //!
@@ -118,6 +134,17 @@ pub trait ClientRegistrationAdmission {
     /// normalized, because every normalization admits a URI the registrant did not name
     /// (`crate::publicclient`).
     fn admits_redirect_uri(&self, organization_id: &OrganizationId, uri: &RedirectUri) -> bool;
+
+    /// Whether `peer` names a client registered in that organization, so that it may be
+    /// listed as a trusted peer of the client being registered.
+    ///
+    /// A read of the registered clients, which the decide-only handler does not hold. The
+    /// provided answer is `false`: an implementation that does not read the registry
+    /// refuses every trusted peer rather than admitting one it cannot place.
+    fn admits_trusted_peer(&self, organization_id: &OrganizationId, peer: &OAuthClientId) -> bool {
+        let _ = (organization_id, peer);
+        false
+    }
 }
 
 /// Realize `mandate.federation.RegisterOAuthClient`.
@@ -129,8 +156,11 @@ pub trait ClientRegistrationAdmission {
 ///
 /// Returns [`Denied`] through the declared `denied` outcome when the caller lacks
 /// client-administration authority, when the organization the verified context carries is
-/// not one a client may be registered into, or when any presented redirect URI is
-/// unadmitted. An empty redirect set is not one of those cases.
+/// not one a client may be registered into, when any presented redirect URI is
+/// unadmitted, when a public client states a secret verifier or does not require PKCE,
+/// when a confidential client states no verifier or more than two, or when a trusted peer
+/// names the client itself or a client the admission does not place in the verified
+/// organization. An empty redirect set is not one of those cases.
 pub fn register_o_auth_client(
     input: &RegisterOAuthClient,
     admission: &impl ClientRegistrationAdmission,
@@ -169,7 +199,65 @@ pub fn register_o_auth_client(
         // Exhaustive and without a wildcard: see the module documentation.
         PkceMethod::S256 => {}
     }
+    // The client type's own constraints, which the input alone decides. Exhaustive, so a
+    // third client type would have to be decided here rather than admitted unchecked.
+    match input.client_type {
+        OAuthClientType::Public => {
+            // "a public client states a secret verifier" (fork F2).
+            if !input.secret_verifiers.is_empty() {
+                return Err(Denied::new(
+                    DenialReason::Denied,
+                    DenialClause::PublicClientVerifier,
+                ));
+            }
+            // "a public client ... does not require PKCE" (fork F3).
+            if !input.pkce_required {
+                return Err(Denied::new(
+                    DenialReason::Denied,
+                    DenialClause::PublicClientPkceOptional,
+                ));
+            }
+        }
+        OAuthClientType::Confidential => match input.secret_verifiers.len() {
+            // "a confidential client states no verifier".
+            0 => {
+                return Err(Denied::new(
+                    DenialReason::Denied,
+                    DenialClause::ConfidentialVerifierAbsent,
+                ));
+            }
+            // One, or two so that a secret can be rotated (fork F2).
+            1 | 2 => {}
+            // "... or more than two".
+            _ => {
+                return Err(Denied::new(
+                    DenialReason::Denied,
+                    DenialClause::ConfidentialVerifierExcess,
+                ));
+            }
+        },
+    }
+    // "a trusted peer names ... no client registered in the verified organization" — each
+    // of them, as for the redirect set.
+    if input
+        .trusted_peers
+        .iter()
+        .any(|peer| !admission.admits_trusted_peer(&organization_id, peer))
+    {
+        return Err(Denied::new(
+            DenialReason::Denied,
+            DenialClause::TrustedPeerUnknown,
+        ));
+    }
     let id = allocator.next_o_auth_client_id();
+    // "a trusted peer names the client itself". Decided against the identity just
+    // allocated, so it holds whatever the admission answers for that identity.
+    if input.trusted_peers.contains(&id) {
+        return Err(Denied::new(
+            DenialReason::Denied,
+            DenialClause::TrustedPeerSelf,
+        ));
+    }
     Ok(OAuthClientRegistered {
         id,
         organization_id,
@@ -202,6 +290,7 @@ pub struct ConfiguredAdmission {
     administrators: Vec<PrincipalId>,
     organizations: Vec<OrganizationId>,
     redirect_uris: Vec<(OrganizationId, RedirectUri)>,
+    registered_clients: Vec<(OrganizationId, OAuthClientId)>,
 }
 
 impl ConfiguredAdmission {
@@ -231,6 +320,18 @@ impl ConfiguredAdmission {
         self.redirect_uris.push((organization_id, uri));
         self
     }
+
+    /// Answer that this client is registered in that organization, so it may be named as
+    /// a trusted peer there.
+    #[must_use]
+    pub fn with_registered_client(
+        mut self,
+        organization_id: OrganizationId,
+        id: OAuthClientId,
+    ) -> Self {
+        self.registered_clients.push((organization_id, id));
+        self
+    }
 }
 
 impl ClientRegistrationAdmission for ConfiguredAdmission {
@@ -249,5 +350,11 @@ impl ClientRegistrationAdmission for ConfiguredAdmission {
         self.redirect_uris
             .iter()
             .any(|(admitted, admitted_uri)| admitted == organization_id && admitted_uri == uri)
+    }
+
+    fn admits_trusted_peer(&self, organization_id: &OrganizationId, peer: &OAuthClientId) -> bool {
+        self.registered_clients
+            .iter()
+            .any(|(admitted, id)| admitted == organization_id && id == peer)
     }
 }
