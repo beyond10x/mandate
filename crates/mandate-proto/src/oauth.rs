@@ -599,6 +599,9 @@ pub const fn code_for_reason(reason: DenialReason) -> ErrorCode {
         // answered no, and a caller may retry. `server_error` is the listener's answer for a
         // failure that is not a declared denial at all.
         DenialReason::Unavailable => ErrorCode::TemporarilyUnavailable,
+        // A failed client authentication is the authority refusing the request; `invalid_client`
+        // is a token-endpoint code (RFC 6749 section 5.2) and this endpoint never answers it.
+        DenialReason::InvalidClient => ErrorCode::AccessDenied,
     }
 }
 

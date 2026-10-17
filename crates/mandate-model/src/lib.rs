@@ -99,28 +99,49 @@ pub struct TenantResolutionRule {
         deserialize_with = "mandate_types::value::present"
     )]
     pub verified_claim_name: Option<String>,
-    /// The validated claim value the rule matches on, when it matches on one.
+    /// The validated claim values the rule matches on, any one of them, when it matches on one.
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
         deserialize_with = "mandate_types::value::present"
     )]
-    pub verified_claim_value: Option<String>,
+    pub verified_claim_values: Option<Vec<String>>,
 }
 
 mandate_types::canonical_record!(
-    TenantResolutionRule { configured_organization, verified_claim_name, verified_claim_value },
+    TenantResolutionRule { configured_organization, verified_claim_name, verified_claim_values },
     samples: vec![
         TenantResolutionRule {
             configured_organization: first_sample::<OrganizationId>(),
             verified_claim_name: None,
-            verified_claim_value: None,
+            verified_claim_values: None,
         },
         TenantResolutionRule {
             configured_organization: first_sample::<OrganizationId>(),
             verified_claim_name: Some("org".to_owned()),
-            verified_claim_value: Some("acme".to_owned()),
+            verified_claim_values: Some(vec!["acme".to_owned()]),
         },
+    ]
+);
+
+/// `mandate.core.GroupFilter`: the groups a connection admits into a login's recorded profile.
+///
+/// An explicit allowlist, never a pattern, and a cap on how many filtered groups one login may
+/// carry.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GroupFilter {
+    /// The group names admitted.
+    pub allowlist: Vec<String>,
+    /// The most filtered groups one login may carry.
+    pub cap: u32,
+}
+
+mandate_types::canonical_record!(
+    GroupFilter { allowlist, cap },
+    samples: vec![
+        GroupFilter { allowlist: Vec::new(), cap: 0 },
+        GroupFilter { allowlist: vec!["engineering".to_owned(), "admins".to_owned()], cap: 8 },
     ]
 );
 
@@ -431,6 +452,7 @@ pub mod conformance {
     pub fn entries() -> Vec<Entry> {
         vec![
             Entry::of::<crate::TenantResolutionRule>(),
+            Entry::of::<crate::GroupFilter>(),
             Entry::of::<crate::DecisionChallenge>(),
             Entry::of::<crate::Decision>(),
             Entry::of::<crate::AuditRecord>(),
@@ -474,6 +496,7 @@ pub mod conformance {
 // so they are registered as the aggregate that decides them.
 mandate_types::realizes! {
     "mandate.core.TenantResolutionRule" => crate::TenantResolutionRule,
+    "mandate.core.GroupFilter" => crate::GroupFilter,
     "mandate.core.DecisionChallenge" => crate::DecisionChallenge,
     "mandate.core.Decision" => crate::Decision,
     "mandate.core.AuditRecord" => crate::AuditRecord,

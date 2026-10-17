@@ -13,7 +13,8 @@
 
 use mandate_testkit::contract::{
     assert_event_conforms, assert_payload_sources, assert_single_emission, check_event_conforms,
-    check_payload_sources, check_single_emission, declaring_outcome_in,
+    check_outcome_payload_sources, check_payload_sources, check_single_emission,
+    declaring_outcome_in,
 };
 use mandate_types::{
     Audience, CorrelationId, CredentialId, DelegationId, EpochSnapshotRef, ExecutionId,
@@ -40,6 +41,10 @@ const CREATE_DELEGATION: &str = "mandate.delegation.CreateDelegation";
 const DELEGATION_CREATED: &str = "mandate.delegation.DelegationCreated";
 const INTROSPECT_CREDENTIAL: &str = "mandate.credential.IntrospectCredential";
 const CREDENTIAL_INTROSPECTED: &str = "mandate.credential.CredentialIntrospected";
+const REDEEM_AUTHORIZATION_CODE: &str = "mandate.credential.RedeemAuthorizationCode";
+const WITH_IDENTITY_TOKEN: &str = "accepted-with-identity-token";
+const AUTHORIZATION_CODE_REDEEMED: &str = "mandate.credential.AuthorizationCodeRedeemed";
+const IDENTITY_TOKEN_ISSUED: &str = "mandate.credential.IdentityTokenIssued";
 
 fn uuid(byte: u8) -> Uuid {
     Uuid::from_bytes([byte; 16])
@@ -201,6 +206,61 @@ fn two_emissions_for_an_accepted_outcome_fail() {
     .expect_err("an accepted outcome emits exactly one event");
     assert!(message.contains(REVOKE_SESSION), "{message}");
     assert!(message.contains(SESSION_REVOKED), "{message}");
+}
+
+/// `RedeemAuthorizationCode`'s `accepted-with-identity-token` declares two events, and
+/// emitting exactly those two, in the declared order, is what the contract says.
+#[test]
+fn the_declared_two_emissions_pass_in_declared_order() {
+    let payload = json!({});
+    check_single_emission(
+        REDEEM_AUTHORIZATION_CODE,
+        WITH_IDENTITY_TOKEN,
+        &[
+            (AUTHORIZATION_CODE_REDEEMED, &payload),
+            (IDENTITY_TOKEN_ISSUED, &payload),
+        ],
+    )
+    .unwrap_or_else(|message| panic!("{message}"));
+}
+
+/// One of two declared events is a missing emission, named by the refusal.
+#[test]
+fn one_of_two_declared_emissions_fails_naming_the_missing_one() {
+    let payload = json!({});
+    let message = check_single_emission(
+        REDEEM_AUTHORIZATION_CODE,
+        WITH_IDENTITY_TOKEN,
+        &[(AUTHORIZATION_CODE_REDEEMED, &payload)],
+    )
+    .expect_err("the identity token was declared and not emitted");
+    assert!(message.contains(IDENTITY_TOKEN_ISSUED), "{message}");
+    assert!(message.contains(WITH_IDENTITY_TOKEN), "{message}");
+}
+
+/// The declared events in another order, or one of them twice, are not the declaration.
+#[test]
+fn two_declared_emissions_out_of_order_or_repeated_fail() {
+    let payload = json!({});
+    check_single_emission(
+        REDEEM_AUTHORIZATION_CODE,
+        WITH_IDENTITY_TOKEN,
+        &[
+            (IDENTITY_TOKEN_ISSUED, &payload),
+            (AUTHORIZATION_CODE_REDEEMED, &payload),
+        ],
+    )
+    .expect_err("the declared order is the emission order");
+    check_single_emission(
+        REDEEM_AUTHORIZATION_CODE,
+        WITH_IDENTITY_TOKEN,
+        &[
+            (AUTHORIZATION_CODE_REDEEMED, &payload),
+            (IDENTITY_TOKEN_ISSUED, &payload),
+            (IDENTITY_TOKEN_ISSUED, &payload),
+        ],
+    )
+    .expect_err("a third emission is not declared");
 }
 
 #[test]
@@ -631,6 +691,7 @@ fn every_declared_payload_source_is_satisfied_by_the_declared_shape() {
     let mut checked = 0usize;
     for (command, node) in commands {
         for outcome in node["outcomes"].as_array().expect("outcomes are a list") {
+            let outcome_name = outcome["name"].as_str().expect("an outcome has a name");
             let Some(entries) = outcome["payload"].as_array() else {
                 continue;
             };
@@ -639,8 +700,15 @@ fn every_declared_payload_source_is_satisfied_by_the_declared_shape() {
                 let fields = entry["fields"].as_array().expect("fields are a list");
                 let (input, response, event) = declared_shape(command, event_name, fields);
                 checked += fields.len();
-                check_payload_sources(command, &input, Some(&response), event_name, &event)
-                    .unwrap_or_else(|message| panic!("{command}/{event_name}: {message}"));
+                check_outcome_payload_sources(
+                    command,
+                    outcome_name,
+                    &input,
+                    Some(&response),
+                    event_name,
+                    &event,
+                )
+                .unwrap_or_else(|message| panic!("{command}/{event_name}: {message}"));
             }
         }
     }
@@ -664,6 +732,7 @@ fn every_declared_mapping_decides_absence_by_its_declared_target_type() {
     let mut wrong: Vec<String> = Vec::new();
     for (command, node) in commands {
         for outcome in node["outcomes"].as_array().expect("outcomes are a list") {
+            let outcome_name = outcome["name"].as_str().expect("an outcome has a name");
             let Some(entries) = outcome["payload"].as_array() else {
                 continue;
             };
@@ -698,8 +767,14 @@ fn every_declared_mapping_decides_absence_by_its_declared_target_type() {
                     } else {
                         required += 1;
                     }
-                    let decided =
-                        check_payload_sources(command, &input, Some(&response), event_name, &event);
+                    let decided = check_outcome_payload_sources(
+                        command,
+                        outcome_name,
+                        &input,
+                        Some(&response),
+                        event_name,
+                        &event,
+                    );
                     let named = format!("{command}/{event_name} `{target}` from `{from}`");
                     match (is_optional, decided) {
                         (true, Ok(())) => {}
@@ -738,8 +813,8 @@ fn every_declared_mapping_decides_absence_by_its_declared_target_type() {
 }
 
 /// An event two outcomes of one command both declare has no mapping the harness may
-/// pick: the IR as generated declares every mapping on a distinct event, so the case is
-/// built in memory and driven through the `declaring_outcome_in` seam.
+/// pick. The case is built in memory and driven through the `declaring_outcome_in` seam, so
+/// it stands whatever the generated IR declares.
 #[test]
 fn an_event_declared_on_two_outcomes_is_refused_naming_both() {
     let ir = json!({
@@ -909,4 +984,38 @@ fn provisioned() -> (Value, Value, Value) {
         "linked_at": encoded(&Timestamp::new("2026-09-19T00:00:00Z")),
     });
     (input, response, event)
+}
+
+/// The generated IR's one event declared on two outcomes: `AuthorizationCodeRedeemed`, on both
+/// accepted outcomes of `RedeemAuthorizationCode`. Resolving it by the event name alone is
+/// refused naming both, and the outcome-named form reaches the outcome's own mapping, which
+/// for an empty event is a failure about its fields and not about the outcome.
+#[test]
+fn the_redeemed_event_is_resolved_by_the_outcome_that_names_it() {
+    let command = "mandate.credential.RedeemAuthorizationCode";
+    let event = "mandate.credential.AuthorizationCodeRedeemed";
+    let message = check_payload_sources(command, &json!({}), None, event, &json!({}))
+        .expect_err("two outcomes declare the event");
+    assert!(
+        message.contains("accepted-with-identity-token"),
+        "{message}"
+    );
+    assert!(message.contains("2 outcomes"), "{message}");
+
+    for outcome in ["accepted", "accepted-with-identity-token"] {
+        let message =
+            check_outcome_payload_sources(command, outcome, &json!({}), None, event, &json!({}))
+                .expect_err("an empty event carries none of the mapped fields");
+        assert!(
+            message.starts_with(&format!("{command}/{outcome}/{event}: field")),
+            "{message}"
+        );
+    }
+    let message =
+        check_outcome_payload_sources(command, "denied", &json!({}), None, event, &json!({}))
+            .expect_err("the denied outcome declares no payload");
+    assert!(
+        message.starts_with(&format!("{command}/denied/{event}: ")),
+        "{message}"
+    );
 }

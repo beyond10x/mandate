@@ -185,10 +185,27 @@ types:
       - AudienceMismatch
       - Unavailable
       - StaleEpoch
+      - InvalidClient
   - name: mandate.core.PkceMethod
     kind: enum
     variants:
       - S256
+  # Public: no client secret, PKCE always required. Confidential: authenticates at the token
+  # endpoint with a secret whose keyed verifier the client record holds (fork F2).
+  - name: mandate.core.OAuthClientType
+    kind: enum
+    variants:
+      - Public
+      - Confidential
+  # The groups a connection admits into a login's recorded profile (fork F10): an explicit
+  # allowlist, never a pattern, and a cap on how many filtered groups one login may carry.
+  - name: mandate.core.GroupFilter
+    kind: struct
+    fields:
+      - name: allowlist
+        type: List<String>
+      - name: cap
+        type: Integer
   - name: mandate.core.ResourceRef
     kind: struct
     fields:
@@ -270,8 +287,10 @@ types:
         type: mandate.core.OrganizationId
       - name: verified_claim_name
         type: Optional<String>
-      - name: verified_claim_value
-        type: Optional<String>
+      # Any one listed value of the validated claim resolves (fork F16, a hosted-domain list).
+      # When present the list is non-empty; RegisterFederationConnection refuses an empty one.
+      - name: verified_claim_values
+        type: Optional<List<String>>
   - name: mandate.core.DecisionChallenge
     kind: struct
     fields:
@@ -331,6 +350,8 @@ types:
       - AudienceMismatch
       - Unavailable
       - StaleEpoch
+      # The OAuth `invalid_client` answer: client authentication at the token endpoint failed.
+      - InvalidClient
   - name: mandate.core.AuthoritySubject
     kind: union
     tag: kind

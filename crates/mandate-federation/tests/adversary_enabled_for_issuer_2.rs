@@ -56,7 +56,7 @@ fn acme(organization_id: OrganizationId) -> TenantResolutionRule {
     TenantResolutionRule {
         configured_organization: organization_id,
         verified_claim_name: Some("org".to_owned()),
-        verified_claim_value: Some("acme".to_owned()),
+        verified_claim_values: Some(vec!["acme".to_owned()]),
     }
 }
 

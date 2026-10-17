@@ -121,7 +121,7 @@ fn a_connection(issuer: &str) -> FederationConnection {
         tenant_resolution: TenantResolutionRule {
             configured_organization: organization(10),
             verified_claim_name: None,
-            verified_claim_value: None,
+            verified_claim_values: None,
         },
         jit_provisioning: false,
         state: ConnectionState::Enabled,

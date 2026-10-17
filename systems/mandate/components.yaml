@@ -83,6 +83,7 @@ components:
         - mandate.federation.ExternalPrincipalProvisioned
         - mandate.federation.OAuthClientRegistered
         - mandate.federation.OAuthClientDisabled
+        - mandate.federation.ExternalProfileObserved
         - mandate.directory.DirectoryGroupRecorded
         - mandate.directory.SyncJobRecorded
         - mandate.directory.DirectoryGroupMembershipRecorded
@@ -166,6 +167,7 @@ components:
         - mandate.credential.SigningKeyRegistered
         - mandate.credential.SigningKeyRetired
         - mandate.credential.SigningKeyRevoked
+        - mandate.credential.IdentityTokenIssued
   - component: mandate-worker
     owns:
       domains:

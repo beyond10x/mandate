@@ -11,7 +11,8 @@
 //! Nothing in this file edits the implementation or any existing case.
 
 use mandate_testkit::contract::{
-    check_event_conforms, check_payload_sources, check_single_emission,
+    check_event_conforms, check_outcome_payload_sources, check_payload_sources,
+    check_single_emission,
 };
 use serde_json::{Map, Value, json};
 
@@ -295,8 +296,9 @@ fn every_required_target_refuses_a_source_and_a_target_that_are_both_absent() {
                 .expect("the probe event is an object")
                 .remove(target);
             examined += 1;
-            if check_payload_sources(
+            if check_outcome_payload_sources(
                 &mapping.command,
+                &mapping.outcome,
                 &input,
                 Some(&response),
                 &mapping.event,
@@ -592,8 +594,9 @@ fn every_declared_mapping_conforms_and_passes_its_sources_together() {
         if let Err(message) = check_event_conforms(&mapping.event, &event) {
             disagreements.push(format!("{}: conforms refused: {message}", mapping.command));
         }
-        if let Err(message) = check_payload_sources(
+        if let Err(message) = check_outcome_payload_sources(
             &mapping.command,
+            &mapping.outcome,
             &Value::Object(input),
             Some(&Value::Object(response)),
             &mapping.event,

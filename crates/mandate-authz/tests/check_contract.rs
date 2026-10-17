@@ -714,7 +714,7 @@ fn the_reasons_a_check_can_produce_today_are_these_six() {
     );
     assert_eq!(
         unreachable,
-        vec![DenialReason::StaleEpoch],
+        vec![DenialReason::StaleEpoch, DenialReason::InvalidClient],
         "the only declared reason no path here produces"
     );
 }

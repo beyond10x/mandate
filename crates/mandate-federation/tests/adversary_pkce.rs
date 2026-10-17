@@ -316,7 +316,11 @@ fn clients() -> RecordedClients {
         .with_client(OAuthClient {
             id: client_id(),
             organization_id: organization(),
-            public: true,
+            client_type: mandate_types::OAuthClientType::Public,
+            secret_verifiers: Vec::new(),
+            pkce_required: true,
+            trusted_peers: Vec::new(),
+            post_logout_redirect_uris: Vec::new(),
             redirect_uris: vec![RedirectUri::new(REGISTERED)],
             pkce_method: PkceMethod::S256,
             state: OAuthClientState::Recorded,

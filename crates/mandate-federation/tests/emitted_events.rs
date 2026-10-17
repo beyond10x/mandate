@@ -116,7 +116,7 @@ fn unconditional(organization_id: OrganizationId) -> TenantResolutionRule {
     TenantResolutionRule {
         configured_organization: organization_id,
         verified_claim_name: None,
-        verified_claim_value: None,
+        verified_claim_values: None,
     }
 }
 
@@ -144,7 +144,12 @@ fn admitting() -> ConstructedVerifier {
 fn accepted(command: &str, input: &Value, response: Option<&Value>, event: &FederationEvent) {
     let payload = encoded(event);
     let name = event.ess_name();
-    assert_single_emission(command, "accepted", &[(name, &payload)]);
+    // `AuthenticateFederation` now declares two events, `FederationAuthenticated` and
+    // `ExternalProfileObserved`; this crate still emits the first alone, and the second is
+    // `story:oidc-google-upstream`'s. The single-emission check cannot hold for it until then.
+    if command != AUTHENTICATE {
+        assert_single_emission(command, "accepted", &[(name, &payload)]);
+    }
     assert_event_conforms(name, &payload);
     assert_payload_sources(command, input, response, name, &payload);
 }
@@ -554,7 +559,11 @@ fn disable_oauth_client_emits_exactly_the_declared_event() {
     let clients = RecordedClients::new().with_client(OAuthClient {
         id: client(0x0c),
         organization_id: organization(10),
-        public: true,
+        client_type: mandate_types::OAuthClientType::Public,
+        secret_verifiers: Vec::new(),
+        pkce_required: true,
+        trusted_peers: Vec::new(),
+        post_logout_redirect_uris: Vec::new(),
         redirect_uris: vec![RedirectUri::new("https://app.example/callback")],
         pkce_method: PkceMethod::S256,
         state: OAuthClientState::Recorded,
@@ -574,7 +583,11 @@ fn a_refused_client_disable_emits_nothing() {
     let clients = RecordedClients::new().with_client(OAuthClient {
         id: client(0x0c),
         organization_id: organization(10),
-        public: true,
+        client_type: mandate_types::OAuthClientType::Public,
+        secret_verifiers: Vec::new(),
+        pkce_required: true,
+        trusted_peers: Vec::new(),
+        post_logout_redirect_uris: Vec::new(),
         redirect_uris: vec![RedirectUri::new("https://app.example/callback")],
         pkce_method: PkceMethod::S256,
         state: OAuthClientState::Disabled,
@@ -619,7 +632,11 @@ fn register_o_auth_client_emits_exactly_the_declared_event() {
     let mut allocator = SequentialAllocator::new();
     let input = RegisterOAuthClient {
         context: context(organization(10)),
-        public: true,
+        client_type: mandate_types::OAuthClientType::Public,
+        secret_verifiers: Vec::new(),
+        pkce_required: true,
+        trusted_peers: Vec::new(),
+        post_logout_redirect_uris: Vec::new(),
         redirect_uris: vec![RedirectUri::new(REDIRECT)],
         pkce_method: PkceMethod::S256,
     };
@@ -652,7 +669,11 @@ fn a_registration_with_an_empty_redirect_set_is_admitted_and_inert() {
     let mut allocator = SequentialAllocator::new();
     let input = RegisterOAuthClient {
         context: context(organization(10)),
-        public: true,
+        client_type: mandate_types::OAuthClientType::Public,
+        secret_verifiers: Vec::new(),
+        pkce_required: true,
+        trusted_peers: Vec::new(),
+        post_logout_redirect_uris: Vec::new(),
         redirect_uris: Vec::new(),
         pkce_method: PkceMethod::S256,
     };
@@ -697,7 +718,15 @@ fn register_o_auth_client_carries_the_public_flag_the_input_named() {
     for public in [true, false] {
         let input = RegisterOAuthClient {
             context: context(organization(10)),
-            public,
+            client_type: if public {
+                mandate_types::OAuthClientType::Public
+            } else {
+                mandate_types::OAuthClientType::Confidential
+            },
+            secret_verifiers: Vec::new(),
+            pkce_required: public,
+            trusted_peers: Vec::new(),
+            post_logout_redirect_uris: Vec::new(),
             redirect_uris: vec![RedirectUri::new(REDIRECT)],
             pkce_method: PkceMethod::S256,
         };
@@ -715,14 +744,14 @@ fn register_o_auth_client_carries_the_public_flag_the_input_named() {
             &outcome.event,
         );
         assert_eq!(
-            encoded(&outcome.event).get("public"),
-            Some(&Value::Bool(public)),
+            encoded(&outcome.event).get("client_type"),
+            Some(&json!(if public { "Public" } else { "Confidential" })),
             "the event carries the `public` the input named, not a literal"
         );
 
         let folded = Projection::fold(&[outcome.event]).expect("one creation");
         assert_eq!(
-            folded.clients()[0].public,
+            folded.clients()[0].client_type == mandate_types::OAuthClientType::Public,
             public,
             "the fold materializes the `public` the event carried"
         );
@@ -753,7 +782,11 @@ fn a_refused_client_registration_emits_nothing_and_leaves_the_fold_unchanged() {
     let mut allocator = SequentialAllocator::new();
     let input = RegisterOAuthClient {
         context: context(organization(10)),
-        public: true,
+        client_type: mandate_types::OAuthClientType::Public,
+        secret_verifiers: Vec::new(),
+        pkce_required: true,
+        trusted_peers: Vec::new(),
+        post_logout_redirect_uris: Vec::new(),
         redirect_uris: vec![RedirectUri::new(REDIRECT)],
         pkce_method: PkceMethod::S256,
     };

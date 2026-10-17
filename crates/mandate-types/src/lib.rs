@@ -153,8 +153,8 @@ mod union;
 
 pub use credential::{CredentialProof, CredentialSecret};
 pub use enumeration::{
-    CredentialKind, DecisionReason, DenialReason, ExternalLinkMethod, MembershipSource, PkceMethod,
-    PrincipalKind, RevocationGuarantee,
+    CredentialKind, DecisionReason, DenialReason, ExternalLinkMethod, MembershipSource,
+    OAuthClientType, PkceMethod, PrincipalKind, RevocationGuarantee,
 };
 pub use identifier::{
     AccessCredentialId, AgentCapabilityCeilingId, ApprovalId, AuditEventId, AuthorizationCodeId,

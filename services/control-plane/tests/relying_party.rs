@@ -633,7 +633,7 @@ fn stand(case: &str, tamper: Tamper, secret_in_file: &str) -> Stood {
         r#"{{"connection_id":"{connection}","organization":"{organization}",
           "issuer":"{issuer}","client_id":"{IDP_CLIENT}","algorithm":"RS256",
           "tenant_resolution":{{"configured_organization":"{organization}",
-            "verified_claim_name":"{TENANT_CLAIM}","verified_claim_value":"{TENANT_VALUE}"}},
+            "verified_claim_name":"{TENANT_CLAIM}","verified_claim_values":["{TENANT_VALUE}"]}},
           "jit_provisioning":true,
           "relying_party":{{"redirect_uri":"{CALLBACK}","client_secret":"{SECRET_REFERENCE}",
             "return_uri":"{RETURN_URI}"}}}}"#,

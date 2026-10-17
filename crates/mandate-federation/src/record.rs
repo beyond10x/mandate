@@ -22,9 +22,10 @@ use serde::Serialize;
 
 use mandate_model::TenantResolutionRule;
 use mandate_types::{
-    Audience, ClientId, CorrelationId, EpochSnapshotRef, ExternalLinkMethod, ExternalPrincipalId,
-    ExternalSubject, FederationConnectionId, Issuer, OAuthClientId, OrganizationId, PersistedValue,
-    PkceMethod, PrincipalId, PrincipalKind, RedirectUri, SessionId, Timestamp, VerifiedContext,
+    Audience, ClientId, CorrelationId, CredentialVerifier, EpochSnapshotRef, ExternalLinkMethod,
+    ExternalPrincipalId, ExternalSubject, FederationConnectionId, Issuer, OAuthClientId,
+    OAuthClientType, OrganizationId, PersistedValue, PkceMethod, PrincipalId, PrincipalKind,
+    RedirectUri, SessionId, Timestamp, VerifiedContext,
 };
 
 use mandate_types::DenialReason;
@@ -119,12 +120,20 @@ pub struct OAuthClient {
     pub id: OAuthClientId,
     /// The organization the client belongs to.
     pub organization_id: OrganizationId,
-    /// Whether the client is a public client.
-    pub public: bool,
+    /// Whether the client is public or confidential.
+    pub client_type: OAuthClientType,
+    /// The verifiers of the client secrets a confidential client authenticates with.
+    pub secret_verifiers: Vec<CredentialVerifier>,
     /// The exact redirect URIs admitted.
     pub redirect_uris: Vec<RedirectUri>,
     /// The PKCE method required.
     pub pkce_method: PkceMethod,
+    /// Whether authorization requests to this client must carry a PKCE challenge.
+    pub pkce_required: bool,
+    /// The clients whose audiences this client may request.
+    pub trusted_peers: Vec<OAuthClientId>,
+    /// The exact redirect URIs admitted after an end-session.
+    pub post_logout_redirect_uris: Vec<RedirectUri>,
     /// The lifecycle state.
     pub state: OAuthClientState,
 }
@@ -280,12 +289,20 @@ pub enum FederationEvent {
         /// The declared `organization_id`: the organization the outcome bound the client
         /// to, which is the one its verified context carried.
         organization_id: OrganizationId,
-        /// The declared `public`.
-        public: bool,
+        /// The declared `client_type`.
+        client_type: OAuthClientType,
+        /// The declared `secret_verifiers`.
+        secret_verifiers: Vec<CredentialVerifier>,
         /// The declared `redirect_uris`: the exact set admitted at authorization.
         redirect_uris: Vec<RedirectUri>,
         /// The declared `pkce_method`.
         pkce_method: PkceMethod,
+        /// The declared `pkce_required`.
+        pkce_required: bool,
+        /// The declared `trusted_peers`.
+        trusted_peers: Vec<OAuthClientId>,
+        /// The declared `post_logout_redirect_uris`.
+        post_logout_redirect_uris: Vec<RedirectUri>,
     },
     /// `mandate.federation.OAuthClientDisabled`.
     OAuthClientDisabled {
@@ -653,9 +670,13 @@ impl Projection {
                 context: _,
                 id,
                 organization_id,
-                public,
+                client_type,
+                secret_verifiers,
                 redirect_uris,
                 pkce_method,
+                pkce_required,
+                trusted_peers,
+                post_logout_redirect_uris,
             } => {
                 if self.clients.iter().any(|client| client.id == *id) {
                     return Ok(());
@@ -663,9 +684,13 @@ impl Projection {
                 self.clients.push(OAuthClient {
                     id: *id,
                     organization_id: *organization_id,
-                    public: *public,
+                    client_type: *client_type,
+                    secret_verifiers: secret_verifiers.clone(),
                     redirect_uris: redirect_uris.clone(),
                     pkce_method: *pkce_method,
+                    pkce_required: *pkce_required,
+                    trusted_peers: trusted_peers.clone(),
+                    post_logout_redirect_uris: post_logout_redirect_uris.clone(),
                     state: OAuthClientState::Recorded,
                 });
             }
@@ -931,16 +956,17 @@ pub struct ConnectionRegistered {
 enum Shape<'a> {
     /// No claim is named: every proof on the issuer matches.
     Any,
-    /// Exactly the proofs carrying this validated claim and value.
-    Claim(&'a str, &'a str),
-    /// A claim without a value, or a value without a claim: nothing matches.
+    /// Exactly the proofs carrying this validated claim with any one of these values.
+    Claim(&'a str, &'a [String]),
+    /// A claim without values (none, or an empty list), or values without a claim: nothing
+    /// matches.
     Nothing,
 }
 
 fn shape(rule: &TenantResolutionRule) -> Shape<'_> {
-    match (&rule.verified_claim_name, &rule.verified_claim_value) {
+    match (&rule.verified_claim_name, &rule.verified_claim_values) {
         (None, None) => Shape::Any,
-        (Some(name), Some(value)) => Shape::Claim(name, value),
+        (Some(name), Some(values)) if !values.is_empty() => Shape::Claim(name, values),
         _ => Shape::Nothing,
     }
 }
@@ -949,14 +975,14 @@ fn shape(rule: &TenantResolutionRule) -> Shape<'_> {
 ///
 /// Decidable for the rule shapes `mandate.core.TenantResolutionRule` has, which is why
 /// the registration guard can be a refusal rather than a warning. Two claim rules are
-/// disjoint only when they name the same claim with different values: one claim carries
+/// disjoint only when they name the same claim with no value in common: one claim carries
 /// one value. Rules on different claims are satisfied together by any proof carrying both.
 fn collides(one: &TenantResolutionRule, other: &TenantResolutionRule) -> bool {
     match (shape(one), shape(other)) {
         (Shape::Nothing, _) | (_, Shape::Nothing) => false,
         (Shape::Any, _) | (_, Shape::Any) => true,
         (Shape::Claim(name, value), Shape::Claim(held_name, held_value)) => {
-            name != held_name || value == held_value
+            name != held_name || value.iter().any(|candidate| held_value.contains(candidate))
         }
     }
 }
@@ -1115,16 +1141,24 @@ const _: () = {
                 context,
                 id,
                 organization_id,
-                public,
+                client_type,
+                secret_verifiers,
                 redirect_uris,
                 pkce_method,
+                pkce_required,
+                trusted_peers,
+                post_logout_redirect_uris,
             } => {
                 persistable(context);
                 persistable(id);
                 persistable(organization_id);
-                persistable(public);
+                persistable(client_type);
+                persistable(secret_verifiers);
                 persistable(redirect_uris);
                 persistable(pkce_method);
+                persistable(pkce_required);
+                persistable(trusted_peers);
+                persistable(post_logout_redirect_uris);
             }
             FederationEvent::OAuthClientDisabled { context, id } => {
                 persistable(context);

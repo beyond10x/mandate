@@ -22,7 +22,7 @@
 //!
 //! # The bound on the class, stated rather than implied
 //!
-//! The per-clause enumeration covers the **four road commands**, 25 clauses. The other 59 rows
+//! The per-clause enumeration covers the **four road commands**, 28 clauses. The other 59 rows
 //! state, in whole, that this adapter establishes none of their preconditions and decodes
 //! nothing for them: they are reached only through their generated
 //! `POST /<domain>/commands/<Command>` projection, which `docs/public/contracts.md:29` says
@@ -194,12 +194,29 @@ const REDEEM_AUTHORIZATION_CODE: &[Clause] = &[
         phrase: "the bound client is disabled",
         establishes: Establishes::Handler,
     },
+    // Client authentication (story:oidc-discovery-and-code-flow): the secret is compared with
+    // the verifiers the client record holds, and whether the client is confidential or public
+    // is that record's too. A request presenting the secret twice is the adapter's to refuse;
+    // that wire refusal is not a phrase of this cause.
+    Clause {
+        phrase: "a confidential client presents no secret or one matching none of its recorded verifiers",
+        establishes: Establishes::Handler,
+    },
+    Clause {
+        phrase: "a public client presents a secret",
+        establishes: Establishes::Handler,
+    },
     Clause {
         phrase: "source/session epoch is stale",
         establishes: Establishes::Handler,
     },
     Clause {
         phrase: "registered target is disabled or outside the verified tenant",
+        establishes: Establishes::Handler,
+    },
+    // The signing keys are the STS's records (story:oidc-signed-tokens-and-key-rotation).
+    Clause {
+        phrase: "no signing key is admitted for issuance when an identity token is due",
         establishes: Establishes::Handler,
     },
     Clause {

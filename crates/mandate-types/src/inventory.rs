@@ -1,7 +1,7 @@
 //! The account of what this milestone accepted and what it excluded.
 //!
 //! The entries below are decided against `generated/schema/types`, the compiled model's
-//! own type index, by `tests/inventory.rs`. The compiled index holds 111 entries: the 75
+//! own type index, by `tests/inventory.rs`. The compiled index holds 113 entries: the 77
 //! authored `mandate.core` types in [`ACCEPTED`], and one derived `<Entity>.State` enum
 //! per entity, the 36 of [`DERIVED_STATE_ENUMS`]. Both halves are accounted for; they are
 //! accounted for differently, and [`DERIVED_STATE_ENUMS`] says how.
@@ -51,7 +51,7 @@ pub enum Owner {
     /// This axis is *declaration* ownership — where the Rust type is written — and no
     /// authored `mandate.core` type is declared here, so this variant holds none of the
     /// 75. That is not the same as carrying no accepted type: `mandate-proto` carries a
-    /// `WireContract` for **all** 75, including the six records `mandate-model` and
+    /// `WireContract` for **all** 77, including the seven records `mandate-model` and
     /// `mandate-token` declare, which it reaches through the
     /// `mandate-proto -> mandate-model` and `mandate-proto -> mandate-token` entries in
     /// `dependency-boundaries.json`.
@@ -362,6 +362,11 @@ pub const ACCEPTED: &[Accepted] = &[
         owner: Owner::Types,
     },
     Accepted {
+        ess_name: "mandate.core.OAuthClientType",
+        kind: Kind::Enum,
+        owner: Owner::Types,
+    },
+    Accepted {
         ess_name: "mandate.core.ResourceRef",
         kind: Kind::Struct,
         owner: Owner::Types,
@@ -393,6 +398,11 @@ pub const ACCEPTED: &[Accepted] = &[
     },
     Accepted {
         ess_name: "mandate.core.TenantResolutionRule",
+        kind: Kind::Struct,
+        owner: Owner::Model,
+    },
+    Accepted {
+        ess_name: "mandate.core.GroupFilter",
         kind: Kind::Struct,
         owner: Owner::Model,
     },

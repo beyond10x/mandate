@@ -1205,7 +1205,8 @@ impl mandate_sts::code::OAuthClientReads for FederationClients<'_> {
     }
 
     fn is_public(&self, id: &mandate_types::OAuthClientId) -> Option<bool> {
-        self.client(id).map(|client| client.public)
+        self.client(id)
+            .map(|client| client.client_type == mandate_types::OAuthClientType::Public)
     }
 
     /// Byte for byte, as the deployment's adapter compares: nothing is normalized.
@@ -1534,7 +1535,7 @@ mod tests {
             tenant_resolution: TenantResolutionRule {
                 configured_organization: OrganizationId::new(Uuid::from_bytes([2; 16])),
                 verified_claim_name: None,
-                verified_claim_value: None,
+                verified_claim_values: None,
             },
             jit_provisioning: false,
             state: ConnectionState::Enabled,

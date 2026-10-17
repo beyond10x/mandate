@@ -578,7 +578,7 @@ fn deployment() -> (Wired, ResourceServerId) {
             tenant_resolution: mandate_model::TenantResolutionRule {
                 configured_organization: organization(),
                 verified_claim_name: None,
-                verified_claim_value: None,
+                verified_claim_values: None,
             },
             jit_provisioning: false,
         })
@@ -599,7 +599,11 @@ fn deployment() -> (Wired, ResourceServerId) {
             context: context(),
             id: client(),
             organization_id: organization(),
-            public: true,
+            client_type: mandate_types::OAuthClientType::Public,
+            secret_verifiers: Vec::new(),
+            pkce_required: true,
+            trusted_peers: Vec::new(),
+            post_logout_redirect_uris: Vec::new(),
             redirect_uris: vec![RedirectUri::new(IN_PROCESS_REDIRECT)],
             pkce_method: PkceMethod::S256,
         })

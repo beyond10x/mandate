@@ -6,7 +6,8 @@ canonical_enums! {
     RevocationGuarantee { ImmediateOnline, BoundedOffline },
     MembershipSource { Manual, DirectoryMapping },
     ExternalLinkMethod { Administrator, AuthenticatedConfirmation, VerifiedMigration, ConfiguredFederation, SecuritySupport },
-    DecisionReason { Allowed, Denied, ApprovalRequired, InvalidCredential, TenantMismatch, AudienceMismatch, Unavailable, StaleEpoch },
+    DecisionReason { Allowed, Denied, ApprovalRequired, InvalidCredential, TenantMismatch, AudienceMismatch, Unavailable, StaleEpoch, InvalidClient },
     PkceMethod { S256 },
-    DenialReason { Denied, ApprovalRequired, InvalidCredential, TenantMismatch, AudienceMismatch, Unavailable, StaleEpoch },
+    OAuthClientType { Public, Confidential },
+    DenialReason { Denied, ApprovalRequired, InvalidCredential, TenantMismatch, AudienceMismatch, Unavailable, StaleEpoch, InvalidClient },
 }

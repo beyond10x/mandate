@@ -1,6 +1,6 @@
 # generated from mandate v1
-# model digest 7fc538244e6be456f323534383906fc4101e083d38e5ff385f201ed88c01f787
-# contract digest slice-sha256/2:53177f2e253b38cb44cfce2b3739cb274ee04cc6530da486f285e186292db808
+# model digest b1bb8baad6bbfba3ccc6b1ceb5b4baad19c1fb388011d566ecffed6e27f248bf
+# contract digest slice-sha256/2:84e2d48ef967a5874733a275e56e8990ce7c374f33c915e99827c33f9541f218
 # do not edit: regenerate with `ess generate`
 openapi: 3.1.0
 info:
@@ -14,8 +14,8 @@ info:
   x-ess-provenance:
     system: mandate
     specification_version: v1
-    source_digest: 7fc538244e6be456f323534383906fc4101e083d38e5ff385f201ed88c01f787
-    contract_digest: slice-sha256/2:53177f2e253b38cb44cfce2b3739cb274ee04cc6530da486f285e186292db808
+    source_digest: b1bb8baad6bbfba3ccc6b1ceb5b4baad19c1fb388011d566ecffed6e27f248bf
+    contract_digest: slice-sha256/2:84e2d48ef967a5874733a275e56e8990ce7c374f33c915e99827c33f9541f218
 tags:
 - name: authorization
 - name: graph
@@ -796,6 +796,7 @@ components:
       - AudienceMismatch
       - Unavailable
       - StaleEpoch
+      - InvalidClient
     mandate.core.DelegationId:
       title: DelegationId
       x-ess-name: mandate.core.DelegationId
@@ -816,6 +817,7 @@ components:
       - AudienceMismatch
       - Unavailable
       - StaleEpoch
+      - InvalidClient
     mandate.core.ExecutionId:
       title: ExecutionId
       x-ess-name: mandate.core.ExecutionId

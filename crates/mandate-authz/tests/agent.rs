@@ -1255,6 +1255,9 @@ fn a_policy_refusal_reports_the_reason_policy_declared_for_every_reason() {
                 (DecisionReason::Unavailable, AuthorityClause::Unavailable)
             }
             DenialReason::StaleEpoch => (DecisionReason::StaleEpoch, AuthorityClause::PolicyDenied),
+            DenialReason::InvalidClient => {
+                (DecisionReason::InvalidClient, AuthorityClause::PolicyDenied)
+            }
         };
         assert!(!decision.allowed, "{reason:?}: {decision:?}");
         assert_eq!(decision.reason, expected, "{reason:?}: {decision:?}");

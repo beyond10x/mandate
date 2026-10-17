@@ -20,7 +20,8 @@ timeline:
     tenant_resolution:
       configured_organization: 00000000-0000-4000-8000-0000000000a1
       verified_claim_name: tid
-      verified_claim_value: acme
+      verified_claim_values:
+      - acme
     jit_provisioning: false
   outcome: accepted
   events:
@@ -45,7 +46,8 @@ timeline:
     tenant_resolution:
       configured_organization: 00000000-0000-4000-8000-0000000000a2
       verified_claim_name: dept
-      verified_claim_value: acme
+      verified_claim_values:
+      - acme
     jit_provisioning: false
   outcome: denied
   error:

@@ -202,15 +202,15 @@ fn every_road_command_records_exactly_the_clauses_its_declared_denial_carries() 
 }
 
 #[test]
-fn the_four_road_commands_declare_twenty_five_clauses_between_them() {
+fn the_four_road_commands_declare_twenty_eight_clauses_between_them() {
     let total: usize = ROAD_COMMANDS
         .iter()
         .map(|command| obligations::obligation(command).unwrap().clauses.len())
         .sum();
-    assert_eq!(total, 25);
+    assert_eq!(total, 28);
 }
 
-/// One case per declared deny clause of the four road commands — 25 of them.
+/// One case per declared deny clause of the four road commands — 28 of them.
 ///
 /// The case a clause gets is decided by which party the registry records as establishing it,
 /// and the rule is uniform:
@@ -233,7 +233,7 @@ fn a_case_for_every_declared_deny_clause_of_the_road_commands() {
             covered += 1;
         }
     }
-    assert_eq!(covered, 25);
+    assert_eq!(covered, 28);
 }
 
 fn drive(command: &str, phrase: &str, establishes: Establishes) {
@@ -368,10 +368,19 @@ fn drive(command: &str, phrase: &str, establishes: Establishes) {
         }
         ("mandate.credential.RedeemAuthorizationCode", "code is expired")
         | ("mandate.credential.RedeemAuthorizationCode", "the bound client is disabled")
+        | (
+            "mandate.credential.RedeemAuthorizationCode",
+            "a confidential client presents no secret or one matching none of its recorded verifiers",
+        )
+        | ("mandate.credential.RedeemAuthorizationCode", "a public client presents a secret")
         | ("mandate.credential.RedeemAuthorizationCode", "source/session epoch is stale")
         | (
             "mandate.credential.RedeemAuthorizationCode",
             "registered target is disabled or outside the verified tenant",
+        )
+        | (
+            "mandate.credential.RedeemAuthorizationCode",
+            "no signing key is admitted for issuance when an identity token is due",
         )
         | (
             "mandate.credential.RedeemAuthorizationCode",

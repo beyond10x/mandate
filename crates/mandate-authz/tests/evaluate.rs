@@ -1125,7 +1125,7 @@ fn every_port_refusal_reaches_the_fold_under_the_reason_that_port_declares() {
         decided += 1;
     }
 
-    assert_eq!(decided, 20);
+    assert_eq!(decided, 22);
 }
 
 /// An `Evaluation` states two things — an effect and, optionally, material the caller must
