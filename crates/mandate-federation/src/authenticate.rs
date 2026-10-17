@@ -340,7 +340,11 @@ fn resolve_tenant(
         if let Some(kind) = rule
             .verified_claim_name
             .as_deref()
-            .filter(|_| rule.verified_claim_value.is_some())
+            .filter(|_| {
+                rule.verified_claim_values
+                    .as_ref()
+                    .is_some_and(|values| !values.is_empty())
+            })
             .and_then(|name| verified.claim_type(name))
         {
             verifier.tenant_claim_refused(kind);
@@ -397,9 +401,11 @@ fn resolve_tenant(
 /// A rule that names a claim without a value, or a value without a claim, matches
 /// nothing: half a rule is not a binding, and this path fails closed.
 fn matches_validated(rule: &TenantResolutionRule, verified: &VerifiedProof) -> bool {
-    match (&rule.verified_claim_name, &rule.verified_claim_value) {
+    match (&rule.verified_claim_name, &rule.verified_claim_values) {
         (None, None) => true,
-        (Some(name), Some(value)) => verified.verified_claim(name) == Some(value.as_str()),
+        (Some(name), Some(values)) => verified
+            .verified_claim(name)
+            .is_some_and(|claim| values.iter().any(|value| value.as_str() == claim)),
         _ => false,
     }
 }
@@ -408,8 +414,10 @@ fn matches_validated(rule: &TenantResolutionRule, verified: &VerifiedProof) -> b
 ///
 /// Nothing acts on this. It exists so that a refusal can say which one it is.
 fn matches_unvalidated(rule: &TenantResolutionRule, verified: &VerifiedProof) -> bool {
-    match (&rule.verified_claim_name, &rule.verified_claim_value) {
-        (Some(name), Some(value)) => verified.unverified_hint(name) == Some(value.as_str()),
+    match (&rule.verified_claim_name, &rule.verified_claim_values) {
+        (Some(name), Some(values)) => verified
+            .unverified_hint(name)
+            .is_some_and(|hint| values.iter().any(|value| value.as_str() == hint)),
         _ => false,
     }
 }

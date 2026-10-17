@@ -461,7 +461,7 @@ fn every_denial_reason_answers_an_authorization_endpoint_code() {
             "{reason:?} answers {code}, which RFC 6749 section 4.1.2.1 does not declare"
         );
     }
-    assert_eq!(DenialReason::VARIANTS.len(), 7);
+    assert_eq!(DenialReason::VARIANTS.len(), 8);
 }
 
 #[test]

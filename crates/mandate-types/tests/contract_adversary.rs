@@ -708,8 +708,8 @@ fn the_second_reader_sees_the_contract_it_claims_to_see() {
     );
     assert_eq!(
         model.notices.len(),
-        76,
-        "the compiled model holds 76 events"
+        77,
+        "the compiled model holds 77 events"
     );
 
     let client = model.record("mandate.federation.OAuthClient");

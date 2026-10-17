@@ -1331,7 +1331,8 @@
           "TenantMismatch",
           "AudienceMismatch",
           "Unavailable",
-          "StaleEpoch"
+          "StaleEpoch",
+          "InvalidClient"
         ]
       },
       "naming": {}

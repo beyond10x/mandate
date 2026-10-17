@@ -171,7 +171,7 @@ fn unconditional(organization_id: OrganizationId) -> TenantResolutionRule {
     TenantResolutionRule {
         configured_organization: organization_id,
         verified_claim_name: None,
-        verified_claim_value: None,
+        verified_claim_values: None,
     }
 }
 
@@ -179,7 +179,7 @@ fn on_claim(organization_id: OrganizationId, name: &str, value: &str) -> TenantR
     TenantResolutionRule {
         configured_organization: organization_id,
         verified_claim_name: Some(name.to_owned()),
-        verified_claim_value: Some(value.to_owned()),
+        verified_claim_values: Some(vec![value.to_owned()]),
     }
 }
 
@@ -413,7 +413,11 @@ fn a_registered_client(organization_id: OrganizationId) -> (Projection, OAuthCli
     let registered = register_o_auth_client(
         &RegisterOAuthClient {
             context: context(organization_id),
-            public: true,
+            client_type: mandate_types::OAuthClientType::Public,
+            secret_verifiers: Vec::new(),
+            pkce_required: true,
+            trusted_peers: Vec::new(),
+            post_logout_redirect_uris: Vec::new(),
             redirect_uris: vec![redirect(REGISTERED)],
             pkce_method: PkceMethod::S256,
         },
@@ -511,7 +515,11 @@ fn a_link_outside_the_verified_organization_is_refused_at_unlink() {
 fn a_registration(organization_id: OrganizationId) -> RegisterOAuthClient {
     RegisterOAuthClient {
         context: context(organization_id),
-        public: true,
+        client_type: mandate_types::OAuthClientType::Public,
+        secret_verifiers: Vec::new(),
+        pkce_required: true,
+        trusted_peers: Vec::new(),
+        post_logout_redirect_uris: Vec::new(),
         redirect_uris: vec![redirect(REGISTERED)],
         pkce_method: PkceMethod::S256,
     }

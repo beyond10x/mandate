@@ -518,6 +518,7 @@ const fn decision_reason(reason: DenialReason) -> DecisionReason {
         DenialReason::AudienceMismatch => DecisionReason::AudienceMismatch,
         DenialReason::Unavailable => DecisionReason::Unavailable,
         DenialReason::StaleEpoch => DecisionReason::StaleEpoch,
+        DenialReason::InvalidClient => DecisionReason::InvalidClient,
     }
 }
 

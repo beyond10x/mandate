@@ -1,5 +1,5 @@
 {
-  "contract_crate_digest": "ac1d737b117b0b9d12a941ac23b195cef4f418b3c599c0fb97e053005a3ebb44",
+  "contract_crate_digest": "bcd1570dabba90b1c63f62cad1fcffc7a90abec26d751ca93ea6c7c5e3846d20",
   "counts": {
     "command": {
       "declared": 4,
@@ -16,19 +16,19 @@
       "implemented": 9
     },
     "event": {
-      "declared": 5,
+      "declared": 6,
       "deferred": 25,
       "implemented": 46
     },
     "type": {
       "declared": 5,
       "deferred": 6,
-      "implemented": 100
+      "implemented": 102
     }
   },
   "ess_version": "ess 0.60.0",
   "format": "mandate-coverage-receipt/1",
-  "ir_digest": "6925372d31bedf98b8be4cba3c933889f2d1a9524f6f4a68f2209f061e4fe0a4",
-  "manifest_digest": "cdd4cddbd5d04ca8acd33394b76139e5357b8682d516487cdccc5506ac89c345",
-  "source_digest": "ba56555e5534c0f1a843ba6f8a42443d203cdb6a76543514b8fd609152489630"
+  "ir_digest": "530d7fa069f65fbf4d3b5463ab82f74e5ed9fc8b38ea8c9609e8859f3003e52f",
+  "manifest_digest": "54f6019cb4bfb5b3c4223c44e9c9f8ccf12ec2a39aa6b50f59a8493d027f6413",
+  "source_digest": "06a19912d8b27675b9a9df3ce75b650eee111876b79f282d587c78bf281515b9"
 }

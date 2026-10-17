@@ -1,5 +1,5 @@
 # generated from mandate v1
-# model digest c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057
+# model digest ded0d31021cab1a87f5b67d362eff74ee517472819b7625f254db142448cfa5a
 # contract digest slice-sha256/2:5372717462d0af7bcff78ddd12765e723f52f1ef1eeee3879a7344df5e798372
 # do not edit: regenerate with `ess generate`
 openapi: 3.1.0
@@ -14,7 +14,7 @@ info:
   x-ess-provenance:
     system: mandate
     specification_version: v1
-    source_digest: c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057
+    source_digest: ded0d31021cab1a87f5b67d362eff74ee517472819b7625f254db142448cfa5a
     contract_digest: slice-sha256/2:5372717462d0af7bcff78ddd12765e723f52f1ef1eeee3879a7344df5e798372
 tags:
 - name: audit

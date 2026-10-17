@@ -91,7 +91,7 @@ Sources: `federation.yaml`, entities `mandate.federation.ExternalPrincipal` and 
 | Email equality never authorizes linking | `federation.yaml`, `LinkExternalPrincipal.denied`; `architecture-addendum.md:283-295` |
 | Zero or multiple tenant matches deny; no guessed tenant | `federation.yaml`, `AuthenticateFederation.denied`; `architecture-addendum.md:360` |
 | No email-domain, hostname or unverified-input fallback may be required at any point | `federation.yaml`, `AuthenticateFederation.denied`; `architecture-addendum.md:328-342` |
-| Tenant comes only from `TenantResolutionRule{configured_organization, verified_claim_name, verified_claim_value}` | `../../systems/mandate/domains/core.yaml`, type `mandate.core.TenantResolutionRule` |
+| Tenant comes only from `TenantResolutionRule{configured_organization, verified_claim_name, verified_claim_values}` | `../../systems/mandate/domains/core.yaml`, type `mandate.core.TenantResolutionRule` |
 | A session records the connection it came from and an epoch snapshot handle | `identity.yaml`, entity `mandate.identity.Session` |
 | A denial mutates no credential, authority or lifecycle | `federation.yaml`, error `mandate.federation.Denied` |
 | A connection's issuer is immutable; changing it means a new connection and explicit relinking | `federation.yaml:2` |

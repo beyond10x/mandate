@@ -446,7 +446,7 @@ fn every_declared_denial_reason_is_told_under_its_own_name() {
     let action = action();
     let resource = resource();
 
-    assert_eq!(DenialReason::VARIANTS.len(), 7);
+    assert_eq!(DenialReason::VARIANTS.len(), 8);
     for reason in DenialReason::VARIANTS {
         let told = declared(*reason);
 

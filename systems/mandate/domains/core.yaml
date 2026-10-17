@@ -185,6 +185,7 @@ types:
       - AudienceMismatch
       - Unavailable
       - StaleEpoch
+      - InvalidClient
   - name: mandate.core.PkceMethod
     kind: enum
     variants:

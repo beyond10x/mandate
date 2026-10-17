@@ -61,7 +61,7 @@ fn rule(organization_id: OrganizationId, claim: Option<(&str, &str)>) -> TenantR
     TenantResolutionRule {
         configured_organization: organization_id,
         verified_claim_name: claim.map(|(name, _)| name.to_owned()),
-        verified_claim_value: claim.map(|(_, value)| value.to_owned()),
+        verified_claim_values: claim.map(|(_, value)| vec![value.to_owned()]),
     }
 }
 

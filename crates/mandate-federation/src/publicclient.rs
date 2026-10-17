@@ -24,7 +24,8 @@
 //! declares an "exact redirect URI" binding.
 
 use mandate_types::{
-    DenialReason, OAuthClientId, OrganizationId, PkceMethod, RedirectUri, ResourceServerId,
+    DenialReason, OAuthClientId, OAuthClientType, OrganizationId, PkceMethod, RedirectUri,
+    ResourceServerId,
 };
 
 use crate::authorize::TargetRegistry;
@@ -84,7 +85,7 @@ pub fn registered_public_client(
             ));
         }
     }
-    if !client.public {
+    if client.client_type != OAuthClientType::Public {
         return Err(Denied::new(
             DenialReason::Denied,
             DenialClause::ClientNotPublic,

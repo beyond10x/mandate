@@ -127,7 +127,7 @@ fn rule(name: &str, value: &str) -> TenantResolutionRule {
     TenantResolutionRule {
         configured_organization: organization(),
         verified_claim_name: Some(name.to_owned()),
-        verified_claim_value: Some(value.to_owned()),
+        verified_claim_values: Some(vec![value.to_owned()]),
     }
 }
 
