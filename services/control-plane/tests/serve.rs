@@ -28,9 +28,12 @@ use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use std::time::{Duration as HostDuration, Instant};
 
+use aws_lc_rs::rand::SystemRandom;
+use aws_lc_rs::signature::{ECDSA_P256_SHA256_FIXED_SIGNING, EcdsaKeyPair, KeyPair};
 use mandate_control_plane::adapters::{
-    ClientSeeding, Configuration, ConnectionSeeding, Deployment, SeedRefused, TargetSeeding,
-    key_set, read_client_seed, read_connection_seed, read_key, read_resource_server_seed,
+    ClientSeeding, Configuration, ConnectionSeeding, Deployment, MountedKeys, SIGNED_TTL_SECONDS,
+    SIGNING_OVERLAP_SECONDS, SeedRefused, TargetSeeding, read_client_seed, read_connection_seed,
+    read_resource_server_seed, read_signing_key,
 };
 use mandate_control_plane::serve::{Limits, Listener};
 use mandate_federation::record::{FederationConnection, FederationEvent};
@@ -39,10 +42,14 @@ use mandate_federation::verifier_real::FixedClock;
 use mandate_federation::{Denied as FederationDenied, FederationVerifier};
 use mandate_server::decode;
 use mandate_sts::code::CodeLifetime;
+use mandate_sts::keys::{RecordedSigner, SigningKeyAdministration};
 use mandate_sts::registry::{RegisterResourceServer, register_resource_server};
 use mandate_sts::{CountingSecrets, SequentialAllocator};
 use mandate_token::CredentialProfile;
 use mandate_token::projection::Projection as CredentialProjection;
+use mandate_token::signing_real::{
+    AllowedAlgorithms as SigningAlgorithms, SystemClock as SigningClock,
+};
 use mandate_types::{
     Audience, ClientId, CorrelationId, CredentialId, CredentialKind, CredentialProof, DenialReason,
     Duration, ExternalLinkMethod, ExternalPrincipalId, ExternalSubject, FederationConnectionId,
@@ -154,7 +161,6 @@ fn deployment_configured(
             issuer: ISSUER.to_owned(),
             code_lifetime: CodeLifetime::new(Duration::new(code_lifetime)),
             session_lifetime: Duration::new(session_lifetime),
-            keys: Vec::new(),
         },
         verifier(),
         clock,
@@ -1385,26 +1391,60 @@ fn a_code_is_redeemable_only_while_its_session_is_fresh() {
 }
 
 // ---------------------------------------------------------------------------------------
-// The two seeds `serve` is configured with: `--connection` and `--key`
+// The two seeds `serve` is configured with: `--connection` and `--signing-key`
 // ---------------------------------------------------------------------------------------
 
-/// RFC 7515 appendix A.3's public P-256 key, as the JWK document `--key` reads.
-const KEY_DOCUMENT: &str = r#"{"kty":"EC","kid":"login-key-1","use":"sig","alg":"ES256",
-  "crv":"P-256","x":"f83OJ3D2xF1Bg8vub9tLe1gHMzV76e8Tus9uPHvRVEU",
-  "y":"x_FEzRu9m36HLN_tue659LNpXW6pCyStikYjKIWI5a0"}"#;
+/// A P-256 signing key generated now, as the PKCS#8 PEM `--signing-key` mounts, and the
+/// `x` coordinate of its public half, which the published key set must carry.
+///
+/// Generated per case: no private key byte is written into this file.
+fn signing_key_pem() -> (String, String) {
+    let pkcs8 =
+        EcdsaKeyPair::generate_pkcs8(&ECDSA_P256_SHA256_FIXED_SIGNING, &SystemRandom::new())
+            .expect("a P-256 key is generated");
+    let pair = EcdsaKeyPair::from_pkcs8(&ECDSA_P256_SHA256_FIXED_SIGNING, pkcs8.as_ref())
+        .expect("the generated key is read back");
+    let x = mandate_types::value::encode_base64(&pair.public_key().as_ref()[1..33])
+        .replace('+', "-")
+        .replace('/', "_")
+        .trim_end_matches('=')
+        .to_owned();
+    (pem("PRIVATE KEY", pkcs8.as_ref()), x)
+}
 
-/// The same key, carrying RFC 7517 section 9.2's private member. A published document is
-/// assembled from names a constructor admitted, and `d` is not one of them.
-const PRIVATE_KEY_DOCUMENT: &str = r#"{"kty":"EC","kid":"login-key-1","use":"sig",
-  "alg":"ES256","crv":"P-256","x":"f83OJ3D2xF1Bg8vub9tLe1gHMzV76e8Tus9uPHvRVEU",
-  "y":"x_FEzRu9m36HLN_tue659LNpXW6pCyStikYjKIWI5a0",
-  "d":"jpsQnnGQmL-YBIffH1136cspYG6-0iY7X1fCE9-E9LI"}"#;
+/// One PEM envelope around `der`, under `label`.
+fn pem(label: &str, der: &[u8]) -> String {
+    format!(
+        "-----BEGIN {label}-----\n{}\n-----END {label}-----\n",
+        mandate_types::value::encode_base64(der)
+    )
+}
 
-/// A second key under the same `kid`, so that a set naming one `kid` twice is a *set* the
-/// flags can name rather than one no caller could construct.
-const REPEATED_KID_DOCUMENT: &str = r#"{"kty":"EC","kid":"login-key-1","use":"sig",
-  "alg":"ES256","crv":"P-256","x":"MKBCTNIcKUSDii11ySs3526iDZ8AiTo7Tu6KPAqv7D4",
-  "y":"4Etl6SRW2YiLUrN5vfvVHuhp7x8PxltmWWlbbM4IFyM"}"#;
+/// The signing key at `path`, mounted under `login` and registered into `deployment`, as
+/// `src/main.rs` mounts every `--signing-key`.
+fn mount_signing_key<V, X, A>(deployment: &mut Deployment<V, FixedClock, X, A>, path: &Path)
+where
+    V: FederationVerifier,
+    X: mandate_sts::SecretSource,
+    A: mandate_sts::IdentityAllocator,
+{
+    let allowed =
+        SigningAlgorithms::new(&[SigningAlgorithm::new("ES256")]).expect("an admitted algorithm");
+    let signer = RecordedSigner::new(
+        allowed.clone(),
+        SigningClock,
+        SIGNED_TTL_SECONDS,
+        SIGNING_OVERLAP_SECONDS,
+    )
+    .expect("an overlap no shorter than the TTL");
+    let keys = MountedKeys::new(vec![
+        read_signing_key("login", path).expect("a PEM key serve mounts"),
+    ])
+    .expect("one name");
+    deployment
+        .mount_signing_keys(&SigningKeyAdministration::new(allowed), signer, keys)
+        .expect("a key this deployment registers and signs with");
+}
 
 /// Whether `procfs` is answering: whether it is a procfs that can be asked whether a
 /// process is running at all.
@@ -1584,13 +1624,12 @@ fn connection_document_admitting(
 ///
 /// The registered OAuth client and the registered target are still seeded here as a library
 /// caller: **no flag in this story carries either**, so an operator holding only
-/// `--connection` and `--key` reaches step 1 of the road and no further.
+/// `--connection` and `--signing-key` reaches step 1 of the road and no further.
 fn deployment_from_documents(
     connection_path: &Path,
     key_path: &Path,
 ) -> (Wired, ResourceServerId, FederationConnectionId) {
     let seed = read_connection_seed(connection_path).expect("a connection document serve reads");
-    let key = read_key(key_path).expect("a JWK document serve publishes");
 
     let mut allocator = SequentialAllocator::new();
     let registered = register_resource_server(
@@ -1611,7 +1650,6 @@ fn deployment_from_documents(
             issuer: ISSUER.to_owned(),
             code_lifetime: CodeLifetime::new(Duration::new("PT5M")),
             session_lifetime: Duration::new("PT8H"),
-            keys: vec![key],
         },
         verifier(),
         FixedClock::at(NOW),
@@ -1619,6 +1657,7 @@ fn deployment_from_documents(
         SequentialAllocator::new(),
     )
     .expect("a configuration this deployment serves");
+    mount_signing_key(&mut deployment, key_path);
 
     deployment
         .record_credential(&registered.event)
@@ -1716,7 +1755,8 @@ fn the_flag_documents_configure_a_deployment_that_completes_one_login_end_to_end
         "road-connection.json",
         &connection_document(Some(&stated.to_string()), true),
     );
-    let key_path = seed_file("road-key.json", KEY_DOCUMENT);
+    let (pem, x) = signing_key_pem();
+    let key_path = seed_file("road-key.pem", &pem);
     let (address, target, connection_id) = serving_from_documents(&connection_path, &key_path);
     assert_eq!(
         connection_id, stated,
@@ -1731,8 +1771,8 @@ fn the_flag_documents_configure_a_deployment_that_completes_one_login_end_to_end
         published.body
     );
     assert!(
-        published.body.contains("login-key-1"),
-        "`--key` publishes the key it read, got {}",
+        published.body.contains(&format!("\"x\":\"{x}\"")),
+        "the key set publishes the public half of the key `--signing-key` mounted, got {}",
         published.body
     );
     assert!(
@@ -1832,7 +1872,7 @@ fn a_connection_document_naming_no_link_selects_a_connection_and_authenticates_n
         "unlinked-connection.json",
         &connection_document(Some(&stated.to_string()), false),
     );
-    let key_path = seed_file("unlinked-key.json", KEY_DOCUMENT);
+    let key_path = seed_file("unlinked-key.pem", &signing_key_pem().0);
     let (address, _, connection_id) = serving_from_documents(&connection_path, &key_path);
 
     let login = exchange(
@@ -1906,26 +1946,19 @@ fn a_connection_document_naming_no_id_is_allocated_one_and_prints_it() {
     );
 }
 
-/// Every refusal of either flag document is a **configuration** refusal: exit status 2, not
+/// Every refusal of either flag's file is a **configuration** refusal: exit status 2, not
 /// the 1 of a listener that could not bind, and the file it read is named.
 ///
-/// The class, enumerated: a path that does not open, a body that is not JSON, a body missing
-/// a declared member, a JWK parameter outside `Jwk::ADMITTED_PARAMETERS`, a JWK parameter
-/// that is not text, a JWK member stated twice, and a JWK parameter repeating one of the
-/// declared four.
-///
-/// **A correction of what this comment used to claim.** It said a duplicated JSON member and
-/// a declared-member collision were the two `JwkRefusal` cases a JSON object could not carry
-/// to `Jwk::new`, because "a `serde_json` object holds one value per name". The first half
-/// was wrong, and the reader was wrong with it: `serde_json` parses
-/// `"crv":"P-256","crv":"P-521"` without complaint, the `#[serde(flatten)] BTreeMap` the
-/// reader used kept the last, and the deployment **published** `P-521` — a key stating a
-/// curve the document's own first line did not. Both refusals are reachable and both are
-/// pinned below; the reader now carries every member to `Jwk::new` in document order, and
-/// it is that constructor which refuses, as it always said it would.
+/// The class, enumerated: for `--connection`, a path that does not open, a body that is not
+/// JSON, and a body missing a declared member; for `--signing-key`, a path that does not
+/// open, a public JWK where a private key belongs, a PEM label the signer does not read, two
+/// keys in one file, and an envelope around no key. A refusal of a key never carries a byte
+/// of the file it read.
 #[test]
 fn every_refusal_of_a_flag_document_exits_two_and_names_the_file() {
     let absent = run_root().join("no-such-document.json");
+    let der = signing_key_der();
+    let body = mandate_types::value::encode_base64(&der);
     let cases = [
         ("--connection", absent.clone(), "a path that does not open"),
         (
@@ -1942,31 +1975,44 @@ fn every_refusal_of_a_flag_document_exits_two_and_names_the_file() {
             "a body missing the declared members",
         ),
         (
-            "--key",
-            seed_file("private-key.json", PRIVATE_KEY_DOCUMENT),
-            "a JWK carrying private material",
+            "--signing-key",
+            run_root().join("no-such-key.pem"),
+            "a key path that does not open",
         ),
         (
-            "--key",
+            "--signing-key",
             seed_file(
-                "untyped-key.json",
-                r#"{"kty":"EC","kid":"k","use":"sig","alg":"ES256","crv":1}"#,
+                "public-jwk.json",
+                r#"{"kty":"EC","kid":"k","use":"sig","alg":"ES256","crv":"P-256"}"#,
             ),
-            "a JWK parameter that is not text",
+            "a public JWK where a private key belongs",
         ),
         (
-            "--key",
-            seed_file("repeated-parameter-key.json", REPEATED_PARAMETER_DOCUMENT),
-            "a JWK parameter stated twice",
+            "--signing-key",
+            seed_file("ec-label.pem", &pem("EC PRIVATE KEY", &der)),
+            "a PEM label the signer does not read",
         ),
         (
-            "--key",
-            seed_file("repeated-kid-member-key.json", REPEATED_DECLARED_DOCUMENT),
-            "a JWK declared member stated twice",
+            "--signing-key",
+            seed_file(
+                "two-keys.pem",
+                &format!("{}{}", pem("PRIVATE KEY", &der), pem("PRIVATE KEY", &der)),
+            ),
+            "two keys in one file",
+        ),
+        (
+            "--signing-key",
+            seed_file("no-key.pem", &pem("PRIVATE KEY", b"not a key")),
+            "an envelope around no key",
         ),
     ];
     for (flag, path, why) in cases {
-        let refused = serve_with(&[flag, seed_path(&path)]);
+        let value = if flag == "--signing-key" {
+            format!("login={}", seed_path(&path))
+        } else {
+            seed_path(&path).to_owned()
+        };
+        let refused = serve_with(&[flag, &value]);
         assert_eq!(
             refused.status.code(),
             Some(2),
@@ -1978,41 +2024,119 @@ fn every_refusal_of_a_flag_document_exits_two_and_names_the_file() {
             said.contains(seed_path(&path)),
             "the refusal of {why} names the file it read, got {said}"
         );
+        assert!(
+            !said.contains(&body[..32]),
+            "the refusal of {why} carries no byte of the key, got {said}"
+        );
     }
 }
 
-/// Two `--key` documents under one `kid` name a set no reader can resolve a signature
-/// against, and that is decided at startup rather than answered as a 500 to every client
-/// that reads the key set.
+/// A P-256 private key generated now, as PKCS#8 DER.
+fn signing_key_der() -> Vec<u8> {
+    let pkcs8 =
+        EcdsaKeyPair::generate_pkcs8(&ECDSA_P256_SHA256_FIXED_SIGNING, &SystemRandom::new())
+            .expect("a P-256 key is generated");
+    pkcs8.as_ref().to_vec()
+}
+
+/// Two `--signing-key` flags under one name are a key reference that resolves to whichever
+/// file a reader picks, and that is decided at startup, naming both files.
 ///
-/// **And it names both files.** `Jwks::new` refuses a repeated `kid` and knows no path, so
-/// the refusal read `two keys of the set carry the same kid` and named neither document —
-/// which, with several `--key` flags given, tells an operator that something is wrong and
-/// nothing about where. The decision is the flags', because only the flags hold the paths.
+/// The name is the reference a `SigningKey` record resolves its material through, so the
+/// rule is the flags', which alone hold the paths.
 #[test]
-fn two_key_documents_naming_one_kid_are_refused_naming_both_files() {
-    let first = seed_file("first-key.json", KEY_DOCUMENT);
-    let second = seed_file("second-key.json", REPEATED_KID_DOCUMENT);
-    let refused = serve_with(&["--key", seed_path(&first), "--key", seed_path(&second)]);
+fn two_signing_keys_under_one_name_are_refused_naming_both_files() {
+    let first = seed_file("first-key.pem", &signing_key_pem().0);
+    let second = seed_file("second-key.pem", &signing_key_pem().0);
+    let refused = serve_with(&[
+        "--signing-key",
+        &format!("login={}", seed_path(&first)),
+        "--signing-key",
+        &format!("login={}", seed_path(&second)),
+    ]);
     assert_eq!(
         refused.status.code(),
         Some(2),
-        "one `kid` names at most one key; it said {}",
+        "one name is one key reference; it said {}",
         String::from_utf8_lossy(&refused.stderr)
     );
     let said = String::from_utf8_lossy(&refused.stderr);
     assert!(
-        said.contains("kid"),
-        "the refusal says which member collided, got {said}"
+        said.contains("`login`"),
+        "the refusal names the repeated name, got {said}"
     );
     assert!(
         said.contains(seed_path(&second)),
-        "the refusal names the document that repeated the kid, got {said}"
+        "the refusal names the file that repeated the name, got {said}"
     );
     assert!(
         said.contains(seed_path(&first)),
-        "the refusal names the document that published it first, got {said}"
+        "the refusal names the file that mounted it first, got {said}"
     );
+}
+
+/// The same material under two names is refused by `RegisterSigningKey` itself — the
+/// contract's uniqueness clause, which keeps a revoked key from returning under a second
+/// identity — and the refusal names the second file.
+#[test]
+fn one_key_mounted_under_two_names_is_refused_by_registration() {
+    let (pem, _) = signing_key_pem();
+    let first = seed_file("same-first.pem", &pem);
+    let second = seed_file("same-second.pem", &pem);
+    let refused = serve_with(&[
+        "--signing-key",
+        &format!("current={}", seed_path(&first)),
+        "--signing-key",
+        &format!("next={}", seed_path(&second)),
+    ]);
+    assert_eq!(
+        refused.status.code(),
+        Some(2),
+        "one key is one record; it said {}",
+        String::from_utf8_lossy(&refused.stderr)
+    );
+    let said = String::from_utf8_lossy(&refused.stderr);
+    assert!(
+        said.contains("RegisterSigningKey") && said.contains(seed_path(&second)),
+        "the command refuses the second file, got {said}"
+    );
+}
+
+/// A mounted key is registered as a record and published under the record's identity: the
+/// in-process half of `end_to_end::ready_reflects_signing_key`, which reads the record too.
+#[test]
+fn a_mounted_key_is_published_under_its_records_identity() {
+    let (pem, x) = signing_key_pem();
+    let path = seed_file("record-identity.pem", &pem);
+    let mut deployment = Deployment::new(
+        Configuration {
+            issuer: ISSUER.to_owned(),
+            code_lifetime: CodeLifetime::new(Duration::new("PT5M")),
+            session_lifetime: Duration::new("PT8H"),
+        },
+        verifier(),
+        FixedClock::at(NOW),
+        CountingSecrets::new(),
+        SequentialAllocator::new(),
+    )
+    .expect("a configuration this deployment serves");
+    assert!(!deployment.ready(), "no key is mounted yet");
+    assert!(
+        deployment.jwks().expect("a key set").keys.is_empty(),
+        "nothing is published before a key is mounted"
+    );
+
+    mount_signing_key(&mut deployment, &path);
+
+    let records = deployment.credentials().signing_keys().to_vec();
+    assert_eq!(records.len(), 1, "one record per mounted key");
+    assert_eq!(records[0].key_reference.as_str(), "login");
+    assert!(deployment.ready(), "the signer holds the record's key");
+    let jwks = deployment.jwks().expect("a key set");
+    assert_eq!(jwks.keys.len(), 1);
+    assert_eq!(jwks.keys[0].kid, records[0].id.to_string());
+    let rendered = jwks.to_json();
+    assert!(rendered.contains(&format!("\"x\":\"{x}\"")), "{rendered}");
 }
 
 // ---------------------------------------------------------------------------------------
@@ -2041,7 +2165,6 @@ fn deployment_verified_by<V: FederationVerifier>(
             issuer: ISSUER.to_owned(),
             code_lifetime: CodeLifetime::new(Duration::new("PT5M")),
             session_lifetime: Duration::new("PT8H"),
-            keys: Vec::new(),
         },
         verifier,
         FixedClock::at(NOW),
@@ -2093,7 +2216,7 @@ fn a_first_login_on_a_connection_that_admits_provisioning_completes_the_whole_ro
         "jit-connection.json",
         &connection_document_admitting(Some(&stated.to_string()), false, true),
     );
-    let key_path = seed_file("jit-key.json", KEY_DOCUMENT);
+    let key_path = seed_file("jit-key.pem", &signing_key_pem().0);
     let (address, target, connection_id) = serving_from_documents(&connection_path, &key_path);
 
     // 1. The login provisions the principal it then opens a session for.
@@ -2449,25 +2572,6 @@ fn an_explicitly_relinked_subject_logs_in_again_and_provisions_nothing() {
 // ---------------------------------------------------------------------------------------
 // The documents are decided together, by the commands they are the inputs of
 // ---------------------------------------------------------------------------------------
-
-/// The same key, stating one parameter twice. `serde_json` parses it; a map keeps the last.
-const REPEATED_PARAMETER_DOCUMENT: &str = r#"{"kty":"EC","kid":"login-key-1","use":"sig",
-  "alg":"ES256","crv":"P-256","crv":"P-521",
-  "x":"f83OJ3D2xF1Bg8vub9tLe1gHMzV76e8Tus9uPHvRVEU",
-  "y":"x_FEzRu9m36HLN_tue659LNpXW6pCyStikYjKIWI5a0"}"#;
-
-/// The same key, stating a *declared* member twice: which `kid` the document publishes
-/// under is not decidable, and a reader that picks one has picked for the operator.
-const REPEATED_DECLARED_DOCUMENT: &str = r#"{"kty":"EC","kid":"login-key-1",
-  "kid":"login-key-2","use":"sig","alg":"ES256","crv":"P-256",
-  "x":"f83OJ3D2xF1Bg8vub9tLe1gHMzV76e8Tus9uPHvRVEU",
-  "y":"x_FEzRu9m36HLN_tue659LNpXW6pCyStikYjKIWI5a0"}"#;
-
-/// A second published key under its own `kid`, so that the admitted half of the key-set
-/// rule is pinned beside the refused half.
-const DISTINCT_KID_DOCUMENT: &str = r#"{"kty":"EC","kid":"login-key-2","use":"sig",
-  "alg":"ES256","crv":"P-256","x":"MKBCTNIcKUSDii11ySs3526iDZ8AiTo7Tu6KPAqv7D4",
-  "y":"4Etl6SRW2YiLUrN5vfvVHuhp7x8PxltmWWlbbM4IFyM"}"#;
 
 /// A second organization, for the documents that have to contradict each other.
 fn other_organization() -> OrganizationId {
@@ -2829,97 +2933,6 @@ fn two_connection_documents_linking_one_principal_in_one_organization_are_admitt
     );
 }
 
-/// A JWK document stating one parameter twice is refused, rather than published under
-/// whichever value the reader's map happened to keep.
-///
-/// The measured defect: `"crv":"P-256","crv":"P-521"` returned `Ok` with `P-521`, and the
-/// published key stated a curve the document's own first line did not.
-#[test]
-fn a_key_document_stating_one_parameter_twice_is_refused_rather_than_published() {
-    let path = seed_file("duplicate-crv.json", REPEATED_PARAMETER_DOCUMENT);
-    let refused = read_key(&path).expect_err("a document that states two curves publishes none");
-    assert!(
-        matches!(refused, SeedRefused::Key { .. }),
-        "`Jwk::new` is what refuses it, got {refused:?}"
-    );
-    assert!(
-        format!("{refused}").contains("twice"),
-        "the refusal names the repeat, got {refused}"
-    );
-    assert!(
-        format!("{refused}").contains(seed_path(&path)),
-        "the refusal names the file, got {refused}"
-    );
-}
-
-/// A JWK document stating a *declared* member twice is refused for the same reason: which
-/// `kid` a key is published under is not the reader's to pick.
-#[test]
-fn a_key_document_stating_one_declared_member_twice_is_refused() {
-    let path = seed_file("duplicate-kid-member.json", REPEATED_DECLARED_DOCUMENT);
-    let refused = read_key(&path).expect_err("a document that states two kids publishes none");
-    assert!(
-        matches!(refused, SeedRefused::Key { .. }),
-        "`Jwk::new` is what refuses it, got {refused:?}"
-    );
-}
-
-/// A key document stating each of its members once is still read, in the order it wrote
-/// them. The repeat cases above refuse; this one says what they refuse *against*.
-#[test]
-fn a_key_document_stating_each_member_once_is_read_and_published() {
-    let path = seed_file("single-member-key.json", KEY_DOCUMENT);
-    let key = read_key(&path).expect("a JWK document serve publishes");
-    assert_eq!(key.kid, "login-key-1");
-    assert_eq!(
-        key.parameters()
-            .iter()
-            .map(|(name, _)| name.as_str())
-            .collect::<Vec<_>>(),
-        vec!["crv", "x", "y"],
-        "the parameters are carried in the order the document wrote them"
-    );
-}
-
-/// Two keys under one `kid` are refused by `key_set` naming both files, and two keys under
-/// different `kid`s are not. The pair is what pins the rule rather than the refusal alone.
-#[test]
-fn the_key_set_refuses_a_repeated_kid_and_admits_a_distinct_one() {
-    let first = seed_file("set-first-key.json", KEY_DOCUMENT);
-    let repeated = seed_file("set-repeated-key.json", REPEATED_KID_DOCUMENT);
-    let distinct = seed_file("set-distinct-key.json", DISTINCT_KID_DOCUMENT);
-
-    let refused = key_set(vec![
-        (first.clone(), read_key(&first).expect("a readable key")),
-        (
-            repeated.clone(),
-            read_key(&repeated).expect("a readable key"),
-        ),
-    ])
-    .expect_err("one kid names at most one key");
-    let SeedRefused::RepeatedKeyId {
-        path,
-        incumbent,
-        kid,
-    } = &refused
-    else {
-        panic!("the repeated-kid refusal, got {refused:?}");
-    };
-    assert_eq!(kid, "login-key-1");
-    assert_eq!(path, &repeated, "the document that repeated it");
-    assert_eq!(incumbent, &first, "the document that published it first");
-
-    let admitted = key_set(vec![
-        (first.clone(), read_key(&first).expect("a readable key")),
-        (
-            distinct.clone(),
-            read_key(&distinct).expect("a readable key"),
-        ),
-    ])
-    .expect("two kids name two keys");
-    assert_eq!(admitted.len(), 2, "both keys are published");
-}
-
 /// `DenialClause::TenantAmbiguous` is still reached, and the flags are no longer how.
 ///
 /// **This case exists because the correction above took something away.** Two `--connection`
@@ -2972,8 +2985,8 @@ fn two_connections_on_one_issuer_from_a_log_are_still_refused_as_ambiguous() {
 
 // ------------------------------------------------- `--client` and `--resource-server`
 //
-// The other two flags. `--connection` and `--key` are admitted against the documents
-// before them (`ConnectionSeeding::admit`, `key_set`); these two were added later and went
+// The other two flags. `--connection` and `--signing-key` are admitted against the documents
+// before them (`ConnectionSeeding::admit`, `MountedKeys::new`); these two were added later and went
 // through nothing at all, so a set this process cannot serve was seeded, printed as
 // seeded, and then denied at every request. These cases are the same shape as the
 // `--connection` ones above: the library's own refusal pinned in process, and the binary's

@@ -95,7 +95,6 @@ fn linked_deployment() -> Wired {
             issuer: "https://mandate.example".to_owned(),
             code_lifetime: CodeLifetime::new(Duration::new("PT5M")),
             session_lifetime: Duration::new("PT8H"),
-            keys: Vec::new(),
         },
         verifier(),
         FixedClock::at(NOW),

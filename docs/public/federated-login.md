@@ -54,7 +54,7 @@ One case it deliberately does not cover: an external subject whose link was expl
 | RFC 7636 — PKCE | Required, `S256` only. `mandate.core.PkceMethod` declares one variant, the authorization decoder refuses any other `code_challenge_method`, and each registered client states its `pkce_method`. A verifier that does not match the challenge is refused `invalid_grant`. |
 | RFC 8414 — Authorization server metadata | `GET /.well-known/oauth-authorization-server` publishes nine members. Every endpoint URL is the configured `issuer` joined with a path read from the same route table the listener dispatches, so the document cannot advertise a path nothing serves. A member naming an endpoint this deployment does not serve — `revocation_endpoint`, `registration_endpoint`, `device_authorization_endpoint` — is absent rather than empty. |
 | RFC 7662 — Introspection | `POST /oauth/introspect`, taking `token` and optional `token_type_hint`, and requiring the calling resource server's own credential as a bearer token. Answers `active`, and where the credential resolves, `credential_id`, `aud` and `sub`. A refusal about the *caller* is `401 invalid_client`; anything about the presented token is `200 {"active": false}`. |
-| RFC 7517 — JWKS | `GET /oauth/jwks` publishes the key set the `--key` documents configure. The member set is closed: `kty`, `kid`, `use`, `alg`, plus `n`, `e`, `crv`, `x`, `y`. RFC 7517 section 9.2's private members are refused at construction, as is a repeated `kid` anywhere in the set. |
+| RFC 7517 — JWKS | `GET /oauth/jwks` publishes the public half of the signing keys `--signing-key` mounts, each under the identity of its `SigningKey` record as `kid`, and only while that record admits verification: a revoked key leaves the set at once, and a key rotated out stays published for the overlap. The member set is closed: `kty`, `kid`, `use`, `alg`, plus `n`, `e`, `crv`, `x`, `y`. RFC 7517 section 9.2's private members are refused at construction, as is a repeated `kid` anywhere in the set. |
 | OpenID Connect Discovery | Consumed, not published. To find a connection's key set, Mandate fetches `{issuer}/.well-known/openid-configuration` and reads `jwks_uri`; the document is read once per issuer and held. Mandate publishes **no** `/.well-known/openid-configuration` of its own — no OpenID Connect command is declared, and the route table has no such path. Mandate is not an OpenID Provider. |
 
 Three further standards are named in this repository's design sources, in [the combined architecture](https://github.com/beyond10x/mandate/blob/main/docs/architecture/combined.md) and the preserved design snapshots. Two are implemented in part, and one is not:
@@ -92,7 +92,7 @@ Responses carrying credentials are sent `no-store`.
 ```text
 mandate-control-plane serve --listen <addr> --issuer <url>
     [--code-lifetime <ISO 8601 duration>] [--session-lifetime <ISO 8601 duration>]
-    [--connection <path>]... [--key <path>]... [--client <path>]... [--resource-server <path>]...
+    [--connection <path>]... [--signing-key <NAME=PATH>]... [--client <path>]... [--resource-server <path>]...
     [--client-secret-file <NAME=PATH>]...
 ```
 
@@ -103,7 +103,7 @@ mandate-control-plane serve --listen <addr> --issuer <url>
 | `--code-lifetime` | The longest life of an authorization code. Default `PT5M`. |
 | `--session-lifetime` | The longest life of a federated session. Default `PT8H`. |
 | `--connection` | A federation connection. Repeatable. |
-| `--key` | A public JWK the key set publishes. Repeatable. |
+| `--signing-key` | `NAME=PATH`: a PEM private key the deployment signs with, registered as a signing-key record. The flag carries where the key is, never the key. Repeatable; a name given twice exits **2**. |
 | `--client` | A registered OAuth public client. Repeatable. |
 | `--resource-server` | A registered resource server. Repeatable. |
 | `--client-secret-file` | `NAME=PATH`: the file holding the IdP client secret that a connection's `relying_party.client_secret` names. The flag carries where the secret is, never the secret. Repeatable; a name given twice exits **2**. |
@@ -140,17 +140,19 @@ Each document is JSON, one per file, and unknown members are refused. A document
 
 `jwks_hosts` is what lets an issuer publish its key set on a second host, as Google and Okta do: Google's discovery document is served by `accounts.google.com` and names a key set on `www.googleapis.com`. With no entry, the issuer's own origin is admitted and nothing else — the discovery document is served by the issuer and is not permitted to introduce a destination the deployment never named. An entry is admitted only over `https`, and never for a literal address or the loopback interface.
 
-### `--key`
+### `--signing-key`
 
-One public JWK, published verbatim in the key set. Private members are refused, and two documents naming one `kid` are refused together.
+`NAME=PATH` names one PEM private key: `PRIVATE KEY` (PKCS#8) for ES256 or RS256, or `RSA PRIVATE KEY` for RS256. The algorithm is read from the material. The file is read before the socket is bound; a file that cannot be read, or that is not exactly one admitted private key, exits **2** naming the file and never a byte of its content.
 
-```json
-{ "kty": "EC", "kid": "login-key-1", "use": "sig", "alg": "ES256",
-  "crv": "P-256", "x": "f83OJ3D2xF1Bg8vub9tLe1gHMzV76e8Tus9uPHvRVEU",
-  "y": "x_FEzRu9m36HLN_tue659LNpXW6pCyStikYjKIWI5a0" }
+```text
+mandate-control-plane serve … --signing-key current=/run/secrets/mandate/signing-current.pem
 ```
 
-This composition holds no signer. The keys are published for readers; the credential the token endpoint issues under a `Reference` profile is minted from the host CSPRNG and is not a JWT signed with a published key.
+Each mounted key is registered as a `SigningKey` record, in the order given, with `NAME` as its key reference and a window opening at startup. The record's identity is the `kid` the key signs and is published under, and it is printed. The signer follows the records: the newest key whose record admits signing is the one it signs with, a key it rotated away from stays in the key set for the overlap, and a revoked key leaves the key set at once and is never installed again. `GET /healthz/ready` answers `200` only while the signer holds a key its record admits for signing.
+
+The credential the token endpoint issues under a `Reference` profile is still minted from the host CSPRNG and is not a JWT.
+
+In a `--config-dir`, a `signing-keys/` directory holds one PEM file per key, and the file name is `NAME`.
 
 ### `--client`
 

@@ -49,7 +49,7 @@ timeline:
     key_reference: secret/signing/first
     algorithm: ES256
     window:
-      not_before: '2026-01-05T08:00:00Z'
+      not_before: '2025-12-01T00:00:00Z'
       expires_at: '2026-04-05T08:00:00Z'
   outcome: accepted
   events:
@@ -70,7 +70,7 @@ timeline:
     key_reference: secret/signing/second
     algorithm: ES256
     window:
-      not_before: '2026-01-05T08:00:00Z'
+      not_before: '2025-12-01T00:00:00Z'
       expires_at: '2026-04-05T08:00:00Z'
   outcome: accepted
   events:

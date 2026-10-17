@@ -537,10 +537,9 @@ where
         Binding::Document(Document::HealthLive) => {
             Response::json(Health::live().status(), Health::live().to_json()).no_store()
         }
-        // Readiness reflects the signing keys admitted from the `--key` documents; the signer
-        // rewiring answers for the key it signs with instead.
+        // Readiness answers for the key the signer signs with: one its record admits now.
         Binding::Document(Document::HealthReady) => {
-            let health = Health::ready(deployment.jwks().map_or(0, |jwks| jwks.keys.len()));
+            let health = Health::ready(deployment.ready());
             Response::json(health.status(), health.to_json()).no_store()
         }
         Binding::Document(Document::Jwks) => match deployment.jwks() {
