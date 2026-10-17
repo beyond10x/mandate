@@ -62,7 +62,7 @@ fn declared_elements() -> BTreeSet<String> {
             declared.insert(element.to_owned());
         }
     }
-    assert_eq!(declared.len(), 297, "the compiled model's element count");
+    assert_eq!(declared.len(), 307, "the compiled model's element count");
     declared
 }
 
@@ -288,7 +288,7 @@ fn symbol_list(line: &str, element: &str) -> Vec<String> {
 /// Every entry of the coverage manifest, as `(status, crate, the first impl symbol)`.
 ///
 /// Read as lines, for the reason `manifest_entries` is: no `serde_json` is reachable from
-/// this crate. A reflowed manifest yields fewer than 297 entries here and the count below
+/// this crate. A reflowed manifest yields fewer than 307 entries here and the count below
 /// refuses it, so this reader cannot select nothing and pass.
 fn coverage_manifest_claims() -> std::collections::BTreeMap<String, (String, String, String)> {
     let text = fs::read_to_string(MANIFEST).unwrap_or_else(|error| panic!("{MANIFEST}: {error}"));
@@ -313,7 +313,7 @@ fn coverage_manifest_claims() -> std::collections::BTreeMap<String, (String, Str
             ),
         );
     }
-    assert_eq!(claims.len(), 297, "the coverage manifest's element count");
+    assert_eq!(claims.len(), 307, "the coverage manifest's element count");
     claims
 }
 
