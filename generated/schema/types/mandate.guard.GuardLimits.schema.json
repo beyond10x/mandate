@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$ref": "#/$defs/mandate.guard.GuardLimits",
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "7fc538244e6be456f323534383906fc4101e083d38e5ff385f201ed88c01f787",
+    "contract_digest": "slice-sha256/2:a1bc03efa87c23d407c434f01205708bb42a824382895a3bdbf28cd91ca7aaf8",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.guard.GuardLimits": {
+      "title": "GuardLimits",
+      "x-ess-name": "mandate.guard.GuardLimits",
+      "x-ess-kind": "struct",
+      "type": "object",
+      "properties": {
+        "per_minute": {
+          "type": "integer"
+        },
+        "burst": {
+          "type": "integer"
+        },
+        "queue": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "per_minute",
+        "burst",
+        "queue"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

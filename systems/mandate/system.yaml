@@ -16,3 +16,4 @@ domains:
 - mandate.workload
 - mandate.audit
 - mandate.authorization
+- mandate.guard

@@ -1,0 +1,30 @@
+type: ess-scenario/2
+domain: mandate.guard
+scenario: guard-audience-mismatch-refused
+summary: 'aud names no audience of the policy; verify::claims, AudienceMismatch; a decode-only verifier double knows kid k1 alone; residue story:token-guard.'
+timeline:
+- at: '2026-01-05T09:00:00Z'
+  command: mandate.guard.AdmitRequest
+  input:
+    policy:
+      issuer: https://idp.example.test
+      audiences:
+      - orders
+      allow:
+        emails:
+        - ada@example.test
+        domains:
+        - example.test
+      limits:
+        per_minute: 60
+        burst: 10
+        queue: 32
+      clock_skew: PT30S
+    token: c2NlbmFyaW8uZXlKcmFXUWlPaUpyTVNJc0ltbHpjeUk2SW1oMGRIQnpPaTh2YVdSd0xtVjRZVzF3YkdVdWRHVnpkQ0lzSW1GMVpDSTZJbUpwYkd4cGJtY2lMQ0p6ZFdJaU9pSjFMVEVpTENKbGJXRnBiQ0k2SW1Ga1lVQmxlR0Z0Y0d4bExuUmxjM1FpTENKbGJXRnBiRjkyWlhKcFptbGxaQ0k2ZEhKMVpTd2lhV0YwSWpveE56WTNOakF6TURBd0xDSnVZbVlpT2pFM05qYzJNRE13TURBc0ltVjRjQ0k2TVRjMk56WXdOekl3TUgwLnVuc2lnbmVk
+  outcome: audience-mismatch
+  error:
+    name: mandate.guard.Refused
+    fields:
+      reason: AudienceMismatch
+  no_events:
+  - mandate.guard.RequestAdmitted

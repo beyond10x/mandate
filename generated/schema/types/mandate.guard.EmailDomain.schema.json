@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$ref": "#/$defs/mandate.guard.EmailDomain",
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "7fc538244e6be456f323534383906fc4101e083d38e5ff385f201ed88c01f787",
+    "contract_digest": "slice-sha256/2:4b624b504298e631bef96bf7a71e6b7e71fa96d4c645548261a80953a3037676",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.guard.EmailDomain": {
+      "title": "EmailDomain",
+      "x-ess-name": "mandate.guard.EmailDomain",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    }
+  }
+}

@@ -1,0 +1,30 @@
+type: ess-scenario/2
+domain: mandate.guard
+scenario: guard-identity-not-allowed-refused
+summary: 'an email neither listed nor in a listed domain; verify::allow, IdentityNotAllowed; a decode-only verifier double knows kid k1 alone; residue story:token-guard.'
+timeline:
+- at: '2026-01-05T09:00:00Z'
+  command: mandate.guard.AdmitRequest
+  input:
+    policy:
+      issuer: https://idp.example.test
+      audiences:
+      - orders
+      allow:
+        emails:
+        - ada@example.test
+        domains:
+        - example.test
+      limits:
+        per_minute: 60
+        burst: 10
+        queue: 32
+      clock_skew: PT30S
+    token: c2NlbmFyaW8uZXlKcmFXUWlPaUpyTVNJc0ltbHpjeUk2SW1oMGRIQnpPaTh2YVdSd0xtVjRZVzF3YkdVdWRHVnpkQ0lzSW1GMVpDSTZJbTl5WkdWeWN5SXNJbk4xWWlJNkluVXRNaUlzSW1WdFlXbHNJam9pWlhabFFHVnNjMlYzYUdWeVpTNTBaWE4wSWl3aVpXMWhhV3hmZG1WeWFXWnBaV1FpT25SeWRXVXNJbWxoZENJNk1UYzJOell3TXpBd01Dd2libUptSWpveE56WTNOakF6TURBd0xDSmxlSEFpT2pFM05qYzJNRGN5TURCOS51bnNpZ25lZA==
+  outcome: identity-not-allowed
+  error:
+    name: mandate.guard.Refused
+    fields:
+      reason: IdentityNotAllowed
+  no_events:
+  - mandate.guard.RequestAdmitted

@@ -1,0 +1,30 @@
+type: ess-scenario/2
+domain: mandate.guard
+scenario: guard-identity-allowed-admitted
+summary: 'a listed email is admitted with its subject and audience; verify::allow; a decode-only verifier double knows kid k1 alone; residue story:token-guard.'
+timeline:
+- at: '2026-01-05T09:00:00Z'
+  command: mandate.guard.AdmitRequest
+  input:
+    policy:
+      issuer: https://idp.example.test
+      audiences:
+      - orders
+      allow:
+        emails:
+        - ada@example.test
+        domains:
+        - example.test
+      limits:
+        per_minute: 60
+        burst: 10
+        queue: 32
+      clock_skew: PT30S
+    token: c2NlbmFyaW8uZXlKcmFXUWlPaUpyTVNJc0ltbHpjeUk2SW1oMGRIQnpPaTh2YVdSd0xtVjRZVzF3YkdVdWRHVnpkQ0lzSW1GMVpDSTZJbTl5WkdWeWN5SXNJbk4xWWlJNkluVXRNU0lzSW1WdFlXbHNJam9pWVdSaFFHVjRZVzF3YkdVdWRHVnpkQ0lzSW1WdFlXbHNYM1psY21sbWFXVmtJanAwY25WbExDSnBZWFFpT2pFM05qYzJNRE13TURBc0ltNWlaaUk2TVRjMk56WXdNekF3TUN3aVpYaHdJam94TnpZM05qQTNNakF3ZlEudW5zaWduZWQ=
+  outcome: accepted
+  events:
+  - event: mandate.guard.RequestAdmitted
+    payload:
+      issuer: https://idp.example.test
+      subject: u-1
+      audience: orders

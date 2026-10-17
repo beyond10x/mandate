@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RequestAdmitted payload",
+  "x-ess-name": "mandate.guard.RequestAdmitted",
+  "x-ess-kind": "event-payload",
+  "type": "object",
+  "properties": {
+    "issuer": {
+      "$ref": "#/$defs/mandate.core.Issuer"
+    },
+    "subject": {
+      "$ref": "#/$defs/mandate.core.ExternalSubject"
+    },
+    "audience": {
+      "$ref": "#/$defs/mandate.core.Audience"
+    },
+    "admitted_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "issuer",
+    "subject",
+    "audience",
+    "admitted_at"
+  ],
+  "additionalProperties": false,
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "7fc538244e6be456f323534383906fc4101e083d38e5ff385f201ed88c01f787",
+    "contract_digest": "slice-sha256/2:17e6701210609c69fb2fb62d2cf742c3219e53cceab04b59a619c446b7d64e17",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.core.Audience": {
+      "title": "Audience",
+      "x-ess-name": "mandate.core.Audience",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    },
+    "mandate.core.ExternalSubject": {
+      "title": "ExternalSubject",
+      "x-ess-name": "mandate.core.ExternalSubject",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    },
+    "mandate.core.Issuer": {
+      "title": "Issuer",
+      "x-ess-name": "mandate.core.Issuer",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    }
+  }
+}

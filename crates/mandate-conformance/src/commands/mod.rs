@@ -174,6 +174,11 @@ pub const UNREALIZED: &[(&str, &str, &str)] = &[
         "the relationship store is a double; no command writes it",
     ),
     (
+        "mandate.guard.AdmitRequest",
+        "story:token-guard",
+        "mandate_client::verify::Verifier decides it; no binding drives it with a JWK Set double",
+    ),
+    (
         "mandate.identity.DisablePrincipal",
         "story:declared-writers",
         "no handler decides it and mandate.identity.PrincipalDisabled is folded nowhere",
