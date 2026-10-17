@@ -4,6 +4,8 @@ All notable changes to Mandate are recorded here. The format follows [Keep a Cha
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-17
+
 ### Breaking
 
 - `OAuthClient`, `RegisterOAuthClient` and `OAuthClientRegistered` replace the boolean `public` with
@@ -657,7 +659,8 @@ The planning batch ([#4](https://github.com/beyond10x/mandate/pull/4)), on top o
 
 `task check` passed, including AEP validation (72 artifacts), ESS validation and deterministic projections.
 
-[Unreleased]: https://github.com/beyond10x/mandate/compare/v0.9.2...HEAD
+[Unreleased]: https://github.com/beyond10x/mandate/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/beyond10x/mandate/compare/v0.9.2...v0.10.0
 [0.9.2]: https://github.com/beyond10x/mandate/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/beyond10x/mandate/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/beyond10x/mandate/compare/v0.8.0...v0.9.0
