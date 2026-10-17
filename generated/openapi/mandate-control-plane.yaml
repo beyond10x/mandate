@@ -1,6 +1,6 @@
 # generated from mandate v1
-# model digest 751472a620cc3a7650f9a2496c9e81022fbef0887158483d3bbd761f09e76837
-# contract digest slice-sha256/2:1b8dd3aee6c80f7ed345dcac834185dc69c87535d429838ae8405ae04151f113
+# model digest ed30f4be9ac91f32de4da849d406533e9444bf70425bbe0c0312187b27df62b7
+# contract digest slice-sha256/2:2fa9d96bc7d9aae7ffa0741edf28ac038db0d922bac2c8a69745d61134bfea5c
 # do not edit: regenerate with `ess generate`
 openapi: 3.1.0
 info:
@@ -14,8 +14,8 @@ info:
   x-ess-provenance:
     system: mandate
     specification_version: v1
-    source_digest: 751472a620cc3a7650f9a2496c9e81022fbef0887158483d3bbd761f09e76837
-    contract_digest: slice-sha256/2:1b8dd3aee6c80f7ed345dcac834185dc69c87535d429838ae8405ae04151f113
+    source_digest: ed30f4be9ac91f32de4da849d406533e9444bf70425bbe0c0312187b27df62b7
+    contract_digest: slice-sha256/2:2fa9d96bc7d9aae7ffa0741edf28ac038db0d922bac2c8a69745d61134bfea5c
 tags:
 - name: delegation
 - name: directory
@@ -736,26 +736,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.federation.AuthenticateFederation.denied.Response'
-  /federation/commands/AuthorizePublicClient:
+  /federation/commands/AuthorizeClient:
     post:
-      operationId: mandate.federation.AuthorizePublicClient
-      summary: AuthorizePublicClient
+      operationId: mandate.federation.AuthorizeClient
+      summary: AuthorizeClient
       tags:
       - federation
       requestBody:
-        description: The input `mandate.federation.AuthorizePublicClient` declares.
+        description: The input `mandate.federation.AuthorizeClient` declares.
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/mandate.federation.AuthorizePublicClient.Input'
+              $ref: '#/components/schemas/mandate.federation.AuthorizeClient.Input'
       responses:
         '202':
           description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers and listed under `published`.'
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/mandate.federation.AuthorizePublicClient.accepted.Response'
+                $ref: '#/components/schemas/mandate.federation.AuthorizeClient.accepted.Response'
         '501':
           description: 'No declared outcome: the realization is unfinished. Either a port this command runs reported an unmet obligation, and nothing was written: `committed` is `false`. Or the command''s effect was committed and delivering what this command published to a binding failed: `committed` is `true`, the effect and its events stand, and each binding whose delivery failed keeps its event and is attempted again on a later delivery, while no other binding receives it twice. Do not retry: after a failed delivery a retry performs the command a second time.'
           content:
@@ -778,7 +778,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/mandate.federation.AuthorizePublicClient.denied.Response'
+                $ref: '#/components/schemas/mandate.federation.AuthorizeClient.denied.Response'
   /federation/commands/DisableFederationConnection:
     post:
       operationId: mandate.federation.DisableFederationConnection
@@ -3966,9 +3966,9 @@ components:
       - target
       - requested_scope
       additionalProperties: false
-    mandate.federation.AuthorizePublicClient.Input:
-      title: AuthorizePublicClient input
-      x-ess-name: mandate.federation.AuthorizePublicClient
+    mandate.federation.AuthorizeClient.Input:
+      title: AuthorizeClient input
+      x-ess-name: mandate.federation.AuthorizeClient
       x-ess-kind: command-input
       type: object
       properties:
@@ -4001,7 +4001,7 @@ components:
       - target
       - requested_scope
       additionalProperties: false
-    mandate.federation.AuthorizePublicClient.accepted.Response:
+    mandate.federation.AuthorizeClient.accepted.Response:
       additionalProperties: false
       description: The control plane orchestrates the verified session and client checks and calls the STS IssueAuthorizationCode port; the STS creates the mandate.credential.AuthorizationCode record and returns its identity, which this event names. This outcome creates nothing — code_id is the code STS minted, not one minted here — and the transient code is returned to the public-client adapter and to nothing else. Taken when no other outcome's condition matched. Emits `AuthorizationCodeIssued`, published to consumers and listed under `published`.
       properties:
@@ -4030,7 +4030,7 @@ components:
       - outcome
       - published
       type: object
-    mandate.federation.AuthorizePublicClient.denied.Response:
+    mandate.federation.AuthorizeClient.denied.Response:
       additionalProperties: false
       description: 'Decided outside the request: Session proof is invalid/stale, client is not a registered public client, the client is disabled, exact redirect URI or state/applicable nonce binding fails, S256 challenge is absent/invalid, target is unregistered/outside tenant, or STS code issuance/narrowing is refused..'
       properties:
@@ -4755,7 +4755,7 @@ components:
       additionalProperties: false
     mandate.federation.RegisterOAuthClient.accepted.Response:
       additionalProperties: false
-      description: The client is bound to the organization the verified context carries; the command takes no organization input, so no caller selects the tenant a client is registered into. A confidential client authenticates with a secret, and the registration carries only the keyed verifiers derived from its secret references (fork F2), one or two so that a secret can be rotated; the secret itself is never an input, an event field or a record field. A public client states no verifier and always requires PKCE (fork F3); a confidential client may require it. Each trusted peer names another client of the same organization that may obtain tokens for this one. OAuthClientRegistered carries the whole mandate.federation.OAuthClient record — the client identity, its organization, its client type, its verifiers, its exact redirect set, its PKCE method and requirement, its trusted peers and its exact post-logout redirect set — so the federation fold materializes the client from this event alone and reads no command input or response. The identity and the organization are the ones this outcome decided and returned, read from the response rather than from a value the implementation invented. An empty redirect set is admitted and is not a denial — the client it registers is inert, because AuthorizePublicClient matches the presented redirect against the registered set exactly and an empty set matches nothing, so every authorization request to that client is refused. mandate.core.PkceMethod admits S256 and nothing else, so no registration can name another method and none is refused for naming one. A registration whose redirect surface or PKCE method must change is disabled and registered again; there is no update command. Taken when no other outcome's condition matched. A `mandate.federation.OAuthClient` now exists, in `Recorded`. Its identity is published as `id` on `mandate.federation.OAuthClientRegistered`. Emits `OAuthClientRegistered`, published to consumers and listed under `published`.
+      description: The client is bound to the organization the verified context carries; the command takes no organization input, so no caller selects the tenant a client is registered into. A confidential client authenticates with a secret, and the registration carries only the keyed verifiers derived from its secret references (fork F2), one or two so that a secret can be rotated; the secret itself is never an input, an event field or a record field. A public client states no verifier and always requires PKCE (fork F3); a confidential client may require it. Each trusted peer names another client of the same organization that may obtain tokens for this one. OAuthClientRegistered carries the whole mandate.federation.OAuthClient record — the client identity, its organization, its client type, its verifiers, its exact redirect set, its PKCE method and requirement, its trusted peers and its exact post-logout redirect set — so the federation fold materializes the client from this event alone and reads no command input or response. The identity and the organization are the ones this outcome decided and returned, read from the response rather than from a value the implementation invented. An empty redirect set is admitted and is not a denial — the client it registers is inert, because AuthorizeClient matches the presented redirect against the registered set exactly and an empty set matches nothing, so every authorization request to that client is refused. mandate.core.PkceMethod admits S256 and nothing else, so no registration can name another method and none is refused for naming one. A registration whose redirect surface or PKCE method must change is disabled and registered again; there is no update command. Taken when no other outcome's condition matched. A `mandate.federation.OAuthClient` now exists, in `Recorded`. Its identity is published as `id` on `mandate.federation.OAuthClientRegistered`. Emits `OAuthClientRegistered`, published to consumers and listed under `published`.
       properties:
         outcome:
           const: accepted

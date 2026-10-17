@@ -1,5 +1,5 @@
 //! The registered OAuth client read model, and what makes one a *registered public
-//! client* for `mandate.federation.AuthorizePublicClient` (`federation.yaml:320-368`).
+//! client* for `mandate.federation.AuthorizeClient` (`federation.yaml:320-368`).
 //!
 //! # The port, and why it has a double
 //!
@@ -116,7 +116,7 @@ pub fn registered_public_client(
 /// [`TargetRegistry`] over the targets it recorded.
 ///
 /// One double answering two read models, exactly as [`crate::RecordedPrincipals`] answers
-/// three: `AuthorizePublicClient` reads both. The client half now has a creating command
+/// three: `AuthorizeClient` reads both. The client half now has a creating command
 /// and a fold that answers it (`crate::register_client`), so a case may drive either; the
 /// target half is `mandate.tenancy`'s record, which no event of this domain creates and
 /// this double is the only answer for.

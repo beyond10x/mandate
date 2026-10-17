@@ -661,7 +661,7 @@ fn register_o_auth_client_emits_exactly_the_declared_event() {
 }
 
 /// An empty redirect set is admitted and is not a denial: the client it registers is
-/// inert, because `AuthorizePublicClient` matches the presented redirect against the
+/// inert, because `AuthorizeClient` matches the presented redirect against the
 /// registered set exactly and an empty set matches nothing (`federation.yaml`,
 /// `RegisterOAuthClient`).
 #[test]
@@ -710,7 +710,7 @@ fn a_registration_with_an_empty_redirect_set_is_admitted_and_inert() {
 /// against the input the case supplies — so a suite that only ever registers `public: true`
 /// clients cannot tell a handler that reads the input from one that writes the literal
 /// `true`. Both values are carried through the same three checks; the confidential client
-/// then fails the `public` predicate `AuthorizePublicClient` applies, which is the only
+/// then fails the `public` predicate `AuthorizeClient` applies, which is the only
 /// place the value is read again.
 #[test]
 fn register_o_auth_client_carries_the_public_flag_the_input_named() {

@@ -52,7 +52,7 @@
           "method": "GET",
           "path": "/oauth/authorize",
           "binds": {
-            "command": "mandate.federation.AuthorizePublicClient"
+            "command": "mandate.federation.AuthorizeClient"
           },
           "statement": "The authorization endpoint, reached with a session proof."
         },
@@ -333,7 +333,7 @@
           "method": "GET",
           "path": "/oauth/authorize",
           "binds": {
-            "command": "mandate.federation.AuthorizePublicClient"
+            "command": "mandate.federation.AuthorizeClient"
           },
           "statement": "`GET`, as RFC 6749 section 3.1 requires, at an unversioned path the metadata document advertises."
         },
@@ -804,7 +804,7 @@
     {
       "step": 8,
       "actor": "relying-application",
-      "command": "mandate.federation.AuthorizePublicClient",
+      "command": "mandate.federation.AuthorizeClient",
       "when": "once per authorization request",
       "addendum_steps": [
         5
@@ -1004,7 +1004,7 @@
       "method": "GET",
       "path": "/oauth/authorize",
       "binds": {
-        "command": "mandate.federation.AuthorizePublicClient"
+        "command": "mandate.federation.AuthorizeClient"
       },
       "steps": [
         8,
@@ -1580,7 +1580,7 @@
     {
       "gap": "step 8 has no conformance scenario",
       "costs": "The authorization step is the one step of the road that the synthesized corpus does not execute at all. Its evidence is crate-level and end-to-end cases only, so a contract-level regression in its declared outcomes would not be caught by the conformance gate.",
-      "today": "Both of `mandate.federation.AuthorizePublicClient`'s scenarios report `unsupported`, recorded in the injections ledger as `input-shape-unrealized`.",
+      "today": "Both of `mandate.federation.AuthorizeClient`'s scenarios report `unsupported`, recorded in the injections ledger as `input-shape-unrealized`.",
       "steps": [
         8
       ],

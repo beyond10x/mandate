@@ -17,7 +17,7 @@
 //! # What `mandate-federation` holds, and why it is not this
 //!
 //! `mandate_federation::authorize::AuthorizationCode` mirrors the fields
-//! `AuthorizePublicClient` validates, as a caller-supplied **input**, and deliberately
+//! `AuthorizeClient` validates, as a caller-supplied **input**, and deliberately
 //! omits the declared `verifier`. This is the record: it carries the verifier, it is
 //! written by events and by nothing else, and since this story it is the single realizer of
 //! `mandate.credential.AuthorizationCode` and of its `.State`

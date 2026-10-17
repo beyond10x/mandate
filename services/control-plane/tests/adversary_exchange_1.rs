@@ -239,7 +239,7 @@ fn code_flow_credential(deployment: &mut Wired, target: ResourceServerId) -> Str
         .expect("the login opens a session");
     let authorization = deployment
         .authorize(
-            &decode::authorize_public_client(
+            &decode::authorize_client(
                 &Request::new(
                     "GET",
                     &format!(

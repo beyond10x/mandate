@@ -396,8 +396,8 @@
       "mandate.directory.SyncDirectoryMembership/outcome/denied",
       "mandate.federation.AuthenticateFederation/outcome/accepted",
       "mandate.federation.AuthenticateFederation/outcome/denied",
-      "mandate.federation.AuthorizePublicClient/outcome/accepted",
-      "mandate.federation.AuthorizePublicClient/outcome/denied",
+      "mandate.federation.AuthorizeClient/outcome/accepted",
+      "mandate.federation.AuthorizeClient/outcome/denied",
       "mandate.federation.DisableFederationConnection/outcome/accepted",
       "mandate.federation.DisableFederationConnection/outcome/denied",
       "mandate.federation.DisableFederationConnection/outcome/wrong-state",
@@ -1910,9 +1910,9 @@
     }
   },
   "provenance": {
-    "contract_digest": "91ee6318241ef929c9fe719a4564fcaeb660656153c80bbe59a32f4f0969b5d5",
+    "contract_digest": "0d48f62375ccad1f53d3c6630af90659227698d3411cccac9c99d29fa4237dfb",
     "scenario_initial_state": "empty",
-    "spec_digest": "751472a620cc3a7650f9a2496c9e81022fbef0887158483d3bbd761f09e76837",
+    "spec_digest": "ed30f4be9ac91f32de4da849d406533e9444bf70425bbe0c0312187b27df62b7",
     "specification_version": "v1",
     "suite_version": "ess-conformance/35",
     "system": "mandate"
@@ -75912,8 +75912,8 @@
         }
       ]
     },
-    "mandate.federation.AuthorizePublicClient/outcome/accepted": {
-      "purpose": "`mandate.federation.AuthorizePublicClient` answers `accepted` for an input no other branch's guard claims",
+    "mandate.federation.AuthorizeClient/outcome/accepted": {
+      "purpose": "`mandate.federation.AuthorizeClient` answers `accepted` for an input no other branch's guard claims",
       "source": [
         {
           "kind": "type",
@@ -75981,12 +75981,12 @@
         },
         {
           "kind": "command",
-          "name": "mandate.federation.AuthorizePublicClient"
+          "name": "mandate.federation.AuthorizeClient"
         },
         {
           "kind": "outcome",
           "name": {
-            "command": "mandate.federation.AuthorizePublicClient",
+            "command": "mandate.federation.AuthorizeClient",
             "outcome": "accepted"
           }
         },
@@ -76321,7 +76321,7 @@
       ],
       "steps": [
         {
-          "command": "mandate.federation.AuthorizePublicClient",
+          "command": "mandate.federation.AuthorizeClient",
           "input": {
             "challenge": {
               "kind": "literal",
@@ -76375,7 +76375,7 @@
         },
         {
           "outcome": {
-            "command": "mandate.federation.AuthorizePublicClient",
+            "command": "mandate.federation.AuthorizeClient",
             "outcome": "accepted"
           },
           "step": "expect_outcome"
@@ -76452,7 +76452,7 @@
         },
         {
           "response": {
-            "command": "mandate.federation.AuthorizePublicClient",
+            "command": "mandate.federation.AuthorizeClient",
             "declarations": {
               "mandate.core.AuthorizationCodeId": {
                 "kind": "newtype",
@@ -76478,7 +76478,7 @@
               "code_id": "code_id"
             },
             "outcome": {
-              "command": "mandate.federation.AuthorizePublicClient",
+              "command": "mandate.federation.AuthorizeClient",
               "outcome": "accepted"
             },
             "targets": [
@@ -76816,8 +76816,8 @@
         }
       ]
     },
-    "mandate.federation.AuthorizePublicClient/outcome/denied": {
-      "purpose": "`mandate.federation.AuthorizePublicClient` answers `denied` for the cause it declares as external, injected",
+    "mandate.federation.AuthorizeClient/outcome/denied": {
+      "purpose": "`mandate.federation.AuthorizeClient` answers `denied` for the cause it declares as external, injected",
       "source": [
         {
           "kind": "type",
@@ -76873,12 +76873,12 @@
         },
         {
           "kind": "command",
-          "name": "mandate.federation.AuthorizePublicClient"
+          "name": "mandate.federation.AuthorizeClient"
         },
         {
           "kind": "outcome",
           "name": {
-            "command": "mandate.federation.AuthorizePublicClient",
+            "command": "mandate.federation.AuthorizeClient",
             "outcome": "denied"
           }
         },
@@ -77218,13 +77218,13 @@
       "steps": [
         {
           "force": {
-            "command": "mandate.federation.AuthorizePublicClient",
+            "command": "mandate.federation.AuthorizeClient",
             "outcome": "denied"
           },
           "step": "configure_external_outcome"
         },
         {
-          "command": "mandate.federation.AuthorizePublicClient",
+          "command": "mandate.federation.AuthorizeClient",
           "input": {
             "challenge": {
               "kind": "literal",
@@ -77278,7 +77278,7 @@
         },
         {
           "outcome": {
-            "command": "mandate.federation.AuthorizePublicClient",
+            "command": "mandate.federation.AuthorizeClient",
             "outcome": "denied"
           },
           "step": "expect_outcome"

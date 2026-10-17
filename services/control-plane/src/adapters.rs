@@ -312,7 +312,7 @@ pub fn session_proof_verifier<T: Transient + ?Sized>(
 
 /// The session a presented proof names, by verifier.
 ///
-/// `AuthorizePublicClient` declares a `session_proof` and *not* a session: "resolving one to
+/// `AuthorizeClient` declares a `session_proof` and *not* a session: "resolving one to
 /// a session is the trusted adapter's work" (`crates/mandate-federation/src/authorize.rs`),
 /// and this is that adapter's half of it. Nothing here records the proof — what is kept is
 /// the non-reversible verifier of it, the way every other credential on this road is kept —
@@ -448,7 +448,7 @@ pub enum AuthorizationRefusal {
 /// The accepted outcome of `mandate.federation.AuthenticateFederation`, and the proof.
 ///
 /// The five declared response fields, plus the session proof the composition minted. The
-/// proof is **not** a declared response field: `AuthorizePublicClient` declares a
+/// proof is **not** a declared response field: `AuthorizeClient` declares a
 /// `session_proof` input and nothing in the contract says how a client comes to hold one, so
 /// the adapter that opens the session is the thing that can hand it over. A cookie-borne
 /// session adapter is `story:protocol-adapters`' named residue
@@ -469,7 +469,7 @@ pub struct Login {
     pub session_proof: CredentialSecret,
 }
 
-/// The accepted outcome of `mandate.federation.AuthorizePublicClient`.
+/// The accepted outcome of `mandate.federation.AuthorizeClient`.
 #[derive(Debug, Clone)]
 pub struct Authorization {
     /// The declared `code_id` response.
@@ -3321,7 +3321,7 @@ where
         })
     }
 
-    /// Realize `mandate.federation.AuthorizePublicClient` up to the STS call its accepted
+    /// Realize `mandate.federation.AuthorizeClient` up to the STS call its accepted
     /// outcome makes, and make it.
     ///
     /// The order is the one `crates/mandate-federation/src/authorize.rs` states for its own
@@ -3343,7 +3343,7 @@ where
     /// Returns [`AuthorizationRefusal`], which says whether the refusal may be redirected.
     pub fn authorize(
         &mut self,
-        input: &decode::AuthorizePublicClient,
+        input: &decode::AuthorizeClient,
     ) -> Result<Authorization, AuthorizationRefusal> {
         use mandate_federation::DenialClause as FederationClause;
 
@@ -3450,7 +3450,7 @@ where
         // admits an expiry no later than `request.at` plus the code lifetime, and a read a
         // second later than `at` lands one second past that ceiling ([`Deployment::now`]).
         let expires_at = instant::at(seconds.saturating_add(self.code_lifetime));
-        // The value `AuthorizePublicClient`'s accepted outcome stops at, assembled from
+        // The value `AuthorizeClient`'s accepted outcome stops at, assembled from
         // validated facts and handed to the STS by value.
         let assembled = IssueAuthorizationCodeInput {
             context: mandate_types::VerifiedContext {
@@ -4104,7 +4104,7 @@ fn identity_event_of(event: &FederationEvent) -> Option<IdentityEvent> {
         .map(IdentityEvent::ExternalPrincipalProvisioned)
 }
 
-/// The value `mandate.federation.AuthorizePublicClient` stops at, as
+/// The value `mandate.federation.AuthorizeClient` stops at, as
 /// `mandate.credential.IssueAuthorizationCode`'s declared input.
 ///
 /// Field for field: the two crates declare the same nine values and neither may name the

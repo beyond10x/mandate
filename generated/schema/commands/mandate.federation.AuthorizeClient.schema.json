@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "AuthorizePublicClient input",
-  "x-ess-name": "mandate.federation.AuthorizePublicClient",
+  "title": "AuthorizeClient input",
+  "x-ess-name": "mandate.federation.AuthorizeClient",
   "x-ess-kind": "command-input",
   "type": "object",
   "properties": {
@@ -48,8 +48,8 @@
   "x-ess-provenance": {
     "system": "mandate",
     "specification_version": "v1",
-    "source_digest": "751472a620cc3a7650f9a2496c9e81022fbef0887158483d3bbd761f09e76837",
-    "contract_digest": "slice-sha256/2:d60e2dd7a7fe9c188672d26ae7c071c56ea23c4b11eee6fe2eb9636bcb715300",
+    "source_digest": "ed30f4be9ac91f32de4da849d406533e9444bf70425bbe0c0312187b27df62b7",
+    "contract_digest": "slice-sha256/2:907785e9e38c4f495a01badf941c4576e6f94729ca04394a23446dba5d223f8e",
     "regenerate": "ess generate"
   },
   "$defs": {

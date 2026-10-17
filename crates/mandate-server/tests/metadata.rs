@@ -37,7 +37,7 @@ fn an_advertised_endpoint_is_the_route_table_s_own_path_and_not_a_second_copy() 
     for (advertised, command) in [
         (
             &document.authorization_endpoint,
-            "mandate.federation.AuthorizePublicClient",
+            "mandate.federation.AuthorizeClient",
         ),
         (
             &document.token_endpoint,
@@ -73,7 +73,7 @@ fn the_metadata_declares_the_policy_this_deployment_actually_enforces() {
         document.code_challenge_methods_supported,
         vec!["S256".to_owned()]
     );
-    // The login road is the public-client road: `AuthorizePublicClient`, and a token endpoint
+    // The login road is the public-client road: `AuthorizeClient`, and a token endpoint
     // that refuses `client_secret` as an undeclared parameter.
     assert_eq!(
         document.token_endpoint_auth_methods_supported,

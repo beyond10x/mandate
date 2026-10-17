@@ -50,7 +50,7 @@
 //! The rest is decided here, because the contract decides it:
 //!
 //! * An **empty redirect set is admitted and is not a denial**. The client it registers is
-//!   inert — `AuthorizePublicClient` matches the presented redirect against the registered
+//!   inert — `AuthorizeClient` matches the presented redirect against the registered
 //!   set exactly, and an empty set matches nothing, so every authorization request to that
 //!   client is refused (`crate::publicclient::registered_public_client`).
 //! * `mandate.core.PkceMethod` admits `S256` and nothing else, "so no registration can name

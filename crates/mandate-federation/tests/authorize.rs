@@ -310,7 +310,7 @@ fn a_previously_redeemed_code_is_refused() {
 
     assert_eq!(denied.reason, DenialReason::Denied);
     assert_eq!(denied.clause, DenialClause::CodePreviouslyRedeemed);
-    // The refusal names which declared outcome it is, and `AuthorizePublicClient` — the
+    // The refusal names which declared outcome it is, and `AuthorizeClient` — the
     // element this handler realizes — declares `accepted` and `denied` alone, because it
     // is non-consuming and moves no record. The code record's own terminal state is
     // `mandate.credential.RedeemAuthorizationCode`'s `wrong-state` outcome, which the STS
@@ -374,7 +374,7 @@ fn a_state_that_is_not_the_one_the_authorization_request_recorded_is_refused() {
 }
 
 /// `pkce-state-nonce` (`tests/security/cases.json:419`), the nonce half. The
-/// authorization request always recorded a nonce — `AuthorizePublicClient` declares it as
+/// authorization request always recorded a nonce — `AuthorizeClient` declares it as
 /// `String` and not `Optional<String>` (`federation.yaml:281-282`) — so "applicable"
 /// never means absent, and a recorded empty nonce is not a nonce.
 #[test]
@@ -890,7 +890,7 @@ fn a_session_whose_epoch_snapshot_does_not_resolve_is_refused() {
     assert_eq!(bound_elsewhere.clause, DenialClause::SessionEpochUnresolved);
 }
 
-/// The declared denial of `AuthorizePublicClient` (`federation.yaml:298`) names seven
+/// The declared denial of `AuthorizeClient` (`federation.yaml:298`) names seven
 /// conditions. This is the enumeration of all seven: six are decided here, each by a
 /// clause a case below produces, and the seventh is the STS call this validation stops in
 /// front of. The finding that produced this test was one phrase — "target is
@@ -1164,7 +1164,7 @@ fn the_folded_read_model_satisfies_both_ports_the_command_reads() {
     assert_eq!(denied.clause, DenialClause::ClientUnknown);
 }
 
-/// The client `AuthorizePublicClient` reads is the one `RegisterOAuthClient` wrote.
+/// The client `AuthorizeClient` reads is the one `RegisterOAuthClient` wrote.
 ///
 /// Every other case in this file fixtures the client through the `pub` double, because
 /// until the creating command was declared no event created one. This drives the real

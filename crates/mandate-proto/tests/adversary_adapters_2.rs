@@ -332,9 +332,9 @@ fn every_clause_reachable_from_a_redemption_by_call_answers_neither_scope_nor_cl
 /// `access_denied`: "The resource owner or authorization server denied the request", which
 /// tells a client developer the end user refused.
 ///
-/// What reaches it: `AuthorizePublicClient` at `GET /oauth/authorize` with a client that is
+/// What reaches it: `AuthorizeClient` at `GET /oauth/authorize` with a client that is
 /// unregistered, not public, or disabled — the first and third rows of the document's own
-/// `AuthorizePublicClient` obligations table.
+/// `AuthorizeClient` obligations table.
 #[test]
 fn the_authorization_endpoint_code_set_omits_the_unauthorized_client_the_rfc_declares() {
     // The condition is reachable, and it carries the reason the composition maps.

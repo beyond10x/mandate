@@ -62,14 +62,14 @@ fn login(body: &str) -> Request {
 /// **There is a byte ceiling**, `decode::MAX_BODY_BYTES`, checked before anything is parsed,
 /// **on the body and on the query string alike**."
 ///
-/// `decode::authorize_public_client` checks `request.query().len()` and never
+/// `decode::authorize_client` checks `request.query().len()` and never
 /// `request.body.len()`, so the ceiling the document states for all four decoders holds for
 /// three.
 #[test]
 fn the_authorization_decoder_does_not_bound_the_body_the_contract_says_it_bounds() {
     let oversized = authorize(&authorize_query()).with_body(vec![b'a'; MAX_BODY_BYTES + 1]);
     assert_eq!(
-        decode::authorize_public_client(&oversized).map(|_| ()),
+        decode::authorize_client(&oversized).map(|_| ()),
         Err(Refusal::BodyTooLarge),
         "adapter-contract.md:73 states the ceiling on the body for all four decoders"
     );
@@ -178,7 +178,7 @@ fn an_empty_code_and_an_empty_federation_proof_are_admitted_as_credentials() {
 #[test]
 fn the_authorization_decoder_passes_crlf_through_the_state_the_listener_must_echo() {
     let injected = authorize_query().replace("state=xyz", "state=xyz%0D%0AX-Injected%3A%20yes");
-    let refused = decode::authorize_public_client(&authorize(&injected))
+    let refused = decode::authorize_client(&authorize(&injected))
         .expect_err("a state carrying CR/LF must not reach the listener that echoes it");
     assert_eq!(
         refused,

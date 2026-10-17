@@ -3,7 +3,7 @@
 //! One decoder per road command, building exactly the input that command declares from the
 //! wire form the protocol declares. `story:login-adapters` ruling 1 (wave D opening): no road
 //! command declares a `mandate.core.VerifiedContext` input — `AuthenticateFederation` takes a
-//! connection and a proof, `AuthorizePublicClient` a session proof and the request fields,
+//! connection and a proof, `AuthorizeClient` a session proof and the request fields,
 //! `RedeemAuthorizationCode` a client, a code, a verifier and a redirect, and
 //! `IntrospectCredential` two proofs — so the adapter's whole job here is the wire form, and
 //! `VerifiedContext` is built nowhere in this module.
@@ -390,9 +390,9 @@ impl AuthenticateFederation {
     pub const DECLARED_INPUTS: &'static [&'static str] = &["connection_id", "proof"];
 }
 
-/// `mandate.federation.AuthorizePublicClient`, as the wire form presents it.
+/// `mandate.federation.AuthorizeClient`, as the wire form presents it.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct AuthorizePublicClient {
+pub struct AuthorizeClient {
     /// The declared `client_id`.
     pub client_id: OAuthClientId,
     /// The declared `redirect_uri`.
@@ -413,7 +413,7 @@ pub struct AuthorizePublicClient {
     pub requested_scope: AuthorityScope,
 }
 
-impl AuthorizePublicClient {
+impl AuthorizeClient {
     /// The declared input names this value carries, in contract order.
     pub const DECLARED_INPUTS: &'static [&'static str] = &[
         "client_id",
@@ -850,7 +850,7 @@ fn cookie(header: &str, name: &str) -> Option<String> {
     found.next().is_none().then_some(first)
 }
 
-/// Decode `mandate.federation.AuthorizePublicClient` from its query string and its bearer
+/// Decode `mandate.federation.AuthorizeClient` from its query string and its bearer
 /// session proof.
 ///
 /// RFC 6749 section 3.1: the authorization endpoint serves `GET`, and the request parameters
@@ -865,7 +865,7 @@ fn cookie(header: &str, name: &str) -> Option<String> {
 /// parameter that is too long or carries a control character, a `response_type` other than
 /// `code`, a `code_challenge_method` other than `S256` (case `pkce-plain`), a challenge
 /// outside the S256 shape, or an absent or malformed session proof.
-pub fn authorize_public_client(request: &Request) -> Result<AuthorizePublicClient, Refusal> {
+pub fn authorize_client(request: &Request) -> Result<AuthorizeClient, Refusal> {
     entry(request, "GET", Reads::Query)?;
     let session_proof = bearer(
         request,
@@ -882,7 +882,7 @@ pub fn authorize_public_client(request: &Request) -> Result<AuthorizePublicClien
     if !challenge_has_s256_shape(challenge) {
         return Err(Refusal::ChallengeMalformed);
     }
-    Ok(AuthorizePublicClient {
+    Ok(AuthorizeClient {
         client_id: OAuthClientId::parse(field(&form, "client_id")?)
             .map_err(|_| Refusal::MalformedField)?,
         redirect_uri: RedirectUri::new(free_text(&form, "redirect_uri")?),

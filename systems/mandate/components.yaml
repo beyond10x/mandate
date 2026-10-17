@@ -35,7 +35,7 @@ components:
         - mandate.federation.LinkExternalPrincipal
         - mandate.federation.RegisterFederationConnection
         - mandate.federation.AuthenticateFederation
-        - mandate.federation.AuthorizePublicClient
+        - mandate.federation.AuthorizeClient
         - mandate.federation.ProvisionExternalPrincipal
         - mandate.federation.RegisterOAuthClient
         - mandate.federation.DisableOAuthClient

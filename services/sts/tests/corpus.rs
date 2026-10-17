@@ -12,7 +12,7 @@
 //!
 //! - `mandate.authorization.Check`, named by all five credential entries, belongs to
 //!   `story:check-api` and is realized by no crate in this workspace yet.
-//! - `mandate.federation.AuthorizePublicClient`, named by all four `pkce` entries, is
+//! - `mandate.federation.AuthorizeClient`, named by all four `pkce` entries, is
 //!   realized by `crates/mandate-federation` and is unreachable from here:
 //!   `dependency-boundaries.json` admits no `mandate-federation` to `mandate-sts`, and the
 //!   command is non-consuming — it validates and stops at the `IssueAuthorizationCode` input
@@ -74,7 +74,7 @@ const REDEEM_CODE: &str = "mandate.credential.RedeemAuthorizationCode";
 const CHECK: &str = "mandate.authorization.Check";
 /// `crates/mandate-federation`'s command. Named by every `pkce` case here and driven by none
 /// of them; see the module documentation.
-const AUTHORIZE: &str = "mandate.federation.AuthorizePublicClient";
+const AUTHORIZE: &str = "mandate.federation.AuthorizeClient";
 
 /// One corpus entry, read out of the file by id.
 fn case(id: &str) -> Value {
@@ -861,7 +861,7 @@ fn presented(code_id: AuthorizationCodeId, proof: &CredentialProof) -> RedeemAut
 /// `pkce-valid`: "S256 challenge, matching verifier, exact redirect, fresh code and
 /// state/nonce" → "one credential; code consumed atomically".
 ///
-/// The state and the nonce are `AuthorizePublicClient`'s inputs and neither STS command takes
+/// The state and the nonce are `AuthorizeClient`'s inputs and neither STS command takes
 /// one, so the half of the `given` this crate can execute is the challenge, the verifier, the
 /// redirect and the freshness. "Atomically" is the append: one group on the code's own
 /// stream, compare-and-set on the version the decision was read at.

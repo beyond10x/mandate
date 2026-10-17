@@ -33,7 +33,7 @@ fn the_table_carries_the_four_road_routes_the_four_documents_and_the_three_relyi
         commands,
         vec![
             "mandate.federation.AuthenticateFederation",
-            "mandate.federation.AuthorizePublicClient",
+            "mandate.federation.AuthorizeClient",
             "mandate.credential.RedeemAuthorizationCode",
             "mandate.credential.IntrospectCredential",
         ]

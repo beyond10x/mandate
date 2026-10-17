@@ -472,7 +472,7 @@ pub const PORTS: &[(&str, &str)] = &[
         "mandate_federation::FederationVerifier",
     ),
     (
-        "mandate.federation.AuthorizePublicClient",
+        "mandate.federation.AuthorizeClient",
         "mandate_federation::publicclient::OAuthClientStore",
     ),
     (

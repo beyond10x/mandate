@@ -576,8 +576,8 @@ where
                 },
             }
         }
-        Binding::Command("mandate.federation.AuthorizePublicClient") => {
-            match decode::authorize_public_client(request) {
+        Binding::Command("mandate.federation.AuthorizeClient") => {
+            match decode::authorize_client(request) {
                 Err(refused) => Response::refused(&refused),
                 Ok(input) => match deployment.authorize(&input) {
                     Ok(authorization) => {
@@ -595,7 +595,7 @@ where
                         }
                     }
                     Err(AuthorizationRefusal::InPlace(refusal)) => {
-                        Response::denied("mandate.federation.AuthorizePublicClient", &refusal)
+                        Response::denied("mandate.federation.AuthorizeClient", &refusal)
                     }
                     Err(AuthorizationRefusal::AtRedirect {
                         refusal,
@@ -605,7 +605,7 @@ where
                         // Recorded here too: a refusal that leaves as a redirect is still a
                         // refusal, and it is the one an operator is least able to see —
                         // nothing of it reaches this process's own output otherwise.
-                        record_refusal("mandate.federation.AuthorizePublicClient", &refusal.clause);
+                        record_refusal("mandate.federation.AuthorizeClient", &refusal.clause);
                         let code = oauth::code_for_denial(&refusal.clause, refusal.reason);
                         match redirect_to(
                             &redirect_uri.to_string(),

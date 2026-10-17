@@ -243,7 +243,7 @@ fn a_double_through_a_private_module_is_refused() {
 fn decided_in_on_a_command_entry_is_refused() {
     let root = fixture("decided-in-on-a-command");
     let mut federation = document(&root, "federation");
-    let at = command_at(&federation, "mandate.federation.AuthorizePublicClient");
+    let at = command_at(&federation, "mandate.federation.AuthorizeClient");
     federation["commands"][at]["decided_in"] = Value::String("mandate-sts".to_owned());
     write_document(&root, "federation", &federation);
     let error = failure(&root);

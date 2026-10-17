@@ -287,7 +287,7 @@ fn resolve(
         ));
     }
     // 6: resolve the configured organization. Step 5, nonce/state/PKCE, applies to
-    // `AuthorizePublicClient`, which `story:pkce-sessions` realizes.
+    // `AuthorizeClient`, which `story:pkce-sessions` realizes.
     let organization_id = resolve_tenant(verifier, connections, &connection, &verified)?;
     Ok(Resolved {
         key: ExternalKey {
