@@ -138,6 +138,13 @@
         "blocker": "decision-blocker:audit-routing",
         "tests": []
       }
+    },
+    {
+      "command": "mandate.identity.RotateRefreshCredential",
+      "status": "deferred",
+      "story": "story:oidc-refresh-and-logout",
+      "clauses": [],
+      "no_state_change": []
     }
   ],
   "addendum": [
