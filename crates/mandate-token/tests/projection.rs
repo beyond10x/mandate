@@ -110,6 +110,7 @@ fn registered(
         audience: Audience::new(audience),
         credential_profile: reference_profile(),
         allowed_exchange_sources: Vec::new(),
+        client_id: None,
     }
 }
 
@@ -176,6 +177,7 @@ fn a_registration_creates_the_resource_server_in_its_declared_initial_state() {
             audience: Audience::new("api-a"),
             credential_profile: reference_profile(),
             allowed_exchange_sources: Vec::new(),
+            client_id: None,
             state: ResourceServerState::Enabled,
         }]
     );

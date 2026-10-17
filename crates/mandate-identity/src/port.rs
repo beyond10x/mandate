@@ -15,7 +15,7 @@
 use mandate_contract::events::{
     MandateFederationExternalPrincipalProvisioned, MandateFederationFederationAuthenticated,
 };
-use mandate_contract::types::{MandateCoreExternalLinkMethod, MandateCorePrincipalKind, Presence};
+use mandate_contract::types::{MandateCoreExternalLinkMethod, MandateCorePrincipalKind};
 use mandate_types::{
     DenialReason, EpochSnapshotRef, ExternalPrincipalId, FederationConnectionId, OrganizationId,
     PrincipalId, PrincipalKind, SecurityEpochTarget, SessionId, Timestamp, VerifiedContext,
@@ -437,7 +437,7 @@ fn declared_session_id(login: &MandateFederationFederationAuthenticated) -> Opti
 /// is read the same way. A payload that fails any of them is refused by
 /// [`IdentityLog::try_record`] rather than folded into a session the entity's own schema
 /// would refuse.
-fn session_of(login: &MandateFederationFederationAuthenticated) -> Option<Session> {
+fn connection_session_of(login: &MandateFederationFederationAuthenticated) -> Option<Session> {
     let expires_at = Timestamp::new(login.expires_at.clone());
     // `expires_at` is a declared `date-time` and is decided exactly as the identifiers
     // are: the schema refuses a value that names no instant, and a session whose expiry
@@ -445,22 +445,6 @@ fn session_of(login: &MandateFederationFederationAuthenticated) -> Option<Sessio
     if !crate::session::names_an_instant(&expires_at) {
         return None;
     }
-    // The two login fields are optional; a value that is present is decided like every
-    // other declared field, so a payload carrying a malformed one is refused.
-    let authenticated_at = match &login.authenticated_at {
-        Presence::Absent => None,
-        Presence::Present(at) => {
-            let at = Timestamp::new(at.clone());
-            if !crate::session::names_an_instant(&at) {
-                return None;
-            }
-            Some(at)
-        }
-    };
-    let external_principal_id = match &login.external_principal_id {
-        Presence::Absent => None,
-        Presence::Present(id) => Some(ExternalPrincipalId::parse(&id.0).ok()?),
-    };
     Some(
         Session::new(
             declared_session_id(login)?,
@@ -469,8 +453,7 @@ fn session_of(login: &MandateFederationFederationAuthenticated) -> Option<Sessio
             EpochSnapshotRef::parse(&login.epochs.0).ok()?,
             expires_at,
         )
-        .with_connection(FederationConnectionId::parse(&login.connection_id.0).ok()?)
-        .with_login(authenticated_at, external_principal_id),
+        .with_connection(FederationConnectionId::parse(&login.connection_id.0).ok()?),
     )
 }
 
@@ -1031,4 +1014,30 @@ fn placement(
         SecurityEpochTarget::Organization(id) => *id == organization,
     };
     names.then_some(organization)
+}
+
+/// The `mandate.identity.Session` a `FederationAuthenticated` payload materializes, when
+/// every value it carries is one the contract admits.
+///
+/// [`connection_session_of`] decides the fields every session has. The two optional login
+/// fields, `authenticated_at` and `external_principal_id`, are decided here the same way
+/// when present: a payload that carries a malformed one is refused rather than folded into
+/// a session the entity's own schema would refuse.
+fn session_of(login: &MandateFederationFederationAuthenticated) -> Option<Session> {
+    use mandate_contract::types::Presence;
+    let authenticated_at = match &login.authenticated_at {
+        Presence::Absent => None,
+        Presence::Present(at) => {
+            let at = Timestamp::new(at.clone());
+            if !crate::session::names_an_instant(&at) {
+                return None;
+            }
+            Some(at)
+        }
+    };
+    let external_principal_id = match &login.external_principal_id {
+        Presence::Absent => None,
+        Presence::Present(id) => Some(ExternalPrincipalId::parse(&id.0).ok()?),
+    };
+    Some(connection_session_of(login)?.with_login(authenticated_at, external_principal_id))
 }

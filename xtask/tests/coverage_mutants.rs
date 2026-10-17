@@ -213,7 +213,7 @@ fn a_deferred_entry_relabelled_implemented_escapes_this_step_and_is_killed_by_th
 
     let report = accepted(&root);
     assert!(
-        report.contains("319 contract elements mapped"),
+        report.contains("322 contract elements mapped"),
         "the step read the doctored manifest whole: {report}"
     );
 }
@@ -287,7 +287,7 @@ fn an_implemented_entry_relabelled_declared_onto_a_live_story_escapes_this_step(
 
     let report = accepted(&root);
     assert!(
-        report.contains("319 contract elements mapped"),
+        report.contains("322 contract elements mapped"),
         "the step read the doctored manifest whole: {report}"
     );
 }

@@ -349,6 +349,9 @@ pub enum DenialClause {
     /// `AuthorizeClient`: "client is not a registered public client": the read
     /// model answers no client with that identity.
     ClientUnknown,
+    /// "S256 challenge is absent/invalid": the request offers no challenge where the client
+    /// requires one (always for a public client, by `pkce_required` for a confidential one).
+    ChallengeAbsent,
     /// "client is not a registered public client": the client is not a public client.
     ClientNotPublic,
     /// "the client is disabled": the client is in the terminal `Disabled` state.
@@ -387,6 +390,13 @@ pub enum DenialClause {
     /// is unregistered. The reason is `Unavailable`, as for a request that names no
     /// instant.
     TargetUnanswerable,
+    /// `AuthorizeClient`: "a named target is backed by a client that does not list this
+    /// client as a trusted peer". The backing client is unresolved, disabled, of another
+    /// organization, or does not list the requesting client.
+    TargetPeerUnlisted,
+    /// `AuthorizeClient`: "no target is named and not exactly one enabled resource server
+    /// backs the client": two or more do, and none is chosen between them.
+    TargetAmbiguous,
     /// "state/applicable nonce binding fails": the presented state is not the one the
     /// authorization request recorded.
     StateMismatch,

@@ -343,7 +343,7 @@ fn every_emitted_enum_and_union_agrees_with_its_json_schema_projection() {
             _ => {}
         }
     }
-    assert_eq!(seen, 50, "50 enums and unions are projected");
+    assert_eq!(seen, 52, "52 enums and unions are projected");
 }
 
 /// The emitter's refusal, or a panic naming the text it wrote instead of refusing.

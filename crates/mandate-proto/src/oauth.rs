@@ -641,6 +641,15 @@ pub const fn code_for_reason(reason: DenialReason) -> ErrorCode {
 pub const UNAUTHORIZED_CLIENT_CLAUSES: &[&str] =
     &["ClientUnknown", "ClientDisabled", "ClientNotPublic"];
 
+/// The `mandate-federation` denial clauses the authorization endpoint answers `invalid_request`
+/// for, by name, whatever reason they carry.
+///
+/// RFC 7636 section 4.4.1: an authorization request from a client that requires PKCE and
+/// carries no `code_challenge` is answered `invalid_request`, and the clause carries
+/// `DenialReason::Denied`, which the by-reason mapping alone answers `access_denied`.
+/// `crates/mandate-federation/src/publicclient.rs::registered_client` raises it.
+pub const INVALID_REQUEST_CLAUSES: &[&str] = &["ChallengeAbsent"];
+
 /// The denial clauses the authorization endpoint answers `server_error` for, by name.
 ///
 /// RFC 6749 section 4.1.2.1: "The authorization server encountered an unexpected condition
@@ -688,6 +697,8 @@ pub const SERVER_ERROR_CLAUSES: &[&str] = &["ExpiryUnbounded"];
 pub fn code_for_denial(clause: &str, reason: DenialReason) -> ErrorCode {
     if UNAUTHORIZED_CLIENT_CLAUSES.contains(&clause) {
         ErrorCode::UnauthorizedClient
+    } else if INVALID_REQUEST_CLAUSES.contains(&clause) {
+        ErrorCode::InvalidRequest
     } else if SERVER_ERROR_CLAUSES.contains(&clause) {
         ErrorCode::ServerError
     } else {

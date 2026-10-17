@@ -42,6 +42,9 @@ scenarios:
 - scenarios/guard-issuer-mismatch-refused.yaml
 - scenarios/guard-unknown-key-refused.yaml
 - scenarios/introspect-caller-proof-malformed.yaml
+- scenarios/oidc-authorize-confidential-without-pkce.yaml
+- scenarios/oidc-authorize-peer-audience-scope.yaml
+- scenarios/oidc-authorize-public-without-pkce-refused.yaml
 - scenarios/oidc-client-confidential-registered.yaml
 - scenarios/oidc-client-peer-unknown-refused.yaml
 - scenarios/oidc-client-public-pkce-optional-refused.yaml

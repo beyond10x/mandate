@@ -94,7 +94,7 @@ fn the_committed_manifest_agrees_with_the_compiled_contract_the_store_and_the_te
         assert!(report.contains(kind), "the table states {kind}:\n{report}");
     }
     assert!(
-        report.contains("319"),
+        report.contains("322"),
         "the table states the element total:\n{report}"
     );
 }
@@ -453,8 +453,10 @@ fn the_receipt_is_byte_identical_across_two_runs() {
         assert_eq!(value.len(), 64, "{digest} is not a SHA-256 digest: {value}");
     }
     assert_eq!(
-        parsed["counts"]["type"]["implemented"], 102,
-        "the receipt states the per-kind counts; 100 — the 93 wave D left, \
+        parsed["counts"]["type"]["implemented"], 106,
+        "the receipt states the per-kind counts; 104 — the 93 wave D left, \
+         `mandate.credential.IdentityScope`, `mandate.core.DexConnectorId`, \
+         `mandate.core.IdTokenSigningAlgorithm`, `mandate.core.SubjectFormat`, \
          `mandate.core.SigningKeyWindow`, the three delegation lifecycles mandate-authz \
          registers for story:agent-authority-kernel, and the execution and approval \
          lifecycles it registers for story:agent-security, and the workload identity lifecycle \
@@ -590,7 +592,7 @@ fn no_entry_of_the_committed_manifest_names_a_generated_contract_symbol() {
     let entries = parsed["entries"]
         .as_array()
         .expect("the manifest's entries");
-    assert_eq!(entries.len(), 319, "the manifest's element count");
+    assert_eq!(entries.len(), 322, "the manifest's element count");
     let mut claimed = Vec::new();
     for entry in entries {
         for symbol in entry["impl"].as_array().map(Vec::as_slice).unwrap_or(&[]) {

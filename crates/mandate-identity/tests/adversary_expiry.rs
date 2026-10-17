@@ -4,9 +4,9 @@
 //! outcome for, among others, "record is expired/revoked". `mandate.identity.Session`
 //! carries `expires_at: Timestamp` (`identity.yaml:43-44`), and this crate's projection
 //! carries it too and documents it as "When the session stops being refreshable"
-//! (`crates/mandate-identity/src/session.rs:123-127`).
+//! (`crates/mandate-identity/src/session.rs:134-138`).
 //!
-//! `Session::refresh` (`src/session.rs:173-186`) reads the revocation state and the epoch
+//! `Session::refresh` (`src/session.rs:213-226`) reads the revocation state and the epoch
 //! snapshot and never reads `expires_at`, so a session whose expiry has passed is
 //! accepted. Its signature takes no instant, so the declared denial cannot be reached
 //! through it at all.

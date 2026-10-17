@@ -190,7 +190,7 @@ fn every_element_the_model_declares_is_emitted_exactly_once() {
     assert_eq!(declarations(&files["events.rs"]).len(), 82);
     assert_eq!(declarations(&files["entities.rs"]).len(), 72); // 36 entities and 36 state enums
     assert_eq!(declarations(&files["commands.rs"]).len(), 107); // 65 inputs, 30 responses, 12 errors
-    assert_eq!(declarations(&files["types.rs"]).len(), 89); // the compiled types less the 36 state enums, and Presence
+    assert_eq!(declarations(&files["types.rs"]).len(), 92); // the compiled types less the 36 state enums, and Presence
 }
 
 /// A response is emitted for the command that declares one, and only for it.

@@ -36,6 +36,9 @@
       "mandate.federation/authored/federation-profile-observed-on-login",
       "mandate.federation/authored/federation-resolution-precedence",
       "mandate.federation/authored/federation-untrimmed-subject",
+      "mandate.federation/authored/oidc-authorize-confidential-without-pkce",
+      "mandate.federation/authored/oidc-authorize-peer-audience-scope",
+      "mandate.federation/authored/oidc-authorize-public-without-pkce-refused",
       "mandate.federation/authored/oidc-client-confidential-registered",
       "mandate.federation/authored/oidc-client-peer-unknown-refused",
       "mandate.federation/authored/oidc-client-public-pkce-optional-refused",
@@ -179,6 +182,21 @@
         "disposition": "accepted",
         "scenario": "mandate.credential/authored/introspect-caller-proof-malformed"
       },
+      "scenarios/oidc-authorize-confidential-without-pkce.yaml": {
+        "digest": "sha256:b989864eaf56ead0979788931e1dbfaf52427dcb9dbd0ecf6da28c69afc0659a",
+        "disposition": "accepted",
+        "scenario": "mandate.federation/authored/oidc-authorize-confidential-without-pkce"
+      },
+      "scenarios/oidc-authorize-peer-audience-scope.yaml": {
+        "digest": "sha256:0f2d5b5886f1c11eea89feb2f4c953c282a4fe01d8236c29493e1a5c01af8662",
+        "disposition": "accepted",
+        "scenario": "mandate.federation/authored/oidc-authorize-peer-audience-scope"
+      },
+      "scenarios/oidc-authorize-public-without-pkce-refused.yaml": {
+        "digest": "sha256:17f1e5e3e8e2faa6ad528777cf50c5bf6b6b03479f1531d8be7db7573bb109b9",
+        "disposition": "accepted",
+        "scenario": "mandate.federation/authored/oidc-authorize-public-without-pkce-refused"
+      },
       "scenarios/oidc-client-confidential-registered.yaml": {
         "digest": "sha256:bfbb91ebcd737f89ccf3ad50be36a2ca5e2db2ee4ecf22b523b2497865ee6aee",
         "disposition": "accepted",
@@ -311,7 +329,7 @@
       }
     },
     "counts": {
-      "authored": 51,
+      "authored": 54,
       "generated": 176,
       "outside": 0,
       "refused": 85
@@ -1910,9 +1928,9 @@
     }
   },
   "provenance": {
-    "contract_digest": "20b6c28f79432098ac0edc648dce25ff24f2c44dddb89390a75c87b2de4f8270",
+    "contract_digest": "bac8dab2b786102ed0c523943d4690a87bf741a671dc8545a8730ee230de68ff",
     "scenario_initial_state": "empty",
-    "spec_digest": "fe7572f53936b5997c3bd119e2453943039ed1a53748b3db2385206257a79cd2",
+    "spec_digest": "45424649386e88d7cfddb9c793b84e2647816f795d4b7536c63741af3c136a4e",
     "specification_version": "v1",
     "suite_version": "ess-conformance/35",
     "system": "mandate"
@@ -76756,6 +76774,10 @@
           "name": "mandate.core.SpaceId"
         },
         {
+          "kind": "type",
+          "name": "mandate.credential.IdentityScope"
+        },
+        {
           "kind": "command",
           "name": "mandate.federation.AuthorizeClient"
         },
@@ -77107,6 +77129,12 @@
               "kind": "literal",
               "value": "00000000-0000-4000-8000-98e2d095967e"
             },
+            "identity_scopes": {
+              "kind": "literal",
+              "value": [
+                "OpenId"
+              ]
+            },
             "method": {
               "kind": "literal",
               "value": "S256"
@@ -77161,6 +77189,9 @@
           "payload": {
             "challenge": "challenge",
             "client_id": "00000000-0000-4000-8000-98e2d095967e",
+            "identity_scopes": [
+              "OpenId"
+            ],
             "method": "S256",
             "redirect_uri": "redirect_uri",
             "requested_scope": {
@@ -77174,13 +77205,13 @@
                 }
               ],
               "space": "00000000-0000-4000-8000-9f9176597914"
-            },
-            "target": "00000000-0000-4000-8000-e46051eee3e8"
+            }
           },
           "shape": {
             "challenge": {
               "holds": "primitive",
-              "kind": "string"
+              "kind": "string",
+              "optional": true
             },
             "client_id": {
               "holds": "primitive",
@@ -77190,8 +77221,13 @@
               "holds": "primitive",
               "kind": "string"
             },
+            "identity_scopes": {
+              "holds": "list",
+              "optional": true
+            },
             "method": {
               "holds": "enum",
+              "optional": true,
               "variants": [
                 "S256"
               ]
@@ -77648,6 +77684,10 @@
           "name": "mandate.core.SpaceId"
         },
         {
+          "kind": "type",
+          "name": "mandate.credential.IdentityScope"
+        },
+        {
           "kind": "command",
           "name": "mandate.federation.AuthorizeClient"
         },
@@ -78009,6 +78049,12 @@
             "client_id": {
               "kind": "literal",
               "value": "00000000-0000-4000-8000-98e2d095967e"
+            },
+            "identity_scopes": {
+              "kind": "literal",
+              "value": [
+                "OpenId"
+              ]
             },
             "method": {
               "kind": "literal",
@@ -100411,6 +100457,2140 @@
         },
         {
           "event": "mandate.federation.FederationAuthenticated",
+          "step": "expect_no_event"
+        }
+      ]
+    },
+    "mandate.federation/authored/oidc-authorize-confidential-without-pkce": {
+      "purpose": "`PKCE is absent where the client requires it`, converse: a confidential client with pkce_required false is issued a code for its own server (F3); corpus: none.",
+      "source": [
+        {
+          "kind": "domain",
+          "name": "mandate.federation"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.Action"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.Audience"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.AuthorityScope"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.AuthorizationCodeId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.CorrelationId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.CredentialId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.CredentialKind"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.CredentialProfile"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.CredentialProof"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.CredentialVerifier"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.DelegationId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.ExecutionId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.IdTokenSigningAlgorithm"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.OAuthClientId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.OAuthClientType"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.OrganizationId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.PkceChallenge"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.PkceMethod"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.PrincipalId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.RedirectUri"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.ResourceId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.ResourceRef"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.ResourceServerId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.ResourceType"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.RevocationGuarantee"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.SessionId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.SpaceId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.VerifiedContext"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.credential.IdentityScope"
+        },
+        {
+          "kind": "entity",
+          "name": "mandate.credential.ResourceServer"
+        },
+        {
+          "kind": "entity",
+          "name": "mandate.federation.OAuthClient"
+        },
+        {
+          "kind": "command",
+          "name": "mandate.credential.RegisterResourceServer"
+        },
+        {
+          "kind": "command",
+          "name": "mandate.federation.AuthorizeClient"
+        },
+        {
+          "kind": "command",
+          "name": "mandate.federation.RegisterOAuthClient"
+        },
+        {
+          "kind": "outcome",
+          "name": {
+            "command": "mandate.credential.RegisterResourceServer",
+            "outcome": "accepted"
+          }
+        },
+        {
+          "kind": "outcome",
+          "name": {
+            "command": "mandate.federation.AuthorizeClient",
+            "outcome": "accepted"
+          }
+        },
+        {
+          "kind": "outcome",
+          "name": {
+            "command": "mandate.federation.RegisterOAuthClient",
+            "outcome": "accepted"
+          }
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.ResourceServerRegistered"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.AuthorizationCodeIssued"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.OAuthClientRegistered"
+        }
+      ],
+      "steps": [
+        {
+          "command": "mandate.federation.RegisterOAuthClient",
+          "input": {
+            "client_type": {
+              "kind": "literal",
+              "value": "Confidential"
+            },
+            "context": {
+              "kind": "literal",
+              "value": {
+                "audience": "mandate",
+                "correlation": "oidc-authorize-confidential-without-pkce-client",
+                "credential": "00000000-0000-4000-8000-0000000000c1",
+                "organization": "00000000-0000-4000-8000-0000000000a1",
+                "subject": "00000000-0000-4000-8000-000000000001"
+              }
+            },
+            "pkce_method": {
+              "kind": "literal",
+              "value": "S256"
+            },
+            "pkce_required": {
+              "kind": "literal",
+              "value": false
+            },
+            "post_logout_redirect_uris": {
+              "kind": "literal",
+              "value": []
+            },
+            "redirect_uris": {
+              "kind": "literal",
+              "value": [
+                "https://app.example.test/callback"
+              ]
+            },
+            "secret_verifiers": {
+              "kind": "literal",
+              "value": [
+                "kv1.app.c2NlbmFyaW8tdmVyaWZpZXItb25l"
+              ]
+            },
+            "trusted_peers": {
+              "kind": "literal",
+              "value": []
+            }
+          },
+          "step": "execute_command"
+        },
+        {
+          "outcome": {
+            "command": "mandate.federation.RegisterOAuthClient",
+            "outcome": "accepted"
+          },
+          "step": "expect_outcome"
+        },
+        {
+          "event": "mandate.federation.OAuthClientRegistered",
+          "payload": {
+            "client_type": "Confidential"
+          },
+          "shape": {
+            "client_type": {
+              "holds": "enum",
+              "variants": [
+                "Public",
+                "Confidential"
+              ]
+            },
+            "context.actor": {
+              "holds": "primitive",
+              "kind": "uuid",
+              "optional": true
+            },
+            "context.audience": {
+              "holds": "primitive",
+              "kind": "string"
+            },
+            "context.correlation": {
+              "holds": "primitive",
+              "kind": "string"
+            },
+            "context.credential": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "context.delegation": {
+              "holds": "primitive",
+              "kind": "uuid",
+              "optional": true
+            },
+            "context.execution": {
+              "holds": "primitive",
+              "kind": "uuid",
+              "optional": true
+            },
+            "context.organization": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "context.subject": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "id": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "id_token_signed_response_alg": {
+              "holds": "enum",
+              "optional": true,
+              "variants": [
+                "RS256",
+                "ES256"
+              ]
+            },
+            "organization_id": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "pkce_method": {
+              "holds": "enum",
+              "variants": [
+                "S256"
+              ]
+            },
+            "pkce_required": {
+              "holds": "primitive",
+              "kind": "boolean"
+            },
+            "post_logout_redirect_uris": {
+              "holds": "list"
+            },
+            "redirect_uris": {
+              "holds": "list"
+            },
+            "secret_verifiers": {
+              "holds": "list"
+            },
+            "trusted_peers": {
+              "holds": "list"
+            }
+          },
+          "step": "expect_event"
+        },
+        {
+          "entity": "mandate.federation.OAuthClient",
+          "event": "mandate.federation.OAuthClientRegistered",
+          "field": "id",
+          "instance": "client",
+          "step": "capture_instance"
+        },
+        {
+          "command": "mandate.credential.RegisterResourceServer",
+          "input": {
+            "allowed_exchange_sources": {
+              "kind": "literal",
+              "value": []
+            },
+            "audience": {
+              "kind": "literal",
+              "value": "app"
+            },
+            "client_id": {
+              "instance": "client",
+              "kind": "instance"
+            },
+            "context": {
+              "kind": "literal",
+              "value": {
+                "audience": "mandate",
+                "correlation": "oidc-authorize-confidential-without-pkce-server",
+                "credential": "00000000-0000-4000-8000-0000000000c1",
+                "organization": "00000000-0000-4000-8000-0000000000a1",
+                "subject": "00000000-0000-4000-8000-000000000001"
+              }
+            },
+            "profile": {
+              "kind": "literal",
+              "value": {
+                "kind": "SelfContained",
+                "max_ttl": "PT10M",
+                "name": "jwt-api",
+                "positive_cache_ttl": "PT1M",
+                "requires_online_authorization": false,
+                "revocation": "BoundedOffline"
+              }
+            }
+          },
+          "step": "execute_command"
+        },
+        {
+          "outcome": {
+            "command": "mandate.credential.RegisterResourceServer",
+            "outcome": "accepted"
+          },
+          "step": "expect_outcome"
+        },
+        {
+          "event": "mandate.credential.ResourceServerRegistered",
+          "payload": {
+            "audience": "app"
+          },
+          "shape": {
+            "allowed_exchange_sources": {
+              "holds": "list"
+            },
+            "audience": {
+              "holds": "primitive",
+              "kind": "string"
+            },
+            "client_id": {
+              "holds": "primitive",
+              "kind": "uuid",
+              "optional": true
+            },
+            "context.actor": {
+              "holds": "primitive",
+              "kind": "uuid",
+              "optional": true
+            },
+            "context.audience": {
+              "holds": "primitive",
+              "kind": "string"
+            },
+            "context.correlation": {
+              "holds": "primitive",
+              "kind": "string"
+            },
+            "context.credential": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "context.delegation": {
+              "holds": "primitive",
+              "kind": "uuid",
+              "optional": true
+            },
+            "context.execution": {
+              "holds": "primitive",
+              "kind": "uuid",
+              "optional": true
+            },
+            "context.organization": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "context.subject": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "credential_profile.kind": {
+              "holds": "enum",
+              "variants": [
+                "SelfContained",
+                "Reference"
+              ]
+            },
+            "credential_profile.max_ttl": {
+              "holds": "primitive",
+              "kind": "duration"
+            },
+            "credential_profile.name": {
+              "holds": "primitive",
+              "kind": "string"
+            },
+            "credential_profile.positive_cache_ttl": {
+              "holds": "primitive",
+              "kind": "duration"
+            },
+            "credential_profile.requires_online_authorization": {
+              "holds": "primitive",
+              "kind": "boolean"
+            },
+            "credential_profile.revocation": {
+              "holds": "enum",
+              "variants": [
+                "ImmediateOnline",
+                "BoundedOffline"
+              ]
+            },
+            "id": {
+              "holds": "primitive",
+              "kind": "uuid"
+            }
+          },
+          "step": "expect_event"
+        },
+        {
+          "entity": "mandate.credential.ResourceServer",
+          "event": "mandate.credential.ResourceServerRegistered",
+          "field": "id",
+          "instance": "server",
+          "step": "capture_instance"
+        },
+        {
+          "command": "mandate.federation.AuthorizeClient",
+          "input": {
+            "client_id": {
+              "instance": "client",
+              "kind": "instance"
+            },
+            "identity_scopes": {
+              "kind": "literal",
+              "value": [
+                "OpenId"
+              ]
+            },
+            "nonce": {
+              "kind": "literal",
+              "value": "oidc-authorize-confidential-without-pkce-nonce"
+            },
+            "redirect_uri": {
+              "kind": "literal",
+              "value": "https://app.example.test/callback"
+            },
+            "requested_scope": {
+              "kind": "literal",
+              "value": {
+                "actions": [],
+                "resources": []
+              }
+            },
+            "session_proof": {
+              "kind": "literal",
+              "value": "c2Vzc2lvbi1wcm9vZi1mb3ItdXNlcg=="
+            },
+            "state": {
+              "kind": "literal",
+              "value": "oidc-authorize-confidential-without-pkce-state"
+            }
+          },
+          "step": "execute_command"
+        },
+        {
+          "outcome": {
+            "command": "mandate.federation.AuthorizeClient",
+            "outcome": "accepted"
+          },
+          "step": "expect_outcome"
+        },
+        {
+          "event": "mandate.federation.AuthorizationCodeIssued",
+          "payload": {
+            "client_id": {
+              "instance": "client",
+              "kind": "instance"
+            },
+            "identity_scopes": {
+              "kind": "literal",
+              "value": [
+                "OpenId"
+              ]
+            },
+            "target": {
+              "instance": "server",
+              "kind": "instance"
+            }
+          },
+          "shape": {
+            "challenge": {
+              "holds": "primitive",
+              "kind": "string",
+              "optional": true
+            },
+            "client_id": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "code_id": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "correlation": {
+              "holds": "primitive",
+              "kind": "string"
+            },
+            "identity_scopes": {
+              "holds": "list",
+              "optional": true
+            },
+            "method": {
+              "holds": "enum",
+              "optional": true,
+              "variants": [
+                "S256"
+              ]
+            },
+            "organization_id": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "redirect_uri": {
+              "holds": "primitive",
+              "kind": "string"
+            },
+            "requested_scope.actions": {
+              "holds": "list"
+            },
+            "requested_scope.resources": {
+              "holds": "list"
+            },
+            "requested_scope.space": {
+              "holds": "primitive",
+              "kind": "uuid",
+              "optional": true
+            },
+            "session_id": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "target": {
+              "holds": "primitive",
+              "kind": "uuid"
+            }
+          },
+          "step": "expect_event_values"
+        }
+      ]
+    },
+    "mandate.federation/authored/oidc-authorize-peer-audience-scope": {
+      "purpose": "`not list this client as a trusted peer`: A, which B lists, gets a code for B; C, unlisted, is denied (F20); corpus: none.",
+      "source": [
+        {
+          "kind": "domain",
+          "name": "mandate.federation"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.Action"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.Audience"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.AuthorityScope"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.AuthorizationCodeId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.CorrelationId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.CredentialId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.CredentialKind"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.CredentialProfile"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.CredentialProof"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.CredentialVerifier"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.DelegationId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.DenialReason"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.ExecutionId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.IdTokenSigningAlgorithm"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.OAuthClientId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.OAuthClientType"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.OrganizationId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.PkceChallenge"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.PkceMethod"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.PrincipalId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.RedirectUri"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.ResourceId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.ResourceRef"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.ResourceServerId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.ResourceType"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.RevocationGuarantee"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.SessionId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.SpaceId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.VerifiedContext"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.credential.IdentityScope"
+        },
+        {
+          "kind": "entity",
+          "name": "mandate.credential.ResourceServer"
+        },
+        {
+          "kind": "entity",
+          "name": "mandate.federation.OAuthClient"
+        },
+        {
+          "kind": "command",
+          "name": "mandate.credential.RegisterResourceServer"
+        },
+        {
+          "kind": "command",
+          "name": "mandate.federation.AuthorizeClient"
+        },
+        {
+          "kind": "command",
+          "name": "mandate.federation.RegisterOAuthClient"
+        },
+        {
+          "kind": "outcome",
+          "name": {
+            "command": "mandate.credential.RegisterResourceServer",
+            "outcome": "accepted"
+          }
+        },
+        {
+          "kind": "outcome",
+          "name": {
+            "command": "mandate.federation.AuthorizeClient",
+            "outcome": "accepted"
+          }
+        },
+        {
+          "kind": "outcome",
+          "name": {
+            "command": "mandate.federation.AuthorizeClient",
+            "outcome": "denied"
+          }
+        },
+        {
+          "kind": "outcome",
+          "name": {
+            "command": "mandate.federation.RegisterOAuthClient",
+            "outcome": "accepted"
+          }
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.ResourceServerRegistered"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.AuthorizationCodeIssued"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.OAuthClientRegistered"
+        },
+        {
+          "kind": "error",
+          "name": "mandate.federation.Denied"
+        }
+      ],
+      "steps": [
+        {
+          "command": "mandate.federation.RegisterOAuthClient",
+          "input": {
+            "client_type": {
+              "kind": "literal",
+              "value": "Public"
+            },
+            "context": {
+              "kind": "literal",
+              "value": {
+                "audience": "mandate",
+                "correlation": "oidc-authorize-peer-audience-scope-client-a",
+                "credential": "00000000-0000-4000-8000-0000000000c1",
+                "organization": "00000000-0000-4000-8000-0000000000a1",
+                "subject": "00000000-0000-4000-8000-000000000001"
+              }
+            },
+            "pkce_method": {
+              "kind": "literal",
+              "value": "S256"
+            },
+            "pkce_required": {
+              "kind": "literal",
+              "value": true
+            },
+            "post_logout_redirect_uris": {
+              "kind": "literal",
+              "value": []
+            },
+            "redirect_uris": {
+              "kind": "literal",
+              "value": [
+                "https://app-a.example.test/callback"
+              ]
+            },
+            "secret_verifiers": {
+              "kind": "literal",
+              "value": []
+            },
+            "trusted_peers": {
+              "kind": "literal",
+              "value": []
+            }
+          },
+          "step": "execute_command"
+        },
+        {
+          "outcome": {
+            "command": "mandate.federation.RegisterOAuthClient",
+            "outcome": "accepted"
+          },
+          "step": "expect_outcome"
+        },
+        {
+          "event": "mandate.federation.OAuthClientRegistered",
+          "payload": {
+            "client_type": "Public"
+          },
+          "shape": {
+            "client_type": {
+              "holds": "enum",
+              "variants": [
+                "Public",
+                "Confidential"
+              ]
+            },
+            "context.actor": {
+              "holds": "primitive",
+              "kind": "uuid",
+              "optional": true
+            },
+            "context.audience": {
+              "holds": "primitive",
+              "kind": "string"
+            },
+            "context.correlation": {
+              "holds": "primitive",
+              "kind": "string"
+            },
+            "context.credential": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "context.delegation": {
+              "holds": "primitive",
+              "kind": "uuid",
+              "optional": true
+            },
+            "context.execution": {
+              "holds": "primitive",
+              "kind": "uuid",
+              "optional": true
+            },
+            "context.organization": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "context.subject": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "id": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "id_token_signed_response_alg": {
+              "holds": "enum",
+              "optional": true,
+              "variants": [
+                "RS256",
+                "ES256"
+              ]
+            },
+            "organization_id": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "pkce_method": {
+              "holds": "enum",
+              "variants": [
+                "S256"
+              ]
+            },
+            "pkce_required": {
+              "holds": "primitive",
+              "kind": "boolean"
+            },
+            "post_logout_redirect_uris": {
+              "holds": "list"
+            },
+            "redirect_uris": {
+              "holds": "list"
+            },
+            "secret_verifiers": {
+              "holds": "list"
+            },
+            "trusted_peers": {
+              "holds": "list"
+            }
+          },
+          "step": "expect_event"
+        },
+        {
+          "entity": "mandate.federation.OAuthClient",
+          "event": "mandate.federation.OAuthClientRegistered",
+          "field": "id",
+          "instance": "client-a",
+          "step": "capture_instance"
+        },
+        {
+          "command": "mandate.federation.RegisterOAuthClient",
+          "input": {
+            "client_type": {
+              "kind": "literal",
+              "value": "Public"
+            },
+            "context": {
+              "kind": "literal",
+              "value": {
+                "audience": "mandate",
+                "correlation": "oidc-authorize-peer-audience-scope-client-c",
+                "credential": "00000000-0000-4000-8000-0000000000c1",
+                "organization": "00000000-0000-4000-8000-0000000000a1",
+                "subject": "00000000-0000-4000-8000-000000000001"
+              }
+            },
+            "pkce_method": {
+              "kind": "literal",
+              "value": "S256"
+            },
+            "pkce_required": {
+              "kind": "literal",
+              "value": true
+            },
+            "post_logout_redirect_uris": {
+              "kind": "literal",
+              "value": []
+            },
+            "redirect_uris": {
+              "kind": "literal",
+              "value": [
+                "https://app-c.example.test/callback"
+              ]
+            },
+            "secret_verifiers": {
+              "kind": "literal",
+              "value": []
+            },
+            "trusted_peers": {
+              "kind": "literal",
+              "value": []
+            }
+          },
+          "step": "execute_command"
+        },
+        {
+          "outcome": {
+            "command": "mandate.federation.RegisterOAuthClient",
+            "outcome": "accepted"
+          },
+          "step": "expect_outcome"
+        },
+        {
+          "event": "mandate.federation.OAuthClientRegistered",
+          "payload": {
+            "client_type": "Public"
+          },
+          "shape": {
+            "client_type": {
+              "holds": "enum",
+              "variants": [
+                "Public",
+                "Confidential"
+              ]
+            },
+            "context.actor": {
+              "holds": "primitive",
+              "kind": "uuid",
+              "optional": true
+            },
+            "context.audience": {
+              "holds": "primitive",
+              "kind": "string"
+            },
+            "context.correlation": {
+              "holds": "primitive",
+              "kind": "string"
+            },
+            "context.credential": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "context.delegation": {
+              "holds": "primitive",
+              "kind": "uuid",
+              "optional": true
+            },
+            "context.execution": {
+              "holds": "primitive",
+              "kind": "uuid",
+              "optional": true
+            },
+            "context.organization": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "context.subject": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "id": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "id_token_signed_response_alg": {
+              "holds": "enum",
+              "optional": true,
+              "variants": [
+                "RS256",
+                "ES256"
+              ]
+            },
+            "organization_id": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "pkce_method": {
+              "holds": "enum",
+              "variants": [
+                "S256"
+              ]
+            },
+            "pkce_required": {
+              "holds": "primitive",
+              "kind": "boolean"
+            },
+            "post_logout_redirect_uris": {
+              "holds": "list"
+            },
+            "redirect_uris": {
+              "holds": "list"
+            },
+            "secret_verifiers": {
+              "holds": "list"
+            },
+            "trusted_peers": {
+              "holds": "list"
+            }
+          },
+          "step": "expect_event"
+        },
+        {
+          "entity": "mandate.federation.OAuthClient",
+          "event": "mandate.federation.OAuthClientRegistered",
+          "field": "id",
+          "instance": "client-c",
+          "step": "capture_instance"
+        },
+        {
+          "command": "mandate.federation.RegisterOAuthClient",
+          "input": {
+            "client_type": {
+              "kind": "literal",
+              "value": "Confidential"
+            },
+            "context": {
+              "kind": "literal",
+              "value": {
+                "audience": "mandate",
+                "correlation": "oidc-authorize-peer-audience-scope-client-b",
+                "credential": "00000000-0000-4000-8000-0000000000c1",
+                "organization": "00000000-0000-4000-8000-0000000000a1",
+                "subject": "00000000-0000-4000-8000-000000000001"
+              }
+            },
+            "pkce_method": {
+              "kind": "literal",
+              "value": "S256"
+            },
+            "pkce_required": {
+              "kind": "literal",
+              "value": false
+            },
+            "post_logout_redirect_uris": {
+              "kind": "literal",
+              "value": []
+            },
+            "redirect_uris": {
+              "kind": "literal",
+              "value": [
+                "https://app-b.example.test/callback"
+              ]
+            },
+            "secret_verifiers": {
+              "kind": "literal",
+              "value": [
+                "kv1.app-b.c2NlbmFyaW8tdmVyaWZpZXItdHdv"
+              ]
+            },
+            "trusted_peers": {
+              "items": [
+                {
+                  "instance": "client-a",
+                  "kind": "instance"
+                }
+              ],
+              "kind": "list"
+            }
+          },
+          "step": "execute_command"
+        },
+        {
+          "outcome": {
+            "command": "mandate.federation.RegisterOAuthClient",
+            "outcome": "accepted"
+          },
+          "step": "expect_outcome"
+        },
+        {
+          "event": "mandate.federation.OAuthClientRegistered",
+          "payload": {
+            "client_type": "Confidential"
+          },
+          "shape": {
+            "client_type": {
+              "holds": "enum",
+              "variants": [
+                "Public",
+                "Confidential"
+              ]
+            },
+            "context.actor": {
+              "holds": "primitive",
+              "kind": "uuid",
+              "optional": true
+            },
+            "context.audience": {
+              "holds": "primitive",
+              "kind": "string"
+            },
+            "context.correlation": {
+              "holds": "primitive",
+              "kind": "string"
+            },
+            "context.credential": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "context.delegation": {
+              "holds": "primitive",
+              "kind": "uuid",
+              "optional": true
+            },
+            "context.execution": {
+              "holds": "primitive",
+              "kind": "uuid",
+              "optional": true
+            },
+            "context.organization": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "context.subject": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "id": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "id_token_signed_response_alg": {
+              "holds": "enum",
+              "optional": true,
+              "variants": [
+                "RS256",
+                "ES256"
+              ]
+            },
+            "organization_id": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "pkce_method": {
+              "holds": "enum",
+              "variants": [
+                "S256"
+              ]
+            },
+            "pkce_required": {
+              "holds": "primitive",
+              "kind": "boolean"
+            },
+            "post_logout_redirect_uris": {
+              "holds": "list"
+            },
+            "redirect_uris": {
+              "holds": "list"
+            },
+            "secret_verifiers": {
+              "holds": "list"
+            },
+            "trusted_peers": {
+              "holds": "list"
+            }
+          },
+          "step": "expect_event"
+        },
+        {
+          "entity": "mandate.federation.OAuthClient",
+          "event": "mandate.federation.OAuthClientRegistered",
+          "field": "id",
+          "instance": "client-b",
+          "step": "capture_instance"
+        },
+        {
+          "command": "mandate.credential.RegisterResourceServer",
+          "input": {
+            "allowed_exchange_sources": {
+              "kind": "literal",
+              "value": []
+            },
+            "audience": {
+              "kind": "literal",
+              "value": "app-b"
+            },
+            "client_id": {
+              "instance": "client-b",
+              "kind": "instance"
+            },
+            "context": {
+              "kind": "literal",
+              "value": {
+                "audience": "mandate",
+                "correlation": "oidc-authorize-peer-audience-scope-server-b",
+                "credential": "00000000-0000-4000-8000-0000000000c1",
+                "organization": "00000000-0000-4000-8000-0000000000a1",
+                "subject": "00000000-0000-4000-8000-000000000001"
+              }
+            },
+            "profile": {
+              "kind": "literal",
+              "value": {
+                "kind": "SelfContained",
+                "max_ttl": "PT10M",
+                "name": "jwt-api",
+                "positive_cache_ttl": "PT1M",
+                "requires_online_authorization": false,
+                "revocation": "BoundedOffline"
+              }
+            }
+          },
+          "step": "execute_command"
+        },
+        {
+          "outcome": {
+            "command": "mandate.credential.RegisterResourceServer",
+            "outcome": "accepted"
+          },
+          "step": "expect_outcome"
+        },
+        {
+          "event": "mandate.credential.ResourceServerRegistered",
+          "payload": {
+            "audience": "app-b"
+          },
+          "shape": {
+            "allowed_exchange_sources": {
+              "holds": "list"
+            },
+            "audience": {
+              "holds": "primitive",
+              "kind": "string"
+            },
+            "client_id": {
+              "holds": "primitive",
+              "kind": "uuid",
+              "optional": true
+            },
+            "context.actor": {
+              "holds": "primitive",
+              "kind": "uuid",
+              "optional": true
+            },
+            "context.audience": {
+              "holds": "primitive",
+              "kind": "string"
+            },
+            "context.correlation": {
+              "holds": "primitive",
+              "kind": "string"
+            },
+            "context.credential": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "context.delegation": {
+              "holds": "primitive",
+              "kind": "uuid",
+              "optional": true
+            },
+            "context.execution": {
+              "holds": "primitive",
+              "kind": "uuid",
+              "optional": true
+            },
+            "context.organization": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "context.subject": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "credential_profile.kind": {
+              "holds": "enum",
+              "variants": [
+                "SelfContained",
+                "Reference"
+              ]
+            },
+            "credential_profile.max_ttl": {
+              "holds": "primitive",
+              "kind": "duration"
+            },
+            "credential_profile.name": {
+              "holds": "primitive",
+              "kind": "string"
+            },
+            "credential_profile.positive_cache_ttl": {
+              "holds": "primitive",
+              "kind": "duration"
+            },
+            "credential_profile.requires_online_authorization": {
+              "holds": "primitive",
+              "kind": "boolean"
+            },
+            "credential_profile.revocation": {
+              "holds": "enum",
+              "variants": [
+                "ImmediateOnline",
+                "BoundedOffline"
+              ]
+            },
+            "id": {
+              "holds": "primitive",
+              "kind": "uuid"
+            }
+          },
+          "step": "expect_event"
+        },
+        {
+          "entity": "mandate.credential.ResourceServer",
+          "event": "mandate.credential.ResourceServerRegistered",
+          "field": "id",
+          "instance": "server-b",
+          "step": "capture_instance"
+        },
+        {
+          "command": "mandate.federation.AuthorizeClient",
+          "input": {
+            "challenge": {
+              "kind": "literal",
+              "value": "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
+            },
+            "client_id": {
+              "instance": "client-a",
+              "kind": "instance"
+            },
+            "identity_scopes": {
+              "kind": "literal",
+              "value": [
+                "OpenId"
+              ]
+            },
+            "method": {
+              "kind": "literal",
+              "value": "S256"
+            },
+            "nonce": {
+              "kind": "literal",
+              "value": "oidc-authorize-peer-audience-scope-nonce-a"
+            },
+            "redirect_uri": {
+              "kind": "literal",
+              "value": "https://app-a.example.test/callback"
+            },
+            "requested_scope": {
+              "kind": "literal",
+              "value": {
+                "actions": [
+                  "document.read"
+                ],
+                "resources": []
+              }
+            },
+            "session_proof": {
+              "kind": "literal",
+              "value": "c2Vzc2lvbi1wcm9vZi1mb3ItdXNlcg=="
+            },
+            "state": {
+              "kind": "literal",
+              "value": "oidc-authorize-peer-audience-scope-state-a"
+            },
+            "target": {
+              "instance": "server-b",
+              "kind": "instance"
+            }
+          },
+          "step": "execute_command"
+        },
+        {
+          "outcome": {
+            "command": "mandate.federation.AuthorizeClient",
+            "outcome": "accepted"
+          },
+          "step": "expect_outcome"
+        },
+        {
+          "event": "mandate.federation.AuthorizationCodeIssued",
+          "payload": {
+            "client_id": {
+              "instance": "client-a",
+              "kind": "instance"
+            },
+            "target": {
+              "instance": "server-b",
+              "kind": "instance"
+            }
+          },
+          "shape": {
+            "challenge": {
+              "holds": "primitive",
+              "kind": "string",
+              "optional": true
+            },
+            "client_id": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "code_id": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "correlation": {
+              "holds": "primitive",
+              "kind": "string"
+            },
+            "identity_scopes": {
+              "holds": "list",
+              "optional": true
+            },
+            "method": {
+              "holds": "enum",
+              "optional": true,
+              "variants": [
+                "S256"
+              ]
+            },
+            "organization_id": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "redirect_uri": {
+              "holds": "primitive",
+              "kind": "string"
+            },
+            "requested_scope.actions": {
+              "holds": "list"
+            },
+            "requested_scope.resources": {
+              "holds": "list"
+            },
+            "requested_scope.space": {
+              "holds": "primitive",
+              "kind": "uuid",
+              "optional": true
+            },
+            "session_id": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "target": {
+              "holds": "primitive",
+              "kind": "uuid"
+            }
+          },
+          "step": "expect_event_values"
+        },
+        {
+          "force": {
+            "command": "mandate.federation.AuthorizeClient",
+            "outcome": "denied"
+          },
+          "step": "configure_external_outcome"
+        },
+        {
+          "command": "mandate.federation.AuthorizeClient",
+          "input": {
+            "challenge": {
+              "kind": "literal",
+              "value": "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
+            },
+            "client_id": {
+              "instance": "client-c",
+              "kind": "instance"
+            },
+            "identity_scopes": {
+              "kind": "literal",
+              "value": [
+                "OpenId"
+              ]
+            },
+            "method": {
+              "kind": "literal",
+              "value": "S256"
+            },
+            "nonce": {
+              "kind": "literal",
+              "value": "oidc-authorize-peer-audience-scope-nonce-c"
+            },
+            "redirect_uri": {
+              "kind": "literal",
+              "value": "https://app-c.example.test/callback"
+            },
+            "requested_scope": {
+              "kind": "literal",
+              "value": {
+                "actions": [
+                  "document.read"
+                ],
+                "resources": []
+              }
+            },
+            "session_proof": {
+              "kind": "literal",
+              "value": "c2Vzc2lvbi1wcm9vZi1mb3ItdXNlcg=="
+            },
+            "state": {
+              "kind": "literal",
+              "value": "oidc-authorize-peer-audience-scope-state-c"
+            },
+            "target": {
+              "instance": "server-b",
+              "kind": "instance"
+            }
+          },
+          "step": "execute_command"
+        },
+        {
+          "outcome": {
+            "command": "mandate.federation.AuthorizeClient",
+            "outcome": "denied"
+          },
+          "step": "expect_outcome"
+        },
+        {
+          "error": "mandate.federation.Denied",
+          "fields": {
+            "reason": "Denied"
+          },
+          "step": "expect_error"
+        },
+        {
+          "event": "mandate.federation.AuthorizationCodeIssued",
+          "step": "expect_no_event"
+        }
+      ]
+    },
+    "mandate.federation/authored/oidc-authorize-public-without-pkce-refused": {
+      "purpose": "`PKCE is absent where the client requires it`: a public client, which always requires PKCE, authorizing with no challenge is denied and issues no code (fork F3); corpus: none.",
+      "source": [
+        {
+          "kind": "domain",
+          "name": "mandate.federation"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.Action"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.Audience"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.AuthorityScope"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.CorrelationId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.CredentialId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.CredentialKind"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.CredentialProfile"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.CredentialProof"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.CredentialVerifier"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.DelegationId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.DenialReason"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.ExecutionId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.IdTokenSigningAlgorithm"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.OAuthClientId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.OAuthClientType"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.OrganizationId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.PkceChallenge"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.PkceMethod"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.PrincipalId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.RedirectUri"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.ResourceId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.ResourceRef"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.ResourceServerId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.ResourceType"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.RevocationGuarantee"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.SpaceId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.VerifiedContext"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.credential.IdentityScope"
+        },
+        {
+          "kind": "entity",
+          "name": "mandate.credential.ResourceServer"
+        },
+        {
+          "kind": "entity",
+          "name": "mandate.federation.OAuthClient"
+        },
+        {
+          "kind": "command",
+          "name": "mandate.credential.RegisterResourceServer"
+        },
+        {
+          "kind": "command",
+          "name": "mandate.federation.AuthorizeClient"
+        },
+        {
+          "kind": "command",
+          "name": "mandate.federation.RegisterOAuthClient"
+        },
+        {
+          "kind": "outcome",
+          "name": {
+            "command": "mandate.credential.RegisterResourceServer",
+            "outcome": "accepted"
+          }
+        },
+        {
+          "kind": "outcome",
+          "name": {
+            "command": "mandate.federation.AuthorizeClient",
+            "outcome": "denied"
+          }
+        },
+        {
+          "kind": "outcome",
+          "name": {
+            "command": "mandate.federation.RegisterOAuthClient",
+            "outcome": "accepted"
+          }
+        },
+        {
+          "kind": "event",
+          "name": "mandate.credential.ResourceServerRegistered"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.AuthorizationCodeIssued"
+        },
+        {
+          "kind": "event",
+          "name": "mandate.federation.OAuthClientRegistered"
+        },
+        {
+          "kind": "error",
+          "name": "mandate.federation.Denied"
+        }
+      ],
+      "steps": [
+        {
+          "command": "mandate.federation.RegisterOAuthClient",
+          "input": {
+            "client_type": {
+              "kind": "literal",
+              "value": "Public"
+            },
+            "context": {
+              "kind": "literal",
+              "value": {
+                "audience": "mandate",
+                "correlation": "oidc-authorize-public-without-pkce-refused-client",
+                "credential": "00000000-0000-4000-8000-0000000000c1",
+                "organization": "00000000-0000-4000-8000-0000000000a1",
+                "subject": "00000000-0000-4000-8000-000000000001"
+              }
+            },
+            "pkce_method": {
+              "kind": "literal",
+              "value": "S256"
+            },
+            "pkce_required": {
+              "kind": "literal",
+              "value": true
+            },
+            "post_logout_redirect_uris": {
+              "kind": "literal",
+              "value": []
+            },
+            "redirect_uris": {
+              "kind": "literal",
+              "value": [
+                "https://app.example.test/callback"
+              ]
+            },
+            "secret_verifiers": {
+              "kind": "literal",
+              "value": []
+            },
+            "trusted_peers": {
+              "kind": "literal",
+              "value": []
+            }
+          },
+          "step": "execute_command"
+        },
+        {
+          "outcome": {
+            "command": "mandate.federation.RegisterOAuthClient",
+            "outcome": "accepted"
+          },
+          "step": "expect_outcome"
+        },
+        {
+          "event": "mandate.federation.OAuthClientRegistered",
+          "payload": {
+            "client_type": "Public"
+          },
+          "shape": {
+            "client_type": {
+              "holds": "enum",
+              "variants": [
+                "Public",
+                "Confidential"
+              ]
+            },
+            "context.actor": {
+              "holds": "primitive",
+              "kind": "uuid",
+              "optional": true
+            },
+            "context.audience": {
+              "holds": "primitive",
+              "kind": "string"
+            },
+            "context.correlation": {
+              "holds": "primitive",
+              "kind": "string"
+            },
+            "context.credential": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "context.delegation": {
+              "holds": "primitive",
+              "kind": "uuid",
+              "optional": true
+            },
+            "context.execution": {
+              "holds": "primitive",
+              "kind": "uuid",
+              "optional": true
+            },
+            "context.organization": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "context.subject": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "id": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "id_token_signed_response_alg": {
+              "holds": "enum",
+              "optional": true,
+              "variants": [
+                "RS256",
+                "ES256"
+              ]
+            },
+            "organization_id": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "pkce_method": {
+              "holds": "enum",
+              "variants": [
+                "S256"
+              ]
+            },
+            "pkce_required": {
+              "holds": "primitive",
+              "kind": "boolean"
+            },
+            "post_logout_redirect_uris": {
+              "holds": "list"
+            },
+            "redirect_uris": {
+              "holds": "list"
+            },
+            "secret_verifiers": {
+              "holds": "list"
+            },
+            "trusted_peers": {
+              "holds": "list"
+            }
+          },
+          "step": "expect_event"
+        },
+        {
+          "entity": "mandate.federation.OAuthClient",
+          "event": "mandate.federation.OAuthClientRegistered",
+          "field": "id",
+          "instance": "client",
+          "step": "capture_instance"
+        },
+        {
+          "command": "mandate.credential.RegisterResourceServer",
+          "input": {
+            "allowed_exchange_sources": {
+              "kind": "literal",
+              "value": []
+            },
+            "audience": {
+              "kind": "literal",
+              "value": "app"
+            },
+            "client_id": {
+              "instance": "client",
+              "kind": "instance"
+            },
+            "context": {
+              "kind": "literal",
+              "value": {
+                "audience": "mandate",
+                "correlation": "oidc-authorize-public-without-pkce-refused-server",
+                "credential": "00000000-0000-4000-8000-0000000000c1",
+                "organization": "00000000-0000-4000-8000-0000000000a1",
+                "subject": "00000000-0000-4000-8000-000000000001"
+              }
+            },
+            "profile": {
+              "kind": "literal",
+              "value": {
+                "kind": "SelfContained",
+                "max_ttl": "PT10M",
+                "name": "jwt-api",
+                "positive_cache_ttl": "PT1M",
+                "requires_online_authorization": false,
+                "revocation": "BoundedOffline"
+              }
+            }
+          },
+          "step": "execute_command"
+        },
+        {
+          "outcome": {
+            "command": "mandate.credential.RegisterResourceServer",
+            "outcome": "accepted"
+          },
+          "step": "expect_outcome"
+        },
+        {
+          "event": "mandate.credential.ResourceServerRegistered",
+          "payload": {
+            "audience": "app"
+          },
+          "shape": {
+            "allowed_exchange_sources": {
+              "holds": "list"
+            },
+            "audience": {
+              "holds": "primitive",
+              "kind": "string"
+            },
+            "client_id": {
+              "holds": "primitive",
+              "kind": "uuid",
+              "optional": true
+            },
+            "context.actor": {
+              "holds": "primitive",
+              "kind": "uuid",
+              "optional": true
+            },
+            "context.audience": {
+              "holds": "primitive",
+              "kind": "string"
+            },
+            "context.correlation": {
+              "holds": "primitive",
+              "kind": "string"
+            },
+            "context.credential": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "context.delegation": {
+              "holds": "primitive",
+              "kind": "uuid",
+              "optional": true
+            },
+            "context.execution": {
+              "holds": "primitive",
+              "kind": "uuid",
+              "optional": true
+            },
+            "context.organization": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "context.subject": {
+              "holds": "primitive",
+              "kind": "uuid"
+            },
+            "credential_profile.kind": {
+              "holds": "enum",
+              "variants": [
+                "SelfContained",
+                "Reference"
+              ]
+            },
+            "credential_profile.max_ttl": {
+              "holds": "primitive",
+              "kind": "duration"
+            },
+            "credential_profile.name": {
+              "holds": "primitive",
+              "kind": "string"
+            },
+            "credential_profile.positive_cache_ttl": {
+              "holds": "primitive",
+              "kind": "duration"
+            },
+            "credential_profile.requires_online_authorization": {
+              "holds": "primitive",
+              "kind": "boolean"
+            },
+            "credential_profile.revocation": {
+              "holds": "enum",
+              "variants": [
+                "ImmediateOnline",
+                "BoundedOffline"
+              ]
+            },
+            "id": {
+              "holds": "primitive",
+              "kind": "uuid"
+            }
+          },
+          "step": "expect_event"
+        },
+        {
+          "entity": "mandate.credential.ResourceServer",
+          "event": "mandate.credential.ResourceServerRegistered",
+          "field": "id",
+          "instance": "server",
+          "step": "capture_instance"
+        },
+        {
+          "force": {
+            "command": "mandate.federation.AuthorizeClient",
+            "outcome": "denied"
+          },
+          "step": "configure_external_outcome"
+        },
+        {
+          "command": "mandate.federation.AuthorizeClient",
+          "input": {
+            "client_id": {
+              "instance": "client",
+              "kind": "instance"
+            },
+            "identity_scopes": {
+              "kind": "literal",
+              "value": [
+                "OpenId"
+              ]
+            },
+            "nonce": {
+              "kind": "literal",
+              "value": "oidc-authorize-public-without-pkce-refused-nonce"
+            },
+            "redirect_uri": {
+              "kind": "literal",
+              "value": "https://app.example.test/callback"
+            },
+            "requested_scope": {
+              "kind": "literal",
+              "value": {
+                "actions": [],
+                "resources": []
+              }
+            },
+            "session_proof": {
+              "kind": "literal",
+              "value": "c2Vzc2lvbi1wcm9vZi1mb3ItdXNlcg=="
+            },
+            "state": {
+              "kind": "literal",
+              "value": "oidc-authorize-public-without-pkce-refused-state"
+            }
+          },
+          "step": "execute_command"
+        },
+        {
+          "outcome": {
+            "command": "mandate.federation.AuthorizeClient",
+            "outcome": "denied"
+          },
+          "step": "expect_outcome"
+        },
+        {
+          "error": "mandate.federation.Denied",
+          "fields": {
+            "reason": "Denied"
+          },
+          "step": "expect_error"
+        },
+        {
+          "event": "mandate.federation.AuthorizationCodeIssued",
           "step": "expect_no_event"
         }
       ]

@@ -10,10 +10,10 @@
 //! runtime obligations this milestone does not discharge"
 //! (`crates/mandate-types/src/value.rs:214-247`).
 //!
-//! `Session::is_expired_at` (`crates/mandate-identity/src/session.rs:169-171`) is
+//! `Session::is_expired_at` (`crates/mandate-identity/src/session.rs:209-211`) is
 //! `self.expires_at <= *as_of` — that byte comparison — and the sentence written above it
 //! claims it is sound: "`Timestamp` carries the declared lexical form and orders on it, so
-//! two `Z`-form instants compare without any arithmetic over them" (`src/session.rs:165-167`).
+//! two `Z`-form instants compare without any arithmetic over them" (`src/session.rs:205-207`).
 //! The hedge is "two `Z`-form instants", and nothing requires that form: `Timestamp::new`
 //! accepts any string, `Session::new` accepts any `Timestamp`, `IdentityLog::with_as_of`
 //! accepts any `Timestamp`, and RFC 3339 `date-time` admits `+hh:mm` / `-hh:mm` offsets and

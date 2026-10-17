@@ -191,7 +191,7 @@ fn creating_events(entity: &Value) -> Vec<String> {
 fn the_second_pass_reader_sees_the_contract_it_claims_to_see() {
     assert_eq!(section("events").len(), 82, "compiled events");
     assert_eq!(section("commands").len(), 65, "compiled commands");
-    assert_eq!(section("types").len(), 124, "compiled type entries");
+    assert_eq!(section("types").len(), 127, "compiled type entries");
     assert_eq!(section("entities").len(), 36, "compiled entities");
 
     assert_eq!(

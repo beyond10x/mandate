@@ -34,8 +34,8 @@ use mandate_federation::register_client::{
 use mandate_federation::{DenialClause, SequentialAllocator};
 use mandate_types::value::Uuid;
 use mandate_types::{
-    Audience, CorrelationId, CredentialId, OrganizationId, PkceMethod, PrincipalId, RedirectUri,
-    VerifiedContext,
+    Audience, CorrelationId, CredentialId, DenialReason, OrganizationId, PkceMethod, PrincipalId,
+    RedirectUri, VerifiedContext,
 };
 
 const REDIRECT: &str = "https://app.example/callback";
@@ -272,6 +272,11 @@ fn probe_two_organizations_register_one_redirect_set_without_crossing() {
         let denied = registered_public_client(&fold, outcome, &RedirectUri::new(REDIRECT), &other)
             .expect_err("a client is not resolvable under another organization");
 
-        assert_eq!(denied.clause, DenialClause::OrganizationMismatch);
+        assert_eq!(
+            denied.clause,
+            DenialClause::ClientUnknown,
+            "answered as an unknown client"
+        );
+        assert_eq!(denied.reason, DenialReason::Denied);
     }
 }

@@ -50,7 +50,7 @@ fn every_accepted_authored_type_is_implemented_in_the_coverage_manifest() {
             )
         })
         .collect();
-    assert_eq!(ACCEPTED.len(), 77, "the authored type account");
+    assert_eq!(ACCEPTED.len(), 80, "the authored type account");
 
     let mut understated = Vec::new();
     for accepted in ACCEPTED {

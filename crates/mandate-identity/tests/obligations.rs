@@ -12,7 +12,7 @@
 //! # What is bound here, and on which path
 //!
 //! * `RevokeSession`, "session is outside the verified organization" — the **real** path.
-//!   `crates/mandate-identity/src/session.rs:372` is handler code over the fold, and the one
+//!   `crates/mandate-identity/src/session.rs:412` is handler code over the fold, and the one
 //!   place in this crate that compares a record's organization against the caller's verified
 //!   one.
 //! * `IncrementSecurityEpoch`, "atomic increment cannot commit" **and** "the exact unsigned
@@ -22,7 +22,7 @@
 //!   (`crates/mandate-identity/src/port.rs:911`), and that implementation makes the
 //!   compare-and-set at `crates/mandate-identity/src/port.rs:919-921` and the overflow refusal
 //!   three lines later at `crates/mandate-identity/src/port.rs:922-924`.
-//!   `crates/mandate-identity/src/session.rs:342-343` states that [`IdentityLog`] "is the
+//!   `crates/mandate-identity/src/session.rs:382-383` states that [`IdentityLog`] "is the
 //!   in-memory double of the event-log adapter a later story supplies". Whether a stream
 //!   version that moved commits, and whether a generation already at its maximum advances, are
 //!   the adapter's decisions and not this fold's, so the rows of both clauses are `path: double`
@@ -36,7 +36,7 @@
 //! * `IncrementSecurityEpoch`, "tenant containment fails" — the **real** path.
 //!   `IncrementSecurityEpoch::execute` compares the target's organization with the caller's
 //!   verified one before it reaches the write port — the comparison `RevokeSession` makes at
-//!   `src/session.rs:372` — and refuses with `TenantMismatch`. The port only supplies which
+//!   `src/session.rs:412` — and refuses with `TenantMismatch`. The port only supplies which
 //!   organizations its records place the target in (`TargetTenancy`), so the row is `real`:
 //!   what is classified is the code that decides, not the code that holds the data.
 //! * `IncrementSecurityEpoch`'s `no_state_change` obligation follows the two double-backed
@@ -52,11 +52,11 @@
 //!
 //! * "Caller lacks authority for the explicitly selected principal/organization/federation
 //!   target" and "Caller lacks authority over this session" — `src/increment.rs:9-11` and
-//!   `src/session.rs:351-352` both state that the caller's authority is the authorization
+//!   `src/session.rs:391-392` both state that the caller's authority is the authorization
 //!   domain's decision and is not made here; the verified context is carried through to the
 //!   event unexamined.
 //! * "Refresh verifier is absent/incorrect" — the declared input is a `CredentialProof`, and
-//!   `src/session.rs:267` states that credential proof verification is the credential
+//!   `src/session.rs:307` states that credential proof verification is the credential
 //!   domain's. The refresh is reached with a session identity that verification already
 //!   resolved.
 //! * "principal/session is disabled" — [`IdentityEvent`] carries no disablement arm and
@@ -183,7 +183,7 @@ fn world() -> IdentityLog {
 /// committed either.
 ///
 /// The decider is `<IdentityLog as SecurityEpochWrite>::increment`, which is the in-memory
-/// double of the event-log adapter (`src/session.rs:342-343`), so the row this case backs is
+/// double of the event-log adapter (`src/session.rs:382-383`), so the row this case backs is
 /// `path: double` and the clause stays deferred to `decision-blocker:epoch-atomicity`.
 #[test]
 fn an_increment_at_a_version_another_writer_moved_past_cannot_commit() {
@@ -263,7 +263,7 @@ fn a_session_outside_the_verified_organization_is_refused_at_revoke() {
 /// above is unreadable to a reviewer only until the suite runs.
 const CITED: &[(&str, &[&str])] = &[
     (
-        "crates/mandate-identity/src/session.rs:372",
+        "crates/mandate-identity/src/session.rs:412",
         &["session.organization() != &context.organization"],
     ),
     (
@@ -279,7 +279,7 @@ const CITED: &[(&str, &[&str])] = &[
         &["state.generation().advance()", "DenialReason::Denied"],
     ),
     (
-        "crates/mandate-identity/src/session.rs:342-343",
+        "crates/mandate-identity/src/session.rs:382-383",
         &["is the in-memory double of the event-log adapter a later"],
     ),
     (
@@ -287,15 +287,15 @@ const CITED: &[(&str, &[&str])] = &[
         &["domain's decision and is not made here"],
     ),
     (
-        "src/session.rs:351-352",
+        "src/session.rs:391-392",
         &["is not made here; the verified context is carried through to the event."],
     ),
     (
-        "src/session.rs:372",
+        "src/session.rs:412",
         &["session.organization() != &context.organization"],
     ),
     (
-        "src/session.rs:267",
+        "src/session.rs:307",
         &["Credential proof verification is the credential domain's"],
     ),
     (
@@ -303,7 +303,7 @@ const CITED: &[(&str, &[&str])] = &[
         &["compare-and-set", "refused rather than merged"],
     ),
     (
-        "src/session.rs:342-343",
+        "src/session.rs:382-383",
         &["is the in-memory double of the event-log adapter a later"],
     ),
 ];

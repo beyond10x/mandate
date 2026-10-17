@@ -115,6 +115,7 @@ fn register(
             audience: Audience::new(audience),
             profile: reference_profile(max_ttl),
             allowed_exchange_sources: sources,
+            client_id: None,
         },
         held,
         allocator,
@@ -577,6 +578,7 @@ fn an_audience_no_registration_of_the_subjects_organization_holds_is_refused_and
             audience: Audience::new("foreign-api"),
             profile: reference_profile("PT1H"),
             allowed_exchange_sources: Vec::new(),
+            client_id: None,
         },
         &world.held,
         &mut world.allocator.clone(),
@@ -622,6 +624,7 @@ fn an_audience_two_registrations_hold_is_refused_rather_than_resolved_to_either(
         audience: Audience::new("platform-api"),
         credential_profile: reference_profile("PT2H"),
         allowed_exchange_sources: vec![world.source],
+        client_id: None,
     };
     world
         .held

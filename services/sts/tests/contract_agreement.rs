@@ -138,6 +138,7 @@ fn each_input_agrees(context: &VerifiedContext) -> Vec<Value> {
                 audience: Audience::new("api-a"),
                 profile: profile(),
                 allowed_exchange_sources: Vec::new(),
+                client_id: None,
             },
             "mandate.credential.RegisterResourceServer",
         ),
@@ -550,7 +551,7 @@ fn coverage_manifest_claims() -> std::collections::BTreeMap<String, (String, Str
             ),
         );
     }
-    assert_eq!(claims.len(), 319, "the coverage manifest's element count");
+    assert_eq!(claims.len(), 322, "the coverage manifest's element count");
     claims
 }
 

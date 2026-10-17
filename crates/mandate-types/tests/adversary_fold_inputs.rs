@@ -277,7 +277,7 @@ fn best_carrier(entity: &Value) -> Option<Carrier> {
 fn the_reader_sees_the_contract_it_claims_to_see() {
     assert_eq!(section("events").len(), 82, "compiled events");
     assert_eq!(section("commands").len(), 65, "compiled commands");
-    assert_eq!(section("types").len(), 124, "compiled type entries");
+    assert_eq!(section("types").len(), 127, "compiled type entries");
     assert_eq!(section("entities").len(), 36, "compiled entities");
 
     let opened = &section("events")["mandate.identity.SessionOpened"];
@@ -305,6 +305,14 @@ fn the_reader_sees_the_contract_it_claims_to_see() {
                 "mandate.core.EpochSnapshotRef".to_owned()
             ),
             ("expires_at".to_owned(), "timestamp".to_owned()),
+            (
+                "authenticated_at".to_owned(),
+                "Optional<timestamp>".to_owned()
+            ),
+            (
+                "external_principal_id".to_owned(),
+                "Optional<mandate.core.ExternalPrincipalId>".to_owned()
+            ),
         ],
         "event fields are read with their types, in order"
     );

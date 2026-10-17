@@ -829,7 +829,7 @@ fn coverage_manifest_claims() -> std::collections::BTreeMap<String, (String, Str
             ),
         );
     }
-    assert_eq!(claims.len(), 319, "the coverage manifest's element count");
+    assert_eq!(claims.len(), 322, "the coverage manifest's element count");
     claims
 }
 

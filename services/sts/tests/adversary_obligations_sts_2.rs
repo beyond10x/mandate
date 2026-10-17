@@ -156,6 +156,7 @@ fn registered(profile: CredentialProfile) -> (Projection, ResourceServerId) {
             audience: Audience::new("api-a"),
             profile,
             allowed_exchange_sources: Vec::new(),
+            client_id: None,
         },
         &Projection::default(),
         &mut allocator,
@@ -442,6 +443,7 @@ fn a_zero_span_profile_bound_refuses_the_redemption_rather_than_dating_it_now() 
             ..reference_profile()
         },
         allowed_exchange_sources: Vec::new(),
+        client_id: None,
     }])
     .expect("one creation");
     let codes = CodeProjection::fold(std::slice::from_ref(&issued)).expect("one creation");

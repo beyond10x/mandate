@@ -12,7 +12,7 @@
 //! declared `expires_at` (`generated/schema/events/mandate.identity.SessionOpened.schema
 //! .json`: `"format": "date-time"`), and is written by a host — "no command in this
 //! contract declares such an open and no outcome emits it; it is reserved for the
-//! control-plane component that publishes it" (`src/session.rs:47-54`). The oracle here is
+//! control-plane component that publishes it" (`src/session.rs:51-58`). The oracle here is
 //! the generated schema, read by `mandate_testkit::contract`, and not this file's opinion.
 
 use mandate_identity::{

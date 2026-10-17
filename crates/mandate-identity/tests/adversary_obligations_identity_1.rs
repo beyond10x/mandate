@@ -7,7 +7,7 @@
 //! 1. [`an_increment_naming_another_organizations_target_fails_tenant_containment`] — the unit
 //!    re-pointed `IncrementSecurityEpoch`'s "tenant containment fails" clause from its own binding
 //!    story to `decision-blocker:guards` on the ground that this crate cannot decide it. The same
-//!    crate decides the identical predicate for `RevokeSession` at `src/session.rs:369`, which the
+//!    crate decides the identical predicate for `RevokeSession` at `src/session.rs:409`, which the
 //!    first assertion of that case exercises; the blocker is about external cryptographic, graph
 //!    and policy validation, and a `SecurityEpochTarget::Organization` compared against
 //!    `VerifiedContext::organization` is none of those.
@@ -130,7 +130,7 @@ fn world() -> IdentityLog {
 /// predicates" and a "trusted context adapter". This clause is neither: it is a
 /// `SecurityEpochTarget::Organization` compared against `VerifiedContext::organization`, which
 /// this crate already performs for `RevokeSession` (`revoke_session`) and for a session's
-/// snapshot at `src/session.rs:222`.
+/// snapshot at `src/session.rs:262`.
 ///
 /// The first assertion is that capability, exercised. The second is the clause the contract
 /// declares: a caller verified in one organization names another organization's security-epoch
@@ -244,13 +244,13 @@ const CITED: &[Citation] = &[
     },
     Citation {
         file: "src/session.rs",
-        span: (351, 352),
+        span: (391, 392),
         word: "authority",
         claim: "the caller's authority is the authorization domain's decision and is not made here",
     },
     Citation {
         file: "src/session.rs",
-        span: (267, 267),
+        span: (307, 307),
         word: "verification",
         claim: "proof verification is the credential domain's",
     },

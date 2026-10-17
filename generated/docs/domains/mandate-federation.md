@@ -1,7 +1,7 @@
 <!--
 generated from mandate v1
-model digest fe7572f53936b5997c3bd119e2453943039ed1a53748b3db2385206257a79cd2
-contract digest slice-sha256/2:96614eed03cec03b1d7b68d239fe8c7a81597aa8514a9f642475e1d84e58acd3
+model digest 45424649386e88d7cfddb9c793b84e2647816f795d4b7536c63741af3c136a4e
+contract digest slice-sha256/2:3e506166d75e7210a6e49c4cf38a3d2f0aa6d777bbc5bdc7d211b4fd080a392a
 do not edit: regenerate with `ess generate`
 -->
 
@@ -169,19 +169,20 @@ It takes:
 
 - `client_id` — `mandate.core.OAuthClientId`
 - `redirect_uri` — `mandate.core.RedirectUri`
-- `challenge` — `mandate.core.PkceChallenge`
-- `method` — `mandate.core.PkceMethod`
+- `challenge` — `Optional<mandate.core.PkceChallenge>`, which may be absent
+- `method` — `Optional<mandate.core.PkceMethod>`, which may be absent
 - `state` — `String`
 - `nonce` — `String`
 - `session_proof` — `mandate.core.CredentialProof`
-- `target` — `mandate.core.ResourceServerId`
+- `target` — `Optional<mandate.core.ResourceServerId>`, which may be absent
 - `requested_scope` — `mandate.core.AuthorityScope`
+- `identity_scopes` — `Optional<List<mandate.credential.IdentityScope>>`, which may be absent
 
 It has two outcomes.
 
-**`accepted`** — The control plane orchestrates the verified session and client checks and calls the STS IssueAuthorizationCode port; the STS creates the mandate.credential.AuthorizationCode record and returns its identity, which this event names. This outcome creates nothing — code_id is the code STS minted, not one minted here — and the transient code is returned to the public-client adapter and to nothing else. The default branch, taken when no other outcome's condition matched. No entity in this specification changes. It emits `mandate.federation.AuthorizationCodeIssued`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+**`accepted`** — The control plane orchestrates the verified session and client checks and calls the STS IssueAuthorizationCode port; the STS creates the mandate.credential.AuthorizationCode record and returns its identity, which this event names. The client is either type, read from its mandate.federation.OAuthClient record; challenge and method are given together or not at all, and are required when the client's pkce_required holds. The event's target is the named one, or, where none is named, the one enabled mandate.credential.ResourceServer whose client_id names the client; a disabled registration is passed over, and two enabled ones naming the client are refused rather than chosen between. This outcome creates nothing — code_id is the code STS minted, not one minted here — and the transient code is returned to the client's redirect URI and to nothing else. The default branch, taken when no other outcome's condition matched. No entity in this specification changes. It emits `mandate.federation.AuthorizationCodeIssued`. A test reaches it by constructing an input that satisfies no other outcome's condition.
 
-**`denied`** — Decided outside the input: Session proof is invalid/stale, client is not a registered public client, the client is disabled, exact redirect URI or state/applicable nonce binding fails, S256 challenge is absent/invalid, target is unregistered/outside tenant, or STS code issuance/narrowing is refused.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.federation.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
+**`denied`** — Decided outside the input: Session proof is invalid/stale, client is not a registered client, the client is disabled, exact redirect URI or state/applicable nonce binding fails, PKCE is absent where the client requires it, only one of challenge and method is given, the S256 challenge is invalid, target is unregistered/outside tenant, a named target is backed by a client that does not list this client as a trusted peer, no target is named and not exactly one enabled resource server backs the client, identity scopes are requested without OpenId, no target is named and OpenId is not requested, or STS code issuance/narrowing is refused.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.federation.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
 ### `DisableFederationConnection`
 
@@ -324,10 +325,11 @@ It carries:
 - `client_id` — `mandate.core.OAuthClientId`
 - `session_id` — `mandate.core.SessionId`
 - `redirect_uri` — `mandate.core.RedirectUri`
-- `challenge` — `mandate.core.PkceChallenge`
-- `method` — `mandate.core.PkceMethod`
+- `challenge` — `Optional<mandate.core.PkceChallenge>`, which may be absent
+- `method` — `Optional<mandate.core.PkceMethod>`, which may be absent
 - `target` — `mandate.core.ResourceServerId`
 - `requested_scope` — `mandate.core.AuthorityScope`
+- `identity_scopes` — `Optional<List<mandate.credential.IdentityScope>>`, which may be absent
 
 Emitted by `mandate.federation.AuthorizeClient` on its `accepted` outcome.
 
@@ -525,4 +527,4 @@ Reported by `mandate.federation.UnlinkExternalPrincipal` on its `wrong-state` an
 
 ---
 
-Generated from mandate v1 · model digest `fe7572f53936b5997c3bd119e2453943039ed1a53748b3db2385206257a79cd2` · contract digest `slice-sha256/2:96614eed03cec03b1d7b68d239fe8c7a81597aa8514a9f642475e1d84e58acd3`. Do not edit this file; change the specification and regenerate it with `ess generate`.
+Generated from mandate v1 · model digest `45424649386e88d7cfddb9c793b84e2647816f795d4b7536c63741af3c136a4e` · contract digest `slice-sha256/2:3e506166d75e7210a6e49c4cf38a3d2f0aa6d777bbc5bdc7d211b4fd080a392a`. Do not edit this file; change the specification and regenerate it with `ess generate`.

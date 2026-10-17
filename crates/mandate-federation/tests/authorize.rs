@@ -665,10 +665,10 @@ fn a_client_bound_to_another_organization_than_the_session_is_refused() {
         &sessions(),
         &StandInDigest,
     )
-    .expect_err("the organization is the session's, never the caller's claim");
+    .expect_err("another organization's client is answered as an unknown one");
 
-    assert_eq!(denied.reason, DenialReason::TenantMismatch);
-    assert_eq!(denied.clause, DenialClause::OrganizationMismatch);
+    assert_eq!(denied.reason, DenialReason::Denied);
+    assert_eq!(denied.clause, DenialClause::ClientUnknown);
 }
 
 /// The PKCE predicate is composed, not re-implemented: `pkce-wrong` and `pkce-missing`

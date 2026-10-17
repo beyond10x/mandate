@@ -546,7 +546,7 @@ struct Citation {
 const CITED: &[Citation] = &[
     Citation {
         file: "src/session.rs",
-        span: (369, 369),
+        span: (409, 409),
         word: "organization",
         claim: "handler code over the fold, and the one place in this crate that compares a \
                 record's organization against the caller's verified one",
@@ -563,7 +563,7 @@ const CITED: &[Citation] = &[
     },
     Citation {
         file: "src/session.rs",
-        span: (342, 343),
+        span: (382, 383),
         word: "in-memory double",
         claim: "`IdentityLog` is the in-memory double of the event-log adapter a later story \
                 supplies",

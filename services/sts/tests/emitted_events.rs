@@ -208,6 +208,7 @@ fn registration(
         audience: Audience::new(audience),
         profile,
         allowed_exchange_sources: Vec::new(),
+        client_id: None,
     }
 }
 
@@ -1372,6 +1373,7 @@ fn exchangeable() -> (
     let target = register_resource_server(
         &RegisterResourceServer {
             allowed_exchange_sources: vec![source.resource_server_id],
+            client_id: None,
             ..registration(organization(10), "platform-api", reference_profile())
         },
         &held,

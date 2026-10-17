@@ -89,7 +89,7 @@ use mandate_federation::idp_token::{
     ClientSecret, CodeRedemption, IdpEndpoints, IdpTokenEndpoint, TokenRefusal,
     authorization_request, base64url, endpoints, nonce_matches,
 };
-use mandate_federation::publicclient::{OAuthClientStore, registered_public_client};
+use mandate_federation::publicclient::{OAuthClientStore, registered_client};
 use mandate_federation::record::{
     FederationEvent, FoldError as FederationFoldError, OAuthClientState,
     Projection as FederationProjection, RegisterFederationConnection,
@@ -129,7 +129,7 @@ use mandate_sts::redemption::{
     BoundReads, RedeemAuthorizationCode, RedemptionParts, RedemptionRefused, redeem_and_consume,
 };
 use mandate_sts::registry::{
-    RegisterResourceServer, ResourceServerReads, register_resource_server,
+    RegisterResourceServer, ResourceServerReads, register_resource_server_for_clients,
 };
 use mandate_sts::resolve::{IntrospectCredential, IntrospectionParts, introspect_credential};
 use mandate_sts::store::{
@@ -139,7 +139,7 @@ use mandate_sts::store::{
 use mandate_sts::{IdentityAllocator, RequestContext as StsRequest, SecretSource};
 use mandate_token::projection::{
     CredentialEvent, DenialClause as CredentialClause, Denied as CredentialDenied,
-    FoldError as CredentialFoldError, Projection as CredentialProjection,
+    FoldError as CredentialFoldError, Projection as CredentialProjection, ResourceServerState,
 };
 use mandate_token::signing_real::{SigningError, SigningKeyMaterial, SystemClock as SigningClock};
 use mandate_token::verifier::{CredentialDigest, CredentialDomain, matches, verifier_in};
@@ -1262,6 +1262,55 @@ struct PendingLogin {
     binding: String,
     /// The embedding application's `app_state`, bound to the handoff this sign-in ends in.
     app_state: Option<String>,
+    /// The authorization request this sign-in was started for, when the browser came from
+    /// `/oauth/authorize` without a session (fork F4 B): the callback resumes it with the
+    /// session the sign-in opened instead of answering a handoff. Held here, in the same
+    /// single-use store and for the same lifetime as the rest of the sign-in.
+    resume: Option<decode::AuthorizeBrowser>,
+}
+
+/// What a completed sign-in ends in.
+#[derive(Debug)]
+pub enum Completed {
+    /// A sign-in an embedding application started: the single-use handoff code.
+    Handoff(Handoff),
+    /// A sign-in an authorization request started: that request, resumed with the session
+    /// the sign-in opened.
+    Resumed(Resumed),
+}
+
+/// An authorization request resumed at the callback of the sign-in it started.
+#[derive(Debug)]
+pub struct Resumed {
+    /// The resumed `mandate.federation.AuthorizeClient`'s own outcome.
+    pub outcome: Result<Authorization, AuthorizationRefusal>,
+    /// The proof of the session the sign-in opened, which the browser holds from here in the
+    /// host-only session cookie ([`decode::SESSION_COOKIE`]). Returned once.
+    pub session_proof: CredentialSecret,
+    /// How long the cookie is kept, in seconds: the deployment's session lifetime, so the
+    /// cookie does not outlive the `Session` record it names.
+    pub max_age: u64,
+}
+
+/// What `/oauth/authorize` answers a browser with ([`Deployment::authorize_browser`]).
+#[derive(Debug)]
+pub enum BrowserAuthorization {
+    /// The request named a usable session: the code, for the client's redirect.
+    Authorized(Authorization),
+    /// No usable session, or `prompt=login`: the browser is sent to the IdP of the client
+    /// organization's relying-party connection, and the request is resumed at its callback.
+    Upstream(Started),
+    /// `prompt=none` with no usable session (OIDC Core section 3.1.2.6): `login_required`, at
+    /// the client's validated redirect, with the exact state received.
+    LoginRequired {
+        /// The redirect URI the client registered and this request presented, exactly.
+        redirect_uri: RedirectUri,
+        /// The exact state received from the client.
+        state: String,
+    },
+    /// No session presented, and this deployment signs no browser in: the request is
+    /// refused as one that presents no session proof, as it was before browsers were served.
+    SessionRequired,
 }
 
 /// What a completed callback hands the browser: where to go, and the code to go with.
@@ -1289,8 +1338,8 @@ pub struct CallbackAnswer {
     /// the cookie alone: a callback naming a state nobody issued, or another sign-in's,
     /// changes nothing the browser holds.
     pub bindings_left: Option<Vec<String>>,
-    /// The handoff, or the refusal.
-    pub outcome: Result<Handoff, Refusal>,
+    /// The handoff or the resumed authorization request, or the refusal.
+    pub outcome: Result<Completed, Refusal>,
 }
 
 /// What an accepted authorize step answers: the IdP URL and the browser binding.
@@ -1392,6 +1441,24 @@ fn same_text(one: &str, other: &str) -> bool {
 /// The refusal a relying-party step answers with.
 fn relying_refusal(reason: DenialReason, clause: FederationClause) -> Refusal {
     Refusal::from(&FederationDenied::new(reason, clause))
+}
+
+/// Whether [`Deployment::authorize`] refused because the presented proof names no usable
+/// session: unknown, revoked, stale, of an unresolvable epoch, or expired. Those are rendered
+/// in place, before the client is read; nothing after them is a session refusal.
+fn names_no_usable_session(refusal: &AuthorizationRefusal) -> bool {
+    let AuthorizationRefusal::InPlace(refusal) = refusal else {
+        return false;
+    };
+    [
+        FederationClause::SessionUnknown,
+        FederationClause::SessionRevoked,
+        FederationClause::SessionStale,
+        FederationClause::SessionEpochUnresolved,
+        FederationClause::SessionExpired,
+    ]
+    .iter()
+    .any(|clause| refusal.clause == format!("{clause:?}"))
 }
 
 /// A token-endpoint or discovery refusal: its log-safe name to the operator's stream, and
@@ -1822,6 +1889,13 @@ impl ClientSeeding {
         self.key
     }
 
+    /// The clients seeded so far: what a `--resource-server` document's `client_id` resolves
+    /// against ([`TargetSeeding::with_clients`]).
+    #[must_use]
+    pub const fn clients(&self) -> &FederationProjection {
+        &self.projection
+    }
+
     /// Decide what the whole set decides: every trusted peer names a seeded client of the
     /// same organization.
     ///
@@ -1961,6 +2035,7 @@ impl ClientSeeding {
 pub struct TargetSeeding {
     projection: CredentialProjection,
     admitted: Vec<(PathBuf, ResourceServerId)>,
+    clients: FederationProjection,
 }
 
 impl Default for TargetSeeding {
@@ -1988,7 +2063,19 @@ impl TargetSeeding {
         Self {
             projection,
             admitted: Vec::new(),
+            clients: FederationProjection::default(),
         }
+    }
+
+    /// Resolve a document's named `client_id` against these seeded clients.
+    ///
+    /// Without it every document that names a client is refused as "the named client is
+    /// unresolved": `RegisterResourceServer` resolves the client it records (fork F11), and a
+    /// seeding that was handed no client registry has none to resolve it in.
+    #[must_use]
+    pub fn with_clients(mut self, clients: FederationProjection) -> Self {
+        self.clients = clients;
+        self
     }
 
     /// Admit one document against the ones already admitted, and answer the events it
@@ -2019,14 +2106,16 @@ impl TargetSeeding {
         // `resource_server_id` is handed to it as the identity it allocates, so the
         // operator's own id and an allocated one take exactly the same path through the
         // guards — [`StatedIdentities`]'s rule, one crate over.
-        let registered = register_resource_server(
+        let registered = register_resource_server_for_clients(
             &RegisterResourceServer {
                 context: seeded_context(seed.organization),
                 audience: seed.audience.clone(),
                 profile: seed.profile.clone(),
                 allowed_exchange_sources: seed.allowed_exchange_sources.clone(),
+                client_id: seed.client_id,
             },
             &self.projection,
+            &OAuthClientReadsOver::over(&self.clients),
             &mut StatedResourceServerIdentity {
                 resource_server_id: seed.resource_server_id,
                 allocate,
@@ -2124,7 +2213,7 @@ impl TargetSeeding {
     }
 }
 
-/// The identity source [`register_resource_server`] allocates through.
+/// The identity source [`register_resource_server_for_clients`] allocates through.
 ///
 /// [`StatedIdentities`]'s rule for the credential side: the command mints the
 /// `resource_server_id` it responds with, so a document stating one states what the command
@@ -2396,6 +2485,11 @@ pub struct ResourceServerSeed {
     /// may be exchanged into this target, and a list nobody wrote is not a list an operator
     /// chose.
     pub allowed_exchange_sources: Vec<ResourceServerId>,
+    /// The client this registration is the audience of, when it backs one: the resource
+    /// server an OpenID Connect authorization from that client targets when it names none
+    /// (fork F11). Absent for a registration no client is bound to.
+    #[serde(default, deserialize_with = "mandate_types::value::present")]
+    pub client_id: Option<OAuthClientId>,
 }
 
 /// The registration one document seeds, and the events that seed it.
@@ -2424,6 +2518,7 @@ impl ResourceServerSeed {
                 audience: self.audience.clone(),
                 credential_profile: self.profile.clone(),
                 allowed_exchange_sources: self.allowed_exchange_sources.clone(),
+                client_id: self.client_id,
             }],
         }
     }
@@ -3978,11 +4073,12 @@ where
         // The organization is the authenticated session's, never a caller-supplied selector.
         // Every refusal to here is rendered rather than redirected: the client and its
         // registered redirect have not been validated, so there is nowhere to send one.
-        let client = registered_public_client(
+        let client = registered_client(
             &self.federation,
             &input.client_id,
             &input.redirect_uri,
             session.organization(),
+            input.challenge.is_some(),
         )
         .map_err(|denied| AuthorizationRefusal::InPlace(Refusal::from(&denied)))?;
 
@@ -3997,14 +4093,51 @@ where
                 redirect_uri: input.redirect_uri.clone(),
                 state: input.state.clone(),
             };
+        // The target is the one the request names or, for an OpenID Connect request that
+        // names none, the one enabled resource server whose `client_id` names this client
+        // (decision 4, fork F11). A disabled registration is passed over; two enabled ones
+        // are refused rather than chosen between by registration order.
+        let target = match input.target {
+            Some(named) => named,
+            None => {
+                let mut backing = self.credentials.resource_servers().iter().filter(|server| {
+                    server.client_id == Some(client.id)
+                        && server.state == ResourceServerState::Enabled
+                });
+                match (backing.next(), backing.next()) {
+                    (Some(server), None) => server.id,
+                    (None, _) => {
+                        return Err(redirected(
+                            FederationClause::TargetUnknown,
+                            DenialReason::Denied,
+                        ));
+                    }
+                    (Some(_), Some(_)) => {
+                        return Err(redirected(
+                            FederationClause::TargetAmbiguous,
+                            DenialReason::Denied,
+                        ));
+                    }
+                }
+            }
+        };
+        // The STS records a challenge on every code at this stage: a client that may omit PKCE
+        // (`pkce_required` false) is admitted above and refused here until the code carries
+        // none (scenario `oidc-authorize-confidential-without-pkce`, a later stage).
+        let (Some(challenge), Some(method)) = (input.challenge.clone(), input.method) else {
+            return Err(redirected(
+                FederationClause::ChallengeAbsent,
+                DenialReason::Denied,
+            ));
+        };
         let targets = TargetRegistryOver::over(&self.credentials);
-        if !targets.can_answer(&input.target) {
+        if !targets.can_answer(&target) {
             return Err(redirected(
                 FederationClause::TargetUnanswerable,
                 DenialReason::Unavailable,
             ));
         }
-        match targets.target_organization(&input.target) {
+        match targets.target_organization(&target) {
             None => {
                 return Err(redirected(
                     FederationClause::TargetUnknown,
@@ -4018,6 +4151,27 @@ where
                 ));
             }
             Some(_) => {}
+        }
+        // A target another client backs is that client's audience: only a client it lists as
+        // a trusted peer may be issued a code for it. A backing client that does not resolve,
+        // is disabled or is of another organization lists no one (fail closed).
+        if let Some(backing) = self
+            .credentials
+            .resource_server(&target)
+            .and_then(|server| server.client_id)
+            .filter(|backing| *backing != client.id)
+        {
+            let listed = OAuthClientStore::client(&self.federation, &backing).is_some_and(|peer| {
+                peer.state == OAuthClientState::Recorded
+                    && peer.organization_id == client.organization_id
+                    && peer.trusted_peers.contains(&client.id)
+            });
+            if !listed {
+                return Err(redirected(
+                    FederationClause::TargetPeerUnlisted,
+                    DenialReason::Denied,
+                ));
+            }
         }
 
         // Measured from the request's own instant, never from a second clock read: the STS
@@ -4035,7 +4189,7 @@ where
                 // and never from a caller-supplied selector.
                 audience: self
                     .credentials
-                    .resource_server(&input.target)
+                    .resource_server(&target)
                     .map_or_else(|| self.audience(), |server| server.audience),
                 credential: CredentialId::new(Uuid::from_bytes([0; 16])),
                 delegation: None,
@@ -4044,10 +4198,10 @@ where
             },
             client_id: client.id,
             session_id,
-            target: input.target,
+            target,
             requested_scope: input.requested_scope.clone(),
-            challenge: input.challenge.clone(),
-            method: input.method,
+            challenge,
+            method,
             redirect_uri: input.redirect_uri.clone(),
             expires_at,
         };
@@ -4066,7 +4220,7 @@ where
             let action = Action::new(ISSUE_AUTHORIZATION_CODE);
             let resource = ResourceRef {
                 resource_type: ResourceType::new(RESOURCE_SERVER),
-                resource_id: ResourceId::new(*input.target.as_uuid()),
+                resource_id: ResourceId::new(*target.as_uuid()),
             };
             // The expectation is the context's own audience, and `context::bind`'s
             // `AudienceMismatch` arm is therefore **unreachable from here**: both values
@@ -4288,13 +4442,154 @@ where
         &mut self,
         input: &decode::BeginFederation,
     ) -> Result<Started, Refusal> {
-        let now = self.clock.unix_seconds();
-        let connection = self
-            .federation
-            .connection(&input.connection_id)
+        self.start_sign_in(
+            input.connection_id,
+            input.app_state.clone(),
+            &input.bindings,
+            None,
+        )
+    }
+
+    /// Whether a presented session proof names a session of another organization than the
+    /// registered client's. `false` when either does not resolve: [`Deployment::authorize`]
+    /// answers those itself.
+    fn names_another_organization(&self, proof: &CredentialProof, client: &OAuthClientId) -> bool {
+        let Some(registered) = OAuthClientStore::client(&self.federation, client) else {
+            return false;
+        };
+        self.proofs
+            .resolve(&self.digest, proof)
+            .and_then(|session_id| self.identity.resolve(&session_id))
+            .is_some_and(|session| *session.organization() != registered.organization_id)
+    }
+
+    /// The authorization endpoint as a browser reaches it (fork F4 B, minimally).
+    ///
+    /// - A usable session, presented in the host-only cookie or as a bearer credential, and
+    ///   no `prompt=login`: [`Deployment::authorize`], exactly as before.
+    /// - A cookie naming no usable session (unknown, revoked, stale or expired) is a browser
+    ///   to sign in again, and is answered as if it presented none. So is a cookie naming a
+    ///   session of another organization than the client's: that session cannot authorize
+    ///   this client, and the browser signs in to the client's organization instead. A
+    ///   **bearer** credential naming none is refused, as before: it is a caller's
+    ///   deliberate presentation.
+    /// - Otherwise the client and its exact redirect are validated first, against the
+    ///   client's own organization, so nothing is sent upstream for a request whose redirect
+    ///   could not carry the answer. Then `prompt=none` is `login_required` at that redirect,
+    ///   and anything else starts a sign-in through the one relying-party connection of the
+    ///   client's organization, holding this request to resume at its callback
+    ///   ([`Deployment::complete_federation`]).
+    /// - A deployment that signs no browser in answers a request presenting no session as
+    ///   [`BrowserAuthorization::SessionRequired`], before anything is decided, which is the
+    ///   answer it gave before browsers were served.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`AuthorizationRefusal`]: [`Deployment::authorize`]'s own; the client's, in
+    /// place; at the redirect, an organization with no single enabled relying-party
+    /// connection (`ConnectionUnknown`) and whatever starting the sign-in refuses.
+    pub fn authorize_browser(
+        &mut self,
+        input: &decode::AuthorizeBrowser,
+    ) -> Result<BrowserAuthorization, AuthorizationRefusal> {
+        let fresh_sign_in = input.prompt == Some(decode::Prompt::Login);
+        let unusable_cookie = matches!(&input.session, Some(decode::PresentedSession::Cookie(proof))
+            if self.names_another_organization(proof, &input.client_id));
+        if let (Some(presented), false, false) = (&input.session, fresh_sign_in, unusable_cookie) {
+            match self.authorize(&input.clone().with_session(presented.proof().clone())) {
+                Ok(authorization) => return Ok(BrowserAuthorization::Authorized(authorization)),
+                Err(refusal)
+                    if matches!(presented, decode::PresentedSession::Cookie(_))
+                        && names_no_usable_session(&refusal) => {}
+                Err(refusal) => return Err(refusal),
+            }
+        }
+        if self.relying_party.is_none() && input.prompt != Some(decode::Prompt::None) {
+            return Ok(BrowserAuthorization::SessionRequired);
+        }
+
+        // No session to read the organization from, so the client's own registration names
+        // it; the session the sign-in opens is held to it again when the request resumes.
+        let organization = OAuthClientStore::client(&self.federation, &input.client_id)
+            .map(|client| client.organization_id)
             .ok_or_else(|| {
-                relying_refusal(DenialReason::Denied, FederationClause::ConnectionUnknown)
+                AuthorizationRefusal::InPlace(Refusal {
+                    clause: format!("{:?}", FederationClause::ClientUnknown),
+                    reason: DenialReason::Denied,
+                })
             })?;
+        let client = registered_client(
+            &self.federation,
+            &input.client_id,
+            &input.redirect_uri,
+            &organization,
+            input.challenge.is_some(),
+        )
+        .map_err(|denied| AuthorizationRefusal::InPlace(Refusal::from(&denied)))?;
+        let redirected = |refusal: Refusal| AuthorizationRefusal::AtRedirect {
+            refusal,
+            redirect_uri: input.redirect_uri.clone(),
+            state: input.state.clone(),
+        };
+        if input.prompt == Some(decode::Prompt::None) {
+            return Ok(BrowserAuthorization::LoginRequired {
+                redirect_uri: input.redirect_uri.clone(),
+                state: input.state.clone(),
+            });
+        }
+
+        // The one enabled relying-party connection of the client's organization. None, or
+        // more than one, is a deployment that cannot say where this browser signs in.
+        let candidates: Vec<FederationConnectionId> = self
+            .relying_party
+            .as_ref()
+            .map(|relying_party| {
+                relying_party
+                    .connections
+                    .keys()
+                    .filter(|id| {
+                        ConnectionStore::connection(&self.federation, id).is_some_and(|held| {
+                            held.organization_id == client.organization_id
+                                && held.state
+                                    == mandate_federation::record::ConnectionState::Enabled
+                        })
+                    })
+                    .copied()
+                    .collect()
+            })
+            .unwrap_or_default();
+        let [connection_id] = candidates.as_slice() else {
+            return Err(redirected(relying_refusal(
+                DenialReason::Denied,
+                FederationClause::ConnectionUnknown,
+            )));
+        };
+        let resume = decode::AuthorizeBrowser {
+            session: None,
+            prompt: None,
+            bindings: Vec::new(),
+            ..input.clone()
+        };
+        let started = self
+            .start_sign_in(*connection_id, None, &input.bindings, Some(resume))
+            .map_err(redirected)?;
+        Ok(BrowserAuthorization::Upstream(started))
+    }
+
+    /// Start a sign-in through this connection's IdP; see [`Deployment::begin_federation`].
+    /// `resume` is the authorization request the callback resumes, when a browser was sent
+    /// here from `/oauth/authorize`.
+    fn start_sign_in(
+        &mut self,
+        connection_id: FederationConnectionId,
+        app_state: Option<String>,
+        held: &[String],
+        resume: Option<decode::AuthorizeBrowser>,
+    ) -> Result<Started, Refusal> {
+        let now = self.clock.unix_seconds();
+        let connection = self.federation.connection(&connection_id).ok_or_else(|| {
+            relying_refusal(DenialReason::Denied, FederationClause::ConnectionUnknown)
+        })?;
         if connection.state != mandate_federation::record::ConnectionState::Enabled {
             return Err(relying_refusal(
                 DenialReason::Denied,
@@ -4310,7 +4605,7 @@ where
         })?;
         let configured = relying_party
             .connections
-            .get(&input.connection_id)
+            .get(&connection_id)
             .ok_or_else(|| {
                 relying_refusal(DenialReason::Denied, FederationClause::ConnectionUnknown)
             })?;
@@ -4332,16 +4627,17 @@ where
         relying_party.pending.insert(
             state,
             PendingLogin {
-                connection_id: input.connection_id,
+                connection_id,
                 nonce,
                 verifier: CredentialProof::from_bytes(verifier.into_bytes()),
                 binding: binding.clone(),
-                app_state: input.app_state.clone(),
+                app_state,
+                resume,
             },
             now,
         );
-        let kept = input.bindings.len().saturating_sub(MAX_HELD_BINDINGS - 1);
-        let mut bindings: Vec<String> = input.bindings[kept..].to_vec();
+        let kept = held.len().saturating_sub(MAX_HELD_BINDINGS - 1);
+        let mut bindings: Vec<String> = held[kept..].to_vec();
         bindings.push(binding);
         Ok(Started { location, bindings })
     }
@@ -4414,7 +4710,7 @@ where
         input: &decode::CompleteFederation,
         pending: PendingLogin,
         now: u64,
-    ) -> Result<Handoff, Refusal> {
+    ) -> Result<Completed, Refusal> {
         let relying_party = self.relying_party.as_mut().ok_or_else(|| {
             relying_refusal(DenialReason::Denied, FederationClause::ConnectionUnknown)
         })?;
@@ -4495,17 +4791,29 @@ where
             },
             seconds_of(now),
         )?;
+        // A sign-in an authorization request started resumes that request with the session
+        // it opened, and the browser keeps the session in its cookie: nothing waits for a
+        // handoff, because no embedding application is there to collect one.
+        if let Some(resume) = pending.resume {
+            let proof = CredentialProof::from_bytes(login.session_proof.expose_bytes().to_vec());
+            let outcome = self.authorize(&resume.with_session(proof));
+            return Ok(Completed::Resumed(Resumed {
+                outcome,
+                session_proof: login.session_proof,
+                max_age: u64::try_from(self.session_lifetime).unwrap_or(0),
+            }));
+        }
         let code = base64url(self.secrets.next_secret().expose_bytes());
         if let Some(relying_party) = self.relying_party.as_mut() {
             relying_party
                 .handoffs
                 .insert(code.clone(), (login, pending.app_state.clone()), now);
         }
-        Ok(Handoff {
+        Ok(Completed::Handoff(Handoff {
             return_uri,
             code,
             app_state: pending.app_state,
-        })
+        }))
     }
 
     /// Exchange a handoff code for the session a callback opened: once, only within

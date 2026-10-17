@@ -335,8 +335,8 @@ fn serve(given: &Serving) -> Result<(), Refused> {
         seeded_clients.push((path, seed.name.as_deref(), admitted));
     }
     client_seeding.settled().map_err(Refused::Seed)?;
+    let mut target_seeding = TargetSeeding::new().with_clients(client_seeding.clients().clone());
     let client_key = client_seeding.into_key();
-    let mut target_seeding = TargetSeeding::new();
     let mut seeded_targets = Vec::with_capacity(target_seeds.len());
     for (path, seed) in &target_seeds {
         let mut allocate = || allocator.next_uuid();

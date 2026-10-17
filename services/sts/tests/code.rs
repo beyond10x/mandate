@@ -133,6 +133,7 @@ fn registered(
             audience: Audience::new(audience),
             profile,
             allowed_exchange_sources: Vec::new(),
+            client_id: None,
         },
         &Projection::default(),
         &mut allocator,
@@ -535,19 +536,20 @@ fn the_client_double_tells_unregistered_from_disabled() {
     assert_eq!(clients.is_enabled(&OAuthClientId::new(uuid(0x0e))), None);
 }
 
-/// **A client the registry does not answer "public" for is refused.**
+/// **A registered client of either type is issued a code.**
 ///
-/// `IssueAuthorizationCode`'s declared denial names a "registered **public** client"
-/// (`credential.yaml`; `docs/architecture/command-obligations.md:13`), and the STS is the
-/// second line behind the control-plane adapter that has already decided it: a code bound to
-/// a confidential client is a code the authorization-code-with-PKCE road never authorizes.
-/// Both values are driven, and so is the reader that cannot answer at all.
+/// `IssueAuthorizationCode`'s declared denial names a "registered client" (`credential.yaml`):
+/// `mandate.federation.AuthorizeClient` admits a confidential client whose `pkce_required` is
+/// false (fork F3), so the STS, the second line behind the control-plane adapter, asks
+/// whether the client is registered, in the tenant and enabled, and not whether it is
+/// public. A confidential client, a public one and a reader that cannot answer the public
+/// question are each driven; none is refused for its type.
 #[test]
-fn a_client_the_registry_does_not_answer_public_for_is_refused() {
+fn a_registered_client_of_either_type_is_issued_a_code() {
     let (servers, target) = registered(organization(10), "api-a", reference_profile());
     let command = input(target, organization(10));
 
-    let refuse = |clients: &RecordedClients| {
+    let issue = |clients: &RecordedClients| {
         let mut secrets = CountingSecrets::new();
         let mut allocator = SequentialAllocator::new();
         issuance().issue(
@@ -563,30 +565,19 @@ fn a_client_the_registry_does_not_answer_public_for_is_refused() {
         )
     };
 
-    // Registered, enabled, and confidential.
-    assert_eq!(
-        refuse(
-            &RecordedClients::new()
-                .confidential(client(), organization(10))
-                .redirect(client(), authorized_redirect())
-        )
-        .expect_err("a confidential client"),
-        Denied::new(DenialReason::Denied, DenialClause::ClientNotPublic)
-    );
-
-    // A reader that holds no answer has not decided that the client is public.
-    assert_eq!(
-        refuse(
-            &RecordedClients::new()
-                .unanswerable(client(), organization(10))
-                .redirect(client(), authorized_redirect())
-        )
-        .expect_err("a reader that cannot answer"),
-        Denied::new(DenialReason::Unavailable, DenialClause::ClientNotPublic)
-    );
-
-    // And the accepted value, so the case decides the question rather than the refusal.
-    refuse(
+    issue(
+        &RecordedClients::new()
+            .confidential(client(), organization(10))
+            .redirect(client(), authorized_redirect()),
+    )
+    .expect("a registered, enabled, confidential client");
+    issue(
+        &RecordedClients::new()
+            .unanswerable(client(), organization(10))
+            .redirect(client(), authorized_redirect()),
+    )
+    .expect("the public question is not asked at issuance");
+    issue(
         &RecordedClients::new()
             .enabled(client(), organization(10))
             .redirect(client(), authorized_redirect()),

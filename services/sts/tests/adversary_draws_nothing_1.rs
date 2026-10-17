@@ -139,6 +139,7 @@ fn registered(profile: CredentialProfile) -> (Projection, ResourceServerId) {
             audience: Audience::new("api-a"),
             profile,
             allowed_exchange_sources: Vec::new(),
+            client_id: None,
         },
         &Projection::default(),
         &mut allocator,
