@@ -275,9 +275,9 @@ fn best_carrier(entity: &Value) -> Option<Carrier> {
 /// from the yaml under attack.
 #[test]
 fn the_reader_sees_the_contract_it_claims_to_see() {
-    assert_eq!(section("events").len(), 77, "compiled events");
-    assert_eq!(section("commands").len(), 64, "compiled commands");
-    assert_eq!(section("types").len(), 118, "compiled type entries");
+    assert_eq!(section("events").len(), 82, "compiled events");
+    assert_eq!(section("commands").len(), 65, "compiled commands");
+    assert_eq!(section("types").len(), 124, "compiled type entries");
     assert_eq!(section("entities").len(), 36, "compiled entities");
 
     let opened = &section("events")["mandate.identity.SessionOpened"];

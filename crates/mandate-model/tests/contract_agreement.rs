@@ -751,7 +751,7 @@ fn an_absent_optional_is_an_absent_key_and_never_null() {
 ///
 /// Neither half of the agreement can see a wrong pairing on its own. `ess_name()` binds
 /// the element to the domain value, and the round trip binds the document to the generated
-/// shape, but the shape is a hand-typed path: the six `{context, id}` payloads and the 23
+/// shape, but the shape is a hand-typed path: the six `{context, id}` payloads and the 22
 /// state enums that share a variant list are structurally interchangeable, so every
 /// cross-pairing among them survives the whole procedure. This is the case that compares
 /// the two sides, by ESS's own rule, and it is why `rust_name` exists.

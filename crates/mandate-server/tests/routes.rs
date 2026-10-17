@@ -133,9 +133,9 @@ fn the_two_document_paths_are_entries_of_this_table() {
 }
 
 #[test]
-fn the_generated_projection_publishes_sixty_three_command_routes() {
+fn the_generated_projection_publishes_sixty_five_command_routes() {
     let generated = generated_paths();
-    assert_eq!(generated.len(), 63);
+    assert_eq!(generated.len(), 65);
     for path in &generated {
         let segments: Vec<&str> = path.split('/').collect();
         assert_eq!(segments.len(), 4, "{path}");
@@ -163,7 +163,7 @@ fn the_product_table_intersects_the_generated_command_routes_nowhere() {
 
 #[test]
 fn no_product_route_is_shaped_like_a_generated_command_route() {
-    // Stronger than the intersection: the intersection is empty for the 63 that exist today,
+    // Stronger than the intersection: the intersection is empty for the 65 that exist today,
     // and this holds for the ones a later contract adds.
     for route in ROUTES {
         assert!(
@@ -190,7 +190,7 @@ fn the_predicate_answers_for_every_generated_path_the_projection_publishes() {
     }
 }
 
-/// Every path the four generated OpenAPI documents publish.
+/// Every path the five generated OpenAPI documents publish.
 fn generated_paths() -> BTreeSet<String> {
     let mut paths = BTreeSet::new();
     let mut documents = 0;
@@ -214,7 +214,7 @@ fn generated_paths() -> BTreeSet<String> {
             }
         }
     }
-    assert_eq!(documents, 4, "the four generated documents");
+    assert_eq!(documents, 5, "the five generated documents");
     paths
 }
 

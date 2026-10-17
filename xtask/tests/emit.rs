@@ -187,10 +187,10 @@ fn every_element_the_model_declares_is_emitted_exactly_once() {
     }
 
     // The figures this wave measured, so a silently shrinking emission is a failure here too.
-    assert_eq!(declarations(&files["events.rs"]).len(), 77);
+    assert_eq!(declarations(&files["events.rs"]).len(), 82);
     assert_eq!(declarations(&files["entities.rs"]).len(), 72); // 36 entities and 36 state enums
-    assert_eq!(declarations(&files["commands.rs"]).len(), 105); // 64 inputs, 29 responses, 12 errors
-    assert_eq!(declarations(&files["types.rs"]).len(), 83); // 118 types less 36 states, and Presence
+    assert_eq!(declarations(&files["commands.rs"]).len(), 107); // 65 inputs, 30 responses, 12 errors
+    assert_eq!(declarations(&files["types.rs"]).len(), 89); // the compiled types less the 36 state enums, and Presence
 }
 
 /// A response is emitted for the command that declares one, and only for it.
@@ -207,7 +207,7 @@ fn only_a_command_that_declares_a_response_is_given_one() {
         .values()
         .filter(|command| command.get("response").is_some())
         .count();
-    assert_eq!(declared, 29);
+    assert_eq!(declared, 30);
     assert_eq!(
         declarations(&files["commands.rs"])
             .iter()

@@ -497,7 +497,7 @@ fn introspect(form: &str) -> Request {
         .with_body(form.as_bytes().to_vec())
 }
 
-/// Every `operationId` the four generated OpenAPI documents publish.
+/// Every `operationId` the five generated OpenAPI documents publish.
 fn published_operation_ids() -> BTreeSet<&'static str> {
     let mut ids = BTreeSet::new();
     let mut documents = 0;
@@ -518,7 +518,7 @@ fn published_operation_ids() -> BTreeSet<&'static str> {
             }
         }
     }
-    assert_eq!(documents, 4);
+    assert_eq!(documents, 5);
     ids
 }
 

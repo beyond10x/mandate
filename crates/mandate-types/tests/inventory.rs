@@ -35,7 +35,7 @@ fn schema_kind(ess_name: &str) -> String {
 #[test]
 fn the_compiled_type_index_splits_into_authored_types_and_derived_state_enums() {
     let names = schema_names("types");
-    assert_eq!(names.len(), 119, "compiled type entries");
+    assert_eq!(names.len(), 124, "compiled type entries");
     // The token guard's seven types belong to the guard library in mandate-client, which
     // realizes them; mandate-types accounts for the core types and the derived states only.
     let guard = names
@@ -47,7 +47,7 @@ fn the_compiled_type_index_splits_into_authored_types_and_derived_state_enums() 
         .iter()
         .filter(|name| name.starts_with("mandate.core."))
         .collect();
-    assert_eq!(authored.len(), 75, "authored model types");
+    assert_eq!(authored.len(), 77, "authored model types");
     for name in &names {
         if !name.starts_with("mandate.core.") && !name.starts_with("mandate.guard.") {
             assert!(
@@ -104,8 +104,8 @@ fn the_accepted_account_agrees_with_the_projected_kind_of_every_type() {
         *breakdown.entry(entry.kind).or_default() += 1;
     }
     assert_eq!(breakdown[&Kind::Newtype], 55);
-    assert_eq!(breakdown[&Kind::Enum], 8);
-    assert_eq!(breakdown[&Kind::Struct], 10);
+    assert_eq!(breakdown[&Kind::Enum], 9);
+    assert_eq!(breakdown[&Kind::Struct], 11);
     assert_eq!(breakdown[&Kind::Union], 2);
 }
 
@@ -115,12 +115,12 @@ fn every_accepted_type_has_exactly_one_owning_crate() {
     for entry in ACCEPTED {
         *breakdown.entry(entry.owner).or_default() += 1;
     }
-    assert_eq!(breakdown.values().sum::<usize>(), 75);
+    assert_eq!(breakdown.values().sum::<usize>(), 77);
     assert_eq!(
         breakdown.get(&Owner::Types).copied().unwrap_or_default(),
-        69
+        70
     );
-    assert_eq!(breakdown.get(&Owner::Model).copied().unwrap_or_default(), 4);
+    assert_eq!(breakdown.get(&Owner::Model).copied().unwrap_or_default(), 5);
     assert_eq!(breakdown.get(&Owner::Token).copied().unwrap_or_default(), 2);
     assert_eq!(breakdown.get(&Owner::Proto).copied().unwrap_or_default(), 0);
 }
@@ -344,7 +344,7 @@ fn the_coverage_manifest_names_exactly_what_this_crate_accounts_for() {
             "{element}: two entries name this element"
         );
     }
-    assert_eq!(entries.len(), 307, "the coverage manifest's element count");
+    assert_eq!(entries.len(), 319, "the coverage manifest's element count");
 
     let mut claimed: BTreeMap<String, String> = BTreeMap::new();
     for (element, entry) in &entries {
@@ -385,7 +385,7 @@ fn the_coverage_manifest_names_exactly_what_this_crate_accounts_for() {
     }
     assert_eq!(
         expected.len(),
-        69,
+        70,
         "the share of the authored types this crate owns"
     );
     assert_eq!(
