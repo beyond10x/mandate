@@ -25,8 +25,14 @@ use crate::{GuardPolicy, Identity, Refusal, RefusalReason};
 /// The largest clock skew a policy may name: five minutes.
 pub const MAX_CLOCK_SKEW: Duration = Duration::from_secs(300);
 
-/// How often an unknown `kid` may cause a JWK Set refetch, unless the caller sets another bound.
+/// How often any JWK Set refetch may happen, unless the caller sets another bound: an unknown
+/// `kid` cannot cause more than one fetch per interval, whatever the request rate.
 pub const DEFAULT_REFRESH_INTERVAL: Duration = Duration::from_secs(30);
+
+/// How old the held JWK Set may grow before the next lookup refetches it, unless the caller
+/// sets another bound. A key the issuer withdraws stops verifying within this age, even while
+/// every token names a `kid` the held set still carries.
+pub const DEFAULT_MAX_AGE: Duration = Duration::from_secs(15 * 60);
 
 /// The signature algorithms the guard admits: asymmetric only, so a published key can
 /// never be used as a shared secret.
@@ -69,10 +75,13 @@ pub enum PolicyError {
     NegativeLimit(&'static str),
 }
 
-/// The JWK Set the verifier holds, and when it last asked for one.
+/// The JWK Set the verifier holds, when it last obtained one, and when it last asked.
 struct Cache {
     set: JwkSet,
+    /// The last fetch that produced a set: the held set's age is counted from here.
     fetched_at: Option<SystemTime>,
+    /// The last fetch attempted, successful or not: the refresh interval is counted from here.
+    attempted_at: Option<SystemTime>,
 }
 
 /// Verifies bearer tokens for one [`GuardPolicy`] against one issuer's JWK Set.
@@ -80,6 +89,7 @@ pub struct Verifier<S> {
     policy: GuardPolicy,
     skew: i64,
     refresh: Duration,
+    max_age: Duration,
     source: S,
     cache: Mutex<Cache>,
 }
@@ -199,18 +209,28 @@ impl<S: JwksSource> Verifier<S> {
             skew: i64::try_from(skew.as_secs()).unwrap_or(i64::MAX),
             policy,
             refresh: DEFAULT_REFRESH_INTERVAL,
+            max_age: DEFAULT_MAX_AGE,
             source,
             cache: Mutex::new(Cache {
                 set: JwkSet { keys: Vec::new() },
                 fetched_at: None,
+                attempted_at: None,
             }),
         })
     }
 
-    /// The same verifier with another bound on how often an unknown `kid` refetches the set.
+    /// The same verifier with another bound on how often the set may be refetched.
     #[must_use]
     pub fn with_refresh_interval(mut self, interval: Duration) -> Self {
         self.refresh = interval;
+        self
+    }
+
+    /// The same verifier with another bound on how old the held set may grow before a lookup
+    /// refetches it.
+    #[must_use]
+    pub fn with_max_age(mut self, age: Duration) -> Self {
+        self.max_age = age;
         self
     }
 
@@ -364,23 +384,28 @@ impl<S: JwksSource> Verifier<S> {
                 .any(|listed| listed.0.eq_ignore_ascii_case(domain))
     }
 
-    /// The published key `kid` names: from the held set, else from one refetch, which an
-    /// unknown `kid` may cause at most once per refresh interval.
+    /// The published key `kid` names, from a set no older than the maximum age.
+    ///
+    /// A held set younger than the maximum age answers a `kid` it carries. Otherwise the set is
+    /// refetched, at most once per refresh interval whatever the cause, and the `kid` is looked
+    /// up in what that fetch returned, so a key absent from a fresh set is refused. A failed
+    /// fetch keeps the held set; the next attempt waits out the refresh interval.
     fn key(&self, kid: &str, now: SystemTime) -> Option<Jwk> {
+        let elapsed = |since: Option<SystemTime>, bound: Duration| {
+            since.is_none_or(|at| now.duration_since(at).map_or(true, |age| age >= bound))
+        };
         let mut cache = self.cache.lock().unwrap_or_else(PoisonError::into_inner);
-        if let Some(jwk) = cache.set.find(kid) {
+        if !elapsed(cache.fetched_at, self.max_age)
+            && let Some(jwk) = cache.set.find(kid)
+        {
             return Some(jwk.clone());
         }
-        let due = cache.fetched_at.is_none_or(|fetched| {
-            now.duration_since(fetched)
-                .map_or(true, |since| since >= self.refresh)
-        });
-        if !due {
-            return None;
-        }
-        cache.fetched_at = Some(now);
-        if let Ok(set) = self.source.fetch() {
-            cache.set = set;
+        if elapsed(cache.attempted_at, self.refresh) {
+            cache.attempted_at = Some(now);
+            if let Ok(set) = self.source.fetch() {
+                cache.set = set;
+                cache.fetched_at = Some(now);
+            }
         }
         cache.set.find(kid).cloned()
     }
