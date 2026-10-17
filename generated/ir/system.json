@@ -13938,7 +13938,7 @@
           "name": "unknown-key",
           "condition": {
             "kind": "external",
-            "cause": "The kid is in neither the cached JWK Set nor the one refetched for it, within the bounded refresh rate."
+            "cause": "The kid is absent from the issuer's JWK Set as the guard last fetched it. A held set is refetched once it reaches its maximum age (15 minutes unless configured), so a key the issuer withdrew stops verifying within that age; an unknown kid refetches it sooner, at most once per bounded refresh interval."
           },
           "test_strategy": "inject_fault",
           "emits": [],

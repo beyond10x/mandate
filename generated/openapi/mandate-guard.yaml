@@ -1,6 +1,6 @@
 # generated from mandate v1
-# model digest 721f20a2ce754ea7d57b7c1cbbfea0e881fb695657c4661eb1ef475fa7860e8a
-# contract digest slice-sha256/2:7244b84d7e3b0860fc83f25284102d9b004714598d2d664e3bcc0ab8b00eda82
+# model digest f5ac6bee950cad438d353c48a341683c9f73db710c6918a82fec4620d7806ea6
+# contract digest slice-sha256/2:8f9edd15da6dad263691e571727b98f68254bc20a16b628c2918f5dec385cf27
 # do not edit: regenerate with `ess generate`
 openapi: 3.1.0
 info:
@@ -14,8 +14,8 @@ info:
   x-ess-provenance:
     system: mandate
     specification_version: v1
-    source_digest: 721f20a2ce754ea7d57b7c1cbbfea0e881fb695657c4661eb1ef475fa7860e8a
-    contract_digest: slice-sha256/2:7244b84d7e3b0860fc83f25284102d9b004714598d2d664e3bcc0ab8b00eda82
+    source_digest: f5ac6bee950cad438d353c48a341683c9f73db710c6918a82fec4620d7806ea6
+    contract_digest: slice-sha256/2:8f9edd15da6dad263691e571727b98f68254bc20a16b628c2918f5dec385cf27
 tags:
 - name: guard
 paths:
@@ -361,7 +361,7 @@ components:
       type: object
     mandate.guard.AdmitRequest.unknown-key.Response:
       additionalProperties: false
-      description: 'Decided outside the request: The kid is in neither the cached JWK Set nor the one refetched for it, within the bounded refresh rate..'
+      description: 'Decided outside the request: The kid is absent from the issuer''s JWK Set as the guard last fetched it. A held set is refetched once it reaches its maximum age (15 minutes unless configured), so a key the issuer withdrew stops verifying within that age; an unknown kid refetches it sooner, at most once per bounded refresh interval..'
       properties:
         error:
           const: mandate.guard.Refused
