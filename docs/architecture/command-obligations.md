@@ -48,6 +48,16 @@ These conditions are required denial behavior, declared per command in ESS. They
 | `mandate.graph.RemoveRelation` | Caller lacks relationship-write authority, relation/resource is outside the verified organization, or required graph revocation visibility cannot be satisfied. |
 | `mandate.graph.RevokeGrant` | Caller lacks grant-revocation authority, grant is outside the verified organization, or required graph revocation visibility cannot be satisfied. |
 | `mandate.graph.WriteRelationship` | Caller lacks relationship-write authority, the chosen principal/team subject is unresolved or outside tenant membership, resource tenancy mismatches, or the relationship is not admitted by the authorization model. |
+| `mandate.guard.AdmitRequest/malformed` | The token is not a compact JWS, its header names no key or an algorithm the guard does not admit, or its claims lack iss, sub, aud or exp. |
+| `mandate.guard.AdmitRequest/invalid-signature` | The signature does not verify under the key its kid names. |
+| `mandate.guard.AdmitRequest/unknown-key` | The kid is absent from the issuer's JWK Set as the guard last fetched it. A held set is refetched once it reaches its maximum age (15 minutes unless configured), so a key the issuer withdrew stops verifying within that age; an unknown kid refetches it sooner, at most once per bounded refresh interval. |
+| `mandate.guard.AdmitRequest/issuer-mismatch` | The token's iss is not the policy's issuer. |
+| `mandate.guard.AdmitRequest/audience-mismatch` | No aud of the token is one of the policy's audiences. |
+| `mandate.guard.AdmitRequest/expired` | The clock is past exp by more than the policy's clock skew. |
+| `mandate.guard.AdmitRequest/not-yet-valid` | The clock is before nbf by more than the policy's clock skew. |
+| `mandate.guard.AdmitRequest/identity-not-allowed` | The rule is not empty, and the token carries no email, an email the issuer has not verified, or one neither listed in allow.emails nor in a domain listed in allow.domains. |
+| `mandate.guard.AdmitRequest/over-limit` | The identity's bucket, refilled at limits.per_minute and holding at most limits.burst, is empty; other identities are admitted on their own buckets. |
+| `mandate.guard.AdmitRequest/queue-full` | limits.queue requests are already waiting; the request is refused at once, never buffered. |
 | `mandate.identity.DisablePrincipal` | Caller lacks principal-administration authority, principal does not exist, or disablement cannot atomically trigger the required session/credential invalidation. |
 | `mandate.identity.IncrementSecurityEpoch` | Caller lacks authority for the explicitly selected principal/organization/federation target, tenant containment fails, the exact unsigned generation is at its maximum, or atomic increment cannot commit. |
 | `mandate.identity.RefreshSession` | Refresh verifier is absent/incorrect, record is expired/revoked, principal/session is disabled, any applicable principal/organization/federation epoch mismatches, or session binding fails. |
