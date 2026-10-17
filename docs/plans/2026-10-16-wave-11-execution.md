@@ -83,6 +83,34 @@ library, the image and health half of packaging, and the federation fold over th
    operator's, citing ADR 0012:161, and is on this branch as `2cc62c8`. Without it, U6 is not dispatched
    and the wave is five units wide.
 
+### Decisions taken during the wave
+
+8. **Unrealized commands are recorded as `unsupported`**, not `failed` as decision 4 said: that is
+   what `cargo xtask conform` answers for a command with no adapter, and the ledger records the run's
+   answer with the owner the run names.
+9. **`InvalidClient`** joins `DenialReason` and `DecisionReason` (`systems/mandate/domains/core.yaml`);
+   the authorization endpoint maps it to `AccessDenied`.
+10. **Test proofs in scenarios use `scenario.<payload>.unsigned`** with a `kid` claim, and client
+    secrets in scenarios are low-entropy placeholders, so the secret scan has nothing to match. No
+    policy exception was added.
+11. **`RedeemAuthorizationCode/outcome/denied` stays `failed` on
+    `story:ess-synthesizer-prerequisites`.** The identity-token branch makes the synthesizer arrange
+    the code through `IssueAuthorizationCode` with placeholder ids, and the target refuses that
+    arrangement, as it should. The `accepted` row is red for the same reason. Loosening the target
+    would weaken a refusal; the row flips when the synthesizer can arrange real prerequisites.
+12. **`ResourceServer.client_id` stays.** RFC 8693 `audience=<client id>` names a client, and the
+    trusted-peer admission needs the client a resource server backs. The alternative, a default
+    resource server on `OAuthClient`, is left to `story:oidc-trusted-peers`.
+13. **`RotateRefreshCredential` is deferred** in `contracts/obligations/identity.json` on
+    `story:oidc-refresh-and-logout`, which realizes it; `mandate.guard.AdmitRequest` is deferred in
+    `contracts/obligations/authz.json` on `story:token-guard` (the registry's crate list is fixed).
+14. **The security review's two introduced issues are fixed in this wave**: the guard refetches a
+    JWK Set older than 15 minutes and refuses a key the fresh set no longer lists (refetches stay
+    limited to one per 30 s); `RegisterOAuthClient` decides the denials its input alone decides.
+    Two follow-ups are drafted rather than built: a bound on how long the guard may keep a stale set
+    when every refetch fails (today it keeps it, as the `JwksSource` contract says), and redaction
+    tombstones in the federation fold (no path redacts today).
+
 ## Units
 
 | unit | story | owns (files) | spec-first step | acceptance (named) | tier | build | ETA |
