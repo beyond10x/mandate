@@ -4,7 +4,7 @@
 //! names: "A written adapter contract naming, for every one of the 59 commands ... which party
 //! establishes each declared precondition. A sample is not evidence; the table is the
 //! enumeration." and "A negative conformance case per command deny clause". (59 has since
-//! become 63; the count is read here rather than restated.)
+//! become 65; the count is read here rather than restated.)
 //!
 //! Two enumerations, both machine-checked against a source outside this crate:
 //!
@@ -48,7 +48,7 @@ fn the_registry_names_every_operation_id_the_projection_publishes_and_nothing_el
         .collect();
     assert_eq!(registered, published, "the registry is not the command set");
     assert_eq!(OBLIGATIONS.len(), published.len());
-    assert_eq!(OBLIGATIONS.len(), 63);
+    assert_eq!(OBLIGATIONS.len(), 65);
 }
 
 #[test]

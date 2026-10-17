@@ -491,11 +491,49 @@ fn no_event_is_emitted_by_two_command_outcomes() {
     // record of one family, and ESS has no way to name that record in a second event: the
     // two outcomes carry the same payload, so the fold cannot tell them apart from the log.
     // The residue leaves this list when the story that realizes the command splits them.
-    const SHARED_BY_DECLARATION: [&str; 1] = ["mandate.identity.RefreshCredentialRotated"];
-    let duplicated: BTreeMap<String, Vec<String>> = producers()
+    //
+    // `RedeemAuthorizationCode`'s accepted-with-identity-token and accepted outcomes both
+    // consume the code and issue the access credential with one payload mapping; ESS emits
+    // per outcome and has no conditional emission, so the openid case is a second outcome
+    // that adds `IdentityTokenIssued` beside the shared event. One command writes the
+    // event either way, and the log tells the two apart by that second event.
+    //
+    // Each entry pins the exact producer set, so a third producer is still refused.
+    const SHARED_BY_DECLARATION: [(&str, &[&str]); 2] = [
+        (
+            "mandate.credential.AuthorizationCodeRedeemed",
+            &[
+                "mandate.credential.RedeemAuthorizationCode/accepted",
+                "mandate.credential.RedeemAuthorizationCode/accepted-with-identity-token",
+            ],
+        ),
+        (
+            "mandate.identity.RefreshCredentialRotated",
+            &[
+                "mandate.identity.RotateRefreshCredential/grace-sibling",
+                "mandate.identity.RotateRefreshCredential/rotated",
+            ],
+        ),
+    ];
+    let all = producers();
+    for (event, pinned) in SHARED_BY_DECLARATION {
+        let found: BTreeSet<&str> = all
+            .get(event)
+            .map(|emitters| emitters.iter().map(String::as_str).collect())
+            .unwrap_or_default();
+        let pinned: BTreeSet<&str> = pinned.iter().copied().collect();
+        assert_eq!(
+            found, pinned,
+            "{event} is shared by declaration with exactly these producers"
+        );
+    }
+    let duplicated: BTreeMap<String, Vec<String>> = all
         .into_iter()
         .filter(|(event, emitters)| {
-            emitters.len() > 1 && !SHARED_BY_DECLARATION.contains(&event.as_str())
+            emitters.len() > 1
+                && !SHARED_BY_DECLARATION
+                    .iter()
+                    .any(|(shared, _)| *shared == event.as_str())
         })
         .collect();
     assert_eq!(

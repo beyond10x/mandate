@@ -64,11 +64,15 @@ use mandate_types::{
 
 const REGISTERED: &str = "https://app.example/callback";
 
-/// The clause rows of `mandate.federation.RegisterOAuthClient`, in document order, each
-/// decided by a [`ClientRegistrationAdmission`] answer and by nothing else.
+/// The clause rows of `mandate.federation.RegisterOAuthClient` that a
+/// [`ClientRegistrationAdmission`] answer decides and nothing else does, in document order.
+/// The cause names "a redirect URI or post-logout redirect URI is unadmitted"; the port
+/// admits redirect URIs only, so the registry splits off the post-logout half, and the
+/// client-type, verifier and peer clauses the contract added, which no code decides yet,
+/// carry no row.
 const PORT_DECIDED: [&str; 3] = [
     "Caller lacks client-administration authority",
-    "a redirect URI is unadmitted",
+    "a redirect URI",
     "organization binding is invalid",
 ];
 
@@ -297,10 +301,11 @@ fn a_clause_a_standing_double_decides_is_not_published_on_the_real_path() {
     assert_eq!(
         published
             .iter()
+            .filter(|(_, paths)| !paths.is_empty())
             .map(|(clause, _)| clause.as_str())
             .collect::<Vec<_>>(),
         PORT_DECIDED.to_vec(),
-        "the three clauses this case is about",
+        "the three clauses this case is about are the ones carrying a denial row",
     );
 
     for (clause, paths) in &published {
@@ -334,7 +339,7 @@ fn the_report_does_not_count_a_double_backed_clause_in_real_covered() {
     let federation = &report["crates"]["mandate-federation"];
 
     assert_eq!(
-        federation["clauses"], 33,
+        federation["clauses"], 43,
         "the clause count is not in question"
     );
     assert_eq!(
@@ -343,7 +348,7 @@ fn the_report_does_not_count_a_double_backed_clause_in_real_covered() {
             federation["double_only"].as_u64(),
             federation["deferred"].as_u64(),
         ),
-        (Some(22), Some(3), Some(8)),
+        (Some(23), Some(3), Some(17)),
         "the three `mandate.federation.RegisterOAuthClient` clauses are decided by this \
          crate's standing double for `ClientRegistrationAdmission` and belong in \
          `double_only`; published `real_covered` they make the crate's row, and the \

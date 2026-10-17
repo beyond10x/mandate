@@ -8,7 +8,7 @@
 //!
 //! # What is enumerated, and what bounds it
 //!
-//! One [`Obligation`] per `operationId` of `generated/openapi/*.yaml` — 63 today, read from the
+//! One [`Obligation`] per `operationId` of `generated/openapi/*.yaml` — 65 today, read from the
 //! documents at test time rather than restated, so a command the contract adds fails
 //! `crates/mandate-server/tests/obligations.rs` until it has a row.
 //!
@@ -22,7 +22,7 @@
 //!
 //! # The bound on the class, stated rather than implied
 //!
-//! The per-clause enumeration covers the **four road commands**, 28 clauses. The other 59 rows
+//! The per-clause enumeration covers the **four road commands**, 28 clauses. The other 61 rows
 //! state, in whole, that this adapter establishes none of their preconditions and decodes
 //! nothing for them: they are reached only through their generated
 //! `POST /<domain>/commands/<Command>` projection, which `docs/public/contracts.md:29` says
@@ -257,7 +257,7 @@ const INTROSPECT_CREDENTIAL: &[Clause] = &[
 
 /// Every command the contract declares, with its adapter obligations.
 ///
-/// The four road commands first, in road order; the other 59 after, by name.
+/// The four road commands first, in road order; the other 61 after, by name.
 pub const OBLIGATIONS: &[Obligation] = &[
     Obligation {
         command: "mandate.federation.AuthenticateFederation",
@@ -540,6 +540,12 @@ pub const OBLIGATIONS: &[Obligation] = &[
         clauses: &[],
     },
     Obligation {
+        command: "mandate.guard.AdmitRequest",
+        wire: Wire::Generated,
+        decoder: None,
+        clauses: &[],
+    },
+    Obligation {
         command: "mandate.identity.DisablePrincipal",
         wire: Wire::Generated,
         decoder: None,
@@ -565,6 +571,12 @@ pub const OBLIGATIONS: &[Obligation] = &[
     },
     Obligation {
         command: "mandate.identity.RevokeSession",
+        wire: Wire::Generated,
+        decoder: None,
+        clauses: &[],
+    },
+    Obligation {
+        command: "mandate.identity.RotateRefreshCredential",
         wire: Wire::Generated,
         decoder: None,
         clauses: &[],

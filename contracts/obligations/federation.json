@@ -60,6 +60,11 @@
           ]
         },
         {
+          "clause": "(a rule naming a claim matches only when the validated claim equals one of its listed values; an absent claim matches none)",
+          "tests": [],
+          "blocked_on": "story:oidc-google-upstream"
+        },
+        {
           "clause": "principal linking is absent/conflicting",
           "tests": [
             {
@@ -75,6 +80,11 @@
           ]
         },
         {
+          "clause": "the groups the connection's filter admits number more than its cap",
+          "tests": [],
+          "blocked_on": "story:oidc-google-upstream"
+        },
+        {
           "clause": "any email-domain/unverified-input fallback would be required",
           "tests": [
             {
@@ -88,6 +98,26 @@
               "path": "real"
             }
           ]
+        },
+        {
+          "clause": "A refused login opens no session",
+          "tests": [
+            {
+              "id": "mandate-federation::authenticate::tenant_zero",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::authenticate::a_disabled_linked_principal_is_denied_a_session",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "records no profile",
+          "tests": [],
+          "blocked_on": "story:oidc-google-upstream"
         }
       ],
       "no_state_change": [
@@ -423,6 +453,16 @@
           ]
         },
         {
+          "clause": "the tenant rule names a claim with an empty value list or values without a claim name",
+          "tests": [],
+          "blocked_on": "story:oidc-google-upstream"
+        },
+        {
+          "clause": "the group filter's cap is below one",
+          "tests": [],
+          "blocked_on": "story:oidc-google-upstream"
+        },
+        {
           "clause": "organization binding is invalid",
           "tests": [
             {
@@ -463,7 +503,7 @@
           "blocked_on": "decision-blocker:guards"
         },
         {
-          "clause": "a redirect URI is unadmitted",
+          "clause": "a redirect URI",
           "tests": [
             {
               "id": "mandate-federation::obligations::a_redirect_uri_the_deployment_does_not_admit_is_refused",
@@ -473,6 +513,26 @@
             }
           ],
           "blocked_on": "decision-blocker:guards"
+        },
+        {
+          "clause": "post-logout redirect URI is unadmitted",
+          "tests": [],
+          "blocked_on": "story:oidc-static-client-registry"
+        },
+        {
+          "clause": "a public client states a secret verifier or does not require PKCE",
+          "tests": [],
+          "blocked_on": "story:oidc-static-client-registry"
+        },
+        {
+          "clause": "a confidential client states no verifier or more than two",
+          "tests": [],
+          "blocked_on": "story:oidc-static-client-registry"
+        },
+        {
+          "clause": "a trusted peer names the client itself or no client registered in the verified organization",
+          "tests": [],
+          "blocked_on": "story:oidc-static-client-registry"
         },
         {
           "clause": "organization binding is invalid",

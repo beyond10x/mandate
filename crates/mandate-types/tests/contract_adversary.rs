@@ -452,14 +452,21 @@ impl Model {
 }
 
 impl Operation {
-    /// The one outcome that is not the denial. Fifty-eight of the fifty-nine
-    /// commands name it `accepted`; `mandate.audit.RecordAuditEvent` names its
-    /// `recorded`, which is why this is written as "not denied" rather than as a
-    /// name match.
+    /// The command's plain acceptance: the outcome named `accepted`, or, where no
+    /// outcome carries that name, the first that is not the denial.
+    /// `mandate.audit.RecordAuditEvent` names its acceptance `recorded`, which is
+    /// why the fallback exists; `mandate.credential.RedeemAuthorizationCode`
+    /// declares `accepted-with-identity-token` ahead of `accepted`, which is why
+    /// the name is tried first rather than "the first that is not denied" alone.
     fn accepted(&self) -> &Outcome {
         self.outcomes
             .iter()
-            .find(|outcome| outcome.name != "denied")
+            .find(|outcome| outcome.name == "accepted")
+            .or_else(|| {
+                self.outcomes
+                    .iter()
+                    .find(|outcome| outcome.name != "denied")
+            })
             .unwrap_or_else(|| panic!("{} declares an outcome that is not denied", self.name))
     }
 

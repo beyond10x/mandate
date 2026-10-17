@@ -194,9 +194,11 @@ pub fn assert_single_emission(command: &str, outcome: &str, emitted: &[(&str, &V
 /// and an event two outcomes both declare is refused rather than decided by whichever
 /// outcome the IR happens to list first — and decides every mapped field by its
 /// declared source: `input_field` is compared by value against the named field of
-/// `input`, `response_field` against the named field of `response`, `literal` against
-/// the value the contract names, and `generated` is checked for presence only, its
-/// value being produced at runtime.
+/// `input`, `response_field` against the named field of `response`, `subject_field`
+/// against the named field of the subject record [`check_subject_payload_sources`] is
+/// given (this form supplies none, so a subject-sourced field is refused here), `literal`
+/// against the value the contract names, and `generated` is checked for presence only,
+/// its value being produced at runtime.
 ///
 /// Absence is decided at the level the mapping compares — the mapped field itself —
 /// and nowhere deeper: a `null` standing for a whole mapped field is read as an absent
@@ -249,6 +251,31 @@ pub fn check_outcome_payload_sources(
     event_name: &str,
     event: &Value,
 ) -> Result<(), String> {
+    check_subject_payload_sources(command, outcome, input, response, None, event_name, event)
+}
+
+/// [`check_outcome_payload_sources`] with the command's subject record supplied, for a
+/// mapping that sources a field with `subject_field`: the named field of the record the
+/// outcome's subject resolves to, read before the command moves it.
+/// `RotateRefreshCredential` copies its successor's `family_id`, `client_id`,
+/// `principal_id`, `organization_id`, `session_id`, `epochs` and `expires_at` from the
+/// presented `RefreshCredential` this way. A `subject_field` is compared by value
+/// against the named field of `subject`, exactly as `response_field` is against
+/// `response`, and decided as absent the same way.
+///
+/// # Errors
+///
+/// As [`check_outcome_payload_sources`], and when a field is sourced from the subject
+/// and no `subject` was supplied.
+pub fn check_subject_payload_sources(
+    command: &str,
+    outcome: &str,
+    input: &Value,
+    response: Option<&Value>,
+    subject: Option<&Value>,
+    event_name: &str,
+    event: &Value,
+) -> Result<(), String> {
     let fields = payload_fields(command, outcome, event_name)
         .map_err(|reason| format!("{command}/{outcome}/{event_name}: {reason}"))?;
     let mut failures: Vec<String> = Vec::new();
@@ -288,6 +315,24 @@ pub fn check_outcome_payload_sources(
                         "field `{target}`: sourced from {origin}, but no response was supplied"
                     )),
                     Some(response) => match carried(response, named) {
+                        Some(expected) => {
+                            compare(&mut failures, target, &origin, expected, actual);
+                        }
+                        None => absent(&mut failures, target, &origin, optional, actual),
+                    },
+                }
+            }
+            "subject_field" => {
+                let named = source
+                    .get("field")
+                    .and_then(Value::as_str)
+                    .unwrap_or("<unnamed>");
+                let origin = format!("the subject field `{named}`");
+                match subject {
+                    None => failures.push(format!(
+                        "field `{target}`: sourced from {origin}, but no subject was supplied"
+                    )),
+                    Some(subject) => match carried(subject, named) {
                         Some(expected) => {
                             compare(&mut failures, target, &origin, expected, actual);
                         }

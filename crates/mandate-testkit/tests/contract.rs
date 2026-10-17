@@ -14,7 +14,7 @@
 use mandate_testkit::contract::{
     assert_event_conforms, assert_payload_sources, assert_single_emission, check_event_conforms,
     check_outcome_payload_sources, check_payload_sources, check_single_emission,
-    declaring_outcome_in,
+    check_subject_payload_sources, declaring_outcome_in,
 };
 use mandate_types::{
     Audience, CorrelationId, CredentialId, DelegationId, EpochSnapshotRef, ExecutionId,
@@ -423,7 +423,7 @@ fn a_generated_field_is_checked_for_presence_only() {
 /// An optional target agrees with a source that carries no value. The named mappings
 /// here are hand-built fixtures; the count is never written down, because
 /// `every_declared_mapping_decides_absence_by_its_declared_target_type` derives the
-/// whole set from the IR and would cover a fifth one the day the contract grows it.
+/// whole set from the IR and would cover a sixth one the day the contract grows it.
 #[test]
 fn an_absent_optional_source_agrees_with_an_absent_target() {
     let (input, response, event) = registered_root_resource();
@@ -683,7 +683,7 @@ fn every_declared_outcome_accepts_exactly_its_own_emissions() {
 
 /// Every payload source kind the contract uses is one the harness checks. A kind it
 /// does not know cannot be satisfied by an event built exactly as the IR declares it,
-/// so this case fails the day the contract grows a fifth kind.
+/// so this case fails the day the contract grows a sixth kind.
 #[test]
 fn every_declared_payload_source_is_satisfied_by_the_declared_shape() {
     let ir = system_ir();
@@ -698,13 +698,14 @@ fn every_declared_payload_source_is_satisfied_by_the_declared_shape() {
             for entry in entries {
                 let event_name = entry["event"].as_str().expect("a payload names its event");
                 let fields = entry["fields"].as_array().expect("fields are a list");
-                let (input, response, event) = declared_shape(command, event_name, fields);
+                let (input, response, subject, event) = declared_shape(command, event_name, fields);
                 checked += fields.len();
-                check_outcome_payload_sources(
+                check_subject_payload_sources(
                     command,
                     outcome_name,
                     &input,
                     Some(&response),
+                    Some(&subject),
                     event_name,
                     &event,
                 )
@@ -713,6 +714,69 @@ fn every_declared_payload_source_is_satisfied_by_the_declared_shape() {
         }
     }
     assert!(checked > 0, "the IR declares no payload sources");
+}
+
+/// A `subject_field` source is decided against the subject record and nothing else: the
+/// form that supplies no subject refuses the field, and a carried value that is not the
+/// subject's is refused by name. `RotateRefreshCredential`'s `rotated` outcome copies
+/// `family_id` onto its successor from the presented credential this way.
+#[test]
+fn a_subject_sourced_field_is_decided_against_the_subject_record() {
+    const COMMAND: &str = "mandate.identity.RotateRefreshCredential";
+    const EVENT: &str = "mandate.identity.RefreshCredentialRotated";
+    let ir = system_ir();
+    let fields = ir["commands"][COMMAND]["outcomes"]
+        .as_array()
+        .expect("outcomes are a list")
+        .iter()
+        .find(|outcome| outcome["name"] == json!("rotated"))
+        .and_then(|outcome| outcome["payload"].as_array())
+        .and_then(|entries| entries.iter().find(|entry| entry["event"] == json!(EVENT)))
+        .and_then(|entry| entry["fields"].as_array())
+        .expect("the rotated outcome declares the event's payload")
+        .clone();
+    assert!(
+        fields
+            .iter()
+            .any(|field| field["target"] == json!("family_id")
+                && field["value"]["kind"] == json!("subject_field")
+                && field["value"]["field"] == json!("family_id")),
+        "family_id is sourced from the subject"
+    );
+    let (input, response, subject, event) = declared_shape(COMMAND, EVENT, &fields);
+
+    check_subject_payload_sources(
+        COMMAND,
+        "rotated",
+        &input,
+        Some(&response),
+        Some(&subject),
+        EVENT,
+        &event,
+    )
+    .expect("the declared shape satisfies its own sources");
+
+    let message =
+        check_outcome_payload_sources(COMMAND, "rotated", &input, Some(&response), EVENT, &event)
+            .expect_err("no subject was supplied");
+    assert!(
+        message.contains("field `family_id`: sourced from the subject field `family_id`, but no subject was supplied"),
+        "{message}"
+    );
+
+    let mut other = subject.clone();
+    other["family_id"] = json!("another family");
+    let message = check_subject_payload_sources(
+        COMMAND,
+        "rotated",
+        &input,
+        Some(&response),
+        Some(&other),
+        EVENT,
+        &event,
+    )
+    .expect_err("the event carries a family the subject does not");
+    assert!(message.contains("field `family_id`:"), "{message}");
 }
 
 /// The absence branch of the same sweep, over every value-sourced mapping the contract
@@ -739,7 +803,7 @@ fn every_declared_mapping_decides_absence_by_its_declared_target_type() {
             for entry in entries {
                 let event_name = entry["event"].as_str().expect("a payload names its event");
                 let fields = entry["fields"].as_array().expect("fields are a list");
-                let (input, response, event) = declared_shape(command, event_name, fields);
+                let (input, response, subject, event) = declared_shape(command, event_name, fields);
                 for field in fields {
                     let target = field["target"].as_str().expect("a field has a target");
                     let Some(from) = field["value"]["field"].as_str() else {
@@ -748,11 +812,12 @@ fn every_declared_mapping_decides_absence_by_its_declared_target_type() {
                     let is_optional = field["target_type"]["kind"].as_str() == Some("optional");
                     let mut input = input.clone();
                     let mut response = response.clone();
+                    let mut subject = subject.clone();
                     let mut event = event.clone();
-                    let supplied = if field["value"]["kind"] == json!("input_field") {
-                        &mut input
-                    } else {
-                        &mut response
+                    let supplied = match field["value"]["kind"].as_str() {
+                        Some("input_field") => &mut input,
+                        Some("subject_field") => &mut subject,
+                        _ => &mut response,
                     };
                     supplied
                         .as_object_mut()
@@ -767,11 +832,12 @@ fn every_declared_mapping_decides_absence_by_its_declared_target_type() {
                     } else {
                         required += 1;
                     }
-                    let decided = check_outcome_payload_sources(
+                    let decided = check_subject_payload_sources(
                         command,
                         outcome_name,
                         &input,
                         Some(&response),
+                        Some(&subject),
                         event_name,
                         &event,
                     );
@@ -858,13 +924,18 @@ fn an_event_declared_on_two_outcomes_is_refused_naming_both() {
     assert!(message.contains("mandate.example.ThingDone"), "{message}");
 }
 
-/// The input, response and event one declared mapping describes, every field carrying
+/// The input, response, subject and event one declared mapping describes, every field carrying
 /// a probe value: exactly the shape the contract says the runtime produces. A source
 /// kind the harness does not read cannot be built this way, so the sweeps that use it
-/// fail the day the contract grows a fifth one.
-fn declared_shape(command: &str, event_name: &str, fields: &[Value]) -> (Value, Value, Value) {
+/// fail the day the contract grows a sixth one.
+fn declared_shape(
+    command: &str,
+    event_name: &str,
+    fields: &[Value],
+) -> (Value, Value, Value, Value) {
     let mut input = Map::new();
     let mut response = Map::new();
+    let mut subject = Map::new();
     let mut event = Map::new();
     for field in fields {
         let target = field["target"].as_str().expect("a field has a target");
@@ -882,6 +953,12 @@ fn declared_shape(command: &str, event_name: &str, fields: &[Value]) -> (Value, 
                 response.insert(from.to_owned(), probe.clone());
                 event.insert(target.to_owned(), probe);
             }
+            "subject_field" => {
+                let from = source["field"].as_str().expect("a named subject field");
+                let probe = json!({ "from_subject": from });
+                subject.insert(from.to_owned(), probe.clone());
+                event.insert(target.to_owned(), probe);
+            }
             "literal" => {
                 event.insert(target.to_owned(), source["value"].clone());
             }
@@ -894,6 +971,7 @@ fn declared_shape(command: &str, event_name: &str, fields: &[Value]) -> (Value, 
     (
         Value::Object(input),
         Value::Object(response),
+        Value::Object(subject),
         Value::Object(event),
     )
 }
@@ -956,9 +1034,9 @@ fn introspected_without_a_descriptor() -> (Value, Value) {
     (response, event)
 }
 
-/// The input, response and emitted payload of the one command whose mapping uses all
-/// four source kinds the contract has: `input_field`, `response_field`, `literal` and
-/// `generated`.
+/// The input, response and emitted payload of the one command whose mapping uses four of
+/// the contract's five source kinds: `input_field`, `response_field`, `literal` and
+/// `generated`. The fifth, `subject_field`, is `RotateRefreshCredential`'s alone.
 fn provisioned() -> (Value, Value, Value) {
     let input = json!({
         "connection_id": encoded(&FederationConnectionId::new(uuid(5))),

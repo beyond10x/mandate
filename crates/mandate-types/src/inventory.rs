@@ -579,10 +579,25 @@ pub const DERIVED_STATE_ENUMS: &[&str] = &[
 
 /// The authored types a domain other than `mandate.core` declares, which no crate realizes
 /// yet. Each is named with the story that gives it a Rust representation.
-pub const DOMAIN_TYPES_UNREALIZED: &[(&str, &str)] = &[(
-    "mandate.identity.RefreshFamilyId",
-    "story:oidc-refresh-and-logout",
-)];
+/// `services/sts/src/lib.rs` (`ESS_UNREALIZED`) states why for the three credential types.
+pub const DOMAIN_TYPES_UNREALIZED: &[(&str, &str)] = &[
+    (
+        "mandate.credential.IdentityScope",
+        "story:oidc-discovery-and-code-flow",
+    ),
+    (
+        "mandate.credential.IdentityTokenId",
+        "story:oidc-signed-tokens-and-key-rotation",
+    ),
+    (
+        "mandate.credential.SubjectTokenType",
+        "story:oidc-trusted-peers",
+    ),
+    (
+        "mandate.identity.RefreshFamilyId",
+        "story:oidc-refresh-and-logout",
+    ),
+];
 
 /// The excluded model entities.
 ///
