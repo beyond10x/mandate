@@ -175,7 +175,14 @@ fn registered(
         } else {
             mandate_types::OAuthClientType::Confidential
         },
-        secret_verifiers: Vec::new(),
+        // A confidential client states one verifier: one with none is refused (fork F2).
+        secret_verifiers: if public {
+            Vec::new()
+        } else {
+            vec![mandate_types::CredentialVerifier::new(
+                "kv1.writers.confidential",
+            )]
+        },
         pkce_required: public,
         trusted_peers: Vec::new(),
         post_logout_redirect_uris: Vec::new(),

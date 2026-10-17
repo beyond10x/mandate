@@ -426,23 +426,36 @@ pub fn disable_oauth_client(
 }
 
 /// The standing registration admission: the verified subject administers clients, its own
-/// organization admits registration, and every redirect URI the command names is admitted
-/// for that organization.
+/// organization admits registration, every redirect URI the command names is admitted for
+/// that organization, and every client the live fold holds is placed in the organization it
+/// was registered into.
 ///
 /// Seeded from the caller on each call, as the delegation commands seed theirs: a scenario's
 /// context is known only from the command input, so a standing admission built before the
 /// first command could hold nobody's authority, and every registration would refuse before
 /// the scenario reached the refusal it is about.
+///
+/// The registered clients are read from the fold rather than from the input: "a trusted
+/// peer names no client registered in the verified organization" is a read of the registry,
+/// so a peer the scenario registered earlier in its own organization is admitted, and one
+/// it never registered, or registered into another organization, is not.
 fn standing_admission(
     context: &VerifiedContext,
     redirect_uris: &[mandate_types::RedirectUri],
+    registered: &record::Projection,
 ) -> register_client::ConfiguredAdmission {
-    redirect_uris.iter().fold(
+    let admission = redirect_uris.iter().fold(
         register_client::ConfiguredAdmission::new()
             .with_administrator(context.subject)
             .with_organization(context.organization),
         |admission, uri| admission.with_redirect_uri(context.organization, uri.clone()),
-    )
+    );
+    registered
+        .clients()
+        .iter()
+        .fold(admission, |admission, client| {
+            admission.with_registered_client(client.organization_id, client.id)
+        })
 }
 
 /// `mandate.federation.RegisterOAuthClient`.
@@ -466,7 +479,7 @@ pub fn register_oauth_client(
         trusted_peers: node::field(&request.input, "trusted_peers")?,
         post_logout_redirect_uris: node::field(&request.input, "post_logout_redirect_uris")?,
     };
-    let standing = standing_admission(&input.context, &input.redirect_uris);
+    let standing = standing_admission(&input.context, &input.redirect_uris, &live.federation);
     let reader = Substituted::new();
     let decided = standing_first(
         live,
