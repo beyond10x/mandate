@@ -178,6 +178,8 @@ fn deployment_configured(
                 verified_claim_values: None,
             },
             jit_provisioning: false,
+            subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+            replaced_connector_id: None,
         })
         .expect("a readable federation history");
     deployment
@@ -201,6 +203,7 @@ fn deployment_configured(
             pkce_required: true,
             trusted_peers: Vec::new(),
             post_logout_redirect_uris: Vec::new(),
+            id_token_signed_response_alg: None,
             redirect_uris: vec![RedirectUri::new(redirect)],
             pkce_method: PkceMethod::S256,
         })
@@ -1648,6 +1651,7 @@ fn deployment_from_documents(
             pkce_required: true,
             trusted_peers: Vec::new(),
             post_logout_redirect_uris: Vec::new(),
+            id_token_signed_response_alg: None,
             redirect_uris: vec![RedirectUri::new(REDIRECT)],
             pkce_method: PkceMethod::S256,
         })
@@ -2061,6 +2065,8 @@ fn deployment_verified_by<V: FederationVerifier>(
                 verified_claim_values: None,
             },
             jit_provisioning,
+            subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+            replaced_connector_id: None,
         })
         .expect("a readable federation history");
     (deployment, connection())
@@ -2958,6 +2964,8 @@ fn two_connections_on_one_issuer_from_a_log_are_still_refused_as_ambiguous() {
                 verified_claim_values: None,
             },
             jit_provisioning: false,
+            subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+            replaced_connector_id: None,
         })
         .expect("a readable federation history");
 

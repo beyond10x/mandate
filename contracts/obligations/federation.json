@@ -438,6 +438,21 @@
           "blocked_on": "story:oidc-google-upstream"
         },
         {
+          "clause": "a DexCompatible subject format names no replaced connector id or a MandatePrincipal one names one",
+          "tests": [
+            {
+              "id": "mandate-federation::record::a_dex_compatible_connection_without_a_replaced_connector_is_denied",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::record::a_mandate_principal_connection_naming_a_replaced_connector_is_denied",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
           "clause": "organization binding is invalid",
           "tests": [
             {

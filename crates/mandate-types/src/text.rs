@@ -7,5 +7,5 @@ canonical_text_newtypes! {
     CredentialVerifier, KeyReference, PkceChallenge,
     RedirectUri, TrustDomain, ActionPattern,
     AuthorizationModelVersion, SigningAlgorithm, AuditAction,
-    AuditOutcome,
+    AuditOutcome, DexConnectorId,
 }

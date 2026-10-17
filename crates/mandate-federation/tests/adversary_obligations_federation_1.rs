@@ -109,6 +109,8 @@ fn registration(
         client_id: ClientId::new(CLIENT),
         tenant_resolution: on_claim(organization_id, name, value),
         jit_provisioning: true,
+        subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+        replaced_connector_id: None,
     }
 }
 

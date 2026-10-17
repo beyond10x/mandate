@@ -129,6 +129,8 @@ fn created() -> FederationEvent {
         client_id: ClientId::new(CLIENT),
         tenant_resolution: unconditional(organization(10)),
         jit_provisioning: true,
+        subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+        replaced_connector_id: None,
     }
 }
 

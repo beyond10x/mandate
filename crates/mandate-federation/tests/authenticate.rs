@@ -95,6 +95,8 @@ fn created(
         client_id: ClientId::new(CLIENT),
         tenant_resolution,
         jit_provisioning,
+        subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+        replaced_connector_id: None,
     }
 }
 

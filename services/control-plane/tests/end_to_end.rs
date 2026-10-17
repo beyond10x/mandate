@@ -2216,6 +2216,8 @@ fn the_hosts_a_document_lists_are_the_hosts_the_verifier_is_configured_with() {
         client_id: ClientId::new(IDP_CLIENT),
         tenant_resolution: seed.tenant_resolution.clone(),
         jit_provisioning: seed.jit_provisioning,
+        subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+        replaced_connector_id: None,
         state: ConnectionState::Enabled,
     };
     let proof = proof_from(&idp_signer(), issuer, IDP_CLIENT, "proof-configured-hosts");

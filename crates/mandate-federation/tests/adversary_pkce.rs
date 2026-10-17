@@ -321,6 +321,7 @@ fn clients() -> RecordedClients {
             pkce_required: true,
             trusted_peers: Vec::new(),
             post_logout_redirect_uris: Vec::new(),
+            id_token_signed_response_alg: None,
             redirect_uris: vec![RedirectUri::new(REGISTERED)],
             pkce_method: PkceMethod::S256,
             state: OAuthClientState::Recorded,

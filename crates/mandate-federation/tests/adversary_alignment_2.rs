@@ -146,6 +146,8 @@ fn accepted_race() -> Race {
             client_id: ClientId::new("configured-client"),
             tenant_resolution: unconditional(),
             jit_provisioning: true,
+            subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+            replaced_connector_id: None,
         },
         &live,
         &mut allocator,

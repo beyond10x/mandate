@@ -77,6 +77,8 @@ fn created(
         client_id: ClientId::new(CLIENT),
         tenant_resolution,
         jit_provisioning: false,
+        subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+        replaced_connector_id: None,
     }
 }
 
@@ -247,6 +249,8 @@ fn a_redelivered_disabled_sibling_changes_no_registration() {
         client_id: ClientId::new(CLIENT),
         tenant_resolution: rule(organization(10), None),
         jit_provisioning: false,
+        subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+        replaced_connector_id: None,
     };
     let register = |log: &[FederationEvent]| {
         register_federation_connection(

@@ -115,6 +115,7 @@ fn a_registration(redirect_uris: Vec<RedirectUri>) -> RegisterOAuthClient {
         pkce_required: true,
         trusted_peers: Vec::new(),
         post_logout_redirect_uris: Vec::new(),
+        id_token_signed_response_alg: None,
         redirect_uris,
         pkce_method: PkceMethod::S256,
     }
@@ -223,6 +224,7 @@ fn the_three_register_o_auth_client_refusals_are_the_ports_answer_and_not_this_c
             &missing_post_logout,
             RegisterOAuthClient {
                 post_logout_redirect_uris: vec![RedirectUri::new("https://app.example/bye")],
+                id_token_signed_response_alg: None,
                 ..a_registration(one_redirect())
             },
             DenialClause::RedirectUriUnadmitted,

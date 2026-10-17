@@ -58,6 +58,8 @@ fn registration(input: &Value) -> RegisterFederationConnection {
             .unwrap()
             .as_bool()
             .unwrap(),
+        subject_format: serde_json::from_value(literal(input, "subject_format").unwrap()).unwrap(),
+        replaced_connector_id: None,
     }
 }
 

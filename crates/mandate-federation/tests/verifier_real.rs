@@ -530,6 +530,8 @@ fn created(
         client_id: ClientId::new(CLIENT),
         tenant_resolution,
         jit_provisioning: false,
+        subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+        replaced_connector_id: None,
     }
 }
 
@@ -578,6 +580,8 @@ fn a_connection_of(
         client_id: ClientId::new(CLIENT),
         tenant_resolution: unconditional(organization(10)),
         jit_provisioning: false,
+        subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+        replaced_connector_id: None,
         state: ConnectionState::Enabled,
     }
 }

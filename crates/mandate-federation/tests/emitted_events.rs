@@ -173,6 +173,8 @@ fn registered(
         client_id: ClientId::new("configured-client"),
         tenant_resolution: unconditional(organization_id),
         jit_provisioning: true,
+        subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+        replaced_connector_id: None,
     };
     let outcome = register_federation_connection(&input, &Projection::default(), &mut allocator)
         .expect("the organization binding is the caller's own");
@@ -193,6 +195,8 @@ fn register_federation_connection_emits_exactly_the_declared_event() {
         client_id: ClientId::new("configured-client"),
         tenant_resolution: unconditional(organization(10)),
         jit_provisioning: true,
+        subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+        replaced_connector_id: None,
     };
 
     let outcome = register_federation_connection(&input, &Projection::default(), &mut allocator)
@@ -218,6 +222,8 @@ fn a_refused_registration_emits_nothing_and_leaves_the_fold_unchanged() {
         client_id: ClientId::new("configured-client"),
         tenant_resolution: unconditional(organization(11)),
         jit_provisioning: true,
+        subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+        replaced_connector_id: None,
     };
 
     let denied = register_federation_connection(&input, &held, &mut allocator)
@@ -414,6 +420,8 @@ fn a_refused_provisioning_emits_nothing_and_leaves_the_fold_unchanged() {
             client_id: ClientId::new("configured-client"),
             tenant_resolution: unconditional(organization(10)),
             jit_provisioning: false,
+            subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+            replaced_connector_id: None,
         },
         &Projection::default(),
         &mut allocator,
@@ -564,6 +572,7 @@ fn disable_oauth_client_emits_exactly_the_declared_event() {
         pkce_required: true,
         trusted_peers: Vec::new(),
         post_logout_redirect_uris: Vec::new(),
+        id_token_signed_response_alg: None,
         redirect_uris: vec![RedirectUri::new("https://app.example/callback")],
         pkce_method: PkceMethod::S256,
         state: OAuthClientState::Recorded,
@@ -588,6 +597,7 @@ fn a_refused_client_disable_emits_nothing() {
         pkce_required: true,
         trusted_peers: Vec::new(),
         post_logout_redirect_uris: Vec::new(),
+        id_token_signed_response_alg: None,
         redirect_uris: vec![RedirectUri::new("https://app.example/callback")],
         pkce_method: PkceMethod::S256,
         state: OAuthClientState::Disabled,
@@ -637,6 +647,7 @@ fn register_o_auth_client_emits_exactly_the_declared_event() {
         pkce_required: true,
         trusted_peers: Vec::new(),
         post_logout_redirect_uris: Vec::new(),
+        id_token_signed_response_alg: None,
         redirect_uris: vec![RedirectUri::new(REDIRECT)],
         pkce_method: PkceMethod::S256,
     };
@@ -674,6 +685,7 @@ fn a_registration_with_an_empty_redirect_set_is_admitted_and_inert() {
         pkce_required: true,
         trusted_peers: Vec::new(),
         post_logout_redirect_uris: Vec::new(),
+        id_token_signed_response_alg: None,
         redirect_uris: Vec::new(),
         pkce_method: PkceMethod::S256,
     };
@@ -734,6 +746,7 @@ fn register_o_auth_client_carries_the_public_flag_the_input_named() {
             pkce_required: public,
             trusted_peers: Vec::new(),
             post_logout_redirect_uris: Vec::new(),
+            id_token_signed_response_alg: None,
             redirect_uris: vec![RedirectUri::new(REDIRECT)],
             pkce_method: PkceMethod::S256,
         };
@@ -794,6 +807,7 @@ fn a_refused_client_registration_emits_nothing_and_leaves_the_fold_unchanged() {
         pkce_required: true,
         trusted_peers: Vec::new(),
         post_logout_redirect_uris: Vec::new(),
+        id_token_signed_response_alg: None,
         redirect_uris: vec![RedirectUri::new(REDIRECT)],
         pkce_method: PkceMethod::S256,
     };

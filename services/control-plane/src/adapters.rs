@@ -138,12 +138,13 @@ use mandate_token::verifier::{CredentialDigest, CredentialDomain, matches, verif
 use mandate_token::{CredentialDescriptor, CredentialProfile};
 use mandate_types::{
     Action, Audience, AuthorizationCodeId, ClientId, ClientSecretError, CorrelationId,
-    CredentialId, CredentialProof, CredentialSecret, CredentialVerifier, DenialReason, Duration,
-    EpochSnapshotRef, ExternalLinkMethod, ExternalPrincipalId, ExternalSubject,
-    FederationConnectionId, Issuer, OAuthClientId, OAuthClientSecret, OAuthClientType,
-    OrganizationId, PkceMethod, PrincipalId, RedirectUri, ResourceId, ResourceRef,
-    ResourceServerId, ResourceType, SecurityEpochTarget, SessionId, SigningAlgorithm, SigningKeyId,
-    Timestamp, Transient, Uuid, VerifiedContext, VerifierKey,
+    CredentialId, CredentialProof, CredentialSecret, CredentialVerifier, DenialReason,
+    DexConnectorId, Duration, EpochSnapshotRef, ExternalLinkMethod, ExternalPrincipalId,
+    ExternalSubject, FederationConnectionId, IdTokenSigningAlgorithm, Issuer, OAuthClientId,
+    OAuthClientSecret, OAuthClientType, OrganizationId, PkceMethod, PrincipalId, RedirectUri,
+    ResourceId, ResourceRef, ResourceServerId, ResourceType, SecurityEpochTarget, SessionId,
+    SigningAlgorithm, SigningKeyId, SubjectFormat, Timestamp, Transient, Uuid, VerifiedContext,
+    VerifierKey,
 };
 use serde::Deserialize;
 
@@ -912,6 +913,13 @@ pub struct ConnectionSeed {
     pub tenant_resolution: TenantResolutionRule,
     /// Whether this connection admits just-in-time provisioning.
     pub jit_provisioning: bool,
+    /// How the `sub` of this connection's ID tokens is rendered (fork F1). Default
+    /// `MandatePrincipal`.
+    #[serde(default = "mandate_principal_subject")]
+    pub subject_format: SubjectFormat,
+    /// The Dex connector a `DexCompatible` connection replaces.
+    #[serde(default, deserialize_with = "mandate_types::value::present")]
+    pub replaced_connector_id: Option<DexConnectorId>,
     /// The external principal this connection's logins resolve to, when one is seeded.
     #[serde(default, deserialize_with = "mandate_types::value::present")]
     pub link: Option<PrincipalLinkSeed>,
@@ -1515,6 +1523,8 @@ impl ConnectionSeeding {
                 client_id: seed.client_id.clone(),
                 tenant_resolution: seed.tenant_resolution.clone(),
                 jit_provisioning: seed.jit_provisioning,
+                subject_format: seed.subject_format,
+                replaced_connector_id: seed.replaced_connector_id.clone(),
             },
             &self.projection,
             &mut StatedIdentities {
@@ -2248,6 +2258,9 @@ pub struct ClientSeed {
     /// Where this client may send the browser after logout, compared byte for byte.
     #[serde(default)]
     pub post_logout_redirect_uris: Vec<RedirectUri>,
+    /// The JWS algorithm of this client's ID tokens (fork F8). Absent means RS256.
+    #[serde(default, deserialize_with = "mandate_types::value::present")]
+    pub id_token_signed_response_alg: Option<IdTokenSigningAlgorithm>,
 }
 
 /// A `--client` document's `client_type`, in the lower-case form a configuration file
@@ -2274,6 +2287,11 @@ impl ClientTypeSeed {
 
 const fn pkce_required_by_default() -> bool {
     true
+}
+
+/// A connection document that states no `subject_format` renders the Mandate principal id.
+const fn mandate_principal_subject() -> SubjectFormat {
+    SubjectFormat::MandatePrincipal
 }
 
 /// A string, or a list of strings.
@@ -2326,6 +2344,7 @@ impl ClientSeed {
                 pkce_required: self.pkce_required,
                 trusted_peers: self.trusted_peers.clone(),
                 post_logout_redirect_uris: self.post_logout_redirect_uris.clone(),
+                id_token_signed_response_alg: self.id_token_signed_response_alg,
             }],
         }
     }

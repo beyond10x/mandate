@@ -161,6 +161,8 @@ fn events(context: &VerifiedContext, rule: &TenantResolutionRule) -> Vec<Federat
             client_id: ClientId::new("client-1"),
             tenant_resolution: rule.clone(),
             jit_provisioning: true,
+            subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+            replaced_connector_id: None,
         },
         FederationEvent::FederationConnectionDisabled {
             context: context.clone(),
@@ -216,6 +218,7 @@ fn events(context: &VerifiedContext, rule: &TenantResolutionRule) -> Vec<Federat
             pkce_required: true,
             trusted_peers: Vec::new(),
             post_logout_redirect_uris: Vec::new(),
+            id_token_signed_response_alg: None,
         },
     ]
 }
@@ -557,6 +560,8 @@ fn every_command_input_round_trips_into_its_generated_shape() {
             client_id: ClientId::new("client-1"),
             tenant_resolution: rule,
             jit_provisioning: false,
+            subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+            replaced_connector_id: None,
         };
         agrees::<_, commands::MandateFederationRegisterFederationConnectionInput>(
             &register,
@@ -619,6 +624,7 @@ fn every_command_input_round_trips_into_its_generated_shape() {
                 pkce_required: true,
                 trusted_peers: Vec::new(),
                 post_logout_redirect_uris: Vec::new(),
+                id_token_signed_response_alg: None,
             };
             agrees::<_, commands::MandateFederationRegisterOAuthClientInput>(
                 &register_client,
@@ -663,6 +669,8 @@ fn every_entity_record_round_trips_into_its_generated_shape_in_every_declared_st
             client_id: ClientId::new("client-1"),
             tenant_resolution: rule,
             jit_provisioning: true,
+            subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+            replaced_connector_id: None,
             state,
         };
         let document = agrees::<_, entities::MandateFederationFederationConnection>(
@@ -701,6 +709,7 @@ fn every_entity_record_round_trips_into_its_generated_shape_in_every_declared_st
             pkce_required: true,
             trusted_peers: Vec::new(),
             post_logout_redirect_uris: Vec::new(),
+            id_token_signed_response_alg: None,
             state,
         };
         let document = agrees::<_, entities::MandateFederationOAuthClient>(

@@ -72,8 +72,8 @@
 use serde::Serialize;
 
 use mandate_types::{
-    CredentialVerifier, DenialReason, OAuthClientId, OAuthClientType, OrganizationId, PkceMethod,
-    PrincipalId, RedirectUri, VerifiedContext,
+    CredentialVerifier, DenialReason, IdTokenSigningAlgorithm, OAuthClientId, OAuthClientType,
+    OrganizationId, PkceMethod, PrincipalId, RedirectUri, VerifiedContext,
 };
 
 use crate::record::FederationEvent;
@@ -101,6 +101,9 @@ pub struct RegisterOAuthClient {
     pub trusted_peers: Vec<OAuthClientId>,
     /// The declared `post_logout_redirect_uris`.
     pub post_logout_redirect_uris: Vec<RedirectUri>,
+    /// The declared `id_token_signed_response_alg`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id_token_signed_response_alg: Option<IdTokenSigningAlgorithm>,
 }
 
 /// The accepted outcome of [`RegisterOAuthClient`].
@@ -324,6 +327,7 @@ pub fn register_o_auth_client(
             pkce_required: input.pkce_required,
             trusted_peers: input.trusted_peers.clone(),
             post_logout_redirect_uris: input.post_logout_redirect_uris.clone(),
+            id_token_signed_response_alg: input.id_token_signed_response_alg,
         },
     })
 }

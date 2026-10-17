@@ -218,6 +218,8 @@ fn two_tenants_on_one_issuer() -> Projection {
             client_id: ClientId::new(CLIENT),
             tenant_resolution: on_tenant_claim(organization_id, value),
             jit_provisioning: false,
+            subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+            replaced_connector_id: None,
         });
         log.push(FederationEvent::ExternalPrincipalLinked {
             context: context(organization_id),

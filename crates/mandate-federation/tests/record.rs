@@ -114,6 +114,8 @@ fn created(
         client_id: ClientId::new("configured-client"),
         tenant_resolution: unconditional(organization_id),
         jit_provisioning: false,
+        subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+        replaced_connector_id: None,
     }
 }
 
@@ -222,6 +224,8 @@ fn register_federation_connection_creates_an_enabled_connection() {
         client_id: ClientId::new("configured-client"),
         tenant_resolution: unconditional(organization(10)),
         jit_provisioning: true,
+        subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+        replaced_connector_id: None,
     };
 
     let existing = Projection::fold(&[]).expect("an empty log");
@@ -248,6 +252,8 @@ fn register_federation_connection_denies_a_foreign_organization_binding() {
         client_id: ClientId::new("configured-client"),
         tenant_resolution: unconditional(organization(11)),
         jit_provisioning: false,
+        subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+        replaced_connector_id: None,
     };
 
     let existing = Projection::fold(&[]).expect("an empty log");
@@ -256,6 +262,79 @@ fn register_federation_connection_denies_a_foreign_organization_binding() {
 
     assert_eq!(denied.reason, DenialReason::TenantMismatch);
     assert_eq!(denied.clause, DenialClause::OrganizationMismatch);
+}
+
+fn subject_format_input(
+    format: mandate_types::SubjectFormat,
+    replaced: Option<mandate_types::DexConnectorId>,
+) -> RegisterFederationConnection {
+    RegisterFederationConnection {
+        context: context(organization(10)),
+        issuer: Issuer::new("https://idp.example/one"),
+        client_id: ClientId::new("configured-client"),
+        tenant_resolution: unconditional(organization(10)),
+        jit_provisioning: false,
+        subject_format: format,
+        replaced_connector_id: replaced,
+    }
+}
+
+#[test]
+fn a_dex_compatible_connection_without_a_replaced_connector_is_denied() {
+    let mut allocator = SequentialAllocator::new();
+    let existing = Projection::fold(&[]).expect("an empty log");
+    let input = subject_format_input(mandate_types::SubjectFormat::DexCompatible, None);
+
+    let denied = register_federation_connection(&input, &existing, &mut allocator)
+        .expect_err("a Dex subject cannot be encoded without its connector id");
+
+    assert_eq!(denied.reason, DenialReason::Denied);
+    assert_eq!(denied.clause, DenialClause::SubjectFormatMismatch);
+}
+
+#[test]
+fn a_mandate_principal_connection_naming_a_replaced_connector_is_denied() {
+    let mut allocator = SequentialAllocator::new();
+    let existing = Projection::fold(&[]).expect("an empty log");
+    let input = subject_format_input(
+        mandate_types::SubjectFormat::MandatePrincipal,
+        Some(mandate_types::DexConnectorId::new("mock")),
+    );
+
+    let denied = register_federation_connection(&input, &existing, &mut allocator)
+        .expect_err("a principal-id subject has no connector to replace");
+
+    assert_eq!(denied.reason, DenialReason::Denied);
+    assert_eq!(denied.clause, DenialClause::SubjectFormatMismatch);
+}
+
+#[test]
+fn a_dex_compatible_connection_naming_its_connector_is_admitted_and_recorded() {
+    let mut allocator = SequentialAllocator::new();
+    let existing = Projection::fold(&[]).expect("an empty log");
+    let input = subject_format_input(
+        mandate_types::SubjectFormat::DexCompatible,
+        Some(mandate_types::DexConnectorId::new("mock")),
+    );
+
+    let registered = register_federation_connection(&input, &existing, &mut allocator)
+        .expect("a format and its connector id that agree are admitted");
+    let mut folded = Projection::fold(&[]).expect("an empty log");
+    folded.apply(&registered.event).expect("the creation folds");
+    let connection = folded
+        .connections()
+        .first()
+        .expect("the connection is recorded")
+        .clone();
+
+    assert_eq!(
+        connection.subject_format,
+        mandate_types::SubjectFormat::DexCompatible
+    );
+    assert_eq!(
+        connection.replaced_connector_id,
+        Some(mandate_types::DexConnectorId::new("mock"))
+    );
 }
 
 #[test]
@@ -516,6 +595,8 @@ fn an_unconditional_rule_is_unadmitted_where_another_organization_holds_the_issu
         client_id: ClientId::new("configured-client"),
         tenant_resolution: unconditional(organization(11)),
         jit_provisioning: false,
+        subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+        replaced_connector_id: None,
     };
 
     let denied = register_federation_connection(&input, &existing, &mut allocator)
@@ -545,6 +626,8 @@ fn a_connection_is_unadmitted_where_another_organization_resolves_the_issuer_unc
             verified_claim_values: Some(vec![String::from("eleven")]),
         },
         jit_provisioning: false,
+        subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+        replaced_connector_id: None,
     };
 
     let denied = register_federation_connection(&input, &existing, &mut allocator)
@@ -570,6 +653,8 @@ fn one_organization_may_hold_two_connections_on_one_issuer() {
         client_id: ClientId::new("configured-client"),
         tenant_resolution: unconditional(organization(10)),
         jit_provisioning: false,
+        subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+        replaced_connector_id: None,
     };
 
     register_federation_connection(&input, &existing, &mut allocator)
@@ -674,6 +759,8 @@ fn a_conditional_rule_another_organization_already_holds_is_unadmitted() {
             verified_claim_values: Some(vec![String::from("acme")]),
         },
         jit_provisioning: false,
+        subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+        replaced_connector_id: None,
     }];
     let existing = Projection::fold(&log).expect("one connection");
     let mut allocator = SequentialAllocator::new();
@@ -687,6 +774,8 @@ fn a_conditional_rule_another_organization_already_holds_is_unadmitted() {
             verified_claim_values: Some(vec![String::from("acme")]),
         },
         jit_provisioning: false,
+        subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+        replaced_connector_id: None,
     };
 
     let denied = register_federation_connection(&input, &existing, &mut allocator)
@@ -712,6 +801,8 @@ fn a_rule_on_a_different_claim_name_on_a_shared_issuer_is_unadmitted() {
             verified_claim_values: Some(vec![String::from("acme")]),
         },
         jit_provisioning: false,
+        subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+        replaced_connector_id: None,
     }];
     let existing = Projection::fold(&log).expect("one connection");
     let mut allocator = SequentialAllocator::new();
@@ -727,6 +818,8 @@ fn a_rule_on_a_different_claim_name_on_a_shared_issuer_is_unadmitted() {
                 verified_claim_values: Some(vec![String::from(value)]),
             },
             jit_provisioning: false,
+            subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+            replaced_connector_id: None,
         };
 
         let denied = register_federation_connection(&input, &existing, &mut allocator)
@@ -757,6 +850,8 @@ fn a_different_claim_value_on_a_shared_issuer_is_admitted() {
             verified_claim_values: Some(vec![String::from("acme")]),
         },
         jit_provisioning: false,
+        subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+        replaced_connector_id: None,
     }];
     let existing = Projection::fold(&log).expect("one connection");
     let mut allocator = SequentialAllocator::new();
@@ -779,6 +874,8 @@ fn a_different_claim_value_on_a_shared_issuer_is_admitted() {
             client_id: ClientId::new("configured-client"),
             tenant_resolution: rule.clone(),
             jit_provisioning: false,
+            subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+            replaced_connector_id: None,
         };
         register_federation_connection(&input, &existing, &mut allocator).unwrap_or_else(
             |denied| panic!("{rule:?} matches no proof org 10's rule matches: {denied:?}"),
@@ -1001,6 +1098,7 @@ fn an_oauth_client_registration_materializes_the_record_the_event_carries() {
         pkce_required: true,
         trusted_peers: Vec::new(),
         post_logout_redirect_uris: Vec::new(),
+        id_token_signed_response_alg: None,
         redirect_uris: vec![RedirectUri::new("https://app.example/callback")],
         pkce_method: PkceMethod::S256,
     }];
@@ -1017,6 +1115,7 @@ fn an_oauth_client_registration_materializes_the_record_the_event_carries() {
             pkce_required: true,
             trusted_peers: Vec::new(),
             post_logout_redirect_uris: Vec::new(),
+            id_token_signed_response_alg: None,
             redirect_uris: vec![RedirectUri::new("https://app.example/callback")],
             pkce_method: PkceMethod::S256,
             state: OAuthClientState::Recorded,
@@ -1075,6 +1174,8 @@ fn a_connection_store_answering_a_disabled_connection_changes_no_registration() 
         client_id: ClientId::new("configured-client"),
         tenant_resolution: unconditional(organization(10)),
         jit_provisioning: false,
+        subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+        replaced_connector_id: None,
     };
 
     let expected =

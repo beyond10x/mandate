@@ -55,6 +55,8 @@ pub fn register_federation_connection(
         client_id: node::field(&request.input, "client_id")?,
         tenant_resolution: node::field(&request.input, "tenant_resolution")?,
         jit_provisioning: node::field(&request.input, "jit_provisioning")?,
+        subject_format: node::field(&request.input, "subject_format")?,
+        replaced_connector_id: node::optional(&request.input, "replaced_connector_id")?,
     };
     let reader = Substituted::new();
     let decided = standing_first(
@@ -484,6 +486,10 @@ pub fn register_oauth_client(
         pkce_required: node::field(&request.input, "pkce_required")?,
         trusted_peers: node::field(&request.input, "trusted_peers")?,
         post_logout_redirect_uris: node::field(&request.input, "post_logout_redirect_uris")?,
+        id_token_signed_response_alg: node::optional(
+            &request.input,
+            "id_token_signed_response_alg",
+        )?,
     };
     let standing = standing_admission(
         &input.context,

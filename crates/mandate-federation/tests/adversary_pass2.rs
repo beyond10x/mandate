@@ -99,6 +99,8 @@ fn created(
         client_id: ClientId::new(CLIENT),
         tenant_resolution,
         jit_provisioning,
+        subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+        replaced_connector_id: None,
     }
 }
 
@@ -239,6 +241,8 @@ fn a_foreign_organization_may_copy_a_conditional_rule_and_end_the_incumbents_log
             client_id: ClientId::new(CLIENT),
             tenant_resolution: on_claim(organization(10), "org", "acme"),
             jit_provisioning: false,
+            subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+            replaced_connector_id: None,
         },
         &empty,
         &mut allocator,
@@ -277,6 +281,8 @@ fn a_foreign_organization_may_copy_a_conditional_rule_and_end_the_incumbents_log
             client_id: ClientId::new(CLIENT),
             tenant_resolution: on_claim(organization(11), "org", "acme"),
             jit_provisioning: false,
+            subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+            replaced_connector_id: None,
         },
         &before,
         &mut allocator,

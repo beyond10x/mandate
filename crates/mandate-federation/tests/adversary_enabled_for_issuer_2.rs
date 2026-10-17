@@ -72,6 +72,8 @@ fn created_on(
         client_id: ClientId::new(CLIENT),
         tenant_resolution: acme(organization_id),
         jit_provisioning: false,
+        subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+        replaced_connector_id: None,
     }
 }
 
@@ -190,6 +192,8 @@ fn a_listed_collider_the_store_cannot_answer_by_identity_still_refuses_registrat
             client_id: ClientId::new(CLIENT),
             tenant_resolution: acme(organization(10)),
             jit_provisioning: false,
+            subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+            replaced_connector_id: None,
         },
         &store,
         &mut SequentialAllocator::new(),

@@ -38,10 +38,11 @@ use serde::{Deserialize, Serialize};
 
 use mandate_model::TenantResolutionRule;
 use mandate_types::{
-    Audience, ClientId, CorrelationId, CredentialVerifier, EpochSnapshotRef, ExternalLinkMethod,
-    ExternalPrincipalId, ExternalSubject, FederationConnectionId, Issuer, OAuthClientId,
-    OAuthClientType, OrganizationId, PersistedValue, PkceMethod, PrincipalId, PrincipalKind,
-    RedirectUri, SessionId, Timestamp, VerifiedContext,
+    Audience, ClientId, CorrelationId, CredentialVerifier, DexConnectorId, EpochSnapshotRef,
+    ExternalLinkMethod, ExternalPrincipalId, ExternalSubject, FederationConnectionId,
+    IdTokenSigningAlgorithm, Issuer, OAuthClientId, OAuthClientType, OrganizationId,
+    PersistedValue, PkceMethod, PrincipalId, PrincipalKind, RedirectUri, SessionId, SubjectFormat,
+    Timestamp, VerifiedContext,
 };
 
 use mandate_types::DenialReason;
@@ -104,6 +105,12 @@ pub struct FederationConnection {
     pub tenant_resolution: TenantResolutionRule,
     /// Whether this connection admits just-in-time provisioning.
     pub jit_provisioning: bool,
+    /// How the `sub` of this connection's ID tokens is rendered (fork F1).
+    pub subject_format: SubjectFormat,
+    /// The Dex connector this connection replaces; present exactly when the format is
+    /// `DexCompatible`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub replaced_connector_id: Option<DexConnectorId>,
     /// The lifecycle state.
     pub state: ConnectionState,
 }
@@ -150,6 +157,9 @@ pub struct OAuthClient {
     pub trusted_peers: Vec<OAuthClientId>,
     /// The exact redirect URIs admitted after an end-session.
     pub post_logout_redirect_uris: Vec<RedirectUri>,
+    /// The JWS algorithm of this client's ID tokens (fork F8); absent means RS256.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id_token_signed_response_alg: Option<IdTokenSigningAlgorithm>,
     /// The lifecycle state.
     pub state: OAuthClientState,
 }
@@ -194,6 +204,11 @@ pub enum FederationEvent {
         tenant_resolution: TenantResolutionRule,
         /// The declared `jit_provisioning`.
         jit_provisioning: bool,
+        /// The declared `subject_format`.
+        subject_format: SubjectFormat,
+        /// The declared `replaced_connector_id`.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        replaced_connector_id: Option<DexConnectorId>,
     },
     /// `mandate.federation.FederationConnectionDisabled`.
     FederationConnectionDisabled {
@@ -319,6 +334,9 @@ pub enum FederationEvent {
         trusted_peers: Vec<OAuthClientId>,
         /// The declared `post_logout_redirect_uris`.
         post_logout_redirect_uris: Vec<RedirectUri>,
+        /// The declared `id_token_signed_response_alg`.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        id_token_signed_response_alg: Option<IdTokenSigningAlgorithm>,
     },
     /// `mandate.federation.OAuthClientDisabled`.
     OAuthClientDisabled {
@@ -465,6 +483,8 @@ enum Recorded {
         client_id: ClientId,
         tenant_resolution: TenantResolutionRule,
         jit_provisioning: bool,
+        subject_format: SubjectFormat,
+        replaced_connector_id: Option<DexConnectorId>,
     },
     #[serde(rename = "mandate.federation.FederationConnectionDisabled")]
     FederationConnectionDisabled {
@@ -522,6 +542,7 @@ enum Recorded {
         pkce_required: bool,
         trusted_peers: Vec<OAuthClientId>,
         post_logout_redirect_uris: Vec<RedirectUri>,
+        id_token_signed_response_alg: Option<IdTokenSigningAlgorithm>,
     },
     #[serde(rename = "mandate.federation.OAuthClientDisabled")]
     OAuthClientDisabled {
@@ -859,6 +880,8 @@ impl Projection {
                 client_id,
                 tenant_resolution,
                 jit_provisioning,
+                subject_format,
+                replaced_connector_id,
             } => {
                 // Insert-if-absent at the record's own identity, the rule the
                 // `OAuthClientRegistered` arm below and `record_link` keep: a redelivered
@@ -881,6 +904,8 @@ impl Projection {
                     client_id: client_id.clone(),
                     tenant_resolution: tenant_resolution.clone(),
                     jit_provisioning: *jit_provisioning,
+                    subject_format: *subject_format,
+                    replaced_connector_id: replaced_connector_id.clone(),
                     state: ConnectionState::Enabled,
                 });
             }
@@ -1023,6 +1048,7 @@ impl Projection {
                 pkce_required,
                 trusted_peers,
                 post_logout_redirect_uris,
+                id_token_signed_response_alg,
             } => {
                 if self.clients.iter().any(|client| client.id == *id) {
                     return Ok(());
@@ -1037,6 +1063,7 @@ impl Projection {
                     pkce_required: *pkce_required,
                     trusted_peers: trusted_peers.clone(),
                     post_logout_redirect_uris: post_logout_redirect_uris.clone(),
+                    id_token_signed_response_alg: *id_token_signed_response_alg,
                     state: OAuthClientState::Recorded,
                 });
             }
@@ -1287,6 +1314,11 @@ pub struct RegisterFederationConnection {
     pub tenant_resolution: TenantResolutionRule,
     /// The declared `jit_provisioning`.
     pub jit_provisioning: bool,
+    /// The declared `subject_format`.
+    pub subject_format: SubjectFormat,
+    /// The declared `replaced_connector_id`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub replaced_connector_id: Option<DexConnectorId>,
 }
 
 /// The accepted outcome of [`RegisterFederationConnection`].
@@ -1352,6 +1384,16 @@ pub fn register_federation_connection(
             DenialClause::OrganizationMismatch,
         ));
     }
+    // "a DexCompatible subject format names no replaced connector id or a MandatePrincipal one
+    // names one": the connector id is the input the Dex subject is encoded from, so a format
+    // and its connector id that disagree could only render a subject the record did not mean.
+    let names_connector = input.replaced_connector_id.is_some();
+    if names_connector != (input.subject_format == SubjectFormat::DexCompatible) {
+        return Err(Denied::new(
+            DenialReason::Denied,
+            DenialClause::SubjectFormatMismatch,
+        ));
+    }
     // "tenant-resolution ... configuration is unadmitted": a rule another organization's
     // connection on this issuer could match for the same proof makes every such login
     // ambiguous, and no command un-registers a connection, so the incumbent could not
@@ -1386,6 +1428,8 @@ pub fn register_federation_connection(
             client_id: input.client_id.clone(),
             tenant_resolution: input.tenant_resolution.clone(),
             jit_provisioning: input.jit_provisioning,
+            subject_format: input.subject_format,
+            replaced_connector_id: input.replaced_connector_id.clone(),
         },
     })
 }
@@ -1408,6 +1452,8 @@ const _: () = {
                 client_id,
                 tenant_resolution,
                 jit_provisioning,
+                subject_format,
+                replaced_connector_id,
             } => {
                 persistable(context);
                 persistable(connection_id);
@@ -1415,6 +1461,8 @@ const _: () = {
                 persistable(client_id);
                 persistable(tenant_resolution);
                 persistable(jit_provisioning);
+                persistable(subject_format);
+                persistable(replaced_connector_id);
             }
             FederationEvent::FederationConnectionDisabled { context, id } => {
                 persistable(context);
@@ -1494,6 +1542,7 @@ const _: () = {
                 pkce_required,
                 trusted_peers,
                 post_logout_redirect_uris,
+                id_token_signed_response_alg,
             } => {
                 persistable(context);
                 persistable(id);
@@ -1505,6 +1554,7 @@ const _: () = {
                 persistable(pkce_required);
                 persistable(trusted_peers);
                 persistable(post_logout_redirect_uris);
+                persistable(id_token_signed_response_alg);
             }
             FederationEvent::OAuthClientDisabled { context, id } => {
                 persistable(context);
@@ -1563,6 +1613,8 @@ mod tests {
                     verified_claim_values: None,
                 },
                 jit_provisioning: true,
+                subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+                replaced_connector_id: None,
             },
             FederationEvent::FederationConnectionCreated {
                 context: context(20),
@@ -1575,6 +1627,8 @@ mod tests {
                     verified_claim_values: Some(vec!["example.org".to_owned()]),
                 },
                 jit_provisioning: false,
+                subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+                replaced_connector_id: None,
             },
             FederationEvent::ExternalPrincipalLinked {
                 context: context(10),
@@ -1618,6 +1672,7 @@ mod tests {
                 pkce_required: true,
                 trusted_peers: Vec::new(),
                 post_logout_redirect_uris: Vec::new(),
+                id_token_signed_response_alg: None,
             },
             FederationEvent::ExternalPrincipalUnlinked {
                 context: context(10),

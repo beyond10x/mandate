@@ -9,5 +9,7 @@ canonical_enums! {
     DecisionReason { Allowed, Denied, ApprovalRequired, InvalidCredential, TenantMismatch, AudienceMismatch, Unavailable, StaleEpoch, InvalidClient },
     PkceMethod { S256 },
     OAuthClientType { Public, Confidential },
+    SubjectFormat { MandatePrincipal, DexCompatible },
+    IdTokenSigningAlgorithm { RS256, ES256 },
     DenialReason { Denied, ApprovalRequired, InvalidCredential, TenantMismatch, AudienceMismatch, Unavailable, StaleEpoch, InvalidClient },
 }

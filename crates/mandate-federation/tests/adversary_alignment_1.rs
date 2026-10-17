@@ -173,6 +173,8 @@ fn an_unlink_decided_before_a_concurrent_link_landed_leaves_the_log_unfoldable()
             client_id: ClientId::new("configured-client"),
             tenant_resolution: unconditional(),
             jit_provisioning: true,
+            subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+            replaced_connector_id: None,
         },
         &Projection::default(),
         &mut allocator,

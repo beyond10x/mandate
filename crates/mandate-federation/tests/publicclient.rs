@@ -56,6 +56,7 @@ fn client(public: bool, state: OAuthClientState) -> OAuthClient {
         pkce_required: public,
         trusted_peers: Vec::new(),
         post_logout_redirect_uris: Vec::new(),
+        id_token_signed_response_alg: None,
         redirect_uris: vec![redirect(REGISTERED), redirect(SECOND_REGISTERED)],
         pkce_method: PkceMethod::S256,
         state,
@@ -224,6 +225,7 @@ fn a_client_registered_through_the_real_command_is_what_the_port_resolves() {
         pkce_required: true,
         trusted_peers: Vec::new(),
         post_logout_redirect_uris: Vec::new(),
+        id_token_signed_response_alg: None,
         redirect_uris: vec![redirect(REGISTERED), redirect(SECOND_REGISTERED)],
         pkce_method: PkceMethod::S256,
     };
@@ -259,6 +261,7 @@ fn a_client_registered_through_the_real_command_is_what_the_port_resolves() {
                 pkce_required: true,
                 trusted_peers: Vec::new(),
                 post_logout_redirect_uris: Vec::new(),
+                id_token_signed_response_alg: None,
                 redirect_uris: vec![redirect(REGISTERED), redirect(SECOND_REGISTERED)],
                 pkce_method: PkceMethod::S256,
                 state: OAuthClientState::Recorded,

@@ -367,6 +367,21 @@ pub const ACCEPTED: &[Accepted] = &[
         owner: Owner::Types,
     },
     Accepted {
+        ess_name: "mandate.core.SubjectFormat",
+        kind: Kind::Enum,
+        owner: Owner::Types,
+    },
+    Accepted {
+        ess_name: "mandate.core.DexConnectorId",
+        kind: Kind::Newtype,
+        owner: Owner::Types,
+    },
+    Accepted {
+        ess_name: "mandate.core.IdTokenSigningAlgorithm",
+        kind: Kind::Enum,
+        owner: Owner::Types,
+    },
+    Accepted {
         ess_name: "mandate.core.ResourceRef",
         kind: Kind::Struct,
         owner: Owner::Types,

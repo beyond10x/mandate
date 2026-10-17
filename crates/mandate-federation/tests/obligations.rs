@@ -196,6 +196,8 @@ fn registration(
         client_id: ClientId::new(CLIENT),
         tenant_resolution: on_claim(organization_id, name, value),
         jit_provisioning: true,
+        subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+        replaced_connector_id: None,
     }
 }
 
@@ -226,6 +228,8 @@ fn created(
         client_id: ClientId::new(CLIENT),
         tenant_resolution,
         jit_provisioning,
+        subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+        replaced_connector_id: None,
     }
 }
 
@@ -418,6 +422,7 @@ fn a_registered_client(organization_id: OrganizationId) -> (Projection, OAuthCli
             pkce_required: true,
             trusted_peers: Vec::new(),
             post_logout_redirect_uris: Vec::new(),
+            id_token_signed_response_alg: None,
             redirect_uris: vec![redirect(REGISTERED)],
             pkce_method: PkceMethod::S256,
         },
@@ -520,6 +525,7 @@ fn a_registration(organization_id: OrganizationId) -> RegisterOAuthClient {
         pkce_required: true,
         trusted_peers: Vec::new(),
         post_logout_redirect_uris: Vec::new(),
+        id_token_signed_response_alg: None,
         redirect_uris: vec![redirect(REGISTERED)],
         pkce_method: PkceMethod::S256,
     }
@@ -600,6 +606,7 @@ fn a_post_logout_redirect_uri_the_deployment_does_not_admit_is_refused() {
 
     let admitted = RegisterOAuthClient {
         post_logout_redirect_uris: vec![redirect(LOGGED_OUT)],
+        id_token_signed_response_alg: None,
         ..a_registration(organization(10))
     };
     register_o_auth_client(&admitted, &admission, &mut allocator)

@@ -115,6 +115,8 @@ fn linked_deployment() -> Wired {
                 verified_claim_values: None,
             },
             jit_provisioning: false,
+            subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+            replaced_connector_id: None,
         })
         .expect("a readable federation history");
     deployment

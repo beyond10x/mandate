@@ -32,13 +32,16 @@
 pub mod types;
 
 /// The entity records and their lifecycle state enums.
+#[rustfmt::skip]
 #[path = "../../../generated/rust/mandate-contract/src/entities.rs"]
 pub mod entities;
 
 /// The command inputs, the responses of the commands that declare one, and the refusals.
+#[rustfmt::skip]
 #[path = "../../../generated/rust/mandate-contract/src/commands.rs"]
 pub mod commands;
 
 /// The event payloads.
+#[rustfmt::skip]
 #[path = "../../../generated/rust/mandate-contract/src/events.rs"]
 pub mod events;

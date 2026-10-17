@@ -145,6 +145,8 @@ fn projection(rules: &[TenantResolutionRule], jit_provisioning: bool, linked: bo
             client_id: ClientId::new(CLIENT),
             tenant_resolution: tenant_resolution.clone(),
             jit_provisioning,
+            subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+            replaced_connector_id: None,
         });
     }
     if linked {

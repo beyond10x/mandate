@@ -96,6 +96,8 @@ fn deployment() -> (Wired, FederationConnectionId) {
                 verified_claim_values: None,
             },
             jit_provisioning: true,
+            subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+            replaced_connector_id: None,
         })
         .expect("a readable federation history");
     (deployment, connection())

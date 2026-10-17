@@ -59,6 +59,7 @@ fn input(client_type: OAuthClientType) -> RegisterOAuthClient {
         pkce_required: true,
         trusted_peers: Vec::new(),
         post_logout_redirect_uris: Vec::new(),
+        id_token_signed_response_alg: None,
     }
 }
 

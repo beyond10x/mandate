@@ -1558,6 +1558,8 @@ mod tests {
                 verified_claim_values: None,
             },
             jit_provisioning: false,
+            subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+            replaced_connector_id: None,
             state: ConnectionState::Enabled,
         };
         // {"iss":"https://issuer.example","sub":"subject","aud":"client"}

@@ -159,8 +159,9 @@ pub use client_secret::{
 };
 pub use credential::{CredentialProof, CredentialSecret};
 pub use enumeration::{
-    CredentialKind, DecisionReason, DenialReason, ExternalLinkMethod, MembershipSource,
-    OAuthClientType, PkceMethod, PrincipalKind, RevocationGuarantee,
+    CredentialKind, DecisionReason, DenialReason, ExternalLinkMethod, IdTokenSigningAlgorithm,
+    MembershipSource, OAuthClientType, PkceMethod, PrincipalKind, RevocationGuarantee,
+    SubjectFormat,
 };
 pub use identifier::{
     AccessCredentialId, AgentCapabilityCeilingId, ApprovalId, AuditEventId, AuthorizationCodeId,
@@ -175,9 +176,9 @@ pub use marker::{PersistedValue, Transient};
 pub use record::{AuthorityScope, ResourceRef, SigningKeyWindow, VerifiedContext};
 pub use text::{
     Action, ActionPattern, Audience, AuditAction, AuditOutcome, AuthorizationModelVersion,
-    AuthzRevision, ClientId, CorrelationId, CredentialVerifier, ExternalSubject, Issuer,
-    KeyReference, PkceChallenge, PolicyVersion, RedirectUri, ResourceType, SigningAlgorithm,
-    TrustDomain,
+    AuthzRevision, ClientId, CorrelationId, CredentialVerifier, DexConnectorId, ExternalSubject,
+    Issuer, KeyReference, PkceChallenge, PolicyVersion, RedirectUri, ResourceType,
+    SigningAlgorithm, TrustDomain,
 };
 pub use union::{AuthoritySubject, SecurityEpochTarget};
 pub use value::{Duration, ParseError, Timestamp, Uuid};

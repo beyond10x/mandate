@@ -137,6 +137,7 @@ fn recorded_client(public: bool, state: OAuthClientState) -> Projection {
         pkce_required: public,
         trusted_peers: Vec::new(),
         post_logout_redirect_uris: Vec::new(),
+        id_token_signed_response_alg: None,
         redirect_uris: vec![redirect()],
         pkce_method: PkceMethod::S256,
     })
@@ -774,6 +775,8 @@ fn a_just_in_time_login_records_the_principal_its_event_declares() {
                 verified_claim_values: None,
             },
             jit_provisioning: true,
+            subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+            replaced_connector_id: None,
         })
         .expect("a readable federation history");
     assert!(

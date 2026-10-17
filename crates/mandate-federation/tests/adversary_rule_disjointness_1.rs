@@ -45,6 +45,8 @@ fn registration(input: &Value) -> Option<RegisterFederationConnection> {
         )?)
         .ok()?,
         jit_provisioning: literal(input, "jit_provisioning")?.as_bool()?,
+        subject_format: serde_json::from_value(literal(input, "subject_format")?).ok()?,
+        replaced_connector_id: None,
     })
 }
 

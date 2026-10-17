@@ -165,6 +165,8 @@ fn deployment_with(
                 verified_claim_values: None,
             },
             jit_provisioning: false,
+            subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+            replaced_connector_id: None,
         })
         .expect("a readable federation history");
     deployment
@@ -188,6 +190,7 @@ fn deployment_with(
             pkce_required: true,
             trusted_peers: Vec::new(),
             post_logout_redirect_uris: Vec::new(),
+            id_token_signed_response_alg: None,
             redirect_uris: vec![RedirectUri::new(redirect)],
             pkce_method: PkceMethod::S256,
         })

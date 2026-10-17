@@ -307,6 +307,9 @@ pub enum DenialClause {
     /// unadmitted". Two organizations cannot share an issuer when either resolves it
     /// unconditionally; see [`record::register_federation_connection`].
     TenantResolutionUnadmitted,
+    /// `RegisterFederationConnection`: "a DexCompatible subject format names no replaced
+    /// connector id or a MandatePrincipal one names one" (fork F1).
+    SubjectFormatMismatch,
     /// `RegisterOAuthClient`: "Caller lacks client-administration authority". An
     /// authorization decision, admitted through
     /// [`register_client::ClientRegistrationAdmission`].

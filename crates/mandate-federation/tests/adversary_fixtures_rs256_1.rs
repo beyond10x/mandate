@@ -144,6 +144,8 @@ fn projection(rules: &[TenantResolutionRule], subject: &str) -> Projection {
             client_id: ClientId::new(CLIENT),
             tenant_resolution: tenant_resolution.clone(),
             jit_provisioning: false,
+            subject_format: mandate_types::SubjectFormat::MandatePrincipal,
+            replaced_connector_id: None,
         });
     }
     log.push(FederationEvent::ExternalPrincipalLinked {
