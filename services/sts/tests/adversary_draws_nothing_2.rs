@@ -30,13 +30,14 @@ use mandate_sts::issue::{
 };
 use mandate_sts::registry::{RegisterResourceServer, register_resource_server};
 use mandate_sts::{IdentityAllocator, RequestContext, SequentialAllocator};
-use mandate_token::projection::Projection;
+use mandate_token::projection::{CredentialEvent, Projection};
 use mandate_token::signing_real::{SignedCredential, SigningError, StandardClaims};
 use mandate_token::{CredentialDescriptor, CredentialProfile};
 use mandate_types::{
     Audience, AuthorityScope, CorrelationId, CredentialId, CredentialKind, Duration,
-    EpochSnapshotRef, Issuer, OrganizationId, PrincipalId, ResourceServerId, RevocationGuarantee,
-    Timestamp, Uuid, VerifiedContext,
+    EpochSnapshotRef, Issuer, KeyReference, OrganizationId, PrincipalId, ResourceServerId,
+    RevocationGuarantee, SigningAlgorithm, SigningKeyId, SigningKeyWindow, Timestamp, Uuid,
+    VerifiedContext,
 };
 
 fn uuid(tag: u8) -> Uuid {
@@ -177,9 +178,32 @@ fn servers() -> (Projection, ResourceServerId) {
     .expect("a free audience in the caller's own organization");
     let id = outcome.resource_server_id;
     (
-        Projection::fold(&[outcome.event]).expect("one creation"),
+        Projection::fold(&[outcome.event, signing_key_registered()])
+            .expect("one registration and one signing key"),
         id,
     )
+}
+
+/// The recorded signing key the scripted signer signs under: a self-contained credential is
+/// issued only under a key the records admit for signing at the request's instant, and the
+/// signer names it by its record's identity.
+fn signing_key_id() -> SigningKeyId {
+    SigningKeyId::new(uuid(0x6b))
+}
+
+/// [`signing_key_id`]'s registration: `Recorded`, its window open at [`request`]'s instant.
+fn signing_key_registered() -> CredentialEvent {
+    CredentialEvent::SigningKeyRegistered {
+        context: context(),
+        id: signing_key_id(),
+        key_reference: KeyReference::new("kms://draws"),
+        thumbprint: "thumb-draws".to_owned(),
+        algorithm: SigningAlgorithm::new("ES256"),
+        window: SigningKeyWindow {
+            not_before: Timestamp::new("2026-09-01T00:00:00Z"),
+            expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+        },
+    }
 }
 
 /// A signer that refuses, unwinds, or signs, as told, and remembers every `jti` it signed.
@@ -209,7 +233,7 @@ impl IssuanceSigner for Scripted {
                 self.signed.borrow_mut().push(claims.token_id.clone());
                 Ok(SignedCredential {
                     token: format!("token-{}", claims.token_id),
-                    kid: "kid-1".to_owned(),
+                    kid: signing_key_id().to_string(),
                 })
             }
         }

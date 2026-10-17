@@ -355,6 +355,21 @@ impl Live {
         }
     }
 
+    /// The signer a self-contained issuance at `request` is signed under.
+    ///
+    /// The standing double, re-keyed: it signs under the `kid` of the key the scenario's own
+    /// `SigningKey` records admit for issuance at the request's instant
+    /// (`mandate_sts::keys::issuing_kid`), and under [`SIGNING_KID`] when they admit none.
+    /// That `kid` names no record, so the handler refuses it — the double does not decide
+    /// issuance, the records do.
+    #[must_use]
+    pub fn issuing_signer(&self, request: &StsRequest) -> StaticSigner {
+        mandate_sts::keys::issuing_kid(&self.credentials, &request.at).map_or_else(
+            || self.signer.clone(),
+            |kid| StaticSigner::new(kid, SIGNED_LIFETIME_SECONDS),
+        )
+    }
+
     /// The same, for the three commands whose declared input carries no verified context.
     #[must_use]
     pub fn sts_request_context(&self) -> StsRequest {

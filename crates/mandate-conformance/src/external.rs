@@ -419,7 +419,10 @@ const STANDING: &[StandingDouble] = &[
     StandingDouble {
         port: "mandate_sts::issue::IssuanceSigner",
         double: "mandate_sts::issue::StaticSigner",
-        why: "the signing key material is the deployment's and no scenario supplies one",
+        why: "the signing key material is the deployment's and no scenario supplies one; \
+              the double signs under the `kid` of the key the scenario's own `SigningKey` \
+              records admit for issuance at the request's instant, and under a `kid` naming \
+              no record when they admit none, so the records, not the double, decide issuance",
     },
     StandingDouble {
         port: "mandate_sts::keys::KeyMaterialResolver",

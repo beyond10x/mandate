@@ -265,7 +265,7 @@
         "scenario": "mandate.credential/authored/oidc-retire-without-successor-refused"
       },
       "scenarios/oidc-sign-with-retired-key-refused.yaml": {
-        "digest": "sha256:b4d46e2fbcc7bfc248640584cb07c8159c58f1cc8bbe9e64954ab29d0c5a330c",
+        "digest": "sha256:d53f08aabf9f0e7a5364c4650039eff2aca00c452fbf99771b3652794c1d6f30",
         "disposition": "accepted",
         "scenario": "mandate.credential/authored/oidc-sign-with-retired-key-refused"
       },
@@ -45938,7 +45938,7 @@
               "kind": "literal",
               "value": {
                 "expires_at": "2026-04-05T08:00:00Z",
-                "not_before": "2026-01-05T08:00:00Z"
+                "not_before": "2025-12-01T00:00:00Z"
               }
             }
           },
@@ -46048,7 +46048,7 @@
               "kind": "literal",
               "value": {
                 "expires_at": "2026-04-05T08:00:00Z",
-                "not_before": "2026-01-05T08:00:00Z"
+                "not_before": "2025-12-01T00:00:00Z"
               }
             }
           },

@@ -12,7 +12,6 @@ fn configured(issuer: &str) -> Configuration {
         issuer: issuer.to_owned(),
         code_lifetime: CodeLifetime::new(Duration::new("PT5M")),
         session_lifetime: Duration::new("PT8H"),
-        keys: Vec::new(),
     }
 }
 

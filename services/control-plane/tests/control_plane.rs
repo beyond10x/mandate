@@ -9,6 +9,9 @@ use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 
+use aws_lc_rs::rand::SystemRandom;
+use aws_lc_rs::signature::{ECDSA_P256_SHA256_FIXED_SIGNING, EcdsaKeyPair};
+
 const BINARY: &str = env!("CARGO_BIN_EXE_mandate-control-plane");
 
 const ORGANIZATION: &str = "00000000-0000-4000-8000-000000000001";
@@ -16,9 +19,17 @@ const CONNECTION: &str = "00000000-0000-4000-8000-000000000002";
 const CLIENT: &str = "00000000-0000-4000-8000-000000000003";
 const TARGET: &str = "00000000-0000-4000-8000-000000000004";
 
-const KEY: &str = r#"{"kty":"EC","kid":"login-key-1","use":"sig","alg":"ES256",
-  "crv":"P-256","x":"f83OJ3D2xF1Bg8vub9tLe1gHMzV76e8Tus9uPHvRVEU",
-  "y":"x_FEzRu9m36HLN_tue659LNpXW6pCyStikYjKIWI5a0"}"#;
+/// A P-256 private key generated now, as the PKCS#8 PEM `--signing-key` mounts. No private
+/// key byte is written into this file.
+fn key() -> String {
+    let pkcs8 =
+        EcdsaKeyPair::generate_pkcs8(&ECDSA_P256_SHA256_FIXED_SIGNING, &SystemRandom::new())
+            .expect("a P-256 key is generated");
+    format!(
+        "-----BEGIN PRIVATE KEY-----\n{}\n-----END PRIVATE KEY-----\n",
+        mandate_types::value::encode_base64(pkcs8.as_ref())
+    )
+}
 
 fn connection() -> String {
     format!(
@@ -95,6 +106,15 @@ fn printed_configuration(arguments: &[String]) -> Vec<String> {
         if line.contains("listening on") {
             return printed;
         }
+        // A mounted key's record identity is allocated per run; the name it was mounted
+        // under is the configuration, so that is what is compared.
+        let line = match line.split_once("registered signing key ") {
+            Some((head, rest)) => format!(
+                "{head}registered signing key {}",
+                rest.split_once(' ').map_or(rest, |(_, tail)| tail)
+            ),
+            None => line,
+        };
         printed.push(line);
     }
     panic!("the child ended before it listened; it printed {printed:?}");
@@ -132,7 +152,6 @@ fn config_dir_equivalent_to_flags() {
     let by_flag = root.join("by-flag");
     let documents = [
         ("connections", "a.json", connection()),
-        ("keys", "a.json", KEY.to_owned()),
         ("clients", "a.json", client()),
         ("resource-servers", "a.json", resource_server()),
     ];
@@ -140,17 +159,31 @@ fn config_dir_equivalent_to_flags() {
     for ((subdirectory, name, body), option) in
         documents
             .iter()
-            .zip(["--connection", "--key", "--client", "--resource-server"])
+            .zip(["--connection", "--client", "--resource-server"])
     {
         write(&directory.join(subdirectory).join(name), body);
         let path = write(&by_flag.join(subdirectory).join(name), body);
         flags.extend(flag(option, &path));
     }
+    // A signing key is a file named for its `NAME`, as `--signing-key NAME=PATH` names it.
+    let signing_key = key();
+    write(&directory.join("signing-keys").join("login"), &signing_key);
+    let path = write(&by_flag.join("signing-keys").join("login"), &signing_key);
+    flags.extend([
+        "--signing-key".to_owned(),
+        format!("login={}", path.to_str().expect("a UTF-8 path")),
+    ]);
 
     let from_flags = printed_configuration(&flags);
     let from_directory = printed_configuration(&flag("--config-dir", &directory));
     assert!(!from_flags.is_empty(), "the flags configured nothing");
-    assert_eq!(from_flags.len(), 3, "{from_flags:?}");
+    assert_eq!(from_flags.len(), 4, "{from_flags:?}");
+    assert!(
+        from_flags
+            .iter()
+            .any(|line| line.ends_with("registered signing key from `login`")),
+        "{from_flags:?}"
+    );
     assert_eq!(from_directory, from_flags);
 
     // A mount's own bookkeeping is not a document.
@@ -165,17 +198,25 @@ fn config_dir_equivalent_to_flags() {
 fn config_dir_refuses_an_unknown_file() {
     let root = scratch("unknown");
     let directory = root.join("mounted");
-    write(&directory.join("keys").join("a.json"), KEY);
+    write(&directory.join("clients").join("a.json"), &client());
     write(&directory.join("notes.txt"), "not a document");
     let (code, stderr) = status_of(&flag("--config-dir", &directory));
     assert_eq!(code, Some(2), "{stderr}");
     assert!(stderr.contains("notes.txt"), "{stderr}");
 
     let inside = root.join("inside");
-    write(&inside.join("keys").join("a.txt"), KEY);
+    write(&inside.join("clients").join("a.txt"), &client());
     let (code, stderr) = status_of(&flag("--config-dir", &inside));
     assert_eq!(code, Some(2), "{stderr}");
     assert!(stderr.contains("a.txt"), "{stderr}");
+
+    // `keys/` held the retired `--key` documents and is no longer a document directory: a
+    // mount still carrying one is refused rather than silently publishing nothing.
+    let retired = root.join("retired");
+    write(&retired.join("keys").join("a.json"), "{}");
+    let (code, stderr) = status_of(&flag("--config-dir", &retired));
+    assert_eq!(code, Some(2), "{stderr}");
+    assert!(stderr.contains("keys"), "{stderr}");
 
     let (code, stderr) = status_of(&flag("--config-dir", &root.join("absent")));
     assert_eq!(code, Some(2), "{stderr}");

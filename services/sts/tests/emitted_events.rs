@@ -426,9 +426,24 @@ fn a_refused_reference_issuance_emits_nothing_and_leaves_the_fold_unchanged() {
 
 #[test]
 fn issue_self_contained_credential_emits_exactly_the_declared_event() {
-    let (held, _, id) = registered(organization(10), "api-b", self_contained_profile());
+    let (_, mut log, id) = registered(organization(10), "api-b", self_contained_profile());
+    // A self-contained credential is issued only under a key the records admit for signing at
+    // the request's instant, and the signer names it by its record's identity.
+    let signing_key = SigningKeyId::new(uuid(0x6b));
+    log.push(CredentialEvent::SigningKeyRegistered {
+        context: context(organization(10)),
+        id: signing_key,
+        key_reference: KeyReference::new("kms://emitted"),
+        thumbprint: "thumb-emitted".to_owned(),
+        algorithm: SigningAlgorithm::new("ES256"),
+        window: SigningKeyWindow {
+            not_before: Timestamp::new("2026-09-01T00:00:00Z"),
+            expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+        },
+    });
+    let held = Projection::fold(&log).expect("one registration and one signing key");
     let mut allocator = SequentialAllocator::new();
-    let signer = StaticSigner::new("kid-one", 900);
+    let signer = StaticSigner::new(signing_key.to_string(), 900);
     let input = IssueSelfContainedCredential {
         context: context(organization(10)),
         target: id,

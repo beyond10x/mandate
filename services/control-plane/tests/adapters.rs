@@ -563,7 +563,6 @@ fn configuration(issuer: &str, code_lifetime: &str, session_lifetime: &str) -> C
         issuer: issuer.to_owned(),
         code_lifetime: CodeLifetime::new(Duration::new(code_lifetime)),
         session_lifetime: Duration::new(session_lifetime),
-        keys: Vec::new(),
     }
 }
 
