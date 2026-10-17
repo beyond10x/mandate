@@ -3130,6 +3130,7 @@ mod client_auth {
                 audience: Audience::new("https://api.example"),
                 profile: reference_profile(),
                 allowed_exchange_sources: Vec::new(),
+                client_id: None,
             },
             &CredentialProjection::default(),
             &mut SequentialAllocator::new(),

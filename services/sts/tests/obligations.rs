@@ -222,6 +222,7 @@ fn registered(profile: CredentialProfile) -> (Projection, Vec<CredentialEvent>, 
             audience: Audience::new("api-a"),
             profile,
             allowed_exchange_sources: Vec::new(),
+            client_id: None,
         },
         &Projection::default(),
         &mut allocator,
@@ -246,6 +247,7 @@ fn recorded(profile: CredentialProfile) -> (Projection, Vec<CredentialEvent>, Re
         audience: Audience::new("api-a"),
         credential_profile: profile,
         allowed_exchange_sources: Vec::new(),
+        client_id: None,
     }];
     (Projection::fold(&log).expect("one creation"), log, id)
 }
@@ -513,6 +515,7 @@ fn narrowing_refuses_a_zero_span_profile_bound_and_moves_nothing() {
             ..reference_profile()
         },
         allowed_exchange_sources: Vec::new(),
+        client_id: None,
     }];
     let servers = Projection::fold(&credential_log).expect("one creation");
 

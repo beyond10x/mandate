@@ -107,6 +107,7 @@ fn deployment(clock: FixedClock) -> (Wired, Targets) {
                 audience: Audience::new(audience),
                 profile: reference_profile(),
                 allowed_exchange_sources: sources,
+                client_id: None,
             },
             &registrations,
             &mut allocator,
@@ -467,6 +468,7 @@ fn a_target_this_road_cannot_mint_for_is_not_answered_as_a_scope_the_caller_got_
                 requires_online_authorization: true,
             },
             allowed_exchange_sources: vec![targets.source],
+            client_id: None,
         },
         0x5c,
     );
@@ -514,6 +516,7 @@ fn a_registration_whose_audience_is_spelled_as_a_uuid_is_exchanged_by_that_name(
             audience: Audience::new(UUID_AUDIENCE),
             profile: reference_profile(),
             allowed_exchange_sources: vec![targets.source],
+            client_id: None,
         },
         0x5d,
     );
@@ -550,6 +553,7 @@ fn a_denial_for_an_unresolved_name_never_names_a_registration_that_exists() {
             audience: Audience::new("https://stated.example"),
             profile: reference_profile(),
             allowed_exchange_sources: Vec::new(),
+            client_id: None,
         },
         0x5e,
     );
@@ -597,6 +601,7 @@ fn a_target_named_by_its_resource_uri_reaches_the_handler_and_is_exchanged() {
             audience: Audience::new(RESOURCE),
             profile: reference_profile(),
             allowed_exchange_sources: vec![targets.source],
+            client_id: None,
         },
         0x5f,
     );

@@ -108,6 +108,7 @@ fn registration(principal: PrincipalId, audience: &str) -> RegisterResourceServe
         audience: Audience::new(audience),
         profile: profile(),
         allowed_exchange_sources: Vec::new(),
+        client_id: None,
     }
 }
 

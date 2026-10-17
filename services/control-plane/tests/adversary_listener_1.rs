@@ -117,6 +117,7 @@ fn deployment_with(redirect: &str, code_lifetime: &str) -> (Wired, ResourceServe
             audience: Audience::new("https://api.example"),
             profile: reference_profile(),
             allowed_exchange_sources: Vec::new(),
+            client_id: None,
         },
         &CredentialProjection::default(),
         &mut allocator,

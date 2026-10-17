@@ -318,6 +318,7 @@ fn registered(profile: CredentialProfile) -> (Projection, ResourceServerId) {
             audience: Audience::new("api-a"),
             profile,
             allowed_exchange_sources: Vec::new(),
+            client_id: None,
         },
         &Projection::default(),
         &mut allocator,
@@ -343,6 +344,7 @@ fn recorded(profile: CredentialProfile) -> (Projection, ResourceServerId) {
         audience: Audience::new("api-a"),
         credential_profile: profile,
         allowed_exchange_sources: Vec::new(),
+        client_id: None,
     }];
     (Projection::fold(&log).expect("one creation"), id)
 }
@@ -410,6 +412,7 @@ fn a_profile_bound_past_the_readable_year_is_refused_or_renders_readably() {
                     ..reference_profile(max_ttl)
                 },
                 allowed_exchange_sources: Vec::new(),
+                client_id: None,
             },
             &Projection::default(),
             &mut allocator,

@@ -59,6 +59,7 @@ fn registration(organization_id: OrganizationId, audience: &str) -> RegisterReso
         audience: Audience::new(audience),
         profile: reference_profile(),
         allowed_exchange_sources: Vec::new(),
+        client_id: None,
     }
 }
 
@@ -98,6 +99,7 @@ fn a_registration_responds_with_the_minted_identity_and_emits_the_declared_event
             audience: Audience::new("api-a"),
             credential_profile: reference_profile(),
             allowed_exchange_sources: Vec::new(),
+            client_id: None,
         }
     );
 
@@ -169,6 +171,7 @@ fn an_allowed_source_that_does_not_resolve_is_refused() {
     let mut allocator = SequentialAllocator::new();
     let input = RegisterResourceServer {
         allowed_exchange_sources: vec![ResourceServerId::new(uuid(0x99))],
+        client_id: None,
         ..registration(organization(10), "api-b")
     };
 
@@ -198,6 +201,7 @@ fn an_allowed_source_in_another_organization_is_refused() {
 
     let input = RegisterResourceServer {
         allowed_exchange_sources: vec![foreign.resource_server_id],
+        client_id: None,
         ..registration(organization(10), "api-b")
     };
 
@@ -227,6 +231,7 @@ fn a_disabled_allowed_source_is_refused() {
 
     let input = RegisterResourceServer {
         allowed_exchange_sources: vec![id],
+        client_id: None,
         ..registration(organization(10), "api-b")
     };
 

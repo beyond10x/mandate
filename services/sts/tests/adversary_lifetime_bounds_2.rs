@@ -108,6 +108,7 @@ fn register(profile: CredentialProfile) -> Result<(Projection, ResourceServerId)
             audience: Audience::new("api-a"),
             profile,
             allowed_exchange_sources: Vec::new(),
+            client_id: None,
         },
         &Projection::default(),
         &mut SequentialAllocator::new(),
@@ -155,6 +156,7 @@ fn recorded(profile: CredentialProfile) -> (Projection, ResourceServerId) {
             audience: Audience::new("api-a"),
             credential_profile: profile,
             allowed_exchange_sources: Vec::new(),
+            client_id: None,
         },
         signing_key_registered(),
     ];

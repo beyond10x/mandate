@@ -321,6 +321,7 @@ impl Deployment {
                 audience: Audience::new(audience),
                 profile,
                 allowed_exchange_sources: Vec::new(),
+                client_id: None,
             },
             &self.held(),
             &mut self.allocator,

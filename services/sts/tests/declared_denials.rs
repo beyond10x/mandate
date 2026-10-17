@@ -57,7 +57,7 @@ use mandate_sts::redemption::{
 };
 use mandate_sts::registry::{
     DisableResourceServer, RegisterResourceServer, disable_resource_server,
-    register_resource_server,
+    register_resource_server, register_resource_server_for_clients,
 };
 use mandate_sts::resolve::{
     CredentialResolution, IntrospectCredential, IntrospectionParts, ResolutionUnavailable,
@@ -133,6 +133,21 @@ const ROWS: &[(&str, DenialClause, Source)] = &[
         "mandate.credential.RegisterResourceServer",
         DenialClause::SourceOutsideOrganization,
         Source::DenialPhrase("outside the verified organization"),
+    ),
+    (
+        "mandate.credential.RegisterResourceServer",
+        DenialClause::ClientUnregistered,
+        Source::DenialPhrase("the named client is unresolved"),
+    ),
+    (
+        "mandate.credential.RegisterResourceServer",
+        DenialClause::ClientDisabled,
+        Source::DenialPhrase("named client is unresolved/disabled"),
+    ),
+    (
+        "mandate.credential.RegisterResourceServer",
+        DenialClause::ClientOutsideOrganization,
+        Source::DenialPhrase("client is unresolved/disabled/outside the verified"),
     ),
     // --- DisableResourceServer
     (
@@ -405,12 +420,7 @@ const ROWS: &[(&str, DenialClause, Source)] = &[
     (
         "mandate.credential.IssueAuthorizationCode",
         DenialClause::ClientUnregistered,
-        Source::DenialPhrase("registered public client"),
-    ),
-    (
-        "mandate.credential.IssueAuthorizationCode",
-        DenialClause::ClientNotPublic,
-        Source::DenialPhrase("registered public client"),
+        Source::DenialPhrase("registered client"),
     ),
     (
         "mandate.credential.IssueAuthorizationCode",
@@ -781,6 +791,7 @@ fn registered_target() -> (Projection, ResourceServerId) {
             audience: Audience::new("api-a"),
             profile: reference_profile(),
             allowed_exchange_sources: Vec::new(),
+            client_id: None,
         },
         &Projection::default(),
         &mut allocator,
@@ -845,6 +856,7 @@ fn every_refusal_issue_authorization_code_produces_has_a_row() {
                 audience: Audience::new("api-a"),
                 profile: reference_profile(),
                 allowed_exchange_sources: Vec::new(),
+                client_id: None,
             },
             &Projection::default(),
             &mut allocator,
@@ -870,6 +882,7 @@ fn every_refusal_issue_authorization_code_produces_has_a_row() {
                     requires_online_authorization: false,
                 },
                 allowed_exchange_sources: Vec::new(),
+                client_id: None,
             },
             &Projection::default(),
             &mut allocator,
@@ -920,13 +933,6 @@ fn every_refusal_issue_authorization_code_produces_has_a_row() {
             &code_input(self_contained.1),
         ),
         refuse(&servers, &RecordedClients::new(), &code_input(target)),
-        refuse(
-            &servers,
-            &RecordedClients::new()
-                .confidential(client(), organization(10))
-                .redirect(client(), redirect()),
-            &code_input(target),
-        ),
         refuse(
             &servers,
             &RecordedClients::new()
@@ -1390,6 +1396,7 @@ fn other_tenant_target(target: ResourceServerId) -> Projection {
         audience: Audience::new("api-a"),
         credential_profile: reference_profile(),
         allowed_exchange_sources: Vec::new(),
+        client_id: None,
     }])
     .expect("one creation")
 }
@@ -1409,6 +1416,7 @@ fn unbounded_profile_target(target: ResourceServerId) -> Projection {
             ..reference_profile()
         },
         allowed_exchange_sources: Vec::new(),
+        client_id: None,
     }])
     .expect("one creation")
 }
@@ -1610,6 +1618,7 @@ fn registration(
         audience: Audience::new(audience),
         credential_profile: profile,
         allowed_exchange_sources: Vec::new(),
+        client_id: None,
     }
 }
 
@@ -1713,6 +1722,20 @@ fn every_refusal_register_resource_server_produces_has_a_row() {
         audience: Audience::new(audience),
         profile: reference_profile(),
         allowed_exchange_sources: sources,
+        client_id: None,
+    };
+    let refuse_naming = |clients: &RecordedClients| {
+        let mut allocator = SequentialAllocator::new();
+        register_resource_server_for_clients(
+            &RegisterResourceServer {
+                client_id: Some(client()),
+                ..free("free", Vec::new())
+            },
+            &held,
+            clients,
+            &mut allocator,
+        )
+        .expect_err("a refusal")
     };
 
     let observed = vec![
@@ -1727,7 +1750,40 @@ fn every_refusal_register_resource_server_produces_has_a_row() {
         refuse(&free("free", vec![ResourceServerId::new(uuid(0x49))])),
         refuse(&free("free", vec![ResourceServerId::new(uuid(0x41))])),
         refuse(&free("free", vec![ResourceServerId::new(uuid(0x42))])),
+        // A named client, through the entry point that holds no client registry: unresolved.
+        refuse(&RegisterResourceServer {
+            client_id: Some(client()),
+            ..free("free", Vec::new())
+        }),
+        // And through one that does: disabled, then registered to another organization.
+        refuse_naming(&RecordedClients::new().disabled(client(), organization(10))),
+        refuse_naming(&RecordedClients::new().enabled(client(), organization(11))),
     ];
+    // A client the registry resolves, enabled and in the caller's organization, is
+    // admitted whether it is public or confidential.
+    for clients in [
+        RecordedClients::new().enabled(client(), organization(10)),
+        RecordedClients::new().confidential(client(), organization(10)),
+    ] {
+        let mut allocator = SequentialAllocator::new();
+        let registered = register_resource_server_for_clients(
+            &RegisterResourceServer {
+                client_id: Some(client()),
+                ..free("free", Vec::new())
+            },
+            &held,
+            &clients,
+            &mut allocator,
+        )
+        .expect("a resolved client in the caller's organization");
+        assert!(matches!(
+            registered.event,
+            CredentialEvent::ResourceServerRegistered {
+                client_id: Some(named),
+                ..
+            } if named == client()
+        ));
+    }
 
     assert_clauses_match_rows("mandate.credential.RegisterResourceServer", &observed);
 }
@@ -2264,6 +2320,7 @@ fn exchange_registration(
         audience: Audience::new(audience),
         credential_profile: profile,
         allowed_exchange_sources: sources,
+        client_id: None,
     }
 }
 

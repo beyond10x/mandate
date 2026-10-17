@@ -1,6 +1,6 @@
 # generated from mandate v1
-# model digest ed30f4be9ac91f32de4da849d406533e9444bf70425bbe0c0312187b27df62b7
-# contract digest slice-sha256/2:e667fc1308d03f2b552d1cd0b06999c1d62bcff1b1b961851d1498b213ae6076
+# model digest d8575ef6d61697ff2dc795ccb0e4a661f82eac803f612e61150bb4593e94196f
+# contract digest slice-sha256/2:1677b58213e6731f374545243b4124e0a2d1f86e400c64d4110f09674d153caf
 # do not edit: regenerate with `ess generate`
 openapi: 3.1.0
 info:
@@ -14,8 +14,8 @@ info:
   x-ess-provenance:
     system: mandate
     specification_version: v1
-    source_digest: ed30f4be9ac91f32de4da849d406533e9444bf70425bbe0c0312187b27df62b7
-    contract_digest: slice-sha256/2:e667fc1308d03f2b552d1cd0b06999c1d62bcff1b1b961851d1498b213ae6076
+    source_digest: d8575ef6d61697ff2dc795ccb0e4a661f82eac803f612e61150bb4593e94196f
+    contract_digest: slice-sha256/2:1677b58213e6731f374545243b4124e0a2d1f86e400c64d4110f09674d153caf
 tags:
 - name: credential
 paths:
@@ -1429,7 +1429,7 @@ components:
       type: object
     mandate.credential.IssueAuthorizationCode.denied.Response:
       additionalProperties: false
-      description: 'Decided outside the request: Trusted control-plane caller/session context, registered public client, exact redirect URI, S256 policy, tenant/target agreement, authority narrowing or bounded expiry validation fails, or the client the code would be bound to is disabled..'
+      description: 'Decided outside the request: Trusted control-plane caller/session context, registered client, exact redirect URI, S256 policy, tenant/target agreement, authority narrowing or bounded expiry validation fails, or the client the code would be bound to is disabled..'
       properties:
         error:
           const: mandate.credential.Denied

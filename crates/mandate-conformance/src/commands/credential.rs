@@ -59,6 +59,7 @@ pub fn register_resource_server(
         audience: node::field(&request.input, "audience")?,
         profile: node::field(&request.input, "profile")?,
         allowed_exchange_sources: node::field(&request.input, "allowed_exchange_sources")?,
+        client_id: node::optional(&request.input, "client_id")?,
     };
     // Decided standing-first (`external.rs`, "An arming the input already decides"): the
     // synthesized input names an exchange source no record carries, so the standing reader
@@ -69,10 +70,17 @@ pub fn register_resource_server(
         COMMAND,
         sts_ids,
         |live, ids, faulted| {
+            // A named client resolves against the federation fold, as at issuance.
+            let clients = FederationClients(&live.federation);
             if faulted {
-                registry::register_resource_server(&input, &reader, ids)
+                registry::register_resource_server_for_clients(&input, &reader, &clients, ids)
             } else {
-                registry::register_resource_server(&input, &live.credentials, ids)
+                registry::register_resource_server_for_clients(
+                    &input,
+                    &live.credentials,
+                    &clients,
+                    ids,
+                )
             }
         },
         || (reader.consulted(), reader.refused()),

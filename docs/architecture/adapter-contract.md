@@ -220,11 +220,17 @@ row is driven by a case in `crates/mandate-server/tests/obligations.rs` — 25 o
 | Declared clause | Established by |
 |---|---|
 | Session proof is invalid/stale | handler |
-| client is not a registered public client | handler |
+| client is not a registered client | handler — either type, read from the registration record |
 | the client is disabled | handler |
 | exact redirect URI or state/applicable nonce binding fails | handler |
-| S256 challenge is absent/invalid | adapter — absent, mis-shaped, or offered under another method |
+| PKCE is absent where the client requires it | handler — `pkce_required`, always for a public client, is on the registration record |
+| only one of challenge and method is given | adapter |
+| the S256 challenge is invalid | adapter — mis-shaped, or offered under another method |
 | target is unregistered/outside tenant | handler |
+| a named target is backed by a client that does not list this client as a trusted peer | handler |
+| no target is named and not exactly one enabled resource server backs the client | handler |
+| identity scopes are requested without OpenId | adapter — the `scope` parameter alone decides it |
+| no target is named and OpenId is not requested | adapter — the `scope` parameter alone decides it |
 | STS code issuance/narrowing is refused | handler |
 
 ### `RedeemAuthorizationCode`

@@ -106,6 +106,7 @@ fn registered() -> CredentialEvent {
         audience: Audience::new("api-a"),
         credential_profile: reference_profile(),
         allowed_exchange_sources: Vec::new(),
+        client_id: None,
     }
 }
 

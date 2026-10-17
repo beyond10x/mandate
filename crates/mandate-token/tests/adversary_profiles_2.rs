@@ -109,6 +109,7 @@ fn registration(id: ResourceServerId, audience: &str) -> CredentialEvent {
         audience: Audience::new(audience),
         credential_profile: profile(),
         allowed_exchange_sources: Vec::new(),
+        client_id: None,
     }
 }
 

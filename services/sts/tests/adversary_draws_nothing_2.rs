@@ -171,6 +171,7 @@ fn servers() -> (Projection, ResourceServerId) {
                 requires_online_authorization: false,
             },
             allowed_exchange_sources: Vec::new(),
+            client_id: None,
         },
         &Projection::default(),
         &mut SequentialAllocator::new(),

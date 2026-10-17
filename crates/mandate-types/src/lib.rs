@@ -159,8 +159,8 @@ pub use client_secret::{
 };
 pub use credential::{CredentialProof, CredentialSecret};
 pub use enumeration::{
-    CredentialKind, DecisionReason, DenialReason, ExternalLinkMethod, MembershipSource,
-    OAuthClientType, PkceMethod, PrincipalKind, RevocationGuarantee,
+    CredentialKind, DecisionReason, DenialReason, ExternalLinkMethod, IdentityScope,
+    MembershipSource, OAuthClientType, PkceMethod, PrincipalKind, RevocationGuarantee,
 };
 pub use identifier::{
     AccessCredentialId, AgentCapabilityCeilingId, ApprovalId, AuditEventId, AuthorizationCodeId,

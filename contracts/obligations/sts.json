@@ -229,7 +229,7 @@
           "blocked_on": "decision-blocker:guards"
         },
         {
-          "clause": "registered public client",
+          "clause": "registered client",
           "tests": [
             {
               "id": "mandate-sts::declared_denials::every_refusal_issue_authorization_code_produces_has_a_row",
@@ -592,8 +592,13 @@
         },
         {
           "clause": "the named client is unresolved/disabled/outside the verified organization",
-          "tests": [],
-          "blocked_on": "story:oidc-trusted-peers"
+          "tests": [
+            {
+              "id": "mandate-sts::declared_denials::every_refusal_register_resource_server_produces_has_a_row",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
         }
       ],
       "no_state_change": [

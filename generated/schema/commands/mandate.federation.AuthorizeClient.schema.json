@@ -31,25 +31,28 @@
     },
     "requested_scope": {
       "$ref": "#/$defs/mandate.core.AuthorityScope"
+    },
+    "identity_scopes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/mandate.credential.IdentityScope"
+      }
     }
   },
   "required": [
     "client_id",
     "redirect_uri",
-    "challenge",
-    "method",
     "state",
     "nonce",
     "session_proof",
-    "target",
     "requested_scope"
   ],
   "additionalProperties": false,
   "x-ess-provenance": {
     "system": "mandate",
     "specification_version": "v1",
-    "source_digest": "ed30f4be9ac91f32de4da849d406533e9444bf70425bbe0c0312187b27df62b7",
-    "contract_digest": "slice-sha256/2:907785e9e38c4f495a01badf941c4576e6f94729ca04394a23446dba5d223f8e",
+    "source_digest": "d8575ef6d61697ff2dc795ccb0e4a661f82eac803f612e61150bb4593e94196f",
+    "contract_digest": "slice-sha256/2:fe7eed55e82f262172a79f111487449ef37a6c955cca58372037742326da9b1f",
     "regenerate": "ess generate"
   },
   "$defs": {
@@ -172,6 +175,19 @@
       "type": "string",
       "format": "uuid",
       "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.credential.IdentityScope": {
+      "title": "IdentityScope",
+      "x-ess-name": "mandate.credential.IdentityScope",
+      "x-ess-kind": "enum",
+      "type": "string",
+      "enum": [
+        "OpenId",
+        "Email",
+        "Profile",
+        "Groups",
+        "OfflineAccess"
+      ]
     }
   }
 }

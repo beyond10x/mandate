@@ -1,0 +1,304 @@
+{
+  "format": "mandate-use-case/1",
+  "use_case": "oidc-relying-app",
+  "title": "An OpenID Connect relying application sends a browser to Mandate and gets an authorization code back, signing the browser in upstream only when it holds no Mandate session",
+  "summary": "A relying application (an application, or a gateway in front of one) speaks OpenID Connect to Mandate as its OpenID Provider. It sends the browser to the authorization endpoint with `scope=openid` and no Mandate-specific parameter. A browser with no Mandate session is sent to the organization's upstream identity provider and, at the relying-party callback, the authorization request it came with is resumed: the browser returns to the application's registered redirect with a code and the exact state, and holds a host-only session cookie. A browser that holds the cookie is answered the code without an upstream round trip. These are steps 1 to 4 of the road; the token, ID token, refresh and logout steps are named below as gaps with their owners.",
+  "serves": {
+    "epic": "epic:openid-provider",
+    "requirement": ".engineering/planning/epic/openid-provider.md",
+    "requirement_words": "An app behind an Envoy Gateway `oidc` SecurityPolicy works unchanged when its issuer URL moves from"
+  },
+  "parties": [
+    {
+      "party": "mandate-deployment",
+      "outside": false,
+      "role": "The process this repository builds: `mandate-control-plane serve`, acting as the OpenID Provider toward the relying application and as the relying party toward the upstream identity provider.",
+      "delivers": [
+        {
+          "kind": "contract",
+          "element": "mandate.federation.AuthorizeClient",
+          "element_kind": "command",
+          "statement": "An authorization request names a registered client of either type and an exact redirect; PKCE is offered whole or not at all; an OpenID Connect request names no target and its code is for the resource server whose `client_id` names the client."
+        },
+        {
+          "kind": "contract",
+          "element": "mandate.credential.ResourceServer",
+          "element_kind": "entity",
+          "statement": "A resource server may name the client it is the audience of, which is how an OpenID Connect request that names no target is resolved to one."
+        },
+        {
+          "kind": "route",
+          "method": "GET",
+          "path": "/oauth/authorize",
+          "binds": {"command": "mandate.federation.AuthorizeClient"},
+          "statement": "The authorization endpoint, reached by a browser with the host-only session cookie, a bearer session proof, or no session at all."
+        },
+        {
+          "kind": "route",
+          "method": "GET",
+          "path": "/v1/federation/callback",
+          "binds": {"relying_party": "Callback"},
+          "statement": "The upstream identity provider's return; for a sign-in the authorization endpoint started, it resumes that request and sets the session cookie."
+        },
+        {
+          "kind": "test",
+          "id": "mandate-control-plane::relying_party::browser_without_session_is_sent_upstream_and_returns_with_code",
+          "statement": "A browser with no session is sent upstream and returns to the client's redirect with a code, the exact state and a `__Host-mandate-session` cookie that is `Secure`, `HttpOnly`, `SameSite=Lax` and `Path=/`."
+        },
+        {
+          "kind": "test",
+          "id": "mandate-control-plane::relying_party::session_cookie_skips_upstream",
+          "statement": "The cookie skips the upstream round trip; `prompt=login` forces one; `prompt=none` with no usable session answers `login_required` at the redirect."
+        }
+      ],
+      "relies_on": [
+        {
+          "kind": "configuration",
+          "flag": "--client",
+          "type": "ClientSeed",
+          "field": "redirect_uris",
+          "statement": "The redirect the relying application registered, against which every answer of the authorization endpoint is sent."
+        }
+      ]
+    },
+    {
+      "party": "relying-application",
+      "outside": true,
+      "role": "The application, or the gateway in front of it, that sends browsers to Mandate's authorization endpoint as an OpenID Connect client.",
+      "delivers": [
+        {
+          "kind": "configuration",
+          "flag": "--client",
+          "type": "ClientSeed",
+          "field": "redirect_uris",
+          "statement": "Its callback, registered byte for byte."
+        },
+        {
+          "kind": "promise",
+          "party": "relying-application",
+          "statement": "It sends `scope=openid`, a fresh `state` and `nonce`, and an S256 code challenge on every authorization request.",
+          "locally_refutable": true,
+          "refuted_by": "a request without `openid` and without a target is refused `invalid_scope`; a public client's request without a challenge is refused before anything is sent upstream."
+        },
+        {
+          "kind": "promise",
+          "party": "relying-application",
+          "statement": "It checks the `state` it gets back before it uses the code.",
+          "locally_refutable": false,
+          "refuted_by": "nothing here observes it: the state is returned exactly as received, and whether it was checked is visible only in the application."
+        }
+      ],
+      "relies_on": [
+        {
+          "kind": "route",
+          "method": "GET",
+          "path": "/oauth/authorize",
+          "binds": {"command": "mandate.federation.AuthorizeClient"},
+          "statement": "The endpoint it sends browsers to."
+        }
+      ]
+    },
+    {
+      "party": "upstream-identity-provider",
+      "outside": true,
+      "role": "The organization's external OIDC identity provider, configured as the connection's relying-party IdP.",
+      "delivers": [
+        {
+          "kind": "configuration",
+          "flag": "--connection",
+          "type": "ConnectionSeed",
+          "field": "relying_party",
+          "statement": "The callback Mandate registered with it and the reference to the client secret it issued."
+        },
+        {
+          "kind": "promise",
+          "party": "upstream-identity-provider",
+          "statement": "It returns the browser to the registered callback with a code and the exact state, and signs an ID token carrying the nonce Mandate sent.",
+          "locally_refutable": true,
+          "refuted_by": "the callback is refused (`StateMismatch` or `NonceMismatch` on the operator's stream) and no session is opened."
+        }
+      ],
+      "relies_on": [
+        {
+          "kind": "route",
+          "method": "GET",
+          "path": "/v1/federation/callback",
+          "binds": {"relying_party": "Callback"},
+          "statement": "The callback it returns browsers to."
+        }
+      ]
+    },
+    {
+      "party": "customer-end-user",
+      "outside": true,
+      "role": "The person whose browser is sent between the relying application, Mandate and the upstream identity provider.",
+      "delivers": [
+        {
+          "kind": "promise",
+          "party": "customer-end-user",
+          "statement": "Their browser keeps the `__Host-mandate-session` and `__Host-mandate-rp` cookies and returns them to Mandate's origin.",
+          "locally_refutable": true,
+          "refuted_by": "a browser that drops the binding cookie has its callback refused (`StateMismatch`); one that drops the session cookie is sent upstream on every authorization."
+        }
+      ],
+      "relies_on": [
+        {
+          "kind": "route",
+          "method": "GET",
+          "path": "/oauth/authorize",
+          "binds": {"command": "mandate.federation.AuthorizeClient"},
+          "statement": "The endpoint the relying application sends their browser to."
+        }
+      ]
+    },
+    {
+      "party": "customer-administrator",
+      "outside": true,
+      "role": "Whoever writes the flag documents the deployment is started with.",
+      "delivers": [
+        {
+          "kind": "configuration",
+          "flag": "--resource-server",
+          "type": "ResourceServerSeed",
+          "field": "client_id",
+          "statement": "The client the resource server is the audience of, so an OpenID Connect request naming no target resolves to it."
+        }
+      ],
+      "relies_on": []
+    }
+  ],
+  "steps": [
+    {
+      "step": 1,
+      "actor": "customer-administrator",
+      "command": "mandate.federation.RegisterOAuthClient",
+      "when": "configuration, once per relying application",
+      "statement": "The relying application is recorded as a client of the organization, public or confidential, with its exact redirects and whether it must use PKCE.",
+      "evidence": [
+        {"kind": "scenario", "id": "mandate.federation.RegisterOAuthClient/outcome/denied", "outcome": "passed"}
+      ]
+    },
+    {
+      "step": 2,
+      "actor": "customer-administrator",
+      "command": "mandate.credential.RegisterResourceServer",
+      "when": "configuration, once per relying application",
+      "statement": "The relying application's resource server is registered naming its client; a client that does not resolve, is disabled or is another organization's is refused.",
+      "evidence": [
+        {"kind": "scenario", "id": "mandate.credential.RegisterResourceServer/outcome/denied", "outcome": "passed"},
+        {"kind": "test", "id": "mandate-sts::declared_denials::every_refusal_register_resource_server_produces_has_a_row"}
+      ]
+    },
+    {
+      "step": 3,
+      "actor": "customer-end-user",
+      "command": "mandate.federation.AuthenticateFederation",
+      "when": "first authorization of a browser, and every `prompt=login`",
+      "statement": "A browser with no usable session is signed in through the organization's one relying-party connection, and the authorization request it came with is held for the callback.",
+      "evidence": [
+        {"kind": "scenario", "id": "mandate.federation.AuthenticateFederation/outcome/denied", "outcome": "passed"},
+        {"kind": "test", "id": "mandate-control-plane::relying_party::browser_without_session_is_sent_upstream_and_returns_with_code"}
+      ]
+    },
+    {
+      "step": 4,
+      "actor": "relying-application",
+      "command": "mandate.federation.AuthorizeClient",
+      "when": "every authorization",
+      "statement": "The code is issued for the session the cookie or the resumed sign-in names and returned to the exact redirect with the exact state.",
+      "evidence": [
+        {"kind": "test", "id": "mandate-control-plane::relying_party::session_cookie_skips_upstream"},
+        {"kind": "test", "id": "mandate-server::decode::authorize_oidc_scope"}
+      ]
+    }
+  ],
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/oauth/authorize",
+      "binds": {"command": "mandate.federation.AuthorizeClient"},
+      "steps": [3, 4],
+      "statement": "The authorization endpoint. A browser's session is the host-only cookie; none sends it upstream, and `prompt=none` with none is `login_required`."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/federation/callback",
+      "binds": {"relying_party": "Callback"},
+      "steps": [3, 4],
+      "statement": "The relying-party callback, which resumes the authorization request that started the sign-in."
+    }
+  ],
+  "configuration": [
+    {
+      "party": "customer-administrator",
+      "flag": "--client",
+      "type": "ClientSeed",
+      "repeatable": true,
+      "example": {
+        "client_id": "00000000-0000-4000-8000-000000000004",
+        "organization": "00000000-0000-4000-8000-000000000001",
+        "client_type": "public",
+        "redirect_uris": ["https://app.example.test/callback"],
+        "pkce_method": "S256"
+      },
+      "fields": [
+        {"field": "client_type", "required": true, "statement": "Public or confidential. A public client always uses PKCE; a confidential one when `pkce_required` holds."},
+        {"field": "redirect_uris", "required": true, "statement": "The redirects compared byte for byte; every answer of the authorization endpoint after the client is validated is sent to the one presented."},
+        {"field": "pkce_required", "required": false, "statement": "Whether a confidential client must offer PKCE. Defaults to true."}
+      ]
+    },
+    {
+      "party": "customer-administrator",
+      "flag": "--resource-server",
+      "type": "ResourceServerSeed",
+      "repeatable": true,
+      "example": {
+        "resource_server_id": "00000000-0000-4000-8000-000000000005",
+        "organization": "00000000-0000-4000-8000-000000000001",
+        "audience": "https://app.example.test",
+        "profile": {"name": "reference", "kind": "Reference", "revocation": "ImmediateOnline", "max_ttl": "PT1H", "positive_cache_ttl": "PT30S", "requires_online_authorization": true},
+        "allowed_exchange_sources": [],
+        "client_id": "00000000-0000-4000-8000-000000000004"
+      },
+      "fields": [
+        {"field": "client_id", "required": false, "statement": "The client this resource server is the audience of. It must resolve to an enabled client of the same organization, seeded by a `--client` document."}
+      ]
+    },
+    {
+      "party": "customer-administrator",
+      "flag": "--session-lifetime",
+      "type": "argument",
+      "fields": [
+        {"field": "session_lifetime", "required": false, "statement": "How long a session lasts, and so how long the browser keeps the session cookie (`Max-Age`). Defaults to PT8H."}
+      ]
+    }
+  ],
+  "standards": [
+    {"rfc": 6749, "section": "4.1.2.1", "governs": "refusals after the client and redirect are validated are sent to the redirect with the exact state", "steps": [4], "cited_at": "services/control-plane/src/serve.rs"},
+    {"rfc": 7636, "section": "4.3", "governs": "PKCE is offered whole or not at all, and a public client always offers it", "steps": [4], "cited_at": "crates/mandate-server/src/decode.rs"},
+    {"rfc": 6265, "section": "4.1", "governs": "the host-only `__Host-` session cookie and its attributes", "steps": [3, 4], "cited_at": "crates/mandate-server/src/decode.rs"}
+  ],
+  "not_yet_true": [
+    {
+      "gap": "the authorization endpoint's command is not realized by an accounting crate",
+      "costs": "Nothing a browser sees: the adapter answers the road end to end. The command's coverage row stays deferred, so its accepted and denied scenarios are not decided by the conformance suite.",
+      "today": "`contracts/coverage.json` records `mandate.federation.AuthorizeClient` as deferred to `story:oauth-integration`.",
+      "steps": [4],
+      "owner": "story:oauth-integration"
+    },
+    {
+      "gap": "a confidential client that omits PKCE is admitted by the client check and refused at code issuance",
+      "costs": "A relying application registered with `pkce_required: false` must still send a challenge.",
+      "today": "Code issuance records a challenge on every code; scenario `oidc-authorize-confidential-without-pkce` is unsupported.",
+      "steps": [4],
+      "owner": "story:oauth-integration"
+    },
+    {
+      "gap": "no ID token, no client authentication at the token endpoint, no refresh and no logout",
+      "costs": "The relying application gets a code it can redeem for a Mandate credential but no ID token; steps 5 onward of the road are not served.",
+      "today": "The token endpoint answers the authorization-code grant for public clients only.",
+      "steps": [4],
+      "owner": "story:oidc-signed-tokens-and-key-rotation"
+    }
+  ]
+}

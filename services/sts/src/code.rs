@@ -100,7 +100,7 @@ pub trait OAuthClientReads {
     /// answer.
     ///
     /// `mandate.federation.OAuthClient` declares `public` (`federation.yaml:85-98`), and
-    /// `IssueAuthorizationCode`'s denial names a "registered public client". `None` is not
+    /// a caller that admits public clients only asks it. `None` is not
     /// "yes": a reader that holds no answer has not decided that this client is public, and
     /// [`admitted_client`] fails closed on it with `DenialReason::Unavailable` — the reading
     /// `mandate_federation::authorize::TargetRegistry::can_answer` established for a
@@ -438,21 +438,22 @@ fn encode_base64url(bytes: &[u8]) -> String {
 
 /// The registered client a code may be bound to, or the declared refusal.
 ///
-/// Four questions, and the declared denial names all four: the client is registered
-/// ("registered public client"), it belongs to the caller's organization ("tenant/target
-/// agreement"), it is enabled ("the client the code would be bound to is disabled"), and it
-/// is a **public** client ("registered public client"). A redirect, when one is presented,
+/// Up to four questions: the client is registered ("registered client"), it belongs to the
+/// caller's organization ("tenant/target agreement"), it is enabled ("the client the code
+/// would be bound to is disabled"), and, when `public_client_required` holds, it is a
+/// **public** client. A redirect, when one is presented,
 /// is the fifth ("exact redirect URI") and is checked by [`admitted_redirect`].
 ///
 /// Its own function because a redemption asks the first three again, against the record
-/// rather than the input ([`crate::binding::bound_client`]). The public-client question is
-/// issuance's alone: it decides whether a code may exist, and a code that exists was already
-/// decided.
+/// rather than the input ([`crate::binding::bound_client`]). Neither issuance nor redemption
+/// asks the public-client question, since a confidential client may hold a code; the
+/// parameter stays for a caller that admits public clients only.
 ///
 /// # Errors
 ///
 /// Returns [`Denied`] when the client resolves to no registration, belongs to another
-/// organization, is disabled, or is not one the registry answers "public" for. A reader that
+/// organization, is disabled, or, when `public_client_required` holds, is not one the
+/// registry answers "public" for. A reader that
 /// cannot answer either of the last two refuses with `DenialReason::Unavailable` rather than
 /// with the positive refusal: it has decided neither that the client is disabled nor that it
 /// is confidential.
@@ -666,9 +667,15 @@ where
             DenialClause::ProfileUnadmitted,
         ));
     }
-    // "registered public client": at issuance the STS asks for the public half as well, as
-    // the second line behind the control-plane adapter that has already decided it.
-    admitted_client(&input.client_id, &input.context.organization, clients, true)?;
+    // "registered client": either type (`mandate.federation.AuthorizeClient` admits a
+    // confidential client whose `pkce_required` is false, fork F3), so the STS asks the
+    // registration, tenant and enablement questions and not the public one.
+    admitted_client(
+        &input.client_id,
+        &input.context.organization,
+        clients,
+        false,
+    )?;
     // "exact redirect URI": the redirect the code would be bound to is one the client's
     // registration carries, byte for byte.
     admitted_redirect(&input.client_id, &input.redirect_uri, clients)?;
