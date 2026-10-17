@@ -1,6 +1,6 @@
 //! `mandate.credential.IssueAuthorizationCode`.
 //!
-//! The command the control plane's `AuthorizePublicClient` assembles an input for and never
+//! The command the control plane's `AuthorizeClient` assembles an input for and never
 //! calls (`crates/mandate-federation/src/authorize.rs`): the STS decides it, mints the code,
 //! and records the non-reversible verifier of it and nothing else.
 //!

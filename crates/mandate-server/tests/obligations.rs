@@ -135,8 +135,8 @@ fn every_road_obligation_names_the_decoder_that_builds_its_input() {
             BodyForm::Json,
         ),
         (
-            "mandate.federation.AuthorizePublicClient",
-            "decode::authorize_public_client",
+            "mandate.federation.AuthorizeClient",
+            "decode::authorize_client",
             BodyForm::Query,
         ),
         (
@@ -284,28 +284,25 @@ fn drive(command: &str, phrase: &str, establishes: Establishes) {
                 );
             }
         }
-        // ---- mandate.federation.AuthorizePublicClient
-        ("mandate.federation.AuthorizePublicClient", "Session proof is invalid/stale")
+        // ---- mandate.federation.AuthorizeClient
+        ("mandate.federation.AuthorizeClient", "Session proof is invalid/stale")
+        | ("mandate.federation.AuthorizeClient", "client is not a registered public client")
+        | ("mandate.federation.AuthorizeClient", "the client is disabled")
         | (
-            "mandate.federation.AuthorizePublicClient",
-            "client is not a registered public client",
-        )
-        | ("mandate.federation.AuthorizePublicClient", "the client is disabled")
-        | (
-            "mandate.federation.AuthorizePublicClient",
+            "mandate.federation.AuthorizeClient",
             "exact redirect URI or state/applicable nonce binding fails",
         )
-        | ("mandate.federation.AuthorizePublicClient", "target is unregistered/outside tenant")
-        | ("mandate.federation.AuthorizePublicClient", "STS code issuance/narrowing is refused") => {
+        | ("mandate.federation.AuthorizeClient", "target is unregistered/outside tenant")
+        | ("mandate.federation.AuthorizeClient", "STS code issuance/narrowing is refused") => {
             assert_eq!(establishes, Establishes::Handler, "{phrase}");
-            let input = decode::authorize_public_client(&authorize(&authorize_query()))
+            let input = decode::authorize_client(&authorize(&authorize_query()))
                 .unwrap_or_else(|refusal| panic!("{phrase}: {refusal}"));
             assert_eq!(input.client_id.to_string(), UUID);
             assert!(!decode::AUTHORIZE_PARAMETERS.contains(&"organization_id"));
             assert!(!decode::AUTHORIZE_PARAMETERS.contains(&"audience"));
             assert!(!decode::AUTHORIZE_PARAMETERS.contains(&"session_id"));
         }
-        ("mandate.federation.AuthorizePublicClient", "S256 challenge is absent/invalid") => {
+        ("mandate.federation.AuthorizeClient", "S256 challenge is absent/invalid") => {
             assert_eq!(establishes, Establishes::Adapter, "{phrase}");
             let absent = authorize_query()
                 .split('&')
@@ -313,18 +310,18 @@ fn drive(command: &str, phrase: &str, establishes: Establishes) {
                 .collect::<Vec<_>>()
                 .join("&");
             assert_eq!(
-                decode::authorize_public_client(&authorize(&absent)).unwrap_err(),
+                decode::authorize_client(&authorize(&absent)).unwrap_err(),
                 Refusal::MissingField
             );
             let invalid = authorize_query().replace(CHALLENGE, "too-short");
             assert_eq!(
-                decode::authorize_public_client(&authorize(&invalid)).unwrap_err(),
+                decode::authorize_client(&authorize(&invalid)).unwrap_err(),
                 Refusal::ChallengeMalformed
             );
             let plain = authorize_query()
                 .replace("code_challenge_method=S256", "code_challenge_method=plain");
             assert_eq!(
-                decode::authorize_public_client(&authorize(&plain)).unwrap_err(),
+                decode::authorize_client(&authorize(&plain)).unwrap_err(),
                 Refusal::PkceMethodUnsupported
             );
         }

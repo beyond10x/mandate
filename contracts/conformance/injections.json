@@ -467,8 +467,8 @@
       "consulted": 0
     },
     {
-      "scenario": "mandate.federation.AuthorizePublicClient/outcome/denied",
-      "command": "mandate.federation.AuthorizePublicClient",
+      "scenario": "mandate.federation.AuthorizeClient/outcome/denied",
+      "command": "mandate.federation.AuthorizeClient",
       "port": "mandate_federation::publicclient::OAuthClientStore",
       "kind": "armed-unreached",
       "consulted": 0
@@ -1365,14 +1365,14 @@
       "blocked_on": "story:conform-gate"
     },
     {
-      "scenario": "mandate.federation.AuthorizePublicClient/outcome/accepted",
-      "command": "mandate.federation.AuthorizePublicClient",
+      "scenario": "mandate.federation.AuthorizeClient/outcome/accepted",
+      "command": "mandate.federation.AuthorizeClient",
       "reason": "input-shape-unrealized",
       "blocked_on": "story:oauth-integration"
     },
     {
-      "scenario": "mandate.federation.AuthorizePublicClient/outcome/denied",
-      "command": "mandate.federation.AuthorizePublicClient",
+      "scenario": "mandate.federation.AuthorizeClient/outcome/denied",
+      "command": "mandate.federation.AuthorizeClient",
       "reason": "input-shape-unrealized",
       "blocked_on": "story:oauth-integration"
     },

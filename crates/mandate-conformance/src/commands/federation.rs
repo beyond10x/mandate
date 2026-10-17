@@ -1,11 +1,11 @@
 //! The nine `mandate.federation` commands, one function each — eight of them driven
 //! through a real handler and the ninth refusing by name.
 //!
-//! `mandate.federation.AuthorizePublicClient` is the ninth. The crate realizes
+//! `mandate.federation.AuthorizeClient` is the ninth. The crate realizes
 //! `authorize::validate_authorization_code`, and that function validates a *redemption*:
 //! its input is a whole `AuthorizationCode` record, which the declared command input does
 //! not carry. There is no decoding from the one to the other, so
-//! [`authorize_public_client`] answers `Unsupported` against `story:oauth-integration` —
+//! [`authorize_client`] answers `Unsupported` against `story:oauth-integration` —
 //! the story that owns the adapter carrying the validation candidate into the STS call —
 //! rather than calling the handler with an argument this target would have to invent. It
 //! keeps a dispatch arm rather than a registry row because the gap is in the *shape* of one
@@ -305,16 +305,16 @@ pub fn provision_external_principal(
     }
 }
 
-/// `mandate.federation.AuthorizePublicClient`, which this target cannot drive.
+/// `mandate.federation.AuthorizeClient`, which this target cannot drive.
 ///
 /// # Errors
 ///
 /// Always [`TargetError::Unsupported`]: see the module documentation.
-pub fn authorize_public_client(
+pub fn authorize_client(
     live: &mut Live,
     _request: &SemanticCommandRequest,
 ) -> Result<SemanticCommandResult, TargetError> {
-    const COMMAND: &str = "mandate.federation.AuthorizePublicClient";
+    const COMMAND: &str = "mandate.federation.AuthorizeClient";
     live.ledger.block(
         &live.scenario,
         COMMAND,

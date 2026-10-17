@@ -1029,7 +1029,7 @@ fn command_entry(
 /// The crate a clause row is held to: the entry's own, or the one its `decided_in` names.
 ///
 /// A clause a command of one crate publishes can be answered by another crate's code, reached
-/// through a composition — `mandate-federation`'s `AuthorizePublicClient` is refused when
+/// through a composition — `mandate-federation`'s `AuthorizeClient` is refused when
 /// `mandate-sts` refuses the code. No test the entry's crate can write binds such a clause, so
 /// the row names the deciding crate and the same-crate rule holds it there instead. The field
 /// names a workspace member other than the entry's own crate, and nothing else: naming the

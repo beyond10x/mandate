@@ -172,7 +172,7 @@ fn a_redelivered_registration_after_a_disable_leaves_the_record_disabled() {
 
 /// The module that still says no event creates an `OAuthClient`.
 ///
-/// `crates/mandate-federation/src/publicclient.rs` is the file `AuthorizePublicClient`
+/// `crates/mandate-federation/src/publicclient.rs` is the file `AuthorizeClient`
 /// reads the client through. Its module documentation states that "No declared event
 /// creates a `mandate.federation.OAuthClient`" and that "this port answers `None` for
 /// every client until `story:declared-writers` declares the creating command", and

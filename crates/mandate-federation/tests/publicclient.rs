@@ -1,5 +1,5 @@
 //! The registered public-client read port, its `pub` double, and the exact-redirect,
-//! `public`, lifecycle and organization checks `AuthorizePublicClient` names.
+//! `public`, lifecycle and organization checks `AuthorizeClient` names.
 //!
 //! `pkce-redirect` (`tests/security/cases.json:405`) is `story:oauth-integration`'s and
 //! is underwritten here as a predicate: a redirect that is not byte-identical to a
@@ -198,7 +198,7 @@ fn a_fold_over_no_registration_answers_the_port_and_resolves_no_client() {
     assert_eq!(denied.clause, DenialClause::ClientUnknown);
 }
 
-/// The registered client `AuthorizePublicClient` reads is the one the real command wrote.
+/// The registered client `AuthorizeClient` reads is the one the real command wrote.
 ///
 /// Every case above fixtures a client through the `pub` double, because until
 /// `mandate.federation.RegisterOAuthClient` was declared no event created one. This drives

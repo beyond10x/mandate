@@ -409,7 +409,7 @@ fn every_lifecycle_enum_agrees_with_the_state_element_it_names() {
     // The two lifecycle enums this crate holds for another domain's record. **Neither is
     // realized here** (`src/lib.rs`): `PrincipalState` is the view `PrincipalStore` is
     // answered through, and `AuthorizationCodeState` is the view the non-consuming
-    // `AuthorizePublicClient` validation reads a caller-supplied code record through —
+    // `AuthorizeClient` validation reads a caller-supplied code record through —
     // `mandate_sts::store` folds that record and realizes both the entity and its state.
     // Both are decided against the generated shape all the same: an unrealized type that
     // disagrees with the contract is still a type that disagrees with the contract.

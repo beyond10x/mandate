@@ -135,13 +135,13 @@ fn a_declared_parameter_presented_in_the_query_and_the_body_is_refused_with_the_
 #[test]
 fn the_refused_control_class_is_unicode_category_cc_as_the_contract_names_it() {
     assert!(
-        decode::authorize_public_client(&authorize_with_state("%E2%80%A8")).is_ok(),
+        decode::authorize_client(&authorize_with_state("%E2%80%A8")).is_ok(),
         "U+2028 is outside `Cc` and admitted"
     );
 
     for (encoded, name) in [("%C2%85", "U+0085"), ("%C2%9B", "U+009B")] {
         assert_eq!(
-            decode::authorize_public_client(&authorize_with_state(encoded))
+            decode::authorize_client(&authorize_with_state(encoded))
                 .map(|_| ())
                 .expect_err("a C1 control in `state` is refused"),
             Refusal::ControlCharacter,

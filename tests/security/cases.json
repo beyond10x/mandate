@@ -340,7 +340,7 @@
       "expected": "one credential; code consumed atomically",
       "level": "contract-scenario",
       "commands": [
-        "mandate.federation.AuthorizePublicClient",
+        "mandate.federation.AuthorizeClient",
         "mandate.credential.IssueAuthorizationCode",
         "mandate.credential.RedeemAuthorizationCode"
       ]
@@ -354,7 +354,7 @@
       "expected": "deny; no credential",
       "level": "contract-scenario",
       "commands": [
-        "mandate.federation.AuthorizePublicClient",
+        "mandate.federation.AuthorizeClient",
         "mandate.credential.IssueAuthorizationCode",
         "mandate.credential.RedeemAuthorizationCode"
       ]
@@ -368,7 +368,7 @@
       "expected": "deny",
       "level": "contract-scenario",
       "commands": [
-        "mandate.federation.AuthorizePublicClient",
+        "mandate.federation.AuthorizeClient",
         "mandate.credential.IssueAuthorizationCode",
         "mandate.credential.RedeemAuthorizationCode"
       ]
@@ -382,7 +382,7 @@
       "expected": "deny unsupported method",
       "level": "contract-scenario",
       "commands": [
-        "mandate.federation.AuthorizePublicClient",
+        "mandate.federation.AuthorizeClient",
         "mandate.credential.IssueAuthorizationCode",
         "mandate.credential.RedeemAuthorizationCode"
       ]
@@ -396,7 +396,7 @@
       "expected": "deny; at most one issuance",
       "level": "contract-scenario",
       "commands": [
-        "mandate.federation.AuthorizePublicClient",
+        "mandate.federation.AuthorizeClient",
         "mandate.credential.IssueAuthorizationCode",
         "mandate.credential.RedeemAuthorizationCode"
       ]
@@ -410,7 +410,7 @@
       "expected": "deny",
       "level": "contract-scenario",
       "commands": [
-        "mandate.federation.AuthorizePublicClient",
+        "mandate.federation.AuthorizeClient",
         "mandate.credential.IssueAuthorizationCode",
         "mandate.credential.RedeemAuthorizationCode"
       ]
@@ -424,7 +424,7 @@
       "expected": "deny",
       "level": "contract-scenario",
       "commands": [
-        "mandate.federation.AuthorizePublicClient",
+        "mandate.federation.AuthorizeClient",
         "mandate.credential.IssueAuthorizationCode",
         "mandate.credential.RedeemAuthorizationCode"
       ]

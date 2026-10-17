@@ -868,7 +868,7 @@ fn a_refusal_the_deployment_caused_answers_server_error() {
 /// The finding behind [`SERVER_ERROR_CLAUSES`] was one clause answering the wrong code; the
 /// class is every clause that road raises whose answer is decided by the reason it happens to
 /// carry. So the set is followed **by call** from `code::issue_authorization_code` — the STS
-/// half of `mandate.federation.AuthorizePublicClient`, which is what
+/// half of `mandate.federation.AuthorizeClient`, which is what
 /// `services/control-plane/src/adapters.rs::authorize` calls through `CodeIssuance::issue` —
 /// with the same traversal the redemption's set is read by, and each name in it is stated here
 /// as one of two things:

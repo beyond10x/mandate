@@ -1,4 +1,4 @@
-//! `mandate.federation.AuthorizePublicClient` (`federation.yaml:269-302`), up to the
+//! `mandate.federation.AuthorizeClient` (`federation.yaml:269-302`), up to the
 //! input of the STS call its accepted outcome makes.
 //!
 //! # What this decides, and what it deliberately does not
@@ -149,15 +149,15 @@ pub struct AuthorizationCode {
 /// Neither value is on the code record (`credential.yaml:109-127`), so both are inputs:
 /// the adapter that served the authorization request holds them.
 ///
-/// Both are required, because `AuthorizePublicClient` declares both as `String` and
+/// Both are required, because `AuthorizeClient` declares both as `String` and
 /// neither as `Optional<String>` (`federation.yaml:279-282`): a request that recorded no
 /// nonce is not a request this command served. "Applicable" therefore never means
 /// "absent" — it means the value the authorization request carried.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RequestBinding {
-    /// The declared `state` of `AuthorizePublicClient`.
+    /// The declared `state` of `AuthorizeClient`.
     pub state: String,
-    /// The declared `nonce` of `AuthorizePublicClient`.
+    /// The declared `nonce` of `AuthorizeClient`.
     pub nonce: String,
 }
 
@@ -293,7 +293,7 @@ pub fn validate_authorization_code(
     match code.state {
         AuthorizationCodeState::Issued => {}
         // "Session proof is invalid/stale, ... or STS code issuance/narrowing is refused"
-        // (`federation.yaml`, `AuthorizePublicClient.denied`). This command is
+        // (`federation.yaml`, `AuthorizeClient.denied`). This command is
         // non-consuming and declares `accepted` and `denied` and nothing else: it moves no
         // record, so it has no `wrong-state` outcome to take. The code record's own
         // terminal state belongs to `mandate.credential.RedeemAuthorizationCode`, whose

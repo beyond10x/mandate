@@ -92,7 +92,7 @@ fn verifier() -> CredentialProof {
 /// The command whose outcomes the refusal is looked up on. The crate no longer registers the
 /// handler against it (`ESS_UNREALIZED` records why, owner `story:oauth-integration`), so the
 /// name is the contract's, not the registry's.
-const AUTHORIZE_PUBLIC_CLIENT: &str = "mandate.federation.AuthorizePublicClient";
+const AUTHORIZE_CLIENT: &str = "mandate.federation.AuthorizeClient";
 
 /// The refusal a consumed authorization code produces names an outcome the contract
 /// declares for the command the handler's check belongs to.
@@ -141,7 +141,7 @@ fn a_consumed_code_refusal_names_an_outcome_the_contract_declares_for_its_comman
     )
     .expect_err("`Consumed` is the declared terminal state");
 
-    // Coordinator ruling after adversary pass 1 (A1-1): `AuthorizePublicClient` is
+    // Coordinator ruling after adversary pass 1 (A1-1): `AuthorizeClient` is
     // non-consuming and declares `accepted` and `denied` only; the wrong-state outcome for
     // a consumed code is `RedeemAuthorizationCode`'s (story:oauth-integration).
     assert_eq!(
@@ -151,7 +151,7 @@ fn a_consumed_code_refusal_names_an_outcome_the_contract_declares_for_its_comman
     );
 
     // Look the outcome the refusal names up on the command the contract declares it for.
-    let command = AUTHORIZE_PUBLIC_CLIENT;
+    let command = AUTHORIZE_CLIENT;
     let looked_up = check_single_emission(command, denied.outcome.ir_name(), &[]);
     assert!(
         looked_up.is_ok(),

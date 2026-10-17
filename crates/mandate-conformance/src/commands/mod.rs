@@ -57,7 +57,7 @@ pub const REALIZED: &[&str] = &[
     "mandate.delegation.RetireAgent",
     "mandate.delegation.RevokeDelegation",
     "mandate.federation.AuthenticateFederation",
-    "mandate.federation.AuthorizePublicClient",
+    "mandate.federation.AuthorizeClient",
     "mandate.federation.DisableFederationConnection",
     "mandate.federation.DisableOAuthClient",
     "mandate.federation.LinkExternalPrincipal",
@@ -247,9 +247,7 @@ pub fn execute(
         "mandate.federation.ProvisionExternalPrincipal" => {
             federation::provision_external_principal(live, request)
         }
-        "mandate.federation.AuthorizePublicClient" => {
-            federation::authorize_public_client(live, request)
-        }
+        "mandate.federation.AuthorizeClient" => federation::authorize_client(live, request),
         "mandate.federation.DisableFederationConnection" => {
             federation::disable_federation_connection(live, request)
         }

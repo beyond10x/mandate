@@ -109,7 +109,7 @@
       }
     },
     {
-      "command": "mandate.federation.AuthorizePublicClient",
+      "command": "mandate.federation.AuthorizeClient",
       "status": "deferred",
       "story": "story:oauth-integration",
       "blocker": "decision-blocker:epoch-atomicity",

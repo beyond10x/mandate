@@ -620,8 +620,8 @@ fn login(deployment: &mut Wired) -> Login {
         .expect("a linked principal over a configured connection")
 }
 
-fn authorize_input(login: &Login, target: ResourceServerId) -> decode::AuthorizePublicClient {
-    decode::AuthorizePublicClient {
+fn authorize_input(login: &Login, target: ResourceServerId) -> decode::AuthorizeClient {
+    decode::AuthorizeClient {
         client_id: client(),
         redirect_uri: RedirectUri::new(IN_PROCESS_REDIRECT),
         challenge: PkceChallenge::new("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"),

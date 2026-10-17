@@ -721,7 +721,7 @@ fn a_double_only_clause_deferred_to_the_crates_binding_story_is_refused() {
 /// reads the workload record is `AuthenticateWorkload`, which resolves a proof only to a binding
 /// still `Recorded`, and `crates/mandate-model/src/workload.rs` ("The clause another crate
 /// decides") says so. It is covered on the real path by a `mandate-authz` test. The other that
-/// was, `mandate-federation`'s `AuthorizePublicClient` clause "STS code issuance", went with that
+/// was, `mandate-federation`'s `AuthorizeClient` clause "STS code issuance", went with that
 /// command's deferral to `story:oauth-integration`: a deferred command carries no clause.
 ///
 /// Exactly this one: a second `decided_in` row anywhere in the directory is a new cross-crate
@@ -988,7 +988,7 @@ fn decided_clause(document: &Value) -> (usize, usize) {
             return (at, clause);
         }
     }
-    // No clause carries `decided_in` since `AuthorizePublicClient` was deferred whole, so the
+    // No clause carries `decided_in` since `AuthorizeClient` was deferred whole, so the
     // cases that edit the field edit it on the first clause with a real-path denial row.
     for (at, entry) in document["commands"]
         .as_array()

@@ -16,7 +16,7 @@
 //! # What is advertised is what is enforced
 //!
 //! `code_challenge_methods_supported` is `["S256"]` because `mandate.core.PkceMethod` declares
-//! exactly one variant and `crate::decode::authorize_public_client` refuses every other
+//! exactly one variant and `crate::decode::authorize_client` refuses every other
 //! `code_challenge_method`. `token_endpoint_auth_methods_supported` is `["none"]` because the
 //! login road is the public-client road and `crate::decode::redeem_authorization_code` refuses
 //! `client_secret` as an undeclared parameter. `response_types_supported` is the single value
@@ -104,7 +104,7 @@ impl AuthorizationServerMetadata {
 pub fn authorization_server_metadata(issuer: &str) -> AuthorizationServerMetadata {
     let issuer = issuer.trim_end_matches('/').to_owned();
     AuthorizationServerMetadata {
-        authorization_endpoint: endpoint(&issuer, "mandate.federation.AuthorizePublicClient"),
+        authorization_endpoint: endpoint(&issuer, "mandate.federation.AuthorizeClient"),
         token_endpoint: endpoint(&issuer, "mandate.credential.RedeemAuthorizationCode"),
         introspection_endpoint: endpoint(&issuer, "mandate.credential.IntrospectCredential"),
         jwks_uri: format!(

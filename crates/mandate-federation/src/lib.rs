@@ -94,7 +94,7 @@ mandate_types::realizes! {
     //   since `story:oauth-transaction`. "STS alone owns authorization-code verifier storage
     //   and consumption" (`credential.yaml`), and what this crate holds is the **port view**
     //   of that record: `authorize::AuthorizationCode` is a caller-supplied read-only input
-    //   that `AuthorizePublicClient` validates non-consumingly, and it deliberately mirrors
+    //   that `AuthorizeClient` validates non-consumingly, and it deliberately mirrors
     //   neither the declared `verifier` nor the store behind it.
     //
     // Both enums are still decided against their generated shapes, in
@@ -115,7 +115,7 @@ mandate_types::realizes! {
 /// There are three, and none is an oversight. The first two are `story:oauth-integration`'s, which
 /// `decision-blocker:epoch-atomicity` holds.
 ///
-/// * `mandate.federation.AuthorizePublicClient`. [`authorize::validate_authorization_code`]
+/// * `mandate.federation.AuthorizeClient`. [`authorize::validate_authorization_code`]
 ///   validates a *presented* code against a *presented* PKCE verifier, which is a
 ///   redemption's check and not an authorization request's: a request carries neither, the
 ///   code does not exist yet and the verifier stays with the client. The control plane's
@@ -129,7 +129,7 @@ mandate_types::realizes! {
 ///   payload nothing in this crate can fill.
 pub const ESS_UNREALIZED: &[(&str, &str)] = &[
     (
-        "mandate.federation.AuthorizePublicClient",
+        "mandate.federation.AuthorizeClient",
         "validate_authorization_code checks a presented code and verifier, which a redemption \
          carries and an authorization request does not, and the authorize adapter does not \
          call it; owner story:oauth-integration, blocked on decision-blocker:epoch-atomicity",
@@ -332,7 +332,7 @@ pub enum DenialClause {
     /// verified organization", answered through
     /// [`register_client::ClientRegistrationAdmission::admits_trusted_peer`].
     TrustedPeerUnknown,
-    /// `AuthorizePublicClient`: "S256 challenge is absent/invalid": the recorded
+    /// `AuthorizeClient`: "S256 challenge is absent/invalid": the recorded
     /// challenge is not in the declared S256 form.
     ChallengeMalformed,
     /// "S256 challenge is absent/invalid": no code verifier was presented.
@@ -343,7 +343,7 @@ pub enum DenialClause {
     /// "S256 challenge is absent/invalid": the presented verifier does not digest to the
     /// recorded challenge.
     VerifierMismatch,
-    /// `AuthorizePublicClient`: "client is not a registered public client": the read
+    /// `AuthorizeClient`: "client is not a registered public client": the read
     /// model answers no client with that identity.
     ClientUnknown,
     /// "client is not a registered public client": the client is not a public client.

@@ -7,7 +7,7 @@
 //! names a test that drives `disable_oauth_client` and sees it refuse. The correction points
 //! the row at a test that drives `disable_oauth_client` to its *accepted* outcome and then
 //! observes a different command's resolver (`registered_public_client`, the
-//! `AuthorizePublicClient` clause "the client is disabled") refuse.
+//! `AuthorizeClient` clause "the client is disabled") refuse.
 //!
 //! The case reads the committed registry and the named test's source; it builds nothing.
 

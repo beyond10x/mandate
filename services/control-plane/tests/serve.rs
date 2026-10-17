@@ -556,7 +556,7 @@ fn a_generated_command_path_is_refused() {
     let (address, _) = serving();
     for path in [
         "/mandate.credential/commands/RedeemAuthorizationCode",
-        "/mandate.federation/commands/AuthorizePublicClient",
+        "/mandate.federation/commands/AuthorizeClient",
         "/mandate.identity/commands/RevokeSession",
     ] {
         let refused = exchange(address, &post(path, "application/json", "{}", &[]));

@@ -27,7 +27,7 @@ For the first served vertical (wave D, 2026-09-19) the `mandate-control-plane` b
 
 | Declared component | What runs today |
 |---|---|
-| `mandate-control-plane` | `services/control-plane`, the one serving binary. It serves federated login, `AuthorizePublicClient`, the token endpoint (code redemption and token exchange), introspection, the authorization-server metadata and the key set, and hosts the STS library in-process through the adapters in `services/control-plane/src/adapters.rs`. |
+| `mandate-control-plane` | `services/control-plane`, the one serving binary. It serves federated login, `AuthorizeClient`, the token endpoint (code redemption and token exchange), introspection, the authorization-server metadata and the key set, and hosts the STS library in-process through the adapters in `services/control-plane/src/adapters.rs`. |
 | `mandate-sts` | No process of its own: `services/sts/src/main.rs` is a scaffold that parses no command. Its handlers run inside `mandate-control-plane`. |
 | `mandate-authorization` | No process of its own: `services/authorization/src/main.rs` is a scaffold. A deployment configured to do so asks `mandate.authorization.Check` in-process, before a handler is dispatched, through `mandate_control_plane::authority::DecisionPoint`. |
 | `mandate-worker` | No process: `services/worker/src/main.rs` is a scaffold, and no audit append runs. |
@@ -38,7 +38,7 @@ For the first served vertical (wave D, 2026-09-19) the `mandate-control-plane` b
 
 ## Code redemption transaction
 
-The control-plane `AuthorizePublicClient` adapter validates session, client, exact redirect, S256 policy, state/applicable nonce, target and requested authority. It invokes STS `IssueAuthorizationCode`; the code record binds narrowed scope and registered target, and stores only a non-reversible verifier.
+The control-plane `AuthorizeClient` adapter validates session, client, exact redirect, S256 policy, state/applicable nonce, target and requested authority. It invokes STS `IssueAuthorizationCode`; the code record binds narrowed scope and registered target, and stores only a non-reversible verifier.
 
 STS resolves the proof to `code_id` internally and verifies it against that record. `RedeemAuthorizationCode` consumes the STS-owned code and creates the bounded credential and durable audit outbox in one transaction. `code_id` is an internal identifier, not a public OAuth parameter or source of authority. A failed/replayed transaction must not issue a credential. No separate control-plane consumption operation remains.
 

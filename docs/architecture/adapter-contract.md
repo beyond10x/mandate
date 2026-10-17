@@ -37,7 +37,7 @@ nothing else.
 | Method | Path | Binds | Source of the path |
 |---|---|---|---|
 | `POST` | `/v1/federation/login` | `mandate.federation.AuthenticateFederation` | A control-plane product route: it mints a session and issues no credential. `../sources/original-design.md:1784-1796` puts control-plane resources under `/v1/`; `:1871-1875` puts federation there. |
-| `GET` | `/oauth/authorize` | `mandate.federation.AuthorizePublicClient` | `../sources/original-design.md:1857`, verbatim. RFC 6749 section 3.1 requires `GET`. |
+| `GET` | `/oauth/authorize` | `mandate.federation.AuthorizeClient` | `../sources/original-design.md:1857`, verbatim. RFC 6749 section 3.1 requires `GET`. |
 | `POST` | `/oauth/token` | `mandate.credential.RedeemAuthorizationCode`; `decode::token_request` sends the token-exchange `grant_type` to `mandate.credential.ExchangeCredential` | `../sources/original-design.md:1858`, verbatim. RFC 6749 section 3.2 requires `POST`. |
 | `POST` | `/oauth/introspect` | `mandate.credential.IntrospectCredential` | `../sources/original-design.md:1860`, verbatim. RFC 7662 section 2 requires `POST`. |
 | `GET` | `/.well-known/oauth-authorization-server` | the RFC 8414 metadata document | `../sources/original-design.md:1855`, verbatim; RFC 8414 section 3 fixes it at the host root. |
@@ -145,13 +145,13 @@ road commands, the token-exchange grant, and the three relying-party steps.
 | Refused | another method or media type; an oversized body or query; **a presented query string**; a presented `Authorization` header; a body that is not a flat JSON object of strings; any member outside the declared two; a repeated member or header; a missing member; an empty or zero-byte `proof`; a value outside its declared lexical form |
 | Never derived | the organization, the issuer, the principal, the link. All three come from the validated connection and the validated proof (`federation.yaml:1`), and none has a wire form here. |
 
-### `mandate.federation.AuthorizePublicClient`
+### `mandate.federation.AuthorizeClient`
 
 | | |
 |---|---|
 | Wire form | `GET /oauth/authorize`, parameters in the query component (RFC 6749 section 3.1); the session proof as a bearer credential (RFC 6750 section 2.1) |
 | Decoded | `client_id`, `redirect_uri`, `challenge` (from `code_challenge`), `method` (from `code_challenge_method`), `state`, `nonce`, `session_proof` (from `Authorization`), `target`, `requested_scope` (from `scope`) |
-| Decoder | `decode::authorize_public_client` |
+| Decoder | `decode::authorize_client` |
 | Refused | another method; an oversized query or body; a presented body; an undeclared, repeated or missing parameter; a repeated header; a `state`, `nonce`, `redirect_uri` or `scope` over 512 bytes or carrying a control character; `response_type` other than `code`; `code_challenge_method` other than `S256` (case `pkce-plain`); a challenge outside the S256 shape; an absent, empty or malformed session proof |
 | Never derived | the session, the organization, the audience. The session proof is evidence the handler validates; the session identity it resolves to is not a parameter. |
 
@@ -207,7 +207,7 @@ row is driven by a case in `crates/mandate-server/tests/obligations.rs` — 25 o
 | principal linking is absent/conflicting | handler |
 | any email-domain/unverified-input fallback would be required | adapter — the body admits `connection_id` and `proof`, so there is no unverified input to fall back to |
 
-### `AuthorizePublicClient`
+### `AuthorizeClient`
 
 | Declared clause | Established by |
 |---|---|

@@ -1,7 +1,7 @@
 <!--
 generated from mandate v1
-model digest 751472a620cc3a7650f9a2496c9e81022fbef0887158483d3bbd761f09e76837
-contract digest slice-sha256/2:275b42d00514b7ac1e039b1b2e538b0f298918ced54aa6bad4b3559acc98c4e5
+model digest ed30f4be9ac91f32de4da849d406533e9444bf70425bbe0c0312187b27df62b7
+contract digest slice-sha256/2:98de9215ad5c1bd37b7b8356fad14e534f5196d0e1fbedf0328fc59530fe3ab6
 do not edit: regenerate with `ess generate`
 -->
 
@@ -158,9 +158,9 @@ It has two outcomes.
 
 **`denied`** — A refused login opens no session and records no profile. In tenant resolution, a rule naming a claim matches only when the validated claim equals one of its listed values, and an absent claim matches none. Decided outside the input: Connection is disabled/untrusted, proof signature/issuer/audience/expiry is invalid, tenant resolution has zero or multiple matches, principal linking is absent/conflicting, the groups the connection's filter admits number more than its cap, or any email-domain/unverified-input fallback would be required.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.federation.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
-### `AuthorizePublicClient`
+### `AuthorizeClient`
 
-`mandate.federation.AuthorizePublicClient`.
+`mandate.federation.AuthorizeClient`.
 
 It takes:
 
@@ -283,7 +283,7 @@ It takes:
 
 It has two outcomes.
 
-**`accepted`** — The client is bound to the organization the verified context carries; the command takes no organization input, so no caller selects the tenant a client is registered into. A confidential client authenticates with a secret, and the registration carries only the keyed verifiers derived from its secret references (fork F2), one or two so that a secret can be rotated; the secret itself is never an input, an event field or a record field. A public client states no verifier and always requires PKCE (fork F3); a confidential client may require it. Each trusted peer names another client of the same organization that may obtain tokens for this one. OAuthClientRegistered carries the whole mandate.federation.OAuthClient record — the client identity, its organization, its client type, its verifiers, its exact redirect set, its PKCE method and requirement, its trusted peers and its exact post-logout redirect set — so the federation fold materializes the client from this event alone and reads no command input or response. The identity and the organization are the ones this outcome decided and returned, read from the response rather than from a value the implementation invented. An empty redirect set is admitted and is not a denial — the client it registers is inert, because AuthorizePublicClient matches the presented redirect against the registered set exactly and an empty set matches nothing, so every authorization request to that client is refused. mandate.core.PkceMethod admits S256 and nothing else, so no registration can name another method and none is refused for naming one. A registration whose redirect surface or PKCE method must change is disabled and registered again; there is no update command. The default branch, taken when no other outcome's condition matched. It creates a `mandate.federation.OAuthClient`, which starts in `Recorded`. The new instance's identity is published as `id` on `mandate.federation.OAuthClientRegistered`. It emits `mandate.federation.OAuthClientRegistered`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+**`accepted`** — The client is bound to the organization the verified context carries; the command takes no organization input, so no caller selects the tenant a client is registered into. A confidential client authenticates with a secret, and the registration carries only the keyed verifiers derived from its secret references (fork F2), one or two so that a secret can be rotated; the secret itself is never an input, an event field or a record field. A public client states no verifier and always requires PKCE (fork F3); a confidential client may require it. Each trusted peer names another client of the same organization that may obtain tokens for this one. OAuthClientRegistered carries the whole mandate.federation.OAuthClient record — the client identity, its organization, its client type, its verifiers, its exact redirect set, its PKCE method and requirement, its trusted peers and its exact post-logout redirect set — so the federation fold materializes the client from this event alone and reads no command input or response. The identity and the organization are the ones this outcome decided and returned, read from the response rather than from a value the implementation invented. An empty redirect set is admitted and is not a denial — the client it registers is inert, because AuthorizeClient matches the presented redirect against the registered set exactly and an empty set matches nothing, so every authorization request to that client is refused. mandate.core.PkceMethod admits S256 and nothing else, so no registration can name another method and none is refused for naming one. A registration whose redirect surface or PKCE method must change is disabled and registered again; there is no update command. The default branch, taken when no other outcome's condition matched. It creates a `mandate.federation.OAuthClient`, which starts in `Recorded`. The new instance's identity is published as `id` on `mandate.federation.OAuthClientRegistered`. It emits `mandate.federation.OAuthClientRegistered`. A test reaches it by constructing an input that satisfies no other outcome's condition.
 
 **`denied`** — Decided outside the input: Caller lacks client-administration authority, a redirect URI or post-logout redirect URI is unadmitted, a public client states a secret verifier or does not require PKCE, a confidential client states no verifier or more than two, a trusted peer names the client itself or no client registered in the verified organization, or organization binding is invalid.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.federation.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
@@ -323,7 +323,7 @@ It carries:
 - `target` — `mandate.core.ResourceServerId`
 - `requested_scope` — `mandate.core.AuthorityScope`
 
-Emitted by `mandate.federation.AuthorizePublicClient` on its `accepted` outcome.
+Emitted by `mandate.federation.AuthorizeClient` on its `accepted` outcome.
 
 Nothing in this system reacts to it.
 
@@ -495,7 +495,7 @@ It carries:
 
 Reported by `mandate.federation.AuthenticateFederation` on its `denied` outcome.
 
-Reported by `mandate.federation.AuthorizePublicClient` on its `denied` outcome.
+Reported by `mandate.federation.AuthorizeClient` on its `denied` outcome.
 
 Reported by `mandate.federation.DisableFederationConnection` on its `wrong-state` and `denied` outcomes.
 
@@ -514,4 +514,4 @@ Reported by `mandate.federation.UnlinkExternalPrincipal` on its `wrong-state` an
 
 ---
 
-Generated from mandate v1 · model digest `751472a620cc3a7650f9a2496c9e81022fbef0887158483d3bbd761f09e76837` · contract digest `slice-sha256/2:275b42d00514b7ac1e039b1b2e538b0f298918ced54aa6bad4b3559acc98c4e5`. Do not edit this file; change the specification and regenerate it with `ess generate`.
+Generated from mandate v1 · model digest `ed30f4be9ac91f32de4da849d406533e9444bf70425bbe0c0312187b27df62b7` · contract digest `slice-sha256/2:98de9215ad5c1bd37b7b8356fad14e534f5196d0e1fbedf0328fc59530fe3ab6`. Do not edit this file; change the specification and regenerate it with `ess generate`.

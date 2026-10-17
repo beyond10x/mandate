@@ -8,7 +8,7 @@
 //!   else", and `:38-39` declares `CHALLENGE_LENGTH` to be "a 32-byte digest in unpadded
 //!   base64url".
 //! * `systems/mandate/domains/federation.yaml:299-300` — the declared denial of
-//!   `AuthorizePublicClient` names "target is unregistered/outside tenant".
+//!   `AuthorizeClient` names "target is unregistered/outside tenant".
 //! * `.engineering/planning/story/pkce-sessions.md`, "ESS command realized" — this
 //!   story's `authorize` unit realizes "every validation its denial clause names —
 //!   session proof, registered public client, exact redirect, state and applicable
@@ -399,7 +399,7 @@ fn input(target: ResourceServerId) -> ValidateAuthorizationCode {
 }
 
 /// `federation.yaml:299-300` names "target is unregistered/outside tenant" among the
-/// declared denial conditions of `AuthorizePublicClient`, and this story's "ESS command
+/// declared denial conditions of `AuthorizeClient`, and this story's "ESS command
 /// realized" section claims its `authorize` unit realizes "every validation its denial
 /// clause names ... registered target inside the tenant". Nothing reads `code.target`:
 /// whatever it names is copied into `ValidationCandidate::issuance` unexamined, and every
@@ -559,7 +559,7 @@ fn a_candidate_survives_a_second_validation_and_names_the_code_it_validated() {
     .expect_err("a consumed record is refused");
 
     assert_eq!(denied.clause, DenialClause::CodePreviouslyRedeemed);
-    // `AuthorizePublicClient` is non-consuming and declares no `wrong-state` outcome, so
+    // `AuthorizeClient` is non-consuming and declares no `wrong-state` outcome, so
     // the refusal is the external `denied` one; see
     // `crates/mandate-federation/tests/authorize.rs`.
     assert_eq!(denied.outcome, RefusedOutcome::Denied);
