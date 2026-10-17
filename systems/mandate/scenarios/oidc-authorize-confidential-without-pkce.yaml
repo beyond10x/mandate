@@ -1,0 +1,90 @@
+type: ess-scenario/2
+domain: mandate.federation
+scenario: oidc-authorize-confidential-without-pkce
+summary: '`PKCE is absent where the client requires it`, converse: a confidential client with pkce_required false is issued a code for its own server (F3); corpus: none.'
+arrange:
+- instance: client
+  entity: mandate.federation.OAuthClient
+- instance: server
+  entity: mandate.credential.ResourceServer
+timeline:
+- at: '2026-01-05T09:00:00Z'
+  command: mandate.federation.RegisterOAuthClient
+  input:
+    context:
+      subject: 00000000-0000-4000-8000-000000000001
+      organization: 00000000-0000-4000-8000-0000000000a1
+      audience: mandate
+      credential: 00000000-0000-4000-8000-0000000000c1
+      correlation: oidc-authorize-confidential-without-pkce-client
+    client_type: Confidential
+    secret_verifiers:
+    - kv1.app.c2NlbmFyaW8tdmVyaWZpZXItb25l
+    redirect_uris:
+    - https://app.example.test/callback
+    pkce_method: S256
+    pkce_required: false
+    trusted_peers: []
+    post_logout_redirect_uris: []
+  outcome: accepted
+  events:
+  - event: mandate.federation.OAuthClientRegistered
+    payload:
+      client_type: Confidential
+  capture:
+    instance: client
+    event: mandate.federation.OAuthClientRegistered
+    field: id
+- at: '2026-01-05T09:00:01Z'
+  command: mandate.credential.RegisterResourceServer
+  input:
+    context:
+      subject: 00000000-0000-4000-8000-000000000001
+      organization: 00000000-0000-4000-8000-0000000000a1
+      audience: mandate
+      credential: 00000000-0000-4000-8000-0000000000c1
+      correlation: oidc-authorize-confidential-without-pkce-server
+    audience: app
+    profile:
+      name: jwt-api
+      kind: SelfContained
+      revocation: BoundedOffline
+      max_ttl: PT10M
+      positive_cache_ttl: PT1M
+      requires_online_authorization: false
+    allowed_exchange_sources: []
+    client_id:
+      $instance: client
+  outcome: accepted
+  events:
+  - event: mandate.credential.ResourceServerRegistered
+    payload:
+      audience: app
+  capture:
+    instance: server
+    event: mandate.credential.ResourceServerRegistered
+    field: id
+- at: '2026-01-05T09:00:02Z'
+  command: mandate.federation.AuthorizeClient
+  input:
+    client_id:
+      $instance: client
+    redirect_uri: https://app.example.test/callback
+    state: oidc-authorize-confidential-without-pkce-state
+    nonce: oidc-authorize-confidential-without-pkce-nonce
+    session_proof: c2Vzc2lvbi1wcm9vZi1mb3ItdXNlcg==
+    requested_scope:
+      actions: []
+      resources: []
+    identity_scopes:
+    - OpenId
+  outcome: accepted
+  events:
+  - event: mandate.federation.AuthorizationCodeIssued
+    payload:
+      client_id:
+        $instance: client
+      target:
+        $instance: server
+      identity_scopes:
+      - OpenId

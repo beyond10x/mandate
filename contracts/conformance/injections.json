@@ -628,6 +628,13 @@
       "consulted": 0
     },
     {
+      "scenario": "mandate.federation/authored/oidc-authorize-public-without-pkce-refused",
+      "command": "mandate.federation.AuthorizeClient",
+      "port": "mandate_federation::publicclient::OAuthClientStore",
+      "kind": "armed-unreached",
+      "consulted": 0
+    },
+    {
       "scenario": "mandate.federation/authored/oidc-client-peer-unknown-refused",
       "command": "mandate.federation.RegisterOAuthClient",
       "port": "mandate_federation::register_client::ClientRegistrationAdmission",
@@ -1483,6 +1490,24 @@
       "command": "",
       "reason": "expectation-unmet",
       "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.federation/authored/oidc-authorize-confidential-without-pkce",
+      "command": "mandate.federation.AuthorizeClient",
+      "reason": "input-shape-unrealized",
+      "blocked_on": "story:oauth-integration"
+    },
+    {
+      "scenario": "mandate.federation/authored/oidc-authorize-peer-audience-scope",
+      "command": "mandate.federation.AuthorizeClient",
+      "reason": "input-shape-unrealized",
+      "blocked_on": "story:oauth-integration"
+    },
+    {
+      "scenario": "mandate.federation/authored/oidc-authorize-public-without-pkce-refused",
+      "command": "mandate.federation.AuthorizeClient",
+      "reason": "input-shape-unrealized",
+      "blocked_on": "story:oauth-integration"
     },
     {
       "scenario": "mandate.graph.DeregisterResource/outcome/accepted",
