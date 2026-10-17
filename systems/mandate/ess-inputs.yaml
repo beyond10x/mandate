@@ -39,6 +39,13 @@ scenarios:
 - scenarios/oidc-client-peer-unknown-refused.yaml
 - scenarios/oidc-client-public-pkce-optional-refused.yaml
 - scenarios/oidc-client-public-with-secret-refused.yaml
+- scenarios/oidc-id-token-issued-on-openid.yaml
+- scenarios/oidc-no-id-token-without-openid.yaml
+- scenarios/oidc-peer-cross-organization-refused.yaml
+- scenarios/oidc-peer-exchange-allowed.yaml
+- scenarios/oidc-peer-exchange-not-trusted-refused.yaml
+- scenarios/oidc-redeem-client-auth-failed.yaml
+- scenarios/oidc-redeem-public-with-secret-refused.yaml
 - scenarios/oidc-retire-without-successor-refused.yaml
 - scenarios/oidc-sign-with-retired-key-refused.yaml
 - scenarios/pkce-code-expired.yaml

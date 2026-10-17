@@ -1,0 +1,118 @@
+type: ess-scenario/2
+domain: mandate.credential
+scenario: oidc-peer-exchange-allowed
+summary: '`An identity-token subject`: the identity token issued to A is exchanged for the audience of B, whose client lists A, one organization; TokenExchangeAllowed (F20); corpus: none.'
+arrange:
+- instance: client-a
+  entity: mandate.federation.OAuthClient
+- instance: client-b
+  entity: mandate.federation.OAuthClient
+- instance: server-b
+  entity: mandate.credential.ResourceServer
+timeline:
+- at: '2026-01-05T09:00:00Z'
+  command: mandate.federation.RegisterOAuthClient
+  input:
+    context:
+      subject: 00000000-0000-4000-8000-000000000001
+      organization: 00000000-0000-4000-8000-0000000000a1
+      audience: mandate
+      credential: 00000000-0000-4000-8000-0000000000c1
+      correlation: oidc-peer-exchange-allowed-client-a
+    client_type: Public
+    secret_verifiers: []
+    redirect_uris:
+    - https://app-a.example.test/callback
+    pkce_method: S256
+    pkce_required: true
+    trusted_peers: []
+    post_logout_redirect_uris: []
+  outcome: accepted
+  events:
+  - event: mandate.federation.OAuthClientRegistered
+    payload:
+      client_type: Public
+  capture:
+    instance: client-a
+    event: mandate.federation.OAuthClientRegistered
+    field: id
+- at: '2026-01-05T09:00:01Z'
+  command: mandate.federation.RegisterOAuthClient
+  input:
+    context:
+      subject: 00000000-0000-4000-8000-000000000001
+      organization: 00000000-0000-4000-8000-0000000000a1
+      audience: mandate
+      credential: 00000000-0000-4000-8000-0000000000c1
+      correlation: oidc-peer-exchange-allowed-client-b
+    client_type: Confidential
+    secret_verifiers:
+    - kv1.app-b.c2NlbmFyaW8tdmVyaWZpZXItdHdv
+    redirect_uris:
+    - https://app-b.example.test/callback
+    pkce_method: S256
+    pkce_required: false
+    trusted_peers:
+    - $instance: client-a
+    post_logout_redirect_uris: []
+  outcome: accepted
+  events:
+  - event: mandate.federation.OAuthClientRegistered
+    payload:
+      client_type: Confidential
+  capture:
+    instance: client-b
+    event: mandate.federation.OAuthClientRegistered
+    field: id
+- at: '2026-01-05T09:00:02Z'
+  command: mandate.credential.RegisterResourceServer
+  input:
+    context:
+      subject: 00000000-0000-4000-8000-000000000001
+      organization: 00000000-0000-4000-8000-0000000000a1
+      audience: mandate
+      credential: 00000000-0000-4000-8000-0000000000c1
+      correlation: oidc-peer-exchange-allowed-server-b
+    audience: app-b
+    profile:
+      name: jwt-api
+      kind: SelfContained
+      revocation: BoundedOffline
+      max_ttl: PT10M
+      positive_cache_ttl: PT1M
+      requires_online_authorization: false
+    allowed_exchange_sources: []
+    client_id:
+      $instance: client-b
+  outcome: accepted
+  events:
+  - event: mandate.credential.ResourceServerRegistered
+    payload:
+      audience: app-b
+  capture:
+    instance: server-b
+    event: mandate.credential.ResourceServerRegistered
+    field: id
+- at: '2026-01-05T09:00:03Z'
+  command: mandate.credential.ExchangeCredential
+  input:
+    subject_proof: aWRlbnRpdHktdG9rZW4taXNzdWVkLXRvLWNsaWVudC1h
+    target:
+      $instance: server-b
+    requested_scope:
+      actions:
+      - document.read
+      resources:
+      - resource_type: document
+        resource_id: 00000000-0000-4000-8000-000000000071
+    subject_token_type: IdToken
+  outcome: accepted
+  events:
+  - event: mandate.credential.TokenExchangeAllowed
+    payload:
+      requested_scope:
+        actions:
+        - document.read
+        resources:
+        - resource_type: document
+          resource_id: 00000000-0000-4000-8000-000000000071

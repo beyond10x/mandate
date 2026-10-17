@@ -215,7 +215,26 @@ pub fn check_payload_sources(
     event: &Value,
 ) -> Result<(), String> {
     let outcome = declaring_outcome(command, event_name)?;
-    let fields = payload_fields(command, &outcome, event_name)
+    check_outcome_payload_sources(command, &outcome, input, response, event_name, event)
+}
+
+/// [`check_payload_sources`] for an event more than one outcome of `command` declares a
+/// payload for, which the caller disambiguates by naming the outcome that emitted it:
+/// `RedeemAuthorizationCode` declares `AuthorizationCodeRedeemed` on `accepted` and on
+/// `accepted-with-identity-token`, so the event name alone no longer decides the mapping.
+///
+/// # Errors
+///
+/// As [`check_payload_sources`], and when `outcome` declares no payload for `event_name`.
+pub fn check_outcome_payload_sources(
+    command: &str,
+    outcome: &str,
+    input: &Value,
+    response: Option<&Value>,
+    event_name: &str,
+    event: &Value,
+) -> Result<(), String> {
+    let fields = payload_fields(command, outcome, event_name)
         .map_err(|reason| format!("{command}/{outcome}/{event_name}: {reason}"))?;
     let mut failures: Vec<String> = Vec::new();
     for field in fields {
@@ -308,6 +327,26 @@ pub fn assert_payload_sources(
     }
 }
 
+/// Panicking form of [`check_outcome_payload_sources`].
+///
+/// # Panics
+///
+/// Panics with the message [`check_outcome_payload_sources`] returns.
+pub fn assert_outcome_payload_sources(
+    command: &str,
+    outcome: &str,
+    input: &Value,
+    response: Option<&Value>,
+    event_name: &str,
+    event: &Value,
+) {
+    if let Err(message) =
+        check_outcome_payload_sources(command, outcome, input, response, event_name, event)
+    {
+        panic!("{message}");
+    }
+}
+
 /// The generated IR, read once and parsed once for the whole process.
 fn system_ir() -> Result<&'static Value, String> {
     static IR: OnceLock<Result<Value, String>> = OnceLock::new();
@@ -349,10 +388,10 @@ fn outcome_node(command: &str, outcome: &str) -> Result<&'static Value, String> 
 /// This is the seam [`check_payload_sources`] resolves its outcome through, exposed so
 /// that a case can hand it an IR the generated one does not contain: a payload mapping
 /// is keyed on the triple (command, outcome, event), and an event two outcomes of one
-/// command both declare is ambiguous. Today's `generated/ir/system.json` declares every
-/// mapping on a distinct event, so the ambiguous case cannot be built from it, and a
-/// resolver that silently took the first match would read the same on every mapping the
-/// contract has.
+/// command both declare is ambiguous. `generated/ir/system.json` declares one such event,
+/// `AuthorizationCodeRedeemed` on both accepted outcomes of `RedeemAuthorizationCode`, which
+/// [`check_outcome_payload_sources`] resolves by naming the outcome; a resolver that silently
+/// took the first match would check that event against whichever mapping came first.
 ///
 /// # Errors
 ///

@@ -15,8 +15,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057",
-          "contract_digest": "be070dbac72f1ca80bb30aa603e4af439ccf8d4807be3ab530d8c42da7e0abd6"
+          "source_digest": "93e606a6a9a240d84f7a047c4f5a0ef306ec3d0249c586b34a308c37240cd93a",
+          "contract_digest": "11cc480ce0c8934cf27007ae210a6018f49ec24d9677af1010242e80d0faedde"
         },
         "slice": {
           "of": "whole-model"
@@ -46,7 +46,7 @@
             {
               "block": "diagram",
               "kind": "system",
-              "source": "flowchart TB\n    subgraph unit0[\"mandate-authorization\"]\n        cmd2[\"mandate.authorization.Check\"]\n        cmd3[\"mandate.authorization.CheckWithApproval\"]\n        cmd39[\"mandate.graph.DeregisterResource\"]\n        cmd40[\"mandate.graph.RegisterResource\"]\n        cmd41[\"mandate.graph.RemoveRelation\"]\n        cmd42[\"mandate.graph.RevokeGrant\"]\n        cmd43[\"mandate.graph.WriteRelationship\"]\n        cmd49[\"mandate.policy.SupersedeAuthorizationModel\"]\n        cmd50[\"mandate.policy.SupersedePolicy\"]\n        evt7[\"mandate.authorization.ApprovedDecisionRecorded\"]\n        evt8[\"mandate.authorization.DecisionRecorded\"]\n        evt50[\"mandate.graph.GrantRevoked\"]\n        evt51[\"mandate.graph.RelationRemoved\"]\n        evt52[\"mandate.graph.RelationshipWritten\"]\n        evt53[\"mandate.graph.ResourceDeregistered\"]\n        evt54[\"mandate.graph.ResourceRegistered\"]\n        evt63[\"mandate.policy.AuthorizationModelSuperseded\"]\n        evt64[\"mandate.policy.PolicySuperseded\"]\n    end\n    subgraph unit1[\"mandate-control-plane\"]\n        cmd16[\"mandate.delegation.CompleteExecution\"]\n        cmd17[\"mandate.delegation.ConsumeApproval\"]\n        cmd18[\"mandate.delegation.CreateDelegation\"]\n        cmd19[\"mandate.delegation.RetireAgent\"]\n        cmd20[\"mandate.delegation.RevokeDelegation\"]\n        cmd21[\"mandate.delegation.SupersedeAgentCapabilityCeiling\"]\n        cmd22[\"mandate.directory.CompleteSyncJob\"]\n        cmd23[\"mandate.directory.CreateDirectoryGroupTeamMapping\"]\n        cmd24[\"mandate.directory.FailSyncJob\"]\n        cmd25[\"mandate.directory.RemoveDirectoryGroupMembership\"]\n        cmd26[\"mandate.directory.RemoveDirectoryGroupTeamMapping\"]\n        cmd27[\"mandate.directory.RemoveMembershipContribution\"]\n        cmd28[\"mandate.directory.RetireDirectoryGroup\"]\n        cmd29[\"mandate.directory.SyncDirectoryMembership\"]\n        cmd30[\"mandate.federation.AuthenticateFederation\"]\n        cmd31[\"mandate.federation.AuthorizePublicClient\"]\n        cmd32[\"mandate.federation.DisableFederationConnection\"]\n        cmd33[\"mandate.federation.DisableOAuthClient\"]\n        cmd34[\"mandate.federation.LinkExternalPrincipal\"]\n        cmd35[\"mandate.federation.ProvisionExternalPrincipal\"]\n        cmd36[\"mandate.federation.RegisterFederationConnection\"]\n        cmd37[\"mandate.federation.RegisterOAuthClient\"]\n        cmd38[\"mandate.federation.UnlinkExternalPrincipal\"]\n        cmd44[\"mandate.identity.DisablePrincipal\"]\n        cmd45[\"mandate.identity.IncrementSecurityEpoch\"]\n        cmd46[\"mandate.identity.RefreshSession\"]\n        cmd47[\"mandate.identity.RevokeRefreshCredential\"]\n        cmd48[\"mandate.identity.RevokeSession\"]\n        cmd51[\"mandate.tenancy.AddOrganizationMembership\"]\n        cmd52[\"mandate.tenancy.AddTeamMembership\"]\n        cmd53[\"mandate.tenancy.CloseOrganization\"]\n        cmd54[\"mandate.tenancy.CreateOrganization\"]\n        cmd55[\"mandate.tenancy.CreateSpace\"]\n        cmd56[\"mandate.tenancy.CreateTeam\"]\n        cmd57[\"mandate.tenancy.RemoveOrganizationMembership\"]\n        cmd58[\"mandate.tenancy.RemoveTeamMembership\"]\n        cmd59[\"mandate.tenancy.RetireSpace\"]\n        cmd60[\"mandate.tenancy.RetireTeam\"]\n        cmd61[\"mandate.workload.AuthenticateWorkload\"]\n        cmd62[\"mandate.workload.RevokeWorkloadIdentity\"]\n        evt22[\"mandate.delegation.AgentCapabilityCeilingSuperseded\"]\n        evt23[\"mandate.delegation.AgentRetired\"]\n        evt24[\"mandate.delegation.ApprovalConsumed\"]\n        evt25[\"mandate.delegation.DelegationCreated\"]\n        evt26[\"mandate.delegation.DelegationRevoked\"]\n        evt27[\"mandate.delegation.ExecutionCompleted\"]\n        evt28[\"mandate.directory.DirectoryGroupMembershipChanged\"]\n        evt29[\"mandate.directory.DirectoryGroupMembershipRecorded\"]\n        evt30[\"mandate.directory.DirectoryGroupMembershipRemoved\"]\n        evt31[\"mandate.directory.DirectoryGroupRecorded\"]\n        evt32[\"mandate.directory.DirectoryGroupRetired\"]\n        evt33[\"mandate.directory.DirectoryGroupTeamMappingCreated\"]\n        evt34[\"mandate.directory.DirectoryGroupTeamMappingRemoved\"]\n        evt35[\"mandate.directory.MembershipContributionRecorded\"]\n        evt36[\"mandate.directory.MembershipContributionRemoved\"]\n        evt37[\"mandate.directory.SyncJobCompleted\"]\n        evt38[\"mandate.directory.SyncJobFailed\"]\n        evt39[\"mandate.directory.SyncJobRecorded\"]\n        evt40[\"mandate.federation.AuthorizationCodeIssued\"]\n        evt41[\"mandate.federation.ExternalPrincipalLinked\"]\n        evt42[\"mandate.federation.ExternalPrincipalProvisioned\"]\n        evt43[\"mandate.federation.ExternalPrincipalUnlinked\"]\n        evt44[\"mandate.federation.ExternalProfileObserved\"]\n        evt45[\"mandate.federation.FederationAuthenticated\"]\n        evt46[\"mandate.federation.FederationConnectionCreated\"]\n        evt47[\"mandate.federation.FederationConnectionDisabled\"]\n        evt48[\"mandate.federation.OAuthClientDisabled\"]\n        evt49[\"mandate.federation.OAuthClientRegistered\"]\n        evt55[\"mandate.identity.EpochSnapshotRecorded\"]\n        evt56[\"mandate.identity.PrincipalDisabled\"]\n        evt57[\"mandate.identity.RefreshCredentialRevoked\"]\n        evt58[\"mandate.identity.SecurityEpochIncremented\"]\n        evt59[\"mandate.identity.SecurityEpochRecorded\"]\n        evt60[\"mandate.identity.SessionOpened\"]\n        evt61[\"mandate.identity.SessionRefreshed\"]\n        evt62[\"mandate.identity.SessionRevoked\"]\n        evt65[\"mandate.tenancy.OrganizationClosed\"]\n        evt66[\"mandate.tenancy.OrganizationCreated\"]\n        evt67[\"mandate.tenancy.OrganizationMembershipAdded\"]\n        evt68[\"mandate.tenancy.OrganizationMembershipRemoved\"]\n        evt69[\"mandate.tenancy.SpaceCreated\"]\n        evt70[\"mandate.tenancy.SpaceRetired\"]\n        evt71[\"mandate.tenancy.TeamCreated\"]\n        evt72[\"mandate.tenancy.TeamMembershipAdded\"]\n        evt73[\"mandate.tenancy.TeamMembershipRemoved\"]\n        evt74[\"mandate.tenancy.TeamRetired\"]\n        evt75[\"mandate.workload.WorkloadAuthenticated\"]\n        evt76[\"mandate.workload.WorkloadIdentityRevoked\"]\n    end\n    subgraph unit2[\"mandate-sts\"]\n        cmd4[\"mandate.credential.DisableResourceServer\"]\n        cmd5[\"mandate.credential.ExchangeCredential\"]\n        cmd6[\"mandate.credential.IntrospectCredential\"]\n        cmd7[\"mandate.credential.IssueAuthorizationCode\"]\n        cmd8[\"mandate.credential.IssueReferenceCredential\"]\n        cmd9[\"mandate.credential.IssueSelfContainedCredential\"]\n        cmd10[\"mandate.credential.RedeemAuthorizationCode\"]\n        cmd11[\"mandate.credential.RegisterResourceServer\"]\n        cmd12[\"mandate.credential.RegisterSigningKey\"]\n        cmd13[\"mandate.credential.RetireSigningKey\"]\n        cmd14[\"mandate.credential.RevokeAccessCredential\"]\n        cmd15[\"mandate.credential.RevokeSigningKey\"]\n        evt9[\"mandate.credential.AccessCredentialRevoked\"]\n        evt10[\"mandate.credential.AuthorizationCodeIssued\"]\n        evt11[\"mandate.credential.AuthorizationCodeRedeemed\"]\n        evt12[\"mandate.credential.CredentialIntrospected\"]\n        evt13[\"mandate.credential.CredentialReferenceIssued\"]\n        evt14[\"mandate.credential.CredentialSelfContainedIssued\"]\n        evt15[\"mandate.credential.ResourceServerDisabled\"]\n        evt16[\"mandate.credential.ResourceServerRegistered\"]\n        evt17[\"mandate.credential.SigningKeyRegistered\"]\n        evt18[\"mandate.credential.SigningKeyRetired\"]\n        evt19[\"mandate.credential.SigningKeyRevoked\"]\n        evt20[\"mandate.credential.TokenExchangeAllowed\"]\n        evt21[\"mandate.credential.TokenExchangeDenied\"]\n    end\n    subgraph unit3[\"mandate-worker\"]\n        cmd0[\"mandate.audit.RecordAuditEvent\"]\n        cmd1[\"mandate.audit.RedactAuditEvent\"]\n        evt0[\"mandate.audit.AuditEventRecorded\"]\n        evt1[\"mandate.audit.AuditEventRedacted\"]\n        evt2[\"mandate.audit.CredentialRevoked\"]\n        evt3[\"mandate.audit.DirectoryGroupCreated\"]\n        evt4[\"mandate.audit.ExternalPrincipalUnlinked\"]\n        evt5[\"mandate.audit.FederationConnectionChanged\"]\n        evt6[\"mandate.audit.TokenExchangeDenied\"]\n    end\n    cmd0 -->|\"recorded\"| evt0\n    cmd1 -->|\"accepted\"| evt1\n    cmd2 -->|\"accepted\"| evt8\n    cmd3 -->|\"accepted\"| evt7\n    cmd4 -->|\"accepted\"| evt15\n    cmd5 -->|\"accepted\"| evt20\n    cmd6 -->|\"accepted\"| evt12\n    cmd7 -->|\"accepted\"| evt10\n    cmd8 -->|\"accepted\"| evt13\n    cmd9 -->|\"accepted\"| evt14\n    cmd10 -->|\"accepted\"| evt11\n    cmd11 -->|\"accepted\"| evt16\n    cmd12 -->|\"accepted\"| evt17\n    cmd13 -->|\"accepted\"| evt18\n    cmd14 -->|\"accepted\"| evt9\n    cmd15 -->|\"accepted\"| evt19\n    cmd16 -->|\"accepted\"| evt27\n    cmd17 -->|\"accepted\"| evt24\n    cmd18 -->|\"accepted\"| evt25\n    cmd19 -->|\"accepted\"| evt23\n    cmd20 -->|\"accepted\"| evt26\n    cmd21 -->|\"accepted\"| evt22\n    cmd22 -->|\"accepted\"| evt37\n    cmd23 -->|\"accepted\"| evt33\n    cmd24 -->|\"accepted\"| evt38\n    cmd25 -->|\"accepted\"| evt30\n    cmd26 -->|\"accepted\"| evt34\n    cmd27 -->|\"accepted\"| evt36\n    cmd28 -->|\"accepted\"| evt32\n    cmd29 -->|\"accepted\"| evt28\n    cmd30 -->|\"accepted\"| evt45\n    cmd30 -->|\"accepted\"| evt44\n    cmd31 -->|\"accepted\"| evt40\n    cmd32 -->|\"accepted\"| evt47\n    cmd33 -->|\"accepted\"| evt48\n    cmd34 -->|\"accepted\"| evt41\n    cmd35 -->|\"accepted\"| evt42\n    cmd36 -->|\"accepted\"| evt46\n    cmd37 -->|\"accepted\"| evt49\n    cmd38 -->|\"accepted\"| evt43\n    cmd39 -->|\"accepted\"| evt53\n    cmd40 -->|\"accepted\"| evt54\n    cmd41 -->|\"accepted\"| evt51\n    cmd42 -->|\"accepted\"| evt50\n    cmd43 -->|\"accepted\"| evt52\n    cmd44 -->|\"accepted\"| evt56\n    cmd45 -->|\"accepted\"| evt58\n    cmd46 -->|\"accepted\"| evt61\n    cmd47 -->|\"accepted\"| evt57\n    cmd48 -->|\"accepted\"| evt62\n    cmd49 -->|\"accepted\"| evt63\n    cmd50 -->|\"accepted\"| evt64\n    cmd51 -->|\"accepted\"| evt67\n    cmd52 -->|\"accepted\"| evt72\n    cmd53 -->|\"accepted\"| evt65\n    cmd54 -->|\"accepted\"| evt66\n    cmd55 -->|\"accepted\"| evt69\n    cmd56 -->|\"accepted\"| evt71\n    cmd57 -->|\"accepted\"| evt68\n    cmd58 -->|\"accepted\"| evt73\n    cmd59 -->|\"accepted\"| evt70\n    cmd60 -->|\"accepted\"| evt74\n    cmd61 -->|\"accepted\"| evt75\n    cmd62 -->|\"accepted\"| evt76"
+              "source": "flowchart TB\n    subgraph unit0[\"mandate-authorization\"]\n        cmd2[\"mandate.authorization.Check\"]\n        cmd3[\"mandate.authorization.CheckWithApproval\"]\n        cmd39[\"mandate.graph.DeregisterResource\"]\n        cmd40[\"mandate.graph.RegisterResource\"]\n        cmd41[\"mandate.graph.RemoveRelation\"]\n        cmd42[\"mandate.graph.RevokeGrant\"]\n        cmd43[\"mandate.graph.WriteRelationship\"]\n        cmd49[\"mandate.policy.SupersedeAuthorizationModel\"]\n        cmd50[\"mandate.policy.SupersedePolicy\"]\n        evt7[\"mandate.authorization.ApprovedDecisionRecorded\"]\n        evt8[\"mandate.authorization.DecisionRecorded\"]\n        evt51[\"mandate.graph.GrantRevoked\"]\n        evt52[\"mandate.graph.RelationRemoved\"]\n        evt53[\"mandate.graph.RelationshipWritten\"]\n        evt54[\"mandate.graph.ResourceDeregistered\"]\n        evt55[\"mandate.graph.ResourceRegistered\"]\n        evt64[\"mandate.policy.AuthorizationModelSuperseded\"]\n        evt65[\"mandate.policy.PolicySuperseded\"]\n    end\n    subgraph unit1[\"mandate-control-plane\"]\n        cmd16[\"mandate.delegation.CompleteExecution\"]\n        cmd17[\"mandate.delegation.ConsumeApproval\"]\n        cmd18[\"mandate.delegation.CreateDelegation\"]\n        cmd19[\"mandate.delegation.RetireAgent\"]\n        cmd20[\"mandate.delegation.RevokeDelegation\"]\n        cmd21[\"mandate.delegation.SupersedeAgentCapabilityCeiling\"]\n        cmd22[\"mandate.directory.CompleteSyncJob\"]\n        cmd23[\"mandate.directory.CreateDirectoryGroupTeamMapping\"]\n        cmd24[\"mandate.directory.FailSyncJob\"]\n        cmd25[\"mandate.directory.RemoveDirectoryGroupMembership\"]\n        cmd26[\"mandate.directory.RemoveDirectoryGroupTeamMapping\"]\n        cmd27[\"mandate.directory.RemoveMembershipContribution\"]\n        cmd28[\"mandate.directory.RetireDirectoryGroup\"]\n        cmd29[\"mandate.directory.SyncDirectoryMembership\"]\n        cmd30[\"mandate.federation.AuthenticateFederation\"]\n        cmd31[\"mandate.federation.AuthorizePublicClient\"]\n        cmd32[\"mandate.federation.DisableFederationConnection\"]\n        cmd33[\"mandate.federation.DisableOAuthClient\"]\n        cmd34[\"mandate.federation.LinkExternalPrincipal\"]\n        cmd35[\"mandate.federation.ProvisionExternalPrincipal\"]\n        cmd36[\"mandate.federation.RegisterFederationConnection\"]\n        cmd37[\"mandate.federation.RegisterOAuthClient\"]\n        cmd38[\"mandate.federation.UnlinkExternalPrincipal\"]\n        cmd44[\"mandate.identity.DisablePrincipal\"]\n        cmd45[\"mandate.identity.IncrementSecurityEpoch\"]\n        cmd46[\"mandate.identity.RefreshSession\"]\n        cmd47[\"mandate.identity.RevokeRefreshCredential\"]\n        cmd48[\"mandate.identity.RevokeSession\"]\n        cmd51[\"mandate.tenancy.AddOrganizationMembership\"]\n        cmd52[\"mandate.tenancy.AddTeamMembership\"]\n        cmd53[\"mandate.tenancy.CloseOrganization\"]\n        cmd54[\"mandate.tenancy.CreateOrganization\"]\n        cmd55[\"mandate.tenancy.CreateSpace\"]\n        cmd56[\"mandate.tenancy.CreateTeam\"]\n        cmd57[\"mandate.tenancy.RemoveOrganizationMembership\"]\n        cmd58[\"mandate.tenancy.RemoveTeamMembership\"]\n        cmd59[\"mandate.tenancy.RetireSpace\"]\n        cmd60[\"mandate.tenancy.RetireTeam\"]\n        cmd61[\"mandate.workload.AuthenticateWorkload\"]\n        cmd62[\"mandate.workload.RevokeWorkloadIdentity\"]\n        evt23[\"mandate.delegation.AgentCapabilityCeilingSuperseded\"]\n        evt24[\"mandate.delegation.AgentRetired\"]\n        evt25[\"mandate.delegation.ApprovalConsumed\"]\n        evt26[\"mandate.delegation.DelegationCreated\"]\n        evt27[\"mandate.delegation.DelegationRevoked\"]\n        evt28[\"mandate.delegation.ExecutionCompleted\"]\n        evt29[\"mandate.directory.DirectoryGroupMembershipChanged\"]\n        evt30[\"mandate.directory.DirectoryGroupMembershipRecorded\"]\n        evt31[\"mandate.directory.DirectoryGroupMembershipRemoved\"]\n        evt32[\"mandate.directory.DirectoryGroupRecorded\"]\n        evt33[\"mandate.directory.DirectoryGroupRetired\"]\n        evt34[\"mandate.directory.DirectoryGroupTeamMappingCreated\"]\n        evt35[\"mandate.directory.DirectoryGroupTeamMappingRemoved\"]\n        evt36[\"mandate.directory.MembershipContributionRecorded\"]\n        evt37[\"mandate.directory.MembershipContributionRemoved\"]\n        evt38[\"mandate.directory.SyncJobCompleted\"]\n        evt39[\"mandate.directory.SyncJobFailed\"]\n        evt40[\"mandate.directory.SyncJobRecorded\"]\n        evt41[\"mandate.federation.AuthorizationCodeIssued\"]\n        evt42[\"mandate.federation.ExternalPrincipalLinked\"]\n        evt43[\"mandate.federation.ExternalPrincipalProvisioned\"]\n        evt44[\"mandate.federation.ExternalPrincipalUnlinked\"]\n        evt45[\"mandate.federation.ExternalProfileObserved\"]\n        evt46[\"mandate.federation.FederationAuthenticated\"]\n        evt47[\"mandate.federation.FederationConnectionCreated\"]\n        evt48[\"mandate.federation.FederationConnectionDisabled\"]\n        evt49[\"mandate.federation.OAuthClientDisabled\"]\n        evt50[\"mandate.federation.OAuthClientRegistered\"]\n        evt56[\"mandate.identity.EpochSnapshotRecorded\"]\n        evt57[\"mandate.identity.PrincipalDisabled\"]\n        evt58[\"mandate.identity.RefreshCredentialRevoked\"]\n        evt59[\"mandate.identity.SecurityEpochIncremented\"]\n        evt60[\"mandate.identity.SecurityEpochRecorded\"]\n        evt61[\"mandate.identity.SessionOpened\"]\n        evt62[\"mandate.identity.SessionRefreshed\"]\n        evt63[\"mandate.identity.SessionRevoked\"]\n        evt66[\"mandate.tenancy.OrganizationClosed\"]\n        evt67[\"mandate.tenancy.OrganizationCreated\"]\n        evt68[\"mandate.tenancy.OrganizationMembershipAdded\"]\n        evt69[\"mandate.tenancy.OrganizationMembershipRemoved\"]\n        evt70[\"mandate.tenancy.SpaceCreated\"]\n        evt71[\"mandate.tenancy.SpaceRetired\"]\n        evt72[\"mandate.tenancy.TeamCreated\"]\n        evt73[\"mandate.tenancy.TeamMembershipAdded\"]\n        evt74[\"mandate.tenancy.TeamMembershipRemoved\"]\n        evt75[\"mandate.tenancy.TeamRetired\"]\n        evt76[\"mandate.workload.WorkloadAuthenticated\"]\n        evt77[\"mandate.workload.WorkloadIdentityRevoked\"]\n    end\n    subgraph unit2[\"mandate-sts\"]\n        cmd4[\"mandate.credential.DisableResourceServer\"]\n        cmd5[\"mandate.credential.ExchangeCredential\"]\n        cmd6[\"mandate.credential.IntrospectCredential\"]\n        cmd7[\"mandate.credential.IssueAuthorizationCode\"]\n        cmd8[\"mandate.credential.IssueReferenceCredential\"]\n        cmd9[\"mandate.credential.IssueSelfContainedCredential\"]\n        cmd10[\"mandate.credential.RedeemAuthorizationCode\"]\n        cmd11[\"mandate.credential.RegisterResourceServer\"]\n        cmd12[\"mandate.credential.RegisterSigningKey\"]\n        cmd13[\"mandate.credential.RetireSigningKey\"]\n        cmd14[\"mandate.credential.RevokeAccessCredential\"]\n        cmd15[\"mandate.credential.RevokeSigningKey\"]\n        evt9[\"mandate.credential.AccessCredentialRevoked\"]\n        evt10[\"mandate.credential.AuthorizationCodeIssued\"]\n        evt11[\"mandate.credential.AuthorizationCodeRedeemed\"]\n        evt12[\"mandate.credential.CredentialIntrospected\"]\n        evt13[\"mandate.credential.CredentialReferenceIssued\"]\n        evt14[\"mandate.credential.CredentialSelfContainedIssued\"]\n        evt15[\"mandate.credential.IdentityTokenIssued\"]\n        evt16[\"mandate.credential.ResourceServerDisabled\"]\n        evt17[\"mandate.credential.ResourceServerRegistered\"]\n        evt18[\"mandate.credential.SigningKeyRegistered\"]\n        evt19[\"mandate.credential.SigningKeyRetired\"]\n        evt20[\"mandate.credential.SigningKeyRevoked\"]\n        evt21[\"mandate.credential.TokenExchangeAllowed\"]\n        evt22[\"mandate.credential.TokenExchangeDenied\"]\n    end\n    subgraph unit3[\"mandate-worker\"]\n        cmd0[\"mandate.audit.RecordAuditEvent\"]\n        cmd1[\"mandate.audit.RedactAuditEvent\"]\n        evt0[\"mandate.audit.AuditEventRecorded\"]\n        evt1[\"mandate.audit.AuditEventRedacted\"]\n        evt2[\"mandate.audit.CredentialRevoked\"]\n        evt3[\"mandate.audit.DirectoryGroupCreated\"]\n        evt4[\"mandate.audit.ExternalPrincipalUnlinked\"]\n        evt5[\"mandate.audit.FederationConnectionChanged\"]\n        evt6[\"mandate.audit.TokenExchangeDenied\"]\n    end\n    cmd0 -->|\"recorded\"| evt0\n    cmd1 -->|\"accepted\"| evt1\n    cmd2 -->|\"accepted\"| evt8\n    cmd3 -->|\"accepted\"| evt7\n    cmd4 -->|\"accepted\"| evt16\n    cmd5 -->|\"accepted\"| evt21\n    cmd6 -->|\"accepted\"| evt12\n    cmd7 -->|\"accepted\"| evt10\n    cmd8 -->|\"accepted\"| evt13\n    cmd9 -->|\"accepted\"| evt14\n    cmd10 -->|\"accepted-with-identity-token\"| evt11\n    cmd10 -->|\"accepted-with-identity-token\"| evt15\n    cmd10 -->|\"accepted\"| evt11\n    cmd11 -->|\"accepted\"| evt17\n    cmd12 -->|\"accepted\"| evt18\n    cmd13 -->|\"accepted\"| evt19\n    cmd14 -->|\"accepted\"| evt9\n    cmd15 -->|\"accepted\"| evt20\n    cmd16 -->|\"accepted\"| evt28\n    cmd17 -->|\"accepted\"| evt25\n    cmd18 -->|\"accepted\"| evt26\n    cmd19 -->|\"accepted\"| evt24\n    cmd20 -->|\"accepted\"| evt27\n    cmd21 -->|\"accepted\"| evt23\n    cmd22 -->|\"accepted\"| evt38\n    cmd23 -->|\"accepted\"| evt34\n    cmd24 -->|\"accepted\"| evt39\n    cmd25 -->|\"accepted\"| evt31\n    cmd26 -->|\"accepted\"| evt35\n    cmd27 -->|\"accepted\"| evt37\n    cmd28 -->|\"accepted\"| evt33\n    cmd29 -->|\"accepted\"| evt29\n    cmd30 -->|\"accepted\"| evt46\n    cmd30 -->|\"accepted\"| evt45\n    cmd31 -->|\"accepted\"| evt41\n    cmd32 -->|\"accepted\"| evt48\n    cmd33 -->|\"accepted\"| evt49\n    cmd34 -->|\"accepted\"| evt42\n    cmd35 -->|\"accepted\"| evt43\n    cmd36 -->|\"accepted\"| evt47\n    cmd37 -->|\"accepted\"| evt50\n    cmd38 -->|\"accepted\"| evt44\n    cmd39 -->|\"accepted\"| evt54\n    cmd40 -->|\"accepted\"| evt55\n    cmd41 -->|\"accepted\"| evt52\n    cmd42 -->|\"accepted\"| evt51\n    cmd43 -->|\"accepted\"| evt53\n    cmd44 -->|\"accepted\"| evt57\n    cmd45 -->|\"accepted\"| evt59\n    cmd46 -->|\"accepted\"| evt62\n    cmd47 -->|\"accepted\"| evt58\n    cmd48 -->|\"accepted\"| evt63\n    cmd49 -->|\"accepted\"| evt64\n    cmd50 -->|\"accepted\"| evt65\n    cmd51 -->|\"accepted\"| evt68\n    cmd52 -->|\"accepted\"| evt73\n    cmd53 -->|\"accepted\"| evt66\n    cmd54 -->|\"accepted\"| evt67\n    cmd55 -->|\"accepted\"| evt70\n    cmd56 -->|\"accepted\"| evt72\n    cmd57 -->|\"accepted\"| evt69\n    cmd58 -->|\"accepted\"| evt74\n    cmd59 -->|\"accepted\"| evt71\n    cmd60 -->|\"accepted\"| evt75\n    cmd61 -->|\"accepted\"| evt76\n    cmd62 -->|\"accepted\"| evt77"
             },
             {
               "block": "prose",
@@ -237,7 +237,7 @@
                       },
                       {
                         "inline": "text",
-                        "text": " No types, four entities, no views, 12 commands, 13 events, one error and no actors."
+                        "text": " Three types, four entities, no views, 12 commands, 14 events, one error and no actors."
                       }
                     ]
                   }
@@ -1888,6 +1888,14 @@
                 },
                 {
                   "inline": "code",
+                  "text": "mandate.credential.IdentityTokenIssued"
+                },
+                {
+                  "inline": "text",
+                  "text": ", "
+                },
+                {
+                  "inline": "code",
                   "text": "mandate.credential.ResourceServerDisabled"
                 },
                 {
@@ -2561,8 +2569,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057",
-          "contract_digest": "slice-sha256/2:c5839b09c62ff54aa124aba7051f6d3608fc45bebdaba68c903e0abcad7d4bdd"
+          "source_digest": "93e606a6a9a240d84f7a047c4f5a0ef306ec3d0249c586b34a308c37240cd93a",
+          "contract_digest": "slice-sha256/2:711d61db5f9e036f0bfa852858f1d5540948ed5c1ac5d86764524bd68af0a201"
         },
         "slice": {
           "of": "constructs",
@@ -5056,8 +5064,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057",
-          "contract_digest": "slice-sha256/2:c5839b09c62ff54aa124aba7051f6d3608fc45bebdaba68c903e0abcad7d4bdd"
+          "source_digest": "93e606a6a9a240d84f7a047c4f5a0ef306ec3d0249c586b34a308c37240cd93a",
+          "contract_digest": "slice-sha256/2:711d61db5f9e036f0bfa852858f1d5540948ed5c1ac5d86764524bd68af0a201"
         },
         "slice": {
           "of": "constructs",
@@ -6164,8 +6172,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057",
-          "contract_digest": "slice-sha256/2:76dee9460c1f2ade9bcfc6105eda767387026f5213fd17fb1fc40ad1ca0065dc"
+          "source_digest": "93e606a6a9a240d84f7a047c4f5a0ef306ec3d0249c586b34a308c37240cd93a",
+          "contract_digest": "slice-sha256/2:170546dd46dab4a9e4e957169b82024a9d64931256aebb8fbf3efa92c77c0829"
         },
         "slice": {
           "of": "constructs",
@@ -11197,8 +11205,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057",
-          "contract_digest": "slice-sha256/2:c5839b09c62ff54aa124aba7051f6d3608fc45bebdaba68c903e0abcad7d4bdd"
+          "source_digest": "93e606a6a9a240d84f7a047c4f5a0ef306ec3d0249c586b34a308c37240cd93a",
+          "contract_digest": "slice-sha256/2:711d61db5f9e036f0bfa852858f1d5540948ed5c1ac5d86764524bd68af0a201"
         },
         "slice": {
           "of": "constructs",
@@ -11217,11 +11225,23 @@
             },
             {
               "kind": "type",
+              "name": "mandate.credential.IdentityScope"
+            },
+            {
+              "kind": "type",
+              "name": "mandate.credential.IdentityTokenId"
+            },
+            {
+              "kind": "type",
               "name": "mandate.credential.ResourceServer.State"
             },
             {
               "kind": "type",
               "name": "mandate.credential.SigningKey.State"
+            },
+            {
+              "kind": "type",
+              "name": "mandate.credential.SubjectTokenType"
             },
             {
               "kind": "entity",
@@ -11313,6 +11333,10 @@
             },
             {
               "kind": "event",
+              "name": "mandate.credential.IdentityTokenIssued"
+            },
+            {
+              "kind": "event",
               "name": "mandate.credential.ResourceServerDisabled"
             },
             {
@@ -11390,6 +11414,173 @@
             {
               "inline": "text",
               "text": "."
+            }
+          ]
+        },
+        {
+          "block": "section",
+          "level": 2,
+          "title": [
+            {
+              "inline": "text",
+              "text": "Types"
+            }
+          ],
+          "anchor": "types",
+          "blocks": [
+            {
+              "block": "section",
+              "level": 3,
+              "title": [
+                {
+                  "inline": "code",
+                  "text": "IdentityScope"
+                }
+              ],
+              "anchor": "identityscope",
+              "about": {
+                "kind": "type",
+                "name": "mandate.credential.IdentityScope"
+              },
+              "blocks": [
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "code",
+                      "text": "mandate.credential.IdentityScope"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " is one of "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "OpenId"
+                    },
+                    {
+                      "inline": "text",
+                      "text": ", "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "Email"
+                    },
+                    {
+                      "inline": "text",
+                      "text": ", "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "Profile"
+                    },
+                    {
+                      "inline": "text",
+                      "text": ", "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "Groups"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " and "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "OfflineAccess"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "block": "section",
+              "level": 3,
+              "title": [
+                {
+                  "inline": "code",
+                  "text": "IdentityTokenId"
+                }
+              ],
+              "anchor": "identitytokenid",
+              "about": {
+                "kind": "type",
+                "name": "mandate.credential.IdentityTokenId"
+              },
+              "blocks": [
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "code",
+                      "text": "mandate.credential.IdentityTokenId"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " wraps "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "Uuid"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " and is not interchangeable with one: the whole value of naming it separately is the crossings the model then refuses."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "block": "section",
+              "level": 3,
+              "title": [
+                {
+                  "inline": "code",
+                  "text": "SubjectTokenType"
+                }
+              ],
+              "anchor": "subjecttokentype",
+              "about": {
+                "kind": "type",
+                "name": "mandate.credential.SubjectTokenType"
+              },
+              "blocks": [
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "code",
+                      "text": "mandate.credential.SubjectTokenType"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " is one of "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "AccessToken"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " and "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "IdToken"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    }
+                  ]
+                }
+              ]
             }
           ]
         },
@@ -12088,6 +12279,29 @@
                           }
                         ]
                       }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "identity_scopes"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Optional<List<mandate.credential.IdentityScope>>"
+                          },
+                          {
+                            "inline": "text",
+                            "text": ", which may be absent"
+                          }
+                        ]
+                      }
                     ]
                   ]
                 },
@@ -12337,6 +12551,26 @@
                           },
                           {
                             "inline": "code",
+                            "text": "accepted-with-identity-token"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " outcome"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " and "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.credential.RedeemAuthorizationCode"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " on its "
+                          },
+                          {
+                            "inline": "code",
                             "text": "accepted"
                           },
                           {
@@ -12563,6 +12797,29 @@
                           }
                         ]
                       }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "client_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Optional<mandate.core.OAuthClientId>"
+                          },
+                          {
+                            "inline": "text",
+                            "text": ", which may be absent"
+                          }
+                        ]
+                      }
                     ]
                   ]
                 },
@@ -12644,6 +12901,48 @@
                     {
                       "inline": "code",
                       "text": "ResourceServer.allowed_exchange_sources"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    },
+                    {
+                      "inline": "text",
+                      "text": " "
+                    },
+                    {
+                      "inline": "text",
+                      "text": "It references at most one "
+                    },
+                    {
+                      "inline": "link",
+                      "to": {
+                        "target": "anchor",
+                        "page": "domains/mandate-federation",
+                        "anchor": "oauthclient"
+                      },
+                      "text": [
+                        {
+                          "inline": "code",
+                          "text": "mandate.federation.OAuthClient"
+                        }
+                      ]
+                    },
+                    {
+                      "inline": "text",
+                      "text": ", as "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "client_id_record"
+                    },
+                    {
+                      "inline": "text",
+                      "text": ", carried by "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "ResourceServer.client_id"
                     },
                     {
                       "inline": "text",
@@ -13791,6 +14090,29 @@
                           }
                         ]
                       }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "subject_token_type"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Optional<mandate.credential.SubjectTokenType>"
+                          },
+                          {
+                            "inline": "text",
+                            "text": ", which may be absent"
+                          }
+                        ]
+                      }
                     ]
                   ]
                 },
@@ -13818,6 +14140,10 @@
                     {
                       "inline": "text",
                       "text": " — "
+                    },
+                    {
+                      "inline": "text",
+                      "text": "An access-credential subject is admitted when its source registration is among the target's allowed_exchange_sources. An identity-token subject (subject_token_type IdToken) is an identity token this deployment signed, unexpired, under a key still admitted for verification; its source is the client it was issued to (its azp, else its one audience). It is admitted only to a target registered with a client, and only when that client lists the source client among its trusted_peers and the source client, the target's client and the target are of one organization (fork F20). Both forms are decided by this one admission and recorded by this one event; a trusted peer is never a second authority path, and a peer relation is never transitive. "
                     },
                     {
                       "inline": "text",
@@ -13907,7 +14233,7 @@
                     },
                     {
                       "inline": "text",
-                      "text": "Decided outside the input: Either independently validated proof is invalid/revoked/expired/stale; actor, tenant, registered target/source, scope, space, delegation or ceiling binding fails; two current capability ceilings share one agent and organization-or-platform key; transitive delegation is requested; approval is required; or authority/expiry narrowing and durable audit fail.. No predicate over the input reaches this branch, and saying "
+                      "text": "Decided outside the input: Either independently validated proof is invalid/revoked/expired/stale; actor, tenant, registered target/source, scope, space, delegation or ceiling binding fails; two current capability ceilings share one agent and organization-or-platform key; transitive delegation is requested; approval is required; an identity-token subject's client is not a trusted peer of the target's client, the target names no client, or the two clients are of different organizations; or authority/expiry narrowing and durable audit fail.. No predicate over the input reaches this branch, and saying "
                     },
                     {
                       "inline": "code",
@@ -14373,6 +14699,29 @@
                           {
                             "inline": "code",
                             "text": "Timestamp"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "identity_scopes"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Optional<List<mandate.credential.IdentityScope>>"
+                          },
+                          {
+                            "inline": "text",
+                            "text": ", which may be absent"
                           }
                         ]
                       }
@@ -15207,6 +15556,29 @@
                           }
                         ]
                       }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "client_secret"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Optional<mandate.core.CredentialProof>"
+                          },
+                          {
+                            "inline": "text",
+                            "text": ", which may be absent"
+                          }
+                        ]
+                      }
                     ]
                   ]
                 },
@@ -15215,7 +15587,121 @@
                   "text": [
                     {
                       "inline": "text",
-                      "text": "It has three outcomes."
+                      "text": "It has four outcomes."
+                    }
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "strong",
+                      "text": [
+                        {
+                          "inline": "code",
+                          "text": "accepted-with-identity-token"
+                        }
+                      ]
+                    },
+                    {
+                      "inline": "text",
+                      "text": " — "
+                    },
+                    {
+                      "inline": "text",
+                      "text": "A code whose authorization granted openid redeems exactly as the accepted outcome below does, and in the same transaction the STS signs one identity token and records mandate.credential.IdentityTokenIssued. The token's issuer is the deployment's, its audience the client, its subject the session's principal (fork F1), its nonce the authorization request's and its lifetime the deployment's identity-token lifetime; it is signed under a signing key admitted for issuance now, and the event names that key. The event carries the token's identifier, the code, the client, the principal, the session, the signing key and the two instants, and no claim value — no email, name, groups or nonce enters this log (fork F13). A transaction that cannot sign issues neither the token nor the access credential and consumes nothing. "
+                    },
+                    {
+                      "inline": "text",
+                      "text": "Taken when the existing subject's stored fields satisfy "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "exists granted in identity_scopes: (granted == OpenId)"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    },
+                    {
+                      "inline": "text",
+                      "text": " "
+                    },
+                    {
+                      "inline": "text",
+                      "text": "It moves a "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "mandate.credential.AuthorizationCode"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " from "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "Issued"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " to "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "Consumed"
+                    },
+                    {
+                      "inline": "text",
+                      "text": ", along the declared move "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "consume"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    },
+                    {
+                      "inline": "text",
+                      "text": " "
+                    },
+                    {
+                      "inline": "text",
+                      "text": "The instance is the one named by the input field "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "code_id"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    },
+                    {
+                      "inline": "text",
+                      "text": " It emits "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "mandate.credential.AuthorizationCodeRedeemed"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " and "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "mandate.credential.IdentityTokenIssued"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    },
+                    {
+                      "inline": "text",
+                      "text": " A test establishes and independently observes the subject enum fact before selecting this branch."
                     }
                   ]
                 },
@@ -15413,7 +15899,7 @@
                     },
                     {
                       "inline": "text",
-                      "text": "Decided outside the input: Code proof does not match the server-resolved code_id; code is expired; client, redirect URI or S256 verifier mismatches; the bound client is disabled; source/session epoch is stale; registered target is disabled or outside the verified tenant; or narrowing/atomic issuance validation fails.. No predicate over the input reaches this branch, and saying "
+                      "text": "Decided outside the input: Code proof does not match the server-resolved code_id; code is expired; client, redirect URI or S256 verifier mismatches; the bound client is disabled; a confidential client presents no secret or one matching none of its recorded verifiers; a public client presents a secret; source/session epoch is stale; registered target is disabled or outside the verified tenant; no signing key is admitted for issuance when an identity token is due; or narrowing/atomic issuance validation fails.. No predicate over the input reaches this branch, and saying "
                     },
                     {
                       "inline": "code",
@@ -15579,6 +16065,29 @@
                           }
                         ]
                       }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "client_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Optional<mandate.core.OAuthClientId>"
+                          },
+                          {
+                            "inline": "text",
+                            "text": ", which may be absent"
+                          }
+                        ]
+                      }
                     ]
                   ]
                 },
@@ -15606,6 +16115,10 @@
                     {
                       "inline": "text",
                       "text": " — "
+                    },
+                    {
+                      "inline": "text",
+                      "text": "A registration naming a client is that client's resource server (fork F11), and an identity-token exchange admits to it exactly the clients that client lists as trusted peers (fork F20). The client is named once, here, and never changed. "
                     },
                     {
                       "inline": "text",
@@ -15695,7 +16208,7 @@
                     },
                     {
                       "inline": "text",
-                      "text": "Decided outside the input: Caller lacks resource-server administration authority, audience registration is ambiguous, profile semantics are unadmitted, or an allowed source server is unresolved/disabled/outside the verified organization.. No predicate over the input reaches this branch, and saying "
+                      "text": "Decided outside the input: Caller lacks resource-server administration authority, audience registration is ambiguous, profile semantics are unadmitted, an allowed source server is unresolved/disabled/outside the verified organization, or the named client is unresolved/disabled/outside the verified organization.. No predicate over the input reaches this branch, and saying "
                     },
                     {
                       "inline": "code",
@@ -17444,6 +17957,29 @@
                           }
                         ]
                       }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "identity_scopes"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Optional<List<mandate.credential.IdentityScope>>"
+                          },
+                          {
+                            "inline": "text",
+                            "text": ", which may be absent"
+                          }
+                        ]
+                      }
                     ]
                   ]
                 },
@@ -17703,11 +18239,19 @@
                     },
                     {
                       "inline": "code",
+                      "text": "accepted-with-identity-token"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " and "
+                    },
+                    {
+                      "inline": "code",
                       "text": "accepted"
                     },
                     {
                       "inline": "text",
-                      "text": " outcome."
+                      "text": " outcomes."
                     }
                   ]
                 },
@@ -18369,6 +18913,237 @@
               "title": [
                 {
                   "inline": "code",
+                  "text": "IdentityTokenIssued"
+                }
+              ],
+              "anchor": "identitytokenissued",
+              "about": {
+                "kind": "event",
+                "name": "mandate.credential.IdentityTokenIssued"
+              },
+              "blocks": [
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "code",
+                      "text": "mandate.credential.IdentityTokenIssued"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    }
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "text",
+                      "text": "It carries:"
+                    }
+                  ]
+                },
+                {
+                  "block": "list",
+                  "ordered": false,
+                  "items": [
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "token_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.credential.IdentityTokenId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "code_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.AuthorizationCodeId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "client_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.OAuthClientId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "principal_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.PrincipalId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "session_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.SessionId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "signing_key_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.SigningKeyId"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "issued_at"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Timestamp"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "expires_at"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Timestamp"
+                          }
+                        ]
+                      }
+                    ]
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "text",
+                      "text": "Emitted by "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "mandate.credential.RedeemAuthorizationCode"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " on its "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "accepted-with-identity-token"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " outcome."
+                    }
+                  ]
+                },
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "text",
+                      "text": "Nothing in this system reacts to it."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "block": "section",
+              "level": 3,
+              "title": [
+                {
+                  "inline": "code",
                   "text": "ResourceServerDisabled"
                 }
               ],
@@ -18612,6 +19387,29 @@
                           {
                             "inline": "code",
                             "text": "List<mandate.core.ResourceServerId>"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "client_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Optional<mandate.core.OAuthClientId>"
+                          },
+                          {
+                            "inline": "text",
+                            "text": ", which may be absent"
                           }
                         ]
                       }
@@ -19882,8 +20680,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057",
-          "contract_digest": "slice-sha256/2:c5839b09c62ff54aa124aba7051f6d3608fc45bebdaba68c903e0abcad7d4bdd"
+          "source_digest": "93e606a6a9a240d84f7a047c4f5a0ef306ec3d0249c586b34a308c37240cd93a",
+          "contract_digest": "slice-sha256/2:711d61db5f9e036f0bfa852858f1d5540948ed5c1ac5d86764524bd68af0a201"
         },
         "slice": {
           "of": "constructs",
@@ -25903,8 +26701,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057",
-          "contract_digest": "slice-sha256/2:c5839b09c62ff54aa124aba7051f6d3608fc45bebdaba68c903e0abcad7d4bdd"
+          "source_digest": "93e606a6a9a240d84f7a047c4f5a0ef306ec3d0249c586b34a308c37240cd93a",
+          "contract_digest": "slice-sha256/2:711d61db5f9e036f0bfa852858f1d5540948ed5c1ac5d86764524bd68af0a201"
         },
         "slice": {
           "of": "constructs",
@@ -32990,8 +33788,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057",
-          "contract_digest": "slice-sha256/2:c5839b09c62ff54aa124aba7051f6d3608fc45bebdaba68c903e0abcad7d4bdd"
+          "source_digest": "93e606a6a9a240d84f7a047c4f5a0ef306ec3d0249c586b34a308c37240cd93a",
+          "contract_digest": "slice-sha256/2:711d61db5f9e036f0bfa852858f1d5540948ed5c1ac5d86764524bd68af0a201"
         },
         "slice": {
           "of": "constructs",
@@ -39927,8 +40725,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057",
-          "contract_digest": "slice-sha256/2:c5839b09c62ff54aa124aba7051f6d3608fc45bebdaba68c903e0abcad7d4bdd"
+          "source_digest": "93e606a6a9a240d84f7a047c4f5a0ef306ec3d0249c586b34a308c37240cd93a",
+          "contract_digest": "slice-sha256/2:711d61db5f9e036f0bfa852858f1d5540948ed5c1ac5d86764524bd68af0a201"
         },
         "slice": {
           "of": "constructs",
@@ -43871,8 +44669,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057",
-          "contract_digest": "slice-sha256/2:446ef7851e862b1fff497b836a0c50d6158233fbd833ba25fef5d6e7cde5ecf6"
+          "source_digest": "93e606a6a9a240d84f7a047c4f5a0ef306ec3d0249c586b34a308c37240cd93a",
+          "contract_digest": "slice-sha256/2:2addab18cdf0bd3c4c545fdaa526a2c99202061e659b197850a4a1c82745658a"
         },
         "slice": {
           "of": "constructs",
@@ -49049,8 +49847,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057",
-          "contract_digest": "slice-sha256/2:c5839b09c62ff54aa124aba7051f6d3608fc45bebdaba68c903e0abcad7d4bdd"
+          "source_digest": "93e606a6a9a240d84f7a047c4f5a0ef306ec3d0249c586b34a308c37240cd93a",
+          "contract_digest": "slice-sha256/2:711d61db5f9e036f0bfa852858f1d5540948ed5c1ac5d86764524bd68af0a201"
         },
         "slice": {
           "of": "constructs",
@@ -50961,8 +51759,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057",
-          "contract_digest": "slice-sha256/2:c5839b09c62ff54aa124aba7051f6d3608fc45bebdaba68c903e0abcad7d4bdd"
+          "source_digest": "93e606a6a9a240d84f7a047c4f5a0ef306ec3d0249c586b34a308c37240cd93a",
+          "contract_digest": "slice-sha256/2:711d61db5f9e036f0bfa852858f1d5540948ed5c1ac5d86764524bd68af0a201"
         },
         "slice": {
           "of": "constructs",
@@ -57702,8 +58500,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057",
-          "contract_digest": "slice-sha256/2:c5839b09c62ff54aa124aba7051f6d3608fc45bebdaba68c903e0abcad7d4bdd"
+          "source_digest": "93e606a6a9a240d84f7a047c4f5a0ef306ec3d0249c586b34a308c37240cd93a",
+          "contract_digest": "slice-sha256/2:711d61db5f9e036f0bfa852858f1d5540948ed5c1ac5d86764524bd68af0a201"
         },
         "slice": {
           "of": "constructs",
@@ -59280,8 +60078,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057",
-          "contract_digest": "be070dbac72f1ca80bb30aa603e4af439ccf8d4807be3ab530d8c42da7e0abd6"
+          "source_digest": "93e606a6a9a240d84f7a047c4f5a0ef306ec3d0249c586b34a308c37240cd93a",
+          "contract_digest": "11cc480ce0c8934cf27007ae210a6018f49ec24d9677af1010242e80d0faedde"
         },
         "slice": {
           "of": "whole-model"
@@ -59513,6 +60311,17 @@
                       {
                         "inline": "code",
                         "text": "mandate.credential.CredentialSelfContainedIssued"
+                      }
+                    ]
+                  }
+                ],
+                [
+                  {
+                    "block": "prose",
+                    "text": [
+                      {
+                        "inline": "code",
+                        "text": "mandate.credential.IdentityTokenIssued"
                       }
                     ]
                   }
@@ -60222,8 +61031,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057",
-          "contract_digest": "be070dbac72f1ca80bb30aa603e4af439ccf8d4807be3ab530d8c42da7e0abd6"
+          "source_digest": "93e606a6a9a240d84f7a047c4f5a0ef306ec3d0249c586b34a308c37240cd93a",
+          "contract_digest": "11cc480ce0c8934cf27007ae210a6018f49ec24d9677af1010242e80d0faedde"
         },
         "slice": {
           "of": "whole-model"
@@ -60301,8 +61110,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057",
-          "contract_digest": "be070dbac72f1ca80bb30aa603e4af439ccf8d4807be3ab530d8c42da7e0abd6"
+          "source_digest": "93e606a6a9a240d84f7a047c4f5a0ef306ec3d0249c586b34a308c37240cd93a",
+          "contract_digest": "11cc480ce0c8934cf27007ae210a6018f49ec24d9677af1010242e80d0faedde"
         },
         "slice": {
           "of": "whole-model"

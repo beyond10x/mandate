@@ -1,5 +1,5 @@
 # generated from mandate v1
-# model digest c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057
+# model digest 93e606a6a9a240d84f7a047c4f5a0ef306ec3d0249c586b34a308c37240cd93a
 # contract digest slice-sha256/2:ee853f10e7e1047b0e88bdc32a8ef3f5eac6c8b43e6f3799a2c047a07d9b0fcb
 # do not edit: regenerate with `ess generate`
 openapi: 3.1.0
@@ -14,7 +14,7 @@ info:
   x-ess-provenance:
     system: mandate
     specification_version: v1
-    source_digest: c27787f3cee0003f2581ee6d305d4d9953375f0dafed4dadbad37e831db75057
+    source_digest: 93e606a6a9a240d84f7a047c4f5a0ef306ec3d0249c586b34a308c37240cd93a
     contract_digest: slice-sha256/2:ee853f10e7e1047b0e88bdc32a8ef3f5eac6c8b43e6f3799a2c047a07d9b0fcb
 tags:
 - name: authorization

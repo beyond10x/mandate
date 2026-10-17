@@ -13,7 +13,8 @@
 
 use mandate_testkit::contract::{
     assert_event_conforms, assert_payload_sources, assert_single_emission, check_event_conforms,
-    check_payload_sources, check_single_emission, declaring_outcome_in,
+    check_outcome_payload_sources, check_payload_sources, check_single_emission,
+    declaring_outcome_in,
 };
 use mandate_types::{
     Audience, CorrelationId, CredentialId, DelegationId, EpochSnapshotRef, ExecutionId,
@@ -738,8 +739,8 @@ fn every_declared_mapping_decides_absence_by_its_declared_target_type() {
 }
 
 /// An event two outcomes of one command both declare has no mapping the harness may
-/// pick: the IR as generated declares every mapping on a distinct event, so the case is
-/// built in memory and driven through the `declaring_outcome_in` seam.
+/// pick. The case is built in memory and driven through the `declaring_outcome_in` seam, so
+/// it stands whatever the generated IR declares.
 #[test]
 fn an_event_declared_on_two_outcomes_is_refused_naming_both() {
     let ir = json!({
@@ -909,4 +910,38 @@ fn provisioned() -> (Value, Value, Value) {
         "linked_at": encoded(&Timestamp::new("2026-09-19T00:00:00Z")),
     });
     (input, response, event)
+}
+
+/// The generated IR's one event declared on two outcomes: `AuthorizationCodeRedeemed`, on both
+/// accepted outcomes of `RedeemAuthorizationCode`. Resolving it by the event name alone is
+/// refused naming both, and the outcome-named form reaches the outcome's own mapping, which
+/// for an empty event is a failure about its fields and not about the outcome.
+#[test]
+fn the_redeemed_event_is_resolved_by_the_outcome_that_names_it() {
+    let command = "mandate.credential.RedeemAuthorizationCode";
+    let event = "mandate.credential.AuthorizationCodeRedeemed";
+    let message = check_payload_sources(command, &json!({}), None, event, &json!({}))
+        .expect_err("two outcomes declare the event");
+    assert!(
+        message.contains("accepted-with-identity-token"),
+        "{message}"
+    );
+    assert!(message.contains("2 outcomes"), "{message}");
+
+    for outcome in ["accepted", "accepted-with-identity-token"] {
+        let message =
+            check_outcome_payload_sources(command, outcome, &json!({}), None, event, &json!({}))
+                .expect_err("an empty event carries none of the mapped fields");
+        assert!(
+            message.starts_with(&format!("{command}/{outcome}/{event}: field")),
+            "{message}"
+        );
+    }
+    let message =
+        check_outcome_payload_sources(command, "denied", &json!({}), None, event, &json!({}))
+            .expect_err("the denied outcome declares no payload");
+    assert!(
+        message.starts_with(&format!("{command}/denied/{event}: ")),
+        "{message}"
+    );
 }

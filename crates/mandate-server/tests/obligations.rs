@@ -372,10 +372,7 @@ fn drive(command: &str, phrase: &str, establishes: Establishes) {
             "mandate.credential.RedeemAuthorizationCode",
             "a confidential client presents no secret or one matching none of its recorded verifiers",
         )
-        | (
-            "mandate.credential.RedeemAuthorizationCode",
-            "a public client presents a secret",
-        )
+        | ("mandate.credential.RedeemAuthorizationCode", "a public client presents a secret")
         | ("mandate.credential.RedeemAuthorizationCode", "source/session epoch is stale")
         | (
             "mandate.credential.RedeemAuthorizationCode",

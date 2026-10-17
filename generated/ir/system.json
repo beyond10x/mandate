@@ -148,8 +148,11 @@
       "types": [
         "mandate.credential.AccessCredential.State",
         "mandate.credential.AuthorizationCode.State",
+        "mandate.credential.IdentityScope",
+        "mandate.credential.IdentityTokenId",
         "mandate.credential.ResourceServer.State",
-        "mandate.credential.SigningKey.State"
+        "mandate.credential.SigningKey.State",
+        "mandate.credential.SubjectTokenType"
       ],
       "entities": [
         "mandate.credential.AccessCredential",
@@ -178,6 +181,7 @@
         "mandate.credential.CredentialIntrospected",
         "mandate.credential.CredentialReferenceIssued",
         "mandate.credential.CredentialSelfContainedIssued",
+        "mandate.credential.IdentityTokenIssued",
         "mandate.credential.ResourceServerDisabled",
         "mandate.credential.ResourceServerRegistered",
         "mandate.credential.SigningKeyRegistered",
@@ -2094,6 +2098,32 @@
       },
       "naming": {}
     },
+    "mandate.credential.IdentityScope": {
+      "name": "mandate.credential.IdentityScope",
+      "body": {
+        "kind": "enum",
+        "variants": [
+          "OpenId",
+          "Email",
+          "Profile",
+          "Groups",
+          "OfflineAccess"
+        ]
+      },
+      "naming": {}
+    },
+    "mandate.credential.IdentityTokenId": {
+      "name": "mandate.credential.IdentityTokenId",
+      "body": {
+        "kind": "newtype",
+        "of": {
+          "kind": "primitive",
+          "name": "uuid"
+        },
+        "invariants": []
+      },
+      "naming": {}
+    },
     "mandate.credential.ResourceServer.State": {
       "name": "mandate.credential.ResourceServer.State",
       "body": {
@@ -2113,6 +2143,17 @@
           "Recorded",
           "Retired",
           "Revoked"
+        ]
+      },
+      "naming": {}
+    },
+    "mandate.credential.SubjectTokenType": {
+      "name": "mandate.credential.SubjectTokenType",
+      "body": {
+        "kind": "enum",
+        "variants": [
+          "AccessToken",
+          "IdToken"
         ]
       },
       "naming": {}
@@ -2916,6 +2957,20 @@
             "name": "mandate.core.AuthorityScope"
           },
           "naming": {}
+        },
+        {
+          "name": "identity_scopes",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "list",
+              "of": {
+                "kind": "declared",
+                "name": "mandate.credential.IdentityScope"
+              }
+            }
+          },
+          "naming": {}
         }
       ],
       "state_type": "mandate.credential.AuthorizationCode.State",
@@ -3010,6 +3065,17 @@
             }
           },
           "naming": {}
+        },
+        {
+          "name": "client_id",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.OAuthClientId"
+            }
+          },
+          "naming": {}
         }
       ],
       "state_type": "mandate.credential.ResourceServer.State",
@@ -3047,6 +3113,13 @@
           "target": "mandate.credential.ResourceServer",
           "cardinality": "many",
           "via": "allowed_exchange_sources"
+        },
+        {
+          "name": "client_id_record",
+          "kind": "references",
+          "target": "mandate.federation.OAuthClient",
+          "cardinality": "one",
+          "via": "client_id"
         }
       ],
       "naming": {}
@@ -6419,6 +6492,17 @@
             }
           },
           "naming": {}
+        },
+        {
+          "name": "subject_token_type",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.credential.SubjectTokenType"
+            }
+          },
+          "naming": {}
         }
       ],
       "response": [
@@ -6604,13 +6688,14 @@
                 }
               ]
             }
-          ]
+          ],
+          "summary": "An access-credential subject is admitted when its source registration is among the target's allowed_exchange_sources. An identity-token subject (subject_token_type IdToken) is an identity token this deployment signed, unexpired, under a key still admitted for verification; its source is the client it was issued to (its azp, else its one audience). It is admitted only to a target registered with a client, and only when that client lists the source client among its trusted_peers and the source client, the target's client and the target are of one organization (fork F20). Both forms are decided by this one admission and recorded by this one event; a trusted peer is never a second authority path, and a peer relation is never transitive."
         },
         {
           "name": "denied",
           "condition": {
             "kind": "external",
-            "cause": "Either independently validated proof is invalid/revoked/expired/stale; actor, tenant, registered target/source, scope, space, delegation or ceiling binding fails; two current capability ceilings share one agent and organization-or-platform key; transitive delegation is requested; approval is required; or authority/expiry narrowing and durable audit fail."
+            "cause": "Either independently validated proof is invalid/revoked/expired/stale; actor, tenant, registered target/source, scope, space, delegation or ceiling binding fails; two current capability ceilings share one agent and organization-or-platform key; transitive delegation is requested; approval is required; an identity-token subject's client is not a trusted peer of the target's client, the target names no client, or the two clients are of different organizations; or authority/expiry narrowing and durable audit fail."
           },
           "test_strategy": "inject_fault",
           "emits": [],
@@ -6846,6 +6931,20 @@
             "name": "timestamp"
           },
           "naming": {}
+        },
+        {
+          "name": "identity_scopes",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "list",
+              "of": {
+                "kind": "declared",
+                "name": "mandate.credential.IdentityScope"
+              }
+            }
+          },
+          "naming": {}
         }
       ],
       "response": [
@@ -7049,6 +7148,33 @@
                   },
                   "value": {
                     "kind": "generated"
+                  }
+                },
+                {
+                  "target": "identity_scopes",
+                  "target_type": {
+                    "kind": "optional",
+                    "of": {
+                      "kind": "list",
+                      "of": {
+                        "kind": "declared",
+                        "name": "mandate.credential.IdentityScope"
+                      }
+                    }
+                  },
+                  "value": {
+                    "kind": "input_field",
+                    "field": "identity_scopes",
+                    "type_ref": {
+                      "kind": "optional",
+                      "of": {
+                        "kind": "list",
+                        "of": {
+                          "kind": "declared",
+                          "name": "mandate.credential.IdentityScope"
+                        }
+                      }
+                    }
                   }
                 }
               ]
@@ -7576,6 +7702,17 @@
             "name": "mandate.core.RedirectUri"
           },
           "naming": {}
+        },
+        {
+          "name": "client_secret",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.CredentialProof"
+            }
+          },
+          "naming": {}
         }
       ],
       "response": [
@@ -7621,9 +7758,285 @@
             "name": "mandate.core.CredentialDescriptor"
           },
           "naming": {}
+        },
+        {
+          "name": "id_token",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.CredentialSecret"
+            }
+          },
+          "naming": {}
+        },
+        {
+          "name": "expires_in",
+          "type_ref": {
+            "kind": "primitive",
+            "name": "duration"
+          },
+          "naming": {}
         }
       ],
       "outcomes": [
+        {
+          "name": "accepted-with-identity-token",
+          "condition": {
+            "kind": "subject_predicate",
+            "predicate": {
+              "exists": {
+                "as": "granted",
+                "in": "identity_scopes",
+                "that": "granted == OpenId"
+              }
+            }
+          },
+          "subject": {
+            "entity": "mandate.credential.AuthorizationCode",
+            "effect": "moves",
+            "transition": {
+              "name": "consume",
+              "from": [
+                "Issued"
+              ],
+              "to": "Consumed"
+            },
+            "instance": {
+              "from": "supplied",
+              "field": {
+                "name": "code_id",
+                "type_ref": {
+                  "kind": "declared",
+                  "name": "mandate.core.AuthorizationCodeId"
+                },
+                "naming": {}
+              }
+            }
+          },
+          "test_strategy": "observe_subject_fact",
+          "emits": [
+            "mandate.credential.AuthorizationCodeRedeemed",
+            "mandate.credential.IdentityTokenIssued"
+          ],
+          "payload": [
+            {
+              "event": "mandate.credential.AuthorizationCodeRedeemed",
+              "fields": [
+                {
+                  "target": "context",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.VerifiedContext"
+                  },
+                  "value": {
+                    "kind": "generated"
+                  }
+                },
+                {
+                  "target": "code_id",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.AuthorizationCodeId"
+                  },
+                  "value": {
+                    "kind": "input_field",
+                    "field": "code_id",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.AuthorizationCodeId"
+                    }
+                  }
+                },
+                {
+                  "target": "credential_id",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.CredentialId"
+                  },
+                  "value": {
+                    "kind": "response_field",
+                    "field": "credential_id",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.CredentialId"
+                    }
+                  }
+                },
+                {
+                  "target": "reference_verifier",
+                  "target_type": {
+                    "kind": "optional",
+                    "of": {
+                      "kind": "declared",
+                      "name": "mandate.core.CredentialVerifier"
+                    }
+                  },
+                  "value": {
+                    "kind": "generated"
+                  }
+                },
+                {
+                  "target": "epochs",
+                  "target_type": {
+                    "kind": "optional",
+                    "of": {
+                      "kind": "declared",
+                      "name": "mandate.core.EpochSnapshotRef"
+                    }
+                  },
+                  "value": {
+                    "kind": "response_field",
+                    "field": "epochs",
+                    "type_ref": {
+                      "kind": "optional",
+                      "of": {
+                        "kind": "declared",
+                        "name": "mandate.core.EpochSnapshotRef"
+                      }
+                    }
+                  }
+                },
+                {
+                  "target": "issued_at",
+                  "target_type": {
+                    "kind": "primitive",
+                    "name": "timestamp"
+                  },
+                  "value": {
+                    "kind": "generated"
+                  }
+                },
+                {
+                  "target": "descriptor",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.CredentialDescriptor"
+                  },
+                  "value": {
+                    "kind": "response_field",
+                    "field": "descriptor",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.CredentialDescriptor"
+                    }
+                  }
+                },
+                {
+                  "target": "target",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.ResourceServerId"
+                  },
+                  "value": {
+                    "kind": "response_field",
+                    "field": "target",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.ResourceServerId"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "event": "mandate.credential.IdentityTokenIssued",
+              "fields": [
+                {
+                  "target": "token_id",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.credential.IdentityTokenId"
+                  },
+                  "value": {
+                    "kind": "generated"
+                  }
+                },
+                {
+                  "target": "code_id",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.AuthorizationCodeId"
+                  },
+                  "value": {
+                    "kind": "input_field",
+                    "field": "code_id",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.AuthorizationCodeId"
+                    }
+                  }
+                },
+                {
+                  "target": "client_id",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.OAuthClientId"
+                  },
+                  "value": {
+                    "kind": "input_field",
+                    "field": "client_id",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.OAuthClientId"
+                    }
+                  }
+                },
+                {
+                  "target": "principal_id",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.PrincipalId"
+                  },
+                  "value": {
+                    "kind": "generated"
+                  }
+                },
+                {
+                  "target": "session_id",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.SessionId"
+                  },
+                  "value": {
+                    "kind": "generated"
+                  }
+                },
+                {
+                  "target": "signing_key_id",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.SigningKeyId"
+                  },
+                  "value": {
+                    "kind": "generated"
+                  }
+                },
+                {
+                  "target": "issued_at",
+                  "target_type": {
+                    "kind": "primitive",
+                    "name": "timestamp"
+                  },
+                  "value": {
+                    "kind": "generated"
+                  }
+                },
+                {
+                  "target": "expires_at",
+                  "target_type": {
+                    "kind": "primitive",
+                    "name": "timestamp"
+                  },
+                  "value": {
+                    "kind": "generated"
+                  }
+                }
+              ]
+            }
+          ],
+          "summary": "A code whose authorization granted openid redeems exactly as the accepted outcome below does, and in the same transaction the STS signs one identity token and records mandate.credential.IdentityTokenIssued. The token's issuer is the deployment's, its audience the client, its subject the session's principal (fork F1), its nonce the authorization request's and its lifetime the deployment's identity-token lifetime; it is signed under a signing key admitted for issuance now, and the event names that key. The event carries the token's identifier, the code, the client, the principal, the session, the signing key and the two instants, and no claim value — no email, name, groups or nonce enters this log (fork F13). A transaction that cannot sign issues neither the token nor the access credential and consumes nothing."
+        },
         {
           "name": "accepted",
           "condition": {
@@ -7792,7 +8205,7 @@
           "name": "denied",
           "condition": {
             "kind": "external",
-            "cause": "Code proof does not match the server-resolved code_id; code is expired; client, redirect URI or S256 verifier mismatches; the bound client is disabled; source/session epoch is stale; registered target is disabled or outside the verified tenant; or narrowing/atomic issuance validation fails."
+            "cause": "Code proof does not match the server-resolved code_id; code is expired; client, redirect URI or S256 verifier mismatches; the bound client is disabled; a confidential client presents no secret or one matching none of its recorded verifiers; a public client presents a secret; source/session epoch is stale; registered target is disabled or outside the verified tenant; no signing key is admitted for issuance when an identity token is due; or narrowing/atomic issuance validation fails."
           },
           "test_strategy": "inject_fault",
           "emits": [],
@@ -7836,6 +8249,17 @@
             "of": {
               "kind": "declared",
               "name": "mandate.core.ResourceServerId"
+            }
+          },
+          "naming": {}
+        },
+        {
+          "name": "client_id",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.OAuthClientId"
             }
           },
           "naming": {}
@@ -7961,16 +8385,38 @@
                       }
                     }
                   }
+                },
+                {
+                  "target": "client_id",
+                  "target_type": {
+                    "kind": "optional",
+                    "of": {
+                      "kind": "declared",
+                      "name": "mandate.core.OAuthClientId"
+                    }
+                  },
+                  "value": {
+                    "kind": "input_field",
+                    "field": "client_id",
+                    "type_ref": {
+                      "kind": "optional",
+                      "of": {
+                        "kind": "declared",
+                        "name": "mandate.core.OAuthClientId"
+                      }
+                    }
+                  }
                 }
               ]
             }
-          ]
+          ],
+          "summary": "A registration naming a client is that client's resource server (fork F11), and an identity-token exchange admits to it exactly the clients that client lists as trusted peers (fork F20). The client is named once, here, and never changed."
         },
         {
           "name": "denied",
           "condition": {
             "kind": "external",
-            "cause": "Caller lacks resource-server administration authority, audience registration is ambiguous, profile semantics are unadmitted, or an allowed source server is unresolved/disabled/outside the verified organization."
+            "cause": "Caller lacks resource-server administration authority, audience registration is ambiguous, profile semantics are unadmitted, an allowed source server is unresolved/disabled/outside the verified organization, or the named client is unresolved/disabled/outside the verified organization."
           },
           "test_strategy": "inject_fault",
           "emits": [],
@@ -15591,6 +16037,20 @@
             "name": "mandate.core.AuthorityScope"
           },
           "naming": {}
+        },
+        {
+          "name": "identity_scopes",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "list",
+              "of": {
+                "kind": "declared",
+                "name": "mandate.credential.IdentityScope"
+              }
+            }
+          },
+          "naming": {}
         }
       ],
       "naming": {}
@@ -15871,6 +16331,77 @@
       ],
       "naming": {}
     },
+    "mandate.credential.IdentityTokenIssued": {
+      "name": "mandate.credential.IdentityTokenIssued",
+      "domain": "mandate.credential",
+      "fields": [
+        {
+          "name": "token_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.credential.IdentityTokenId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "code_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.AuthorizationCodeId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "client_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.OAuthClientId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "principal_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.PrincipalId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "session_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.SessionId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "signing_key_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.SigningKeyId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "issued_at",
+          "type_ref": {
+            "kind": "primitive",
+            "name": "timestamp"
+          },
+          "naming": {}
+        },
+        {
+          "name": "expires_at",
+          "type_ref": {
+            "kind": "primitive",
+            "name": "timestamp"
+          },
+          "naming": {}
+        }
+      ],
+      "naming": {}
+    },
     "mandate.credential.ResourceServerDisabled": {
       "name": "mandate.credential.ResourceServerDisabled",
       "domain": "mandate.credential",
@@ -15937,6 +16468,17 @@
             "of": {
               "kind": "declared",
               "name": "mandate.core.ResourceServerId"
+            }
+          },
+          "naming": {}
+        },
+        {
+          "name": "client_id",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.OAuthClientId"
             }
           },
           "naming": {}
@@ -18565,6 +19107,7 @@
         "mandate.credential.CredentialIntrospected",
         "mandate.credential.CredentialReferenceIssued",
         "mandate.credential.CredentialSelfContainedIssued",
+        "mandate.credential.IdentityTokenIssued",
         "mandate.credential.ResourceServerDisabled",
         "mandate.credential.ResourceServerRegistered",
         "mandate.credential.SigningKeyRegistered",
