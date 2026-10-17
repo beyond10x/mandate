@@ -395,6 +395,7 @@
         "mandate.identity.Principal.State",
         "mandate.identity.PrincipalSecurityEpoch.State",
         "mandate.identity.RefreshCredential.State",
+        "mandate.identity.RefreshFamilyId",
         "mandate.identity.SecurityEpochSnapshot.State",
         "mandate.identity.Session.State"
       ],
@@ -412,12 +413,16 @@
         "mandate.identity.IncrementSecurityEpoch",
         "mandate.identity.RefreshSession",
         "mandate.identity.RevokeRefreshCredential",
-        "mandate.identity.RevokeSession"
+        "mandate.identity.RevokeSession",
+        "mandate.identity.RotateRefreshCredential"
       ],
       "events": [
         "mandate.identity.EpochSnapshotRecorded",
         "mandate.identity.PrincipalDisabled",
+        "mandate.identity.RefreshCredentialIssued",
         "mandate.identity.RefreshCredentialRevoked",
+        "mandate.identity.RefreshCredentialRotated",
+        "mandate.identity.RefreshFamilyRevoked",
         "mandate.identity.SecurityEpochIncremented",
         "mandate.identity.SecurityEpochRecorded",
         "mandate.identity.SessionOpened",
@@ -2582,10 +2587,25 @@
         "kind": "enum",
         "variants": [
           "Active",
-          "Revoked"
+          "Revoked",
+          "Rotated"
         ]
       },
       "naming": {}
+    },
+    "mandate.identity.RefreshFamilyId": {
+      "name": "mandate.identity.RefreshFamilyId",
+      "body": {
+        "kind": "newtype",
+        "of": {
+          "kind": "primitive",
+          "name": "uuid"
+        },
+        "invariants": []
+      },
+      "naming": {
+        "summary": "The rotation family of refresh credentials minted from one issuance."
+      }
     },
     "mandate.identity.SecurityEpochSnapshot.State": {
       "name": "mandate.identity.SecurityEpochSnapshot.State",
@@ -5268,23 +5288,97 @@
             "name": "timestamp"
           },
           "naming": {}
+        },
+        {
+          "name": "family_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.identity.RefreshFamilyId"
+          },
+          "naming": {
+            "summary": "The rotation family. Every credential rotated or sibled from one issued credential carries the family its first member was issued under; reuse revokes the family as one."
+          }
+        },
+        {
+          "name": "client_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.OAuthClientId"
+          },
+          "naming": {
+            "summary": "The client the credential was issued to. Only that client may present it."
+          }
+        },
+        {
+          "name": "predecessor",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.RefreshCredentialId"
+            }
+          },
+          "naming": {
+            "summary": "The credential whose rotation minted this one; absent on the family's first member."
+          }
+        },
+        {
+          "name": "issued_at",
+          "type_ref": {
+            "kind": "primitive",
+            "name": "timestamp"
+          },
+          "naming": {}
+        },
+        {
+          "name": "last_used_at",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "primitive",
+              "name": "timestamp"
+            }
+          },
+          "naming": {
+            "summary": "When the credential was first presented and rotated; absent while it is Active. The two-second grace window is measured from it."
+          }
+        },
+        {
+          "name": "grace_sibling_issued",
+          "type_ref": {
+            "kind": "primitive",
+            "name": "boolean"
+          },
+          "naming": {
+            "summary": "Whether a presentation inside the grace window has already minted the one sibling a Rotated credential may yield."
+          }
         }
       ],
       "state_type": "mandate.identity.RefreshCredential.State",
       "lifecycle": {
         "states": [
           "Active",
-          "Revoked"
+          "Revoked",
+          "Rotated"
         ],
         "initial": "Active",
         "terminal": [
-          "Revoked"
+          "Revoked",
+          "Rotated"
         ],
         "transitions": [
           {
-            "name": "revoke",
+            "name": "rotate",
             "from": [
               "Active"
+            ],
+            "to": "Rotated"
+          },
+          {
+            "name": "revoke",
+            "from": [
+              "Active",
+              "Rotated"
             ],
             "to": "Revoked"
           }
@@ -5292,6 +5386,20 @@
       },
       "invariants": [],
       "relations": [
+        {
+          "name": "client_id_record",
+          "kind": "references",
+          "target": "mandate.federation.OAuthClient",
+          "cardinality": "one",
+          "via": "client_id"
+        },
+        {
+          "name": "predecessor_record",
+          "kind": "references",
+          "target": "mandate.identity.RefreshCredential",
+          "cardinality": "one",
+          "via": "predecessor"
+        },
         {
           "name": "principal_id_record",
           "kind": "references",
@@ -14208,7 +14316,8 @@
             "transition": {
               "name": "revoke",
               "from": [
-                "Active"
+                "Active",
+                "Rotated"
               ],
               "to": "Revoked"
             },
@@ -14378,6 +14487,22 @@
                 }
               ]
             }
+          ],
+          "summary": "Ending the session (RP-initiated logout, fork F7) revokes it and every refresh credential bound to it, Active or Rotated, so no family of the session can be rotated again.",
+          "affects": [
+            {
+              "entity": "mandate.identity.RefreshCredential",
+              "filter": "session_id == input.id",
+              "sets": [],
+              "moves": {
+                "name": "revoke",
+                "from": [
+                  "Active",
+                  "Rotated"
+                ],
+                "to": "Revoked"
+              }
+            }
           ]
         },
         {
@@ -14402,6 +14527,622 @@
         }
       ],
       "naming": {}
+    },
+    "mandate.identity.RotateRefreshCredential": {
+      "name": "mandate.identity.RotateRefreshCredential",
+      "domain": "mandate.identity",
+      "input": [
+        {
+          "name": "id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.RefreshCredentialId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "refresh_proof",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.CredentialProof"
+          },
+          "naming": {}
+        },
+        {
+          "name": "client_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.OAuthClientId"
+          },
+          "naming": {}
+        }
+      ],
+      "response": [
+        {
+          "name": "refresh_credential_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.RefreshCredentialId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "refresh_credential",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.CredentialSecret"
+          },
+          "naming": {}
+        },
+        {
+          "name": "session_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.SessionId"
+          },
+          "naming": {}
+        }
+      ],
+      "outcomes": [
+        {
+          "name": "wrong-client",
+          "condition": {
+            "kind": "subject_predicate",
+            "predicate": "client_id != input.client_id"
+          },
+          "complete_refusal": true,
+          "test_strategy": "observe_subject_fact",
+          "emits": [],
+          "error": "mandate.identity.Denied",
+          "summary": "Another client's refresh credential is refused and left exactly as it was; the family is not revoked, because the presenter is not the holder."
+        },
+        {
+          "name": "rotated",
+          "condition": {
+            "kind": "subject_predicate",
+            "predicate": "state == Active"
+          },
+          "subject": {
+            "entity": "mandate.identity.RefreshCredential",
+            "effect": "moves",
+            "transition": {
+              "name": "rotate",
+              "from": [
+                "Active"
+              ],
+              "to": "Rotated"
+            },
+            "instance": {
+              "from": "supplied",
+              "field": {
+                "name": "id",
+                "type_ref": {
+                  "kind": "declared",
+                  "name": "mandate.core.RefreshCredentialId"
+                },
+                "naming": {}
+              }
+            }
+          },
+          "test_strategy": "observe_subject_fact",
+          "emits": [
+            "mandate.identity.RefreshCredentialRotated"
+          ],
+          "payload": [
+            {
+              "event": "mandate.identity.RefreshCredentialRotated",
+              "fields": [
+                {
+                  "target": "predecessor",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.RefreshCredentialId"
+                  },
+                  "value": {
+                    "kind": "input_field",
+                    "field": "id",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.RefreshCredentialId"
+                    }
+                  }
+                },
+                {
+                  "target": "id",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.RefreshCredentialId"
+                  },
+                  "value": {
+                    "kind": "response_field",
+                    "field": "refresh_credential_id",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.RefreshCredentialId"
+                    }
+                  }
+                },
+                {
+                  "target": "family_id",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.identity.RefreshFamilyId"
+                  },
+                  "value": {
+                    "kind": "subject_field",
+                    "field": "family_id",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.identity.RefreshFamilyId"
+                    }
+                  }
+                },
+                {
+                  "target": "client_id",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.OAuthClientId"
+                  },
+                  "value": {
+                    "kind": "subject_field",
+                    "field": "client_id",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.OAuthClientId"
+                    }
+                  }
+                },
+                {
+                  "target": "principal_id",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.PrincipalId"
+                  },
+                  "value": {
+                    "kind": "subject_field",
+                    "field": "principal_id",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.PrincipalId"
+                    }
+                  }
+                },
+                {
+                  "target": "organization_id",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.OrganizationId"
+                  },
+                  "value": {
+                    "kind": "subject_field",
+                    "field": "organization_id",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.OrganizationId"
+                    }
+                  }
+                },
+                {
+                  "target": "session_id",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.SessionId"
+                  },
+                  "value": {
+                    "kind": "subject_field",
+                    "field": "session_id",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.SessionId"
+                    }
+                  }
+                },
+                {
+                  "target": "verifier",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.CredentialVerifier"
+                  },
+                  "value": {
+                    "kind": "generated"
+                  }
+                },
+                {
+                  "target": "epochs",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.EpochSnapshotRef"
+                  },
+                  "value": {
+                    "kind": "subject_field",
+                    "field": "epochs",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.EpochSnapshotRef"
+                    }
+                  }
+                },
+                {
+                  "target": "issued_at",
+                  "target_type": {
+                    "kind": "primitive",
+                    "name": "timestamp"
+                  },
+                  "value": {
+                    "kind": "generated"
+                  }
+                },
+                {
+                  "target": "expires_at",
+                  "target_type": {
+                    "kind": "primitive",
+                    "name": "timestamp"
+                  },
+                  "value": {
+                    "kind": "subject_field",
+                    "field": "expires_at",
+                    "type_ref": {
+                      "kind": "primitive",
+                      "name": "timestamp"
+                    }
+                  }
+                }
+              ]
+            }
+          ],
+          "returns": true,
+          "summary": "The presented credential rests in Rotated with the moment it was used; its successor, Active in the same family with the presented credential as predecessor and the family's absolute expiry, is the record RefreshCredentialRotated carries.",
+          "sets": [
+            {
+              "target": "last_used_at",
+              "target_type": {
+                "kind": "optional",
+                "of": {
+                  "kind": "primitive",
+                  "name": "timestamp"
+                }
+              },
+              "value": {
+                "kind": "generated"
+              }
+            }
+          ]
+        },
+        {
+          "name": "grace-sibling",
+          "condition": {
+            "kind": "subject_predicate",
+            "predicate": {
+              "all": [
+                "state == Rotated",
+                "grace_sibling_issued == false",
+                "last_used_at > now - 2s"
+              ]
+            }
+          },
+          "subject": {
+            "entity": "mandate.identity.RefreshCredential",
+            "effect": "updates",
+            "instance": {
+              "from": "supplied",
+              "field": {
+                "name": "id",
+                "type_ref": {
+                  "kind": "declared",
+                  "name": "mandate.core.RefreshCredentialId"
+                },
+                "naming": {}
+              }
+            }
+          },
+          "test_strategy": "observe_subject_fact",
+          "emits": [
+            "mandate.identity.RefreshCredentialRotated"
+          ],
+          "payload": [
+            {
+              "event": "mandate.identity.RefreshCredentialRotated",
+              "fields": [
+                {
+                  "target": "predecessor",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.RefreshCredentialId"
+                  },
+                  "value": {
+                    "kind": "input_field",
+                    "field": "id",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.RefreshCredentialId"
+                    }
+                  }
+                },
+                {
+                  "target": "id",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.RefreshCredentialId"
+                  },
+                  "value": {
+                    "kind": "response_field",
+                    "field": "refresh_credential_id",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.RefreshCredentialId"
+                    }
+                  }
+                },
+                {
+                  "target": "family_id",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.identity.RefreshFamilyId"
+                  },
+                  "value": {
+                    "kind": "subject_field",
+                    "field": "family_id",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.identity.RefreshFamilyId"
+                    }
+                  }
+                },
+                {
+                  "target": "client_id",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.OAuthClientId"
+                  },
+                  "value": {
+                    "kind": "subject_field",
+                    "field": "client_id",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.OAuthClientId"
+                    }
+                  }
+                },
+                {
+                  "target": "principal_id",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.PrincipalId"
+                  },
+                  "value": {
+                    "kind": "subject_field",
+                    "field": "principal_id",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.PrincipalId"
+                    }
+                  }
+                },
+                {
+                  "target": "organization_id",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.OrganizationId"
+                  },
+                  "value": {
+                    "kind": "subject_field",
+                    "field": "organization_id",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.OrganizationId"
+                    }
+                  }
+                },
+                {
+                  "target": "session_id",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.SessionId"
+                  },
+                  "value": {
+                    "kind": "subject_field",
+                    "field": "session_id",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.SessionId"
+                    }
+                  }
+                },
+                {
+                  "target": "verifier",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.CredentialVerifier"
+                  },
+                  "value": {
+                    "kind": "generated"
+                  }
+                },
+                {
+                  "target": "epochs",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.EpochSnapshotRef"
+                  },
+                  "value": {
+                    "kind": "subject_field",
+                    "field": "epochs",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.EpochSnapshotRef"
+                    }
+                  }
+                },
+                {
+                  "target": "issued_at",
+                  "target_type": {
+                    "kind": "primitive",
+                    "name": "timestamp"
+                  },
+                  "value": {
+                    "kind": "generated"
+                  }
+                },
+                {
+                  "target": "expires_at",
+                  "target_type": {
+                    "kind": "primitive",
+                    "name": "timestamp"
+                  },
+                  "value": {
+                    "kind": "subject_field",
+                    "field": "expires_at",
+                    "type_ref": {
+                      "kind": "primitive",
+                      "name": "timestamp"
+                    }
+                  }
+                }
+              ]
+            }
+          ],
+          "returns": true,
+          "summary": "A Rotated credential presented within two seconds of its rotation (a client that lost the first answer) yields exactly one sibling in its family; the credential stays Rotated and records that its sibling is spent.",
+          "sets": [
+            {
+              "target": "grace_sibling_issued",
+              "target_type": {
+                "kind": "primitive",
+                "name": "boolean"
+              },
+              "value": {
+                "kind": "literal",
+                "value": "true"
+              }
+            }
+          ]
+        },
+        {
+          "name": "reuse-detected",
+          "condition": {
+            "kind": "otherwise"
+          },
+          "subject": {
+            "entity": "mandate.identity.RefreshCredential",
+            "effect": "moves",
+            "transition": {
+              "name": "revoke",
+              "from": [
+                "Active",
+                "Rotated"
+              ],
+              "to": "Revoked"
+            },
+            "instance": {
+              "from": "supplied",
+              "field": {
+                "name": "id",
+                "type_ref": {
+                  "kind": "declared",
+                  "name": "mandate.core.RefreshCredentialId"
+                },
+                "naming": {}
+              }
+            }
+          },
+          "test_strategy": "default_branch",
+          "emits": [
+            "mandate.identity.RefreshFamilyRevoked"
+          ],
+          "payload": [
+            {
+              "event": "mandate.identity.RefreshFamilyRevoked",
+              "fields": [
+                {
+                  "target": "id",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.RefreshCredentialId"
+                  },
+                  "value": {
+                    "kind": "input_field",
+                    "field": "id",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.RefreshCredentialId"
+                    }
+                  }
+                },
+                {
+                  "target": "family_id",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.identity.RefreshFamilyId"
+                  },
+                  "value": {
+                    "kind": "subject_field",
+                    "field": "family_id",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.identity.RefreshFamilyId"
+                    }
+                  }
+                },
+                {
+                  "target": "session_id",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.SessionId"
+                  },
+                  "value": {
+                    "kind": "subject_field",
+                    "field": "session_id",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.SessionId"
+                    }
+                  }
+                }
+              ]
+            }
+          ],
+          "summary": "A Rotated credential presented after the grace window, or a second time within it, is reuse. No credential is returned; the presented credential and every other Active or Rotated member of its family are Revoked, and the session RefreshFamilyRevoked names is revoked by the identity fold (this file's header). The token endpoint answers it as a refusal (invalid_grant).",
+          "affects": [
+            {
+              "entity": "mandate.identity.RefreshCredential",
+              "filter": "family_id == subject.family_id",
+              "sets": [],
+              "moves": {
+                "name": "revoke",
+                "from": [
+                  "Active",
+                  "Rotated"
+                ],
+                "to": "Revoked"
+              }
+            }
+          ]
+        },
+        {
+          "name": "wrong-state",
+          "condition": {
+            "kind": "wrong_state"
+          },
+          "complete_refusal": true,
+          "test_strategy": "arrange_state",
+          "emits": [],
+          "error": "mandate.identity.Denied",
+          "summary": "A Revoked credential is refused and nothing moves."
+        },
+        {
+          "name": "denied",
+          "condition": {
+            "kind": "external",
+            "cause": "The refresh proof does not match the server-resolved id's verifier, the credential's absolute lifetime is past, client authentication failed, the bound client is disabled, or the principal or session is disabled."
+          },
+          "test_strategy": "inject_fault",
+          "emits": [],
+          "error": "mandate.identity.Denied"
+        }
+      ],
+      "naming": {
+        "summary": "Present a refresh credential at the token endpoint and receive its successor (fork F6). The id is resolved by the trusted adapter from the presented refresh token; it is not a selector a caller chooses."
+      }
     },
     "mandate.policy.SupersedeAuthorizationModel": {
       "name": "mandate.policy.SupersedeAuthorizationModel",
@@ -18668,6 +19409,93 @@
       ],
       "naming": {}
     },
+    "mandate.identity.RefreshCredentialIssued": {
+      "name": "mandate.identity.RefreshCredentialIssued",
+      "domain": "mandate.identity",
+      "fields": [
+        {
+          "name": "id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.RefreshCredentialId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "family_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.identity.RefreshFamilyId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "client_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.OAuthClientId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "principal_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.PrincipalId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "organization_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.OrganizationId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "session_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.SessionId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "verifier",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.CredentialVerifier"
+          },
+          "naming": {}
+        },
+        {
+          "name": "epochs",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.EpochSnapshotRef"
+          },
+          "naming": {}
+        },
+        {
+          "name": "issued_at",
+          "type_ref": {
+            "kind": "primitive",
+            "name": "timestamp"
+          },
+          "naming": {}
+        },
+        {
+          "name": "expires_at",
+          "type_ref": {
+            "kind": "primitive",
+            "name": "timestamp"
+          },
+          "naming": {}
+        }
+      ],
+      "naming": {}
+    },
     "mandate.identity.RefreshCredentialRevoked": {
       "name": "mandate.identity.RefreshCredentialRevoked",
       "domain": "mandate.identity",
@@ -18685,6 +19513,132 @@
           "type_ref": {
             "kind": "declared",
             "name": "mandate.core.RefreshCredentialId"
+          },
+          "naming": {}
+        }
+      ],
+      "naming": {}
+    },
+    "mandate.identity.RefreshCredentialRotated": {
+      "name": "mandate.identity.RefreshCredentialRotated",
+      "domain": "mandate.identity",
+      "fields": [
+        {
+          "name": "predecessor",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.RefreshCredentialId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.RefreshCredentialId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "family_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.identity.RefreshFamilyId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "client_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.OAuthClientId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "principal_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.PrincipalId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "organization_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.OrganizationId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "session_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.SessionId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "verifier",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.CredentialVerifier"
+          },
+          "naming": {}
+        },
+        {
+          "name": "epochs",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.EpochSnapshotRef"
+          },
+          "naming": {}
+        },
+        {
+          "name": "issued_at",
+          "type_ref": {
+            "kind": "primitive",
+            "name": "timestamp"
+          },
+          "naming": {}
+        },
+        {
+          "name": "expires_at",
+          "type_ref": {
+            "kind": "primitive",
+            "name": "timestamp"
+          },
+          "naming": {}
+        }
+      ],
+      "naming": {}
+    },
+    "mandate.identity.RefreshFamilyRevoked": {
+      "name": "mandate.identity.RefreshFamilyRevoked",
+      "domain": "mandate.identity",
+      "fields": [
+        {
+          "name": "id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.RefreshCredentialId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "family_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.identity.RefreshFamilyId"
+          },
+          "naming": {}
+        },
+        {
+          "name": "session_id",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.SessionId"
           },
           "naming": {}
         }
@@ -19514,6 +20468,7 @@
         "mandate.identity.RefreshSession",
         "mandate.identity.RevokeRefreshCredential",
         "mandate.identity.RevokeSession",
+        "mandate.identity.RotateRefreshCredential",
         "mandate.tenancy.AddOrganizationMembership",
         "mandate.tenancy.AddTeamMembership",
         "mandate.tenancy.CloseOrganization",
@@ -19558,7 +20513,10 @@
         "mandate.federation.OAuthClientRegistered",
         "mandate.identity.EpochSnapshotRecorded",
         "mandate.identity.PrincipalDisabled",
+        "mandate.identity.RefreshCredentialIssued",
         "mandate.identity.RefreshCredentialRevoked",
+        "mandate.identity.RefreshCredentialRotated",
+        "mandate.identity.RefreshFamilyRevoked",
         "mandate.identity.SecurityEpochIncremented",
         "mandate.identity.SecurityEpochRecorded",
         "mandate.identity.SessionOpened",

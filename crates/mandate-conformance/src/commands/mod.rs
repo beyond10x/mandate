@@ -189,6 +189,11 @@ pub const UNREALIZED: &[(&str, &str, &str)] = &[
         "the RefreshCredential record is projected nowhere",
     ),
     (
+        "mandate.identity.RotateRefreshCredential",
+        "story:oidc-refresh-and-logout",
+        "no handler decides it; the RefreshCredential record and its family are projected nowhere",
+    ),
+    (
         "mandate.policy.SupersedeAuthorizationModel",
         "story:graph-policy-adapter",
         "policy administration is a double; no command supersedes a model",

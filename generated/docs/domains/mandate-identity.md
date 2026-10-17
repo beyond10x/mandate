@@ -1,7 +1,7 @@
 <!--
 generated from mandate v1
-model digest b1bb8baad6bbfba3ccc6b1ceb5b4baad19c1fb388011d566ecffed6e27f248bf
-contract digest slice-sha256/2:adbfe27608e395a3ba41bdc572cb266216489988e46497a93de067743e8f31bc
+model digest 721f20a2ce754ea7d57b7c1cbbfea0e881fb695657c4661eb1ef475fa7860e8a
+contract digest slice-sha256/2:d2f39f71c888a15bd65a01f5a10ceb90dd53398f031ee4af89fd2923b12ff2aa
 do not edit: regenerate with `ess generate`
 -->
 
@@ -10,6 +10,12 @@ do not edit: regenerate with `ess generate`
 Principal, session and independent principal/organization/federation generation ownership. UNMAPPED-EPOCH: each generation record declares one non-negative Integer generation, the recorded stand-in for the addendum's u64; monotonic increment, denial at the maximum and per-dimension snapshot values are absent until supported. EpochSnapshotRef is an immutable record handle, not a generation number. Refresh and exchange cannot be implemented without closing this blocker.
 
 `mandate.identity` is one of mandate's bounded contexts. [Back to the index](../index.md).
+
+## Types
+
+### `RefreshFamilyId`
+
+`mandate.identity.RefreshFamilyId` wraps `Uuid` and is not interchangeable with one: the whole value of naming it separately is the crossings the model then refuses.
 
 ## Entities
 
@@ -157,31 +163,43 @@ It holds:
 - `verifier` — `mandate.core.CredentialVerifier`
 - `epochs` — `mandate.core.EpochSnapshotRef`
 - `expires_at` — `Timestamp`
+- `family_id` — `mandate.identity.RefreshFamilyId`
+- `client_id` — `mandate.core.OAuthClientId`
+- `predecessor` — `Optional<mandate.core.RefreshCredentialId>`, which may be absent
+- `issued_at` — `Timestamp`
+- `last_used_at` — `Optional<Timestamp>`, which may be absent
+- `grace_sibling_issued` — `Boolean`
 
-It references at most one [`Principal`](#principal), as `principal_id_record`, carried by `RefreshCredential.principal_id`. It references at most one [`mandate.tenancy.Organization`](mandate-tenancy.md#organization), as `organization_id_record`, carried by `RefreshCredential.organization_id`. It references at most one [`Session`](#session), as `session_id_record`, carried by `RefreshCredential.session_id`. It references at most one [`SecurityEpochSnapshot`](#securityepochsnapshot), as `epoch_snapshot_record`, carried by `RefreshCredential.epochs`.
+It references at most one [`mandate.federation.OAuthClient`](mandate-federation.md#oauthclient), as `client_id_record`, carried by `RefreshCredential.client_id`. It references at most one [`RefreshCredential`](#refreshcredential), as `predecessor_record`, carried by `RefreshCredential.predecessor`. It references at most one [`Principal`](#principal), as `principal_id_record`, carried by `RefreshCredential.principal_id`. It references at most one [`mandate.tenancy.Organization`](mandate-tenancy.md#organization), as `organization_id_record`, carried by `RefreshCredential.organization_id`. It references at most one [`Session`](#session), as `session_id_record`, carried by `RefreshCredential.session_id`. It references at most one [`SecurityEpochSnapshot`](#securityepochsnapshot), as `epoch_snapshot_record`, carried by `RefreshCredential.epochs`.
 
 No invariant is declared, so nothing here constrains an instance at rest.
 
-Its state is a `mandate.identity.RefreshCredential.State`, one of `Active` and `Revoked`. That enum is synthesised from the lifecycle rather than declared beside it, so the states a view's filter compares and the states drawn below cannot disagree.
+Its state is a `mandate.identity.RefreshCredential.State`, one of `Active`, `Revoked` and `Rotated`. That enum is synthesised from the lifecycle rather than declared beside it, so the states a view's filter compares and the states drawn below cannot disagree.
 
-An instance is created in `Active`. `Revoked` is terminal, so an instance may rest there forever. That is declared rather than inferred from having no way out: an entity that cannot leave a state is either finished or stuck, and only its author knows which.
+An instance is created in `Active`. `Revoked` and `Rotated` are terminal, so an instance may rest there forever. That is declared rather than inferred from having no way out: an entity that cannot leave a state is either finished or stuck, and only its author knows which.
 
 ```mermaid
 stateDiagram-v2
     [*] --> Active
-    Active --> Revoked: revoke (RevokeRefreshCredential)
+    Active --> Rotated: rotate (RotateRefreshCredential)
+    Active --> Revoked: revoke (RevokeRefreshCredential, RotateRefreshCredential)
+    Rotated --> Revoked: revoke (RevokeRefreshCredential, RotateRefreshCredential)
     Revoked --> [*]
+    Rotated --> [*]
 ```
 
 Each move is taken by a declared command outcome, and a move nothing takes is refused as `missing_causation` rather than left as a state change nobody can trigger:
 
-- `revoke` — taken by `mandate.identity.RevokeRefreshCredential` on its `accepted` outcome
+- `rotate` — taken by `mandate.identity.RotateRefreshCredential` on its `rotated` outcome
+- `revoke` — taken by `mandate.identity.RevokeRefreshCredential` on its `accepted` outcome and `mandate.identity.RotateRefreshCredential` on its `reuse-detected` outcome
 
 No command here creates one, so an instance arrives from outside this specification.
 
 Illegal transitions are illegal by absence: no rule forbids them, there is simply no arrow, because a rule would be a second place for the same truth to live. A diagram cannot show an absence, so the pairs it does not connect are listed here, derived from the same transitions — anything named below is a move this specification does not permit.
 
 - `Revoked` may not become `Active`
+- `Revoked` may not become `Rotated`
+- `Rotated` may not become `Active`
 
 No view projects it, so nothing outside this context is promised a way to observe one.
 
@@ -317,7 +335,7 @@ It takes:
 
 It has three outcomes.
 
-**`accepted`** — The default branch, taken when no other outcome's condition matched. It moves a `mandate.identity.RefreshCredential` from `Active` to `Revoked`, along the declared move `revoke`. The instance is the one named by the input field `id`. It emits `mandate.identity.RefreshCredentialRevoked`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+**`accepted`** — The default branch, taken when no other outcome's condition matched. It moves a `mandate.identity.RefreshCredential` from `Active` and `Rotated` to `Revoked`, along the declared move `revoke`. The instance is the one named by the input field `id`. It emits `mandate.identity.RefreshCredentialRevoked`. A test reaches it by constructing an input that satisfies no other outcome's condition.
 
 **`wrong-state`** — Taken when the subject is resting in a state none of this command's moves start from — a `mandate.identity.RefreshCredential` in `Revoked`, which is what is left of the lifecycle once this command's own moves are taken away. The document lists none of it. No entity in this specification changes. It reports `mandate.identity.Denied`, carrying `reason`. It emits nothing. A test reaches it by driving an instance into one of those states and then issuing the command, because no input selects this branch.
 
@@ -334,11 +352,35 @@ It takes:
 
 It has three outcomes.
 
-**`accepted`** — The default branch, taken when no other outcome's condition matched. It moves a `mandate.identity.Session` from `Active` to `Revoked`, along the declared move `revoke`. The instance is the one named by the input field `id`. It emits `mandate.identity.SessionRevoked`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+**`accepted`** — Ending the session (RP-initiated logout, fork F7) revokes it and every refresh credential bound to it, Active or Rotated, so no family of the session can be rotated again. The default branch, taken when no other outcome's condition matched. It moves a `mandate.identity.Session` from `Active` to `Revoked`, along the declared move `revoke`. The instance is the one named by the input field `id`. Beside its subject, it moves every `mandate.identity.RefreshCredential` the filter `session_id == input.id` selects to `Revoked`, along the declared move `revoke`, the subject itself excepted; a selected row resting outside the move's starting states is left as it is. It emits `mandate.identity.SessionRevoked`. A test reaches it by constructing an input that satisfies no other outcome's condition.
 
 **`wrong-state`** — Taken when the subject is resting in a state none of this command's moves start from — a `mandate.identity.Session` in `Revoked`, which is what is left of the lifecycle once this command's own moves are taken away. The document lists none of it. No entity in this specification changes. It reports `mandate.identity.Denied`, carrying `reason`. It emits nothing. A test reaches it by driving an instance into one of those states and then issuing the command, because no input selects this branch.
 
 **`denied`** — Decided outside the input: Caller lacks authority over this session, session is outside the verified organization, or revocation cannot be durably observed under the applicable profile.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.identity.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
+
+### `RotateRefreshCredential`
+
+`mandate.identity.RotateRefreshCredential`.
+
+It takes:
+
+- `id` — `mandate.core.RefreshCredentialId`
+- `refresh_proof` — `mandate.core.CredentialProof`
+- `client_id` — `mandate.core.OAuthClientId`
+
+It has six outcomes.
+
+**`wrong-client`** — Another client's refresh credential is refused and left exactly as it was; the family is not revoked, because the presenter is not the holder. Taken when the existing subject's stored fields satisfy `client_id != input.client_id`. No entity in this specification changes. It reports `mandate.identity.Denied`, carrying `reason`. It emits nothing. A test establishes and independently observes the subject enum fact before selecting this branch.
+
+**`rotated`** — The presented credential rests in Rotated with the moment it was used; its successor, Active in the same family with the presented credential as predecessor and the family's absolute expiry, is the record RefreshCredentialRotated carries. Taken when the existing subject's stored fields satisfy `state == Active`. It moves a `mandate.identity.RefreshCredential` from `Active` to `Rotated`, along the declared move `rotate`. The instance is the one named by the input field `id`. It emits `mandate.identity.RefreshCredentialRotated`. It sets `last_used_at` from `implementation-generated`. A test establishes and independently observes the subject enum fact before selecting this branch.
+
+**`grace-sibling`** — A Rotated credential presented within two seconds of its rotation (a client that lost the first answer) yields exactly one sibling in its family; the credential stays Rotated and records that its sibling is spent. Taken when the existing subject's stored fields satisfy `(state == Rotated and grace_sibling_issued == false and last_used_at > now - 2s)`. It changes a `mandate.identity.RefreshCredential` without moving it along its lifecycle. The instance is the one named by the input field `id`. It emits `mandate.identity.RefreshCredentialRotated`. It sets `grace_sibling_issued` from `"true"`. A test establishes and independently observes the subject enum fact before selecting this branch.
+
+**`reuse-detected`** — A Rotated credential presented after the grace window, or a second time within it, is reuse. No credential is returned; the presented credential and every other Active or Rotated member of its family are Revoked, and the session RefreshFamilyRevoked names is revoked by the identity fold (this file's header). The token endpoint answers it as a refusal (invalid_grant). The default branch, taken when no other outcome's condition matched. It moves a `mandate.identity.RefreshCredential` from `Active` and `Rotated` to `Revoked`, along the declared move `revoke`. The instance is the one named by the input field `id`. Beside its subject, it moves every `mandate.identity.RefreshCredential` the filter `family_id == subject.family_id` selects to `Revoked`, along the declared move `revoke`, the subject itself excepted; a selected row resting outside the move's starting states is left as it is. It emits `mandate.identity.RefreshFamilyRevoked`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+
+**`wrong-state`** — A Revoked credential is refused and nothing moves. Taken when the subject is resting in a state none of this command's moves start from — a `mandate.identity.RefreshCredential` in `Revoked`, which is what is left of the lifecycle once this command's own moves are taken away. The document lists none of it. No entity in this specification changes. It reports `mandate.identity.Denied`, carrying `reason`. It emits nothing. A test reaches it by driving an instance into one of those states and then issuing the command, because no input selects this branch.
+
+**`denied`** — Decided outside the input: The refresh proof does not match the server-resolved id's verifier, the credential's absolute lifetime is past, client authentication failed, the bound client is disabled, or the principal or session is disabled.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.identity.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
 ## Events
 
@@ -370,6 +412,27 @@ Emitted by `mandate.identity.DisablePrincipal` on its `accepted` outcome.
 
 Nothing in this system reacts to it.
 
+### `RefreshCredentialIssued`
+
+`mandate.identity.RefreshCredentialIssued`.
+
+It carries:
+
+- `id` — `mandate.core.RefreshCredentialId`
+- `family_id` — `mandate.identity.RefreshFamilyId`
+- `client_id` — `mandate.core.OAuthClientId`
+- `principal_id` — `mandate.core.PrincipalId`
+- `organization_id` — `mandate.core.OrganizationId`
+- `session_id` — `mandate.core.SessionId`
+- `verifier` — `mandate.core.CredentialVerifier`
+- `epochs` — `mandate.core.EpochSnapshotRef`
+- `issued_at` — `Timestamp`
+- `expires_at` — `Timestamp`
+
+No command in this system emits it, so something outside the specification does.
+
+Nothing in this system reacts to it.
+
 ### `RefreshCredentialRevoked`
 
 `mandate.identity.RefreshCredentialRevoked`.
@@ -380,6 +443,42 @@ It carries:
 - `id` — `mandate.core.RefreshCredentialId`
 
 Emitted by `mandate.identity.RevokeRefreshCredential` on its `accepted` outcome.
+
+Nothing in this system reacts to it.
+
+### `RefreshCredentialRotated`
+
+`mandate.identity.RefreshCredentialRotated`.
+
+It carries:
+
+- `predecessor` — `mandate.core.RefreshCredentialId`
+- `id` — `mandate.core.RefreshCredentialId`
+- `family_id` — `mandate.identity.RefreshFamilyId`
+- `client_id` — `mandate.core.OAuthClientId`
+- `principal_id` — `mandate.core.PrincipalId`
+- `organization_id` — `mandate.core.OrganizationId`
+- `session_id` — `mandate.core.SessionId`
+- `verifier` — `mandate.core.CredentialVerifier`
+- `epochs` — `mandate.core.EpochSnapshotRef`
+- `issued_at` — `Timestamp`
+- `expires_at` — `Timestamp`
+
+Emitted by `mandate.identity.RotateRefreshCredential` on its `rotated` and `grace-sibling` outcomes.
+
+Nothing in this system reacts to it.
+
+### `RefreshFamilyRevoked`
+
+`mandate.identity.RefreshFamilyRevoked`.
+
+It carries:
+
+- `id` — `mandate.core.RefreshCredentialId`
+- `family_id` — `mandate.identity.RefreshFamilyId`
+- `session_id` — `mandate.core.SessionId`
+
+Emitted by `mandate.identity.RotateRefreshCredential` on its `reuse-detected` outcome.
 
 Nothing in this system reacts to it.
 
@@ -471,7 +570,9 @@ Reported by `mandate.identity.RevokeRefreshCredential` on its `wrong-state` and 
 
 Reported by `mandate.identity.RevokeSession` on its `wrong-state` and `denied` outcomes.
 
+Reported by `mandate.identity.RotateRefreshCredential` on its `wrong-client`, `wrong-state` and `denied` outcomes.
+
 
 ---
 
-Generated from mandate v1 · model digest `b1bb8baad6bbfba3ccc6b1ceb5b4baad19c1fb388011d566ecffed6e27f248bf` · contract digest `slice-sha256/2:adbfe27608e395a3ba41bdc572cb266216489988e46497a93de067743e8f31bc`. Do not edit this file; change the specification and regenerate it with `ess generate`.
+Generated from mandate v1 · model digest `721f20a2ce754ea7d57b7c1cbbfea0e881fb695657c4661eb1ef475fa7860e8a` · contract digest `slice-sha256/2:d2f39f71c888a15bd65a01f5a10ceb90dd53398f031ee4af89fd2923b12ff2aa`. Do not edit this file; change the specification and regenerate it with `ess generate`.

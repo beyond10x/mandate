@@ -46,6 +46,7 @@ scenarios:
 - scenarios/oidc-client-peer-unknown-refused.yaml
 - scenarios/oidc-client-public-pkce-optional-refused.yaml
 - scenarios/oidc-client-public-with-secret-refused.yaml
+- scenarios/oidc-end-session-revokes.yaml
 - scenarios/oidc-id-token-issued-on-openid.yaml
 - scenarios/oidc-no-id-token-without-openid.yaml
 - scenarios/oidc-peer-cross-organization-refused.yaml
@@ -53,6 +54,10 @@ scenarios:
 - scenarios/oidc-peer-exchange-not-trusted-refused.yaml
 - scenarios/oidc-redeem-client-auth-failed.yaml
 - scenarios/oidc-redeem-public-with-secret-refused.yaml
+- scenarios/oidc-refresh-grace-sibling-once.yaml
+- scenarios/oidc-refresh-reuse-revokes-family.yaml
+- scenarios/oidc-refresh-rotates.yaml
+- scenarios/oidc-refresh-wrong-client-refused.yaml
 - scenarios/oidc-retire-without-successor-refused.yaml
 - scenarios/oidc-sign-with-retired-key-refused.yaml
 - scenarios/pkce-code-expired.yaml
@@ -87,3 +92,9 @@ scenarios:
 #   AccessCredential.target; mandate.credential.AccessCredential declares no target field,
 #   so `setup:` cannot seed one (ESS-AUTHOR-015). Authored as the reachable first guard,
 #   introspect-caller-proof-malformed. Routed to story:declared-writers.
+# One case of story:oidc-refresh-and-logout is not authored as the story names it.
+# oidc-refresh-epoch-mismatch-refused: a principal epoch advanced since issuance must deny
+#   RotateRefreshCredential, and mandate.identity.SecurityEpochSnapshot declares principal_id,
+#   organization_id and connection_id and no generation, so `setup:` cannot establish a
+#   snapshot that is behind its principal's generation. Routed to
+#   story:epoch-snapshot-generations.

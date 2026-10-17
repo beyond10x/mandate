@@ -79,7 +79,7 @@ const REGISTRARS: [(&str, &str, usize); 6] = [
         2,
     ),
     ("mandate-graph", "crates/mandate-graph/src/lib.rs", 10),
-    ("mandate-identity", "crates/mandate-identity/src/lib.rs", 12),
+    ("mandate-identity", "crates/mandate-identity/src/lib.rs", 17),
     ("mandate-policy", "crates/mandate-policy/src/lib.rs", 4),
     ("mandate-sts", "services/sts/src/lib.rs", 0),
 ];
@@ -135,9 +135,9 @@ fn unrealized() -> Vec<(&'static str, String, String)> {
     }
     assert_eq!(
         all.len(),
-        31,
+        36,
         "every ESS_UNREALIZED entry of the workspace: authz 3, federation 2, graph 10, \
-         identity 12, policy 4, sts 0"
+         identity 17, policy 4, sts 0"
     );
     assert!(
         !all.is_empty(),

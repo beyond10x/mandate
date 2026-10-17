@@ -5,7 +5,8 @@
 //! the account cannot drift from the contract without this suite failing.
 
 use mandate_types::inventory::{
-    ACCEPTED, DERIVED_STATE_ENUMS, EXCLUDED_ENTITIES, EXCLUDED_SEMANTICS, Kind, Owner,
+    ACCEPTED, DERIVED_STATE_ENUMS, DOMAIN_TYPES_UNREALIZED, EXCLUDED_ENTITIES, EXCLUDED_SEMANTICS,
+    Kind, Owner,
 };
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -34,7 +35,7 @@ fn schema_kind(ess_name: &str) -> String {
 #[test]
 fn the_compiled_type_index_splits_into_authored_types_and_derived_state_enums() {
     let names = schema_names("types");
-    assert_eq!(names.len(), 118, "compiled type entries");
+    assert_eq!(names.len(), 119, "compiled type entries");
     // The token guard's seven types belong to the guard library in mandate-client, which
     // realizes them; mandate-types accounts for the core types and the derived states only.
     let guard = names
@@ -49,10 +50,20 @@ fn the_compiled_type_index_splits_into_authored_types_and_derived_state_enums() 
     assert_eq!(authored.len(), 75, "authored model types");
     for name in &names {
         if !name.starts_with("mandate.core.") && !name.starts_with("mandate.guard.") {
-            assert!(name.ends_with(".State"), "unaccounted type entry {name}");
+            assert!(
+                name.ends_with(".State")
+                    || DOMAIN_TYPES_UNREALIZED
+                        .iter()
+                        .any(|(unrealized, _)| unrealized == name),
+                "unaccounted type entry {name}"
+            );
         }
     }
-    assert_eq!(names.len() - authored.len() - guard, 36, "derived state enums");
+    assert_eq!(
+        names.len() - authored.len() - guard - DOMAIN_TYPES_UNREALIZED.len(),
+        36,
+        "derived state enums"
+    );
 }
 
 #[test]

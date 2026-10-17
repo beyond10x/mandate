@@ -845,6 +845,13 @@
       "consulted": 0
     },
     {
+      "scenario": "mandate.identity/authored/oidc-end-session-revokes",
+      "command": "mandate.identity.Session",
+      "port": "mandate_identity::IdentityLog",
+      "kind": "established-prerequisite",
+      "consulted": 0
+    },
+    {
       "scenario": "mandate.policy.SupersedeAuthorizationModel/outcome/denied",
       "command": "mandate.policy.SupersedeAuthorizationModel",
       "port": "none",
@@ -1695,12 +1702,6 @@
       "blocked_on": "story:declared-writers"
     },
     {
-      "scenario": "mandate.identity.RevokeSession/outcome/accepted",
-      "command": "",
-      "reason": "expectation-unmet",
-      "blocked_on": "story:conform-gate"
-    },
-    {
       "scenario": "mandate.identity.RevokeSession/outcome/denied",
       "command": "mandate.identity.RevokeSession",
       "reason": "port-not-substitutable",
@@ -1713,10 +1714,46 @@
       "blocked_on": "story:conform-gate"
     },
     {
+      "scenario": "mandate.identity.RotateRefreshCredential/outcome/wrong-state",
+      "command": "mandate.identity.RotateRefreshCredential",
+      "reason": "unrealized-command",
+      "blocked_on": "story:oidc-refresh-and-logout"
+    },
+    {
       "scenario": "mandate.identity.Session/transition/revoke/by/mandate.identity.RevokeSession/accepted",
       "command": "",
       "reason": "expectation-unmet",
       "blocked_on": "story:conform-gate"
+    },
+    {
+      "scenario": "mandate.identity/authored/oidc-end-session-revokes",
+      "command": "mandate.identity.RefreshCredential",
+      "reason": "entity-without-adapter-writer",
+      "blocked_on": "story:declared-writers"
+    },
+    {
+      "scenario": "mandate.identity/authored/oidc-refresh-grace-sibling-once",
+      "command": "mandate.identity.RefreshCredential",
+      "reason": "entity-without-adapter-writer",
+      "blocked_on": "story:declared-writers"
+    },
+    {
+      "scenario": "mandate.identity/authored/oidc-refresh-reuse-revokes-family",
+      "command": "mandate.identity.RefreshCredential",
+      "reason": "entity-without-adapter-writer",
+      "blocked_on": "story:declared-writers"
+    },
+    {
+      "scenario": "mandate.identity/authored/oidc-refresh-rotates",
+      "command": "mandate.identity.RefreshCredential",
+      "reason": "entity-without-adapter-writer",
+      "blocked_on": "story:declared-writers"
+    },
+    {
+      "scenario": "mandate.identity/authored/oidc-refresh-wrong-client-refused",
+      "command": "mandate.identity.RefreshCredential",
+      "reason": "entity-without-adapter-writer",
+      "blocked_on": "story:declared-writers"
     },
     {
       "scenario": "mandate.policy.SupersedeAuthorizationModel/outcome/denied",
