@@ -197,6 +197,25 @@ types:
     variants:
       - Public
       - Confidential
+  # How a connection renders the `sub` of the ID tokens its logins receive (fork F1).
+  # MandatePrincipal: the Mandate principal id. DexCompatible: the subject the Dex connector this
+  # connection replaces issued for the same upstream user, so a relying party keyed on `sub` sees
+  # no new user.
+  - name: mandate.core.SubjectFormat
+    kind: enum
+    variants:
+      - MandatePrincipal
+      - DexCompatible
+  # The id of the Dex connector a DexCompatible connection replaces; Dex encodes it into `sub`.
+  - name: mandate.core.DexConnectorId
+    kind: newtype
+    of: String
+  # The JWS algorithm of a client's ID tokens (fork F8): RS256 unless the client declares ES256.
+  - name: mandate.core.IdTokenSigningAlgorithm
+    kind: enum
+    variants:
+      - RS256
+      - ES256
   # The groups a connection admits into a login's recorded profile (fork F10): an explicit
   # allowlist, never a pattern, and a cap on how many filtered groups one login may carry.
   - name: mandate.core.GroupFilter

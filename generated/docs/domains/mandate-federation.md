@@ -1,7 +1,7 @@
 <!--
 generated from mandate v1
-model digest ed30f4be9ac91f32de4da849d406533e9444bf70425bbe0c0312187b27df62b7
-contract digest slice-sha256/2:98de9215ad5c1bd37b7b8356fad14e534f5196d0e1fbedf0328fc59530fe3ab6
+model digest 221f3ba72b7b930cacfdf588703cfb5569188fa6501f619490ef0a56cab2fa23
+contract digest slice-sha256/2:d40840f1ff8aebb833d59db37027c39fc83b9fb7099a464af4a4e5eb1a60801c
 do not edit: regenerate with `ess generate`
 -->
 
@@ -69,6 +69,8 @@ It holds:
 - `tenant_resolution` — `mandate.core.TenantResolutionRule`
 - `jit_provisioning` — `Boolean`
 - `groups` — `Optional<mandate.core.GroupFilter>`, which may be absent
+- `subject_format` — `mandate.core.SubjectFormat`
+- `replaced_connector_id` — `Optional<mandate.core.DexConnectorId>`, which may be absent
 
 It references at most one [`mandate.tenancy.Organization`](mandate-tenancy.md#organization), as `organization_id_record`, carried by `FederationConnection.organization_id`.
 
@@ -113,6 +115,7 @@ It holds:
 - `pkce_required` — `Boolean`
 - `trusted_peers` — `List<mandate.core.OAuthClientId>`
 - `post_logout_redirect_uris` — `List<mandate.core.RedirectUri>`
+- `id_token_signed_response_alg` — `Optional<mandate.core.IdTokenSigningAlgorithm>`, which may be absent
 
 It references at most one [`mandate.tenancy.Organization`](mandate-tenancy.md#organization), as `organization_id_record`, carried by `OAuthClient.organization_id`. It references any number of [`OAuthClient`](#oauthclient), as `trusted_peers`, carried by `OAuthClient.trusted_peers`.
 
@@ -259,12 +262,14 @@ It takes:
 - `tenant_resolution` — `mandate.core.TenantResolutionRule`
 - `jit_provisioning` — `Boolean`
 - `groups` — `Optional<mandate.core.GroupFilter>`, which may be absent
+- `subject_format` — `mandate.core.SubjectFormat`
+- `replaced_connector_id` — `Optional<mandate.core.DexConnectorId>`, which may be absent
 
 It has two outcomes.
 
-**`accepted`** — The connection is created with its provisioning setting, its tenant rule and its group filter decided here and never changed afterwards. A tenant rule that names a validated claim lists every value that resolves (a hosted-domain list), and any one of them resolves. A connection without a group filter records no groups for any login. A connection whose issuer, provisioning admission, accepted claim values or group filter must change is disabled and registered again; there is no update command. The default branch, taken when no other outcome's condition matched. It creates a `mandate.federation.FederationConnection`, which starts in `Enabled`. The new instance's identity is published as `connection_id` on `mandate.federation.FederationConnectionCreated`. It emits `mandate.federation.FederationConnectionCreated`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+**`accepted`** — The connection is created with its provisioning setting, its tenant rule and its group filter decided here and never changed afterwards. A tenant rule that names a validated claim lists every value that resolves (a hosted-domain list), and any one of them resolves. A connection without a group filter records no groups for any login. The subject format decides the `sub` of every ID token a login through this connection receives (fork F1). MandatePrincipal renders the Mandate principal id; DexCompatible renders the subject the replaced Dex connector issued, encoded from the external subject and the replaced connector id, which a DexCompatible connection names and a MandatePrincipal connection does not. A connection whose issuer, provisioning admission, accepted claim values, group filter or subject format must change is disabled and registered again; there is no update command. The default branch, taken when no other outcome's condition matched. It creates a `mandate.federation.FederationConnection`, which starts in `Enabled`. The new instance's identity is published as `connection_id` on `mandate.federation.FederationConnectionCreated`. It emits `mandate.federation.FederationConnectionCreated`. A test reaches it by constructing an input that satisfies no other outcome's condition.
 
-**`denied`** — Decided outside the input: Caller lacks federation-administration authority, issuer/client/trust, tenant-resolution or just-in-time provisioning configuration is unadmitted, the tenant rule names a claim with an empty value list or values without a claim name, the group filter's cap is below one, or organization binding is invalid.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.federation.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
+**`denied`** — Decided outside the input: Caller lacks federation-administration authority, issuer/client/trust, tenant-resolution or just-in-time provisioning configuration is unadmitted, the tenant rule names a claim with an empty value list or values without a claim name, the group filter's cap is below one, a DexCompatible subject format names no replaced connector id or a MandatePrincipal one names one, or organization binding is invalid.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.federation.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
 ### `RegisterOAuthClient`
 
@@ -280,10 +285,11 @@ It takes:
 - `pkce_required` — `Boolean`
 - `trusted_peers` — `List<mandate.core.OAuthClientId>`
 - `post_logout_redirect_uris` — `List<mandate.core.RedirectUri>`
+- `id_token_signed_response_alg` — `Optional<mandate.core.IdTokenSigningAlgorithm>`, which may be absent
 
 It has two outcomes.
 
-**`accepted`** — The client is bound to the organization the verified context carries; the command takes no organization input, so no caller selects the tenant a client is registered into. A confidential client authenticates with a secret, and the registration carries only the keyed verifiers derived from its secret references (fork F2), one or two so that a secret can be rotated; the secret itself is never an input, an event field or a record field. A public client states no verifier and always requires PKCE (fork F3); a confidential client may require it. Each trusted peer names another client of the same organization that may obtain tokens for this one. OAuthClientRegistered carries the whole mandate.federation.OAuthClient record — the client identity, its organization, its client type, its verifiers, its exact redirect set, its PKCE method and requirement, its trusted peers and its exact post-logout redirect set — so the federation fold materializes the client from this event alone and reads no command input or response. The identity and the organization are the ones this outcome decided and returned, read from the response rather than from a value the implementation invented. An empty redirect set is admitted and is not a denial — the client it registers is inert, because AuthorizeClient matches the presented redirect against the registered set exactly and an empty set matches nothing, so every authorization request to that client is refused. mandate.core.PkceMethod admits S256 and nothing else, so no registration can name another method and none is refused for naming one. A registration whose redirect surface or PKCE method must change is disabled and registered again; there is no update command. The default branch, taken when no other outcome's condition matched. It creates a `mandate.federation.OAuthClient`, which starts in `Recorded`. The new instance's identity is published as `id` on `mandate.federation.OAuthClientRegistered`. It emits `mandate.federation.OAuthClientRegistered`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+**`accepted`** — The client is bound to the organization the verified context carries; the command takes no organization input, so no caller selects the tenant a client is registered into. A confidential client authenticates with a secret, and the registration carries only the keyed verifiers derived from its secret references (fork F2), one or two so that a secret can be rotated; the secret itself is never an input, an event field or a record field. A public client states no verifier and always requires PKCE (fork F3); a confidential client may require it. Each trusted peer names another client of the same organization that may obtain tokens for this one. OAuthClientRegistered carries the whole mandate.federation.OAuthClient record — the client identity, its organization, its client type, its verifiers, its exact redirect set, its PKCE method and requirement, its trusted peers, its exact post-logout redirect set and its ID-token signing algorithm — so the federation fold materializes the client from this event alone and reads no command input or response. The identity and the organization are the ones this outcome decided and returned, read from the response rather than from a value the implementation invented. An empty redirect set is admitted and is not a denial — the client it registers is inert, because AuthorizeClient matches the presented redirect against the registered set exactly and an empty set matches nothing, so every authorization request to that client is refused. mandate.core.PkceMethod admits S256 and nothing else, so no registration can name another method and none is refused for naming one. A client that declares no ID-token signing algorithm receives RS256-signed ID tokens; one that declares ES256 receives ES256 (fork F8). The choice is record state, decided at registration like the PKCE requirement, not a deployment-wide setting. A registration whose redirect surface, PKCE method or signing algorithm must change is disabled and registered again; there is no update command. The default branch, taken when no other outcome's condition matched. It creates a `mandate.federation.OAuthClient`, which starts in `Recorded`. The new instance's identity is published as `id` on `mandate.federation.OAuthClientRegistered`. It emits `mandate.federation.OAuthClientRegistered`. A test reaches it by constructing an input that satisfies no other outcome's condition.
 
 **`denied`** — Decided outside the input: Caller lacks client-administration authority, a redirect URI or post-logout redirect URI is unadmitted, a public client states a secret verifier or does not require PKCE, a confidential client states no verifier or more than two, a trusted peer names the client itself or no client registered in the verified organization, or organization binding is invalid.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.federation.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
@@ -431,6 +437,8 @@ It carries:
 - `tenant_resolution` — `mandate.core.TenantResolutionRule`
 - `jit_provisioning` — `Boolean`
 - `groups` — `Optional<mandate.core.GroupFilter>`, which may be absent
+- `subject_format` — `mandate.core.SubjectFormat`
+- `replaced_connector_id` — `Optional<mandate.core.DexConnectorId>`, which may be absent
 
 Emitted by `mandate.federation.RegisterFederationConnection` on its `accepted` outcome.
 
@@ -478,6 +486,7 @@ It carries:
 - `pkce_required` — `Boolean`
 - `trusted_peers` — `List<mandate.core.OAuthClientId>`
 - `post_logout_redirect_uris` — `List<mandate.core.RedirectUri>`
+- `id_token_signed_response_alg` — `Optional<mandate.core.IdTokenSigningAlgorithm>`, which may be absent
 
 Emitted by `mandate.federation.RegisterOAuthClient` on its `accepted` outcome.
 
@@ -514,4 +523,4 @@ Reported by `mandate.federation.UnlinkExternalPrincipal` on its `wrong-state` an
 
 ---
 
-Generated from mandate v1 · model digest `ed30f4be9ac91f32de4da849d406533e9444bf70425bbe0c0312187b27df62b7` · contract digest `slice-sha256/2:98de9215ad5c1bd37b7b8356fad14e534f5196d0e1fbedf0328fc59530fe3ab6`. Do not edit this file; change the specification and regenerate it with `ess generate`.
+Generated from mandate v1 · model digest `221f3ba72b7b930cacfdf588703cfb5569188fa6501f619490ef0a56cab2fa23` · contract digest `slice-sha256/2:d40840f1ff8aebb833d59db37027c39fc83b9fb7099a464af4a4e5eb1a60801c`. Do not edit this file; change the specification and regenerate it with `ess generate`.

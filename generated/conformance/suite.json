@@ -75,72 +75,72 @@
         "scenario": "mandate.credential/authored/exchange-ceiling-conflict"
       },
       "scenarios/federation-ambiguous-tenant.yaml": {
-        "digest": "sha256:b66f68611cb44f93e1ef9383c76cf5ecafa1eb8117f407b6f4aefcc09304630b",
+        "digest": "sha256:0db6c198f97b31119e0061faa6a7b2579e412e4c5a0c2f089f07f8a498f3c3ed",
         "disposition": "accepted",
         "scenario": "mandate.federation/authored/federation-ambiguous-tenant"
       },
       "scenarios/federation-audience-mismatch.yaml": {
-        "digest": "sha256:dcc04d04a8c809af1f02187c1cbab16d3548d7be5abaf8543c258b026fc0c7d9",
+        "digest": "sha256:a06e79681378bfe36601ba98d13f8ece2e3d9273365bed870ed1bf60aa6f85fe",
         "disposition": "accepted",
         "scenario": "mandate.federation/authored/federation-audience-mismatch"
       },
       "scenarios/federation-configured-method-on-explicit-link.yaml": {
-        "digest": "sha256:7a229fc17ce59d0a84073c6ad4ef8a2e849b4a1925f80aaf27ee73a79b0cc9e1",
+        "digest": "sha256:522678faf9575e53324f28a9a84a990d183c1d509608051b5d4dab17ddead88d",
         "disposition": "accepted",
         "scenario": "mandate.federation/authored/federation-configured-method-on-explicit-link"
       },
       "scenarios/federation-disabled-connection.yaml": {
-        "digest": "sha256:727ad6d5f8ab744b7209c129d21ef87ae1c72a4de2d73656a79061d6bb5732d0",
+        "digest": "sha256:30c5b8552c50f681edc2e71532f6fb7af6c3d431078a27760aa8bbe4423dcab9",
         "disposition": "accepted",
         "scenario": "mandate.federation/authored/federation-disabled-connection"
       },
       "scenarios/federation-empty-subject.yaml": {
-        "digest": "sha256:52c5fa27a7954a1827c03372810d417baedfe8d3f48a3dec415b76ba6704a6e7",
+        "digest": "sha256:8f06a71397cd6fe84934998bca121cb5cde3087767034511d8eea2a51585ef35",
         "disposition": "accepted",
         "scenario": "mandate.federation/authored/federation-empty-subject"
       },
       "scenarios/federation-groups-over-cap-refused.yaml": {
-        "digest": "sha256:3c371722c371b1814681241c355b863ed16a5bbd2a323819387a4405b70601fb",
+        "digest": "sha256:00b520a2343f9a62917fd1a2bead284fa0035eae93c6cadcd589f30ad765535a",
         "disposition": "accepted",
         "scenario": "mandate.federation/authored/federation-groups-over-cap-refused"
       },
       "scenarios/federation-hosted-domain-listed.yaml": {
-        "digest": "sha256:e544719150df6b478ea317a26c166aa13cb9486a0505a417fb79767213c330f1",
+        "digest": "sha256:f07aef60d0a73a674d46b76151ee5df7408740b9709da17bdbcf3897d95f1578",
         "disposition": "accepted",
         "scenario": "mandate.federation/authored/federation-hosted-domain-listed"
       },
       "scenarios/federation-hosted-domain-unlisted-refused.yaml": {
-        "digest": "sha256:53e7100036ac31ba12a37f31af02170bc6012c7e76d19f93850716658febaab2",
+        "digest": "sha256:b6ea63fd24137e6f922d1e9c90496f51037c77e56738551ed831430b052353a0",
         "disposition": "accepted",
         "scenario": "mandate.federation/authored/federation-hosted-domain-unlisted-refused"
       },
       "scenarios/federation-issuer-mismatch.yaml": {
-        "digest": "sha256:415e0386abe6007201dd20a8828986cda459899aa88b704aa33b35c3d1bd3afb",
+        "digest": "sha256:58dccb000d2959d578baa4ba030fc4f06778eee0463adc94189f470b1021a77d",
         "disposition": "accepted",
         "scenario": "mandate.federation/authored/federation-issuer-mismatch"
       },
       "scenarios/federation-malformed-proof.yaml": {
-        "digest": "sha256:3b389f8913cbca7e1b9b046e0f9fd05e56d387f0b8c3519fbb53077a0c465ec7",
+        "digest": "sha256:d942e2683ea9e239e0dee9898378e7e9f1eeac0b5c92b562944eec065afd78e0",
         "disposition": "accepted",
         "scenario": "mandate.federation/authored/federation-malformed-proof"
       },
       "scenarios/federation-profile-groups-filtered.yaml": {
-        "digest": "sha256:2b83417ef8f50659324a8ba0d87cf4ff64bfc33d7f51c97f29db1db6c803cadc",
+        "digest": "sha256:5cbdbf405494077d36f18d595d6d0707051beeb644d14a8d242fa49f158a0b10",
         "disposition": "accepted",
         "scenario": "mandate.federation/authored/federation-profile-groups-filtered"
       },
       "scenarios/federation-profile-observed-on-login.yaml": {
-        "digest": "sha256:4571317799815de0b2b17a257cf9bbbdc918a1df3be81d352394b3a3569ad9d3",
+        "digest": "sha256:fd3b9d9b5d35ca83ef6c361d7607bce41f6e12ddc67814acafe3cc8b636db32b",
         "disposition": "accepted",
         "scenario": "mandate.federation/authored/federation-profile-observed-on-login"
       },
       "scenarios/federation-resolution-precedence.yaml": {
-        "digest": "sha256:a702fcfd15127e3eba282289b921e964d0d06dde8901f2c68c0c2251b6c69980",
+        "digest": "sha256:08359e3a38558723fb92587e34ad40de171449116076b0c5ccdfee7fcca9c300",
         "disposition": "accepted",
         "scenario": "mandate.federation/authored/federation-resolution-precedence"
       },
       "scenarios/federation-untrimmed-subject.yaml": {
-        "digest": "sha256:4a08ebdf7d483827835ddda5132d434a1942113989f01ee3ade08997e61efd2e",
+        "digest": "sha256:b8d3f99412c076f06c0d5cbea58aed97eff8b47e008b1fecc793c9851bb4fb16",
         "disposition": "accepted",
         "scenario": "mandate.federation/authored/federation-untrimmed-subject"
       },
@@ -890,7 +890,7 @@
       {
         "code": "ESS-SYNTH-001",
         "effect": "candidate_not_emitted",
-        "message": "refusal[ESS-SYNTH-001]: entity mandate.federation.FederationConnection has no scenario `mandate.federation.FederationConnection/state/Disabled/refuses/mandate.federation.DisableFederationConnection`\n  no witness: `mandate.federation.FederationConnection.client_id,groups,id,issuer,jit_provisioning,organization_id,state,tenant_resolution` is `mandate.federation.FederationConnection`, which a refused subject is observed through a view of the entity projecting its identity, and none shows this row\n  help: declare a view of the entity that projects its identity and its state; a wrong-state refusal is observed through any identity view, `eventual` included",
+        "message": "refusal[ESS-SYNTH-001]: entity mandate.federation.FederationConnection has no scenario `mandate.federation.FederationConnection/state/Disabled/refuses/mandate.federation.DisableFederationConnection`\n  no witness: `mandate.federation.FederationConnection.client_id,groups,id,issuer,jit_provisioning,organization_id,replaced_connector_id,state,subject_format,tenant_resolution` is `mandate.federation.FederationConnection`, which a refused subject is observed through a view of the entity projecting its identity, and none shows this row\n  help: declare a view of the entity that projects its identity and its state; a wrong-state refusal is observed through any identity view, `eventual` included",
         "needs": [],
         "origin": "generated",
         "retained": null,
@@ -905,7 +905,7 @@
       {
         "code": "ESS-SYNTH-001",
         "effect": "candidate_not_emitted",
-        "message": "refusal[ESS-SYNTH-001]: entity mandate.federation.OAuthClient has no scenario `mandate.federation.OAuthClient/state/Disabled/refuses/mandate.federation.DisableOAuthClient`\n  no witness: `mandate.federation.OAuthClient.client_type,id,organization_id,pkce_method,pkce_required,post_logout_redirect_uris,redirect_uris,secret_verifiers,state,trusted_peers` is `mandate.federation.OAuthClient`, which a refused subject is observed through a view of the entity projecting its identity, and none shows this row\n  help: declare a view of the entity that projects its identity and its state; a wrong-state refusal is observed through any identity view, `eventual` included",
+        "message": "refusal[ESS-SYNTH-001]: entity mandate.federation.OAuthClient has no scenario `mandate.federation.OAuthClient/state/Disabled/refuses/mandate.federation.DisableOAuthClient`\n  no witness: `mandate.federation.OAuthClient.client_type,id,id_token_signed_response_alg,organization_id,pkce_method,pkce_required,post_logout_redirect_uris,redirect_uris,secret_verifiers,state,trusted_peers` is `mandate.federation.OAuthClient`, which a refused subject is observed through a view of the entity projecting its identity, and none shows this row\n  help: declare a view of the entity that projects its identity and its state; a wrong-state refusal is observed through any identity view, `eventual` included",
         "needs": [],
         "origin": "generated",
         "retained": null,
@@ -1910,9 +1910,9 @@
     }
   },
   "provenance": {
-    "contract_digest": "0d48f62375ccad1f53d3c6630af90659227698d3411cccac9c99d29fa4237dfb",
+    "contract_digest": "438ab971f650d254a645b95325522b483170ae7aa485d9a4b9a9f455312d3624",
     "scenario_initial_state": "empty",
-    "spec_digest": "ed30f4be9ac91f32de4da849d406533e9444bf70425bbe0c0312187b27df62b7",
+    "spec_digest": "221f3ba72b7b930cacfdf588703cfb5569188fa6501f619490ef0a56cab2fa23",
     "specification_version": "v1",
     "suite_version": "ess-conformance/35",
     "system": "mandate"
@@ -41764,6 +41764,10 @@
         },
         {
           "kind": "type",
+          "name": "mandate.core.IdTokenSigningAlgorithm"
+        },
+        {
+          "kind": "type",
           "name": "mandate.core.KeyReference"
         },
         {
@@ -42256,6 +42260,10 @@
         },
         {
           "kind": "type",
+          "name": "mandate.core.IdTokenSigningAlgorithm"
+        },
+        {
+          "kind": "type",
           "name": "mandate.core.KeyReference"
         },
         {
@@ -42690,6 +42698,10 @@
         },
         {
           "kind": "type",
+          "name": "mandate.core.IdTokenSigningAlgorithm"
+        },
+        {
+          "kind": "type",
           "name": "mandate.core.OAuthClientId"
         },
         {
@@ -42908,6 +42920,14 @@
               "holds": "primitive",
               "kind": "uuid"
             },
+            "id_token_signed_response_alg": {
+              "holds": "enum",
+              "optional": true,
+              "variants": [
+                "RS256",
+                "ES256"
+              ]
+            },
             "organization_id": {
               "holds": "primitive",
               "kind": "uuid"
@@ -43055,6 +43075,14 @@
             "id": {
               "holds": "primitive",
               "kind": "uuid"
+            },
+            "id_token_signed_response_alg": {
+              "holds": "enum",
+              "optional": true,
+              "variants": [
+                "RS256",
+                "ES256"
+              ]
             },
             "organization_id": {
               "holds": "primitive",
@@ -43355,6 +43383,10 @@
         },
         {
           "kind": "type",
+          "name": "mandate.core.IdTokenSigningAlgorithm"
+        },
+        {
+          "kind": "type",
           "name": "mandate.core.OAuthClientId"
         },
         {
@@ -43569,6 +43601,14 @@
               "holds": "primitive",
               "kind": "uuid"
             },
+            "id_token_signed_response_alg": {
+              "holds": "enum",
+              "optional": true,
+              "variants": [
+                "RS256",
+                "ES256"
+              ]
+            },
             "organization_id": {
               "holds": "primitive",
               "kind": "uuid"
@@ -43716,6 +43756,14 @@
             "id": {
               "holds": "primitive",
               "kind": "uuid"
+            },
+            "id_token_signed_response_alg": {
+              "holds": "enum",
+              "optional": true,
+              "variants": [
+                "RS256",
+                "ES256"
+              ]
             },
             "organization_id": {
               "holds": "primitive",
@@ -44130,6 +44178,10 @@
         },
         {
           "kind": "type",
+          "name": "mandate.core.IdTokenSigningAlgorithm"
+        },
+        {
+          "kind": "type",
           "name": "mandate.core.OAuthClientId"
         },
         {
@@ -44348,6 +44400,14 @@
               "holds": "primitive",
               "kind": "uuid"
             },
+            "id_token_signed_response_alg": {
+              "holds": "enum",
+              "optional": true,
+              "variants": [
+                "RS256",
+                "ES256"
+              ]
+            },
             "organization_id": {
               "holds": "primitive",
               "kind": "uuid"
@@ -44490,6 +44550,14 @@
             "id": {
               "holds": "primitive",
               "kind": "uuid"
+            },
+            "id_token_signed_response_alg": {
+              "holds": "enum",
+              "optional": true,
+              "variants": [
+                "RS256",
+                "ES256"
+              ]
             },
             "organization_id": {
               "holds": "primitive",
@@ -44779,6 +44847,10 @@
         {
           "kind": "type",
           "name": "mandate.core.FederationConnectionId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.IdTokenSigningAlgorithm"
         },
         {
           "kind": "type",
@@ -45077,6 +45149,10 @@
         {
           "kind": "type",
           "name": "mandate.core.FederationConnectionId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.IdTokenSigningAlgorithm"
         },
         {
           "kind": "type",
@@ -46613,6 +46689,10 @@
         },
         {
           "kind": "type",
+          "name": "mandate.core.IdTokenSigningAlgorithm"
+        },
+        {
+          "kind": "type",
           "name": "mandate.core.OAuthClientId"
         },
         {
@@ -46995,6 +47075,14 @@
               "holds": "primitive",
               "kind": "uuid"
             },
+            "id_token_signed_response_alg": {
+              "holds": "enum",
+              "optional": true,
+              "variants": [
+                "RS256",
+                "ES256"
+              ]
+            },
             "organization_id": {
               "holds": "primitive",
               "kind": "uuid"
@@ -47174,6 +47262,10 @@
         {
           "kind": "type",
           "name": "mandate.core.FederationConnectionId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.IdTokenSigningAlgorithm"
         },
         {
           "kind": "type",
@@ -47558,6 +47650,14 @@
             "id": {
               "holds": "primitive",
               "kind": "uuid"
+            },
+            "id_token_signed_response_alg": {
+              "holds": "enum",
+              "optional": true,
+              "variants": [
+                "RS256",
+                "ES256"
+              ]
             },
             "organization_id": {
               "holds": "primitive",
@@ -48096,6 +48196,10 @@
         },
         {
           "kind": "type",
+          "name": "mandate.core.IdTokenSigningAlgorithm"
+        },
+        {
+          "kind": "type",
           "name": "mandate.core.OAuthClientId"
         },
         {
@@ -48478,6 +48582,14 @@
               "holds": "primitive",
               "kind": "uuid"
             },
+            "id_token_signed_response_alg": {
+              "holds": "enum",
+              "optional": true,
+              "variants": [
+                "RS256",
+                "ES256"
+              ]
+            },
             "organization_id": {
               "holds": "primitive",
               "kind": "uuid"
@@ -48657,6 +48769,10 @@
         {
           "kind": "type",
           "name": "mandate.core.FederationConnectionId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.IdTokenSigningAlgorithm"
         },
         {
           "kind": "type",
@@ -49056,6 +49172,14 @@
             "id": {
               "holds": "primitive",
               "kind": "uuid"
+            },
+            "id_token_signed_response_alg": {
+              "holds": "enum",
+              "optional": true,
+              "variants": [
+                "RS256",
+                "ES256"
+              ]
             },
             "organization_id": {
               "holds": "primitive",
@@ -78049,6 +78173,14 @@
               "kind": "literal",
               "value": true
             },
+            "replaced_connector_id": {
+              "kind": "literal",
+              "value": "replaced_connector_id"
+            },
+            "subject_format": {
+              "kind": "literal",
+              "value": "MandatePrincipal"
+            },
             "tenant_resolution": {
               "kind": "literal",
               "value": {
@@ -80385,6 +80517,10 @@
                 "organization": "00000000-0000-4000-8000-d6e5803f2cb9",
                 "subject": "00000000-0000-4000-8000-ca24861528da"
               }
+            },
+            "id_token_signed_response_alg": {
+              "kind": "literal",
+              "value": "RS256"
             },
             "pkce_method": {
               "kind": "literal",
@@ -83626,6 +83762,14 @@
               "kind": "literal",
               "value": true
             },
+            "replaced_connector_id": {
+              "kind": "literal",
+              "value": "replaced_connector_id"
+            },
+            "subject_format": {
+              "kind": "literal",
+              "value": "MandatePrincipal"
+            },
             "tenant_resolution": {
               "kind": "literal",
               "value": {
@@ -86146,6 +86290,10 @@
                 "subject": "00000000-0000-4000-8000-ca24861528da"
               }
             },
+            "id_token_signed_response_alg": {
+              "kind": "literal",
+              "value": "RS256"
+            },
             "pkce_method": {
               "kind": "literal",
               "value": "S256"
@@ -88215,6 +88363,10 @@
         },
         {
           "kind": "type",
+          "name": "mandate.core.DexConnectorId"
+        },
+        {
+          "kind": "type",
           "name": "mandate.core.ExecutionId"
         },
         {
@@ -88236,6 +88388,10 @@
         {
           "kind": "type",
           "name": "mandate.core.PrincipalId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.SubjectFormat"
         },
         {
           "kind": "type",
@@ -88627,6 +88783,14 @@
               "kind": "literal",
               "value": true
             },
+            "replaced_connector_id": {
+              "kind": "literal",
+              "value": "replaced_connector_id"
+            },
+            "subject_format": {
+              "kind": "literal",
+              "value": "MandatePrincipal"
+            },
             "tenant_resolution": {
               "kind": "literal",
               "value": {
@@ -88669,6 +88833,8 @@
             },
             "issuer": "issuer",
             "jit_provisioning": true,
+            "replaced_connector_id": "replaced_connector_id",
+            "subject_format": "MandatePrincipal",
             "tenant_resolution": {
               "configured_organization": "00000000-0000-4000-8000-f8dcbacf6dfc",
               "verified_claim_name": "tenant_resolution.verified_claim_name",
@@ -88733,6 +88899,18 @@
             "jit_provisioning": {
               "holds": "primitive",
               "kind": "boolean"
+            },
+            "replaced_connector_id": {
+              "holds": "primitive",
+              "kind": "string",
+              "optional": true
+            },
+            "subject_format": {
+              "holds": "enum",
+              "variants": [
+                "MandatePrincipal",
+                "DexCompatible"
+              ]
             },
             "tenant_resolution.configured_organization": {
               "holds": "primitive",
@@ -89137,6 +89315,10 @@
         },
         {
           "kind": "type",
+          "name": "mandate.core.DexConnectorId"
+        },
+        {
+          "kind": "type",
           "name": "mandate.core.ExecutionId"
         },
         {
@@ -89154,6 +89336,10 @@
         {
           "kind": "type",
           "name": "mandate.core.PrincipalId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.SubjectFormat"
         },
         {
           "kind": "type",
@@ -89552,6 +89738,14 @@
               "kind": "literal",
               "value": true
             },
+            "replaced_connector_id": {
+              "kind": "literal",
+              "value": "replaced_connector_id"
+            },
+            "subject_format": {
+              "kind": "literal",
+              "value": "MandatePrincipal"
+            },
             "tenant_resolution": {
               "kind": "literal",
               "value": {
@@ -89932,6 +90126,10 @@
         {
           "kind": "type",
           "name": "mandate.core.ExecutionId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.IdTokenSigningAlgorithm"
         },
         {
           "kind": "type",
@@ -90326,6 +90524,10 @@
                 "subject": "00000000-0000-4000-8000-ca24861528da"
               }
             },
+            "id_token_signed_response_alg": {
+              "kind": "literal",
+              "value": "RS256"
+            },
             "pkce_method": {
               "kind": "literal",
               "value": "S256"
@@ -90382,6 +90584,7 @@
               "organization": "00000000-0000-4000-8000-d6e5803f2cb9",
               "subject": "00000000-0000-4000-8000-ca24861528da"
             },
+            "id_token_signed_response_alg": "RS256",
             "pkce_method": "S256",
             "pkce_required": true,
             "post_logout_redirect_uris": [
@@ -90439,6 +90642,14 @@
             "context.subject": {
               "holds": "primitive",
               "kind": "uuid"
+            },
+            "id_token_signed_response_alg": {
+              "holds": "enum",
+              "optional": true,
+              "variants": [
+                "RS256",
+                "ES256"
+              ]
             },
             "pkce_method": {
               "holds": "enum",
@@ -90869,6 +91080,10 @@
         },
         {
           "kind": "type",
+          "name": "mandate.core.IdTokenSigningAlgorithm"
+        },
+        {
+          "kind": "type",
           "name": "mandate.core.OAuthClientId"
         },
         {
@@ -91266,6 +91481,10 @@
                 "organization": "00000000-0000-4000-8000-d6e5803f2cb9",
                 "subject": "00000000-0000-4000-8000-ca24861528da"
               }
+            },
+            "id_token_signed_response_alg": {
+              "kind": "literal",
+              "value": "RS256"
             },
             "pkce_method": {
               "kind": "literal",
@@ -94019,6 +94238,10 @@
         },
         {
           "kind": "type",
+          "name": "mandate.core.DexConnectorId"
+        },
+        {
+          "kind": "type",
           "name": "mandate.core.ExecutionId"
         },
         {
@@ -94040,6 +94263,10 @@
         {
           "kind": "type",
           "name": "mandate.core.PrincipalId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.SubjectFormat"
         },
         {
           "kind": "type",
@@ -94120,6 +94347,10 @@
             "jit_provisioning": {
               "kind": "literal",
               "value": false
+            },
+            "subject_format": {
+              "kind": "literal",
+              "value": "MandatePrincipal"
             },
             "tenant_resolution": {
               "kind": "literal",
@@ -94207,6 +94438,18 @@
               "holds": "primitive",
               "kind": "boolean"
             },
+            "replaced_connector_id": {
+              "holds": "primitive",
+              "kind": "string",
+              "optional": true
+            },
+            "subject_format": {
+              "holds": "enum",
+              "variants": [
+                "MandatePrincipal",
+                "DexCompatible"
+              ]
+            },
             "tenant_resolution.configured_organization": {
               "holds": "primitive",
               "kind": "uuid"
@@ -94261,6 +94504,10 @@
             "jit_provisioning": {
               "kind": "literal",
               "value": false
+            },
+            "subject_format": {
+              "kind": "literal",
+              "value": "MandatePrincipal"
             },
             "tenant_resolution": {
               "kind": "literal",
@@ -94371,6 +94618,10 @@
         },
         {
           "kind": "type",
+          "name": "mandate.core.DexConnectorId"
+        },
+        {
+          "kind": "type",
           "name": "mandate.core.ExecutionId"
         },
         {
@@ -94392,6 +94643,10 @@
         {
           "kind": "type",
           "name": "mandate.core.PrincipalId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.SubjectFormat"
         },
         {
           "kind": "type",
@@ -94465,6 +94720,10 @@
             "jit_provisioning": {
               "kind": "literal",
               "value": false
+            },
+            "subject_format": {
+              "kind": "literal",
+              "value": "MandatePrincipal"
             },
             "tenant_resolution": {
               "kind": "literal",
@@ -94547,6 +94806,18 @@
             "jit_provisioning": {
               "holds": "primitive",
               "kind": "boolean"
+            },
+            "replaced_connector_id": {
+              "holds": "primitive",
+              "kind": "string",
+              "optional": true
+            },
+            "subject_format": {
+              "holds": "enum",
+              "variants": [
+                "MandatePrincipal",
+                "DexCompatible"
+              ]
             },
             "tenant_resolution.configured_organization": {
               "holds": "primitive",
@@ -94645,6 +94916,10 @@
         },
         {
           "kind": "type",
+          "name": "mandate.core.DexConnectorId"
+        },
+        {
+          "kind": "type",
           "name": "mandate.core.ExecutionId"
         },
         {
@@ -94678,6 +94953,10 @@
         {
           "kind": "type",
           "name": "mandate.core.PrincipalId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.SubjectFormat"
         },
         {
           "kind": "type",
@@ -94771,6 +95050,10 @@
               "kind": "literal",
               "value": false
             },
+            "subject_format": {
+              "kind": "literal",
+              "value": "MandatePrincipal"
+            },
             "tenant_resolution": {
               "kind": "literal",
               "value": {
@@ -94852,6 +95135,18 @@
             "jit_provisioning": {
               "holds": "primitive",
               "kind": "boolean"
+            },
+            "replaced_connector_id": {
+              "holds": "primitive",
+              "kind": "string",
+              "optional": true
+            },
+            "subject_format": {
+              "holds": "enum",
+              "variants": [
+                "MandatePrincipal",
+                "DexCompatible"
+              ]
             },
             "tenant_resolution.configured_organization": {
               "holds": "primitive",
@@ -94972,6 +95267,10 @@
         },
         {
           "kind": "type",
+          "name": "mandate.core.DexConnectorId"
+        },
+        {
+          "kind": "type",
           "name": "mandate.core.ExecutionId"
         },
         {
@@ -94993,6 +95292,10 @@
         {
           "kind": "type",
           "name": "mandate.core.PrincipalId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.SubjectFormat"
         },
         {
           "kind": "type",
@@ -95082,6 +95385,10 @@
               "kind": "literal",
               "value": false
             },
+            "subject_format": {
+              "kind": "literal",
+              "value": "MandatePrincipal"
+            },
             "tenant_resolution": {
               "kind": "literal",
               "value": {
@@ -95163,6 +95470,18 @@
             "jit_provisioning": {
               "holds": "primitive",
               "kind": "boolean"
+            },
+            "replaced_connector_id": {
+              "holds": "primitive",
+              "kind": "string",
+              "optional": true
+            },
+            "subject_format": {
+              "holds": "enum",
+              "variants": [
+                "MandatePrincipal",
+                "DexCompatible"
+              ]
             },
             "tenant_resolution.configured_organization": {
               "holds": "primitive",
@@ -95337,6 +95656,10 @@
         },
         {
           "kind": "type",
+          "name": "mandate.core.DexConnectorId"
+        },
+        {
+          "kind": "type",
           "name": "mandate.core.ExecutionId"
         },
         {
@@ -95358,6 +95681,10 @@
         {
           "kind": "type",
           "name": "mandate.core.PrincipalId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.SubjectFormat"
         },
         {
           "kind": "type",
@@ -95431,6 +95758,10 @@
             "jit_provisioning": {
               "kind": "literal",
               "value": false
+            },
+            "subject_format": {
+              "kind": "literal",
+              "value": "MandatePrincipal"
             },
             "tenant_resolution": {
               "kind": "literal",
@@ -95513,6 +95844,18 @@
             "jit_provisioning": {
               "holds": "primitive",
               "kind": "boolean"
+            },
+            "replaced_connector_id": {
+              "holds": "primitive",
+              "kind": "string",
+              "optional": true
+            },
+            "subject_format": {
+              "holds": "enum",
+              "variants": [
+                "MandatePrincipal",
+                "DexCompatible"
+              ]
             },
             "tenant_resolution.configured_organization": {
               "holds": "primitive",
@@ -95615,6 +95958,10 @@
         },
         {
           "kind": "type",
+          "name": "mandate.core.DexConnectorId"
+        },
+        {
+          "kind": "type",
           "name": "mandate.core.ExecutionId"
         },
         {
@@ -95648,6 +95995,10 @@
         {
           "kind": "type",
           "name": "mandate.core.PrincipalId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.SubjectFormat"
         },
         {
           "kind": "type",
@@ -95751,6 +96102,10 @@
               "kind": "literal",
               "value": false
             },
+            "subject_format": {
+              "kind": "literal",
+              "value": "MandatePrincipal"
+            },
             "tenant_resolution": {
               "kind": "literal",
               "value": {
@@ -95833,6 +96188,18 @@
             "jit_provisioning": {
               "holds": "primitive",
               "kind": "boolean"
+            },
+            "replaced_connector_id": {
+              "holds": "primitive",
+              "kind": "string",
+              "optional": true
+            },
+            "subject_format": {
+              "holds": "enum",
+              "variants": [
+                "MandatePrincipal",
+                "DexCompatible"
+              ]
             },
             "tenant_resolution.configured_organization": {
               "holds": "primitive",
@@ -96045,6 +96412,10 @@
         },
         {
           "kind": "type",
+          "name": "mandate.core.DexConnectorId"
+        },
+        {
+          "kind": "type",
           "name": "mandate.core.EpochSnapshotRef"
         },
         {
@@ -96086,6 +96457,10 @@
         {
           "kind": "type",
           "name": "mandate.core.SessionId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.SubjectFormat"
         },
         {
           "kind": "type",
@@ -96170,6 +96545,10 @@
             "jit_provisioning": {
               "kind": "literal",
               "value": false
+            },
+            "subject_format": {
+              "kind": "literal",
+              "value": "MandatePrincipal"
             },
             "tenant_resolution": {
               "kind": "literal",
@@ -96264,6 +96643,18 @@
             "jit_provisioning": {
               "holds": "primitive",
               "kind": "boolean"
+            },
+            "replaced_connector_id": {
+              "holds": "primitive",
+              "kind": "string",
+              "optional": true
+            },
+            "subject_format": {
+              "holds": "enum",
+              "variants": [
+                "MandatePrincipal",
+                "DexCompatible"
+              ]
             },
             "tenant_resolution.configured_organization": {
               "holds": "primitive",
@@ -96500,6 +96891,10 @@
         },
         {
           "kind": "type",
+          "name": "mandate.core.DexConnectorId"
+        },
+        {
+          "kind": "type",
           "name": "mandate.core.ExecutionId"
         },
         {
@@ -96533,6 +96928,10 @@
         {
           "kind": "type",
           "name": "mandate.core.PrincipalId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.SubjectFormat"
         },
         {
           "kind": "type",
@@ -96641,6 +97040,10 @@
               "kind": "literal",
               "value": true
             },
+            "subject_format": {
+              "kind": "literal",
+              "value": "MandatePrincipal"
+            },
             "tenant_resolution": {
               "kind": "literal",
               "value": {
@@ -96724,6 +97127,18 @@
             "jit_provisioning": {
               "holds": "primitive",
               "kind": "boolean"
+            },
+            "replaced_connector_id": {
+              "holds": "primitive",
+              "kind": "string",
+              "optional": true
+            },
+            "subject_format": {
+              "holds": "enum",
+              "variants": [
+                "MandatePrincipal",
+                "DexCompatible"
+              ]
             },
             "tenant_resolution.configured_organization": {
               "holds": "primitive",
@@ -97022,6 +97437,10 @@
         },
         {
           "kind": "type",
+          "name": "mandate.core.DexConnectorId"
+        },
+        {
+          "kind": "type",
           "name": "mandate.core.ExecutionId"
         },
         {
@@ -97043,6 +97462,10 @@
         {
           "kind": "type",
           "name": "mandate.core.PrincipalId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.SubjectFormat"
         },
         {
           "kind": "type",
@@ -97116,6 +97539,10 @@
             "jit_provisioning": {
               "kind": "literal",
               "value": false
+            },
+            "subject_format": {
+              "kind": "literal",
+              "value": "MandatePrincipal"
             },
             "tenant_resolution": {
               "kind": "literal",
@@ -97198,6 +97625,18 @@
             "jit_provisioning": {
               "holds": "primitive",
               "kind": "boolean"
+            },
+            "replaced_connector_id": {
+              "holds": "primitive",
+              "kind": "string",
+              "optional": true
+            },
+            "subject_format": {
+              "holds": "enum",
+              "variants": [
+                "MandatePrincipal",
+                "DexCompatible"
+              ]
             },
             "tenant_resolution.configured_organization": {
               "holds": "primitive",
@@ -97300,6 +97739,10 @@
         },
         {
           "kind": "type",
+          "name": "mandate.core.DexConnectorId"
+        },
+        {
+          "kind": "type",
           "name": "mandate.core.ExecutionId"
         },
         {
@@ -97321,6 +97764,10 @@
         {
           "kind": "type",
           "name": "mandate.core.PrincipalId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.SubjectFormat"
         },
         {
           "kind": "type",
@@ -97394,6 +97841,10 @@
             "jit_provisioning": {
               "kind": "literal",
               "value": false
+            },
+            "subject_format": {
+              "kind": "literal",
+              "value": "MandatePrincipal"
             },
             "tenant_resolution": {
               "kind": "literal",
@@ -97476,6 +97927,18 @@
             "jit_provisioning": {
               "holds": "primitive",
               "kind": "boolean"
+            },
+            "replaced_connector_id": {
+              "holds": "primitive",
+              "kind": "string",
+              "optional": true
+            },
+            "subject_format": {
+              "holds": "enum",
+              "variants": [
+                "MandatePrincipal",
+                "DexCompatible"
+              ]
             },
             "tenant_resolution.configured_organization": {
               "holds": "primitive",
@@ -97574,6 +98037,10 @@
         },
         {
           "kind": "type",
+          "name": "mandate.core.DexConnectorId"
+        },
+        {
+          "kind": "type",
           "name": "mandate.core.EpochSnapshotRef"
         },
         {
@@ -97615,6 +98082,10 @@
         {
           "kind": "type",
           "name": "mandate.core.SessionId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.SubjectFormat"
         },
         {
           "kind": "type",
@@ -97713,6 +98184,10 @@
               "kind": "literal",
               "value": false
             },
+            "subject_format": {
+              "kind": "literal",
+              "value": "MandatePrincipal"
+            },
             "tenant_resolution": {
               "kind": "literal",
               "value": {
@@ -97795,6 +98270,18 @@
             "jit_provisioning": {
               "holds": "primitive",
               "kind": "boolean"
+            },
+            "replaced_connector_id": {
+              "holds": "primitive",
+              "kind": "string",
+              "optional": true
+            },
+            "subject_format": {
+              "holds": "enum",
+              "variants": [
+                "MandatePrincipal",
+                "DexCompatible"
+              ]
             },
             "tenant_resolution.configured_organization": {
               "holds": "primitive",
@@ -98071,6 +98558,10 @@
         },
         {
           "kind": "type",
+          "name": "mandate.core.DexConnectorId"
+        },
+        {
+          "kind": "type",
           "name": "mandate.core.EpochSnapshotRef"
         },
         {
@@ -98112,6 +98603,10 @@
         {
           "kind": "type",
           "name": "mandate.core.SessionId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.SubjectFormat"
         },
         {
           "kind": "type",
@@ -98201,6 +98696,10 @@
               "kind": "literal",
               "value": false
             },
+            "subject_format": {
+              "kind": "literal",
+              "value": "MandatePrincipal"
+            },
             "tenant_resolution": {
               "kind": "literal",
               "value": {
@@ -98283,6 +98782,18 @@
             "jit_provisioning": {
               "holds": "primitive",
               "kind": "boolean"
+            },
+            "replaced_connector_id": {
+              "holds": "primitive",
+              "kind": "string",
+              "optional": true
+            },
+            "subject_format": {
+              "holds": "enum",
+              "variants": [
+                "MandatePrincipal",
+                "DexCompatible"
+              ]
             },
             "tenant_resolution.configured_organization": {
               "holds": "primitive",
@@ -98568,6 +99079,10 @@
         },
         {
           "kind": "type",
+          "name": "mandate.core.DexConnectorId"
+        },
+        {
+          "kind": "type",
           "name": "mandate.core.ExecutionId"
         },
         {
@@ -98589,6 +99104,10 @@
         {
           "kind": "type",
           "name": "mandate.core.PrincipalId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.SubjectFormat"
         },
         {
           "kind": "type",
@@ -98678,6 +99197,10 @@
               "kind": "literal",
               "value": false
             },
+            "subject_format": {
+              "kind": "literal",
+              "value": "MandatePrincipal"
+            },
             "tenant_resolution": {
               "kind": "literal",
               "value": {
@@ -98759,6 +99282,18 @@
             "jit_provisioning": {
               "holds": "primitive",
               "kind": "boolean"
+            },
+            "replaced_connector_id": {
+              "holds": "primitive",
+              "kind": "string",
+              "optional": true
+            },
+            "subject_format": {
+              "holds": "enum",
+              "variants": [
+                "MandatePrincipal",
+                "DexCompatible"
+              ]
             },
             "tenant_resolution.configured_organization": {
               "holds": "primitive",
@@ -98933,6 +99468,10 @@
         },
         {
           "kind": "type",
+          "name": "mandate.core.DexConnectorId"
+        },
+        {
+          "kind": "type",
           "name": "mandate.core.ExecutionId"
         },
         {
@@ -98954,6 +99493,10 @@
         {
           "kind": "type",
           "name": "mandate.core.PrincipalId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.SubjectFormat"
         },
         {
           "kind": "type",
@@ -99027,6 +99570,10 @@
             "jit_provisioning": {
               "kind": "literal",
               "value": false
+            },
+            "subject_format": {
+              "kind": "literal",
+              "value": "MandatePrincipal"
             },
             "tenant_resolution": {
               "kind": "literal",
@@ -99109,6 +99656,18 @@
             "jit_provisioning": {
               "holds": "primitive",
               "kind": "boolean"
+            },
+            "replaced_connector_id": {
+              "holds": "primitive",
+              "kind": "string",
+              "optional": true
+            },
+            "subject_format": {
+              "holds": "enum",
+              "variants": [
+                "MandatePrincipal",
+                "DexCompatible"
+              ]
             },
             "tenant_resolution.configured_organization": {
               "holds": "primitive",
@@ -99204,6 +99763,10 @@
         {
           "kind": "type",
           "name": "mandate.core.ExecutionId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.IdTokenSigningAlgorithm"
         },
         {
           "kind": "type",
@@ -99374,6 +99937,14 @@
               "holds": "primitive",
               "kind": "uuid"
             },
+            "id_token_signed_response_alg": {
+              "holds": "enum",
+              "optional": true,
+              "variants": [
+                "RS256",
+                "ES256"
+              ]
+            },
             "organization_id": {
               "holds": "primitive",
               "kind": "uuid"
@@ -99446,6 +100017,10 @@
         {
           "kind": "type",
           "name": "mandate.core.ExecutionId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.IdTokenSigningAlgorithm"
         },
         {
           "kind": "type",
@@ -99610,6 +100185,10 @@
         },
         {
           "kind": "type",
+          "name": "mandate.core.IdTokenSigningAlgorithm"
+        },
+        {
+          "kind": "type",
           "name": "mandate.core.OAuthClientId"
         },
         {
@@ -99764,6 +100343,10 @@
         {
           "kind": "type",
           "name": "mandate.core.ExecutionId"
+        },
+        {
+          "kind": "type",
+          "name": "mandate.core.IdTokenSigningAlgorithm"
         },
         {
           "kind": "type",

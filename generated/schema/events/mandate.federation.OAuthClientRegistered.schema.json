@@ -46,6 +46,9 @@
       "items": {
         "$ref": "#/$defs/mandate.core.RedirectUri"
       }
+    },
+    "id_token_signed_response_alg": {
+      "$ref": "#/$defs/mandate.core.IdTokenSigningAlgorithm"
     }
   },
   "required": [
@@ -64,8 +67,8 @@
   "x-ess-provenance": {
     "system": "mandate",
     "specification_version": "v1",
-    "source_digest": "ed30f4be9ac91f32de4da849d406533e9444bf70425bbe0c0312187b27df62b7",
-    "contract_digest": "slice-sha256/2:f4dbaa09cee6bc9454ca094857f895183f8d4837146e5ec60793fbc49be2f433",
+    "source_digest": "221f3ba72b7b930cacfdf588703cfb5569188fa6501f619490ef0a56cab2fa23",
+    "contract_digest": "slice-sha256/2:fe237640f9c22c8aa9ca00f180262095d91b1fd5cbbbe14a45befc760d336d56",
     "regenerate": "ess generate"
   },
   "$defs": {
@@ -110,6 +113,16 @@
       "type": "string",
       "format": "uuid",
       "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.IdTokenSigningAlgorithm": {
+      "title": "IdTokenSigningAlgorithm",
+      "x-ess-name": "mandate.core.IdTokenSigningAlgorithm",
+      "x-ess-kind": "enum",
+      "type": "string",
+      "enum": [
+        "RS256",
+        "ES256"
+      ]
     },
     "mandate.core.OAuthClientId": {
       "title": "OAuthClientId",

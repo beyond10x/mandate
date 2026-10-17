@@ -23,6 +23,7 @@ timeline:
       verified_claim_values:
       - a.example.test
     jit_provisioning: false
+    subject_format: MandatePrincipal
   outcome: accepted
   events:
   - event: mandate.federation.FederationConnectionCreated

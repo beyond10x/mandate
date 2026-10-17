@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$ref": "#/$defs/mandate.core.SubjectFormat",
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "221f3ba72b7b930cacfdf588703cfb5569188fa6501f619490ef0a56cab2fa23",
+    "contract_digest": "slice-sha256/2:5f67acc3a16488f9381342789c19bf657c2608e6ace7ab5fce56d81ce0951bbc",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.core.SubjectFormat": {
+      "title": "SubjectFormat",
+      "x-ess-name": "mandate.core.SubjectFormat",
+      "x-ess-kind": "enum",
+      "type": "string",
+      "enum": [
+        "MandatePrincipal",
+        "DexCompatible"
+      ]
+    }
+  }
+}

@@ -32,6 +32,7 @@ timeline:
     tenant_resolution:
       configured_organization: 00000000-0000-4000-8000-0000000000a1
     jit_provisioning: false
+    subject_format: MandatePrincipal
   outcome: accepted
   events:
   - event: mandate.federation.FederationConnectionCreated

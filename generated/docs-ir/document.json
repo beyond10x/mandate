@@ -15,8 +15,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "ed30f4be9ac91f32de4da849d406533e9444bf70425bbe0c0312187b27df62b7",
-          "contract_digest": "0d48f62375ccad1f53d3c6630af90659227698d3411cccac9c99d29fa4237dfb"
+          "source_digest": "221f3ba72b7b930cacfdf588703cfb5569188fa6501f619490ef0a56cab2fa23",
+          "contract_digest": "438ab971f650d254a645b95325522b483170ae7aa485d9a4b9a9f455312d3624"
         },
         "slice": {
           "of": "whole-model"
@@ -196,7 +196,7 @@
                       },
                       {
                         "inline": "text",
-                        "text": " 77 types, no entities, no views, no commands, no events, no errors and no actors."
+                        "text": " 80 types, no entities, no views, no commands, no events, no errors and no actors."
                       }
                     ]
                   }
@@ -2736,8 +2736,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "ed30f4be9ac91f32de4da849d406533e9444bf70425bbe0c0312187b27df62b7",
-          "contract_digest": "slice-sha256/2:98de9215ad5c1bd37b7b8356fad14e534f5196d0e1fbedf0328fc59530fe3ab6"
+          "source_digest": "221f3ba72b7b930cacfdf588703cfb5569188fa6501f619490ef0a56cab2fa23",
+          "contract_digest": "slice-sha256/2:d40840f1ff8aebb833d59db37027c39fc83b9fb7099a464af4a4e5eb1a60801c"
         },
         "slice": {
           "of": "constructs",
@@ -5235,8 +5235,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "ed30f4be9ac91f32de4da849d406533e9444bf70425bbe0c0312187b27df62b7",
-          "contract_digest": "slice-sha256/2:98de9215ad5c1bd37b7b8356fad14e534f5196d0e1fbedf0328fc59530fe3ab6"
+          "source_digest": "221f3ba72b7b930cacfdf588703cfb5569188fa6501f619490ef0a56cab2fa23",
+          "contract_digest": "slice-sha256/2:d40840f1ff8aebb833d59db37027c39fc83b9fb7099a464af4a4e5eb1a60801c"
         },
         "slice": {
           "of": "constructs",
@@ -6347,8 +6347,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "ed30f4be9ac91f32de4da849d406533e9444bf70425bbe0c0312187b27df62b7",
-          "contract_digest": "slice-sha256/2:4e69b011e7c649c4b6b84fc856453e216c1ea111dcfdcb289cbd0cdeaef62580"
+          "source_digest": "221f3ba72b7b930cacfdf588703cfb5569188fa6501f619490ef0a56cab2fa23",
+          "contract_digest": "slice-sha256/2:b6e6ac898c9d8926a63252a1d7833dadea887a701b2eb4fb85726931735f8dc4"
         },
         "slice": {
           "of": "constructs",
@@ -6483,6 +6483,10 @@
             },
             {
               "kind": "type",
+              "name": "mandate.core.DexConnectorId"
+            },
+            {
+              "kind": "type",
               "name": "mandate.core.DirectoryGroupId"
             },
             {
@@ -6524,6 +6528,10 @@
             {
               "kind": "type",
               "name": "mandate.core.GroupFilter"
+            },
+            {
+              "kind": "type",
+              "name": "mandate.core.IdTokenSigningAlgorithm"
             },
             {
               "kind": "type",
@@ -6636,6 +6644,10 @@
             {
               "kind": "type",
               "name": "mandate.core.SpaceId"
+            },
+            {
+              "kind": "type",
+              "name": "mandate.core.SubjectFormat"
             },
             {
               "kind": "type",
@@ -9124,6 +9136,44 @@
               "title": [
                 {
                   "inline": "code",
+                  "text": "DexConnectorId"
+                }
+              ],
+              "anchor": "dexconnectorid",
+              "about": {
+                "kind": "type",
+                "name": "mandate.core.DexConnectorId"
+              },
+              "blocks": [
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "code",
+                      "text": "mandate.core.DexConnectorId"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " wraps "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "String"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " and is not interchangeable with one: the whole value of naming it separately is the crossings the model then refuses."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "block": "section",
+              "level": 3,
+              "title": [
+                {
+                  "inline": "code",
                   "text": "DirectoryGroupId"
                 }
               ],
@@ -9600,6 +9650,52 @@
                         ]
                       }
                     ]
+                  ]
+                }
+              ]
+            },
+            {
+              "block": "section",
+              "level": 3,
+              "title": [
+                {
+                  "inline": "code",
+                  "text": "IdTokenSigningAlgorithm"
+                }
+              ],
+              "anchor": "idtokensigningalgorithm",
+              "about": {
+                "kind": "type",
+                "name": "mandate.core.IdTokenSigningAlgorithm"
+              },
+              "blocks": [
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "code",
+                      "text": "mandate.core.IdTokenSigningAlgorithm"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " is one of "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "RS256"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " and "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "ES256"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    }
                   ]
                 }
               ]
@@ -10857,6 +10953,52 @@
               "title": [
                 {
                   "inline": "code",
+                  "text": "SubjectFormat"
+                }
+              ],
+              "anchor": "subjectformat",
+              "about": {
+                "kind": "type",
+                "name": "mandate.core.SubjectFormat"
+              },
+              "blocks": [
+                {
+                  "block": "prose",
+                  "text": [
+                    {
+                      "inline": "code",
+                      "text": "mandate.core.SubjectFormat"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " is one of "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "MandatePrincipal"
+                    },
+                    {
+                      "inline": "text",
+                      "text": " and "
+                    },
+                    {
+                      "inline": "code",
+                      "text": "DexCompatible"
+                    },
+                    {
+                      "inline": "text",
+                      "text": "."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "block": "section",
+              "level": 3,
+              "title": [
+                {
+                  "inline": "code",
                   "text": "SyncJobId"
                 }
               ],
@@ -11392,8 +11534,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "ed30f4be9ac91f32de4da849d406533e9444bf70425bbe0c0312187b27df62b7",
-          "contract_digest": "slice-sha256/2:98de9215ad5c1bd37b7b8356fad14e534f5196d0e1fbedf0328fc59530fe3ab6"
+          "source_digest": "221f3ba72b7b930cacfdf588703cfb5569188fa6501f619490ef0a56cab2fa23",
+          "contract_digest": "slice-sha256/2:d40840f1ff8aebb833d59db37027c39fc83b9fb7099a464af4a4e5eb1a60801c"
         },
         "slice": {
           "of": "constructs",
@@ -20871,8 +21013,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "ed30f4be9ac91f32de4da849d406533e9444bf70425bbe0c0312187b27df62b7",
-          "contract_digest": "slice-sha256/2:98de9215ad5c1bd37b7b8356fad14e534f5196d0e1fbedf0328fc59530fe3ab6"
+          "source_digest": "221f3ba72b7b930cacfdf588703cfb5569188fa6501f619490ef0a56cab2fa23",
+          "contract_digest": "slice-sha256/2:d40840f1ff8aebb833d59db37027c39fc83b9fb7099a464af4a4e5eb1a60801c"
         },
         "slice": {
           "of": "constructs",
@@ -26896,8 +27038,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "ed30f4be9ac91f32de4da849d406533e9444bf70425bbe0c0312187b27df62b7",
-          "contract_digest": "slice-sha256/2:98de9215ad5c1bd37b7b8356fad14e534f5196d0e1fbedf0328fc59530fe3ab6"
+          "source_digest": "221f3ba72b7b930cacfdf588703cfb5569188fa6501f619490ef0a56cab2fa23",
+          "contract_digest": "slice-sha256/2:d40840f1ff8aebb833d59db37027c39fc83b9fb7099a464af4a4e5eb1a60801c"
         },
         "slice": {
           "of": "constructs",
@@ -33987,8 +34129,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "ed30f4be9ac91f32de4da849d406533e9444bf70425bbe0c0312187b27df62b7",
-          "contract_digest": "slice-sha256/2:98de9215ad5c1bd37b7b8356fad14e534f5196d0e1fbedf0328fc59530fe3ab6"
+          "source_digest": "221f3ba72b7b930cacfdf588703cfb5569188fa6501f619490ef0a56cab2fa23",
+          "contract_digest": "slice-sha256/2:d40840f1ff8aebb833d59db37027c39fc83b9fb7099a464af4a4e5eb1a60801c"
         },
         "slice": {
           "of": "constructs",
@@ -34891,6 +35033,48 @@
                           }
                         ]
                       }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "subject_format"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.SubjectFormat"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "replaced_connector_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Optional<mandate.core.DexConnectorId>"
+                          },
+                          {
+                            "inline": "text",
+                            "text": ", which may be absent"
+                          }
+                        ]
+                      }
                     ]
                   ]
                 },
@@ -35355,6 +35539,29 @@
                           {
                             "inline": "code",
                             "text": "List<mandate.core.RedirectUri>"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "id_token_signed_response_alg"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Optional<mandate.core.IdTokenSigningAlgorithm>"
+                          },
+                          {
+                            "inline": "text",
+                            "text": ", which may be absent"
                           }
                         ]
                       }
@@ -37635,6 +37842,48 @@
                           }
                         ]
                       }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "subject_format"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.SubjectFormat"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "replaced_connector_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Optional<mandate.core.DexConnectorId>"
+                          },
+                          {
+                            "inline": "text",
+                            "text": ", which may be absent"
+                          }
+                        ]
+                      }
                     ]
                   ]
                 },
@@ -37665,7 +37914,7 @@
                     },
                     {
                       "inline": "text",
-                      "text": "The connection is created with its provisioning setting, its tenant rule and its group filter decided here and never changed afterwards. A tenant rule that names a validated claim lists every value that resolves (a hosted-domain list), and any one of them resolves. A connection without a group filter records no groups for any login. A connection whose issuer, provisioning admission, accepted claim values or group filter must change is disabled and registered again; there is no update command. "
+                      "text": "The connection is created with its provisioning setting, its tenant rule and its group filter decided here and never changed afterwards. A tenant rule that names a validated claim lists every value that resolves (a hosted-domain list), and any one of them resolves. A connection without a group filter records no groups for any login. The subject format decides the `sub` of every ID token a login through this connection receives (fork F1). MandatePrincipal renders the Mandate principal id; DexCompatible renders the subject the replaced Dex connector issued, encoded from the external subject and the replaced connector id, which a DexCompatible connection names and a MandatePrincipal connection does not. A connection whose issuer, provisioning admission, accepted claim values, group filter or subject format must change is disabled and registered again; there is no update command. "
                     },
                     {
                       "inline": "text",
@@ -37755,7 +38004,7 @@
                     },
                     {
                       "inline": "text",
-                      "text": "Decided outside the input: Caller lacks federation-administration authority, issuer/client/trust, tenant-resolution or just-in-time provisioning configuration is unadmitted, the tenant rule names a claim with an empty value list or values without a claim name, the group filter's cap is below one, or organization binding is invalid.. No predicate over the input reaches this branch, and saying "
+                      "text": "Decided outside the input: Caller lacks federation-administration authority, issuer/client/trust, tenant-resolution or just-in-time provisioning configuration is unadmitted, the tenant rule names a claim with an empty value list or values without a claim name, the group filter's cap is below one, a DexCompatible subject format names no replaced connector id or a MandatePrincipal one names one, or organization binding is invalid.. No predicate over the input reaches this branch, and saying "
                     },
                     {
                       "inline": "code",
@@ -37997,6 +38246,29 @@
                           }
                         ]
                       }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "id_token_signed_response_alg"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Optional<mandate.core.IdTokenSigningAlgorithm>"
+                          },
+                          {
+                            "inline": "text",
+                            "text": ", which may be absent"
+                          }
+                        ]
+                      }
                     ]
                   ]
                 },
@@ -38027,7 +38299,7 @@
                     },
                     {
                       "inline": "text",
-                      "text": "The client is bound to the organization the verified context carries; the command takes no organization input, so no caller selects the tenant a client is registered into. A confidential client authenticates with a secret, and the registration carries only the keyed verifiers derived from its secret references (fork F2), one or two so that a secret can be rotated; the secret itself is never an input, an event field or a record field. A public client states no verifier and always requires PKCE (fork F3); a confidential client may require it. Each trusted peer names another client of the same organization that may obtain tokens for this one. OAuthClientRegistered carries the whole mandate.federation.OAuthClient record — the client identity, its organization, its client type, its verifiers, its exact redirect set, its PKCE method and requirement, its trusted peers and its exact post-logout redirect set — so the federation fold materializes the client from this event alone and reads no command input or response. The identity and the organization are the ones this outcome decided and returned, read from the response rather than from a value the implementation invented. An empty redirect set is admitted and is not a denial — the client it registers is inert, because AuthorizeClient matches the presented redirect against the registered set exactly and an empty set matches nothing, so every authorization request to that client is refused. mandate.core.PkceMethod admits S256 and nothing else, so no registration can name another method and none is refused for naming one. A registration whose redirect surface or PKCE method must change is disabled and registered again; there is no update command. "
+                      "text": "The client is bound to the organization the verified context carries; the command takes no organization input, so no caller selects the tenant a client is registered into. A confidential client authenticates with a secret, and the registration carries only the keyed verifiers derived from its secret references (fork F2), one or two so that a secret can be rotated; the secret itself is never an input, an event field or a record field. A public client states no verifier and always requires PKCE (fork F3); a confidential client may require it. Each trusted peer names another client of the same organization that may obtain tokens for this one. OAuthClientRegistered carries the whole mandate.federation.OAuthClient record — the client identity, its organization, its client type, its verifiers, its exact redirect set, its PKCE method and requirement, its trusted peers, its exact post-logout redirect set and its ID-token signing algorithm — so the federation fold materializes the client from this event alone and reads no command input or response. The identity and the organization are the ones this outcome decided and returned, read from the response rather than from a value the implementation invented. An empty redirect set is admitted and is not a denial — the client it registers is inert, because AuthorizeClient matches the presented redirect against the registered set exactly and an empty set matches nothing, so every authorization request to that client is refused. mandate.core.PkceMethod admits S256 and nothing else, so no registration can name another method and none is refused for naming one. A client that declares no ID-token signing algorithm receives RS256-signed ID tokens; one that declares ES256 receives ES256 (fork F8). The choice is record state, decided at registration like the PKCE requirement, not a deployment-wide setting. A registration whose redirect surface, PKCE method or signing algorithm must change is disabled and registered again; there is no update command. "
                     },
                     {
                       "inline": "text",
@@ -40043,6 +40315,48 @@
                           }
                         ]
                       }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "subject_format"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "mandate.core.SubjectFormat"
+                          }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "replaced_connector_id"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Optional<mandate.core.DexConnectorId>"
+                          },
+                          {
+                            "inline": "text",
+                            "text": ", which may be absent"
+                          }
+                        ]
+                      }
                     ]
                   ]
                 },
@@ -40546,6 +40860,29 @@
                           }
                         ]
                       }
+                    ],
+                    [
+                      {
+                        "block": "prose",
+                        "text": [
+                          {
+                            "inline": "code",
+                            "text": "id_token_signed_response_alg"
+                          },
+                          {
+                            "inline": "text",
+                            "text": " — "
+                          },
+                          {
+                            "inline": "code",
+                            "text": "Optional<mandate.core.IdTokenSigningAlgorithm>"
+                          },
+                          {
+                            "inline": "text",
+                            "text": ", which may be absent"
+                          }
+                        ]
+                      }
                     ]
                   ]
                 },
@@ -40932,8 +41269,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "ed30f4be9ac91f32de4da849d406533e9444bf70425bbe0c0312187b27df62b7",
-          "contract_digest": "slice-sha256/2:98de9215ad5c1bd37b7b8356fad14e534f5196d0e1fbedf0328fc59530fe3ab6"
+          "source_digest": "221f3ba72b7b930cacfdf588703cfb5569188fa6501f619490ef0a56cab2fa23",
+          "contract_digest": "slice-sha256/2:d40840f1ff8aebb833d59db37027c39fc83b9fb7099a464af4a4e5eb1a60801c"
         },
         "slice": {
           "of": "constructs",
@@ -44880,8 +45217,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "ed30f4be9ac91f32de4da849d406533e9444bf70425bbe0c0312187b27df62b7",
-          "contract_digest": "slice-sha256/2:98de9215ad5c1bd37b7b8356fad14e534f5196d0e1fbedf0328fc59530fe3ab6"
+          "source_digest": "221f3ba72b7b930cacfdf588703cfb5569188fa6501f619490ef0a56cab2fa23",
+          "contract_digest": "slice-sha256/2:d40840f1ff8aebb833d59db37027c39fc83b9fb7099a464af4a4e5eb1a60801c"
         },
         "slice": {
           "of": "constructs",
@@ -46712,8 +47049,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "ed30f4be9ac91f32de4da849d406533e9444bf70425bbe0c0312187b27df62b7",
-          "contract_digest": "slice-sha256/2:1007ababc3fe85adc326ed8bed16a1ba84065837148bf52a1871cf6cc87c7b66"
+          "source_digest": "221f3ba72b7b930cacfdf588703cfb5569188fa6501f619490ef0a56cab2fa23",
+          "contract_digest": "slice-sha256/2:241ce7893037a254ee61366d09c5f711eb98346bfd9bbe66d630129ae95726db"
         },
         "slice": {
           "of": "constructs",
@@ -53757,8 +54094,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "ed30f4be9ac91f32de4da849d406533e9444bf70425bbe0c0312187b27df62b7",
-          "contract_digest": "slice-sha256/2:98de9215ad5c1bd37b7b8356fad14e534f5196d0e1fbedf0328fc59530fe3ab6"
+          "source_digest": "221f3ba72b7b930cacfdf588703cfb5569188fa6501f619490ef0a56cab2fa23",
+          "contract_digest": "slice-sha256/2:d40840f1ff8aebb833d59db37027c39fc83b9fb7099a464af4a4e5eb1a60801c"
         },
         "slice": {
           "of": "constructs",
@@ -55673,8 +56010,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "ed30f4be9ac91f32de4da849d406533e9444bf70425bbe0c0312187b27df62b7",
-          "contract_digest": "slice-sha256/2:98de9215ad5c1bd37b7b8356fad14e534f5196d0e1fbedf0328fc59530fe3ab6"
+          "source_digest": "221f3ba72b7b930cacfdf588703cfb5569188fa6501f619490ef0a56cab2fa23",
+          "contract_digest": "slice-sha256/2:d40840f1ff8aebb833d59db37027c39fc83b9fb7099a464af4a4e5eb1a60801c"
         },
         "slice": {
           "of": "constructs",
@@ -62418,8 +62755,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "ed30f4be9ac91f32de4da849d406533e9444bf70425bbe0c0312187b27df62b7",
-          "contract_digest": "slice-sha256/2:98de9215ad5c1bd37b7b8356fad14e534f5196d0e1fbedf0328fc59530fe3ab6"
+          "source_digest": "221f3ba72b7b930cacfdf588703cfb5569188fa6501f619490ef0a56cab2fa23",
+          "contract_digest": "slice-sha256/2:d40840f1ff8aebb833d59db37027c39fc83b9fb7099a464af4a4e5eb1a60801c"
         },
         "slice": {
           "of": "constructs",
@@ -64000,8 +64337,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "ed30f4be9ac91f32de4da849d406533e9444bf70425bbe0c0312187b27df62b7",
-          "contract_digest": "0d48f62375ccad1f53d3c6630af90659227698d3411cccac9c99d29fa4237dfb"
+          "source_digest": "221f3ba72b7b930cacfdf588703cfb5569188fa6501f619490ef0a56cab2fa23",
+          "contract_digest": "438ab971f650d254a645b95325522b483170ae7aa485d9a4b9a9f455312d3624"
         },
         "slice": {
           "of": "whole-model"
@@ -64997,8 +65334,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "ed30f4be9ac91f32de4da849d406533e9444bf70425bbe0c0312187b27df62b7",
-          "contract_digest": "0d48f62375ccad1f53d3c6630af90659227698d3411cccac9c99d29fa4237dfb"
+          "source_digest": "221f3ba72b7b930cacfdf588703cfb5569188fa6501f619490ef0a56cab2fa23",
+          "contract_digest": "438ab971f650d254a645b95325522b483170ae7aa485d9a4b9a9f455312d3624"
         },
         "slice": {
           "of": "whole-model"
@@ -65076,8 +65413,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "ed30f4be9ac91f32de4da849d406533e9444bf70425bbe0c0312187b27df62b7",
-          "contract_digest": "0d48f62375ccad1f53d3c6630af90659227698d3411cccac9c99d29fa4237dfb"
+          "source_digest": "221f3ba72b7b930cacfdf588703cfb5569188fa6501f619490ef0a56cab2fa23",
+          "contract_digest": "438ab971f650d254a645b95325522b483170ae7aa485d9a4b9a9f455312d3624"
         },
         "slice": {
           "of": "whole-model"

@@ -88,6 +88,7 @@
         "mandate.core.DecisionReason",
         "mandate.core.DelegationId",
         "mandate.core.DenialReason",
+        "mandate.core.DexConnectorId",
         "mandate.core.DirectoryGroupId",
         "mandate.core.DirectoryGroupMembershipId",
         "mandate.core.DirectoryGroupTeamMappingId",
@@ -99,6 +100,7 @@
         "mandate.core.FederationConnectionId",
         "mandate.core.GrantId",
         "mandate.core.GroupFilter",
+        "mandate.core.IdTokenSigningAlgorithm",
         "mandate.core.Issuer",
         "mandate.core.KeyReference",
         "mandate.core.MembershipContributionId",
@@ -127,6 +129,7 @@
         "mandate.core.SigningKeyId",
         "mandate.core.SigningKeyWindow",
         "mandate.core.SpaceId",
+        "mandate.core.SubjectFormat",
         "mandate.core.SyncJobId",
         "mandate.core.TeamId",
         "mandate.core.TeamMembershipId",
@@ -1400,6 +1403,18 @@
       },
       "naming": {}
     },
+    "mandate.core.DexConnectorId": {
+      "name": "mandate.core.DexConnectorId",
+      "body": {
+        "kind": "newtype",
+        "of": {
+          "kind": "primitive",
+          "name": "string"
+        },
+        "invariants": []
+      },
+      "naming": {}
+    },
     "mandate.core.DirectoryGroupId": {
       "name": "mandate.core.DirectoryGroupId",
       "body": {
@@ -1548,6 +1563,17 @@
           }
         ],
         "invariants": []
+      },
+      "naming": {}
+    },
+    "mandate.core.IdTokenSigningAlgorithm": {
+      "name": "mandate.core.IdTokenSigningAlgorithm",
+      "body": {
+        "kind": "enum",
+        "variants": [
+          "RS256",
+          "ES256"
+        ]
       },
       "naming": {}
     },
@@ -1918,6 +1944,17 @@
           "name": "uuid"
         },
         "invariants": []
+      },
+      "naming": {}
+    },
+    "mandate.core.SubjectFormat": {
+      "name": "mandate.core.SubjectFormat",
+      "body": {
+        "kind": "enum",
+        "variants": [
+          "MandatePrincipal",
+          "DexCompatible"
+        ]
       },
       "naming": {}
     },
@@ -4649,6 +4686,25 @@
             }
           },
           "naming": {}
+        },
+        {
+          "name": "subject_format",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.SubjectFormat"
+          },
+          "naming": {}
+        },
+        {
+          "name": "replaced_connector_id",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.DexConnectorId"
+            }
+          },
+          "naming": {}
         }
       ],
       "state_type": "mandate.federation.FederationConnection.State",
@@ -4767,6 +4823,17 @@
             "of": {
               "kind": "declared",
               "name": "mandate.core.RedirectUri"
+            }
+          },
+          "naming": {}
+        },
+        {
+          "name": "id_token_signed_response_alg",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.IdTokenSigningAlgorithm"
             }
           },
           "naming": {}
@@ -12491,6 +12558,25 @@
             }
           },
           "naming": {}
+        },
+        {
+          "name": "subject_format",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.SubjectFormat"
+          },
+          "naming": {}
+        },
+        {
+          "name": "replaced_connector_id",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.DexConnectorId"
+            }
+          },
+          "naming": {}
         }
       ],
       "response": [
@@ -12643,17 +12729,53 @@
                       }
                     }
                   }
+                },
+                {
+                  "target": "subject_format",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.SubjectFormat"
+                  },
+                  "value": {
+                    "kind": "input_field",
+                    "field": "subject_format",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.SubjectFormat"
+                    }
+                  }
+                },
+                {
+                  "target": "replaced_connector_id",
+                  "target_type": {
+                    "kind": "optional",
+                    "of": {
+                      "kind": "declared",
+                      "name": "mandate.core.DexConnectorId"
+                    }
+                  },
+                  "value": {
+                    "kind": "input_field",
+                    "field": "replaced_connector_id",
+                    "type_ref": {
+                      "kind": "optional",
+                      "of": {
+                        "kind": "declared",
+                        "name": "mandate.core.DexConnectorId"
+                      }
+                    }
+                  }
                 }
               ]
             }
           ],
-          "summary": "The connection is created with its provisioning setting, its tenant rule and its group filter decided here and never changed afterwards. A tenant rule that names a validated claim lists every value that resolves (a hosted-domain list), and any one of them resolves. A connection without a group filter records no groups for any login. A connection whose issuer, provisioning admission, accepted claim values or group filter must change is disabled and registered again; there is no update command."
+          "summary": "The connection is created with its provisioning setting, its tenant rule and its group filter decided here and never changed afterwards. A tenant rule that names a validated claim lists every value that resolves (a hosted-domain list), and any one of them resolves. A connection without a group filter records no groups for any login. The subject format decides the `sub` of every ID token a login through this connection receives (fork F1). MandatePrincipal renders the Mandate principal id; DexCompatible renders the subject the replaced Dex connector issued, encoded from the external subject and the replaced connector id, which a DexCompatible connection names and a MandatePrincipal connection does not. A connection whose issuer, provisioning admission, accepted claim values, group filter or subject format must change is disabled and registered again; there is no update command."
         },
         {
           "name": "denied",
           "condition": {
             "kind": "external",
-            "cause": "Caller lacks federation-administration authority, issuer/client/trust, tenant-resolution or just-in-time provisioning configuration is unadmitted, the tenant rule names a claim with an empty value list or values without a claim name, the group filter's cap is below one, or organization binding is invalid."
+            "cause": "Caller lacks federation-administration authority, issuer/client/trust, tenant-resolution or just-in-time provisioning configuration is unadmitted, the tenant rule names a claim with an empty value list or values without a claim name, the group filter's cap is below one, a DexCompatible subject format names no replaced connector id or a MandatePrincipal one names one, or organization binding is invalid."
           },
           "test_strategy": "inject_fault",
           "emits": [],
@@ -12738,6 +12860,17 @@
             "of": {
               "kind": "declared",
               "name": "mandate.core.RedirectUri"
+            }
+          },
+          "naming": {}
+        },
+        {
+          "name": "id_token_signed_response_alg",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.IdTokenSigningAlgorithm"
             }
           },
           "naming": {}
@@ -12964,11 +13097,32 @@
                       }
                     }
                   }
+                },
+                {
+                  "target": "id_token_signed_response_alg",
+                  "target_type": {
+                    "kind": "optional",
+                    "of": {
+                      "kind": "declared",
+                      "name": "mandate.core.IdTokenSigningAlgorithm"
+                    }
+                  },
+                  "value": {
+                    "kind": "input_field",
+                    "field": "id_token_signed_response_alg",
+                    "type_ref": {
+                      "kind": "optional",
+                      "of": {
+                        "kind": "declared",
+                        "name": "mandate.core.IdTokenSigningAlgorithm"
+                      }
+                    }
+                  }
                 }
               ]
             }
           ],
-          "summary": "The client is bound to the organization the verified context carries; the command takes no organization input, so no caller selects the tenant a client is registered into. A confidential client authenticates with a secret, and the registration carries only the keyed verifiers derived from its secret references (fork F2), one or two so that a secret can be rotated; the secret itself is never an input, an event field or a record field. A public client states no verifier and always requires PKCE (fork F3); a confidential client may require it. Each trusted peer names another client of the same organization that may obtain tokens for this one. OAuthClientRegistered carries the whole mandate.federation.OAuthClient record — the client identity, its organization, its client type, its verifiers, its exact redirect set, its PKCE method and requirement, its trusted peers and its exact post-logout redirect set — so the federation fold materializes the client from this event alone and reads no command input or response. The identity and the organization are the ones this outcome decided and returned, read from the response rather than from a value the implementation invented. An empty redirect set is admitted and is not a denial — the client it registers is inert, because AuthorizeClient matches the presented redirect against the registered set exactly and an empty set matches nothing, so every authorization request to that client is refused. mandate.core.PkceMethod admits S256 and nothing else, so no registration can name another method and none is refused for naming one. A registration whose redirect surface or PKCE method must change is disabled and registered again; there is no update command."
+          "summary": "The client is bound to the organization the verified context carries; the command takes no organization input, so no caller selects the tenant a client is registered into. A confidential client authenticates with a secret, and the registration carries only the keyed verifiers derived from its secret references (fork F2), one or two so that a secret can be rotated; the secret itself is never an input, an event field or a record field. A public client states no verifier and always requires PKCE (fork F3); a confidential client may require it. Each trusted peer names another client of the same organization that may obtain tokens for this one. OAuthClientRegistered carries the whole mandate.federation.OAuthClient record — the client identity, its organization, its client type, its verifiers, its exact redirect set, its PKCE method and requirement, its trusted peers, its exact post-logout redirect set and its ID-token signing algorithm — so the federation fold materializes the client from this event alone and reads no command input or response. The identity and the organization are the ones this outcome decided and returned, read from the response rather than from a value the implementation invented. An empty redirect set is admitted and is not a denial — the client it registers is inert, because AuthorizeClient matches the presented redirect against the registered set exactly and an empty set matches nothing, so every authorization request to that client is refused. mandate.core.PkceMethod admits S256 and nothing else, so no registration can name another method and none is refused for naming one. A client that declares no ID-token signing algorithm receives RS256-signed ID tokens; one that declares ES256 receives ES256 (fork F8). The choice is record state, decided at registration like the PKCE requirement, not a deployment-wide setting. A registration whose redirect surface, PKCE method or signing algorithm must change is disabled and registered again; there is no update command."
         },
         {
           "name": "denied",
@@ -18999,6 +19153,25 @@
             }
           },
           "naming": {}
+        },
+        {
+          "name": "subject_format",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.SubjectFormat"
+          },
+          "naming": {}
+        },
+        {
+          "name": "replaced_connector_id",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.DexConnectorId"
+            }
+          },
+          "naming": {}
         }
       ],
       "naming": {}
@@ -19141,6 +19314,17 @@
             "of": {
               "kind": "declared",
               "name": "mandate.core.RedirectUri"
+            }
+          },
+          "naming": {}
+        },
+        {
+          "name": "id_token_signed_response_alg",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.IdTokenSigningAlgorithm"
             }
           },
           "naming": {}

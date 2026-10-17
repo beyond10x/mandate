@@ -23,6 +23,7 @@ timeline:
       verified_claim_values:
       - acme
     jit_provisioning: false
+    subject_format: MandatePrincipal
   outcome: accepted
   events:
   - event: mandate.federation.FederationConnectionCreated
@@ -49,6 +50,7 @@ timeline:
       verified_claim_values:
       - acme
     jit_provisioning: false
+    subject_format: MandatePrincipal
   outcome: denied
   error:
     name: mandate.federation.Denied

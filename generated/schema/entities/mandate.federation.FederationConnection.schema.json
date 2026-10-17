@@ -34,6 +34,12 @@
     "groups": {
       "$ref": "#/$defs/mandate.core.GroupFilter"
     },
+    "subject_format": {
+      "$ref": "#/$defs/mandate.core.SubjectFormat"
+    },
+    "replaced_connector_id": {
+      "$ref": "#/$defs/mandate.core.DexConnectorId"
+    },
     "state": {
       "$ref": "#/$defs/mandate.federation.FederationConnection.State"
     }
@@ -45,20 +51,27 @@
     "client_id",
     "tenant_resolution",
     "jit_provisioning",
+    "subject_format",
     "state"
   ],
   "additionalProperties": false,
   "x-ess-provenance": {
     "system": "mandate",
     "specification_version": "v1",
-    "source_digest": "ed30f4be9ac91f32de4da849d406533e9444bf70425bbe0c0312187b27df62b7",
-    "contract_digest": "slice-sha256/2:23998d811c9d14ecaaa72e52165957dd52b9bc2758be9084cf2d618971ec681c",
+    "source_digest": "221f3ba72b7b930cacfdf588703cfb5569188fa6501f619490ef0a56cab2fa23",
+    "contract_digest": "slice-sha256/2:ce6bdf2fd4f49a1a3843b9b263a9fffa311254b434a3c689b110f3eedec560df",
     "regenerate": "ess generate"
   },
   "$defs": {
     "mandate.core.ClientId": {
       "title": "ClientId",
       "x-ess-name": "mandate.core.ClientId",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    },
+    "mandate.core.DexConnectorId": {
+      "title": "DexConnectorId",
+      "x-ess-name": "mandate.core.DexConnectorId",
       "x-ess-kind": "newtype",
       "type": "string"
     },
@@ -105,6 +118,16 @@
       "type": "string",
       "format": "uuid",
       "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.SubjectFormat": {
+      "title": "SubjectFormat",
+      "x-ess-name": "mandate.core.SubjectFormat",
+      "x-ess-kind": "enum",
+      "type": "string",
+      "enum": [
+        "MandatePrincipal",
+        "DexCompatible"
+      ]
     },
     "mandate.core.TenantResolutionRule": {
       "title": "TenantResolutionRule",
