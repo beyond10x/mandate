@@ -2,9 +2,10 @@
 //! | `GET` | `/healthz/ready` | the readiness document | The same, answering `503` until a signing key is admitted. |
 //! The product route table, as data.
 //!
-//! Eleven routes: the four the customer login road needs, the two documents RFC 8414 puts a
-//! client's discovery on, the three steps of the relying-party flow toward an external IdP, and
-//! the two health documents a deployment's probes read.
+//! Twelve routes: the four the customer login road needs, the three documents RFC 8414 and
+//! OpenID Connect Discovery 1.0 put a client's discovery on, the three steps of the
+//! relying-party flow toward an external IdP, and the two health documents a deployment's
+//! probes read.
 //! `story:product-listener` dispatches this table and hardcodes no
 //! path, so a path that is not here is a path nothing serves.
 //!
@@ -22,13 +23,13 @@
 //! | `POST` | `/oauth/token` | `mandate.credential.RedeemAuthorizationCode`, and `mandate.credential.ExchangeCredential` by `grant_type` | `original-design.md:1858`, verbatim. RFC 6749 section 3.2 requires `POST`, and RFC 8693 section 2.1 puts token exchange at the same endpoint. The row binds the code grant's command because one route binds one command; `crate::decode::token_request` reads the `grant_type` and reaches the exchange, so the endpoint the metadata advertises is the one both grants are served at. |
 //! | `POST` | `/oauth/introspect` | `mandate.credential.IntrospectCredential` | `original-design.md:1860`, verbatim ("where supported/needed" — this deployment supports it; the command is declared and realized). RFC 7662 section 2 requires `POST`. |
 //! | `GET` | `/.well-known/oauth-authorization-server` | the RFC 8414 metadata document | `original-design.md:1855`, verbatim, and RFC 8414 section 3 fixes it at the host root. |
+//! | `GET` | `/.well-known/openid-configuration` | the OpenID Connect Discovery 1.0 document | OpenID Connect Discovery 1.0 section 4 fixes it under the issuer, and `original-design.md:1855-1862` lists it among the STS endpoints. Built by the same builder as the RFC 8414 document (`crate::metadata::openid_configuration`), so the two cannot disagree on a shared member. |
 //! | `GET` | `/oauth/jwks` | the JWKS document | `original-design.md:1862`, verbatim. |
 //! | `GET` | `/v1/federation/authorize` | [`RelyingPartyStep::Authorize`] | The relying-party half of an external IdP's code flow (`story:relying-party-code-flow`): a browser is sent to the IdP from here. Beside `/v1/federation/login` for the reason that route is under `/v1/`; `GET` because a browser follows it. |
 //! | `GET` | `/v1/federation/callback` | [`RelyingPartyStep::Callback`] | Where the IdP returns the browser with its code (OIDC Core 3.1.2.5 puts the response in the query of a `GET`). The code is redeemed server-side and the ID token goes through `AuthenticateFederation`. |
 //! | `POST` | `/v1/federation/handoff` | [`RelyingPartyStep::Handoff`] | The embedding application exchanges the callback's single-use code for the session here, server-to-server, so the bearer session proof never rides a browser navigation. `POST` because it is not idempotent. |
 //!
-//! Three paths `original-design.md:1855-1862` lists are deliberately **not** here:
-//! `/.well-known/openid-configuration` (no OpenID Connect command is declared),
+//! Two paths `original-design.md:1855-1862` lists are deliberately **not** here:
 //! `/oauth/revoke` (`mandate.credential.RevokeAccessCredential` is off the login road and is
 //! `story:protocol-adapters`'), and the `/v1/...` control-plane resources of `:1784-1796`
 //! (the same story's).
@@ -43,7 +44,7 @@
 
 /// The methods this table declares.
 ///
-/// Two, because eleven routes need two. A method a route does not declare is a route a listener
+/// Two, because twelve routes need two. A method a route does not declare is a route a listener
 /// does not answer, which is what `crates/mandate-server/tests/routes.rs` decides.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Method {
@@ -75,6 +76,8 @@ impl core::fmt::Display for Method {
 pub enum Document {
     /// The RFC 8414 authorization server metadata document.
     AuthorizationServerMetadata,
+    /// The OpenID Connect Discovery 1.0 provider configuration document.
+    OpenIdConfiguration,
     /// The JWKS document RFC 8414's `jwks_uri` names.
     Jwks,
     /// The liveness document: the process answers.
@@ -149,6 +152,11 @@ pub const ROUTES: &[Route] = &[
         method: Method::Get,
         path: "/.well-known/oauth-authorization-server",
         binds: Binding::Document(Document::AuthorizationServerMetadata),
+    },
+    Route {
+        method: Method::Get,
+        path: "/.well-known/openid-configuration",
+        binds: Binding::Document(Document::OpenIdConfiguration),
     },
     Route {
         method: Method::Get,

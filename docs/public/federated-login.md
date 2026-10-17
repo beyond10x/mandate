@@ -55,7 +55,7 @@ One case it deliberately does not cover: an external subject whose link was expl
 | RFC 8414 — Authorization server metadata | `GET /.well-known/oauth-authorization-server` publishes nine members. Every endpoint URL is the configured `issuer` joined with a path read from the same route table the listener dispatches, so the document cannot advertise a path nothing serves. A member naming an endpoint this deployment does not serve — `revocation_endpoint`, `registration_endpoint`, `device_authorization_endpoint` — is absent rather than empty. |
 | RFC 7662 — Introspection | `POST /oauth/introspect`, taking `token` and optional `token_type_hint`, and requiring the calling resource server's own credential as a bearer token. Answers `active`, and where the credential resolves, `credential_id`, `aud` and `sub`. A refusal about the *caller* is `401 invalid_client`; anything about the presented token is `200 {"active": false}`. |
 | RFC 7517 — JWKS | `GET /oauth/jwks` publishes the key set the `--key` documents configure. The member set is closed: `kty`, `kid`, `use`, `alg`, plus `n`, `e`, `crv`, `x`, `y`. RFC 7517 section 9.2's private members are refused at construction, as is a repeated `kid` anywhere in the set. |
-| OpenID Connect Discovery | Consumed, not published. To find a connection's key set, Mandate fetches `{issuer}/.well-known/openid-configuration` and reads `jwks_uri`; the document is read once per issuer and held. Mandate publishes **no** `/.well-known/openid-configuration` of its own — no OpenID Connect command is declared, and the route table has no such path. Mandate is not an OpenID Provider. |
+| OpenID Connect Discovery 1.0 | Published and consumed. `GET /.well-known/openid-configuration` publishes the OpenID Provider configuration: the RFC 8414 document's nine members with the same values, built by the same builder from the same route table, plus `subject_types_supported` (`public`), `id_token_signing_alg_values_supported` (`RS256`), `scopes_supported` and `claims_supported`. `userinfo_endpoint` and `end_session_endpoint` are absent because nothing serves them. To find a connection's key set, Mandate fetches that connection's `{issuer}/.well-known/openid-configuration` and reads `jwks_uri`; the document is read once per issuer and held. |
 
 Three further standards are named in this repository's design sources, in [the combined architecture](https://github.com/beyond10x/mandate/blob/main/docs/architecture/combined.md) and the preserved design snapshots. Two are implemented in part, and one is not:
 
@@ -69,7 +69,7 @@ Token revocation is likewise not on this road: there is no `/oauth/revoke`.
 
 ## The endpoints
 
-Nine routes. A path not in this table is a path nothing serves — including the generated `/<domain>/commands/<Command>` projections, which are refused like any other unknown path.
+Twelve routes. A path not in this table is a path nothing serves — including the generated `/<domain>/commands/<Command>` projections, which are refused like any other unknown path.
 
 | Method | Path | Takes | Answers |
 |---|---|---|---|
@@ -81,7 +81,10 @@ Nine routes. A path not in this table is a path nothing serves — including the
 | `POST` | `/oauth/token` | `application/x-www-form-urlencoded`: `grant_type=authorization_code`, `client_id`, `code`, `code_verifier`, `redirect_uri`; or the token-exchange grant: `subject_token`, `subject_token_type`, `audience` or `resource`, `scope`, optional `requested_token_type` | `200` with `access_token`, `token_type: "Bearer"`, `credential_id`; for exchange `access_token`, `issued_token_type`, `token_type`, `expires_in` |
 | `POST` | `/oauth/introspect` | `application/x-www-form-urlencoded`: `token`, `token_type_hint`. Header: `Authorization: Bearer <caller's own credential>` | `200` with `active`, and where it resolves `credential_id`, `aud`, `sub` |
 | `GET` | `/.well-known/oauth-authorization-server` | nothing | `200` with the RFC 8414 document |
+| `GET` | `/.well-known/openid-configuration` | nothing | `200` with the OpenID Connect Discovery 1.0 document |
 | `GET` | `/oauth/jwks` | nothing | `200` with the RFC 7517 key set |
+| `GET` | `/healthz/live` | nothing | `200` with `{"status":"ok"}` while the process answers |
+| `GET` | `/healthz/ready` | nothing | `200` once a signing key is admitted, `503` until then |
 
 `expires_in` is absent from the authorization-code grant's response: it is RECOMMENDED rather than required by RFC 6749 section 5.1, and the contract's response does not declare it. Introspection does not answer the expiry either today; it answers `active`, `credential_id`, `aud` and `sub`. The token-exchange response does carry `expires_in`, as RFC 8693 section 2.2.1 describes.
 

@@ -1,6 +1,7 @@
-//! The RFC 8414 authorization server metadata document and the JWK Set document, as shapes.
+//! The RFC 8414 authorization server metadata document, the OpenID Connect Discovery 1.0
+//! provider configuration and the JWK Set document, as shapes.
 //!
-//! Both are built here and served nowhere: `story:product-listener` publishes them at the two
+//! All three are built here and served nowhere: `story:product-listener` publishes them at the
 //! routes [`crate::routes::ROUTES`] declares for them. The JWKS carries **no key material** —
 //! [`Jwks::empty`] is what this crate can honestly produce, and the composition fills the list
 //! from the signing keys the STS holds.
@@ -25,6 +26,13 @@
 //! authorization code and RFC 8693 token exchange. A metadata document
 //! advertising a method no decoder admits is a document that lies to every client that reads
 //! it, which is the failure RFC 8414 exists to prevent.
+//!
+//! The discovery document's own four members run ahead of the runtime in two places, and are
+//! held here so the runtime catches up to them rather than the reverse:
+//! `scopes_supported` lists the OpenID Connect scopes `story:oidc-discovery-and-code-flow`'s
+//! authorization half teaches the authorization decoder, and `claims_supported` and
+//! `id_token_signing_alg_values_supported` describe the ID token
+//! `story:oidc-signed-tokens-and-key-rotation` issues.
 
 use mandate_proto::oauth::{self, Member};
 
@@ -61,7 +69,12 @@ impl AuthorizationServerMetadata {
     /// The declared JSON rendering, with the members in sorted order.
     #[must_use]
     pub fn to_json(&self) -> String {
-        oauth::object(&[
+        oauth::object(&self.members())
+    }
+
+    /// The nine members, named as RFC 8414 section 2 names them.
+    fn members(&self) -> Vec<(&'static str, Member)> {
+        vec![
             ("issuer", Member::Text(self.issuer.clone())),
             (
                 "authorization_endpoint",
@@ -89,7 +102,107 @@ impl AuthorizationServerMetadata {
                 "token_endpoint_auth_methods_supported",
                 Member::List(self.token_endpoint_auth_methods_supported.clone()),
             ),
-        ])
+        ]
+    }
+}
+
+/// OpenID Connect Discovery 1.0 section 3: the OpenID Provider configuration document.
+///
+/// The RFC 8414 document's nine members, held as that document and not restated, plus the
+/// four OpenID Connect adds. The shared members come from [`authorization_server_metadata`],
+/// the one builder both documents are made by, so the two published documents cannot
+/// disagree on any of them.
+///
+/// `userinfo_endpoint` and `end_session_endpoint` are absent because no route serves them
+/// (both are optional in section 3); the endpoint that serves one adds it here from the route
+/// table, as every URL in this document is.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OpenIdConfiguration {
+    /// The members this document shares with the RFC 8414 document, with their values.
+    pub authorization_server: AuthorizationServerMetadata,
+    /// The subject identifier types: `public`, one `sub` per user for every client.
+    pub subject_types_supported: Vec<String>,
+    /// The algorithms an ID token is signed under. RS256 is mandatory to implement
+    /// (OpenID Connect Core 15.1).
+    pub id_token_signing_alg_values_supported: Vec<String>,
+    /// The OpenID Connect scopes the authorization endpoint admits.
+    pub scopes_supported: Vec<String>,
+    /// The claims an ID token can carry.
+    pub claims_supported: Vec<String>,
+}
+
+impl OpenIdConfiguration {
+    /// The issuer identifier, byte-equal to the configured issuer without a trailing `/`.
+    #[must_use]
+    pub fn issuer(&self) -> &str {
+        &self.authorization_server.issuer
+    }
+
+    /// The declared JSON rendering, with the members in sorted order.
+    #[must_use]
+    pub fn to_json(&self) -> String {
+        let mut members = self.authorization_server.members();
+        members.extend([
+            (
+                "subject_types_supported",
+                Member::List(self.subject_types_supported.clone()),
+            ),
+            (
+                "id_token_signing_alg_values_supported",
+                Member::List(self.id_token_signing_alg_values_supported.clone()),
+            ),
+            (
+                "scopes_supported",
+                Member::List(self.scopes_supported.clone()),
+            ),
+            (
+                "claims_supported",
+                Member::List(self.claims_supported.clone()),
+            ),
+        ]);
+        oauth::object(&members)
+    }
+}
+
+/// The OpenID Connect scopes, as their wire values: the variants of
+/// `mandate.credential.IdentityScope` (`systems/mandate/domains/credential.yaml:18-27`).
+pub const IDENTITY_SCOPES: [&str; 5] = ["openid", "email", "profile", "groups", "offline_access"];
+
+/// The claims an ID token can carry: OpenID Connect Core 2 and 3.1.3.6, and the profile
+/// claims `story:oidc-signed-tokens-and-key-rotation` names.
+pub const IDENTITY_CLAIMS: [&str; 13] = [
+    "iss",
+    "sub",
+    "aud",
+    "exp",
+    "iat",
+    "auth_time",
+    "nonce",
+    "at_hash",
+    "azp",
+    "email",
+    "email_verified",
+    "name",
+    "groups",
+];
+
+/// The ID-token signing algorithms advertised. RS256 is the default (fork F8).
+pub const ID_TOKEN_SIGNING_ALGORITHMS: [&str; 1] = ["RS256"];
+
+/// Build the OpenID Provider configuration document for an issuer.
+///
+/// # Panics
+///
+/// As [`authorization_server_metadata`], whose values this document carries.
+#[must_use]
+pub fn openid_configuration(issuer: &str) -> OpenIdConfiguration {
+    let owned = |values: &[&str]| values.iter().map(|value| (*value).to_owned()).collect();
+    OpenIdConfiguration {
+        authorization_server: authorization_server_metadata(issuer),
+        subject_types_supported: owned(&["public"]),
+        id_token_signing_alg_values_supported: owned(&ID_TOKEN_SIGNING_ALGORITHMS),
+        scopes_supported: owned(&IDENTITY_SCOPES),
+        claims_supported: owned(&IDENTITY_CLAIMS),
     }
 }
 

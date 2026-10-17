@@ -156,6 +156,13 @@ fn every_route_of_the_table_is_a_command_the_registry_serves_or_a_document_this_
                         .starts_with('{')
                 );
             }
+            Binding::Document(Document::OpenIdConfiguration) => {
+                assert!(
+                    metadata::openid_configuration(ISSUER)
+                        .to_json()
+                        .starts_with('{')
+                );
+            }
             Binding::Document(Document::Jwks) => {
                 assert_eq!(metadata::Jwks::empty().to_json(), r#"{"keys":[]}"#);
             }

@@ -31,7 +31,7 @@ fourth over HTTP, and the fifth — a `TokenExchangeDenied` durable audit record
 
 ## The product route table
 
-`crates/mandate-server/src/routes.rs`. Nine entries, and a listener that serves this table serves
+`crates/mandate-server/src/routes.rs`. Twelve entries, and a listener that serves this table serves
 nothing else.
 
 | Method | Path | Binds | Source of the path |
@@ -41,7 +41,10 @@ nothing else.
 | `POST` | `/oauth/token` | `mandate.credential.RedeemAuthorizationCode`; `decode::token_request` sends the token-exchange `grant_type` to `mandate.credential.ExchangeCredential` | `../sources/original-design.md:1858`, verbatim. RFC 6749 section 3.2 requires `POST`. |
 | `POST` | `/oauth/introspect` | `mandate.credential.IntrospectCredential` | `../sources/original-design.md:1860`, verbatim. RFC 7662 section 2 requires `POST`. |
 | `GET` | `/.well-known/oauth-authorization-server` | the RFC 8414 metadata document | `../sources/original-design.md:1855`, verbatim; RFC 8414 section 3 fixes it at the host root. |
+| `GET` | `/.well-known/openid-configuration` | the OpenID Connect Discovery 1.0 document | OpenID Connect Discovery 1.0 section 4; built by the RFC 8414 document's builder, so a shared member cannot differ. |
 | `GET` | `/oauth/jwks` | the JWK Set document | `../sources/original-design.md:1862`, verbatim. |
+| `GET` | `/healthz/live` | the liveness document | A probe path outside every versioned prefix. |
+| `GET` | `/healthz/ready` | the readiness document | The same; `503` until a signing key is admitted. |
 | `GET` | `/v1/federation/authorize` | the relying-party authorize step (`decode::begin_federation`) | Under `/v1/` with the login route; it starts the browser's sign-in at the IdP. |
 | `GET` | `/v1/federation/callback` | the relying-party callback step (`decode::complete_federation`) | The redirect URI the IdP sends the browser back to. |
 | `POST` | `/v1/federation/handoff` | the relying-party handoff step (`decode::redeem_handoff`) | Where the embedding application redeems the single-use handoff code for the session. |
@@ -54,7 +57,7 @@ empty — and, more than that, that no path here has the shape
 65 that exist.
 
 The paths `original-design.md:1855-1862` lists that are deliberately absent:
-`/.well-known/openid-configuration` (no OpenID Connect command is declared), `/oauth/revoke`
+`/oauth/revoke`
 (`mandate.credential.RevokeAccessCredential` is off this road), and the `/v1/...` control-plane
 resources of `:1784-1796`.
 

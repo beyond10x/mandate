@@ -534,6 +534,10 @@ where
         Binding::Document(Document::AuthorizationServerMetadata) => {
             Response::json(200, deployment.metadata().to_json())
         }
+        Binding::Document(Document::OpenIdConfiguration) => Response::json(
+            200,
+            mandate_server::metadata::openid_configuration(deployment.issuer()).to_json(),
+        ),
         Binding::Document(Document::HealthLive) => {
             Response::json(Health::live().status(), Health::live().to_json()).no_store()
         }

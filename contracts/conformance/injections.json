@@ -264,6 +264,34 @@
       "consulted": 0
     },
     {
+      "scenario": "mandate.credential/authored/oidc-redeem-client-auth-failed",
+      "command": "mandate.credential.RedeemAuthorizationCode",
+      "port": "mandate_sts::registry::ResourceServerReads",
+      "kind": "armed-unrefused",
+      "consulted": 1
+    },
+    {
+      "scenario": "mandate.credential/authored/oidc-redeem-client-auth-failed",
+      "command": "mandate.identity.Session",
+      "port": "mandate_identity::IdentityLog",
+      "kind": "established-prerequisite",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.credential/authored/oidc-redeem-public-with-secret-refused",
+      "command": "mandate.credential.RedeemAuthorizationCode",
+      "port": "mandate_sts::registry::ResourceServerReads",
+      "kind": "armed-unrefused",
+      "consulted": 1
+    },
+    {
+      "scenario": "mandate.credential/authored/oidc-redeem-public-with-secret-refused",
+      "command": "mandate.identity.Session",
+      "port": "mandate_identity::IdentityLog",
+      "kind": "established-prerequisite",
+      "consulted": 0
+    },
+    {
       "scenario": "mandate.credential/authored/oidc-retire-without-successor-refused",
       "command": "mandate.credential.RetireSigningKey",
       "port": "mandate_sts::keys::SigningKeyReads",
@@ -1180,15 +1208,15 @@
     },
     {
       "scenario": "mandate.credential/authored/oidc-redeem-client-auth-failed",
-      "command": "mandate.credential.ResourceServer",
-      "reason": "entity-without-adapter-writer",
-      "blocked_on": "story:declared-writers"
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
     },
     {
       "scenario": "mandate.credential/authored/oidc-redeem-public-with-secret-refused",
-      "command": "mandate.credential.ResourceServer",
-      "reason": "entity-without-adapter-writer",
-      "blocked_on": "story:declared-writers"
+      "command": "",
+      "reason": "expectation-unmet",
+      "blocked_on": "story:conform-gate"
     },
     {
       "scenario": "mandate.credential/authored/oidc-sign-with-retired-key-refused",
