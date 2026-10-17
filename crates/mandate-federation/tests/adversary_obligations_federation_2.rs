@@ -67,12 +67,13 @@ const REGISTERED: &str = "https://app.example/callback";
 /// The clause rows of `mandate.federation.RegisterOAuthClient` that a
 /// [`ClientRegistrationAdmission`] answer decides and nothing else does, in document order.
 /// The cause names "a redirect URI or post-logout redirect URI is unadmitted"; the port
-/// admits redirect URIs only, so the registry splits off the post-logout half, and the
-/// client-type, verifier and peer clauses the contract added, which this crate decides
-/// itself and binds `real`.
-const PORT_DECIDED: [&str; 3] = [
+/// answers each half through its own method, so the registry keeps them as two rows. The
+/// client-type, verifier and peer clauses the contract added are decided by this crate
+/// itself and bound `real`.
+const PORT_DECIDED: [&str; 4] = [
     "Caller lacks client-administration authority",
     "a redirect URI",
+    "post-logout redirect URI is unadmitted",
     "organization binding is invalid",
 ];
 
@@ -153,6 +154,14 @@ impl ClientRegistrationAdmission for AdmitsEverything {
     fn admits_redirect_uri(&self, _organization_id: &OrganizationId, _uri: &RedirectUri) -> bool {
         true
     }
+
+    fn admits_post_logout_redirect_uri(
+        &self,
+        _organization_id: &OrganizationId,
+        _uri: &RedirectUri,
+    ) -> bool {
+        true
+    }
 }
 
 // ==================================================================================
@@ -184,31 +193,49 @@ fn the_three_register_o_auth_client_refusals_are_the_ports_answer_and_not_this_c
         .with_administrator(administrator())
         .with_organization(organization())
         .with_redirect_uri(organization(), RedirectUri::new(REGISTERED));
+    // "a post-logout redirect URI is unadmitted": everything else is admitted, and the
+    // presented post-logout URI is not.
+    let missing_post_logout = ConfiguredAdmission::new()
+        .with_administrator(administrator())
+        .with_organization(organization())
+        .with_redirect_uri(organization(), RedirectUri::new(REGISTERED));
 
-    let arranged: [(&str, &ConfiguredAdmission, Vec<RedirectUri>, DenialClause); 3] = [
+    let arranged: [(
+        &str,
+        &ConfiguredAdmission,
+        RegisterOAuthClient,
+        DenialClause,
+    ); 4] = [
         (
             PORT_DECIDED[0],
             &missing_administrator,
-            one_redirect(),
+            a_registration(one_redirect()),
             DenialClause::ClientAdministrationAuthority,
         ),
         (
             PORT_DECIDED[1],
             &missing_redirect,
-            two_redirects(),
+            a_registration(two_redirects()),
             DenialClause::RedirectUriUnadmitted,
         ),
         (
             PORT_DECIDED[2],
+            &missing_post_logout,
+            RegisterOAuthClient {
+                post_logout_redirect_uris: vec![RedirectUri::new("https://app.example/bye")],
+                ..a_registration(one_redirect())
+            },
+            DenialClause::RedirectUriUnadmitted,
+        ),
+        (
+            PORT_DECIDED[3],
             &missing_organization,
-            one_redirect(),
+            a_registration(one_redirect()),
             DenialClause::OrganizationMismatch,
         ),
     ];
 
-    for (clause, admission, redirect_uris, expected) in arranged {
-        let input = a_registration(redirect_uris);
-
+    for (clause, admission, input, expected) in arranged {
         // What the bound case in `tests/obligations.rs` asserts.
         let denied = register_o_auth_client(&input, admission, &mut SequentialAllocator::new())
             .expect_err("the fixture admission was built without this admission");
@@ -317,7 +344,7 @@ fn a_clause_a_standing_double_decides_is_not_published_on_the_real_path() {
             .map(|(clause, _)| clause.as_str())
             .collect::<Vec<_>>(),
         PORT_DECIDED.to_vec(),
-        "the three clauses this case is about are the ones carrying a denial row",
+        "the port-decided clauses this case is about are the ones carrying a denial row",
     );
 
     for (clause, paths) in &published {
@@ -360,11 +387,11 @@ fn the_report_does_not_count_a_double_backed_clause_in_real_covered() {
             federation["double_only"].as_u64(),
             federation["deferred"].as_u64(),
         ),
-        (Some(25), Some(3), Some(12)),
-        "the three `mandate.federation.RegisterOAuthClient` clauses are decided by this \
+        (Some(25), Some(4), Some(11)),
+        "the four port-decided `mandate.federation.RegisterOAuthClient` clauses are decided by this \
          crate's standing double for `ClientRegistrationAdmission` and belong in \
          `double_only`; published `real_covered` they make the crate's row, and the \
-         `totals` row with it, report three real-path decisions that no code of \
+         `totals` row with it, report real-path decisions that no code of \
          `mandate-federation` makes"
     );
 }

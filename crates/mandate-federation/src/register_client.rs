@@ -30,6 +30,11 @@
 //!   does not read.
 //! * "a redirect URI is unadmitted" — a deployment's redirect policy. Which URIs are
 //!   admitted is configuration, not a property of the input, and the fold cannot answer it.
+//! * "a ... post-logout redirect URI is unadmitted" — the same policy question about the
+//!   other redirect set, asked through its own method
+//!   ([`ClientRegistrationAdmission::admits_post_logout_redirect_uri`]): a URI admitted as a
+//!   login redirect is not thereby admitted as a post-logout one, and the provided answer is
+//!   `false`, as for a trusted peer.
 //! * "a trusted peer names ... no client registered in the verified organization" — a read
 //!   of the registered clients, which this decide-only handler does not hold. The port
 //!   answers it per peer, and fails closed by default
@@ -44,8 +49,8 @@
 //! * "a trusted peer names the client itself" — compared against the identity this outcome
 //!   allocates, so it holds even for an admission that would answer for that identity.
 //!
-//! "a post-logout redirect URI is unadmitted" is **not** decided here yet: the port asks
-//! only about login redirect URIs, and post-logout URIs are a separate deployment policy.
+//! The client-type phrases are [`decide_client_type`], `pub` so that a composition seeding
+//! clients from documents decides them by this same function rather than by a copy.
 //!
 //! The rest is decided here, because the contract decides it:
 //!
@@ -145,6 +150,72 @@ pub trait ClientRegistrationAdmission {
         let _ = (organization_id, peer);
         false
     }
+
+    /// Whether this exact post-logout redirect URI is admitted for that organization.
+    ///
+    /// Byte for byte, as [`Self::admits_redirect_uri`], and a separate question: where a
+    /// client may send the browser after logout is not where it may receive a code. The
+    /// provided answer is `false`, so an implementation that states no post-logout policy
+    /// refuses every such URI rather than admitting one nobody admitted. An empty set asks
+    /// nothing.
+    fn admits_post_logout_redirect_uri(
+        &self,
+        organization_id: &OrganizationId,
+        uri: &RedirectUri,
+    ) -> bool {
+        let _ = (organization_id, uri);
+        false
+    }
+}
+
+/// The phrases of the declared denial the client type alone decides, given the number of
+/// secret verifiers the registration carries and whether it requires PKCE.
+///
+/// "a public client states a secret verifier or does not require PKCE" (forks F2 and F3) and
+/// "a confidential client states no verifier or more than two" (fork F2). Exhaustive over
+/// [`OAuthClientType`], so a third client type would have to be decided here.
+///
+/// # Errors
+///
+/// The declared [`Denied`] for the first phrase the inputs meet.
+pub fn decide_client_type(
+    client_type: OAuthClientType,
+    verifiers: usize,
+    pkce_required: bool,
+) -> Result<(), Denied> {
+    match client_type {
+        OAuthClientType::Public => {
+            // "a public client states a secret verifier" (fork F2).
+            if verifiers != 0 {
+                return Err(Denied::new(
+                    DenialReason::Denied,
+                    DenialClause::PublicClientVerifier,
+                ));
+            }
+            // "a public client ... does not require PKCE" (fork F3).
+            if !pkce_required {
+                return Err(Denied::new(
+                    DenialReason::Denied,
+                    DenialClause::PublicClientPkceOptional,
+                ));
+            }
+            Ok(())
+        }
+        OAuthClientType::Confidential => match verifiers {
+            // "a confidential client states no verifier".
+            0 => Err(Denied::new(
+                DenialReason::Denied,
+                DenialClause::ConfidentialVerifierAbsent,
+            )),
+            // One, or two so that a secret can be rotated (fork F2).
+            1 | 2 => Ok(()),
+            // "... or more than two".
+            _ => Err(Denied::new(
+                DenialReason::Denied,
+                DenialClause::ConfidentialVerifierExcess,
+            )),
+        },
+    }
 }
 
 /// Realize `mandate.federation.RegisterOAuthClient`.
@@ -156,7 +227,8 @@ pub trait ClientRegistrationAdmission {
 ///
 /// Returns [`Denied`] through the declared `denied` outcome when the caller lacks
 /// client-administration authority, when the organization the verified context carries is
-/// not one a client may be registered into, when any presented redirect URI is
+/// not one a client may be registered into, when any presented redirect URI or post-logout
+/// redirect URI is
 /// unadmitted, when a public client states a secret verifier or does not require PKCE,
 /// when a confidential client states no verifier or more than two, or when a trusted peer
 /// names the client itself or a client the admission does not place in the verified
@@ -195,48 +267,28 @@ pub fn register_o_auth_client(
             DenialClause::RedirectUriUnadmitted,
         ));
     }
+    // "a ... post-logout redirect URI is unadmitted" — each of them, through its own
+    // question. An empty set asks nothing of the policy.
+    if input
+        .post_logout_redirect_uris
+        .iter()
+        .any(|uri| !admission.admits_post_logout_redirect_uri(&organization_id, uri))
+    {
+        return Err(Denied::new(
+            DenialReason::Denied,
+            DenialClause::RedirectUriUnadmitted,
+        ));
+    }
     match input.pkce_method {
         // Exhaustive and without a wildcard: see the module documentation.
         PkceMethod::S256 => {}
     }
-    // The client type's own constraints, which the input alone decides. Exhaustive, so a
-    // third client type would have to be decided here rather than admitted unchecked.
-    match input.client_type {
-        OAuthClientType::Public => {
-            // "a public client states a secret verifier" (fork F2).
-            if !input.secret_verifiers.is_empty() {
-                return Err(Denied::new(
-                    DenialReason::Denied,
-                    DenialClause::PublicClientVerifier,
-                ));
-            }
-            // "a public client ... does not require PKCE" (fork F3).
-            if !input.pkce_required {
-                return Err(Denied::new(
-                    DenialReason::Denied,
-                    DenialClause::PublicClientPkceOptional,
-                ));
-            }
-        }
-        OAuthClientType::Confidential => match input.secret_verifiers.len() {
-            // "a confidential client states no verifier".
-            0 => {
-                return Err(Denied::new(
-                    DenialReason::Denied,
-                    DenialClause::ConfidentialVerifierAbsent,
-                ));
-            }
-            // One, or two so that a secret can be rotated (fork F2).
-            1 | 2 => {}
-            // "... or more than two".
-            _ => {
-                return Err(Denied::new(
-                    DenialReason::Denied,
-                    DenialClause::ConfidentialVerifierExcess,
-                ));
-            }
-        },
-    }
+    // The client type's own constraints, which the input alone decides.
+    decide_client_type(
+        input.client_type,
+        input.secret_verifiers.len(),
+        input.pkce_required,
+    )?;
     // "a trusted peer names ... no client registered in the verified organization" — each
     // of them, as for the redirect set.
     if input
@@ -290,6 +342,7 @@ pub struct ConfiguredAdmission {
     administrators: Vec<PrincipalId>,
     organizations: Vec<OrganizationId>,
     redirect_uris: Vec<(OrganizationId, RedirectUri)>,
+    post_logout_redirect_uris: Vec<(OrganizationId, RedirectUri)>,
     registered_clients: Vec<(OrganizationId, OAuthClientId)>,
 }
 
@@ -321,6 +374,17 @@ impl ConfiguredAdmission {
         self
     }
 
+    /// Admit this exact post-logout redirect URI for that organization.
+    #[must_use]
+    pub fn with_post_logout_redirect_uri(
+        mut self,
+        organization_id: OrganizationId,
+        uri: RedirectUri,
+    ) -> Self {
+        self.post_logout_redirect_uris.push((organization_id, uri));
+        self
+    }
+
     /// Answer that this client is registered in that organization, so it may be named as
     /// a trusted peer there.
     #[must_use]
@@ -348,6 +412,16 @@ impl ClientRegistrationAdmission for ConfiguredAdmission {
 
     fn admits_redirect_uri(&self, organization_id: &OrganizationId, uri: &RedirectUri) -> bool {
         self.redirect_uris
+            .iter()
+            .any(|(admitted, admitted_uri)| admitted == organization_id && admitted_uri == uri)
+    }
+
+    fn admits_post_logout_redirect_uri(
+        &self,
+        organization_id: &OrganizationId,
+        uri: &RedirectUri,
+    ) -> bool {
+        self.post_logout_redirect_uris
             .iter()
             .any(|(admitted, admitted_uri)| admitted == organization_id && admitted_uri == uri)
     }

@@ -221,7 +221,7 @@ fn stated(path: &Path) -> &str {
 /// One `--client` document, for a stated identity and redirect.
 fn client_document(client_id: &str, redirect: &str) -> String {
     format!(
-        r#"{{"client_id":"{client_id}","organization":"{ONE_ORGANIZATION}","public":true,
+        r#"{{"client_id":"{client_id}","organization":"{ONE_ORGANIZATION}","client_type":"public",
           "redirect_uris":["{redirect}"],"pkce_method":"S256"}}"#
     )
 }

@@ -1167,6 +1167,16 @@ fn every_port_method_the_substituted_reader_implements_counts_its_read() {
             }),
         ),
         (
+            "ClientRegistrationAdmission::admits_post_logout_redirect_uri",
+            Box::new(|r: &Substituted| {
+                let _ = ClientRegistrationAdmission::admits_post_logout_redirect_uri(
+                    r,
+                    &OrganizationId::new(identity(0x32)),
+                    &RedirectUri::new("https://client.example/signed-out".to_owned()),
+                );
+            }),
+        ),
+        (
             "ClientRegistrationAdmission::admits_trusted_peer",
             Box::new(|r: &Substituted| {
                 let _ = ClientRegistrationAdmission::admits_trusted_peer(

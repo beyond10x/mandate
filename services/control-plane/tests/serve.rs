@@ -3006,7 +3006,7 @@ fn client_document_for(client_id: Option<OAuthClientId>, organization: Organizat
         None => String::new(),
     };
     format!(
-        r#"{{{identity}"organization":"{organization}","public":true,
+        r#"{{{identity}"organization":"{organization}","client_type":"public",
           "redirect_uris":["{REDIRECT}"],"pkce_method":"S256"}}"#
     )
 }
