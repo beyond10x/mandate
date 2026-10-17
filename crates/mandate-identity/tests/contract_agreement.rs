@@ -146,6 +146,8 @@ fn folded_events(
             connection_id: from,
             epochs: handle(),
             expires_at: expires_at(),
+            authenticated_at: None,
+            external_principal_id: None,
         }),
         IdentityEvent::SessionRevoked(SessionRevoked {
             context: context.clone(),

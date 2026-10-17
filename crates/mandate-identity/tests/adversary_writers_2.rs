@@ -36,7 +36,7 @@ use mandate_contract::types::{
     MandateCoreAudience, MandateCoreCorrelationId, MandateCoreEpochSnapshotRef,
     MandateCoreExternalLinkMethod, MandateCoreExternalPrincipalId, MandateCoreExternalSubject,
     MandateCoreFederationConnectionId, MandateCoreOrganizationId, MandateCorePrincipalId,
-    MandateCorePrincipalKind, MandateCoreSessionId,
+    MandateCorePrincipalKind, MandateCoreSessionId, Presence,
 };
 use mandate_identity::{
     EpochSnapshotRecorded, Generation, IdentityEvent, IdentityLog, IdentityRead,
@@ -121,6 +121,8 @@ fn login() -> MandateFederationFederationAuthenticated {
         organization_id: MandateCoreOrganizationId(declared(2)),
         epochs: MandateCoreEpochSnapshotRef(declared(10)),
         expires_at: EXPIRES_AT.to_owned(),
+        authenticated_at: Presence::Absent,
+        external_principal_id: Presence::Absent,
     }
 }
 
@@ -268,6 +270,8 @@ fn probe_the_login_arm_refuses_every_declared_field_the_closed_schema_refuses() 
             "session_id",
             MandateFederationFederationAuthenticated {
                 session_id: MandateCoreSessionId(MALFORMED.to_owned()),
+                authenticated_at: Presence::Absent,
+                external_principal_id: Presence::Absent,
                 ..login()
             },
         ),
@@ -275,6 +279,8 @@ fn probe_the_login_arm_refuses_every_declared_field_the_closed_schema_refuses() 
             "principal_id",
             MandateFederationFederationAuthenticated {
                 principal_id: MandateCorePrincipalId(MALFORMED.to_owned()),
+                authenticated_at: Presence::Absent,
+                external_principal_id: Presence::Absent,
                 ..login()
             },
         ),
@@ -282,6 +288,8 @@ fn probe_the_login_arm_refuses_every_declared_field_the_closed_schema_refuses() 
             "organization_id",
             MandateFederationFederationAuthenticated {
                 organization_id: MandateCoreOrganizationId(MALFORMED.to_owned()),
+                authenticated_at: Presence::Absent,
+                external_principal_id: Presence::Absent,
                 ..login()
             },
         ),
@@ -289,6 +297,8 @@ fn probe_the_login_arm_refuses_every_declared_field_the_closed_schema_refuses() 
             "connection_id",
             MandateFederationFederationAuthenticated {
                 connection_id: MandateCoreFederationConnectionId(MALFORMED.to_owned()),
+                authenticated_at: Presence::Absent,
+                external_principal_id: Presence::Absent,
                 ..login()
             },
         ),
@@ -296,6 +306,8 @@ fn probe_the_login_arm_refuses_every_declared_field_the_closed_schema_refuses() 
             "epochs",
             MandateFederationFederationAuthenticated {
                 epochs: MandateCoreEpochSnapshotRef(MALFORMED.to_owned()),
+                authenticated_at: Presence::Absent,
+                external_principal_id: Presence::Absent,
                 ..login()
             },
         ),
@@ -303,6 +315,8 @@ fn probe_the_login_arm_refuses_every_declared_field_the_closed_schema_refuses() 
             "expires_at",
             MandateFederationFederationAuthenticated {
                 expires_at: MALFORMED.to_owned(),
+                authenticated_at: Presence::Absent,
+                external_principal_id: Presence::Absent,
                 ..login()
             },
         ),

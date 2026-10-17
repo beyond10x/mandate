@@ -70,6 +70,9 @@ fn session() -> SessionBinding {
         epochs: Some(snapshot()),
         expires_at: Timestamp::new("2026-09-19T12:00:00Z"),
         revoked: false,
+        connection: None,
+        authenticated_at: None,
+        external_principal_id: None,
     }
 }
 
@@ -309,6 +312,9 @@ fn each_way_a_session_fails_the_re_read_names_a_declared_clause() {
             &RecordedSessions::new()
                 .session(SessionBinding {
                     revoked: true,
+                    connection: None,
+                    authenticated_at: None,
+                    external_principal_id: None,
                     ..session()
                 })
                 .current(snapshot()),
@@ -323,6 +329,9 @@ fn each_way_a_session_fails_the_re_read_names_a_declared_clause() {
             &RecordedSessions::new()
                 .session(SessionBinding {
                     expires_at: Timestamp::new("2026-09-18T23:00:00Z"),
+                    connection: None,
+                    authenticated_at: None,
+                    external_principal_id: None,
                     ..session()
                 })
                 .current(snapshot()),
@@ -337,6 +346,9 @@ fn each_way_a_session_fails_the_re_read_names_a_declared_clause() {
             &RecordedSessions::new()
                 .session(SessionBinding {
                     expires_at: Timestamp::new("whenever"),
+                    connection: None,
+                    authenticated_at: None,
+                    external_principal_id: None,
                     ..session()
                 })
                 .current(snapshot()),
@@ -399,6 +411,9 @@ fn a_session_that_names_no_snapshot_is_admitted_and_binds_no_epoch() {
     let code = code(registered(organization(10), "api-a").1);
     let sessions = RecordedSessions::new().session(SessionBinding {
         epochs: None,
+        connection: None,
+        authenticated_at: None,
+        external_principal_id: None,
         ..session()
     });
 

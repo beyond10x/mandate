@@ -35,9 +35,19 @@ const TENANT_VALUE: &str = "org-4711";
 /// Pairwise: opaque, per client, and no identifier this file names.
 const PAIRWISE_SUB: &str = "p7Qx2Lk9-rZ0aWm4Yc1_pairwise";
 const LISTEN_DEADLINE: Duration = Duration::from_secs(30);
-const AS_KEY_DOCUMENT: &str = r#"{"kty":"EC","kid":"login-key-1","use":"sig","alg":"ES256",
-  "crv":"P-256","x":"f83OJ3D2xF1Bg8vub9tLe1gHMzV76e8Tus9uPHvRVEU",
-  "y":"x_FEzRu9m36HLN_tue659LNpXW6pCyStikYjKIWI5a0"}"#;
+/// The deployment's own signing key, generated now as the PKCS#8 PEM `--signing-key` mounts.
+/// No private key byte is written into this file.
+fn as_signing_key() -> String {
+    let pkcs8 = aws_lc_rs::signature::EcdsaKeyPair::generate_pkcs8(
+        &aws_lc_rs::signature::ECDSA_P256_SHA256_FIXED_SIGNING,
+        &aws_lc_rs::rand::SystemRandom::new(),
+    )
+    .expect("a P-256 key is generated");
+    format!(
+        "-----BEGIN PRIVATE KEY-----\n{}\n-----END PRIVATE KEY-----\n",
+        mandate_types::value::encode_base64(pkcs8.as_ref())
+    )
+}
 
 fn organization() -> String {
     "0a0a0a0a-0a0a-4a0a-8a0a-0a0a0a0a0a0a".to_owned()
@@ -630,7 +640,7 @@ fn stand(case: &str, tamper: Tamper, secret_in_file: &str, return_uri: &str) -> 
         issuer = idp.issuer(),
     );
     let connection_path = scratch.write("connection.json", &connection_document);
-    let key_path = scratch.write("key.json", AS_KEY_DOCUMENT);
+    let key_path = scratch.write("signing-key.pem", &as_signing_key());
     let secret_path = scratch.write("client-secret", &format!("{secret_in_file}\n"));
     let arguments = vec![
         "serve".to_owned(),
@@ -640,8 +650,8 @@ fn stand(case: &str, tamper: Tamper, secret_in_file: &str, return_uri: &str) -> 
         AS_ISSUER.to_owned(),
         "--connection".to_owned(),
         connection_path.to_str().expect("UTF-8").to_owned(),
-        "--key".to_owned(),
-        key_path.to_str().expect("UTF-8").to_owned(),
+        "--signing-key".to_owned(),
+        format!("login={}", key_path.to_str().expect("UTF-8")),
         "--client-secret-file".to_owned(),
         format!(
             "{SECRET_REFERENCE}={}",

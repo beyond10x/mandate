@@ -455,6 +455,8 @@ fn every_event_naming_an_absent_connection_is_refused() {
             organization_id: organization(10),
             epochs: EpochSnapshotRef::new(uuid(0x3e)),
             expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+            authenticated_at: None,
+            external_principal_id: None,
         },
         linked(
             connection(1),

@@ -9,7 +9,7 @@ use mandate_contract::types::{
     MandateCoreAudience, MandateCoreCorrelationId, MandateCoreEpochSnapshotRef,
     MandateCoreExternalLinkMethod, MandateCoreExternalPrincipalId, MandateCoreExternalSubject,
     MandateCoreFederationConnectionId, MandateCoreOrganizationId, MandateCorePrincipalId,
-    MandateCorePrincipalKind, MandateCoreSessionId,
+    MandateCorePrincipalKind, MandateCoreSessionId, Presence,
 };
 use mandate_identity::{
     EpochSnapshotRecorded, Generation, IdentityEvent, IdentityLog, IdentityRead,
@@ -260,6 +260,8 @@ fn a_refresh_racing_a_committed_disable_driven_increment_is_denied_and_the_other
         connection_id: None,
         epochs: in_a,
         expires_at: expires_at.clone(),
+        authenticated_at: None,
+        external_principal_id: None,
     }));
     log.record(IdentityEvent::SessionOpened(SessionOpened {
         id: session_in_b,
@@ -268,6 +270,8 @@ fn a_refresh_racing_a_committed_disable_driven_increment_is_denied_and_the_other
         connection_id: None,
         epochs: in_b,
         expires_at,
+        authenticated_at: None,
+        external_principal_id: None,
     }));
 
     assert!(refresh_session(&log, &session_in_a).is_ok());
@@ -398,6 +402,8 @@ fn tenant_containment_a_principal_recorded_in_two_organizations_is_refused() {
         connection_id: None,
         epochs: EpochSnapshotRef::new(uuid(10)),
         expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+        authenticated_at: None,
+        external_principal_id: None,
     }))
     .expect("the snapshot the opening names is recorded");
     refused_for_tenancy(&mut log, &SecurityEpochTarget::Principal(principal()));
@@ -421,6 +427,8 @@ fn tenant_containment_a_federated_login_in_another_organization_places_its_princ
                 organization_id: MandateCoreOrganizationId(organization_b().to_string()),
                 epochs: MandateCoreEpochSnapshotRef(declared(10)),
                 expires_at: "2026-12-31T00:00:00Z".to_owned(),
+                authenticated_at: Presence::Absent,
+                external_principal_id: Presence::Absent,
             },
         ))
         .expect("a well-formed login on a recorded snapshot");

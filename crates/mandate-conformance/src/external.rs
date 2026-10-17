@@ -419,7 +419,10 @@ const STANDING: &[StandingDouble] = &[
     StandingDouble {
         port: "mandate_sts::issue::IssuanceSigner",
         double: "mandate_sts::issue::StaticSigner",
-        why: "the signing key material is the deployment's and no scenario supplies one",
+        why: "the signing key material is the deployment's and no scenario supplies one; \
+              the double signs under the `kid` of the key the scenario's own `SigningKey` \
+              records admit for issuance at the request's instant, and under a `kid` naming \
+              no record when they admit none, so the records, not the double, decide issuance",
     },
     StandingDouble {
         port: "mandate_sts::keys::KeyMaterialResolver",
@@ -1241,7 +1244,30 @@ impl mandate_sts::code::OAuthClientReads for FederationClients<'_> {
             })
         })
     }
+
+    /// Against the recorded verifiers under [`CONFORMANCE_VERIFIER_KEY`], through the same
+    /// constant-time comparison the deployment's adapter makes.
+    fn secret_authenticates(
+        &self,
+        id: &mandate_types::OAuthClientId,
+        presented: &mandate_types::CredentialProof,
+    ) -> Option<bool> {
+        use mandate_types::Transient;
+        let client = self.client(id)?;
+        let key = mandate_types::VerifierKey::from_bytes(CONFORMANCE_VERIFIER_KEY.to_vec()).ok()?;
+        Some(mandate_types::client_secret_presents(
+            &key,
+            &client.secret_verifiers,
+            &mandate_types::OAuthClientSecret::presented(presented.expose_material().to_vec()),
+        ))
+    }
 }
+
+/// The deployment key this target derives client-secret verifiers under.
+///
+/// A fixed test key, never a deployment's: a scenario records verifiers as literals, so the
+/// key decides only whether a presented secret derives one of them.
+pub const CONFORMANCE_VERIFIER_KEY: &[u8; 32] = b"mandate-conformance-verifier-key";
 
 /// `mandate_sts::binding::SessionReads` answered from the scenario's own identity log.
 ///
@@ -1267,6 +1293,9 @@ impl mandate_sts::binding::SessionReads for IdentitySessions<'_> {
                 epochs: Some(*session.epochs()),
                 expires_at: session.expires_at().clone(),
                 revoked: !session.is_active(),
+                connection: session.connection().copied(),
+                authenticated_at: session.authenticated_at().cloned(),
+                external_principal_id: session.external_principal_id().copied(),
             }
         })
     }

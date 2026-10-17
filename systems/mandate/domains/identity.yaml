@@ -4,8 +4,8 @@
 # UNMAPPED-EPOCH: Integer is the recorded stand-in for the addendum's u64 (decision-blocker:epoch; architecture-addendum.md section 6.3), widened when ESS gains an unsigned primitive. Monotonic increment, denial at the maximum and per-dimension snapshot values remain absent; EpochSnapshotRef is only an immutable record handle, never an epoch number.
 # UNMAPPED-EPOCH-OWNERSHIP: ESS relation carriers cannot reference an entity identity directly; each generation identity is its owning PrincipalId, OrganizationId or FederationConnectionId (one-to-one association).
 # IncrementSecurityEpoch remains an adapter obligation; no fabricated self-loop stands in for numeric mutation.
-# mandate.federation.AuthenticateFederation's accepted outcome creates mandate.identity.Session, with session_id on FederationAuthenticated as its instance. That event carries the whole Session record — session_id, principal_id, organization_id, connection_id, epochs, expires_at — so the identity fold materializes the session from it alone, reading no command input or response. The audience and the correlation ride beside the record and are not Session fields.
-# SessionOpened carries the same six Session fields for a session opened without federation. No command in this contract declares such an open, so no outcome emits it today, and it is reserved rather than dead: the writer is the mandate-control-plane component that publishes it (components.yaml). The two events name the record's identity differently — SessionOpened by id, FederationAuthenticated by session_id — and the two are one opening rule: a session identity any recorded event names has been opened once, so a second open by either event, after either event, is refused at append and never reaches the fold (mandate-identity IdentityLog::try_record, through IdentityLog::refusal). That refusal is the adapter's: this file declares none, because no invariant, view, open command or outcome in the compiled model could carry one.
+# mandate.federation.AuthenticateFederation's accepted outcome creates mandate.identity.Session, with session_id on FederationAuthenticated as its instance. That event carries the whole Session record — session_id, principal_id, organization_id, connection_id, epochs, expires_at, authenticated_at, external_principal_id — so the identity fold materializes the session from it alone, reading no command input or response. The audience and the correlation ride beside the record and are not Session fields.
+# SessionOpened carries the same eight Session fields for a session opened without federation. No command in this contract declares such an open, so no outcome emits it today, and it is reserved rather than dead: the writer is the mandate-control-plane component that publishes it (components.yaml). The two events name the record's identity differently — SessionOpened by id, FederationAuthenticated by session_id — and the two are one opening rule: a session identity any recorded event names has been opened once, so a second open by either event, after either event, is refused at append and never reaches the fold (mandate-identity IdentityLog::try_record, through IdentityLog::refusal). That refusal is the adapter's: this file declares none, because no invariant, view, open command or outcome in the compiled model could carry one.
 # mandate.identity.Principal is seeded by mandate.federation.ExternalPrincipalProvisioned, which carries principal_id, kind and display_name — the whole Principal record — and the identity fold materializes the principal from that event alone. No command in this contract declares the Principal's creation: ProvisionExternalPrincipal's accepted outcome spends its one subject on mandate.federation.ExternalPrincipal, and an ESS outcome declares one creates/moves/updates, so the writer is declared here rather than by a second creates:. A principal named by LinkExternalPrincipal rather than provisioned is seeded by no event today and has no record until a command creates one; that command is story:declared-writers' remaining unit, not this file's. The seeding event binds kind to the literal User, so this contract declares a writer for User principals alone: Agent, Service and ServiceAccount principals of mandate.core.PrincipalKind have none, and mandate.delegation.Agent and mandate.workload.WorkloadIdentity are records of principals that are not users. The three scenarios ess verify conform synthesize refuses for mandate.identity.Principal stay refused until a RegisterPrincipal command lands (story:declared-writers, a later wave); this declaration closes the federated first login and nothing else.
 # EpochSnapshotRecorded and SecurityEpochRecorded are the seeding events for the snapshot and the generation each dimension held. No command outcome creates a snapshot or a generation record and no outcome emits either event, so the adapter writes one per record it seeds and the identity fold consumes them. AuthenticateFederation mints the snapshot handle the session is bound to; the snapshot's own contents arrive on EpochSnapshotRecorded. Precedent for a declared event no command outcome emits: domains/audit.yaml, published by mandate-worker.
 # mandate.identity.RefreshCredential is seeded by RefreshCredentialIssued, which carries the whole record of a family's first member — id, family_id, client_id, principal_id, organization_id, session_id, verifier, epochs, issued_at, expires_at — and the identity fold materializes it Active, with no predecessor, no last_used_at and no sibling spent. No command in this contract declares that issuance: the STS issues the first member at code redemption when offline_access was granted (story:oidc-refresh-and-logout, runtime half), and mandate.credential.RedeemAuthorizationCode spends its one subject on the code it consumes. Precedent for a declared event no command outcome emits: EpochSnapshotRecorded above.
@@ -56,6 +56,15 @@ entities:
         type: mandate.core.EpochSnapshotRef
       - name: expires_at
         type: Timestamp
+      # When the login that opened the session authenticated: an identity token's `auth_time`
+      # (OIDC Core 2). Absent on a session recorded before the field existed.
+      - name: authenticated_at
+        type: Optional<Timestamp>
+      # The external principal a federated login resolved through its link; its upstream
+      # subject is what a DexCompatible connection renders as `sub` (fork F1). Absent for a
+      # session opened without federation and on one recorded before the field existed.
+      - name: external_principal_id
+        type: Optional<mandate.core.ExternalPrincipalId>
     lifecycle:
       initial: Active
       states:
@@ -89,6 +98,11 @@ entities:
         target: mandate.identity.SecurityEpochSnapshot
         cardinality: one
         via: epochs
+      - name: external_principal_id_record
+        kind: references
+        target: mandate.federation.ExternalPrincipal
+        cardinality: one
+        via: external_principal_id
   - name: mandate.identity.RefreshCredential
     identity:
       name: id
@@ -570,6 +584,10 @@ events:
         type: mandate.core.EpochSnapshotRef
       - name: expires_at
         type: Timestamp
+      - name: authenticated_at
+        type: Optional<Timestamp>
+      - name: external_principal_id
+        type: Optional<mandate.core.ExternalPrincipalId>
   - name: mandate.identity.EpochSnapshotRecorded
     fields:
       - name: id

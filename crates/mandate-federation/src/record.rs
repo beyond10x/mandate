@@ -297,6 +297,13 @@ pub enum FederationEvent {
         epochs: EpochSnapshotRef,
         /// The declared `expires_at`: when the session stops being refreshable.
         expires_at: Timestamp,
+        /// The declared `authenticated_at`: the instant of the login (`auth_time`).
+        #[serde(skip_serializing_if = "Option::is_none")]
+        authenticated_at: Option<Timestamp>,
+        /// The declared `external_principal_id`: the link the login resolved, whose
+        /// `subject` is the upstream subject.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        external_principal_id: Option<ExternalPrincipalId>,
     },
     /// `mandate.federation.OAuthClientRegistered`.
     ///
@@ -529,6 +536,10 @@ enum Recorded {
         organization_id: OrganizationId,
         epochs: EpochSnapshotRef,
         expires_at: Timestamp,
+        #[serde(default)]
+        authenticated_at: Option<Timestamp>,
+        #[serde(default)]
+        external_principal_id: Option<ExternalPrincipalId>,
     },
     #[serde(rename = "mandate.federation.OAuthClientRegistered")]
     OAuthClientRegistered {
@@ -1009,6 +1020,8 @@ impl Projection {
                 organization_id: _,
                 epochs: _,
                 expires_at: _,
+                authenticated_at: _,
+                external_principal_id: _,
             } => {
                 if !self
                     .connections
@@ -1521,6 +1534,8 @@ const _: () = {
                 organization_id,
                 epochs,
                 expires_at,
+                authenticated_at,
+                external_principal_id,
             } => {
                 persistable(session_id);
                 persistable(principal_id);
@@ -1530,6 +1545,8 @@ const _: () = {
                 persistable(organization_id);
                 persistable(epochs);
                 persistable(expires_at);
+                persistable(authenticated_at);
+                persistable(external_principal_id);
             }
             FederationEvent::OAuthClientRegistered {
                 context,
@@ -1660,6 +1677,8 @@ mod tests {
                 organization_id: OrganizationId::new(uuid(10)),
                 epochs: EpochSnapshotRef::new(uuid(0x91)),
                 expires_at: Timestamp::new("2026-10-17T01:00:00Z"),
+                authenticated_at: Some(Timestamp::new("2026-10-17T00:00:02Z")),
+                external_principal_id: Some(ExternalPrincipalId::new(uuid(0x72))),
             },
             FederationEvent::OAuthClientRegistered {
                 context: context(20),

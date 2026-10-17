@@ -1,7 +1,7 @@
 <!--
 generated from mandate v1
-model digest 221f3ba72b7b930cacfdf588703cfb5569188fa6501f619490ef0a56cab2fa23
-contract digest slice-sha256/2:d40840f1ff8aebb833d59db37027c39fc83b9fb7099a464af4a4e5eb1a60801c
+model digest fe7572f53936b5997c3bd119e2453943039ed1a53748b3db2385206257a79cd2
+contract digest slice-sha256/2:96614eed03cec03b1d7b68d239fe8c7a81597aa8514a9f642475e1d84e58acd3
 do not edit: regenerate with `ess generate`
 -->
 
@@ -157,7 +157,7 @@ It takes:
 
 It has two outcomes.
 
-**`accepted`** — A validated federated login mints the session, which is step 9 of the resolution order in docs/architecture/federated-login.md. FederationAuthenticated carries the whole mandate.identity.Session record — the new session identity, the principal, the resolved organization, the connection, the epoch snapshot the session is bound to and its expiry — so the identity fold materializes the session from this event alone and reads no command input or response. The audience and the correlation are carried beside the record. The principal, the organization, the epoch snapshot handle and the expiry are the ones this command resolved and returned, so the fold reads each from the response rather than from a value the implementation invented; the snapshot's own contents are recorded by the adapter through EpochSnapshotRecorded. ExternalProfileObserved records the profile of this login for later issuance (fork F13): the external principal the login resolved through its link, and the email, its verified flag, the name and the groups, each read from the validated proof and never from a caller input. An email the upstream does not mark verified is recorded with email_verified false, never true. The groups are those the connection's group filter admits: a group outside the allowlist never appears in the event, and a connection without a filter records an empty list. The default branch, taken when no other outcome's condition matched. It creates a `mandate.identity.Session`, which starts in `Active`. The new instance's identity is published as `session_id` on `mandate.federation.FederationAuthenticated`. It emits `mandate.federation.FederationAuthenticated` and `mandate.federation.ExternalProfileObserved`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+**`accepted`** — A validated federated login mints the session, which is step 9 of the resolution order in docs/architecture/federated-login.md. FederationAuthenticated carries the whole mandate.identity.Session record — the new session identity, the principal, the resolved organization, the connection, the epoch snapshot the session is bound to, its expiry, the instant the login authenticated and the external principal it resolved through its link — so the identity fold materializes the session from this event alone and reads no command input or response. The audience and the correlation are carried beside the record. The principal, the organization, the epoch snapshot handle and the expiry are the ones this command resolved and returned, so the fold reads each from the response rather than from a value the implementation invented; the snapshot's own contents are recorded by the adapter through EpochSnapshotRecorded. ExternalProfileObserved records the profile of this login for later issuance (fork F13): the external principal the login resolved through its link, and the email, its verified flag, the name and the groups, each read from the validated proof and never from a caller input. An email the upstream does not mark verified is recorded with email_verified false, never true. The groups are those the connection's group filter admits: a group outside the allowlist never appears in the event, and a connection without a filter records an empty list. The default branch, taken when no other outcome's condition matched. It creates a `mandate.identity.Session`, which starts in `Active`. The new instance's identity is published as `session_id` on `mandate.federation.FederationAuthenticated`. It emits `mandate.federation.FederationAuthenticated` and `mandate.federation.ExternalProfileObserved`. A test reaches it by constructing an input that satisfies no other outcome's condition.
 
 **`denied`** — A refused login opens no session and records no profile. In tenant resolution, a rule naming a claim matches only when the validated claim equals one of its listed values, and an absent claim matches none. Decided outside the input: Connection is disabled/untrusted, proof signature/issuer/audience/expiry is invalid, tenant resolution has zero or multiple matches, principal linking is absent/conflicting, the groups the connection's filter admits number more than its cap, or any email-domain/unverified-input fallback would be required.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.federation.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
@@ -419,6 +419,8 @@ It carries:
 - `organization_id` — `mandate.core.OrganizationId`
 - `epochs` — `mandate.core.EpochSnapshotRef`
 - `expires_at` — `Timestamp`
+- `authenticated_at` — `Optional<Timestamp>`, which may be absent
+- `external_principal_id` — `Optional<mandate.core.ExternalPrincipalId>`, which may be absent
 
 Emitted by `mandate.federation.AuthenticateFederation` on its `accepted` outcome.
 
@@ -523,4 +525,4 @@ Reported by `mandate.federation.UnlinkExternalPrincipal` on its `wrong-state` an
 
 ---
 
-Generated from mandate v1 · model digest `221f3ba72b7b930cacfdf588703cfb5569188fa6501f619490ef0a56cab2fa23` · contract digest `slice-sha256/2:d40840f1ff8aebb833d59db37027c39fc83b9fb7099a464af4a4e5eb1a60801c`. Do not edit this file; change the specification and regenerate it with `ess generate`.
+Generated from mandate v1 · model digest `fe7572f53936b5997c3bd119e2453943039ed1a53748b3db2385206257a79cd2` · contract digest `slice-sha256/2:96614eed03cec03b1d7b68d239fe8c7a81597aa8514a9f642475e1d84e58acd3`. Do not edit this file; change the specification and regenerate it with `ess generate`.

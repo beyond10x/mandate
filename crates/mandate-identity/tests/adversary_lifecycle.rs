@@ -52,6 +52,8 @@ fn opened() -> IdentityEvent {
         connection_id: None,
         epochs: handle(),
         expires_at: Timestamp::new("2026-09-18T00:00:00Z"),
+        authenticated_at: None,
+        external_principal_id: None,
     })
 }
 

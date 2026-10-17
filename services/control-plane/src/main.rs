@@ -1,10 +1,10 @@
 //! `mandate-control-plane`: the composition binary. `serve --listen <addr>` binds the login
 //! road's listener over a deployment seeded, per process, from the documents `--connection`,
-//! `--key`, `--client` and `--resource-server` name; seeding the folds from an event log is
+//! `--signing-key`, `--client` and `--resource-server` name; seeding the folds from an event log is
 //! the next milestone (ruling D4, `story:product-listener`).
 //!
-//! **What the four flags carry, and why there are four.** `--connection` and `--key`
-//! configure the login route and the published key set. `--client` and `--resource-server`
+//! **What the four flags carry, and why there are four.** `--connection` and `--signing-key`
+//! configure the login route and the keys the deployment signs with and publishes. `--client` and `--resource-server`
 //! carry the two records the *authorization* endpoint reads after the session — a registered
 //! OAuth public client and a registered resource-server target. A process configured from
 //! the first two alone serves `POST /v1/federation/login` and refuses
@@ -31,7 +31,7 @@
 //! | Flag | Admitted by | What is decided against the documents before it |
 //! |---|---|---|
 //! | `--connection` | [`mandate_control_plane::adapters::ConnectionSeeding`] | every guard of `RegisterFederationConnection`, plus a repeated `connection_id` and a principal linked across two organizations |
-//! | `--key` | [`mandate_control_plane::adapters::key_set`] | a repeated `kid` |
+//! | `--signing-key` | [`mandate_control_plane::adapters::MountedKeys`], then `RegisterSigningKey` through [`mandate_control_plane::adapters::Deployment::mount_signing_keys`] | a repeated name, material that is not one admitted private key, and the same material under two names |
 //! | `--client` | [`mandate_control_plane::adapters::ClientSeeding`] | a repeated `client_id`; `RegisterOAuthClient`'s input-decided phrases (client type, verifier count, PKCE requirement, trusted peers); a redirect URI with a fragment; and every `secret_ref` resolved, read and held to the entropy floor |
 //! | `--resource-server` | [`mandate_control_plane::adapters::TargetSeeding`] | every guard of `RegisterResourceServer` — an ambiguous audience above all — plus a repeated `resource_server_id`, and then the whole set is settled against `Projection::audience_conflicts` |
 //!
@@ -62,10 +62,10 @@ use std::process::ExitCode;
 use clap::{Parser, Subcommand};
 use mandate_control_plane::adapters::{
     ClientSeed, ClientSeeding, Configuration, ConfigurationRefused, ConnectionSeed,
-    ConnectionSeeding, Deployment, RelyingParty, ResourceServerSeed, SeedRefused, SystemAllocator,
-    SystemSecrets, TargetSeeding, configure_verifier, key_set, read_client_seed,
-    read_connection_seed, read_key, read_resource_server_seed, relying_party_connection,
-    verifier_key,
+    ConnectionSeeding, Deployment, MountedKeys, RelyingParty, ResourceServerSeed,
+    SIGNED_TTL_SECONDS, SIGNING_OVERLAP_SECONDS, SeedRefused, SystemAllocator, SystemSecrets,
+    TargetSeeding, configure_verifier, read_client_seed, read_connection_seed,
+    read_resource_server_seed, read_signing_key, relying_party_connection, verifier_key,
 };
 use mandate_control_plane::serve::{Limits, Listener};
 use mandate_federation::idp_token::UreqIdpToken;
@@ -74,6 +74,10 @@ use mandate_federation::verifier::{ClaimType, VerifiedProof};
 use mandate_federation::verifier_real::{AllowedAlgorithms, RealVerifier, SystemClock, UreqJwks};
 use mandate_federation::{Denied, FederationVerifier};
 use mandate_sts::code::CodeLifetime;
+use mandate_sts::keys::{RecordedSigner, SigningKeyAdministration};
+use mandate_token::signing_real::{
+    AllowedAlgorithms as SigningAlgorithms, SystemClock as SigningClock,
+};
 use mandate_types::CredentialProof;
 use mandate_types::{Duration, SigningAlgorithm};
 
@@ -105,9 +109,15 @@ enum Action {
         /// The seeded `connection_id` is printed, because the login route selects on it.
         #[arg(long = "connection", value_name = "PATH")]
         connections: Vec<PathBuf>,
-        /// A public JWK the JWK Set document publishes, as a JSON document. Repeatable.
-        #[arg(long = "key", value_name = "PATH")]
-        keys: Vec<PathBuf>,
+        /// A private key the deployment signs with, mounted under a name. Repeatable.
+        ///
+        /// The value is `NAME=PATH`: `PATH` is one PEM private key — `PRIVATE KEY` (PKCS#8)
+        /// for ES256 or RS256, or `RSA PRIVATE KEY` for RS256 — and `NAME` is the reference
+        /// its `SigningKey` record resolves it through. Each is registered at startup, in the
+        /// order given, and its record's identity — the `kid` it is published under — is
+        /// printed.
+        #[arg(long = "signing-key", value_name = "NAME=PATH", value_parser = named_path)]
+        signing_keys: Vec<(String, PathBuf)>,
         /// A registered OAuth client to seed, as a JSON document. Repeatable.
         ///
         /// The seeded `client_id` is printed, because the authorization route selects on it.
@@ -124,13 +134,13 @@ enum Action {
         /// `--client` documents whose `secret_ref` does (that client's own secret). Repeatable.
         ///
         /// The value is `NAME=PATH`: the flag carries where the secret is, never the secret.
-        #[arg(long = "client-secret-file", value_name = "NAME=PATH", value_parser = secret_file)]
+        #[arg(long = "client-secret-file", value_name = "NAME=PATH", value_parser = named_path)]
         client_secret_files: Vec<(String, PathBuf)>,
         /// A directory of documents, read as if each were given to its flag. Repeatable.
         ///
-        /// It holds `connections/`, `keys/`, `clients/` and `resource-servers/`, each of
-        /// `*.json` documents, and `client-secrets/`, each file of which is the client secret
-        /// named for it. They are read in file-name order and after the documents the flags
+        /// It holds `connections/`, `clients/` and `resource-servers/`, each of `*.json`
+        /// documents; `client-secrets/`, each file of which is the client secret named for it;
+        /// and `signing-keys/`, each file of which is the signing key named for it. They are read in file-name order and after the documents the flags
         /// name. Any other entry is refused, exit 2. A name starting with `..` is a mount's
         /// own bookkeeping and is skipped.
         #[arg(long = "config-dir", value_name = "DIR")]
@@ -147,8 +157,9 @@ enum Action {
 /// authorization with nothing anywhere saying why.
 enum Refused {
     Configuration(ConfigurationRefused),
-    /// A `--connection` or `--key` document that configures no deployment. The same **2** as
-    /// [`Refused::Configuration`], and separate only because it names the file it read.
+    /// A `--connection` or `--signing-key` file that configures no deployment. The same
+    /// **2** as [`Refused::Configuration`], and separate only because it names the file it
+    /// read.
     Seed(SeedRefused),
     /// A `--config-dir` that cannot be read as documents. The same **2**.
     ConfigDir(String),
@@ -166,7 +177,7 @@ fn main() -> ExitCode {
             code_lifetime,
             session_lifetime,
             connections,
-            keys,
+            signing_keys,
             clients,
             resource_servers,
             client_secret_files,
@@ -177,7 +188,7 @@ fn main() -> ExitCode {
             code_lifetime,
             session_lifetime,
             connections,
-            keys,
+            signing_keys,
             clients,
             resource_servers,
             client_secret_files,
@@ -222,7 +233,7 @@ struct Serving {
     code_lifetime: String,
     session_lifetime: String,
     connections: Vec<PathBuf>,
-    keys: Vec<PathBuf>,
+    signing_keys: Vec<(String, PathBuf)>,
     clients: Vec<PathBuf>,
     resource_servers: Vec<PathBuf>,
     client_secret_files: Vec<(String, PathBuf)>,
@@ -254,13 +265,13 @@ fn serve(given: &Serving) -> Result<(), Refused> {
         .map(|path| Ok((path.clone(), read_resource_server_seed(path)?)))
         .collect::<Result<Vec<(PathBuf, ResourceServerSeed)>, SeedRefused>>()
         .map_err(Refused::Seed)?;
-    // The path is carried beside the key, because a repeated `kid` is a refusal about two
-    // **files** and `Jwks::new` knows neither of them.
-    let published = key_set(
+    // Each key file is read now, as every document is: a file that is not one private key
+    // this deployment signs with, and a name given twice, are refused before the socket.
+    let mounted = MountedKeys::new(
         serving
-            .keys
+            .signing_keys
             .iter()
-            .map(|path| Ok((path.clone(), read_key(path)?)))
+            .map(|(name, path)| read_signing_key(name, path))
             .collect::<Result<Vec<_>, SeedRefused>>()
             .map_err(Refused::Seed)?,
     )
@@ -270,7 +281,6 @@ fn serve(given: &Serving) -> Result<(), Refused> {
         issuer: serving.issuer.clone(),
         code_lifetime: CodeLifetime::new(Duration::new(&serving.code_lifetime)),
         session_lifetime: Duration::new(&serving.session_lifetime),
-        keys: published,
     }
     .checked()
     .map_err(Refused::Configuration)?;
@@ -325,6 +335,7 @@ fn serve(given: &Serving) -> Result<(), Refused> {
         seeded_clients.push((path, seed.name.as_deref(), admitted));
     }
     client_seeding.settled().map_err(Refused::Seed)?;
+    let client_key = client_seeding.into_key();
     let mut target_seeding = TargetSeeding::new();
     let mut seeded_targets = Vec::with_capacity(target_seeds.len());
     for (path, seed) in &target_seeds {
@@ -371,6 +382,9 @@ fn serve(given: &Serving) -> Result<(), Refused> {
     .map_err(Refused::Configuration)?;
     if relies {
         deployment = deployment.with_relying_party(relying_party);
+    }
+    if let Some(key) = client_key {
+        deployment = deployment.with_client_verifier_key(key);
     }
     for (path, _, connection) in seeded {
         for event in &connection.events {
@@ -432,6 +446,32 @@ fn serve(given: &Serving) -> Result<(), Refused> {
         );
     }
 
+    // The signing keys, registered through `mandate.credential.RegisterSigningKey` in the
+    // order given, with the signer following the records after each. The identity printed
+    // is the `kid` the key signs and is published under.
+    let signing_allowed = SigningAlgorithms::new(&[
+        SigningAlgorithm::new("ES256"),
+        SigningAlgorithm::new("RS256"),
+    ])
+    .map_err(|error| Refused::Start(Box::new(error)))?;
+    let signer = RecordedSigner::new(
+        signing_allowed.clone(),
+        SigningClock,
+        SIGNED_TTL_SECONDS,
+        SIGNING_OVERLAP_SECONDS,
+    )
+    .map_err(|error| Refused::Start(Box::new(error)))?;
+    let registered = deployment
+        .mount_signing_keys(
+            &SigningKeyAdministration::new(signing_allowed),
+            signer,
+            mounted,
+        )
+        .map_err(Refused::Seed)?;
+    for (name, id) in registered {
+        println!("mandate-control-plane: registered signing key {id} from `{name}`");
+    }
+
     let listener = Listener::bind(serving.listen, Limits::default())
         .map_err(|error| Refused::Start(Box::new(error)))?;
     // The address the socket **has**, which is not always the one `--listen` named: port 0
@@ -454,8 +494,8 @@ fn serve(given: &Serving) -> Result<(), Refused> {
     Ok(())
 }
 
-/// A `--client-secret-file` value: `NAME=PATH`, both halves present.
-fn secret_file(value: &str) -> Result<(String, PathBuf), String> {
+/// A `--signing-key` or `--client-secret-file` value: `NAME=PATH`, both halves present.
+fn named_path(value: &str) -> Result<(String, PathBuf), String> {
     match value.split_once('=') {
         Some((name, path)) if !name.is_empty() && !path.is_empty() => {
             Ok((name.to_owned(), PathBuf::from(path)))
@@ -519,11 +559,15 @@ impl FederationVerifier for RecordingVerifier {
 
 /// The `--config-dir` subdirectories that hold `*.json` documents, and the flag each stands
 /// for. A directory of documents is the flags written as a layout, so each name is the flag's.
-const DOCUMENT_DIRECTORIES: [&str; 4] = ["connections", "keys", "clients", "resource-servers"];
+const DOCUMENT_DIRECTORIES: [&str; 3] = ["connections", "clients", "resource-servers"];
 
 /// The directory of client secrets: each file is one, and its name is the `NAME` of
 /// `--client-secret-file NAME=PATH`.
 const SECRET_DIRECTORY: &str = "client-secrets";
+
+/// The directory of signing keys: each file is one PEM private key, and its name is the
+/// `NAME` of `--signing-key NAME=PATH`.
+const SIGNING_KEY_DIRECTORY: &str = "signing-keys";
 
 /// What the flags named, followed by what every `--config-dir` holds.
 fn with_config_dirs(given: &Serving) -> Result<Serving, Refused> {
@@ -533,7 +577,7 @@ fn with_config_dirs(given: &Serving) -> Result<Serving, Refused> {
         code_lifetime: given.code_lifetime.clone(),
         session_lifetime: given.session_lifetime.clone(),
         connections: given.connections.clone(),
-        keys: given.keys.clone(),
+        signing_keys: given.signing_keys.clone(),
         clients: given.clients.clone(),
         resource_servers: given.resource_servers.clone(),
         client_secret_files: given.client_secret_files.clone(),
@@ -542,24 +586,30 @@ fn with_config_dirs(given: &Serving) -> Result<Serving, Refused> {
     for directory in &given.config_dirs {
         let top = entries(directory)?;
         for (name, path) in &top {
-            let known = DOCUMENT_DIRECTORIES.contains(&name.as_str()) || name == SECRET_DIRECTORY;
+            let known = DOCUMENT_DIRECTORIES.contains(&name.as_str())
+                || name == SECRET_DIRECTORY
+                || name == SIGNING_KEY_DIRECTORY;
             if !known || !path.is_dir() {
                 return Err(unknown(path, "is not one of the document directories"));
             }
         }
         for (name, path) in top {
-            if name == SECRET_DIRECTORY {
-                for (secret, file) in entries(&path)? {
+            if name == SECRET_DIRECTORY || name == SIGNING_KEY_DIRECTORY {
+                let named = if name == SECRET_DIRECTORY {
+                    &mut serving.client_secret_files
+                } else {
+                    &mut serving.signing_keys
+                };
+                for (entry, file) in entries(&path)? {
                     if !file.is_file() {
                         return Err(unknown(&file, "is not a file"));
                     }
-                    serving.client_secret_files.push((secret, file));
+                    named.push((entry, file));
                 }
                 continue;
             }
             let target = match name.as_str() {
                 "connections" => &mut serving.connections,
-                "keys" => &mut serving.keys,
                 "clients" => &mut serving.clients,
                 _ => &mut serving.resource_servers,
             };

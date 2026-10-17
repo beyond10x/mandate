@@ -320,6 +320,10 @@ fn a_client_reader_that_cannot_answer_enabled_is_reported_as_a_disabled_client()
         fn redirect_registered(&self, _: &OAuthClientId, _: &RedirectUri) -> Option<bool> {
             Some(true)
         }
+
+        fn secret_authenticates(&self, _: &OAuthClientId, _: &CredentialProof) -> Option<bool> {
+            None
+        }
     }
 
     let denied = admitted_client(&client(), &organization(10), &CannotAnswerEnabled, true)

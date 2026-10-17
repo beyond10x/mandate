@@ -560,6 +560,9 @@ fn a_redemption_whose_narrowed_expiry_would_fall_before_the_year_zero_is_refused
             epochs: Some(snapshot()),
             expires_at: Timestamp::new("0000-01-01T12:00:00Z"),
             revoked: false,
+            connection: None,
+            authenticated_at: None,
+            external_principal_id: None,
         })
         .current(snapshot());
 
@@ -599,6 +602,7 @@ fn a_redemption_whose_narrowed_expiry_would_fall_before_the_year_zero_is_refused
             code: CredentialProof::from_bytes(code.code.expose_material().to_vec()),
             pkce_verifier: CredentialProof::from_bytes(VERIFIER.as_bytes().to_vec()),
             redirect_uri: RedirectUri::new(REDIRECT),
+            client_secret: None,
         },
         &early,
         &codes,

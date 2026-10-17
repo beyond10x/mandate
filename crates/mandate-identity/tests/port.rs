@@ -56,6 +56,8 @@ fn opened() -> SessionOpened {
         connection_id: None,
         epochs: EpochSnapshotRef::new(uuid(10)),
         expires_at: Timestamp::new("2026-09-18T00:00:00Z"),
+        authenticated_at: None,
+        external_principal_id: None,
     }
 }
 
@@ -400,6 +402,8 @@ fn the_log_refuses_an_opening_whose_expiry_is_not_the_declared_date_time() {
         let held = log.clone();
         let opening = SessionOpened {
             expires_at: Timestamp::new(malformed),
+            authenticated_at: None,
+            external_principal_id: None,
             ..opened()
         };
 

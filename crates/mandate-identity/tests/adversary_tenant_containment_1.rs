@@ -128,6 +128,8 @@ fn a_placement_committing_between_the_tenancy_read_and_the_compare_and_set_is_no
             connection_id: None,
             epochs: snapshot_ref(),
             expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+            authenticated_at: None,
+            external_principal_id: None,
         }),
     ];
     let mut port = Interleaved { log, landing };

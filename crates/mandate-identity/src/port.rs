@@ -15,7 +15,7 @@
 use mandate_contract::events::{
     MandateFederationExternalPrincipalProvisioned, MandateFederationFederationAuthenticated,
 };
-use mandate_contract::types::{MandateCoreExternalLinkMethod, MandateCorePrincipalKind};
+use mandate_contract::types::{MandateCoreExternalLinkMethod, MandateCorePrincipalKind, Presence};
 use mandate_types::{
     DenialReason, EpochSnapshotRef, ExternalPrincipalId, FederationConnectionId, OrganizationId,
     PrincipalId, PrincipalKind, SecurityEpochTarget, SessionId, Timestamp, VerifiedContext,
@@ -445,6 +445,22 @@ fn session_of(login: &MandateFederationFederationAuthenticated) -> Option<Sessio
     if !crate::session::names_an_instant(&expires_at) {
         return None;
     }
+    // The two login fields are optional; a value that is present is decided like every
+    // other declared field, so a payload carrying a malformed one is refused.
+    let authenticated_at = match &login.authenticated_at {
+        Presence::Absent => None,
+        Presence::Present(at) => {
+            let at = Timestamp::new(at.clone());
+            if !crate::session::names_an_instant(&at) {
+                return None;
+            }
+            Some(at)
+        }
+    };
+    let external_principal_id = match &login.external_principal_id {
+        Presence::Absent => None,
+        Presence::Present(id) => Some(ExternalPrincipalId::parse(&id.0).ok()?),
+    };
     Some(
         Session::new(
             declared_session_id(login)?,
@@ -453,7 +469,8 @@ fn session_of(login: &MandateFederationFederationAuthenticated) -> Option<Sessio
             EpochSnapshotRef::parse(&login.epochs.0).ok()?,
             expires_at,
         )
-        .with_connection(FederationConnectionId::parse(&login.connection_id.0).ok()?),
+        .with_connection(FederationConnectionId::parse(&login.connection_id.0).ok()?)
+        .with_login(authenticated_at, external_principal_id),
     )
 }
 

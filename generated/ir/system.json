@@ -5628,6 +5628,28 @@
             "name": "timestamp"
           },
           "naming": {}
+        },
+        {
+          "name": "authenticated_at",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "primitive",
+              "name": "timestamp"
+            }
+          },
+          "naming": {}
+        },
+        {
+          "name": "external_principal_id",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.ExternalPrincipalId"
+            }
+          },
+          "naming": {}
         }
       ],
       "state_type": "mandate.identity.Session.State",
@@ -5679,6 +5701,13 @@
           "target": "mandate.identity.SecurityEpochSnapshot",
           "cardinality": "one",
           "via": "epochs"
+        },
+        {
+          "name": "external_principal_id_record",
+          "kind": "references",
+          "target": "mandate.federation.ExternalPrincipal",
+          "cardinality": "one",
+          "via": "external_principal_id"
         }
       ],
       "naming": {}
@@ -7555,7 +7584,7 @@
               ]
             }
           ],
-          "summary": "STS stores only a non-reversible verifier bound to the validated client, session, exact redirect, S256 challenge, registered target, narrowed scope and bounded expiry. Only the transient code is returned to the public-client adapter."
+          "summary": "STS stores only a non-reversible verifier bound to the validated client, session, exact redirect, S256 challenge, registered target, narrowed scope, bounded expiry and the OpenID Connect scopes the authorization granted. The authorization request's nonce is held in memory beside the code for the code's lifetime and is no field of the record or the event (RedeemAuthorizationCode). Only the transient code is returned to the public-client adapter."
         },
         {
           "name": "denied",
@@ -8410,7 +8439,7 @@
               ]
             }
           ],
-          "summary": "A code whose authorization granted openid redeems exactly as the accepted outcome below does, and in the same transaction the STS signs one identity token and records mandate.credential.IdentityTokenIssued. The token's issuer is the deployment's, its audience the client, its subject the session's principal (fork F1), its nonce the authorization request's and its lifetime the deployment's identity-token lifetime; it is signed under a signing key admitted for issuance now, and the event names that key. The event carries the token's identifier, the code, the client, the principal, the session, the signing key and the two instants, and no claim value — no email, name, groups or nonce enters this log (fork F13). A transaction that cannot sign issues neither the token nor the access credential and consumes nothing."
+          "summary": "A code whose authorization granted openid redeems exactly as the accepted outcome below does, and in the same transaction the STS signs one identity token and records mandate.credential.IdentityTokenIssued. The token's issuer is the deployment's, its audience the client, its subject the session's principal (fork F1), its nonce the authorization request's, its auth_time the instant the session's login authenticated and its lifetime the deployment's identity-token lifetime; it is signed under a signing key admitted for issuance now, and the event names that key. The event carries the token's identifier, the code, the client, the principal, the session, the signing key and the two instants, and no claim value — no email, name, groups or nonce enters this log (fork F13). The nonce is held in memory beside the code for the code's lifetime, as the pending sign-in is, and no record or event of this contract carries it; a code outstanding when the STS restarts has no held authorization request and is refused at redemption, and the application starts the sign-in again. A transaction that cannot sign issues neither the token nor the access credential and consumes nothing."
         },
         {
           "name": "accepted",
@@ -8580,7 +8609,7 @@
           "name": "denied",
           "condition": {
             "kind": "external",
-            "cause": "Code proof does not match the server-resolved code_id; code is expired; client, redirect URI or S256 verifier mismatches; the bound client is disabled; a confidential client presents no secret or one matching none of its recorded verifiers; a public client presents a secret; source/session epoch is stale; registered target is disabled or outside the verified tenant; no signing key is admitted for issuance when an identity token is due; or narrowing/atomic issuance validation fails."
+            "cause": "Code proof does not match the server-resolved code_id; code is expired; client, redirect URI or S256 verifier mismatches; the bound client is disabled; a confidential client presents no secret or one matching none of its recorded verifiers; a public client presents a secret; source/session epoch is stale; registered target is disabled or outside the verified tenant; no signing key is admitted for issuance when an identity token is due; a code that granted openid has no authorization request held beside it since a restart; or narrowing/atomic issuance validation fails."
           },
           "test_strategy": "inject_fault",
           "emits": [],
@@ -11548,11 +11577,37 @@
                       "name": "timestamp"
                     }
                   }
+                },
+                {
+                  "target": "authenticated_at",
+                  "target_type": {
+                    "kind": "optional",
+                    "of": {
+                      "kind": "primitive",
+                      "name": "timestamp"
+                    }
+                  },
+                  "value": {
+                    "kind": "generated"
+                  }
+                },
+                {
+                  "target": "external_principal_id",
+                  "target_type": {
+                    "kind": "optional",
+                    "of": {
+                      "kind": "declared",
+                      "name": "mandate.core.ExternalPrincipalId"
+                    }
+                  },
+                  "value": {
+                    "kind": "generated"
+                  }
                 }
               ]
             }
           ],
-          "summary": "A validated federated login mints the session, which is step 9 of the resolution order in docs/architecture/federated-login.md. FederationAuthenticated carries the whole mandate.identity.Session record — the new session identity, the principal, the resolved organization, the connection, the epoch snapshot the session is bound to and its expiry — so the identity fold materializes the session from this event alone and reads no command input or response. The audience and the correlation are carried beside the record. The principal, the organization, the epoch snapshot handle and the expiry are the ones this command resolved and returned, so the fold reads each from the response rather than from a value the implementation invented; the snapshot's own contents are recorded by the adapter through EpochSnapshotRecorded. ExternalProfileObserved records the profile of this login for later issuance (fork F13): the external principal the login resolved through its link, and the email, its verified flag, the name and the groups, each read from the validated proof and never from a caller input. An email the upstream does not mark verified is recorded with email_verified false, never true. The groups are those the connection's group filter admits: a group outside the allowlist never appears in the event, and a connection without a filter records an empty list."
+          "summary": "A validated federated login mints the session, which is step 9 of the resolution order in docs/architecture/federated-login.md. FederationAuthenticated carries the whole mandate.identity.Session record — the new session identity, the principal, the resolved organization, the connection, the epoch snapshot the session is bound to, its expiry, the instant the login authenticated and the external principal it resolved through its link — so the identity fold materializes the session from this event alone and reads no command input or response. The audience and the correlation are carried beside the record. The principal, the organization, the epoch snapshot handle and the expiry are the ones this command resolved and returned, so the fold reads each from the response rather than from a value the implementation invented; the snapshot's own contents are recorded by the adapter through EpochSnapshotRecorded. ExternalProfileObserved records the profile of this login for later issuance (fork F13): the external principal the login resolved through its link, and the email, its verified flag, the name and the groups, each read from the validated proof and never from a caller input. An email the upstream does not mark verified is recorded with email_verified false, never true. The groups are those the connection's group filter admits: a group outside the allowlist never appears in the event, and a connection without a filter records an empty list."
         },
         {
           "name": "denied",
@@ -19087,6 +19142,28 @@
             "name": "timestamp"
           },
           "naming": {}
+        },
+        {
+          "name": "authenticated_at",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "primitive",
+              "name": "timestamp"
+            }
+          },
+          "naming": {}
+        },
+        {
+          "name": "external_principal_id",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.ExternalPrincipalId"
+            }
+          },
+          "naming": {}
         }
       ],
       "naming": {}
@@ -19928,6 +20005,28 @@
           "type_ref": {
             "kind": "primitive",
             "name": "timestamp"
+          },
+          "naming": {}
+        },
+        {
+          "name": "authenticated_at",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "primitive",
+              "name": "timestamp"
+            }
+          },
+          "naming": {}
+        },
+        {
+          "name": "external_principal_id",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.core.ExternalPrincipalId"
+            }
           },
           "naming": {}
         }

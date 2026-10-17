@@ -185,6 +185,8 @@ fn opened_session(expires_at: &str) -> IdentityLog {
         connection_id: None,
         epochs: mandate_types::EpochSnapshotRef::new(uuid(0x3e)),
         expires_at: Timestamp::new(expires_at),
+        authenticated_at: None,
+        external_principal_id: None,
     }))
     .expect("an opening over a recorded snapshot is recorded");
     log
@@ -564,7 +566,6 @@ fn configuration(issuer: &str, code_lifetime: &str, session_lifetime: &str) -> C
         issuer: issuer.to_owned(),
         code_lifetime: CodeLifetime::new(Duration::new(code_lifetime)),
         session_lifetime: Duration::new(session_lifetime),
-        keys: Vec::new(),
     }
 }
 

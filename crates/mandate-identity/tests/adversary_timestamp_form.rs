@@ -87,6 +87,8 @@ fn world(expires_at: &str, as_of: &str) -> IdentityLog {
         connection_id: None,
         epochs: handle(),
         expires_at: Timestamp::new(expires_at),
+        authenticated_at: None,
+        external_principal_id: None,
     }));
     log
 }

@@ -22,7 +22,7 @@ use mandate_contract::types::{
     MandateCoreAudience, MandateCoreCorrelationId, MandateCoreEpochSnapshotRef,
     MandateCoreExternalLinkMethod, MandateCoreExternalPrincipalId, MandateCoreExternalSubject,
     MandateCoreFederationConnectionId, MandateCoreOrganizationId, MandateCorePrincipalId,
-    MandateCorePrincipalKind, MandateCoreSessionId,
+    MandateCorePrincipalKind, MandateCoreSessionId, Presence,
 };
 use mandate_identity::{
     EpochSnapshotRecorded, Generation, IdentityEvent, IdentityLog, IdentityRead,
@@ -98,6 +98,8 @@ fn login() -> MandateFederationFederationAuthenticated {
         organization_id: MandateCoreOrganizationId(declared(2)),
         epochs: MandateCoreEpochSnapshotRef(declared(10)),
         expires_at: EXPIRES_AT.to_owned(),
+        authenticated_at: Presence::Absent,
+        external_principal_id: Presence::Absent,
     }
 }
 
@@ -237,6 +239,8 @@ fn a_second_open_of_a_session_the_log_already_records_is_refused() {
         connection_id: None,
         epochs: handle(),
         expires_at: Timestamp::new(EXPIRES_AT),
+        authenticated_at: None,
+        external_principal_id: None,
     };
 
     // Both logs state the generations the snapshot's dimensions hold and then record the

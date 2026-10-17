@@ -168,6 +168,8 @@ fn sessions() -> IdentityLog {
         connection_id: None,
         epochs: handle,
         expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+        authenticated_at: None,
+        external_principal_id: None,
     }));
     log
 }
@@ -832,6 +834,8 @@ fn a_session_whose_epoch_snapshot_does_not_resolve_is_refused() {
             connection_id: None,
             epochs: unrecorded,
             expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+            authenticated_at: None,
+            external_principal_id: None,
         }
         .session(),
     );
@@ -865,6 +869,8 @@ fn a_session_whose_epoch_snapshot_does_not_resolve_is_refused() {
         connection_id: None,
         epochs: unrecorded,
         expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+        authenticated_at: None,
+        external_principal_id: None,
     }));
 
     let unresolved = validate_authorization_code(

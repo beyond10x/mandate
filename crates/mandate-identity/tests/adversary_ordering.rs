@@ -47,6 +47,8 @@ fn opened() -> SessionOpened {
         connection_id: None,
         epochs: EpochSnapshotRef::new(uuid(10)),
         expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+        authenticated_at: None,
+        external_principal_id: None,
     }
 }
 

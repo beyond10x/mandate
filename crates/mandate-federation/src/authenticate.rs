@@ -152,6 +152,8 @@ pub fn authenticate_federation(
             organization_id: resolved.organization_id,
             epochs: issued.epochs,
             expires_at: issued.expires_at,
+            authenticated_at: Some(request.at.clone()),
+            external_principal_id: Some(link.id),
         },
     })
 }

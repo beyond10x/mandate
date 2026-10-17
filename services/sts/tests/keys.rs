@@ -15,20 +15,31 @@
 //! - that one piece of key material is never recorded under two identities, which is what
 //!   makes a revocation record mean something after a restart.
 
+use std::cell::Cell;
+use std::rc::Rc;
+
+use aws_lc_rs::rand::SystemRandom;
+use aws_lc_rs::signature::{
+    ECDSA_P256_SHA256_FIXED, ECDSA_P256_SHA256_FIXED_SIGNING, EcdsaKeyPair, UnparsedPublicKey,
+};
 use mandate_sts::keys::{
-    KeyMaterialResolver, RegisterSigningKey, RetireSigningKey, RevokeSigningKey,
-    SigningKeyAdministration, admitted_for_verification, retire_signing_key, revoke_signing_key,
-    signing_admitted,
+    KeyMaterialResolver, KeyProvider, RecordedSigner, RegisterSigningKey, RetireSigningKey,
+    RevokeSigningKey, SigningKeyAdministration, admitted_for_verification, issuing_key,
+    retire_signing_key, revoke_signing_key, signing_admitted,
 };
 use mandate_sts::{IdentityAllocator, RequestContext, SequentialAllocator};
 use mandate_token::projection::{
     CredentialEvent, DenialClause, Projection, RefusedOutcome, SigningKeyState,
 };
-use mandate_token::signing_real::AllowedAlgorithms;
-use mandate_types::{
-    Audience, CorrelationId, CredentialId, DenialReason, KeyReference, OrganizationId, PrincipalId,
-    SigningAlgorithm, SigningKeyId, SigningKeyWindow, Timestamp, Uuid, VerifiedContext,
+use mandate_token::signing_real::{
+    AllowedAlgorithms, Clock, CredentialSigner, SigningError, SigningKeyMaterial, StandardClaims,
 };
+use mandate_types::{
+    Audience, CorrelationId, CredentialId, DenialReason, Issuer, KeyReference, OrganizationId,
+    PrincipalId, SigningAlgorithm, SigningKeyId, SigningKeyWindow, Timestamp, Uuid,
+    VerifiedContext,
+};
+use serde_json::Value;
 
 fn uuid(tag: u8) -> Uuid {
     Uuid::from_bytes([tag; 16])
@@ -701,4 +712,394 @@ fn a_key_that_holds_no_index_is_admitted_for_neither() {
     )
     .expect_err("a key that holds no index is not a published replacement");
     assert_eq!(denied.clause, DenialClause::NoReplacementKey);
+}
+
+// --- The signer the records drive: rotation and revocation over a published key set.
+//
+// `oidc-signed-tokens-and-key-rotation.md`, keys and JWKS half. Every key here is generated
+// at test time; no private key byte is written down, and none leaves this process.
+
+/// `2026-09-19T00:00:00Z`, the instant every key below opens at.
+const OPENS: i64 = 1_789_776_000;
+const TTL: u64 = 600;
+const OVERLAP: u64 = 900;
+
+/// A clock a case advances.
+#[derive(Clone)]
+struct Advancing(Rc<Cell<u64>>);
+
+impl Clock for Advancing {
+    fn now_unix(&self) -> u64 {
+        self.0.get()
+    }
+}
+
+fn es256() -> SigningAlgorithm {
+    SigningAlgorithm::new("ES256")
+}
+
+/// Mounted material, by reference: PKCS#8 generated now.
+struct Mounted(Vec<(KeyReference, Vec<u8>)>);
+
+impl Mounted {
+    fn with(references: &[&str]) -> Self {
+        Self(
+            references
+                .iter()
+                .map(|reference| {
+                    let der = EcdsaKeyPair::generate_pkcs8(
+                        &ECDSA_P256_SHA256_FIXED_SIGNING,
+                        &SystemRandom::new(),
+                    )
+                    .expect("P-256 generation");
+                    (KeyReference::new(*reference), der.as_ref().to_vec())
+                })
+                .collect(),
+        )
+    }
+}
+
+impl KeyProvider for Mounted {
+    fn load(
+        &self,
+        reference: &KeyReference,
+        kid: &str,
+        algorithm: &SigningAlgorithm,
+    ) -> Option<SigningKeyMaterial> {
+        let (_, der) = self.0.iter().find(|(held, _)| held == reference)?;
+        SigningKeyMaterial::from_der(kid, algorithm, der).ok()
+    }
+}
+
+impl KeyMaterialResolver for Mounted {
+    fn thumbprint(&self, reference: &KeyReference) -> Option<String> {
+        self.load(reference, "thumbprint", &es256())
+            .map(|material| material.thumbprint())
+    }
+}
+
+fn register(
+    reference: &str,
+    held: &mut Vec<CredentialEvent>,
+    mounted: &Mounted,
+    allocator: &mut SequentialAllocator,
+) -> SigningKeyId {
+    let projection = Projection::fold(held).expect("a foldable history");
+    let outcome = SigningKeyAdministration::new(
+        AllowedAlgorithms::new(&[es256()]).expect("an admitted allowlist"),
+    )
+    .register(
+        &RegisterSigningKey {
+            context: context(),
+            key_reference: KeyReference::new(reference),
+            algorithm: es256(),
+            window: SigningKeyWindow {
+                not_before: Timestamp::new("2026-09-19T00:00:00Z"),
+                expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+            },
+        },
+        &projection,
+        mounted,
+        allocator,
+    )
+    .expect("a resolvable, unrecorded key");
+    held.push(outcome.event);
+    outcome.id
+}
+
+fn signer(clock: &Advancing) -> RecordedSigner<Advancing> {
+    RecordedSigner::new(
+        AllowedAlgorithms::new(&[es256()]).expect("an admitted allowlist"),
+        clock.clone(),
+        TTL,
+        OVERLAP,
+    )
+    .expect("an overlap no shorter than the TTL")
+}
+
+fn sign(signer: &RecordedSigner<Advancing>, token_id: &str) -> (String, String) {
+    let signed = signer
+        .signer()
+        .expect("a signer holding a key")
+        .sign(
+            &serde_json::json!({"scope": "document.read"}),
+            &StandardClaims {
+                issuer: Issuer::new("https://mandate.example"),
+                subject: PrincipalId::new(uuid(0x51)),
+                audience: Audience::new("api-a"),
+                token_id: token_id.to_owned(),
+            },
+        )
+        .expect("a token");
+    (signed.token, signed.kid)
+}
+
+fn decode(text: &str) -> Vec<u8> {
+    const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    let mut bits = 0u32;
+    let mut held = 0u32;
+    let mut out = Vec::new();
+    for byte in text.bytes() {
+        let value = ALPHABET
+            .iter()
+            .position(|candidate| *candidate == byte)
+            .expect("base64url");
+        bits = (bits << 6) | u32::try_from(value).expect("six bits");
+        held += 6;
+        if held >= 8 {
+            held -= 8;
+            out.push(u8::try_from((bits >> held) & 0xff).expect("one byte"));
+        }
+    }
+    out
+}
+
+fn member<'a>(key: &'a Value, name: &str) -> &'a str {
+    key[name].as_str().unwrap_or_default()
+}
+
+/// Whether `token` verifies under a key of `published`, found by its header's `kid`.
+fn verifies(token: &str, published: &[Value]) -> bool {
+    let mut parts = token.split('.');
+    let (Some(header), Some(claims), Some(signature)) = (parts.next(), parts.next(), parts.next())
+    else {
+        return false;
+    };
+    let header: Value = serde_json::from_slice(&decode(header)).expect("a JSON header");
+    let Some(key) = published.iter().find(|key| key["kid"] == header["kid"]) else {
+        return false;
+    };
+    let mut point = vec![0x04];
+    point.extend(decode(member(key, "x")));
+    point.extend(decode(member(key, "y")));
+    UnparsedPublicKey::new(&ECDSA_P256_SHA256_FIXED, point)
+        .verify(
+            format!(
+                "{header}.{claims}",
+                header = token.split('.').next().unwrap_or_default()
+            )
+            .as_bytes(),
+            &decode(signature),
+        )
+        .is_ok()
+}
+
+fn kids(published: &[Value]) -> Vec<String> {
+    published
+        .iter()
+        .map(|key| member(key, "kid").to_owned())
+        .collect()
+}
+
+#[test]
+fn rotation_keeps_old_tokens_valid() {
+    let clock = Advancing(Rc::new(Cell::new(
+        u64::try_from(OPENS).expect("positive") + 60,
+    )));
+    let mounted = Mounted::with(&["secret/signing/first", "secret/signing/second"]);
+    let mut allocator = SequentialAllocator::new();
+    let mut history = Vec::new();
+    let mut signer = signer(&clock);
+
+    let first = register(
+        "secret/signing/first",
+        &mut history,
+        &mounted,
+        &mut allocator,
+    );
+    let now = || i64::try_from(clock.0.get()).expect("an instant");
+    let folded = |history: &[CredentialEvent]| Projection::fold(history).expect("folds");
+    signer
+        .sync(&folded(&history), &mounted, now())
+        .expect("the first key installs");
+    let (old_token, old_kid) = sign(&signer, "before-rotation");
+    assert_eq!(
+        old_kid,
+        first.to_string(),
+        "the kid is the record's identity"
+    );
+
+    // The next key is mounted and registered: it opens with the first, and is newer by
+    // registration, so issuance moves to it.
+    clock.0.set(clock.0.get() + 60);
+    let second = register(
+        "secret/signing/second",
+        &mut history,
+        &mounted,
+        &mut allocator,
+    );
+    assert_eq!(
+        issuing_key(&folded(&history), now()).map(|key| key.id),
+        Some(second)
+    );
+    signer
+        .sync(&folded(&history), &mounted, now())
+        .expect("the rotation installs");
+
+    let (new_token, new_kid) = sign(&signer, "after-rotation");
+    assert_eq!(new_kid, second.to_string(), "new tokens carry the new kid");
+    let published = signer.published_keys(&folded(&history), now());
+    assert_eq!(
+        kids(&published),
+        vec![second.to_string(), first.to_string()],
+        "the key set lists both"
+    );
+    assert!(
+        verifies(&old_token, &published),
+        "a token signed by the previous key verifies"
+    );
+    assert!(verifies(&new_token, &published));
+
+    // Until the overlap ends, and not after.
+    clock.0.set(clock.0.get() + OVERLAP);
+    let published = signer.published_keys(&folded(&history), now());
+    assert!(verifies(&old_token, &published), "inside the overlap");
+    clock.0.set(clock.0.get() + 2);
+    let published = signer.published_keys(&folded(&history), now());
+    assert_eq!(kids(&published), vec![second.to_string()]);
+    assert!(!verifies(&old_token, &published), "the overlap has ended");
+}
+
+#[test]
+fn revocation_removes_key_at_once() {
+    let clock = Advancing(Rc::new(Cell::new(
+        u64::try_from(OPENS).expect("positive") + 60,
+    )));
+    let mounted = Mounted::with(&["secret/signing/first", "secret/signing/second"]);
+    let mut allocator = SequentialAllocator::new();
+    let mut history = Vec::new();
+    let mut signer = signer(&clock);
+    let now = || i64::try_from(clock.0.get()).expect("an instant");
+    let folded = |history: &[CredentialEvent]| Projection::fold(history).expect("folds");
+
+    let first = register(
+        "secret/signing/first",
+        &mut history,
+        &mounted,
+        &mut allocator,
+    );
+    signer
+        .sync(&folded(&history), &mounted, now())
+        .expect("the first key installs");
+    let second = register(
+        "secret/signing/second",
+        &mut history,
+        &mounted,
+        &mut allocator,
+    );
+    signer
+        .sync(&folded(&history), &mounted, now())
+        .expect("the rotation installs");
+    let (token, _) = sign(&signer, "under-the-second");
+    assert_eq!(
+        kids(&signer.published_keys(&folded(&history), now())),
+        vec![second.to_string(), first.to_string()]
+    );
+
+    // The emergency path: the active key is revoked. The very next read of the key set
+    // no longer carries it — no clock advance, no overlap.
+    let revoked = revoke_signing_key(
+        &RevokeSigningKey {
+            id: second,
+            context: context(),
+        },
+        &folded(&history),
+    )
+    .expect("a recorded key can be revoked");
+    history.push(revoked);
+    let published = signer.published_keys(&folded(&history), now());
+    assert_eq!(
+        kids(&published),
+        vec![first.to_string()],
+        "gone on the next read"
+    );
+    assert!(!verifies(&token, &published));
+
+    // And the signer follows: it signs under nothing the records do not admit.
+    signer
+        .sync(&folded(&history), &mounted, now())
+        .expect("the revocation applies");
+    let (after, kid) = sign(&signer, "after-revocation");
+    assert_eq!(
+        kid,
+        first.to_string(),
+        "issuance falls back to the key the records still admit"
+    );
+    let held = signer.signer().expect("a signer");
+    assert_eq!(
+        held.revoked()
+            .iter()
+            .map(|key| key.kid.clone())
+            .collect::<Vec<_>>(),
+        vec![second.to_string()],
+        "the revoked key is refused for good"
+    );
+    let published = signer.published_keys(&folded(&history), now());
+    assert_eq!(kids(&published), vec![first.to_string()]);
+    assert!(verifies(&after, &published));
+    assert!(!verifies(&token, &published));
+    assert!(signer.ready(&folded(&history), now()));
+}
+
+#[test]
+fn a_signer_built_after_a_restart_refuses_revoked_material() {
+    let clock = Advancing(Rc::new(Cell::new(
+        u64::try_from(OPENS).expect("positive") + 60,
+    )));
+    let mounted = Mounted::with(&["secret/signing/first", "secret/signing/second"]);
+    let mut allocator = SequentialAllocator::new();
+    let mut history = Vec::new();
+    let now = || i64::try_from(clock.0.get()).expect("an instant");
+    let first = register(
+        "secret/signing/first",
+        &mut history,
+        &mounted,
+        &mut allocator,
+    );
+    let second = register(
+        "secret/signing/second",
+        &mut history,
+        &mounted,
+        &mut allocator,
+    );
+    history.push(
+        revoke_signing_key(
+            &RevokeSigningKey {
+                id: first,
+                context: context(),
+            },
+            &Projection::fold(&history).expect("folds"),
+        )
+        .expect("revocable"),
+    );
+
+    // A fresh process over the same records: the signer is rehydrated with the
+    // revocation, so the revoked material is refused under any `kid`.
+    let mut restarted = signer(&clock);
+    let projection = Projection::fold(&history).expect("folds");
+    restarted
+        .sync(&projection, &mounted, now())
+        .expect("the surviving key installs");
+    let held = restarted.signer().expect("a signer");
+    assert_eq!(held.active_kid(), Some(second.to_string().as_str()));
+    assert_eq!(
+        held.revoked()
+            .iter()
+            .map(|key| key.kid.clone())
+            .collect::<Vec<_>>(),
+        vec![first.to_string()]
+    );
+    let mut probe = held.clone();
+    let again = mounted
+        .load(
+            &KeyReference::new("secret/signing/first"),
+            "a-new-name",
+            &es256(),
+        )
+        .expect("material");
+    assert!(matches!(
+        probe.rotate(again),
+        Err(SigningError::RevokedKey(_))
+    ));
+    assert!(restarted.ready(&projection, now()));
 }

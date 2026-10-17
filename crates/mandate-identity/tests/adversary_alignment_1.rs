@@ -8,7 +8,7 @@ use mandate_contract::events::MandateFederationFederationAuthenticated;
 use mandate_contract::types::{
     MandateCoreAudience, MandateCoreCorrelationId, MandateCoreEpochSnapshotRef,
     MandateCoreFederationConnectionId, MandateCoreOrganizationId, MandateCorePrincipalId,
-    MandateCoreSessionId,
+    MandateCoreSessionId, Presence,
 };
 use mandate_identity::{
     EpochSnapshotRecorded, Generation, IdentityEvent, IdentityLog, IdentityRead,
@@ -77,6 +77,8 @@ fn login() -> MandateFederationFederationAuthenticated {
         organization_id: MandateCoreOrganizationId(declared(2)),
         epochs: MandateCoreEpochSnapshotRef(declared(10)),
         expires_at: EXPIRES_AT.to_owned(),
+        authenticated_at: Presence::Absent,
+        external_principal_id: Presence::Absent,
     }
 }
 

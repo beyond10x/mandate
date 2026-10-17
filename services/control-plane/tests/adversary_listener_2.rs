@@ -139,7 +139,6 @@ fn deployment_with(
             issuer: ISSUER.to_owned(),
             code_lifetime: CodeLifetime::new(Duration::new(code_lifetime)),
             session_lifetime: Duration::new(session_lifetime),
-            keys: Vec::new(),
         },
         verifier(),
         clock,
@@ -684,7 +683,6 @@ fn a_code_lifetime_this_deployment_cannot_render_is_refused_at_startup() {
         issuer: ISSUER.to_owned(),
         code_lifetime: CodeLifetime::new(Duration::new(lifetime)),
         session_lifetime: Duration::new("PT8H"),
-        keys: Vec::new(),
     }
     .checked();
     assert_eq!(
@@ -699,7 +697,6 @@ fn a_code_lifetime_this_deployment_cannot_render_is_refused_at_startup() {
             issuer: ISSUER.to_owned(),
             code_lifetime: CodeLifetime::new(Duration::new("PT5M")),
             session_lifetime: Duration::new(lifetime),
-            keys: Vec::new(),
         }
         .checked()
         .err(),
@@ -717,7 +714,6 @@ fn the_configuration_reader_answers_each_named_value() {
         issuer: issuer.to_owned(),
         code_lifetime: CodeLifetime::new(Duration::new(code)),
         session_lifetime: Duration::new(session),
-        keys: Vec::new(),
     };
 
     // The issuer identifier, RFC 8414 section 2.

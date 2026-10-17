@@ -167,6 +167,8 @@ fn the_accepted_outcomes_are_the_shapes_the_contract_declares() {
         connection_id: None,
         epochs: handle,
         expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+        authenticated_at: None,
+        external_principal_id: None,
     }));
 
     let refreshed: SessionRefreshed =

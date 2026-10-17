@@ -28,8 +28,9 @@ use mandate_token::verifier::{CredentialDomain, presents, presents_in, verifier_
 use mandate_types::value::decode_base64;
 use mandate_types::{
     Audience, AuthorityScope, CorrelationId, CredentialId, CredentialKind, CredentialProof,
-    DenialReason, Duration, Issuer, OrganizationId, PrincipalId, ResourceServerId,
-    RevocationGuarantee, SigningAlgorithm, Timestamp, Transient, Uuid, VerifiedContext,
+    DenialReason, Duration, Issuer, KeyReference, OrganizationId, PrincipalId, ResourceServerId,
+    RevocationGuarantee, SigningAlgorithm, SigningKeyId, SigningKeyWindow, Timestamp, Transient,
+    Uuid, VerifiedContext,
 };
 use serde_json::Value;
 
@@ -122,7 +123,11 @@ fn registered_target(
     )
     .expect("a free audience in the caller's own organization");
     (
-        Projection::fold(std::slice::from_ref(&outcome.event)).expect("one creation"),
+        Projection::fold(&[
+            outcome.event.clone(),
+            signing_key_registered(organization_id),
+        ])
+        .expect("one registration and one signing key"),
         outcome.resource_server_id,
         outcome.event,
     )
@@ -130,6 +135,34 @@ fn registered_target(
 
 fn issuer() -> Issuer {
     Issuer::new("https://sts.example")
+}
+
+/// The recorded signing key every self-contained issuance here signs under.
+///
+/// A self-contained credential is issued only under a key the records admit for signing at
+/// the request's instant, and the signer names that key by its record's identity.
+fn signing_key_id() -> SigningKeyId {
+    SigningKeyId::new(uuid(0x6b))
+}
+
+/// The `kid` a signer writes for [`signing_key_id`].
+fn kid() -> String {
+    signing_key_id().to_string()
+}
+
+/// [`signing_key_id`]'s registration: `Recorded`, its window open at [`request`]'s instant.
+fn signing_key_registered(organization_id: OrganizationId) -> CredentialEvent {
+    CredentialEvent::SigningKeyRegistered {
+        context: context(organization_id),
+        id: signing_key_id(),
+        key_reference: KeyReference::new("kms://issue"),
+        thumbprint: "thumb-issue".to_owned(),
+        algorithm: SigningAlgorithm::new("ES256"),
+        window: SigningKeyWindow {
+            not_before: Timestamp::new("2026-09-01T00:00:00Z"),
+            expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+        },
+    }
 }
 
 #[test]
@@ -363,7 +396,7 @@ fn each_family_is_refused_against_the_other_familys_profile() {
     let (signed, signed_id) = target(organization(10), "api-b", self_contained_profile());
     let mut secrets = CountingSecrets::new();
     let mut allocator = SequentialAllocator::new();
-    let signer = StaticSigner::new("kid-one", 900);
+    let signer = StaticSigner::new(kid(), 900);
 
     let denied = issue_reference_credential(
         &IssueReferenceCredential {
@@ -405,7 +438,7 @@ fn each_family_is_refused_against_the_other_familys_profile() {
 fn a_self_contained_issuance_returns_the_signed_token_and_names_the_key_it_was_signed_under() {
     let (held, id) = target(organization(10), "api-b", self_contained_profile());
     let mut allocator = SequentialAllocator::new();
-    let signer = StaticSigner::new("kid-one", 900);
+    let signer = StaticSigner::new(kid(), 900);
 
     let outcome = issue_self_contained_credential(
         &IssueSelfContainedCredential {
@@ -424,7 +457,7 @@ fn a_self_contained_issuance_returns_the_signed_token_and_names_the_key_it_was_s
     )
     .expect("a registered, enabled target of the caller's organization");
 
-    assert_eq!(outcome.kid.as_deref(), Some("kid-one"));
+    assert_eq!(outcome.kid.as_deref(), Some(kid().as_str()));
     assert_eq!(outcome.descriptor.kind, CredentialKind::SelfContained);
     // The signer's TTL is 900 seconds and the request is served at midnight.
     assert_eq!(
@@ -433,7 +466,7 @@ fn a_self_contained_issuance_returns_the_signed_token_and_names_the_key_it_was_s
     );
     let token = String::from_utf8(outcome.credential.expose_material().to_vec())
         .expect("a compact JWS is text");
-    assert!(token.contains("kid-one"), "the token was signed: {token}");
+    assert!(token.contains(&kid()), "the token was signed: {token}");
 
     // The record resolves a presented token the same way it resolves a presented secret,
     // which is what makes an introspection of this family answerable at all.
@@ -478,7 +511,7 @@ fn a_signer_whose_ttl_exceeds_the_profiles_bound_is_refused() {
     };
 
     // `PT15M` is the profile's bound.
-    let inside = StaticSigner::new("kid-one", 900);
+    let inside = StaticSigner::new(kid(), 900);
     assert!(
         issue_self_contained_credential(
             &input,
@@ -494,7 +527,7 @@ fn a_signer_whose_ttl_exceeds_the_profiles_bound_is_refused() {
         .is_ok()
     );
 
-    let beyond = StaticSigner::new("kid-one", 901);
+    let beyond = StaticSigner::new(kid(), 901);
     let denied = issue_self_contained_credential(
         &input,
         &request(),
@@ -571,7 +604,7 @@ fn a_signed_self_contained_issuance_hands_out_the_identity_it_reserved() {
         .ok()
     }
     let (held, id) = target(organization(10), "api-b", self_contained_profile());
-    let signing = StaticSigner::new("kid-one", 900);
+    let signing = StaticSigner::new(kid(), 900);
     let mut allocator = SequentialAllocator::new();
 
     let refused = issued(&held, id, &RefusingSigner, &mut allocator);
@@ -758,12 +791,9 @@ fn segment(token: &str, index: usize) -> Value {
 fn the_real_signer_issues_a_self_contained_credential_whose_claims_are_the_declared_ones() {
     let (held, id) = target(organization(10), "api-b", self_contained_profile());
     let mut allocator = SequentialAllocator::new();
-    let material = SigningKeyMaterial::from_der(
-        "kid-es256",
-        &SigningAlgorithm::new("ES256"),
-        &ec_pkcs8_der(),
-    )
-    .expect("a P-256 key the deployment generated");
+    let material =
+        SigningKeyMaterial::from_der(kid(), &SigningAlgorithm::new("ES256"), &ec_pkcs8_der())
+            .expect("a P-256 key the deployment generated");
     let signer = RealSigner::new(
         AllowedAlgorithms::new(&[SigningAlgorithm::new("ES256")]).expect("an allowlist"),
         material,
@@ -802,9 +832,9 @@ fn the_real_signer_issues_a_self_contained_credential_whose_claims_are_the_decla
     // The header names the key the signer published it under, which is the `kid` the
     // outcome carries for the composition to bind to its `mandate.credential.SigningKey`.
     let header = segment(&token, 0);
-    assert_eq!(header["kid"], "kid-es256");
+    assert_eq!(header["kid"], kid());
     assert_eq!(header["alg"], "ES256");
-    assert_eq!(outcome.kid.as_deref(), Some("kid-es256"));
+    assert_eq!(outcome.kid.as_deref(), Some(kid().as_str()));
 
     // The seven claims the signer owns outright, each with the value this issuance decided.
     let claims = segment(&token, 1);

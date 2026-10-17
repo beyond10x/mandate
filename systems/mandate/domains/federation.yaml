@@ -285,6 +285,10 @@ commands:
               response: epochs
             expires_at:
               response: expires_at
+            authenticated_at:
+              generated: true
+            external_principal_id:
+              generated: true
           mandate.federation.ExternalProfileObserved:
             organization_id:
               response: organization_id
@@ -305,7 +309,7 @@ commands:
               generated: true
         creates: mandate.identity.Session
         instance: session_id
-        summary: "A validated federated login mints the session, which is step 9 of the resolution order in docs/architecture/federated-login.md. FederationAuthenticated carries the whole mandate.identity.Session record — the new session identity, the principal, the resolved organization, the connection, the epoch snapshot the session is bound to and its expiry — so the identity fold materializes the session from this event alone and reads no command input or response. The audience and the correlation are carried beside the record. The principal, the organization, the epoch snapshot handle and the expiry are the ones this command resolved and returned, so the fold reads each from the response rather than from a value the implementation invented; the snapshot's own contents are recorded by the adapter through EpochSnapshotRecorded. ExternalProfileObserved records the profile of this login for later issuance (fork F13): the external principal the login resolved through its link, and the email, its verified flag, the name and the groups, each read from the validated proof and never from a caller input. An email the upstream does not mark verified is recorded with email_verified false, never true. The groups are those the connection's group filter admits: a group outside the allowlist never appears in the event, and a connection without a filter records an empty list."
+        summary: "A validated federated login mints the session, which is step 9 of the resolution order in docs/architecture/federated-login.md. FederationAuthenticated carries the whole mandate.identity.Session record — the new session identity, the principal, the resolved organization, the connection, the epoch snapshot the session is bound to, its expiry, the instant the login authenticated and the external principal it resolved through its link — so the identity fold materializes the session from this event alone and reads no command input or response. The audience and the correlation are carried beside the record. The principal, the organization, the epoch snapshot handle and the expiry are the ones this command resolved and returned, so the fold reads each from the response rather than from a value the implementation invented; the snapshot's own contents are recorded by the adapter through EpochSnapshotRecorded. ExternalProfileObserved records the profile of this login for later issuance (fork F13): the external principal the login resolved through its link, and the email, its verified flag, the name and the groups, each read from the validated proof and never from a caller input. An email the upstream does not mark verified is recorded with email_verified false, never true. The groups are those the connection's group filter admits: a group outside the allowlist never appears in the event, and a connection without a filter records an empty list."
       - name: denied
         external: Connection is disabled/untrusted, proof signature/issuer/audience/expiry is invalid, tenant resolution has zero or multiple matches, principal linking is absent/conflicting, the groups the connection's filter admits number more than its cap, or any email-domain/unverified-input fallback would be required.
         error: mandate.federation.Denied
@@ -556,6 +560,10 @@ events:
         type: mandate.core.EpochSnapshotRef
       - name: expires_at
         type: Timestamp
+      - name: authenticated_at
+        type: Optional<Timestamp>
+      - name: external_principal_id
+        type: Optional<mandate.core.ExternalPrincipalId>
   - name: mandate.federation.ExternalPrincipalProvisioned
     fields:
       - name: organization_id

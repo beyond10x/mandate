@@ -112,6 +112,8 @@ fn world() -> IdentityLog {
         connection_id: None,
         epochs: in_a,
         expires_at: expires_at(),
+        authenticated_at: None,
+        external_principal_id: None,
     }));
     log.record(IdentityEvent::SessionOpened(SessionOpened {
         id: session_in_b(),
@@ -120,6 +122,8 @@ fn world() -> IdentityLog {
         connection_id: None,
         epochs: in_b,
         expires_at: expires_at(),
+        authenticated_at: None,
+        external_principal_id: None,
     }));
     log.record(IdentityEvent::SessionOpened(SessionOpened {
         id: federated_session(),
@@ -128,6 +132,8 @@ fn world() -> IdentityLog {
         connection_id: Some(connection()),
         epochs: federated,
         expires_at: expires_at(),
+        authenticated_at: None,
+        external_principal_id: None,
     }));
 
     log
@@ -279,6 +285,8 @@ fn a_session_whose_snapshot_is_bound_to_another_organization_is_refused() {
         connection_id: None,
         epochs: borrowed,
         expires_at: expires_at(),
+        authenticated_at: None,
+        external_principal_id: None,
     }));
 
     assert_eq!(
@@ -307,6 +315,8 @@ fn a_session_whose_snapshot_handle_resolves_to_nothing_is_refused() {
         connection_id: None,
         epochs: EpochSnapshotRef::new(uuid(98)),
         expires_at: expires_at(),
+        authenticated_at: None,
+        external_principal_id: None,
     };
     let held = log.clone();
     log.record(IdentityEvent::SessionOpened(dangling.clone()));
@@ -518,6 +528,8 @@ fn an_expiry_that_names_no_instant_denies_the_refresh_as_an_invalid_record() {
         connection_id: None,
         epochs: EpochSnapshotRef::new(uuid(10)),
         expires_at: Timestamp::new("the thirty-first of Octember"),
+        authenticated_at: None,
+        external_principal_id: None,
     }));
 
     assert_eq!(

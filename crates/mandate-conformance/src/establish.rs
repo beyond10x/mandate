@@ -89,6 +89,8 @@ fn session(live: &mut Live, request: &EntitySetupRequest, state: &str) -> Result
         connection_id: optional(request, "connection_id")?,
         epochs: field(request, "epochs")?,
         expires_at: field(request, "expires_at")?,
+        authenticated_at: optional(request, "authenticated_at")?,
+        external_principal_id: optional(request, "external_principal_id")?,
     };
     // The log refuses an opening whose snapshot is not recorded, and a snapshot whose
     // dimensions have no generation. Both are the adapter's to write and neither is a

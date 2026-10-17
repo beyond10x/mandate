@@ -73,11 +73,15 @@ fn the_metadata_declares_the_policy_this_deployment_actually_enforces() {
         document.code_challenge_methods_supported,
         vec!["S256".to_owned()]
     );
-    // The login road is the public-client road: `AuthorizeClient`, and a token endpoint
-    // that refuses `client_secret` as an undeclared parameter.
+    // A confidential client by either RFC 6749 section 2.3.1 presentation, a public client by
+    // none (`story:oidc-discovery-and-code-flow`).
     assert_eq!(
         document.token_endpoint_auth_methods_supported,
-        vec!["none".to_owned()]
+        vec![
+            "client_secret_basic".to_owned(),
+            "client_secret_post".to_owned(),
+            "none".to_owned()
+        ]
     );
 }
 
@@ -105,7 +109,7 @@ fn the_metadata_renders_the_nine_declared_members_and_no_more() {
             r#""jwks_uri":"https://mandate.example/oauth/jwks","#,
             r#""response_types_supported":["code"],"#,
             r#""token_endpoint":"https://mandate.example/oauth/token","#,
-            r#""token_endpoint_auth_methods_supported":["none"]}"#
+            r#""token_endpoint_auth_methods_supported":["client_secret_basic","client_secret_post","none"]}"#
         )
     );
 }
@@ -129,6 +133,150 @@ fn the_metadata_advertises_no_endpoint_this_deployment_does_not_serve() {
         routes::route_for_command("mandate.federation.AuthenticateFederation")
             .is_some_and(|route| route.path == "/v1/federation/login")
     );
+}
+
+/// `story:oidc-discovery-and-code-flow`, runtime acceptance one: the OpenID Connect
+/// Discovery 1.0 document. Every URL from the route table, the members the story lists, and
+/// the values it shares with the RFC 8414 document equal to that document's.
+#[test]
+fn openid_configuration_members() {
+    let document = metadata::openid_configuration(ISSUER);
+    let shared = metadata::authorization_server_metadata(ISSUER);
+
+    // `issuer` is byte-equal to the configured issuer.
+    assert_eq!(document.issuer(), ISSUER);
+    // Every URL is the issuer joined with the route table's own path.
+    let command = |name: &str| format!("{ISSUER}{}", routes::route_for_command(name).unwrap().path);
+    assert_eq!(
+        document.authorization_server.authorization_endpoint,
+        command("mandate.federation.AuthorizeClient")
+    );
+    assert_eq!(
+        document.authorization_server.token_endpoint,
+        command("mandate.credential.RedeemAuthorizationCode")
+    );
+    assert_eq!(
+        document.authorization_server.jwks_uri,
+        format!(
+            "{ISSUER}{}",
+            routes::route_for_document(Document::Jwks).unwrap().path
+        )
+    );
+    // The RFC 8414 document carries the same values: one builder answers both.
+    assert_eq!(document.authorization_server, shared);
+
+    assert_eq!(
+        document.authorization_server.response_types_supported,
+        vec!["code".to_owned()]
+    );
+    assert_eq!(document.subject_types_supported, vec!["public".to_owned()]);
+    assert!(
+        document
+            .id_token_signing_alg_values_supported
+            .iter()
+            .any(|alg| alg == "RS256"),
+        "OpenID Connect Core 15.1: RS256 is mandatory to implement"
+    );
+    assert_eq!(
+        document.scopes_supported,
+        ["openid", "email", "profile", "groups", "offline_access"]
+            .map(str::to_owned)
+            .to_vec()
+    );
+    for claim in [
+        "iss",
+        "sub",
+        "aud",
+        "exp",
+        "iat",
+        "auth_time",
+        "nonce",
+        "at_hash",
+        "azp",
+        "email",
+        "email_verified",
+        "name",
+        "groups",
+    ] {
+        assert!(
+            document.claims_supported.iter().any(|named| named == claim),
+            "{claim}"
+        );
+    }
+    assert_eq!(
+        document
+            .authorization_server
+            .code_challenge_methods_supported,
+        vec!["S256".to_owned()]
+    );
+    // What the token endpoint authenticates: the story's three methods, from the one builder.
+    assert_eq!(
+        document
+            .authorization_server
+            .token_endpoint_auth_methods_supported,
+        vec![
+            "client_secret_basic".to_owned(),
+            "client_secret_post".to_owned(),
+            "none".to_owned()
+        ]
+    );
+
+    // The rendering, member for member: the thirteen this deployment can state truthfully.
+    // Neither `userinfo_endpoint` nor `end_session_endpoint` is served, so neither is
+    // advertised (OpenID Connect Discovery 1.0 section 3 makes both optional).
+    let rendered = document.to_json();
+    assert_eq!(
+        rendered,
+        concat!(
+            r#"{"authorization_endpoint":"https://mandate.example/oauth/authorize","#,
+            r#""claims_supported":["iss","sub","aud","exp","iat","auth_time","nonce","at_hash","azp","email","email_verified","name","groups"],"#,
+            r#""code_challenge_methods_supported":["S256"],"#,
+            r#""grant_types_supported":["authorization_code","urn:ietf:params:oauth:grant-type:token-exchange"],"#,
+            r#""id_token_signing_alg_values_supported":["RS256","ES256"],"#,
+            r#""introspection_endpoint":"https://mandate.example/oauth/introspect","#,
+            r#""issuer":"https://mandate.example","#,
+            r#""jwks_uri":"https://mandate.example/oauth/jwks","#,
+            r#""response_types_supported":["code"],"#,
+            r#""scopes_supported":["openid","email","profile","groups","offline_access"],"#,
+            r#""subject_types_supported":["public"],"#,
+            r#""token_endpoint":"https://mandate.example/oauth/token","#,
+            r#""token_endpoint_auth_methods_supported":["client_secret_basic","client_secret_post","none"]}"#
+        )
+    );
+    for absent in ["userinfo_endpoint", "end_session_endpoint"] {
+        assert!(!rendered.contains(absent), "{absent}");
+    }
+}
+
+/// Fork F8: RS256 is every client's default and ES256 a client's registered choice, so the
+/// discovery document lists every declared `mandate.core.IdTokenSigningAlgorithm`, in
+/// declaration order, RS256 first.
+#[test]
+fn the_openid_configuration_lists_rs256_then_es256() {
+    let document = metadata::openid_configuration(ISSUER);
+    assert_eq!(
+        document.id_token_signing_alg_values_supported,
+        ["RS256", "ES256"].map(str::to_owned).to_vec()
+    );
+    let declared: Vec<String> = mandate_types::IdTokenSigningAlgorithm::VARIANTS
+        .iter()
+        .map(|algorithm| format!("{algorithm:?}"))
+        .collect();
+    assert_eq!(document.id_token_signing_alg_values_supported, declared);
+}
+
+#[test]
+fn the_openid_configuration_is_published_at_its_discovery_path() {
+    let route = routes::route_for_document(Document::OpenIdConfiguration)
+        .expect("the route table publishes the discovery document");
+    assert_eq!(route.path, "/.well-known/openid-configuration");
+    assert_eq!(route.method, routes::Method::Get);
+}
+
+#[test]
+fn a_trailing_slash_on_the_issuer_leaves_the_discovery_issuer_unslashed() {
+    let document = metadata::openid_configuration("https://mandate.example/");
+    assert_eq!(document.issuer(), "https://mandate.example");
 }
 
 #[test]
@@ -169,7 +317,7 @@ fn a_jwks_member_is_the_rfc_7517_name_use_and_not_the_rust_field_name() {
 }
 
 #[test]
-fn the_four_documents_are_published_at_a_route_this_table_declares() {
+fn the_five_documents_are_published_at_a_route_this_table_declares() {
     let published: Vec<&str> = ROUTES
         .iter()
         .filter(|route| matches!(route.binds, Binding::Document(_)))
@@ -179,6 +327,7 @@ fn the_four_documents_are_published_at_a_route_this_table_declares() {
         published,
         vec![
             "/.well-known/oauth-authorization-server",
+            "/.well-known/openid-configuration",
             "/oauth/jwks",
             "/healthz/live",
             "/healthz/ready"

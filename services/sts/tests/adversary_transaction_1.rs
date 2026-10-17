@@ -132,6 +132,9 @@ fn session() -> SessionBinding {
         epochs: Some(snapshot()),
         expires_at: Timestamp::new("2026-09-19T12:00:00Z"),
         revoked: false,
+        connection: None,
+        authenticated_at: None,
+        external_principal_id: None,
     }
 }
 
@@ -310,6 +313,7 @@ fn redemption(code_id: AuthorizationCodeId, proof: &CredentialProof) -> RedeemAu
         code: CredentialProof::from_bytes(proof.expose_material().to_vec()),
         pkce_verifier: CredentialProof::from_bytes(VERIFIER.as_bytes().to_vec()),
         redirect_uri: redirect(),
+        client_secret: None,
     }
 }
 
@@ -695,12 +699,18 @@ fn a_session_that_stopped_being_usable_between_issuance_and_redemption_is_refuse
     let revoked = RecordedSessions::new()
         .session(SessionBinding {
             revoked: true,
+            connection: None,
+            authenticated_at: None,
+            external_principal_id: None,
             ..session()
         })
         .current(snapshot());
     let expired = RecordedSessions::new()
         .session(SessionBinding {
             expires_at: Timestamp::new("2026-09-18T23:59:59Z"),
+            connection: None,
+            authenticated_at: None,
+            external_principal_id: None,
             ..session()
         })
         .current(snapshot());
@@ -710,6 +720,9 @@ fn a_session_that_stopped_being_usable_between_issuance_and_redemption_is_refuse
     let undatable = RecordedSessions::new()
         .session(SessionBinding {
             expires_at: Timestamp::new("whenever"),
+            connection: None,
+            authenticated_at: None,
+            external_principal_id: None,
             ..session()
         })
         .current(snapshot());
@@ -1239,6 +1252,9 @@ fn the_redeemed_payload_encodes_identically_with_its_optionals_absent() {
             &request(),
             &RecordedSessions::new().session(SessionBinding {
                 epochs: None,
+                connection: None,
+                authenticated_at: None,
+                external_principal_id: None,
                 ..session()
             }),
         )
@@ -1437,6 +1453,9 @@ fn a_session_that_is_both_stale_and_expired_is_reported_stale() {
             &RecordedSessions::new()
                 .session(SessionBinding {
                     expires_at: Timestamp::new("2026-09-18T23:59:59Z"),
+                    connection: None,
+                    authenticated_at: None,
+                    external_principal_id: None,
                     ..session()
                 })
                 .stale(

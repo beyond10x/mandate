@@ -338,9 +338,12 @@ fn a_token_request_refuses_a_caller_supplied_code_id() {
     assert_eq!(refused.error_code(), ErrorCode::InvalidRequest);
 }
 
+/// `client_secret` left this list when `RedeemAuthorizationCode` declared it
+/// (`credential.yaml`, `story:oidc-discovery-and-code-flow`); it is decoded in
+/// [`the_token_endpoint_reads_client_secret_basic_and_client_secret_post`].
 #[test]
 fn a_token_request_refuses_an_undeclared_parameter() {
-    for extra in ["client_secret=s", "organization_id=x", "audience=y"] {
+    for extra in ["organization_id=x", "audience=y", "client_assertion=z"] {
         let form = format!("{}&{extra}", token_form());
         assert_eq!(
             decode::redeem_authorization_code(&token(&form)).unwrap_err(),
@@ -635,6 +638,11 @@ fn a_repeated_authorization_header_is_refused_by_all_four_decoders() {
 
 /// F6's class: a caller credential presented to a route whose command declares no input for one
 /// is refused, in whichever of RFC 6749 section 2.3.1's two presentations it arrives.
+///
+/// The authorization-code grant left this case when `RedeemAuthorizationCode` declared
+/// `client_secret` (`story:oidc-discovery-and-code-flow`); its reading of both presentations
+/// is [`the_token_endpoint_reads_client_secret_basic_and_client_secret_post`]. The
+/// token-exchange grant, which declares none, took its place here.
 #[test]
 fn a_presented_client_credential_is_refused_wherever_no_input_declares_one() {
     let presentations = [
@@ -644,11 +652,11 @@ fn a_presented_client_credential_is_refused_wherever_no_input_declares_one() {
         "Digest username=\"client\"",
     ];
     for presented in presentations {
-        let at_token = token(&token_form()).with_header("Authorization", presented);
+        let at_exchange = token(&exchange_form()).with_header("Authorization", presented);
         assert_eq!(
-            decode::redeem_authorization_code(&at_token).unwrap_err(),
+            decode::exchange_credential(&at_exchange).unwrap_err(),
             Refusal::UndeclaredField,
-            "token endpoint: {presented}"
+            "token exchange: {presented}"
         );
         assert_eq!(
             Refusal::UndeclaredField.error_code(),
@@ -1132,5 +1140,109 @@ fn the_token_endpoint_dispatches_on_the_grant_type() {
     assert_eq!(
         decode::token_request(&Request::new("POST", "/oauth/token?grant_type=x")).unwrap_err(),
         Refusal::QueryNotAdmitted
+    );
+}
+
+/// RFC 6749 section 2.3.1's two presentations of a client secret, at the authorization-code
+/// grant (`story:oidc-discovery-and-code-flow`).
+///
+/// `client_secret_basic` is `Basic` over the form-urlencoded identifier and secret, and the
+/// body's `client_id` may be omitted or must name the same client; `client_secret_post` is
+/// `client_id` and `client_secret` in the body. Both at once, two different clients, another
+/// scheme, an undecodable credential or an empty secret answer `invalid_client`. Whether the
+/// secret is required, and whose it is, the STS decides.
+#[test]
+fn the_token_endpoint_reads_client_secret_basic_and_client_secret_post() {
+    let basic = |id: &str, secret: &str| {
+        format!(
+            "Basic {}",
+            mandate_types::value::encode_base64(format!("{id}:{secret}").as_bytes())
+        )
+    };
+    let without_id = token_form().replace(&format!("client_id={UUID}&"), "");
+
+    // Basic, with and without the body's client_id; the halves are form-urlencoded.
+    for form in [token_form(), without_id.clone()] {
+        let input = decode::redeem_authorization_code(
+            &token(&form).with_header("Authorization", &basic(UUID, "s%3Ae+t")),
+        )
+        .unwrap();
+        assert_eq!(input.client_id.to_string(), UUID);
+        assert_eq!(
+            input
+                .client_secret
+                .as_ref()
+                .map(|secret| secret.expose_bytes()),
+            Some(&b"s:e t"[..])
+        );
+    }
+    // The scheme name is matched without regard to case.
+    let lower = basic(UUID, "secret").replacen("Basic", "basic", 1);
+    assert!(
+        decode::redeem_authorization_code(
+            &token(&token_form()).with_header("Authorization", &lower)
+        )
+        .is_ok()
+    );
+
+    // Post.
+    let posted = decode::redeem_authorization_code(&token(&format!(
+        "{}&client_secret=s%3Ae+t",
+        token_form()
+    )))
+    .unwrap();
+    assert_eq!(
+        posted
+            .client_secret
+            .as_ref()
+            .map(|secret| secret.expose_bytes()),
+        Some(&b"s:e t"[..])
+    );
+
+    // Neither: a public client names itself and presents nothing.
+    let public = decode::redeem_authorization_code(&token(&token_form())).unwrap();
+    assert!(public.client_secret.is_none());
+    // Neither and no client_id is still a missing parameter.
+    assert_eq!(
+        decode::redeem_authorization_code(&token(&without_id)).unwrap_err(),
+        Refusal::MissingField
+    );
+
+    let refused = |request: Request, expected: Refusal, why: &str| {
+        let refusal = decode::redeem_authorization_code(&request).unwrap_err();
+        assert_eq!(refusal, expected, "{why}");
+        assert_eq!(refusal.error_code(), ErrorCode::InvalidClient, "{why}");
+    };
+    refused(
+        token(&format!("{}&client_secret=secret", token_form()))
+            .with_header("Authorization", &basic(UUID, "secret")),
+        Refusal::ClientCredentialAmbiguous,
+        "basic and post at once",
+    );
+    refused(
+        token(&token_form()).with_header("Authorization", &basic(OTHER_UUID, "secret")),
+        Refusal::ClientCredentialAmbiguous,
+        "a body client_id naming another client than basic",
+    );
+    for presented in [
+        "Bearer Zm9v".to_owned(),
+        "Digest username=\"client\"".to_owned(),
+        "Basic".to_owned(),
+        "Basic not-base64!".to_owned(),
+        format!("Basic {}", mandate_types::value::encode_base64(b"no-colon")),
+        basic(UUID, ""),
+        basic("", "secret"),
+        basic(UUID, "%zz"),
+    ] {
+        refused(
+            token(&token_form()).with_header("Authorization", &presented),
+            Refusal::MalformedClientCredential,
+            &presented,
+        );
+    }
+    refused(
+        token(&format!("{}&client_secret=", token_form())),
+        Refusal::MalformedClientCredential,
+        "an empty posted secret",
     );
 }

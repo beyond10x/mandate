@@ -464,13 +464,23 @@
         },
         {
           "clause": "a confidential client presents no secret or one matching none of its recorded verifiers",
-          "tests": [],
-          "blocked_on": "story:oidc-discovery-and-code-flow"
+          "tests": [
+            {
+              "id": "mandate-sts::declared_denials::every_refusal_redeem_authorization_code_produces_has_a_row",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
         },
         {
           "clause": "a public client presents a secret",
-          "tests": [],
-          "blocked_on": "story:oidc-discovery-and-code-flow"
+          "tests": [
+            {
+              "id": "mandate-sts::declared_denials::every_refusal_redeem_authorization_code_produces_has_a_row",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
         },
         {
           "clause": "source/session epoch is stale",
@@ -494,6 +504,11 @@
         },
         {
           "clause": "no signing key is admitted for issuance when an identity token is due",
+          "tests": [],
+          "blocked_on": "story:oidc-signed-tokens-and-key-rotation"
+        },
+        {
+          "clause": "a code that granted openid has no authorization request held beside it since a restart",
           "tests": [],
           "blocked_on": "story:oidc-signed-tokens-and-key-rotation"
         },

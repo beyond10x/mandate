@@ -127,6 +127,9 @@ fn session() -> SessionBinding {
         epochs: Some(snapshot()),
         expires_at: Timestamp::new("2026-09-19T12:00:00Z"),
         revoked: false,
+        connection: None,
+        authenticated_at: None,
+        external_principal_id: None,
     }
 }
 
@@ -138,6 +141,7 @@ fn redemption(code_id: AuthorizationCodeId, proof: &CredentialProof) -> RedeemAu
         code: CredentialProof::from_bytes(proof.expose_material().to_vec()),
         pkce_verifier: CredentialProof::from_bytes(VERIFIER.as_bytes().to_vec()),
         redirect_uri: redirect(),
+        client_secret: None,
     }
 }
 
@@ -413,6 +417,9 @@ fn the_epochs_are_the_sessions_own() {
             &input,
             &RecordedSessions::new().session(SessionBinding {
                 epochs: None,
+                connection: None,
+                authenticated_at: None,
+                external_principal_id: None,
                 ..session()
             }),
         )
@@ -972,6 +979,9 @@ fn a_caller_without_the_verifier_learns_nothing_about_session_client_or_tenant()
     let revoked_session = RecordedSessions::new()
         .session(SessionBinding {
             revoked: true,
+            connection: None,
+            authenticated_at: None,
+            external_principal_id: None,
             ..session()
         })
         .current(snapshot());

@@ -31,7 +31,7 @@ fourth over HTTP, and the fifth — a `TokenExchangeDenied` durable audit record
 
 ## The product route table
 
-`crates/mandate-server/src/routes.rs`. Nine entries, and a listener that serves this table serves
+`crates/mandate-server/src/routes.rs`. Twelve entries, and a listener that serves this table serves
 nothing else.
 
 | Method | Path | Binds | Source of the path |
@@ -41,7 +41,10 @@ nothing else.
 | `POST` | `/oauth/token` | `mandate.credential.RedeemAuthorizationCode`; `decode::token_request` sends the token-exchange `grant_type` to `mandate.credential.ExchangeCredential` | `../sources/original-design.md:1858`, verbatim. RFC 6749 section 3.2 requires `POST`. |
 | `POST` | `/oauth/introspect` | `mandate.credential.IntrospectCredential` | `../sources/original-design.md:1860`, verbatim. RFC 7662 section 2 requires `POST`. |
 | `GET` | `/.well-known/oauth-authorization-server` | the RFC 8414 metadata document | `../sources/original-design.md:1855`, verbatim; RFC 8414 section 3 fixes it at the host root. |
+| `GET` | `/.well-known/openid-configuration` | the OpenID Connect Discovery 1.0 document | OpenID Connect Discovery 1.0 section 4; built by the RFC 8414 document's builder, so a shared member cannot differ. |
 | `GET` | `/oauth/jwks` | the JWK Set document | `../sources/original-design.md:1862`, verbatim. |
+| `GET` | `/healthz/live` | the liveness document | A probe path outside every versioned prefix. |
+| `GET` | `/healthz/ready` | the readiness document | The same; `503` until a signing key is admitted. |
 | `GET` | `/v1/federation/authorize` | the relying-party authorize step (`decode::begin_federation`) | Under `/v1/` with the login route; it starts the browser's sign-in at the IdP. |
 | `GET` | `/v1/federation/callback` | the relying-party callback step (`decode::complete_federation`) | The redirect URI the IdP sends the browser back to. |
 | `POST` | `/v1/federation/handoff` | the relying-party handoff step (`decode::redeem_handoff`) | Where the embedding application redeems the single-use handoff code for the session. |
@@ -54,7 +57,7 @@ empty — and, more than that, that no path here has the shape
 65 that exist.
 
 The paths `original-design.md:1855-1862` lists that are deliberately absent:
-`/.well-known/openid-configuration` (no OpenID Connect command is declared), `/oauth/revoke`
+`/oauth/revoke`
 (`mandate.credential.RevokeAccessCredential` is off this road), and the `/v1/...` control-plane
 resources of `:1784-1796`.
 
@@ -165,15 +168,20 @@ redirect cannot set that header, so a cookie-borne session adapter is named resi
 | | |
 |---|---|
 | Wire form | `POST /oauth/token`, `application/x-www-form-urlencoded` (RFC 6749 section 4.1.3) |
-| Decoded | `client_id`, `code`, `pkce_verifier` (from `code_verifier`), `redirect_uri`; `code_id` absent by construction |
+| Decoded | `client_id`, `code`, `pkce_verifier` (from `code_verifier`), `redirect_uri`, `client_secret` (from `Authorization: Basic` or the `client_secret` parameter, optional); `code_id` absent by construction |
 | Decoder | `decode::redeem_authorization_code` |
-| Refused | another method or media type; an oversized body or query; **a presented query string**; a presented `Authorization` header in either RFC 6749 section 2.3.1 form; an undeclared, repeated or missing parameter; a repeated header; a caller-presented `code_id`; `grant_type` other than `authorization_code`; an empty or zero-byte `code`; a `redirect_uri` over 512 bytes or carrying a control character; an absent `code_verifier` (case `pkce-missing`); a verifier outside RFC 7636 section 4.1's form |
-| Never derived | the code record, the session, the target, the scope, the expiry. The token endpoint admits five parameters and none of them names any of those. |
+| Refused | another method or media type; an oversized body or query; **a presented query string**; an `Authorization` header that is not a `Basic` credential in RFC 6749 section 2.3.1's form, or an empty posted secret (`invalid_client`); a secret presented both ways, or a `Basic` identifier other than the body's `client_id` (`invalid_client`); an undeclared, repeated or missing parameter; a repeated header; a caller-presented `code_id`; `grant_type` other than `authorization_code`; an empty or zero-byte `code`; a `redirect_uri` over 512 bytes or carrying a control character; an absent `code_verifier` (case `pkce-missing`); a verifier outside RFC 7636 section 4.1's form |
+| Never derived | the code record, the session, the target, the scope, the expiry. The token endpoint admits six parameters and none of them names any of those. |
 
-`client_secret` is not an admitted parameter *and* an `Authorization` header is refused, which
-is what makes `token_endpoint_auth_methods_supported: ["none"]` true: RFC 6749 section 2.3.1
-declares two presentations of a client secret and names the header the preferred one, so
-refusing only the body parameter would have enforced `none` against one of them.
+RFC 6749 section 2.3.1 declares two presentations of a client secret, and the decoder reads
+both: `client_secret_basic` (`Basic` over the form-urlencoded identifier and secret, the body's
+`client_id` then optional and, when present, the same client) and `client_secret_post`. One
+method per request. The decoder does not decide whether a secret is required: the STS reads
+the client the code is bound to and refuses a confidential client presenting no secret or a
+wrong one, and a public client presenting one, each `401 invalid_client` with
+`WWW-Authenticate: Basic`. The comparison is against the client's recorded keyed verifiers,
+in constant time, under the deployment's verifier key; neither the key nor a verifier enters
+the STS (`mandate_sts::code::OAuthClientReads::secret_authenticates`).
 
 ### `mandate.credential.IntrospectCredential`
 
@@ -312,9 +320,10 @@ that look like taste and are not:
   issued to another client**", so a code presented by the wrong client is `invalid_grant`, not
   `invalid_client`.
 * `invalid_client` is "**client authentication failed**" and `invalid_scope` is "**the requested
-  scope** is invalid ...". A redemption on this road authenticates no client (the metadata
-  advertises `none`) and sends no `scope` parameter, so **no clause reachable from a redemption
-  may answer either**. That is a check, not a convention, and the check **follows the calls**:
+  scope** is invalid ...". A redemption sends no `scope` parameter, so **no clause reachable
+  from a redemption may answer `invalid_scope`**, and it authenticates a client only by its
+  secret, so **exactly the three client-secret clauses answer `invalid_client`**
+  (`mandate_proto::oauth::CLIENT_AUTHENTICATION_CLAUSES`). That is a check, not a convention, and the check **follows the calls**:
   `crates/mandate-proto/tests/oauth.rs` starts at
   `services/sts/src/redemption.rs::redeem_authorization_code`, takes each function's body,
   reads the clauses it names, and walks on through every call into a sibling module of the STS
@@ -359,8 +368,9 @@ MUST accurately advertise it" — is a property rather than a promise.
 
 What is advertised is what is enforced: `code_challenge_methods_supported` is `["S256"]`
 because `mandate.core.PkceMethod` declares one variant and the decoder refuses every other
-method; `token_endpoint_auth_methods_supported` is `["none"]` because the token endpoint
-refuses `client_secret`; `response_types_supported` is the single value the authorization
+method; `token_endpoint_auth_methods_supported` is `["client_secret_basic", "client_secret_post",
+"none"]` because the token endpoint reads both secret presentations and a public client
+presents neither; `response_types_supported` is the single value the authorization
 decoder admits, and `grant_types_supported` is the two grants the token endpoint dispatches on —
 `authorization_code` and RFC 8693's `urn:ietf:params:oauth:grant-type:token-exchange`
 (`decode::TOKEN_GRANTS`). RFC 8414's optional

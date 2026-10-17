@@ -24,7 +24,7 @@
   "x-ess-provenance": {
     "system": "mandate",
     "specification_version": "v1",
-    "source_digest": "221f3ba72b7b930cacfdf588703cfb5569188fa6501f619490ef0a56cab2fa23",
+    "source_digest": "fe7572f53936b5997c3bd119e2453943039ed1a53748b3db2385206257a79cd2",
     "contract_digest": "slice-sha256/2:ea33e72b93f7b31fa26c1e16afdc154ebde0ca3b9caacf790d21a53f6d96fef0",
     "regenerate": "ess generate"
   },

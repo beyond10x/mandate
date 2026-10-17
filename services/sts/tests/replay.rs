@@ -52,7 +52,7 @@ use mandate_types::{
     Audience, AuthorityScope, CorrelationId, CredentialId, CredentialKind, CredentialProof,
     Duration, EpochSnapshotRef, Issuer, KeyReference, OAuthClientId, OrganizationId, PkceChallenge,
     PkceMethod, PrincipalId, RedirectUri, RevocationGuarantee, SessionId, SigningAlgorithm,
-    SigningKeyWindow, Timestamp, Transient, Uuid, VerifiedContext,
+    SigningKeyId, SigningKeyWindow, Timestamp, Transient, Uuid, VerifiedContext,
 };
 
 fn uuid(tag: u8) -> Uuid {
@@ -249,7 +249,21 @@ fn both_credential_records_are_rebuilt_from_their_events() {
     let reference_descriptor = issued.descriptor.clone();
     deployment.record(issued.event);
 
-    let signer = StaticSigner::new("kid-one", 900);
+    // A self-contained credential is issued only under a key the records admit for signing
+    // at the request's instant, and the signer names it by its record's identity.
+    let signing_key = SigningKeyId::new(uuid(0x6b));
+    deployment.record(CredentialEvent::SigningKeyRegistered {
+        context: context(),
+        id: signing_key,
+        key_reference: KeyReference::new("kms://replay"),
+        thumbprint: "thumb-replay".to_owned(),
+        algorithm: SigningAlgorithm::new("ES256"),
+        window: SigningKeyWindow {
+            not_before: Timestamp::new("2026-09-01T00:00:00Z"),
+            expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+        },
+    });
+    let signer = StaticSigner::new(signing_key.to_string(), 900);
     let issued = issue_self_contained_credential(
         &IssueSelfContainedCredential {
             context: context(),
@@ -605,6 +619,9 @@ fn the_authorization_code_and_the_credential_it_issues_are_rebuilt_from_their_ev
             epochs: Some(EpochSnapshotRef::new(uuid(0x60))),
             expires_at: Timestamp::new("2026-09-19T12:00:00Z"),
             revoked: false,
+            connection: None,
+            authenticated_at: None,
+            external_principal_id: None,
         })
         .current(EpochSnapshotRef::new(uuid(0x60)));
     let servers = deployment.live.clone();
@@ -615,6 +632,7 @@ fn the_authorization_code_and_the_credential_it_issues_are_rebuilt_from_their_ev
             code: proof,
             pkce_verifier: CredentialProof::from_bytes(PKCE_VERIFIER.as_bytes().to_vec()),
             redirect_uri: RedirectUri::new("https://client.example/callback"),
+            client_secret: None,
         },
         &request(),
         &mut codes,

@@ -202,6 +202,8 @@ fn events(context: &VerifiedContext, rule: &TenantResolutionRule) -> Vec<Federat
             organization_id: OrganizationId::new(uuid(3)),
             epochs: EpochSnapshotRef::new(uuid(0x3e)),
             expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+            authenticated_at: None,
+            external_principal_id: None,
         },
         FederationEvent::OAuthClientDisabled {
             context: context.clone(),

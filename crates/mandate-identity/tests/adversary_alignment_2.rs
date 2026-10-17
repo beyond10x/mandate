@@ -81,6 +81,8 @@ fn opened_with(expires_at: &str) -> SessionOpened {
         connection_id: None,
         epochs: handle(),
         expires_at: Timestamp::new(expires_at),
+        authenticated_at: None,
+        external_principal_id: None,
     }
 }
 

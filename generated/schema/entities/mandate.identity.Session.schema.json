@@ -56,6 +56,21 @@
       "type": "string",
       "format": "date-time"
     },
+    "authenticated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "external_principal_id": {
+      "$ref": "#/$defs/mandate.core.ExternalPrincipalId",
+      "x-ess-relation": {
+        "name": "external_principal_id_record",
+        "kind": "references",
+        "source": "mandate.identity.Session",
+        "target": "mandate.federation.ExternalPrincipal",
+        "cardinality": "one",
+        "via": "external_principal_id"
+      }
+    },
     "state": {
       "$ref": "#/$defs/mandate.identity.Session.State"
     }
@@ -72,14 +87,22 @@
   "x-ess-provenance": {
     "system": "mandate",
     "specification_version": "v1",
-    "source_digest": "221f3ba72b7b930cacfdf588703cfb5569188fa6501f619490ef0a56cab2fa23",
-    "contract_digest": "slice-sha256/2:400975250ce99d46061c05f569959cf9a2210cd8bf37ec3daf57c24abc3ec9f1",
+    "source_digest": "fe7572f53936b5997c3bd119e2453943039ed1a53748b3db2385206257a79cd2",
+    "contract_digest": "slice-sha256/2:0a7932e32a3d353e86ba38b7a9536b4c1f1c47a2d76aead4bf82d2bc571dbea2",
     "regenerate": "ess generate"
   },
   "$defs": {
     "mandate.core.EpochSnapshotRef": {
       "title": "EpochSnapshotRef",
       "x-ess-name": "mandate.core.EpochSnapshotRef",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.ExternalPrincipalId": {
+      "title": "ExternalPrincipalId",
+      "x-ess-name": "mandate.core.ExternalPrincipalId",
       "x-ess-kind": "newtype",
       "type": "string",
       "format": "uuid",

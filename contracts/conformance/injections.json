@@ -113,7 +113,7 @@
     {
       "port": "mandate_sts::issue::IssuanceSigner",
       "double": "mandate_sts::issue::StaticSigner",
-      "why": "the signing key material is the deployment's and no scenario supplies one"
+      "why": "the signing key material is the deployment's and no scenario supplies one; the double signs under the `kid` of the key the scenario's own `SigningKey` records admit for issuance at the request's instant, and under a `kid` naming no record when they admit none, so the records, not the double, decide issuance"
     },
     {
       "port": "mandate_sts::keys::KeyMaterialResolver",
@@ -261,6 +261,34 @@
       "command": "mandate.credential.ExchangeCredential",
       "port": "none",
       "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.credential/authored/oidc-redeem-client-auth-failed",
+      "command": "mandate.credential.RedeemAuthorizationCode",
+      "port": "mandate_sts::registry::ResourceServerReads",
+      "kind": "armed-unreached",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.credential/authored/oidc-redeem-client-auth-failed",
+      "command": "mandate.identity.Session",
+      "port": "mandate_identity::IdentityLog",
+      "kind": "established-prerequisite",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.credential/authored/oidc-redeem-public-with-secret-refused",
+      "command": "mandate.credential.RedeemAuthorizationCode",
+      "port": "mandate_sts::registry::ResourceServerReads",
+      "kind": "armed-unreached",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.credential/authored/oidc-redeem-public-with-secret-refused",
+      "command": "mandate.identity.Session",
+      "port": "mandate_identity::IdentityLog",
+      "kind": "established-prerequisite",
       "consulted": 0
     },
     {
@@ -1177,24 +1205,6 @@
       "command": "mandate.credential.ExchangeCredential",
       "reason": "unrealized-command",
       "blocked_on": "story:constrained-exchange"
-    },
-    {
-      "scenario": "mandate.credential/authored/oidc-redeem-client-auth-failed",
-      "command": "mandate.credential.ResourceServer",
-      "reason": "entity-without-adapter-writer",
-      "blocked_on": "story:declared-writers"
-    },
-    {
-      "scenario": "mandate.credential/authored/oidc-redeem-public-with-secret-refused",
-      "command": "mandate.credential.ResourceServer",
-      "reason": "entity-without-adapter-writer",
-      "blocked_on": "story:declared-writers"
-    },
-    {
-      "scenario": "mandate.credential/authored/oidc-sign-with-retired-key-refused",
-      "command": "",
-      "reason": "expectation-unmet",
-      "blocked_on": "story:conform-gate"
     },
     {
       "scenario": "mandate.delegation.CompleteExecution/outcome/wrong-state",

@@ -64,6 +64,7 @@ use mandate_types::{
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 
+use crate::keys::{SigningKeyReads, issuing_key, kid_signing_admitted};
 use crate::registry::ResourceServerReads;
 use crate::{IdentityAllocator, RequestContext, SecretSource, instant};
 
@@ -399,9 +400,22 @@ where
 ///
 /// Returns [`Denied`] through the declared `denied` outcome when the target is unregistered,
 /// disabled or outside the caller's verified organization, when its registered profile does
-/// not issue this family, when the signer's lifetime is not inside the profile's bound, or
-/// when the signer refuses. A refusal draws no identity: the identity is reserved, and the
-/// reservation is released on the refusal and committed only once the signer has signed.
+/// not issue this family, when the signer's lifetime is not inside the profile's bound, when
+/// no recorded `SigningKey` may sign at the request's instant ([`crate::keys::signing_admitted`]),
+/// when the signer signed under a `kid` that names no such key, or when the signer refuses —
+/// the last three all "signing algorithm or key is unadmitted", [`DenialClause::SigningRefused`].
+/// A refusal draws no identity: the identity is reserved, and the reservation is released on
+/// the refusal and committed only once the signer has signed under an admitted key.
+///
+/// # Issuance is decided by the records, not by the signer
+///
+/// The signer holds whatever key it was last given; the records say which key may sign. A
+/// retired key "signs nothing further" and a revoked one is "admitted for neither issuance nor
+/// verification" (`credential.yaml`), so both are asked here, of the read model, twice: before
+/// anything is reserved, whether any key may sign at all, and after the signer has signed,
+/// whether the `kid` it signed under is one of them — the second because a signer that has not
+/// yet followed a rotation or a revocation would otherwise hand out a token under a key the
+/// records no longer admit.
 ///
 /// # Panics
 ///
@@ -411,7 +425,7 @@ where
 pub fn issue_self_contained_credential<D, A, K>(
     input: &IssueSelfContainedCredential,
     request: &RequestContext,
-    servers: &impl ResourceServerReads,
+    servers: &(impl ResourceServerReads + SigningKeyReads),
     parts: SelfContainedParts<'_, D, A, K>,
 ) -> Result<CredentialIssued, Denied>
 where
@@ -429,6 +443,13 @@ where
         .map_err(|_| Denied::new(DenialReason::Denied, DenialClause::ExpiryUnbounded))?;
     let expires_at = bounded_expiry(request, &server.credential_profile, lifetime)?;
     let descriptor = descriptor_for(&input.context, &server, &input.requested_scope, expires_at);
+    // "Signing algorithm or key is unadmitted": no recorded key may sign now. `bounded_expiry`
+    // has already read the instant, so a request naming none never reaches this line.
+    let unadmitted = || Denied::new(DenialReason::Denied, DenialClause::SigningRefused);
+    let now = instant::seconds_of(&request.at).ok_or_else(unadmitted)?;
+    if issuing_key(servers, now).is_none() {
+        return Err(unadmitted());
+    }
 
     // The identity is signed into the token, so it exists before the signer can refuse —
     // reserved, not drawn. It is handed out only once the signer has signed: nothing below
@@ -444,11 +465,14 @@ where
         },
     ) else {
         parts.allocator.release_credential_id(credential_id);
-        return Err(Denied::new(
-            DenialReason::Denied,
-            DenialClause::SigningRefused,
-        ));
+        return Err(unadmitted());
     };
+    // The key it actually signed under, not the one the records would have chosen: a token
+    // under any other key is discarded here and never handed out.
+    if !kid_signing_admitted(&signed.kid, now, servers) {
+        parts.allocator.release_credential_id(credential_id);
+        return Err(unadmitted());
+    }
     parts.allocator.commit_credential_id(credential_id);
     let credential = CredentialSecret::from_bytes(signed.token.into_bytes());
     // The token's own domain: a token and a reference secret never share a verifier space.

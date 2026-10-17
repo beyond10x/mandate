@@ -93,6 +93,8 @@ fn denied_world() -> IdentityLog {
         connection_id: None,
         epochs: handle(),
         expires_at: Timestamp::new("2026-09-18T00:00:00Z"),
+        authenticated_at: None,
+        external_principal_id: None,
     }));
     log
 }
@@ -173,6 +175,8 @@ fn a_generation_reset_to_zero_does_not_resurrect_every_snapshot_that_recorded_ze
         connection_id: None,
         epochs: handle(),
         expires_at: Timestamp::new("2026-09-18T00:00:00Z"),
+        authenticated_at: None,
+        external_principal_id: None,
     }));
     assert!(
         refresh_session(&log, &session_id()).is_err(),

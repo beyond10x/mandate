@@ -29,6 +29,13 @@
     "expires_at": {
       "type": "string",
       "format": "date-time"
+    },
+    "authenticated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "external_principal_id": {
+      "$ref": "#/$defs/mandate.core.ExternalPrincipalId"
     }
   },
   "required": [
@@ -45,8 +52,8 @@
   "x-ess-provenance": {
     "system": "mandate",
     "specification_version": "v1",
-    "source_digest": "221f3ba72b7b930cacfdf588703cfb5569188fa6501f619490ef0a56cab2fa23",
-    "contract_digest": "slice-sha256/2:3a4f7f8c847ff8bda4d1a451a9a6daa59e4d4a5658e2c537f3bf2e8f4a68a31c",
+    "source_digest": "fe7572f53936b5997c3bd119e2453943039ed1a53748b3db2385206257a79cd2",
+    "contract_digest": "slice-sha256/2:27ed670bb057117e22f143210f539ca0d936772b6ba73bc04d0c56d73fb736c6",
     "regenerate": "ess generate"
   },
   "$defs": {
@@ -65,6 +72,14 @@
     "mandate.core.EpochSnapshotRef": {
       "title": "EpochSnapshotRef",
       "x-ess-name": "mandate.core.EpochSnapshotRef",
+      "x-ess-kind": "newtype",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.ExternalPrincipalId": {
+      "title": "ExternalPrincipalId",
+      "x-ess-name": "mandate.core.ExternalPrincipalId",
       "x-ess-kind": "newtype",
       "type": "string",
       "format": "uuid",

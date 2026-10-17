@@ -43,8 +43,8 @@
 
 use mandate_token::projection::{DenialClause, Denied, ResourceServer};
 use mandate_types::{
-    DenialReason, EpochSnapshotRef, OAuthClientId, OrganizationId, PrincipalId,
-    SecurityEpochTarget, SessionId, Timestamp,
+    DenialReason, EpochSnapshotRef, ExternalPrincipalId, FederationConnectionId, OAuthClientId,
+    OrganizationId, PrincipalId, SecurityEpochTarget, SessionId, Timestamp,
 };
 
 use crate::code::{OAuthClientReads, admitted_client};
@@ -91,6 +91,13 @@ pub struct SessionBinding {
     pub expires_at: Timestamp,
     /// Whether the session has been revoked.
     pub revoked: bool,
+    /// The federation connection the session came from, when it came from one.
+    pub connection: Option<FederationConnectionId>,
+    /// The instant of the session's login (`auth_time`), when the log records it.
+    pub authenticated_at: Option<Timestamp>,
+    /// The external principal the login resolved, whose subject is the upstream subject,
+    /// when the log records it.
+    pub external_principal_id: Option<ExternalPrincipalId>,
 }
 
 /// The session and epoch read model, behind a port.

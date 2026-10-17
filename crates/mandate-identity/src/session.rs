@@ -9,8 +9,8 @@
 use serde::Serialize;
 
 use mandate_types::{
-    DenialReason, EpochSnapshotRef, FederationConnectionId, OrganizationId, PrincipalId, SessionId,
-    Timestamp, VerifiedContext,
+    DenialReason, EpochSnapshotRef, ExternalPrincipalId, FederationConnectionId, OrganizationId,
+    PrincipalId, SessionId, Timestamp, VerifiedContext,
 };
 
 use crate::{Denial, Eligibility, IdentityEvent, IdentityLog, IdentityRead};
@@ -41,6 +41,10 @@ pub struct Session {
     connection: Option<FederationConnectionId>,
     epochs: EpochSnapshotRef,
     expires_at: Timestamp,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    authenticated_at: Option<Timestamp>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    external_principal_id: Option<ExternalPrincipalId>,
     state: SessionState,
 }
 
@@ -67,6 +71,12 @@ pub struct SessionOpened {
     pub epochs: EpochSnapshotRef,
     /// The declared `expires_at`.
     pub expires_at: Timestamp,
+    /// The declared `authenticated_at`: the instant of the login, when it is recorded.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authenticated_at: Option<Timestamp>,
+    /// The declared `external_principal_id`: the upstream subject's record, when known.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub external_principal_id: Option<ExternalPrincipalId>,
 }
 
 impl SessionOpened {
@@ -80,10 +90,11 @@ impl SessionOpened {
             self.epochs,
             self.expires_at.clone(),
         );
-        match self.connection_id {
+        let session = match self.connection_id {
             Some(connection) => session.with_connection(connection),
             None => session,
-        }
+        };
+        session.with_login(self.authenticated_at.clone(), self.external_principal_id)
     }
 }
 
@@ -135,6 +146,8 @@ impl Session {
             connection: None,
             epochs,
             expires_at,
+            authenticated_at: None,
+            external_principal_id: None,
             state: SessionState::Active,
         }
     }
@@ -146,6 +159,33 @@ impl Session {
             connection: Some(connection),
             ..self
         }
+    }
+
+    /// The same session, recorded with the instant of its login and the upstream
+    /// subject's record, each when the opening event carries it.
+    #[must_use]
+    pub fn with_login(
+        self,
+        authenticated_at: Option<Timestamp>,
+        external_principal_id: Option<ExternalPrincipalId>,
+    ) -> Self {
+        Self {
+            authenticated_at,
+            external_principal_id,
+            ..self
+        }
+    }
+
+    /// The instant the session's login happened (`auth_time`), when it is recorded.
+    #[must_use]
+    pub const fn authenticated_at(&self) -> Option<&Timestamp> {
+        self.authenticated_at.as_ref()
+    }
+
+    /// The upstream subject's record the login resolved, when it is recorded.
+    #[must_use]
+    pub const fn external_principal_id(&self) -> Option<&ExternalPrincipalId> {
+        self.external_principal_id.as_ref()
     }
 
     /// The session after the declared `revoke` transition.

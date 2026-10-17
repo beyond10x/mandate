@@ -55,8 +55,9 @@ use mandate_token::verifier::{CredentialDomain, verifier_for, verifier_in};
 use mandate_types::{
     Audience, AuthorityScope, AuthorizationCodeId, CorrelationId, CredentialId, CredentialKind,
     CredentialProof, CredentialVerifier, DenialReason, Duration, EpochSnapshotRef, Issuer,
-    OAuthClientId, OrganizationId, PkceChallenge, PkceMethod, PrincipalId, RedirectUri,
-    ResourceServerId, RevocationGuarantee, SessionId, Timestamp, Transient, Uuid, VerifiedContext,
+    KeyReference, OAuthClientId, OrganizationId, PkceChallenge, PkceMethod, PrincipalId,
+    RedirectUri, ResourceServerId, RevocationGuarantee, SessionId, SigningAlgorithm, SigningKeyId,
+    SigningKeyWindow, Timestamp, Transient, Uuid, VerifiedContext,
 };
 use serde_json::Value;
 
@@ -155,6 +156,34 @@ fn context(principal: PrincipalId) -> VerifiedContext {
         delegation: None,
         execution: None,
         correlation: CorrelationId::new("corpus"),
+    }
+}
+
+/// The recorded signing key a self-contained issuance here signs under: a self-contained
+/// credential is issued only under a key the records admit for signing at the request's
+/// instant, and the signer names it by its record's identity.
+fn signing_key_id() -> SigningKeyId {
+    SigningKeyId::new(uuid(0x6b))
+}
+
+/// The `kid` a signer writes for [`signing_key_id`].
+fn kid() -> String {
+    signing_key_id().to_string()
+}
+
+/// [`signing_key_id`]'s registration: `Recorded`, its window open across every instant the
+/// cases here serve a request at.
+fn signing_key_registered() -> CredentialEvent {
+    CredentialEvent::SigningKeyRegistered {
+        context: context(PrincipalId::new(uuid(0x51))),
+        id: signing_key_id(),
+        key_reference: KeyReference::new("kms://corpus"),
+        thumbprint: "thumb-corpus".to_owned(),
+        algorithm: SigningAlgorithm::new("ES256"),
+        window: SigningKeyWindow {
+            not_before: Timestamp::new("2026-09-01T00:00:00Z"),
+            expires_at: Timestamp::new("2026-12-31T00:00:00Z"),
+        },
     }
 }
 
@@ -599,16 +628,17 @@ fn profile_offline_bound() {
     );
 
     let mut deployment = Deployment::new();
+    deployment.log.push(signing_key_registered());
     let target = deployment.register("api-b", self_contained_profile());
 
     // The bound, from the other side: a signer configured beyond `PT15M` is refused rather
     // than silently shortened, because the token would outlive whatever the descriptor said.
-    let beyond = StaticSigner::new("kid-one", 901);
+    let beyond = StaticSigner::new(kid(), 901);
     let denied = deployment.sign(target, PrincipalId::new(uuid(0x52)), &beyond);
     let denied = denied.expect_err("the signer would outlive the profile's documented bound");
     assert_eq!(denied.clause, DenialClause::ExpiryUnbounded);
 
-    let signer = StaticSigner::new("kid-one", 900);
+    let signer = StaticSigner::new(kid(), 900);
     let caller = deployment
         .sign(target, PrincipalId::new(uuid(0x51)), &signer)
         .expect("a registered, enabled target of the caller's organization");
@@ -618,7 +648,7 @@ fn profile_offline_bound() {
     let issued = deployment
         .sign(target, PrincipalId::new(uuid(0x52)), &signer)
         .expect("a registered, enabled target of the caller's organization");
-    assert_eq!(issued.kid.as_deref(), Some("kid-one"));
+    assert_eq!(issued.kid.as_deref(), Some(kid().as_str()));
     assert_eq!(
         issued.descriptor.expires_at,
         Timestamp::new("2026-09-19T00:15:00Z"),
@@ -772,6 +802,9 @@ impl OAuthDeployment {
                     epochs: Some(snapshot),
                     expires_at: Timestamp::new("2026-09-19T12:00:00Z"),
                     revoked: false,
+                    connection: None,
+                    authenticated_at: None,
+                    external_principal_id: None,
                 })
                 .current(snapshot),
         }
@@ -855,6 +888,7 @@ fn presented(code_id: AuthorizationCodeId, proof: &CredentialProof) -> RedeemAut
         code: CredentialProof::from_bytes(proof.expose_material().to_vec()),
         pkce_verifier: CredentialProof::from_bytes(PKCE_VERIFIER.as_bytes().to_vec()),
         redirect_uri: authorized_redirect_uri(),
+        client_secret: None,
     }
 }
 

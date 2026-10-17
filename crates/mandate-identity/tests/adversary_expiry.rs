@@ -78,6 +78,8 @@ fn expired_world() -> IdentityLog {
         connection_id: None,
         epochs: handle(),
         expires_at: Timestamp::new("2020-01-01T00:00:00Z"),
+        authenticated_at: None,
+        external_principal_id: None,
     }));
     log
 }

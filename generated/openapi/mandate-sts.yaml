@@ -1,6 +1,6 @@
 # generated from mandate v1
-# model digest 221f3ba72b7b930cacfdf588703cfb5569188fa6501f619490ef0a56cab2fa23
-# contract digest slice-sha256/2:63bbc8b2d812f462fa7871b2c3bdd2f69c905a1ecaaeeca3a15ef63cd6116948
+# model digest fe7572f53936b5997c3bd119e2453943039ed1a53748b3db2385206257a79cd2
+# contract digest slice-sha256/2:fffeb76364478208243539c42cd2c3a4db6ac3edc670d04404164fb8f4a49543
 # do not edit: regenerate with `ess generate`
 openapi: 3.1.0
 info:
@@ -14,8 +14,8 @@ info:
   x-ess-provenance:
     system: mandate
     specification_version: v1
-    source_digest: 221f3ba72b7b930cacfdf588703cfb5569188fa6501f619490ef0a56cab2fa23
-    contract_digest: slice-sha256/2:63bbc8b2d812f462fa7871b2c3bdd2f69c905a1ecaaeeca3a15ef63cd6116948
+    source_digest: fe7572f53936b5997c3bd119e2453943039ed1a53748b3db2385206257a79cd2
+    contract_digest: slice-sha256/2:fffeb76364478208243539c42cd2c3a4db6ac3edc670d04404164fb8f4a49543
 tags:
 - name: credential
 paths:
@@ -1400,7 +1400,7 @@ components:
       additionalProperties: false
     mandate.credential.IssueAuthorizationCode.accepted.Response:
       additionalProperties: false
-      description: STS stores only a non-reversible verifier bound to the validated client, session, exact redirect, S256 challenge, registered target, narrowed scope and bounded expiry. Only the transient code is returned to the public-client adapter. Taken when no other outcome's condition matched. A `mandate.credential.AuthorizationCode` now exists, in `Issued`. Its identity is published as `code_id` on `mandate.credential.AuthorizationCodeIssued`. Emits `AuthorizationCodeIssued`, published to consumers and listed under `published`.
+      description: STS stores only a non-reversible verifier bound to the validated client, session, exact redirect, S256 challenge, registered target, narrowed scope, bounded expiry and the OpenID Connect scopes the authorization granted. The authorization request's nonce is held in memory beside the code for the code's lifetime and is no field of the record or the event (RedeemAuthorizationCode). Only the transient code is returned to the public-client adapter. Taken when no other outcome's condition matched. A `mandate.credential.AuthorizationCode` now exists, in `Issued`. Its identity is published as `code_id` on `mandate.credential.AuthorizationCodeIssued`. Emits `AuthorizationCodeIssued`, published to consumers and listed under `published`.
       properties:
         outcome:
           const: accepted
@@ -1615,7 +1615,7 @@ components:
       additionalProperties: false
     mandate.credential.RedeemAuthorizationCode.accepted-with-identity-token.Response:
       additionalProperties: false
-      description: 'A code whose authorization granted openid redeems exactly as the accepted outcome below does, and in the same transaction the STS signs one identity token and records mandate.credential.IdentityTokenIssued. The token''s issuer is the deployment''s, its audience the client, its subject the session''s principal (fork F1), its nonce the authorization request''s and its lifetime the deployment''s identity-token lifetime; it is signed under a signing key admitted for issuance now, and the event names that key. The event carries the token''s identifier, the code, the client, the principal, the session, the signing key and the two instants, and no claim value — no email, name, groups or nonce enters this log (fork F13). A transaction that cannot sign issues neither the token nor the access credential and consumes nothing. Taken when the existing subject''s stored fields satisfy `exists granted in identity_scopes: (granted == OpenId)`. A `mandate.credential.AuthorizationCode` has moved to `Consumed`, along `consume`. The instance is the one `code_id` names. Emits `AuthorizationCodeRedeemed` and `IdentityTokenIssued`, published to consumers and listed under `published`.'
+      description: 'A code whose authorization granted openid redeems exactly as the accepted outcome below does, and in the same transaction the STS signs one identity token and records mandate.credential.IdentityTokenIssued. The token''s issuer is the deployment''s, its audience the client, its subject the session''s principal (fork F1), its nonce the authorization request''s, its auth_time the instant the session''s login authenticated and its lifetime the deployment''s identity-token lifetime; it is signed under a signing key admitted for issuance now, and the event names that key. The event carries the token''s identifier, the code, the client, the principal, the session, the signing key and the two instants, and no claim value — no email, name, groups or nonce enters this log (fork F13). The nonce is held in memory beside the code for the code''s lifetime, as the pending sign-in is, and no record or event of this contract carries it; a code outstanding when the STS restarts has no held authorization request and is refused at redemption, and the application starts the sign-in again. A transaction that cannot sign issues neither the token nor the access credential and consumes nothing. Taken when the existing subject''s stored fields satisfy `exists granted in identity_scopes: (granted == OpenId)`. A `mandate.credential.AuthorizationCode` has moved to `Consumed`, along `consume`. The instance is the one `code_id` names. Emits `AuthorizationCodeRedeemed` and `IdentityTokenIssued`, published to consumers and listed under `published`.'
       properties:
         outcome:
           const: accepted-with-identity-token
@@ -1684,7 +1684,7 @@ components:
       type: object
     mandate.credential.RedeemAuthorizationCode.denied.Response:
       additionalProperties: false
-      description: 'Decided outside the request: Code proof does not match the server-resolved code_id; code is expired; client, redirect URI or S256 verifier mismatches; the bound client is disabled; a confidential client presents no secret or one matching none of its recorded verifiers; a public client presents a secret; source/session epoch is stale; registered target is disabled or outside the verified tenant; no signing key is admitted for issuance when an identity token is due; or narrowing/atomic issuance validation fails..'
+      description: 'Decided outside the request: Code proof does not match the server-resolved code_id; code is expired; client, redirect URI or S256 verifier mismatches; the bound client is disabled; a confidential client presents no secret or one matching none of its recorded verifiers; a public client presents a secret; source/session epoch is stale; registered target is disabled or outside the verified tenant; no signing key is admitted for issuance when an identity token is due; a code that granted openid has no authorization request held beside it since a restart; or narrowing/atomic issuance validation fails..'
       properties:
         error:
           const: mandate.credential.Denied
