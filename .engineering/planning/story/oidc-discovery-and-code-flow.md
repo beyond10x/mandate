@@ -8,7 +8,7 @@ relations:
 - decomposes: epic:openid-provider
 - serves: vision:mandate
 - depends_on: story:oidc-static-client-registry
-revision: 3
+revision: 4
 transitions:
 - {from: "draft", to: "proposed", at: "2026-10-16T21:58:36Z", actor: "human:timo", revision: 2, decided_on: {"asserted":{"review_outcome":1}}}
 - {from: "proposed", to: "active", at: "2026-10-16T21:58:36Z", actor: "human:timo", revision: 3, decided_on: {"asserted":{"review_outcome":1}}}
@@ -77,11 +77,11 @@ Runtime:
   `claims_supported`, `code_challenge_methods_supported: ["S256"]`,
   `token_endpoint_auth_methods_supported: ["client_secret_basic","client_secret_post","none"]`;
   every URL comes from `ROUTES`; the RFC 8414 document carries the same values.
-- `end_to_end::browser_without_session_is_sent_upstream_and_returns_with_code`: a browser hitting
+- `relying_party::browser_without_session_is_sent_upstream_and_returns_with_code`: a browser hitting
   `/oauth/authorize` with no session cookie is redirected to the upstream IdP; after the callback it
   is redirected to the client's `redirect_uri` with `code` and the exact `state`, and receives a
   `__Host-mandate-session` cookie (`Secure; HttpOnly; SameSite=Lax; Path=/`).
-- `end_to_end::session_cookie_skips_upstream`: a second authorization with the cookie answers the
+- `relying_party::session_cookie_skips_upstream`: a second authorization with the cookie answers the
   code without an upstream round-trip; `prompt=login` forces one; `prompt=none` without a session
   answers `error=login_required` to the redirect URI.
 - `end_to_end::token_client_secret_basic` and `::token_client_secret_post`: both authenticate;
@@ -126,3 +126,13 @@ scenarios, and the RP callback learns a second continuation. The session cookie 
 and draws at least two adversary rounds, as the RP flow did (`review-result:wm-m1-rp-flow-adversary-1`).
 Splits into two units: (a) discovery + token-endpoint client authentication; (b) browser session +
 authorization resumption.
+
+## Residue after wave 12
+
+- The two browser cases live in `services/control-plane/tests/relying_party.rs`: only that file
+  stands up an upstream identity provider that signs an ID token carrying the request's nonce.
+- A public client that sends no PKCE challenge is refused in place (`ChallengeAbsent`), not
+  answered `invalid_request` at its validated redirect (RFC 7636 §4.4.1).
+- The STS's own client admission (`code::admitted_client`) still answers a client of another
+  organization differently from an unregistered one; the authorize road never reaches it, since it
+  resolves the client through the federation check first.
