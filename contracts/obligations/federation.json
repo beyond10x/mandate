@@ -521,18 +521,53 @@
         },
         {
           "clause": "a public client states a secret verifier or does not require PKCE",
-          "tests": [],
-          "blocked_on": "story:oidc-static-client-registry"
+          "tests": [
+            {
+              "id": "mandate-federation::security_w11_registration::a_public_client_that_does_not_require_pkce_is_refused",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::security_w11_registration::a_public_client_stating_a_secret_verifier_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
         },
         {
           "clause": "a confidential client states no verifier or more than two",
-          "tests": [],
-          "blocked_on": "story:oidc-static-client-registry"
+          "tests": [
+            {
+              "id": "mandate-federation::security_w11_registration::a_confidential_client_stating_no_verifier_is_refused",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::security_w11_registration::a_confidential_client_stating_three_verifiers_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
         },
         {
           "clause": "a trusted peer names the client itself or no client registered in the verified organization",
-          "tests": [],
-          "blocked_on": "story:oidc-static-client-registry"
+          "tests": [
+            {
+              "id": "mandate-federation::security_w11_registration::a_trusted_peer_naming_no_registered_client_is_refused",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::security_w11_registration::a_peer_registered_in_another_organization_is_refused",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::security_w11_registration::a_trusted_peer_naming_the_client_itself_is_refused_whatever_the_admission_answers",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
         },
         {
           "clause": "organization binding is invalid",

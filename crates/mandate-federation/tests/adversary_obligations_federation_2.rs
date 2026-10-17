@@ -68,8 +68,8 @@ const REGISTERED: &str = "https://app.example/callback";
 /// [`ClientRegistrationAdmission`] answer decides and nothing else does, in document order.
 /// The cause names "a redirect URI or post-logout redirect URI is unadmitted"; the port
 /// admits redirect URIs only, so the registry splits off the post-logout half, and the
-/// client-type, verifier and peer clauses the contract added, which no code decides yet,
-/// carry no row.
+/// client-type, verifier and peer clauses the contract added, which this crate decides
+/// itself and binds `real`.
 const PORT_DECIDED: [&str; 3] = [
     "Caller lacks client-administration authority",
     "a redirect URI",
@@ -282,6 +282,18 @@ fn a_clause_a_standing_double_decides_is_not_published_on_the_real_path() {
 
     let published: Vec<(String, Vec<String>)> = clauses
         .iter()
+        // The client-type, verifier and peer clauses are decided by this crate's own code
+        // and are bound `real` to the registration tests; only the port's answers are in
+        // question here.
+        .filter(|clause| {
+            !clause["tests"].as_array().is_some_and(|rows| {
+                rows.iter().any(|row| {
+                    row["id"].as_str().is_some_and(|id| {
+                        id.starts_with("mandate-federation::security_w11_registration::")
+                    })
+                })
+            })
+        })
         .map(|clause| {
             (
                 clause["clause"].as_str().unwrap_or_default().to_owned(),
@@ -348,7 +360,7 @@ fn the_report_does_not_count_a_double_backed_clause_in_real_covered() {
             federation["double_only"].as_u64(),
             federation["deferred"].as_u64(),
         ),
-        (Some(23), Some(3), Some(17)),
+        (Some(26), Some(3), Some(14)),
         "the three `mandate.federation.RegisterOAuthClient` clauses are decided by this \
          crate's standing double for `ClientRegistrationAdmission` and belong in \
          `double_only`; published `real_covered` they make the crate's row, and the \

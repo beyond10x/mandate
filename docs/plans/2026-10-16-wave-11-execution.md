@@ -188,12 +188,12 @@ Stay draft: `story:oidc-durable-state`, `story:oidc-gateway-swap-proof`,
 
 | unit | branch | managed id | stage |
 |---|---|---|---|
-| U1 `spec-federation` | `impl/w11-spec-federation` | `mandate-w11-spec-federation` | dispatched |
-| U2 `spec-credential` | `impl/w11-spec-credential` | `mandate-w11-spec-credential` | dispatched |
-| U3 `spec-identity` | `impl/w11-spec-identity` | `mandate-w11-spec-identity` | dispatched |
-| U4 `token-guard` | `impl/w11-token-guard` | `mandate-w11-token-guard` | dispatched |
-| U5 `deployment-image-health` | `impl/w11-deployment-image-health` | `mandate-w11-deployment-health` | dispatched |
-| U6 `domain-folds-federation` | `impl/w11-domain-folds-federation` | `mandate-w11-domain-folds` | dispatched |
+| U1 `spec-federation` | `impl/w11-spec-federation` | `mandate-w11-spec-federation` | merged |
+| U2 `spec-credential` | `impl/w11-spec-credential` | `mandate-w11-spec-credential` | merged |
+| U3 `spec-identity` | `impl/w11-spec-identity` | `mandate-w11-spec-identity` | merged |
+| U4 `token-guard` | `impl/w11-token-guard` | `mandate-w11-token-guard` | merged |
+| U5 `deployment-image-health` | `impl/w11-deployment-image-health` | `mandate-w11-deployment-health` | merged |
+| U6 `domain-folds-federation` | `impl/w11-domain-folds-federation` | `mandate-w11-domain-folds` | merged |
 
 ## Coordinator's `aep plan artifact move` commands
 
