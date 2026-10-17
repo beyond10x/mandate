@@ -94,7 +94,12 @@
     ],
     "mandate-client": [
       "mandate-types",
-      "mandate-proto"
+      "mandate-proto",
+      "mandate-contract",
+      "jsonwebtoken",
+      "serde",
+      "serde_json",
+      "aws-lc-rs"
     ],
     "mandate-server": [
       "mandate-types",
