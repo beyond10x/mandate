@@ -169,7 +169,7 @@ fn a_jwks_member_is_the_rfc_7517_name_use_and_not_the_rust_field_name() {
 }
 
 #[test]
-fn both_documents_are_published_at_a_route_this_table_declares() {
+fn the_four_documents_are_published_at_a_route_this_table_declares() {
     let published: Vec<&str> = ROUTES
         .iter()
         .filter(|route| matches!(route.binds, Binding::Document(_)))
@@ -177,7 +177,12 @@ fn both_documents_are_published_at_a_route_this_table_declares() {
         .collect();
     assert_eq!(
         published,
-        vec!["/.well-known/oauth-authorization-server", "/oauth/jwks"]
+        vec![
+            "/.well-known/oauth-authorization-server",
+            "/oauth/jwks",
+            "/healthz/live",
+            "/healthz/ready"
+        ]
     );
 }
 

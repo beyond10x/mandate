@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Refused payload",
+  "description": "Fail closed; the request does not reach the service and nothing is recorded. The reason names the clause that refused it, the same in the library and the sidecar.",
+  "x-ess-name": "mandate.guard.Refused",
+  "x-ess-kind": "error-payload",
+  "type": "object",
+  "properties": {
+    "reason": {
+      "$ref": "#/$defs/mandate.guard.RefusalReason"
+    }
+  },
+  "required": [
+    "reason"
+  ],
+  "additionalProperties": false,
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "751472a620cc3a7650f9a2496c9e81022fbef0887158483d3bbd761f09e76837",
+    "contract_digest": "slice-sha256/2:1d40d48e47ac331693e96a6a82ffb05434c9867881fe8dcafb674f5ecb9bea0b",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.guard.RefusalReason": {
+      "title": "RefusalReason",
+      "x-ess-name": "mandate.guard.RefusalReason",
+      "x-ess-kind": "enum",
+      "type": "string",
+      "enum": [
+        "Malformed",
+        "InvalidSignature",
+        "UnknownKey",
+        "IssuerMismatch",
+        "AudienceMismatch",
+        "Expired",
+        "NotYetValid",
+        "IdentityNotAllowed",
+        "OverLimit",
+        "QueueFull"
+      ]
+    }
+  }
+}

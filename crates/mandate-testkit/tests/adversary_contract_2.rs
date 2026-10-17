@@ -12,6 +12,7 @@
 
 use mandate_testkit::contract::{
     check_event_conforms, check_payload_sources, check_single_emission,
+    check_subject_payload_sources,
 };
 use serde_json::{Map, Value, json};
 
@@ -66,8 +67,9 @@ fn descriptor() -> Value {
     })
 }
 
-/// The input, response and emitted payload of the one command whose mapping uses all
-/// four source kinds, built from the mapping `generated/ir/system.json` declares.
+/// The input, response and emitted payload of the one command whose mapping uses four of
+/// the contract's five source kinds (all but `subject_field`), built from the mapping
+/// `generated/ir/system.json` declares.
 fn provisioned() -> (Value, Value, Value) {
     let input = json!({
         "connection_id": CONNECTION,
@@ -143,11 +145,12 @@ fn mappings(ir: &Value) -> Vec<Mapping> {
     declared
 }
 
-/// The input, response and event a mapping declares, every field carrying a probe
-/// value, so the source check sees exactly the shape the contract describes.
-fn declared_shape(mapping: &Mapping) -> (Value, Value, Value) {
+/// The input, response, subject and event a mapping declares, every field carrying a
+/// probe value, so the source check sees exactly the shape the contract describes.
+fn declared_shape(mapping: &Mapping) -> (Value, Value, Value, Value) {
     let mut input = Map::new();
     let mut response = Map::new();
+    let mut subject = Map::new();
     let mut event = Map::new();
     for field in &mapping.fields {
         let target = field["target"].as_str().expect("a field has a target");
@@ -165,6 +168,12 @@ fn declared_shape(mapping: &Mapping) -> (Value, Value, Value) {
                 response.insert(from.to_owned(), probe.clone());
                 event.insert(target.to_owned(), probe);
             }
+            "subject_field" => {
+                let from = source["field"].as_str().expect("a named subject field");
+                let probe = json!({ "from_subject": from });
+                subject.insert(from.to_owned(), probe.clone());
+                event.insert(target.to_owned(), probe);
+            }
             "literal" => {
                 event.insert(target.to_owned(), source["value"].clone());
             }
@@ -180,6 +189,7 @@ fn declared_shape(mapping: &Mapping) -> (Value, Value, Value) {
     (
         Value::Object(input),
         Value::Object(response),
+        Value::Object(subject),
         Value::Object(event),
     )
 }
@@ -266,7 +276,7 @@ fn every_required_target_refuses_a_source_and_a_target_that_are_both_absent() {
     let mut accepted: Vec<String> = Vec::new();
     let mut examined = 0usize;
     for mapping in mappings(&ir) {
-        let (input, response, event) = declared_shape(&mapping);
+        let (input, response, subject, event) = declared_shape(&mapping);
         for field in &mapping.fields {
             if field["target_type"]["kind"].as_str() == Some("optional") {
                 continue;
@@ -281,11 +291,12 @@ fn every_required_target_refuses_a_source_and_a_target_that_are_both_absent() {
             };
             let mut input = input.clone();
             let mut response = response.clone();
+            let mut subject = subject.clone();
             let mut event = event.clone();
-            let side = if kind == "input_field" {
-                &mut input
-            } else {
-                &mut response
+            let side = match kind.as_str() {
+                "input_field" => &mut input,
+                "subject_field" => &mut subject,
+                _ => &mut response,
             };
             side.as_object_mut()
                 .expect("the probe side is an object")
@@ -295,10 +306,12 @@ fn every_required_target_refuses_a_source_and_a_target_that_are_both_absent() {
                 .expect("the probe event is an object")
                 .remove(target);
             examined += 1;
-            if check_payload_sources(
+            if check_subject_payload_sources(
                 &mapping.command,
+                &mapping.outcome,
                 &input,
                 Some(&response),
+                Some(&subject),
                 &mapping.event,
                 &event,
             )
@@ -568,6 +581,7 @@ fn every_declared_mapping_conforms_and_passes_its_sources_together() {
         let defs = schema["$defs"].clone();
         let mut input = Map::new();
         let mut response = Map::new();
+        let mut subject = Map::new();
         let mut event = Map::new();
         for field in &mapping.fields {
             let target = field["target"].as_str().expect("a field has a target");
@@ -584,6 +598,9 @@ fn every_declared_mapping_conforms_and_passes_its_sources_together() {
             } else if kind == "response_field" {
                 let from = source["field"].as_str().expect("a named response field");
                 response.insert(from.to_owned(), value.clone());
+            } else if kind == "subject_field" {
+                let from = source["field"].as_str().expect("a named subject field");
+                subject.insert(from.to_owned(), value.clone());
             }
             event.insert(target.to_owned(), value);
         }
@@ -592,10 +609,12 @@ fn every_declared_mapping_conforms_and_passes_its_sources_together() {
         if let Err(message) = check_event_conforms(&mapping.event, &event) {
             disagreements.push(format!("{}: conforms refused: {message}", mapping.command));
         }
-        if let Err(message) = check_payload_sources(
+        if let Err(message) = check_subject_payload_sources(
             &mapping.command,
+            &mapping.outcome,
             &Value::Object(input),
             Some(&Value::Object(response)),
+            Some(&Value::Object(subject)),
             &mapping.event,
             &event,
         ) {

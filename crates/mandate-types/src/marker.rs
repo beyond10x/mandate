@@ -43,6 +43,7 @@ pub trait Transient {
 impl<T: PersistedValue> PersistedValue for Option<T> {}
 impl<T: PersistedValue> PersistedValue for Vec<T> {}
 impl PersistedValue for bool {}
+impl PersistedValue for u32 {}
 impl PersistedValue for String {}
 
 const _: () = {

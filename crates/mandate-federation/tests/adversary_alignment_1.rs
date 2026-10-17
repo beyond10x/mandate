@@ -76,7 +76,7 @@ fn unconditional() -> TenantResolutionRule {
     TenantResolutionRule {
         configured_organization: organization(),
         verified_claim_name: None,
-        verified_claim_value: None,
+        verified_claim_values: None,
     }
 }
 

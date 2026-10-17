@@ -261,6 +261,30 @@ pub const ESS_UNREALIZED: &[(&str, &str)] = &[
         "the RefreshCredential record is not projected here",
     ),
     (
+        "mandate.identity.RotateRefreshCredential",
+        "no handler here decides it; owner story:oidc-refresh-and-logout",
+    ),
+    (
+        "mandate.identity.RefreshCredentialIssued",
+        "declared and not folded here: no handler in this crate emits it; owner \
+         story:oidc-refresh-and-logout",
+    ),
+    (
+        "mandate.identity.RefreshCredentialRotated",
+        "declared and not folded here: no handler in this crate emits it; owner \
+         story:oidc-refresh-and-logout",
+    ),
+    (
+        "mandate.identity.RefreshFamilyId",
+        "the family handle no Rust type represents yet: mandate-types keeps it in \
+         DOMAIN_TYPES_UNREALIZED; owner story:oidc-refresh-and-logout",
+    ),
+    (
+        "mandate.identity.RefreshFamilyRevoked",
+        "declared and not folded here: no handler in this crate emits it; owner \
+         story:oidc-refresh-and-logout",
+    ),
+    (
         "mandate.identity.SecurityEpochSnapshot.State",
         "a single-state lifecycle: no transition to fold; owner story:declared-writers",
     ),

@@ -275,9 +275,9 @@ fn best_carrier(entity: &Value) -> Option<Carrier> {
 /// from the yaml under attack.
 #[test]
 fn the_reader_sees_the_contract_it_claims_to_see() {
-    assert_eq!(section("events").len(), 76, "compiled events");
-    assert_eq!(section("commands").len(), 63, "compiled commands");
-    assert_eq!(section("types").len(), 111, "compiled type entries");
+    assert_eq!(section("events").len(), 82, "compiled events");
+    assert_eq!(section("commands").len(), 65, "compiled commands");
+    assert_eq!(section("types").len(), 124, "compiled type entries");
     assert_eq!(section("entities").len(), 36, "compiled entities");
 
     let opened = &section("events")["mandate.identity.SessionOpened"];
@@ -403,7 +403,7 @@ const UNFOLDABLE: [(&str, &str); 10] = [
     ("mandate.delegation.Execution", "agent_id"),
     ("mandate.graph.Grant", "subject"),
     ("mandate.graph.Resource", "space_id"),
-    ("mandate.identity.RefreshCredential", "principal_id"),
+    ("mandate.identity.RefreshCredential", "last_used_at"),
     ("mandate.policy.AuthorizationModel", "version"),
     ("mandate.policy.Policy", "version"),
     ("mandate.workload.WorkloadIdentity", "principal_id"),
@@ -487,9 +487,54 @@ fn no_event_carries_credential_material() {
 /// and a payload the two disagree about is not detectable from the log at all.
 #[test]
 fn no_event_is_emitted_by_two_command_outcomes() {
-    let duplicated: BTreeMap<String, Vec<String>> = producers()
+    // `RotateRefreshCredential`'s rotated and grace-sibling outcomes each mint a successor
+    // record of one family, and ESS has no way to name that record in a second event: the
+    // two outcomes carry the same payload, so the fold cannot tell them apart from the log.
+    // The residue leaves this list when the story that realizes the command splits them.
+    //
+    // `RedeemAuthorizationCode`'s accepted-with-identity-token and accepted outcomes both
+    // consume the code and issue the access credential with one payload mapping; ESS emits
+    // per outcome and has no conditional emission, so the openid case is a second outcome
+    // that adds `IdentityTokenIssued` beside the shared event. One command writes the
+    // event either way, and the log tells the two apart by that second event.
+    //
+    // Each entry pins the exact producer set, so a third producer is still refused.
+    const SHARED_BY_DECLARATION: [(&str, &[&str]); 2] = [
+        (
+            "mandate.credential.AuthorizationCodeRedeemed",
+            &[
+                "mandate.credential.RedeemAuthorizationCode/accepted",
+                "mandate.credential.RedeemAuthorizationCode/accepted-with-identity-token",
+            ],
+        ),
+        (
+            "mandate.identity.RefreshCredentialRotated",
+            &[
+                "mandate.identity.RotateRefreshCredential/grace-sibling",
+                "mandate.identity.RotateRefreshCredential/rotated",
+            ],
+        ),
+    ];
+    let all = producers();
+    for (event, pinned) in SHARED_BY_DECLARATION {
+        let found: BTreeSet<&str> = all
+            .get(event)
+            .map(|emitters| emitters.iter().map(String::as_str).collect())
+            .unwrap_or_default();
+        let pinned: BTreeSet<&str> = pinned.iter().copied().collect();
+        assert_eq!(
+            found, pinned,
+            "{event} is shared by declaration with exactly these producers"
+        );
+    }
+    let duplicated: BTreeMap<String, Vec<String>> = all
         .into_iter()
-        .filter(|(_, emitters)| emitters.len() > 1)
+        .filter(|(event, emitters)| {
+            emitters.len() > 1
+                && !SHARED_BY_DECLARATION
+                    .iter()
+                    .any(|(shared, _)| *shared == event.as_str())
+        })
         .collect();
     assert_eq!(
         duplicated,

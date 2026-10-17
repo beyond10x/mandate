@@ -14,8 +14,14 @@
     "organization_id": {
       "$ref": "#/$defs/mandate.core.OrganizationId"
     },
-    "public": {
-      "type": "boolean"
+    "client_type": {
+      "$ref": "#/$defs/mandate.core.OAuthClientType"
+    },
+    "secret_verifiers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/mandate.core.CredentialVerifier"
+      }
     },
     "redirect_uris": {
       "type": "array",
@@ -25,22 +31,41 @@
     },
     "pkce_method": {
       "$ref": "#/$defs/mandate.core.PkceMethod"
+    },
+    "pkce_required": {
+      "type": "boolean"
+    },
+    "trusted_peers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/mandate.core.OAuthClientId"
+      }
+    },
+    "post_logout_redirect_uris": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/mandate.core.RedirectUri"
+      }
     }
   },
   "required": [
     "context",
     "id",
     "organization_id",
-    "public",
+    "client_type",
+    "secret_verifiers",
     "redirect_uris",
-    "pkce_method"
+    "pkce_method",
+    "pkce_required",
+    "trusted_peers",
+    "post_logout_redirect_uris"
   ],
   "additionalProperties": false,
   "x-ess-provenance": {
     "system": "mandate",
     "specification_version": "v1",
-    "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
-    "contract_digest": "slice-sha256/2:59fde942467c64b085a4ed44625c6cf9e52e33b4fbb96ccd2f1b8350326baac9",
+    "source_digest": "751472a620cc3a7650f9a2496c9e81022fbef0887158483d3bbd761f09e76837",
+    "contract_digest": "slice-sha256/2:4332e2ffc1fb15ea7e8d3236f8382816b96c3464e8c0d63227d63c709c16c3fb",
     "regenerate": "ess generate"
   },
   "$defs": {
@@ -63,6 +88,12 @@
       "type": "string",
       "format": "uuid",
       "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.CredentialVerifier": {
+      "title": "CredentialVerifier",
+      "x-ess-name": "mandate.core.CredentialVerifier",
+      "x-ess-kind": "newtype",
+      "type": "string"
     },
     "mandate.core.DelegationId": {
       "title": "DelegationId",
@@ -87,6 +118,16 @@
       "type": "string",
       "format": "uuid",
       "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "mandate.core.OAuthClientType": {
+      "title": "OAuthClientType",
+      "x-ess-name": "mandate.core.OAuthClientType",
+      "x-ess-kind": "enum",
+      "type": "string",
+      "enum": [
+        "Public",
+        "Confidential"
+      ]
     },
     "mandate.core.OrganizationId": {
       "title": "OrganizationId",

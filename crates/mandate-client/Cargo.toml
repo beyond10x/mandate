@@ -1,6 +1,6 @@
 [package]
 name = "mandate-client"
-description = "Rust PEP client and middleware."
+description = "Rust PEP client and middleware: the token guard's verify."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -11,5 +11,12 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-mandate-types = { version = "0.9.2", path = "../mandate-types" }
-mandate-proto = { version = "0.9.2", path = "../mandate-proto" }
+mandate-types = { version = "0.10.0", path = "../mandate-types" }
+mandate-proto = { version = "0.10.0", path = "../mandate-proto" }
+mandate-contract = { version = "0.10.0", path = "../mandate-contract" }
+jsonwebtoken = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+aws-lc-rs = { workspace = true }

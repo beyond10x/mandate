@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$ref": "#/$defs/mandate.guard.GroupName",
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "751472a620cc3a7650f9a2496c9e81022fbef0887158483d3bbd761f09e76837",
+    "contract_digest": "slice-sha256/2:dd210dfde906046d1f04add23b21879a02f627c8c5625cc47cc8fd75cfbd7a10",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.guard.GroupName": {
+      "title": "GroupName",
+      "x-ess-name": "mandate.guard.GroupName",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    }
+  }
+}

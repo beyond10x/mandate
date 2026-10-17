@@ -186,7 +186,7 @@ fn on_tenant_claim(organization_id: OrganizationId, value: &str) -> TenantResolu
     TenantResolutionRule {
         configured_organization: organization_id,
         verified_claim_name: Some(TENANT_CLAIM.to_owned()),
-        verified_claim_value: Some(value.to_owned()),
+        verified_claim_values: Some(vec![value.to_owned()]),
     }
 }
 

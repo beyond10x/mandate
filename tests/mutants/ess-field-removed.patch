@@ -1,7 +1,7 @@
 diff --git a/systems/mandate/domains/credential.yaml b/systems/mandate/domains/credential.yaml
 --- a/systems/mandate/domains/credential.yaml
 +++ b/systems/mandate/domains/credential.yaml
-@@ -230,8 +230,6 @@ commands:
+@@ -277,8 +277,6 @@ commands:
                response: credential_id
              reference_verifier:
                generated: true
@@ -10,7 +10,16 @@ diff --git a/systems/mandate/domains/credential.yaml b/systems/mandate/domains/c
              issued_at:
                generated: true
              descriptor:
-@@ -604,8 +602,6 @@ events:
+@@ -315,8 +313,6 @@ commands:
+               response: credential_id
+             reference_verifier:
+               generated: true
+-            epochs:
+-              response: epochs
+             issued_at:
+               generated: true
+             descriptor:
+@@ -706,8 +702,6 @@ events:
          type: mandate.core.CredentialId
        - name: reference_verifier
          type: Optional<mandate.core.CredentialVerifier>

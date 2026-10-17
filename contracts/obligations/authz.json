@@ -4,6 +4,7 @@
   "domains": [
     "mandate.authorization",
     "mandate.delegation",
+    "mandate.guard",
     "mandate.workload"
   ],
   "commands": [
@@ -584,6 +585,13 @@
       "command": "mandate.delegation.SupersedeAgentCapabilityCeiling",
       "status": "deferred",
       "story": "story:agent-security",
+      "clauses": [],
+      "no_state_change": []
+    },
+    {
+      "command": "mandate.guard.AdmitRequest",
+      "status": "deferred",
+      "story": "story:token-guard",
       "clauses": [],
       "no_state_change": []
     },

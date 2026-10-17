@@ -1,0 +1,504 @@
+# generated from mandate v1
+# model digest 751472a620cc3a7650f9a2496c9e81022fbef0887158483d3bbd761f09e76837
+# contract digest slice-sha256/2:8f9edd15da6dad263691e571727b98f68254bc20a16b628c2918f5dec385cf27
+# do not edit: regenerate with `ess generate`
+openapi: 3.1.0
+info:
+  title: mandate-guard
+  summary: The token guard of docs/adr/0013-token-guard.md. Today the library alone, verify in crates/mandate-client; the sidecar binary and its chart are planned under story:token-guard.
+  description: |-
+    The HTTP surface of `mandate-guard`, one of the components of `mandate` v1.
+
+    Every path here is one semantic command, so the method is always POST and the path is the command's wire name under its domain's: a command is not a resource, and this document does not invent one. A status code is the outcome the specification declares — 202 for a branch that was taken, 422 for a refusal the input decides, 502 for a refusal decided outside the request — and the `outcome` property of every response body names the branch. Events emitted by a branch are published to consumers through the event transport, and the `published` property of every response body lists them too, in publication order.
+  version: v1
+  x-ess-provenance:
+    system: mandate
+    specification_version: v1
+    source_digest: 751472a620cc3a7650f9a2496c9e81022fbef0887158483d3bbd761f09e76837
+    contract_digest: slice-sha256/2:8f9edd15da6dad263691e571727b98f68254bc20a16b628c2918f5dec385cf27
+tags:
+- name: guard
+paths:
+  /guard/commands/AdmitRequest:
+    post:
+      operationId: mandate.guard.AdmitRequest
+      summary: AdmitRequest
+      tags:
+      - guard
+      requestBody:
+        description: The input `mandate.guard.AdmitRequest` declares.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/mandate.guard.AdmitRequest.Input'
+      responses:
+        '202':
+          description: 'Outcome `accepted`: the branch the specification declares for this input. Events this branch emits are published to consumers and listed under `published`.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.guard.AdmitRequest.accepted.Response'
+        '501':
+          description: 'No declared outcome: the realization is unfinished. Either a port this command runs reported an unmet obligation, and nothing was written: `committed` is `false`. Or the command''s effect was committed and delivering what this command published to a binding failed: `committed` is `true`, the effect and its events stand, and each binding whose delivery failed keeps its event and is attempted again on a later delivery, while no other binding receives it twice. Do not retry: after a failed delivery a retry performs the command a second time.'
+          content:
+            application/json:
+              schema:
+                additionalProperties: false
+                properties:
+                  committed:
+                    description: '`true` when the command''s effect and events were committed and delivering what it published failed; `false` when an unmet obligation stopped the command before anything was written.'
+                    type: boolean
+                  refused:
+                    description: What was left unfinished, in words.
+                    type: string
+                required:
+                - refused
+                - committed
+                type: object
+        '502':
+          description: 'Outcomes `malformed`, `invalid-signature`, `unknown-key`, `issuer-mismatch`, `audience-mismatch`, `expired`, `not-yet-valid`, `identity-not-allowed`, `over-limit` and `queue-full`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
+          content:
+            application/json:
+              schema:
+                discriminator:
+                  mapping:
+                    audience-mismatch: '#/components/schemas/mandate.guard.AdmitRequest.audience-mismatch.Response'
+                    expired: '#/components/schemas/mandate.guard.AdmitRequest.expired.Response'
+                    identity-not-allowed: '#/components/schemas/mandate.guard.AdmitRequest.identity-not-allowed.Response'
+                    invalid-signature: '#/components/schemas/mandate.guard.AdmitRequest.invalid-signature.Response'
+                    issuer-mismatch: '#/components/schemas/mandate.guard.AdmitRequest.issuer-mismatch.Response'
+                    malformed: '#/components/schemas/mandate.guard.AdmitRequest.malformed.Response'
+                    not-yet-valid: '#/components/schemas/mandate.guard.AdmitRequest.not-yet-valid.Response'
+                    over-limit: '#/components/schemas/mandate.guard.AdmitRequest.over-limit.Response'
+                    queue-full: '#/components/schemas/mandate.guard.AdmitRequest.queue-full.Response'
+                    unknown-key: '#/components/schemas/mandate.guard.AdmitRequest.unknown-key.Response'
+                  propertyName: outcome
+                oneOf:
+                - $ref: '#/components/schemas/mandate.guard.AdmitRequest.malformed.Response'
+                - $ref: '#/components/schemas/mandate.guard.AdmitRequest.invalid-signature.Response'
+                - $ref: '#/components/schemas/mandate.guard.AdmitRequest.unknown-key.Response'
+                - $ref: '#/components/schemas/mandate.guard.AdmitRequest.issuer-mismatch.Response'
+                - $ref: '#/components/schemas/mandate.guard.AdmitRequest.audience-mismatch.Response'
+                - $ref: '#/components/schemas/mandate.guard.AdmitRequest.expired.Response'
+                - $ref: '#/components/schemas/mandate.guard.AdmitRequest.not-yet-valid.Response'
+                - $ref: '#/components/schemas/mandate.guard.AdmitRequest.identity-not-allowed.Response'
+                - $ref: '#/components/schemas/mandate.guard.AdmitRequest.over-limit.Response'
+                - $ref: '#/components/schemas/mandate.guard.AdmitRequest.queue-full.Response'
+components:
+  schemas:
+    mandate.core.Audience:
+      title: Audience
+      x-ess-name: mandate.core.Audience
+      x-ess-kind: newtype
+      type: string
+    mandate.core.CredentialProof:
+      title: CredentialProof
+      x-ess-name: mandate.core.CredentialProof
+      x-ess-kind: newtype
+      type: string
+      pattern: ^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$
+      contentEncoding: base64
+    mandate.core.ExternalSubject:
+      title: ExternalSubject
+      x-ess-name: mandate.core.ExternalSubject
+      x-ess-kind: newtype
+      type: string
+    mandate.core.Issuer:
+      title: Issuer
+      x-ess-name: mandate.core.Issuer
+      x-ess-kind: newtype
+      type: string
+    mandate.guard.AdmitRequest.Input:
+      title: AdmitRequest input
+      x-ess-name: mandate.guard.AdmitRequest
+      x-ess-kind: command-input
+      type: object
+      properties:
+        policy:
+          $ref: '#/components/schemas/mandate.guard.GuardPolicy'
+        token:
+          $ref: '#/components/schemas/mandate.core.CredentialProof'
+      required:
+      - policy
+      - token
+      additionalProperties: false
+    mandate.guard.AdmitRequest.accepted.Response:
+      additionalProperties: false
+      description: The token is a compact JWS signed by a key in the issuer's JWK Set, its iss is the policy's issuer, its aud names one of the policy's audiences, the clock is within its nbf and exp widened by the policy's clock skew, the identity passes the allow rule, and its bucket and the waiting queue have room. The verified identity is returned for the service; nothing is created or moved, and the event folds into no record. Taken when no other outcome's condition matched. Emits `RequestAdmitted`, published to consumers and listed under `published`.
+      properties:
+        outcome:
+          const: accepted
+          description: Which declared outcome the command took.
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          items: false
+          maxItems: 1
+          minItems: 1
+          prefixItems:
+          - additionalProperties: false
+            properties:
+              event:
+                const: mandate.guard.RequestAdmitted
+                type: string
+              payload:
+                $ref: '#/components/schemas/mandate.guard.RequestAdmitted.Event'
+            required:
+            - event
+            - payload
+            type: object
+          type: array
+      required:
+      - outcome
+      - published
+      type: object
+    mandate.guard.AdmitRequest.audience-mismatch.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: No aud of the token is one of the policy''s audiences..'
+      properties:
+        error:
+          const: mandate.guard.Refused
+          description: Fail closed; the request does not reach the service and nothing is recorded. The reason names the clause that refused it, the same in the library and the sidecar.
+          type: string
+        outcome:
+          const: audience-mismatch
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.guard.Refused.Error'
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          maxItems: 0
+          type: array
+      required:
+      - outcome
+      - published
+      - error
+      - payload
+      type: object
+    mandate.guard.AdmitRequest.expired.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: The clock is past exp by more than the policy''s clock skew..'
+      properties:
+        error:
+          const: mandate.guard.Refused
+          description: Fail closed; the request does not reach the service and nothing is recorded. The reason names the clause that refused it, the same in the library and the sidecar.
+          type: string
+        outcome:
+          const: expired
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.guard.Refused.Error'
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          maxItems: 0
+          type: array
+      required:
+      - outcome
+      - published
+      - error
+      - payload
+      type: object
+    mandate.guard.AdmitRequest.identity-not-allowed.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: The rule is not empty, and the token carries no email, an email the issuer has not verified, or one neither listed in allow.emails nor in a domain listed in allow.domains..'
+      properties:
+        error:
+          const: mandate.guard.Refused
+          description: Fail closed; the request does not reach the service and nothing is recorded. The reason names the clause that refused it, the same in the library and the sidecar.
+          type: string
+        outcome:
+          const: identity-not-allowed
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.guard.Refused.Error'
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          maxItems: 0
+          type: array
+      required:
+      - outcome
+      - published
+      - error
+      - payload
+      type: object
+    mandate.guard.AdmitRequest.invalid-signature.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: The signature does not verify under the key its kid names..'
+      properties:
+        error:
+          const: mandate.guard.Refused
+          description: Fail closed; the request does not reach the service and nothing is recorded. The reason names the clause that refused it, the same in the library and the sidecar.
+          type: string
+        outcome:
+          const: invalid-signature
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.guard.Refused.Error'
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          maxItems: 0
+          type: array
+      required:
+      - outcome
+      - published
+      - error
+      - payload
+      type: object
+    mandate.guard.AdmitRequest.issuer-mismatch.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: The token''s iss is not the policy''s issuer..'
+      properties:
+        error:
+          const: mandate.guard.Refused
+          description: Fail closed; the request does not reach the service and nothing is recorded. The reason names the clause that refused it, the same in the library and the sidecar.
+          type: string
+        outcome:
+          const: issuer-mismatch
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.guard.Refused.Error'
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          maxItems: 0
+          type: array
+      required:
+      - outcome
+      - published
+      - error
+      - payload
+      type: object
+    mandate.guard.AdmitRequest.malformed.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: The token is not a compact JWS, its header names no key or an algorithm the guard does not admit, or its claims lack iss, sub, aud or exp..'
+      properties:
+        error:
+          const: mandate.guard.Refused
+          description: Fail closed; the request does not reach the service and nothing is recorded. The reason names the clause that refused it, the same in the library and the sidecar.
+          type: string
+        outcome:
+          const: malformed
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.guard.Refused.Error'
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          maxItems: 0
+          type: array
+      required:
+      - outcome
+      - published
+      - error
+      - payload
+      type: object
+    mandate.guard.AdmitRequest.not-yet-valid.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: The clock is before nbf by more than the policy''s clock skew..'
+      properties:
+        error:
+          const: mandate.guard.Refused
+          description: Fail closed; the request does not reach the service and nothing is recorded. The reason names the clause that refused it, the same in the library and the sidecar.
+          type: string
+        outcome:
+          const: not-yet-valid
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.guard.Refused.Error'
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          maxItems: 0
+          type: array
+      required:
+      - outcome
+      - published
+      - error
+      - payload
+      type: object
+    mandate.guard.AdmitRequest.over-limit.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: The identity''s bucket, refilled at limits.per_minute and holding at most limits.burst, is empty; other identities are admitted on their own buckets..'
+      properties:
+        error:
+          const: mandate.guard.Refused
+          description: Fail closed; the request does not reach the service and nothing is recorded. The reason names the clause that refused it, the same in the library and the sidecar.
+          type: string
+        outcome:
+          const: over-limit
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.guard.Refused.Error'
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          maxItems: 0
+          type: array
+      required:
+      - outcome
+      - published
+      - error
+      - payload
+      type: object
+    mandate.guard.AdmitRequest.queue-full.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: limits.queue requests are already waiting; the request is refused at once, never buffered..'
+      properties:
+        error:
+          const: mandate.guard.Refused
+          description: Fail closed; the request does not reach the service and nothing is recorded. The reason names the clause that refused it, the same in the library and the sidecar.
+          type: string
+        outcome:
+          const: queue-full
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.guard.Refused.Error'
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          maxItems: 0
+          type: array
+      required:
+      - outcome
+      - published
+      - error
+      - payload
+      type: object
+    mandate.guard.AdmitRequest.unknown-key.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: The kid is absent from the issuer''s JWK Set as the guard last fetched it. A held set is refetched once it reaches its maximum age (15 minutes unless configured), so a key the issuer withdrew stops verifying within that age; an unknown kid refetches it sooner, at most once per bounded refresh interval..'
+      properties:
+        error:
+          const: mandate.guard.Refused
+          description: Fail closed; the request does not reach the service and nothing is recorded. The reason names the clause that refused it, the same in the library and the sidecar.
+          type: string
+        outcome:
+          const: unknown-key
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.guard.Refused.Error'
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          maxItems: 0
+          type: array
+      required:
+      - outcome
+      - published
+      - error
+      - payload
+      type: object
+    mandate.guard.AllowRule:
+      title: AllowRule
+      x-ess-name: mandate.guard.AllowRule
+      x-ess-kind: struct
+      type: object
+      properties:
+        emails:
+          type: array
+          items:
+            $ref: '#/components/schemas/mandate.guard.EmailAddress'
+        domains:
+          type: array
+          items:
+            $ref: '#/components/schemas/mandate.guard.EmailDomain'
+      required:
+      - emails
+      - domains
+      additionalProperties: false
+    mandate.guard.EmailAddress:
+      title: EmailAddress
+      x-ess-name: mandate.guard.EmailAddress
+      x-ess-kind: newtype
+      type: string
+    mandate.guard.EmailDomain:
+      title: EmailDomain
+      x-ess-name: mandate.guard.EmailDomain
+      x-ess-kind: newtype
+      type: string
+    mandate.guard.GuardLimits:
+      title: GuardLimits
+      x-ess-name: mandate.guard.GuardLimits
+      x-ess-kind: struct
+      type: object
+      properties:
+        per_minute:
+          type: integer
+        burst:
+          type: integer
+        queue:
+          type: integer
+      required:
+      - per_minute
+      - burst
+      - queue
+      additionalProperties: false
+    mandate.guard.GuardPolicy:
+      title: GuardPolicy
+      x-ess-name: mandate.guard.GuardPolicy
+      x-ess-kind: struct
+      type: object
+      properties:
+        issuer:
+          $ref: '#/components/schemas/mandate.core.Issuer'
+        audiences:
+          type: array
+          items:
+            $ref: '#/components/schemas/mandate.core.Audience'
+        allow:
+          $ref: '#/components/schemas/mandate.guard.AllowRule'
+        limits:
+          $ref: '#/components/schemas/mandate.guard.GuardLimits'
+        clock_skew:
+          type: string
+          format: duration
+      required:
+      - issuer
+      - audiences
+      - allow
+      - limits
+      - clock_skew
+      additionalProperties: false
+    mandate.guard.RefusalReason:
+      title: RefusalReason
+      x-ess-name: mandate.guard.RefusalReason
+      x-ess-kind: enum
+      type: string
+      enum:
+      - Malformed
+      - InvalidSignature
+      - UnknownKey
+      - IssuerMismatch
+      - AudienceMismatch
+      - Expired
+      - NotYetValid
+      - IdentityNotAllowed
+      - OverLimit
+      - QueueFull
+    mandate.guard.Refused.Error:
+      title: Refused payload
+      description: Fail closed; the request does not reach the service and nothing is recorded. The reason names the clause that refused it, the same in the library and the sidecar.
+      x-ess-name: mandate.guard.Refused
+      x-ess-kind: error-payload
+      type: object
+      properties:
+        reason:
+          $ref: '#/components/schemas/mandate.guard.RefusalReason'
+      required:
+      - reason
+      additionalProperties: false
+    mandate.guard.RequestAdmitted.Event:
+      title: RequestAdmitted payload
+      x-ess-name: mandate.guard.RequestAdmitted
+      x-ess-kind: event-payload
+      type: object
+      properties:
+        issuer:
+          $ref: '#/components/schemas/mandate.core.Issuer'
+        subject:
+          $ref: '#/components/schemas/mandate.core.ExternalSubject'
+        audience:
+          $ref: '#/components/schemas/mandate.core.Audience'
+        admitted_at:
+          type: string
+          format: date-time
+      required:
+      - issuer
+      - subject
+      - audience
+      - admitted_at
+      additionalProperties: false

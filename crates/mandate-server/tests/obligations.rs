@@ -4,7 +4,7 @@
 //! names: "A written adapter contract naming, for every one of the 59 commands ... which party
 //! establishes each declared precondition. A sample is not evidence; the table is the
 //! enumeration." and "A negative conformance case per command deny clause". (59 has since
-//! become 63; the count is read here rather than restated.)
+//! become 65; the count is read here rather than restated.)
 //!
 //! Two enumerations, both machine-checked against a source outside this crate:
 //!
@@ -48,7 +48,7 @@ fn the_registry_names_every_operation_id_the_projection_publishes_and_nothing_el
         .collect();
     assert_eq!(registered, published, "the registry is not the command set");
     assert_eq!(OBLIGATIONS.len(), published.len());
-    assert_eq!(OBLIGATIONS.len(), 63);
+    assert_eq!(OBLIGATIONS.len(), 65);
 }
 
 #[test]
@@ -202,15 +202,15 @@ fn every_road_command_records_exactly_the_clauses_its_declared_denial_carries() 
 }
 
 #[test]
-fn the_four_road_commands_declare_twenty_five_clauses_between_them() {
+fn the_four_road_commands_declare_twenty_nine_clauses_between_them() {
     let total: usize = ROAD_COMMANDS
         .iter()
         .map(|command| obligations::obligation(command).unwrap().clauses.len())
         .sum();
-    assert_eq!(total, 25);
+    assert_eq!(total, 29);
 }
 
-/// One case per declared deny clause of the four road commands — 25 of them.
+/// One case per declared deny clause of the four road commands — 29 of them.
 ///
 /// The case a clause gets is decided by which party the registry records as establishing it,
 /// and the rule is uniform:
@@ -233,7 +233,7 @@ fn a_case_for_every_declared_deny_clause_of_the_road_commands() {
             covered += 1;
         }
     }
-    assert_eq!(covered, 25);
+    assert_eq!(covered, 29);
 }
 
 fn drive(command: &str, phrase: &str, establishes: Establishes) {
@@ -251,6 +251,10 @@ fn drive(command: &str, phrase: &str, establishes: Establishes) {
         | (
             "mandate.federation.AuthenticateFederation",
             "principal linking is absent/conflicting",
+        )
+        | (
+            "mandate.federation.AuthenticateFederation",
+            "the groups the connection's filter admits number more than its cap",
         ) => {
             assert_eq!(establishes, Establishes::Handler, "{phrase}");
             let input = decode::authenticate_federation(&login(&format!(
@@ -258,7 +262,7 @@ fn drive(command: &str, phrase: &str, establishes: Establishes) {
             )))
             .unwrap_or_else(|refusal| panic!("{phrase}: {refusal}"));
             // The two declared inputs, and nothing by which a caller could name a connection's
-            // trust, an organization, a principal or a link.
+            // trust, an organization, a principal, a link or a group.
             assert_eq!(
                 decode::AuthenticateFederation::DECLARED_INPUTS,
                 ["connection_id", "proof"]
@@ -368,10 +372,19 @@ fn drive(command: &str, phrase: &str, establishes: Establishes) {
         }
         ("mandate.credential.RedeemAuthorizationCode", "code is expired")
         | ("mandate.credential.RedeemAuthorizationCode", "the bound client is disabled")
+        | (
+            "mandate.credential.RedeemAuthorizationCode",
+            "a confidential client presents no secret or one matching none of its recorded verifiers",
+        )
+        | ("mandate.credential.RedeemAuthorizationCode", "a public client presents a secret")
         | ("mandate.credential.RedeemAuthorizationCode", "source/session epoch is stale")
         | (
             "mandate.credential.RedeemAuthorizationCode",
             "registered target is disabled or outside the verified tenant",
+        )
+        | (
+            "mandate.credential.RedeemAuthorizationCode",
+            "no signing key is admitted for issuance when an identity token is due",
         )
         | (
             "mandate.credential.RedeemAuthorizationCode",
@@ -488,7 +501,7 @@ fn introspect(form: &str) -> Request {
         .with_body(form.as_bytes().to_vec())
 }
 
-/// Every `operationId` the four generated OpenAPI documents publish.
+/// Every `operationId` the five generated OpenAPI documents publish.
 fn published_operation_ids() -> BTreeSet<&'static str> {
     let mut ids = BTreeSet::new();
     let mut documents = 0;
@@ -509,7 +522,7 @@ fn published_operation_ids() -> BTreeSet<&'static str> {
             }
         }
     }
-    assert_eq!(documents, 4);
+    assert_eq!(documents, 5);
     ids
 }
 

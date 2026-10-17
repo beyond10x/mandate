@@ -223,4 +223,5 @@ wire_contracts! {
     ::mandate_types::SigningKeyWindow, ::mandate_types::DenialReason, ::mandate_types::AuthoritySubject,
     ::mandate_types::SecurityEpochTarget, ::mandate_types::AuditAction,
     ::mandate_types::AuditOutcome, ::mandate_model::AuditRecord,
+    ::mandate_types::OAuthClientType, ::mandate_model::GroupFilter,
 }

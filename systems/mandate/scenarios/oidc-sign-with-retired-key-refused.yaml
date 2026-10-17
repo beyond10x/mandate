@@ -1,0 +1,133 @@
+type: ess-scenario/2
+domain: mandate.credential
+scenario: oidc-sign-with-retired-key-refused
+summary: '`signing algorithm or key is unadmitted`: the one key left is retired, its successor revoked; issuance draws nothing; keys::signing_admitted; corpus: none.'
+arrange:
+- instance: server
+  entity: mandate.credential.ResourceServer
+- instance: retired-key
+  entity: mandate.credential.SigningKey
+- instance: revoked-key
+  entity: mandate.credential.SigningKey
+timeline:
+- at: '2026-01-05T09:00:00Z'
+  command: mandate.credential.RegisterResourceServer
+  input:
+    context:
+      subject: 00000000-0000-4000-8000-000000000001
+      organization: 00000000-0000-4000-8000-0000000000a1
+      audience: mandate
+      credential: 00000000-0000-4000-8000-0000000000c1
+      correlation: oidc-sign-retired-server
+    audience: api-a
+    profile:
+      name: jwt-api
+      kind: SelfContained
+      revocation: BoundedOffline
+      max_ttl: PT10M
+      positive_cache_ttl: PT1M
+      requires_online_authorization: false
+    allowed_exchange_sources: []
+  outcome: accepted
+  events:
+  - event: mandate.credential.ResourceServerRegistered
+    payload:
+      audience: api-a
+  capture:
+    instance: server
+    event: mandate.credential.ResourceServerRegistered
+    field: id
+- at: '2026-01-05T09:00:01Z'
+  command: mandate.credential.RegisterSigningKey
+  input:
+    context:
+      subject: 00000000-0000-4000-8000-000000000001
+      organization: 00000000-0000-4000-8000-0000000000a1
+      audience: mandate
+      credential: 00000000-0000-4000-8000-0000000000c1
+      correlation: oidc-sign-retired-register-first
+    key_reference: secret/signing/first
+    algorithm: ES256
+    window:
+      not_before: '2026-01-05T08:00:00Z'
+      expires_at: '2026-04-05T08:00:00Z'
+  outcome: accepted
+  events:
+  - event: mandate.credential.SigningKeyRegistered
+  capture:
+    instance: retired-key
+    event: mandate.credential.SigningKeyRegistered
+    field: id
+- at: '2026-01-05T09:00:02Z'
+  command: mandate.credential.RegisterSigningKey
+  input:
+    context:
+      subject: 00000000-0000-4000-8000-000000000001
+      organization: 00000000-0000-4000-8000-0000000000a1
+      audience: mandate
+      credential: 00000000-0000-4000-8000-0000000000c1
+      correlation: oidc-sign-retired-register-second
+    key_reference: secret/signing/second
+    algorithm: ES256
+    window:
+      not_before: '2026-01-05T08:00:00Z'
+      expires_at: '2026-04-05T08:00:00Z'
+  outcome: accepted
+  events:
+  - event: mandate.credential.SigningKeyRegistered
+  capture:
+    instance: revoked-key
+    event: mandate.credential.SigningKeyRegistered
+    field: id
+- at: '2026-01-05T09:00:03Z'
+  command: mandate.credential.RetireSigningKey
+  input:
+    id:
+      $instance: retired-key
+    context:
+      subject: 00000000-0000-4000-8000-000000000001
+      organization: 00000000-0000-4000-8000-0000000000a1
+      audience: mandate
+      credential: 00000000-0000-4000-8000-0000000000c1
+      correlation: oidc-sign-retired-retire
+  outcome: accepted
+  events:
+  - event: mandate.credential.SigningKeyRetired
+- at: '2026-01-05T09:00:04Z'
+  command: mandate.credential.RevokeSigningKey
+  input:
+    id:
+      $instance: revoked-key
+    context:
+      subject: 00000000-0000-4000-8000-000000000001
+      organization: 00000000-0000-4000-8000-0000000000a1
+      audience: mandate
+      credential: 00000000-0000-4000-8000-0000000000c1
+      correlation: oidc-sign-retired-revoke
+  outcome: accepted
+  events:
+  - event: mandate.credential.SigningKeyRevoked
+- at: '2026-01-05T09:00:05Z'
+  command: mandate.credential.IssueSelfContainedCredential
+  input:
+    context:
+      subject: 00000000-0000-4000-8000-000000000001
+      organization: 00000000-0000-4000-8000-0000000000a1
+      audience: mandate
+      credential: 00000000-0000-4000-8000-0000000000c1
+      correlation: oidc-sign-retired-issue
+    target:
+      $instance: server
+    requested_scope:
+      actions:
+      - document.read
+      resources:
+      - resource_type: document
+        resource_id: 00000000-0000-4000-8000-000000000071
+  outcome: denied
+  error:
+    name: mandate.credential.Denied
+    fields:
+      reason: Denied
+  no_events:
+  - mandate.credential.CredentialSelfContainedIssued

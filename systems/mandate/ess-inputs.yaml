@@ -15,6 +15,7 @@ specification:
 - domains/workload.yaml
 - domains/audit.yaml
 - domains/authorization.yaml
+- domains/guard.yaml
 scenarios:
 - scenarios/authz-unadmitted-organization.yaml
 - scenarios/credential-revoked-twice.yaml
@@ -25,11 +26,40 @@ scenarios:
 - scenarios/federation-configured-method-on-explicit-link.yaml
 - scenarios/federation-disabled-connection.yaml
 - scenarios/federation-empty-subject.yaml
+- scenarios/federation-groups-over-cap-refused.yaml
+- scenarios/federation-hosted-domain-listed.yaml
+- scenarios/federation-hosted-domain-unlisted-refused.yaml
 - scenarios/federation-issuer-mismatch.yaml
 - scenarios/federation-malformed-proof.yaml
+- scenarios/federation-profile-groups-filtered.yaml
+- scenarios/federation-profile-observed-on-login.yaml
 - scenarios/federation-resolution-precedence.yaml
 - scenarios/federation-untrimmed-subject.yaml
+- scenarios/guard-audience-mismatch-refused.yaml
+- scenarios/guard-expired-refused.yaml
+- scenarios/guard-identity-allowed-admitted.yaml
+- scenarios/guard-identity-not-allowed-refused.yaml
+- scenarios/guard-issuer-mismatch-refused.yaml
+- scenarios/guard-unknown-key-refused.yaml
 - scenarios/introspect-caller-proof-malformed.yaml
+- scenarios/oidc-client-confidential-registered.yaml
+- scenarios/oidc-client-peer-unknown-refused.yaml
+- scenarios/oidc-client-public-pkce-optional-refused.yaml
+- scenarios/oidc-client-public-with-secret-refused.yaml
+- scenarios/oidc-end-session-revokes.yaml
+- scenarios/oidc-id-token-issued-on-openid.yaml
+- scenarios/oidc-no-id-token-without-openid.yaml
+- scenarios/oidc-peer-cross-organization-refused.yaml
+- scenarios/oidc-peer-exchange-allowed.yaml
+- scenarios/oidc-peer-exchange-not-trusted-refused.yaml
+- scenarios/oidc-redeem-client-auth-failed.yaml
+- scenarios/oidc-redeem-public-with-secret-refused.yaml
+- scenarios/oidc-refresh-grace-sibling-once.yaml
+- scenarios/oidc-refresh-reuse-revokes-family.yaml
+- scenarios/oidc-refresh-rotates.yaml
+- scenarios/oidc-refresh-wrong-client-refused.yaml
+- scenarios/oidc-retire-without-successor-refused.yaml
+- scenarios/oidc-sign-with-retired-key-refused.yaml
 - scenarios/pkce-code-expired.yaml
 - scenarios/pkce-malformed-challenge.yaml
 - scenarios/pkce-redirect-mismatch.yaml
@@ -62,3 +92,9 @@ scenarios:
 #   AccessCredential.target; mandate.credential.AccessCredential declares no target field,
 #   so `setup:` cannot seed one (ESS-AUTHOR-015). Authored as the reachable first guard,
 #   introspect-caller-proof-malformed. Routed to story:declared-writers.
+# One case of story:oidc-refresh-and-logout is not authored as the story names it.
+# oidc-refresh-epoch-mismatch-refused: a principal epoch advanced since issuance must deny
+#   RotateRefreshCredential, and mandate.identity.SecurityEpochSnapshot declares principal_id,
+#   organization_id and connection_id and no generation, so `setup:` cannot establish a
+#   snapshot that is behind its principal's generation. Routed to
+#   story:epoch-snapshot-generations.

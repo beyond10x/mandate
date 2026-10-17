@@ -4,8 +4,8 @@
   "x-ess-provenance": {
     "system": "mandate",
     "specification_version": "v1",
-    "source_digest": "7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182",
-    "contract_digest": "slice-sha256/2:5ea847f2ee21de5898641e1e84285d2a68aebe807f8172a8bcb1dfd6478844d2",
+    "source_digest": "751472a620cc3a7650f9a2496c9e81022fbef0887158483d3bbd761f09e76837",
+    "contract_digest": "slice-sha256/2:80f9511840c079744af5b1cb2fc3e4b562696280fae32f42deb2836e39a94b9a",
     "regenerate": "ess generate"
   },
   "$defs": {
@@ -22,7 +22,8 @@
         "TenantMismatch",
         "AudienceMismatch",
         "Unavailable",
-        "StaleEpoch"
+        "StaleEpoch",
+        "InvalidClient"
       ]
     }
   }

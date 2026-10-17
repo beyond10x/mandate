@@ -4,6 +4,35 @@ All notable changes to Mandate are recorded here. The format follows [Keep a Cha
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-17
+
+### Breaking
+
+- `OAuthClient`, `RegisterOAuthClient` and `OAuthClientRegistered` replace the boolean `public` with
+  `client_type` and gain `secret_verifiers` (at most two active), `pkce_required`, `trusted_peers`
+  and `post_logout_redirect_uris`. `TenantResolutionRule.verified_claim_value` becomes the list
+  `verified_claim_values`.
+
+### Added
+
+- The OpenID Provider contract in the specification: confidential clients and client
+  authentication, identity tokens on the `openid` scope, trusted-peer exchange, hosted-domain lists
+  and observed upstream profiles with group filtering, refresh-credential rotation with reuse
+  revocation, and RP-initiated logout. Each scenario is recorded in the conformance ledger with the
+  story that will realize it.
+- The `mandate.guard` domain and a token-verification library in `mandate-client`: asymmetric
+  algorithms only, issuer checked before any key fetch, audience, expiry and not-before checked,
+  and a JWK Set refetched after 15 minutes or for an unknown key id, at most once per 30 s.
+- `RegisterOAuthClient` refuses a public client with a secret or without PKCE, a confidential client
+  without a verifier or with more than two, and an unknown trusted peer.
+- Health and readiness routes, a `--config-dir` option and a container image for the control plane.
+- The federation domain folds over the organization eventlog kit.
+
+### Changed
+
+- The planning store and the tool pins move to AEP 0.74.0; the store needs no migration
+  (`aep plan store migrate git --dry-run`: nothing to migrate).
+
 ## [0.9.2] - 2026-10-16
 
 The spec-conformance audit of 0.9.0: every gap it found has an owner, and the small ones are closed.
@@ -630,7 +659,8 @@ The planning batch ([#4](https://github.com/beyond10x/mandate/pull/4)), on top o
 
 `task check` passed, including AEP validation (72 artifacts), ESS validation and deterministic projections.
 
-[Unreleased]: https://github.com/beyond10x/mandate/compare/v0.9.2...HEAD
+[Unreleased]: https://github.com/beyond10x/mandate/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/beyond10x/mandate/compare/v0.9.2...v0.10.0
 [0.9.2]: https://github.com/beyond10x/mandate/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/beyond10x/mandate/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/beyond10x/mandate/compare/v0.8.0...v0.9.0

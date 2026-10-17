@@ -13,7 +13,8 @@
 
 use mandate_testkit::contract::{
     assert_event_conforms, assert_payload_sources, assert_single_emission, check_event_conforms,
-    check_payload_sources, check_single_emission, declaring_outcome_in,
+    check_outcome_payload_sources, check_payload_sources, check_single_emission,
+    check_subject_payload_sources, declaring_outcome_in,
 };
 use mandate_types::{
     Audience, CorrelationId, CredentialId, DelegationId, EpochSnapshotRef, ExecutionId,
@@ -40,6 +41,10 @@ const CREATE_DELEGATION: &str = "mandate.delegation.CreateDelegation";
 const DELEGATION_CREATED: &str = "mandate.delegation.DelegationCreated";
 const INTROSPECT_CREDENTIAL: &str = "mandate.credential.IntrospectCredential";
 const CREDENTIAL_INTROSPECTED: &str = "mandate.credential.CredentialIntrospected";
+const REDEEM_AUTHORIZATION_CODE: &str = "mandate.credential.RedeemAuthorizationCode";
+const WITH_IDENTITY_TOKEN: &str = "accepted-with-identity-token";
+const AUTHORIZATION_CODE_REDEEMED: &str = "mandate.credential.AuthorizationCodeRedeemed";
+const IDENTITY_TOKEN_ISSUED: &str = "mandate.credential.IdentityTokenIssued";
 
 fn uuid(byte: u8) -> Uuid {
     Uuid::from_bytes([byte; 16])
@@ -203,6 +208,61 @@ fn two_emissions_for_an_accepted_outcome_fail() {
     assert!(message.contains(SESSION_REVOKED), "{message}");
 }
 
+/// `RedeemAuthorizationCode`'s `accepted-with-identity-token` declares two events, and
+/// emitting exactly those two, in the declared order, is what the contract says.
+#[test]
+fn the_declared_two_emissions_pass_in_declared_order() {
+    let payload = json!({});
+    check_single_emission(
+        REDEEM_AUTHORIZATION_CODE,
+        WITH_IDENTITY_TOKEN,
+        &[
+            (AUTHORIZATION_CODE_REDEEMED, &payload),
+            (IDENTITY_TOKEN_ISSUED, &payload),
+        ],
+    )
+    .unwrap_or_else(|message| panic!("{message}"));
+}
+
+/// One of two declared events is a missing emission, named by the refusal.
+#[test]
+fn one_of_two_declared_emissions_fails_naming_the_missing_one() {
+    let payload = json!({});
+    let message = check_single_emission(
+        REDEEM_AUTHORIZATION_CODE,
+        WITH_IDENTITY_TOKEN,
+        &[(AUTHORIZATION_CODE_REDEEMED, &payload)],
+    )
+    .expect_err("the identity token was declared and not emitted");
+    assert!(message.contains(IDENTITY_TOKEN_ISSUED), "{message}");
+    assert!(message.contains(WITH_IDENTITY_TOKEN), "{message}");
+}
+
+/// The declared events in another order, or one of them twice, are not the declaration.
+#[test]
+fn two_declared_emissions_out_of_order_or_repeated_fail() {
+    let payload = json!({});
+    check_single_emission(
+        REDEEM_AUTHORIZATION_CODE,
+        WITH_IDENTITY_TOKEN,
+        &[
+            (IDENTITY_TOKEN_ISSUED, &payload),
+            (AUTHORIZATION_CODE_REDEEMED, &payload),
+        ],
+    )
+    .expect_err("the declared order is the emission order");
+    check_single_emission(
+        REDEEM_AUTHORIZATION_CODE,
+        WITH_IDENTITY_TOKEN,
+        &[
+            (AUTHORIZATION_CODE_REDEEMED, &payload),
+            (IDENTITY_TOKEN_ISSUED, &payload),
+            (IDENTITY_TOKEN_ISSUED, &payload),
+        ],
+    )
+    .expect_err("a third emission is not declared");
+}
+
 #[test]
 fn an_emission_for_a_denied_outcome_fails() {
     let payload = session_revoked();
@@ -363,7 +423,7 @@ fn a_generated_field_is_checked_for_presence_only() {
 /// An optional target agrees with a source that carries no value. The named mappings
 /// here are hand-built fixtures; the count is never written down, because
 /// `every_declared_mapping_decides_absence_by_its_declared_target_type` derives the
-/// whole set from the IR and would cover a fifth one the day the contract grows it.
+/// whole set from the IR and would cover a sixth one the day the contract grows it.
 #[test]
 fn an_absent_optional_source_agrees_with_an_absent_target() {
     let (input, response, event) = registered_root_resource();
@@ -623,7 +683,7 @@ fn every_declared_outcome_accepts_exactly_its_own_emissions() {
 
 /// Every payload source kind the contract uses is one the harness checks. A kind it
 /// does not know cannot be satisfied by an event built exactly as the IR declares it,
-/// so this case fails the day the contract grows a fifth kind.
+/// so this case fails the day the contract grows a sixth kind.
 #[test]
 fn every_declared_payload_source_is_satisfied_by_the_declared_shape() {
     let ir = system_ir();
@@ -631,20 +691,92 @@ fn every_declared_payload_source_is_satisfied_by_the_declared_shape() {
     let mut checked = 0usize;
     for (command, node) in commands {
         for outcome in node["outcomes"].as_array().expect("outcomes are a list") {
+            let outcome_name = outcome["name"].as_str().expect("an outcome has a name");
             let Some(entries) = outcome["payload"].as_array() else {
                 continue;
             };
             for entry in entries {
                 let event_name = entry["event"].as_str().expect("a payload names its event");
                 let fields = entry["fields"].as_array().expect("fields are a list");
-                let (input, response, event) = declared_shape(command, event_name, fields);
+                let (input, response, subject, event) = declared_shape(command, event_name, fields);
                 checked += fields.len();
-                check_payload_sources(command, &input, Some(&response), event_name, &event)
-                    .unwrap_or_else(|message| panic!("{command}/{event_name}: {message}"));
+                check_subject_payload_sources(
+                    command,
+                    outcome_name,
+                    &input,
+                    Some(&response),
+                    Some(&subject),
+                    event_name,
+                    &event,
+                )
+                .unwrap_or_else(|message| panic!("{command}/{event_name}: {message}"));
             }
         }
     }
     assert!(checked > 0, "the IR declares no payload sources");
+}
+
+/// A `subject_field` source is decided against the subject record and nothing else: the
+/// form that supplies no subject refuses the field, and a carried value that is not the
+/// subject's is refused by name. `RotateRefreshCredential`'s `rotated` outcome copies
+/// `family_id` onto its successor from the presented credential this way.
+#[test]
+fn a_subject_sourced_field_is_decided_against_the_subject_record() {
+    const COMMAND: &str = "mandate.identity.RotateRefreshCredential";
+    const EVENT: &str = "mandate.identity.RefreshCredentialRotated";
+    let ir = system_ir();
+    let fields = ir["commands"][COMMAND]["outcomes"]
+        .as_array()
+        .expect("outcomes are a list")
+        .iter()
+        .find(|outcome| outcome["name"] == json!("rotated"))
+        .and_then(|outcome| outcome["payload"].as_array())
+        .and_then(|entries| entries.iter().find(|entry| entry["event"] == json!(EVENT)))
+        .and_then(|entry| entry["fields"].as_array())
+        .expect("the rotated outcome declares the event's payload")
+        .clone();
+    assert!(
+        fields
+            .iter()
+            .any(|field| field["target"] == json!("family_id")
+                && field["value"]["kind"] == json!("subject_field")
+                && field["value"]["field"] == json!("family_id")),
+        "family_id is sourced from the subject"
+    );
+    let (input, response, subject, event) = declared_shape(COMMAND, EVENT, &fields);
+
+    check_subject_payload_sources(
+        COMMAND,
+        "rotated",
+        &input,
+        Some(&response),
+        Some(&subject),
+        EVENT,
+        &event,
+    )
+    .expect("the declared shape satisfies its own sources");
+
+    let message =
+        check_outcome_payload_sources(COMMAND, "rotated", &input, Some(&response), EVENT, &event)
+            .expect_err("no subject was supplied");
+    assert!(
+        message.contains("field `family_id`: sourced from the subject field `family_id`, but no subject was supplied"),
+        "{message}"
+    );
+
+    let mut other = subject.clone();
+    other["family_id"] = json!("another family");
+    let message = check_subject_payload_sources(
+        COMMAND,
+        "rotated",
+        &input,
+        Some(&response),
+        Some(&other),
+        EVENT,
+        &event,
+    )
+    .expect_err("the event carries a family the subject does not");
+    assert!(message.contains("field `family_id`:"), "{message}");
 }
 
 /// The absence branch of the same sweep, over every value-sourced mapping the contract
@@ -664,13 +796,14 @@ fn every_declared_mapping_decides_absence_by_its_declared_target_type() {
     let mut wrong: Vec<String> = Vec::new();
     for (command, node) in commands {
         for outcome in node["outcomes"].as_array().expect("outcomes are a list") {
+            let outcome_name = outcome["name"].as_str().expect("an outcome has a name");
             let Some(entries) = outcome["payload"].as_array() else {
                 continue;
             };
             for entry in entries {
                 let event_name = entry["event"].as_str().expect("a payload names its event");
                 let fields = entry["fields"].as_array().expect("fields are a list");
-                let (input, response, event) = declared_shape(command, event_name, fields);
+                let (input, response, subject, event) = declared_shape(command, event_name, fields);
                 for field in fields {
                     let target = field["target"].as_str().expect("a field has a target");
                     let Some(from) = field["value"]["field"].as_str() else {
@@ -679,11 +812,12 @@ fn every_declared_mapping_decides_absence_by_its_declared_target_type() {
                     let is_optional = field["target_type"]["kind"].as_str() == Some("optional");
                     let mut input = input.clone();
                     let mut response = response.clone();
+                    let mut subject = subject.clone();
                     let mut event = event.clone();
-                    let supplied = if field["value"]["kind"] == json!("input_field") {
-                        &mut input
-                    } else {
-                        &mut response
+                    let supplied = match field["value"]["kind"].as_str() {
+                        Some("input_field") => &mut input,
+                        Some("subject_field") => &mut subject,
+                        _ => &mut response,
                     };
                     supplied
                         .as_object_mut()
@@ -698,8 +832,15 @@ fn every_declared_mapping_decides_absence_by_its_declared_target_type() {
                     } else {
                         required += 1;
                     }
-                    let decided =
-                        check_payload_sources(command, &input, Some(&response), event_name, &event);
+                    let decided = check_subject_payload_sources(
+                        command,
+                        outcome_name,
+                        &input,
+                        Some(&response),
+                        Some(&subject),
+                        event_name,
+                        &event,
+                    );
                     let named = format!("{command}/{event_name} `{target}` from `{from}`");
                     match (is_optional, decided) {
                         (true, Ok(())) => {}
@@ -738,8 +879,8 @@ fn every_declared_mapping_decides_absence_by_its_declared_target_type() {
 }
 
 /// An event two outcomes of one command both declare has no mapping the harness may
-/// pick: the IR as generated declares every mapping on a distinct event, so the case is
-/// built in memory and driven through the `declaring_outcome_in` seam.
+/// pick. The case is built in memory and driven through the `declaring_outcome_in` seam, so
+/// it stands whatever the generated IR declares.
 #[test]
 fn an_event_declared_on_two_outcomes_is_refused_naming_both() {
     let ir = json!({
@@ -783,13 +924,18 @@ fn an_event_declared_on_two_outcomes_is_refused_naming_both() {
     assert!(message.contains("mandate.example.ThingDone"), "{message}");
 }
 
-/// The input, response and event one declared mapping describes, every field carrying
+/// The input, response, subject and event one declared mapping describes, every field carrying
 /// a probe value: exactly the shape the contract says the runtime produces. A source
 /// kind the harness does not read cannot be built this way, so the sweeps that use it
-/// fail the day the contract grows a fifth one.
-fn declared_shape(command: &str, event_name: &str, fields: &[Value]) -> (Value, Value, Value) {
+/// fail the day the contract grows a sixth one.
+fn declared_shape(
+    command: &str,
+    event_name: &str,
+    fields: &[Value],
+) -> (Value, Value, Value, Value) {
     let mut input = Map::new();
     let mut response = Map::new();
+    let mut subject = Map::new();
     let mut event = Map::new();
     for field in fields {
         let target = field["target"].as_str().expect("a field has a target");
@@ -807,6 +953,12 @@ fn declared_shape(command: &str, event_name: &str, fields: &[Value]) -> (Value, 
                 response.insert(from.to_owned(), probe.clone());
                 event.insert(target.to_owned(), probe);
             }
+            "subject_field" => {
+                let from = source["field"].as_str().expect("a named subject field");
+                let probe = json!({ "from_subject": from });
+                subject.insert(from.to_owned(), probe.clone());
+                event.insert(target.to_owned(), probe);
+            }
             "literal" => {
                 event.insert(target.to_owned(), source["value"].clone());
             }
@@ -819,6 +971,7 @@ fn declared_shape(command: &str, event_name: &str, fields: &[Value]) -> (Value, 
     (
         Value::Object(input),
         Value::Object(response),
+        Value::Object(subject),
         Value::Object(event),
     )
 }
@@ -881,9 +1034,9 @@ fn introspected_without_a_descriptor() -> (Value, Value) {
     (response, event)
 }
 
-/// The input, response and emitted payload of the one command whose mapping uses all
-/// four source kinds the contract has: `input_field`, `response_field`, `literal` and
-/// `generated`.
+/// The input, response and emitted payload of the one command whose mapping uses four of
+/// the contract's five source kinds: `input_field`, `response_field`, `literal` and
+/// `generated`. The fifth, `subject_field`, is `RotateRefreshCredential`'s alone.
 fn provisioned() -> (Value, Value, Value) {
     let input = json!({
         "connection_id": encoded(&FederationConnectionId::new(uuid(5))),
@@ -909,4 +1062,38 @@ fn provisioned() -> (Value, Value, Value) {
         "linked_at": encoded(&Timestamp::new("2026-09-19T00:00:00Z")),
     });
     (input, response, event)
+}
+
+/// The generated IR's one event declared on two outcomes: `AuthorizationCodeRedeemed`, on both
+/// accepted outcomes of `RedeemAuthorizationCode`. Resolving it by the event name alone is
+/// refused naming both, and the outcome-named form reaches the outcome's own mapping, which
+/// for an empty event is a failure about its fields and not about the outcome.
+#[test]
+fn the_redeemed_event_is_resolved_by_the_outcome_that_names_it() {
+    let command = "mandate.credential.RedeemAuthorizationCode";
+    let event = "mandate.credential.AuthorizationCodeRedeemed";
+    let message = check_payload_sources(command, &json!({}), None, event, &json!({}))
+        .expect_err("two outcomes declare the event");
+    assert!(
+        message.contains("accepted-with-identity-token"),
+        "{message}"
+    );
+    assert!(message.contains("2 outcomes"), "{message}");
+
+    for outcome in ["accepted", "accepted-with-identity-token"] {
+        let message =
+            check_outcome_payload_sources(command, outcome, &json!({}), None, event, &json!({}))
+                .expect_err("an empty event carries none of the mapped fields");
+        assert!(
+            message.starts_with(&format!("{command}/{outcome}/{event}: field")),
+            "{message}"
+        );
+    }
+    let message =
+        check_outcome_payload_sources(command, "denied", &json!({}), None, event, &json!({}))
+            .expect_err("the denied outcome declares no payload");
+    assert!(
+        message.starts_with(&format!("{command}/denied/{event}: ")),
+        "{message}"
+    );
 }

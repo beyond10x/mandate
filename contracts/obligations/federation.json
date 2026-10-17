@@ -75,6 +75,11 @@
           ]
         },
         {
+          "clause": "the groups the connection's filter admits number more than its cap",
+          "tests": [],
+          "blocked_on": "story:oidc-google-upstream"
+        },
+        {
           "clause": "any email-domain/unverified-input fallback would be required",
           "tests": [
             {
@@ -423,6 +428,16 @@
           ]
         },
         {
+          "clause": "the tenant rule names a claim with an empty value list or values without a claim name",
+          "tests": [],
+          "blocked_on": "story:oidc-google-upstream"
+        },
+        {
+          "clause": "the group filter's cap is below one",
+          "tests": [],
+          "blocked_on": "story:oidc-google-upstream"
+        },
+        {
           "clause": "organization binding is invalid",
           "tests": [
             {
@@ -463,7 +478,7 @@
           "blocked_on": "decision-blocker:guards"
         },
         {
-          "clause": "a redirect URI is unadmitted",
+          "clause": "a redirect URI",
           "tests": [
             {
               "id": "mandate-federation::obligations::a_redirect_uri_the_deployment_does_not_admit_is_refused",
@@ -473,6 +488,61 @@
             }
           ],
           "blocked_on": "decision-blocker:guards"
+        },
+        {
+          "clause": "post-logout redirect URI is unadmitted",
+          "tests": [],
+          "blocked_on": "story:oidc-static-client-registry"
+        },
+        {
+          "clause": "a public client states a secret verifier or does not require PKCE",
+          "tests": [
+            {
+              "id": "mandate-federation::security_w11_registration::a_public_client_that_does_not_require_pkce_is_refused",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::security_w11_registration::a_public_client_stating_a_secret_verifier_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "a confidential client states no verifier or more than two",
+          "tests": [
+            {
+              "id": "mandate-federation::security_w11_registration::a_confidential_client_stating_no_verifier_is_refused",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::security_w11_registration::a_confidential_client_stating_three_verifiers_is_refused",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
+        },
+        {
+          "clause": "a trusted peer names the client itself or no client registered in the verified organization",
+          "tests": [
+            {
+              "id": "mandate-federation::security_w11_registration::a_trusted_peer_naming_no_registered_client_is_refused",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::security_w11_registration::a_peer_registered_in_another_organization_is_refused",
+              "kind": "denial",
+              "path": "real"
+            },
+            {
+              "id": "mandate-federation::security_w11_registration::a_trusted_peer_naming_the_client_itself_is_refused_whatever_the_admission_answers",
+              "kind": "denial",
+              "path": "real"
+            }
+          ]
         },
         {
           "clause": "organization binding is invalid",

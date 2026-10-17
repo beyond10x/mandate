@@ -4,7 +4,7 @@ Mandate is a Rust 2024 workspace with 16 library crates, four service packages, 
 
 ## Validate locally
 
-Install Rust 1.98.1, ESS 0.60.0, AEP 0.73.0, Task, and cargo-deny, then run from the repository root:
+Install Rust 1.98.1, ESS 0.60.0, AEP 0.74.0, Task, and cargo-deny, then run from the repository root:
 
 ```bash
 task check

@@ -134,13 +134,37 @@ mandate_types::realizes! {
 /// list names and the registry also realizes is a contradiction, and an element neither one
 /// names is an element nobody accounted for.
 ///
-/// Empty. Token exchange — `ExchangeCredential` and the two events it records — left this
-/// list when `story:federated-token-exchange` realized it subject-only
-/// (`crate::exchange`); the actor and delegation exchange `story:constrained-exchange` owns
-/// is refused by that handler rather than left unrealized, because the command it would
-/// extend is the same one. The authorization-code road left it when `story:oauth-transaction`
-/// landed it.
-pub const ESS_UNREALIZED: &[(&str, &str)] = &[];
+/// Token exchange — `ExchangeCredential` and the two events it records — left this list when
+/// `story:federated-token-exchange` realized it subject-only (`crate::exchange`); the actor
+/// and delegation exchange `story:constrained-exchange` owns is refused by that handler rather
+/// than left unrealized, because the command it would extend is the same one. The
+/// authorization-code road left it when `story:oauth-transaction` landed it.
+///
+/// What the OpenID Provider contract added (`docs/adr/0012-openid-provider.md`) is here until
+/// the story that implements it lands: the identity token and its event, the scopes a code
+/// records, and the subject token type an exchange names.
+pub const ESS_UNREALIZED: &[(&str, &str)] = &[
+    (
+        "mandate.credential.IdentityTokenIssued",
+        "no handler signs an identity token at redemption yet; owner \
+         story:oidc-signed-tokens-and-key-rotation",
+    ),
+    (
+        "mandate.credential.IdentityTokenId",
+        "the identifier of an identity token, which nothing issues yet; owner \
+         story:oidc-signed-tokens-and-key-rotation",
+    ),
+    (
+        "mandate.credential.IdentityScope",
+        "no authorization records OpenID Connect scopes on a code yet; owner \
+         story:oidc-discovery-and-code-flow",
+    ),
+    (
+        "mandate.credential.SubjectTokenType",
+        "the exchange handler admits an access-credential subject only; owner \
+         story:oidc-trusted-peers",
+    ),
+];
 
 /// What the adapter carries that neither a command input nor the read model supplies.
 ///

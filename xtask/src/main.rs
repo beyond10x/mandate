@@ -320,35 +320,40 @@ fn licenses() -> Result<()> {
 /// grows. A `wrong-state` refusal is an error outcome too, and it is declared before the
 /// external one on any command that has both, so the positional reader would silently start
 /// publishing a state-machine message as the command's obligation — a wrong row, printed by a
-/// green gate. Exactly one externally caused outcome per command is required in both
-/// directions: none leaves the table with nothing to state, and two leave it ambiguous which
-/// text the row must carry.
+/// green gate. A command with no externally caused outcome is refused: the table would have
+/// nothing to state. A command with one is a row named by the command; a command with several
+/// (each a named refusal its scenarios provoke) is one row per outcome, named
+/// `<command>/<outcome>`, so every row still carries exactly one denial text.
 fn obligations(ir: &Value) -> Result<()> {
     let commands = ir["commands"].as_object().ok_or("ESS command index")?;
     let mut declared: BTreeMap<String, String> = BTreeMap::new();
     for (name, command) in commands {
-        let mut external = command["outcomes"]
+        let external: Vec<&Value> = command["outcomes"]
             .as_array()
             .ok_or("command outcomes")?
             .iter()
-            .filter(|outcome| outcome["condition"]["kind"] == "external");
-        let refusal = external
-            .next()
-            .ok_or_else(|| format!("{name} declares no externally caused outcome"))?;
-        if external.next().is_some() {
-            return Err(format!(
-                "{name} declares more than one externally caused outcome; \
-                 an obligations row can carry only one denial text"
-            )
-            .into());
+            .filter(|outcome| outcome["condition"]["kind"] == "external")
+            .collect();
+        if external.is_empty() {
+            return Err(format!("{name} declares no externally caused outcome").into());
         }
-        if !refusal["error"].is_string() {
-            return Err(format!("{name}'s externally caused outcome names no error").into());
+        for refusal in &external {
+            if !refusal["error"].is_string() {
+                return Err(format!("{name}'s externally caused outcome names no error").into());
+            }
+            let cause = refusal["condition"]["cause"]
+                .as_str()
+                .ok_or_else(|| format!("{name} refusal states no external cause"))?;
+            let row = if external.len() == 1 {
+                name.clone()
+            } else {
+                let outcome = refusal["name"]
+                    .as_str()
+                    .ok_or_else(|| format!("{name} has an unnamed externally caused outcome"))?;
+                format!("{name}/{outcome}")
+            };
+            declared.insert(row, cause.to_owned());
         }
-        let cause = refusal["condition"]["cause"]
-            .as_str()
-            .ok_or_else(|| format!("{name} refusal states no external cause"))?;
-        declared.insert(name.clone(), cause.to_owned());
     }
     let table = fs::read_to_string("docs/architecture/command-obligations.md")?;
     let mut recorded: BTreeMap<String, String> = BTreeMap::new();
@@ -601,7 +606,7 @@ fn main() -> ExitCode {
             {
                 return Err("Rust 1.98.1 required".into());
             }
-            version("aep", "aep 0.73.0")?;
+            version("aep", "aep 0.74.0")?;
             run("cargo", &["fmt", "--all", "--", "--check"])?;
             run(
                 "cargo",

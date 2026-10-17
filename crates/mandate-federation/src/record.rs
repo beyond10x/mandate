@@ -17,14 +17,31 @@
 //! issuer keeps distinct. Trim-refusal is the only normalization here: a subject that is
 //! not its own trim is refused — by every command and by this fold — rather than
 //! silently replaced by its trimmed form, which would be a different subject.
+//!
+//! # The log is the kit's
+//!
+//! `docs/adr/0009-event-sourced-persistence.md`: the events are the record and every read
+//! is a fold. [`FederationLog`] keeps them in the organization `eventlog` kit — one stream
+//! per aggregate, the organization as the stream's tenant, the ESS name as the event's
+//! name — and [`Projection::fold`] builds its read model by appending a log to
+//! `SqliteEventStore::in_memory` and folding what the kit hands back, so every case that
+//! folds a log folds the kit's.
 
-use serde::Serialize;
+use std::collections::BTreeSet;
+
+use eventlog_core::{
+    CommandMeta, EventLogError, EventStore, Expected, MAX_READ_LIMIT, NewEvent, StreamId, TenantId,
+    request_hash,
+};
+use eventlog_sqlite::SqliteEventStore;
+use serde::{Deserialize, Serialize};
 
 use mandate_model::TenantResolutionRule;
 use mandate_types::{
-    Audience, ClientId, CorrelationId, EpochSnapshotRef, ExternalLinkMethod, ExternalPrincipalId,
-    ExternalSubject, FederationConnectionId, Issuer, OAuthClientId, OrganizationId, PersistedValue,
-    PkceMethod, PrincipalId, PrincipalKind, RedirectUri, SessionId, Timestamp, VerifiedContext,
+    Audience, ClientId, CorrelationId, CredentialVerifier, EpochSnapshotRef, ExternalLinkMethod,
+    ExternalPrincipalId, ExternalSubject, FederationConnectionId, Issuer, OAuthClientId,
+    OAuthClientType, OrganizationId, PersistedValue, PkceMethod, PrincipalId, PrincipalKind,
+    RedirectUri, SessionId, Timestamp, VerifiedContext,
 };
 
 use mandate_types::DenialReason;
@@ -119,12 +136,20 @@ pub struct OAuthClient {
     pub id: OAuthClientId,
     /// The organization the client belongs to.
     pub organization_id: OrganizationId,
-    /// Whether the client is a public client.
-    pub public: bool,
+    /// Whether the client is public or confidential.
+    pub client_type: OAuthClientType,
+    /// The verifiers of the client secrets a confidential client authenticates with.
+    pub secret_verifiers: Vec<CredentialVerifier>,
     /// The exact redirect URIs admitted.
     pub redirect_uris: Vec<RedirectUri>,
     /// The PKCE method required.
     pub pkce_method: PkceMethod,
+    /// Whether authorization requests to this client must carry a PKCE challenge.
+    pub pkce_required: bool,
+    /// The clients whose audiences this client may request.
+    pub trusted_peers: Vec<OAuthClientId>,
+    /// The exact redirect URIs admitted after an end-session.
+    pub post_logout_redirect_uris: Vec<RedirectUri>,
     /// The lifecycle state.
     pub state: OAuthClientState,
 }
@@ -139,12 +164,12 @@ pub struct OAuthClient {
 /// generated shape of the element [`FederationEvent::ess_name`] answers. This is the shape
 /// `crates/mandate-model/src/tenancy.rs` established for `mandate.tenancy`.
 ///
-/// **`Serialize` only, deliberately: this enum does not round-trip and no code should
-/// assume it does.** Under `#[serde(untagged)]` a reader cannot tell
-/// `FederationConnectionDisabled`, `ExternalPrincipalUnlinked` and `OAuthClientDisabled`
-/// apart — all three serialize exactly `{context, id}`, and the three `id`s are all uuid
-/// strings. Reading an event back needs a tagged envelope carrying the ESS name beside the
-/// payload, which belongs to the persistence story.
+/// **The bare payload does not round-trip, and no code should assume it does.** Under
+/// `#[serde(untagged)]` a reader cannot tell `FederationConnectionDisabled`,
+/// `ExternalPrincipalUnlinked` and `OAuthClientDisabled` apart — all three serialize
+/// exactly `{context, id}`, and the three `id`s are all uuid strings. An event is read back
+/// through its envelope instead: the kit records the ESS name beside the payload, and
+/// [`FederationEvent::decode`] reads the pair.
 ///
 /// `mandate.federation.AuthorizationCodeIssued` is the one declared event of this domain
 /// with no variant here: no handler in this crate emits it. `crate::authorize` is
@@ -280,12 +305,20 @@ pub enum FederationEvent {
         /// The declared `organization_id`: the organization the outcome bound the client
         /// to, which is the one its verified context carried.
         organization_id: OrganizationId,
-        /// The declared `public`.
-        public: bool,
+        /// The declared `client_type`.
+        client_type: OAuthClientType,
+        /// The declared `secret_verifiers`.
+        secret_verifiers: Vec<CredentialVerifier>,
         /// The declared `redirect_uris`: the exact set admitted at authorization.
         redirect_uris: Vec<RedirectUri>,
         /// The declared `pkce_method`.
         pkce_method: PkceMethod,
+        /// The declared `pkce_required`.
+        pkce_required: bool,
+        /// The declared `trusted_peers`.
+        trusted_peers: Vec<OAuthClientId>,
+        /// The declared `post_logout_redirect_uris`.
+        post_logout_redirect_uris: Vec<RedirectUri>,
     },
     /// `mandate.federation.OAuthClientDisabled`.
     OAuthClientDisabled {
@@ -321,6 +354,304 @@ impl FederationEvent {
             Self::OAuthClientRegistered { .. } => "mandate.federation.OAuthClientRegistered",
             Self::OAuthClientDisabled { .. } => "mandate.federation.OAuthClientDisabled",
         }
+    }
+
+    /// Read an event back from the envelope the kit recorded: its ESS name and its payload.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FoldError::Unreadable`] when the name is not an event this crate folds,
+    /// or the payload is not that event's declared shape — a missing field, a field of the
+    /// wrong type, or a field the payload does not declare.
+    pub fn decode(name: &str, payload: serde_json::Value) -> Result<Self, FoldError> {
+        Recorded::deserialize(serde_json::json!({ "name": name, "payload": payload })).map_err(
+            |_| FoldError::Unreadable {
+                name: name.to_owned(),
+            },
+        )
+    }
+
+    /// The organization whose history this event is: the kit's tenant for its stream.
+    fn organization(&self) -> OrganizationId {
+        match self {
+            Self::FederationConnectionCreated { context, .. }
+            | Self::FederationConnectionDisabled { context, .. }
+            | Self::ExternalPrincipalLinked { context, .. }
+            | Self::ExternalPrincipalUnlinked { context, .. }
+            | Self::OAuthClientDisabled { context, .. } => context.organization,
+            Self::ExternalPrincipalProvisioned {
+                organization_id, ..
+            }
+            | Self::FederationAuthenticated {
+                organization_id, ..
+            }
+            | Self::OAuthClientRegistered {
+                organization_id, ..
+            } => *organization_id,
+        }
+    }
+
+    /// The aggregate this event is appended to: its qualified entity and its identity.
+    ///
+    /// `FederationAuthenticated` creates a `mandate.identity.Session`
+    /// (`federation.yaml`, `AuthenticateFederation`), so it opens that session's stream.
+    fn stream(&self) -> (&'static str, String) {
+        const CONNECTION: &str = "mandate.federation.FederationConnection";
+        const LINK: &str = "mandate.federation.ExternalPrincipal";
+        const CLIENT: &str = "mandate.federation.OAuthClient";
+        match self {
+            Self::FederationConnectionCreated { connection_id, .. } => {
+                (CONNECTION, connection_id.to_string())
+            }
+            Self::FederationConnectionDisabled { id, .. } => (CONNECTION, id.to_string()),
+            Self::ExternalPrincipalLinked {
+                external_principal_id,
+                ..
+            }
+            | Self::ExternalPrincipalProvisioned {
+                external_principal_id,
+                ..
+            } => (LINK, external_principal_id.to_string()),
+            Self::ExternalPrincipalUnlinked { id, .. } => (LINK, id.to_string()),
+            Self::FederationAuthenticated { session_id, .. } => {
+                ("mandate.identity.Session", session_id.to_string())
+            }
+            Self::OAuthClientRegistered { id, .. } | Self::OAuthClientDisabled { id, .. } => {
+                (CLIENT, id.to_string())
+            }
+        }
+    }
+
+    /// The principal the event is for: the verified caller, or the principal the event
+    /// names where it declares no verified context. An opaque identity, as the kit's
+    /// envelope requires.
+    fn attribution(&self) -> PrincipalId {
+        match self {
+            Self::FederationConnectionCreated { context, .. }
+            | Self::FederationConnectionDisabled { context, .. }
+            | Self::ExternalPrincipalLinked { context, .. }
+            | Self::ExternalPrincipalUnlinked { context, .. }
+            | Self::OAuthClientRegistered { context, .. }
+            | Self::OAuthClientDisabled { context, .. } => context.subject,
+            Self::ExternalPrincipalProvisioned { principal_id, .. }
+            | Self::FederationAuthenticated { principal_id, .. } => *principal_id,
+        }
+    }
+}
+
+/// The reading half of [`FederationEvent`]: the same variants, field for field, tagged by
+/// the ESS name the kit records beside each payload.
+///
+/// A remote derive, so the compiler holds the two to one shape — this mirror builds a
+/// [`FederationEvent`] and cannot name a field it does not have — and the names are
+/// decided against [`FederationEvent::ess_name`] by this module's own cases.
+#[derive(Deserialize)]
+#[serde(
+    remote = "FederationEvent",
+    tag = "name",
+    content = "payload",
+    deny_unknown_fields
+)]
+#[allow(
+    dead_code,
+    reason = "a remote mirror is never built; serde builds the remote type"
+)]
+enum Recorded {
+    #[serde(rename = "mandate.federation.FederationConnectionCreated")]
+    FederationConnectionCreated {
+        context: VerifiedContext,
+        connection_id: FederationConnectionId,
+        issuer: Issuer,
+        client_id: ClientId,
+        tenant_resolution: TenantResolutionRule,
+        jit_provisioning: bool,
+    },
+    #[serde(rename = "mandate.federation.FederationConnectionDisabled")]
+    FederationConnectionDisabled {
+        context: VerifiedContext,
+        id: FederationConnectionId,
+    },
+    #[serde(rename = "mandate.federation.ExternalPrincipalLinked")]
+    ExternalPrincipalLinked {
+        context: VerifiedContext,
+        connection_id: FederationConnectionId,
+        principal_id: PrincipalId,
+        external_principal_id: ExternalPrincipalId,
+        subject: ExternalSubject,
+        link_method: ExternalLinkMethod,
+        linked_at: Timestamp,
+    },
+    #[serde(rename = "mandate.federation.ExternalPrincipalUnlinked")]
+    ExternalPrincipalUnlinked {
+        context: VerifiedContext,
+        id: ExternalPrincipalId,
+    },
+    #[serde(rename = "mandate.federation.ExternalPrincipalProvisioned")]
+    ExternalPrincipalProvisioned {
+        organization_id: OrganizationId,
+        correlation: CorrelationId,
+        connection_id: FederationConnectionId,
+        principal_id: PrincipalId,
+        kind: PrincipalKind,
+        display_name: String,
+        external_principal_id: ExternalPrincipalId,
+        subject: ExternalSubject,
+        link_method: ExternalLinkMethod,
+        linked_at: Timestamp,
+    },
+    #[serde(rename = "mandate.federation.FederationAuthenticated")]
+    FederationAuthenticated {
+        session_id: SessionId,
+        principal_id: PrincipalId,
+        audience: Audience,
+        correlation: CorrelationId,
+        connection_id: FederationConnectionId,
+        organization_id: OrganizationId,
+        epochs: EpochSnapshotRef,
+        expires_at: Timestamp,
+    },
+    #[serde(rename = "mandate.federation.OAuthClientRegistered")]
+    OAuthClientRegistered {
+        context: VerifiedContext,
+        id: OAuthClientId,
+        organization_id: OrganizationId,
+        client_type: OAuthClientType,
+        secret_verifiers: Vec<CredentialVerifier>,
+        redirect_uris: Vec<RedirectUri>,
+        pkce_method: PkceMethod,
+        pkce_required: bool,
+        trusted_peers: Vec<OAuthClientId>,
+        post_logout_redirect_uris: Vec<RedirectUri>,
+    },
+    #[serde(rename = "mandate.federation.OAuthClientDisabled")]
+    OAuthClientDisabled {
+        context: VerifiedContext,
+        id: OAuthClientId,
+    },
+}
+
+/// The table prefix the federation log is kept under in its owner's store.
+const LOG_PREFIX: &str = "mandate_federation";
+
+/// The payload schema version every event of this crate is appended with.
+const PAYLOAD_VERSION: u32 = 1;
+
+/// The federation log, kept by the organization `eventlog` kit.
+///
+/// One stream per aggregate (see [`FederationEvent`]'s ESS names), the event's organization
+/// as the stream's tenant. Appending is a rebuild's import: each event is appended with
+/// [`Expected::Any`] because the history it records was decided by the handler that
+/// emitted it, and the handler's guard is not re-run here (see [`Projection::apply`]).
+///
+/// The read model spans organizations — the shared-issuer guard of
+/// [`register_federation_connection`] reads every other organization's connections — so
+/// [`FederationLog::recorded`] merges the feeds of every tenant this log appended to, in
+/// the kit's commit order.
+pub struct FederationLog {
+    store: SqliteEventStore,
+    tenants: BTreeSet<TenantId>,
+    appended: u64,
+}
+
+impl FederationLog {
+    /// An empty log in the kit's in-memory SQLite store.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FoldError::Store`] when the kit cannot create the store.
+    pub async fn in_memory() -> Result<Self, FoldError> {
+        let store = SqliteEventStore::in_memory(LOG_PREFIX).await?;
+        Ok(Self {
+            store,
+            tenants: BTreeSet::new(),
+            appended: 0,
+        })
+    }
+
+    /// Append one event to its aggregate's stream.
+    ///
+    /// Every append carries its own idempotency key, so an event presented twice — the
+    /// redelivery [`Projection::apply`] answers as a no-op — is recorded twice and folded
+    /// as the log presented it.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FoldError::Store`] when the kit refuses the append.
+    pub async fn append(&mut self, event: &FederationEvent) -> Result<(), FoldError> {
+        let tenant = TenantId::new(event.organization().to_string())?;
+        let (stream_type, stream_id) = event.stream();
+        let stream = StreamId::new(tenant.clone(), stream_type, stream_id)?;
+        let payload = serde_json::to_value(event)
+            .map_err(|error| EventLogError::Invalid(error.to_string()))?;
+        let recorded = NewEvent::new(event.ess_name(), PAYLOAD_VERSION, payload)?;
+        self.appended += 1;
+        let key = format!("mandate-federation-{}", self.appended);
+        let attribution = event.attribution().to_string();
+        let meta = CommandMeta {
+            idempotency_key: key.clone(),
+            request_hash: request_hash(&recorded.data)?,
+            subject: attribution.clone(),
+            actor: attribution,
+            request_id: key.clone(),
+            trace_id: key,
+            causation_id: None,
+            causation_depth: 0,
+            occurred_at: time::OffsetDateTime::now_utc(),
+            claim: None,
+        };
+        self.store
+            .append(
+                &stream,
+                Expected::Any,
+                std::slice::from_ref(&recorded),
+                &meta,
+            )
+            .await?;
+        self.tenants.insert(tenant);
+        Ok(())
+    }
+
+    /// Every event the kit holds for this log, in the kit's commit order.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FoldError::Store`] when the kit cannot read a feed and
+    /// [`FoldError::Unreadable`] for a recorded event [`FederationEvent::decode`] refuses.
+    pub async fn recorded(&self) -> Result<Vec<FederationEvent>, FoldError> {
+        let mut recorded = Vec::new();
+        for tenant in &self.tenants {
+            let mut position = 0;
+            loop {
+                let page = self
+                    .store
+                    .read_feed(tenant, position, MAX_READ_LIMIT)
+                    .await?;
+                position = page.next_position;
+                recorded.extend(page.events);
+                if !page.has_more {
+                    break;
+                }
+            }
+        }
+        recorded.sort_by_key(|event| event.global_seq);
+        recorded
+            .into_iter()
+            .map(|event| FederationEvent::decode(&event.name, event.data))
+            .collect()
+    }
+
+    /// The read model the kit's log rebuilds.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FoldError`] when the log cannot be read, or is not a history the fold can
+    /// read.
+    pub async fn projection(&self) -> Result<Projection, FoldError> {
+        let mut projection = Projection::default();
+        for event in self.recorded().await? {
+            projection.apply(&event)?;
+        }
+        Ok(projection)
     }
 }
 
@@ -407,6 +738,23 @@ pub enum FoldError {
         /// The link the event named.
         external_principal_id: ExternalPrincipalId,
     },
+    /// The kit refused or could not complete an operation on the log.
+    Store {
+        /// What the kit answered.
+        error: EventLogError,
+    },
+    /// A recorded event this fold cannot read: a name this crate folds no event under, or
+    /// a payload that is not that event's declared shape.
+    Unreadable {
+        /// The name the kit recorded.
+        name: String,
+    },
+}
+
+impl From<EventLogError> for FoldError {
+    fn from(error: EventLogError) -> Self {
+        Self::Store { error }
+    }
 }
 
 /// The read model: a fold over the event log.
@@ -446,21 +794,36 @@ pub struct Projection {
 }
 
 impl Projection {
-    /// Materialize the read model from a log.
+    /// Materialize the read model from a log, through the kit.
+    ///
+    /// The log is appended, in the order given, to a fresh [`FederationLog::in_memory`] —
+    /// the kit's `SqliteEventStore::in_memory` — and the projection is what
+    /// [`FederationLog::projection`] folds from what the kit reads back. A property a case
+    /// proves through this is a property of the kit's log, not of a `Vec`
+    /// (`docs/adr/0009-event-sourced-persistence.md`).
     ///
     /// A duplicate key does not fail the fold: every link's record is materialized, one of
     /// them holds the key ([`Projection::link`]) and the others are
     /// [`Projection::conflicts`].
     ///
+    /// Synchronous for its callers, none of which runs an executor: it drives the kit on a
+    /// current-thread runtime of its own, so it must not be called from inside one.
+    ///
     /// # Errors
     ///
-    /// Returns [`FoldError`] when the log is not a history this fold can read.
+    /// Returns [`FoldError`] when the log is not a history this fold can read, and
+    /// [`FoldError::Store`] when the kit refuses it.
     pub fn fold(events: &[FederationEvent]) -> Result<Self, FoldError> {
-        let mut projection = Self::default();
-        for event in events {
-            projection.apply(event)?;
-        }
-        Ok(projection)
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .map_err(|error| EventLogError::Backend(error.to_string()))?;
+        runtime.block_on(async {
+            let mut log = FederationLog::in_memory().await?;
+            for event in events {
+                log.append(event).await?;
+            }
+            log.projection().await
+        })
     }
 
     /// Apply one event.
@@ -653,9 +1016,13 @@ impl Projection {
                 context: _,
                 id,
                 organization_id,
-                public,
+                client_type,
+                secret_verifiers,
                 redirect_uris,
                 pkce_method,
+                pkce_required,
+                trusted_peers,
+                post_logout_redirect_uris,
             } => {
                 if self.clients.iter().any(|client| client.id == *id) {
                     return Ok(());
@@ -663,9 +1030,13 @@ impl Projection {
                 self.clients.push(OAuthClient {
                     id: *id,
                     organization_id: *organization_id,
-                    public: *public,
+                    client_type: *client_type,
+                    secret_verifiers: secret_verifiers.clone(),
                     redirect_uris: redirect_uris.clone(),
                     pkce_method: *pkce_method,
+                    pkce_required: *pkce_required,
+                    trusted_peers: trusted_peers.clone(),
+                    post_logout_redirect_uris: post_logout_redirect_uris.clone(),
                     state: OAuthClientState::Recorded,
                 });
             }
@@ -931,16 +1302,17 @@ pub struct ConnectionRegistered {
 enum Shape<'a> {
     /// No claim is named: every proof on the issuer matches.
     Any,
-    /// Exactly the proofs carrying this validated claim and value.
-    Claim(&'a str, &'a str),
-    /// A claim without a value, or a value without a claim: nothing matches.
+    /// Exactly the proofs carrying this validated claim with any one of these values.
+    Claim(&'a str, &'a [String]),
+    /// A claim without values (none, or an empty list), or values without a claim: nothing
+    /// matches.
     Nothing,
 }
 
 fn shape(rule: &TenantResolutionRule) -> Shape<'_> {
-    match (&rule.verified_claim_name, &rule.verified_claim_value) {
+    match (&rule.verified_claim_name, &rule.verified_claim_values) {
         (None, None) => Shape::Any,
-        (Some(name), Some(value)) => Shape::Claim(name, value),
+        (Some(name), Some(values)) if !values.is_empty() => Shape::Claim(name, values),
         _ => Shape::Nothing,
     }
 }
@@ -949,14 +1321,14 @@ fn shape(rule: &TenantResolutionRule) -> Shape<'_> {
 ///
 /// Decidable for the rule shapes `mandate.core.TenantResolutionRule` has, which is why
 /// the registration guard can be a refusal rather than a warning. Two claim rules are
-/// disjoint only when they name the same claim with different values: one claim carries
+/// disjoint only when they name the same claim with no value in common: one claim carries
 /// one value. Rules on different claims are satisfied together by any proof carrying both.
 fn collides(one: &TenantResolutionRule, other: &TenantResolutionRule) -> bool {
     match (shape(one), shape(other)) {
         (Shape::Nothing, _) | (_, Shape::Nothing) => false,
         (Shape::Any, _) | (_, Shape::Any) => true,
         (Shape::Claim(name, value), Shape::Claim(held_name, held_value)) => {
-            name != held_name || value == held_value
+            name != held_name || value.iter().any(|candidate| held_value.contains(candidate))
         }
     }
 }
@@ -1115,16 +1487,24 @@ const _: () = {
                 context,
                 id,
                 organization_id,
-                public,
+                client_type,
+                secret_verifiers,
                 redirect_uris,
                 pkce_method,
+                pkce_required,
+                trusted_peers,
+                post_logout_redirect_uris,
             } => {
                 persistable(context);
                 persistable(id);
                 persistable(organization_id);
-                persistable(public);
+                persistable(client_type);
+                persistable(secret_verifiers);
                 persistable(redirect_uris);
                 persistable(pkce_method);
+                persistable(pkce_required);
+                persistable(trusted_peers);
+                persistable(post_logout_redirect_uris);
             }
             FederationEvent::OAuthClientDisabled { context, id } => {
                 persistable(context);
@@ -1133,3 +1513,197 @@ const _: () = {
         }
     }
 };
+
+#[cfg(test)]
+mod tests {
+    //! The log a fold reads is the kit's: every event goes into `SqliteEventStore::in_memory`
+    //! and comes back out of it before [`Projection::apply`] sees it.
+
+    use super::{FederationEvent, FederationLog, FoldError, Projection};
+    use mandate_model::TenantResolutionRule;
+    use mandate_types::value::Uuid;
+    use mandate_types::{
+        Audience, ClientId, CorrelationId, CredentialId, EpochSnapshotRef, ExternalLinkMethod,
+        ExternalPrincipalId, ExternalSubject, FederationConnectionId, Issuer, OAuthClientId,
+        OrganizationId, PkceMethod, PrincipalId, PrincipalKind, RedirectUri, SessionId, Timestamp,
+        VerifiedContext,
+    };
+
+    fn uuid(tag: u8) -> Uuid {
+        Uuid::from_bytes([tag; 16])
+    }
+
+    fn context(organization: u8) -> VerifiedContext {
+        VerifiedContext {
+            subject: PrincipalId::new(uuid(0x51)),
+            actor: None,
+            organization: OrganizationId::new(uuid(organization)),
+            audience: Audience::new("mandate"),
+            credential: CredentialId::new(uuid(0xcd)),
+            delegation: None,
+            execution: None,
+            correlation: CorrelationId::new("kit-log"),
+        }
+    }
+
+    /// One event of every variant, across two organizations, interleaved, so that the
+    /// read-back has to merge two tenants' feeds into the order they were appended in.
+    fn every_variant() -> Vec<FederationEvent> {
+        let one = FederationConnectionId::new(uuid(1));
+        let two = FederationConnectionId::new(uuid(2));
+        vec![
+            FederationEvent::FederationConnectionCreated {
+                context: context(10),
+                connection_id: one,
+                issuer: Issuer::new("https://idp.example"),
+                client_id: ClientId::new("client-one"),
+                tenant_resolution: TenantResolutionRule {
+                    configured_organization: OrganizationId::new(uuid(10)),
+                    verified_claim_name: None,
+                    verified_claim_values: None,
+                },
+                jit_provisioning: true,
+            },
+            FederationEvent::FederationConnectionCreated {
+                context: context(20),
+                connection_id: two,
+                issuer: Issuer::new("https://other.example"),
+                client_id: ClientId::new("client-two"),
+                tenant_resolution: TenantResolutionRule {
+                    configured_organization: OrganizationId::new(uuid(20)),
+                    verified_claim_name: Some("hd".to_owned()),
+                    verified_claim_values: Some(vec!["example.org".to_owned()]),
+                },
+                jit_provisioning: false,
+            },
+            FederationEvent::ExternalPrincipalLinked {
+                context: context(10),
+                connection_id: one,
+                principal_id: PrincipalId::new(uuid(0x61)),
+                external_principal_id: ExternalPrincipalId::new(uuid(0x71)),
+                subject: ExternalSubject::new("subject-one"),
+                link_method: ExternalLinkMethod::Administrator,
+                linked_at: Timestamp::new("2026-10-17T00:00:00Z"),
+            },
+            FederationEvent::ExternalPrincipalProvisioned {
+                organization_id: OrganizationId::new(uuid(20)),
+                correlation: CorrelationId::new("kit-log"),
+                connection_id: two,
+                principal_id: PrincipalId::new(uuid(0x62)),
+                kind: PrincipalKind::User,
+                display_name: "Display Name".to_owned(),
+                external_principal_id: ExternalPrincipalId::new(uuid(0x72)),
+                subject: ExternalSubject::new("subject-two"),
+                link_method: ExternalLinkMethod::ConfiguredFederation,
+                linked_at: Timestamp::new("2026-10-17T00:00:01Z"),
+            },
+            FederationEvent::FederationAuthenticated {
+                session_id: SessionId::new(uuid(0x81)),
+                principal_id: PrincipalId::new(uuid(0x61)),
+                audience: Audience::new("mandate"),
+                correlation: CorrelationId::new("kit-log"),
+                connection_id: one,
+                organization_id: OrganizationId::new(uuid(10)),
+                epochs: EpochSnapshotRef::new(uuid(0x91)),
+                expires_at: Timestamp::new("2026-10-17T01:00:00Z"),
+            },
+            FederationEvent::OAuthClientRegistered {
+                context: context(20),
+                id: OAuthClientId::new(uuid(0xa1)),
+                organization_id: OrganizationId::new(uuid(20)),
+                client_type: mandate_types::OAuthClientType::Public,
+                secret_verifiers: Vec::new(),
+                redirect_uris: vec![RedirectUri::new("https://app.example/callback")],
+                pkce_method: PkceMethod::S256,
+                pkce_required: true,
+                trusted_peers: Vec::new(),
+                post_logout_redirect_uris: Vec::new(),
+            },
+            FederationEvent::ExternalPrincipalUnlinked {
+                context: context(10),
+                id: ExternalPrincipalId::new(uuid(0x71)),
+            },
+            FederationEvent::OAuthClientDisabled {
+                context: context(20),
+                id: OAuthClientId::new(uuid(0xa1)),
+            },
+            FederationEvent::FederationConnectionDisabled {
+                context: context(10),
+                id: one,
+            },
+        ]
+    }
+
+    fn block_on<T>(work: impl Future<Output = T>) -> T {
+        tokio::runtime::Builder::new_current_thread()
+            .build()
+            .expect("a current-thread runtime builds")
+            .block_on(work)
+    }
+
+    #[test]
+    fn every_variant_reads_back_from_the_kit_under_its_ess_name_in_append_order() {
+        let events = every_variant();
+        let recorded = block_on(async {
+            let mut log = FederationLog::in_memory().await.expect("the kit opens");
+            for event in &events {
+                log.append(event).await.expect("the kit appends");
+            }
+            log.recorded().await.expect("the kit reads back")
+        });
+
+        assert_eq!(recorded, events);
+    }
+
+    #[test]
+    fn the_fold_is_the_projection_the_kits_log_rebuilds() {
+        let events = every_variant();
+        let from_kit = block_on(async {
+            let mut log = FederationLog::in_memory().await.expect("the kit opens");
+            for event in &events {
+                log.append(event).await.expect("the kit appends");
+            }
+            log.projection().await
+        });
+
+        assert_eq!(Projection::fold(&events), from_kit);
+        assert_eq!(from_kit.map(|projection| projection.links().len()), Ok(2));
+    }
+
+    #[test]
+    fn a_name_this_domain_does_not_declare_is_unreadable() {
+        let payload = serde_json::json!({ "context": context(10), "id": uuid(1) });
+
+        assert_eq!(
+            FederationEvent::decode("mandate.federation.AuthorizationCodeIssued", payload),
+            Err(FoldError::Unreadable {
+                name: "mandate.federation.AuthorizationCodeIssued".to_owned(),
+            })
+        );
+    }
+
+    #[test]
+    fn a_payload_with_a_field_the_contract_does_not_declare_is_unreadable() {
+        let payload = serde_json::json!({ "context": context(10), "id": uuid(1), "extra": true });
+
+        assert_eq!(
+            FederationEvent::decode("mandate.federation.OAuthClientDisabled", payload),
+            Err(FoldError::Unreadable {
+                name: "mandate.federation.OAuthClientDisabled".to_owned(),
+            })
+        );
+    }
+
+    #[test]
+    fn three_payloads_of_one_shape_read_back_as_the_event_their_name_says() {
+        let payload = serde_json::json!({ "context": context(10), "id": uuid(1) });
+
+        assert_eq!(
+            FederationEvent::decode("mandate.federation.ExternalPrincipalUnlinked", payload),
+            Ok(FederationEvent::ExternalPrincipalUnlinked {
+                context: context(10),
+                id: ExternalPrincipalId::new(uuid(1)),
+            })
+        );
+    }
+}

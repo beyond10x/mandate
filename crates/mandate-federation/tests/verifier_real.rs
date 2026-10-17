@@ -505,7 +505,7 @@ fn unconditional(organization_id: OrganizationId) -> TenantResolutionRule {
     TenantResolutionRule {
         configured_organization: organization_id,
         verified_claim_name: None,
-        verified_claim_value: None,
+        verified_claim_values: None,
     }
 }
 
@@ -513,7 +513,7 @@ fn on_claim(organization_id: OrganizationId, name: &str, value: &str) -> TenantR
     TenantResolutionRule {
         configured_organization: organization_id,
         verified_claim_name: Some(name.to_owned()),
-        verified_claim_value: Some(value.to_owned()),
+        verified_claim_values: Some(vec![value.to_owned()]),
     }
 }
 

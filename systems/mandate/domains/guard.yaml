@@ -1,0 +1,138 @@
+# The token guard admits a request at a service's door: it verifies the bearer token's signature against the issuer's JWK Set, checks issuer, audience and the validity window, applies the allow rule and the per-identity limits, and forwards the verified identity. See docs/adr/0013-token-guard.md.
+# The guard policy is configuration, not a record: a guard is started with one, by values or library arguments, and no command writes it. AdmitRequest carries it as input, so every admission is decided by the policy it names.
+# Admission records nothing: the accepted outcome emits RequestAdmitted, which folds into no record, and nothing is created or moved, as mandate.workload.AuthenticateWorkload does.
+# The JWK Set, the clock and the per-identity token buckets are outside the contract (ADR 0013 fork G1: an in-process bucket per guard replica), so every refusal is external. Each refusal names its clause in mandate.guard.Refused.reason, and the library and the sidecar return the same reason for the same token. The clauses are decided in the order malformed, issuer, key, signature, audience, expiry, not-yet-valid, allow rule, limit, queue: a foreign issuer is refused before its kid can cause a JWK Set refetch.
+# The allow rule admits an identity whose verified email is listed in allow.emails or has its domain listed in allow.domains, compared without regard to ASCII case; an empty rule admits every token that verifies. An email the issuer has not verified matches neither list.
+# UNMAPPED-LIMITS: limits are counters held by the guard replica, not records; ESS declares no counter, so over-limit and queue-full are external refusals here and are decided by the library's Rust tests.
+domain: mandate.guard
+types:
+  - name: mandate.guard.EmailAddress
+    kind: newtype
+    of: String
+  - name: mandate.guard.EmailDomain
+    kind: newtype
+    of: String
+  - name: mandate.guard.GroupName
+    kind: newtype
+    of: String
+  - name: mandate.guard.AllowRule
+    kind: struct
+    fields:
+      - name: emails
+        type: List<mandate.guard.EmailAddress>
+      - name: domains
+        type: List<mandate.guard.EmailDomain>
+  - name: mandate.guard.GuardLimits
+    kind: struct
+    fields:
+      - name: per_minute
+        type: Integer
+      - name: burst
+        type: Integer
+      - name: queue
+        type: Integer
+  - name: mandate.guard.GuardPolicy
+    kind: struct
+    fields:
+      - name: issuer
+        type: mandate.core.Issuer
+      - name: audiences
+        type: List<mandate.core.Audience>
+      - name: allow
+        type: mandate.guard.AllowRule
+      - name: limits
+        type: mandate.guard.GuardLimits
+      - name: clock_skew
+        type: Duration
+  - name: mandate.guard.RefusalReason
+    kind: enum
+    variants:
+      - Malformed
+      - InvalidSignature
+      - UnknownKey
+      - IssuerMismatch
+      - AudienceMismatch
+      - Expired
+      - NotYetValid
+      - IdentityNotAllowed
+      - OverLimit
+      - QueueFull
+commands:
+  - name: mandate.guard.AdmitRequest
+    input:
+      - name: policy
+        type: mandate.guard.GuardPolicy
+      - name: token
+        type: mandate.core.CredentialProof
+    outcomes:
+      - name: accepted
+        emits:
+          - mandate.guard.RequestAdmitted
+        payload:
+          mandate.guard.RequestAdmitted:
+            issuer: input.policy.issuer
+            subject:
+              response: subject
+            audience:
+              response: audience
+            admitted_at:
+              generated: true
+        summary: The token is a compact JWS signed by a key in the issuer's JWK Set, its iss is the policy's issuer, its aud names one of the policy's audiences, the clock is within its nbf and exp widened by the policy's clock skew, the identity passes the allow rule, and its bucket and the waiting queue have room. The verified identity is returned for the service; nothing is created or moved, and the event folds into no record.
+      - name: malformed
+        external: The token is not a compact JWS, its header names no key or an algorithm the guard does not admit, or its claims lack iss, sub, aud or exp.
+        error: mandate.guard.Refused
+      - name: invalid-signature
+        external: The signature does not verify under the key its kid names.
+        error: mandate.guard.Refused
+      - name: unknown-key
+        external: The kid is absent from the issuer's JWK Set as the guard last fetched it. A held set is refetched once it reaches its maximum age (15 minutes unless configured), so a key the issuer withdrew stops verifying within that age; an unknown kid refetches it sooner, at most once per bounded refresh interval.
+        error: mandate.guard.Refused
+      - name: issuer-mismatch
+        external: The token's iss is not the policy's issuer.
+        error: mandate.guard.Refused
+      - name: audience-mismatch
+        external: No aud of the token is one of the policy's audiences.
+        error: mandate.guard.Refused
+      - name: expired
+        external: The clock is past exp by more than the policy's clock skew.
+        error: mandate.guard.Refused
+      - name: not-yet-valid
+        external: The clock is before nbf by more than the policy's clock skew.
+        error: mandate.guard.Refused
+      - name: identity-not-allowed
+        external: The rule is not empty, and the token carries no email, an email the issuer has not verified, or one neither listed in allow.emails nor in a domain listed in allow.domains.
+        error: mandate.guard.Refused
+      - name: over-limit
+        external: The identity's bucket, refilled at limits.per_minute and holding at most limits.burst, is empty; other identities are admitted on their own buckets.
+        error: mandate.guard.Refused
+      - name: queue-full
+        external: limits.queue requests are already waiting; the request is refused at once, never buffered.
+        error: mandate.guard.Refused
+    response:
+      - name: subject
+        type: mandate.core.ExternalSubject
+      - name: email
+        type: Optional<mandate.guard.EmailAddress>
+      - name: email_verified
+        type: Boolean
+      - name: groups
+        type: List<mandate.guard.GroupName>
+      - name: audience
+        type: mandate.core.Audience
+events:
+  - name: mandate.guard.RequestAdmitted
+    fields:
+      - name: issuer
+        type: mandate.core.Issuer
+      - name: subject
+        type: mandate.core.ExternalSubject
+      - name: audience
+        type: mandate.core.Audience
+      - name: admitted_at
+        type: Timestamp
+errors:
+  - name: mandate.guard.Refused
+    summary: Fail closed; the request does not reach the service and nothing is recorded. The reason names the clause that refused it, the same in the library and the sidecar.
+    fields:
+      - name: reason
+        type: mandate.guard.RefusalReason

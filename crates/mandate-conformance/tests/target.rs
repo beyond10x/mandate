@@ -1167,6 +1167,16 @@ fn every_port_method_the_substituted_reader_implements_counts_its_read() {
             }),
         ),
         (
+            "ClientRegistrationAdmission::admits_trusted_peer",
+            Box::new(|r: &Substituted| {
+                let _ = ClientRegistrationAdmission::admits_trusted_peer(
+                    r,
+                    &OrganizationId::new(identity(0x32)),
+                    &OAuthClientId::new(identity(0x34)),
+                );
+            }),
+        ),
+        (
             "GraphRead::check",
             Box::new(move |r: &Substituted| {
                 let context = VerifiedContext {

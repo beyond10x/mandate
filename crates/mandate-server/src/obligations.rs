@@ -8,7 +8,7 @@
 //!
 //! # What is enumerated, and what bounds it
 //!
-//! One [`Obligation`] per `operationId` of `generated/openapi/*.yaml` — 63 today, read from the
+//! One [`Obligation`] per `operationId` of `generated/openapi/*.yaml` — 65 today, read from the
 //! documents at test time rather than restated, so a command the contract adds fails
 //! `crates/mandate-server/tests/obligations.rs` until it has a row.
 //!
@@ -22,7 +22,7 @@
 //!
 //! # The bound on the class, stated rather than implied
 //!
-//! The per-clause enumeration covers the **four road commands**, 25 clauses. The other 59 rows
+//! The per-clause enumeration covers the **four road commands**, 29 clauses. The other 61 rows
 //! state, in whole, that this adapter establishes none of their preconditions and decodes
 //! nothing for them: they are reached only through their generated
 //! `POST /<domain>/commands/<Command>` projection, which `docs/public/contracts.md:29` says
@@ -129,6 +129,12 @@ const AUTHENTICATE_FEDERATION: &[Clause] = &[
         phrase: "principal linking is absent/conflicting",
         establishes: Establishes::Handler,
     },
+    // The groups are read from the validated proof and the cap from the connection's filter;
+    // the request body carries neither, so only the handler can count them.
+    Clause {
+        phrase: "the groups the connection's filter admits number more than its cap",
+        establishes: Establishes::Handler,
+    },
     // The one clause of this command the wire form decides: the request body admits
     // `connection_id` and `proof` and refuses every other member, so there is no unverified
     // input for a fallback to reach for.
@@ -194,12 +200,29 @@ const REDEEM_AUTHORIZATION_CODE: &[Clause] = &[
         phrase: "the bound client is disabled",
         establishes: Establishes::Handler,
     },
+    // Client authentication (story:oidc-discovery-and-code-flow): the secret is compared with
+    // the verifiers the client record holds, and whether the client is confidential or public
+    // is that record's too. A request presenting the secret twice is the adapter's to refuse;
+    // that wire refusal is not a phrase of this cause.
+    Clause {
+        phrase: "a confidential client presents no secret or one matching none of its recorded verifiers",
+        establishes: Establishes::Handler,
+    },
+    Clause {
+        phrase: "a public client presents a secret",
+        establishes: Establishes::Handler,
+    },
     Clause {
         phrase: "source/session epoch is stale",
         establishes: Establishes::Handler,
     },
     Clause {
         phrase: "registered target is disabled or outside the verified tenant",
+        establishes: Establishes::Handler,
+    },
+    // The signing keys are the STS's records (story:oidc-signed-tokens-and-key-rotation).
+    Clause {
+        phrase: "no signing key is admitted for issuance when an identity token is due",
         establishes: Establishes::Handler,
     },
     Clause {
@@ -240,7 +263,7 @@ const INTROSPECT_CREDENTIAL: &[Clause] = &[
 
 /// Every command the contract declares, with its adapter obligations.
 ///
-/// The four road commands first, in road order; the other 59 after, by name.
+/// The four road commands first, in road order; the other 61 after, by name.
 pub const OBLIGATIONS: &[Obligation] = &[
     Obligation {
         command: "mandate.federation.AuthenticateFederation",
@@ -523,6 +546,12 @@ pub const OBLIGATIONS: &[Obligation] = &[
         clauses: &[],
     },
     Obligation {
+        command: "mandate.guard.AdmitRequest",
+        wire: Wire::Generated,
+        decoder: None,
+        clauses: &[],
+    },
+    Obligation {
         command: "mandate.identity.DisablePrincipal",
         wire: Wire::Generated,
         decoder: None,
@@ -548,6 +577,12 @@ pub const OBLIGATIONS: &[Obligation] = &[
     },
     Obligation {
         command: "mandate.identity.RevokeSession",
+        wire: Wire::Generated,
+        decoder: None,
+        clauses: &[],
+    },
+    Obligation {
+        command: "mandate.identity.RotateRefreshCredential",
         wire: Wire::Generated,
         decoder: None,
         clauses: &[],

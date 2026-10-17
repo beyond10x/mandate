@@ -4,5 +4,5 @@
   "test": "contracts",
   "kill": "check-fails",
   "refusal": "projection drift",
-  "anchor": "systems/mandate/domains/credential.yaml:607"
+  "anchor": "systems/mandate/domains/credential.yaml:709"
 }

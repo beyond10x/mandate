@@ -5,7 +5,8 @@
 //! the account cannot drift from the contract without this suite failing.
 
 use mandate_types::inventory::{
-    ACCEPTED, DERIVED_STATE_ENUMS, EXCLUDED_ENTITIES, EXCLUDED_SEMANTICS, Kind, Owner,
+    ACCEPTED, DERIVED_STATE_ENUMS, DOMAIN_TYPES_UNREALIZED, EXCLUDED_ENTITIES, EXCLUDED_SEMANTICS,
+    Kind, Owner,
 };
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -34,18 +35,35 @@ fn schema_kind(ess_name: &str) -> String {
 #[test]
 fn the_compiled_type_index_splits_into_authored_types_and_derived_state_enums() {
     let names = schema_names("types");
-    assert_eq!(names.len(), 111, "compiled type entries");
+    assert_eq!(names.len(), 124, "compiled type entries");
+    // The token guard's seven types belong to the guard library in mandate-client, which
+    // realizes them; mandate-types accounts for the core types and the derived states only.
+    let guard = names
+        .iter()
+        .filter(|name| name.starts_with("mandate.guard."))
+        .count();
+    assert_eq!(guard, 7, "token guard types");
     let authored: BTreeSet<&String> = names
         .iter()
         .filter(|name| name.starts_with("mandate.core."))
         .collect();
-    assert_eq!(authored.len(), 75, "authored model types");
+    assert_eq!(authored.len(), 77, "authored model types");
     for name in &names {
-        if !name.starts_with("mandate.core.") {
-            assert!(name.ends_with(".State"), "unaccounted type entry {name}");
+        if !name.starts_with("mandate.core.") && !name.starts_with("mandate.guard.") {
+            assert!(
+                name.ends_with(".State")
+                    || DOMAIN_TYPES_UNREALIZED
+                        .iter()
+                        .any(|(unrealized, _)| unrealized == name),
+                "unaccounted type entry {name}"
+            );
         }
     }
-    assert_eq!(names.len() - authored.len(), 36, "derived state enums");
+    assert_eq!(
+        names.len() - authored.len() - guard - DOMAIN_TYPES_UNREALIZED.len(),
+        36,
+        "derived state enums"
+    );
 }
 
 #[test]
@@ -86,8 +104,8 @@ fn the_accepted_account_agrees_with_the_projected_kind_of_every_type() {
         *breakdown.entry(entry.kind).or_default() += 1;
     }
     assert_eq!(breakdown[&Kind::Newtype], 55);
-    assert_eq!(breakdown[&Kind::Enum], 8);
-    assert_eq!(breakdown[&Kind::Struct], 10);
+    assert_eq!(breakdown[&Kind::Enum], 9);
+    assert_eq!(breakdown[&Kind::Struct], 11);
     assert_eq!(breakdown[&Kind::Union], 2);
 }
 
@@ -97,12 +115,12 @@ fn every_accepted_type_has_exactly_one_owning_crate() {
     for entry in ACCEPTED {
         *breakdown.entry(entry.owner).or_default() += 1;
     }
-    assert_eq!(breakdown.values().sum::<usize>(), 75);
+    assert_eq!(breakdown.values().sum::<usize>(), 77);
     assert_eq!(
         breakdown.get(&Owner::Types).copied().unwrap_or_default(),
-        69
+        70
     );
-    assert_eq!(breakdown.get(&Owner::Model).copied().unwrap_or_default(), 4);
+    assert_eq!(breakdown.get(&Owner::Model).copied().unwrap_or_default(), 5);
     assert_eq!(breakdown.get(&Owner::Token).copied().unwrap_or_default(), 2);
     assert_eq!(breakdown.get(&Owner::Proto).copied().unwrap_or_default(), 0);
 }
@@ -271,7 +289,7 @@ const MANIFEST: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../contracts/cov
 
 /// The coverage manifest's account of this crate is exactly the account this crate keeps.
 ///
-/// `contracts/coverage.json` maps all 111 compiled type declarations, and the eight registrar
+/// `contracts/coverage.json` maps all 118 compiled type declarations, and the eight registrar
 /// crates reconcile their own entries against a `mandate_types::realizes!` registry the
 /// compiler touches. This crate has no such registry and is not given one: the ruling for
 /// `story:coverage-map` is that the authored types are accounted here through the conformance
@@ -326,7 +344,7 @@ fn the_coverage_manifest_names_exactly_what_this_crate_accounts_for() {
             "{element}: two entries name this element"
         );
     }
-    assert_eq!(entries.len(), 297, "the coverage manifest's element count");
+    assert_eq!(entries.len(), 319, "the coverage manifest's element count");
 
     let mut claimed: BTreeMap<String, String> = BTreeMap::new();
     for (element, entry) in &entries {
@@ -367,7 +385,7 @@ fn the_coverage_manifest_names_exactly_what_this_crate_accounts_for() {
     }
     assert_eq!(
         expected.len(),
-        69,
+        70,
         "the share of the authored types this crate owns"
     );
     assert_eq!(

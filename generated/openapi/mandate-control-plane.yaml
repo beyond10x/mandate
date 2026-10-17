@@ -1,6 +1,6 @@
 # generated from mandate v1
-# model digest 7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182
-# contract digest slice-sha256/2:d28c95ca735aa99aeee2acc242e347d5cadf7fe69dda065ece5954dd1ee4a439
+# model digest 751472a620cc3a7650f9a2496c9e81022fbef0887158483d3bbd761f09e76837
+# contract digest slice-sha256/2:1b8dd3aee6c80f7ed345dcac834185dc69c87535d429838ae8405ae04151f113
 # do not edit: regenerate with `ess generate`
 openapi: 3.1.0
 info:
@@ -9,13 +9,13 @@ info:
   description: |-
     The HTTP surface of `mandate-control-plane`, one of the components of `mandate` v1.
 
-    Every path here is one semantic command, so the method is always POST and the path is the command's wire name under its domain's: a command is not a resource, and this document does not invent one. A status code is the outcome the specification declares — 202 for a branch that was taken, 422 for a refusal the input decides, 502 for a refusal decided outside the request — and the `outcome` property of every response body names the branch. Events emitted by a branch are published to consumers through the event transport, and the `published` property of every response body lists them too, in publication order.
+    Every path here is one semantic command, so the method is always POST and the path is the command's wire name under its domain's: a command is not a resource, and this document does not invent one. A status code is the outcome the specification declares — 202 for a branch that was taken, 422 for a refusal the input decides, 502 for a refusal decided outside the request — and the `outcome` property of every response body names the branch. Events emitted by a branch are published to consumers through the event transport, and the `published` property of every response body lists them too, in publication order. A branch that returns the command's response is carried out in the request that took it, so it is answered 200, and its body carries that response under `response`.
   version: v1
   x-ess-provenance:
     system: mandate
     specification_version: v1
-    source_digest: 7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182
-    contract_digest: slice-sha256/2:d28c95ca735aa99aeee2acc242e347d5cadf7fe69dda065ece5954dd1ee4a439
+    source_digest: 751472a620cc3a7650f9a2496c9e81022fbef0887158483d3bbd761f09e76837
+    contract_digest: slice-sha256/2:1b8dd3aee6c80f7ed345dcac834185dc69c87535d429838ae8405ae04151f113
 tags:
 - name: delegation
 - name: directory
@@ -1331,6 +1331,76 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/mandate.identity.RevokeSession.denied.Response'
+  /identity/commands/RotateRefreshCredential:
+    post:
+      operationId: mandate.identity.RotateRefreshCredential
+      summary: RotateRefreshCredential
+      description: Present a refresh credential at the token endpoint and receive its successor (fork F6). The id is resolved by the trusted adapter from the presented refresh token; it is not a selector a caller chooses.
+      tags:
+      - identity
+      requestBody:
+        description: The input `mandate.identity.RotateRefreshCredential` declares.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/mandate.identity.RotateRefreshCredential.Input'
+      responses:
+        '200':
+          description: 'Outcomes `rotated` and `grace-sibling`: the branch the specification declares for this input, carried out in this request: the body carries the command''s response under `response`. Events this branch emits are published to consumers and listed under `published`.'
+          content:
+            application/json:
+              schema:
+                discriminator:
+                  mapping:
+                    grace-sibling: '#/components/schemas/mandate.identity.RotateRefreshCredential.grace-sibling.Response'
+                    rotated: '#/components/schemas/mandate.identity.RotateRefreshCredential.rotated.Response'
+                  propertyName: outcome
+                oneOf:
+                - $ref: '#/components/schemas/mandate.identity.RotateRefreshCredential.rotated.Response'
+                - $ref: '#/components/schemas/mandate.identity.RotateRefreshCredential.grace-sibling.Response'
+        '202':
+          description: 'Outcome `reuse-detected`: the branch the specification declares for this input. Events this branch emits are published to consumers and listed under `published`.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.identity.RotateRefreshCredential.reuse-detected.Response'
+        '409':
+          description: 'Outcomes `wrong-client` and `wrong-state`: the input was acceptable and the subject is in a state this command does not act from. Resending the same request changes nothing until something else moves it.'
+          content:
+            application/json:
+              schema:
+                discriminator:
+                  mapping:
+                    wrong-client: '#/components/schemas/mandate.identity.RotateRefreshCredential.wrong-client.Response'
+                    wrong-state: '#/components/schemas/mandate.identity.RotateRefreshCredential.wrong-state.Response'
+                  propertyName: outcome
+                oneOf:
+                - $ref: '#/components/schemas/mandate.identity.RotateRefreshCredential.wrong-client.Response'
+                - $ref: '#/components/schemas/mandate.identity.RotateRefreshCredential.wrong-state.Response'
+        '501':
+          description: 'No declared outcome: the realization is unfinished. Either a port this command runs reported an unmet obligation, and nothing was written: `committed` is `false`. Or the command''s effect was committed and delivering what this command published to a binding failed: `committed` is `true`, the effect and its events stand, and each binding whose delivery failed keeps its event and is attempted again on a later delivery, while no other binding receives it twice. Do not retry: after a failed delivery a retry performs the command a second time.'
+          content:
+            application/json:
+              schema:
+                additionalProperties: false
+                properties:
+                  committed:
+                    description: '`true` when the command''s effect and events were committed and delivering what it published failed; `false` when an unmet obligation stopped the command before anything was written.'
+                    type: boolean
+                  refused:
+                    description: What was left unfinished, in words.
+                    type: string
+                required:
+                - refused
+                - committed
+                type: object
+        '502':
+          description: 'Outcome `denied`: something outside the request refused. The input was acceptable, so the caller has nothing to correct and a retry is meaningful.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/mandate.identity.RotateRefreshCredential.denied.Response'
   /tenancy/commands/AddOrganizationMembership:
     post:
       operationId: mandate.tenancy.AddOrganizationMembership
@@ -1960,6 +2030,18 @@ components:
       type: string
       pattern: ^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$
       contentEncoding: base64
+    mandate.core.CredentialSecret:
+      title: CredentialSecret
+      x-ess-name: mandate.core.CredentialSecret
+      x-ess-kind: newtype
+      type: string
+      pattern: ^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$
+      contentEncoding: base64
+    mandate.core.CredentialVerifier:
+      title: CredentialVerifier
+      x-ess-name: mandate.core.CredentialVerifier
+      x-ess-kind: newtype
+      type: string
     mandate.core.DelegationId:
       title: DelegationId
       x-ess-name: mandate.core.DelegationId
@@ -1980,6 +2062,7 @@ components:
       - AudienceMismatch
       - Unavailable
       - StaleEpoch
+      - InvalidClient
     mandate.core.DirectoryGroupId:
       title: DirectoryGroupId
       x-ess-name: mandate.core.DirectoryGroupId
@@ -2045,6 +2128,22 @@ components:
       type: string
       format: uuid
       pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.GroupFilter:
+      title: GroupFilter
+      x-ess-name: mandate.core.GroupFilter
+      x-ess-kind: struct
+      type: object
+      properties:
+        allowlist:
+          type: array
+          items:
+            type: string
+        cap:
+          type: integer
+      required:
+      - allowlist
+      - cap
+      additionalProperties: false
     mandate.core.Issuer:
       title: Issuer
       x-ess-name: mandate.core.Issuer
@@ -2064,6 +2163,14 @@ components:
       type: string
       format: uuid
       pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.core.OAuthClientType:
+      title: OAuthClientType
+      x-ess-name: mandate.core.OAuthClientType
+      x-ess-kind: enum
+      type: string
+      enum:
+      - Public
+      - Confidential
     mandate.core.OrganizationId:
       title: OrganizationId
       x-ess-name: mandate.core.OrganizationId
@@ -2239,8 +2346,10 @@ components:
           $ref: '#/components/schemas/mandate.core.OrganizationId'
         verified_claim_name:
           type: string
-        verified_claim_value:
-          type: string
+        verified_claim_values:
+          type: array
+          items:
+            type: string
       required:
       - configured_organization
       additionalProperties: false
@@ -3758,7 +3867,7 @@ components:
       additionalProperties: false
     mandate.federation.AuthenticateFederation.accepted.Response:
       additionalProperties: false
-      description: A validated federated login mints the session, which is step 9 of the resolution order in docs/architecture/federated-login.md. FederationAuthenticated carries the whole mandate.identity.Session record — the new session identity, the principal, the resolved organization, the connection, the epoch snapshot the session is bound to and its expiry — so the identity fold materializes the session from this event alone and reads no command input or response. The audience and the correlation are carried beside the record. The principal, the organization, the epoch snapshot handle and the expiry are the ones this command resolved and returned, so the fold reads each from the response rather than from a value the implementation invented; the snapshot's own contents are recorded by the adapter through EpochSnapshotRecorded. Taken when no other outcome's condition matched. A `mandate.identity.Session` now exists, in `Active`. Its identity is published as `session_id` on `mandate.federation.FederationAuthenticated`. Emits `FederationAuthenticated`, published to consumers and listed under `published`.
+      description: 'A validated federated login mints the session, which is step 9 of the resolution order in docs/architecture/federated-login.md. FederationAuthenticated carries the whole mandate.identity.Session record — the new session identity, the principal, the resolved organization, the connection, the epoch snapshot the session is bound to and its expiry — so the identity fold materializes the session from this event alone and reads no command input or response. The audience and the correlation are carried beside the record. The principal, the organization, the epoch snapshot handle and the expiry are the ones this command resolved and returned, so the fold reads each from the response rather than from a value the implementation invented; the snapshot''s own contents are recorded by the adapter through EpochSnapshotRecorded. ExternalProfileObserved records the profile of this login for later issuance (fork F13): the external principal the login resolved through its link, and the email, its verified flag, the name and the groups, each read from the validated proof and never from a caller input. An email the upstream does not mark verified is recorded with email_verified false, never true. The groups are those the connection''s group filter admits: a group outside the allowlist never appears in the event, and a connection without a filter records an empty list. Taken when no other outcome''s condition matched. A `mandate.identity.Session` now exists, in `Active`. Its identity is published as `session_id` on `mandate.federation.FederationAuthenticated`. Emits `FederationAuthenticated` and `ExternalProfileObserved`, published to consumers and listed under `published`.'
       properties:
         outcome:
           const: accepted
@@ -3766,8 +3875,8 @@ components:
         published:
           description: 'Every event this branch published, in publication order: its qualified name and its payload.'
           items: false
-          maxItems: 1
-          minItems: 1
+          maxItems: 2
+          minItems: 2
           prefixItems:
           - additionalProperties: false
             properties:
@@ -3780,6 +3889,17 @@ components:
             - event
             - payload
             type: object
+          - additionalProperties: false
+            properties:
+              event:
+                const: mandate.federation.ExternalProfileObserved
+                type: string
+              payload:
+                $ref: '#/components/schemas/mandate.federation.ExternalProfileObserved.Event'
+            required:
+            - event
+            - payload
+            type: object
           type: array
       required:
       - outcome
@@ -3787,7 +3907,7 @@ components:
       type: object
     mandate.federation.AuthenticateFederation.denied.Response:
       additionalProperties: false
-      description: 'Decided outside the request: Connection is disabled/untrusted, proof signature/issuer/audience/expiry is invalid, tenant resolution has zero or multiple matches, principal linking is absent/conflicting, or any email-domain/unverified-input fallback would be required..'
+      description: 'A refused login opens no session and records no profile. In tenant resolution, a rule naming a claim matches only when the validated claim equals one of its listed values, and an absent claim matches none. Decided outside the request: Connection is disabled/untrusted, proof signature/issuer/audience/expiry is invalid, tenant resolution has zero or multiple matches, principal linking is absent/conflicting, the groups the connection''s filter admits number more than its cap, or any email-domain/unverified-input fallback would be required..'
       properties:
         error:
           const: mandate.federation.Denied
@@ -4204,6 +4324,42 @@ components:
       - context
       - id
       additionalProperties: false
+    mandate.federation.ExternalProfileObserved.Event:
+      title: ExternalProfileObserved payload
+      x-ess-name: mandate.federation.ExternalProfileObserved
+      x-ess-kind: event-payload
+      type: object
+      properties:
+        organization_id:
+          $ref: '#/components/schemas/mandate.core.OrganizationId'
+        correlation:
+          $ref: '#/components/schemas/mandate.core.CorrelationId'
+        connection_id:
+          $ref: '#/components/schemas/mandate.core.FederationConnectionId'
+        external_principal_id:
+          $ref: '#/components/schemas/mandate.core.ExternalPrincipalId'
+        email:
+          type: string
+        email_verified:
+          type: boolean
+        name:
+          type: string
+        groups:
+          type: array
+          items:
+            type: string
+        observed_at:
+          type: string
+          format: date-time
+      required:
+      - organization_id
+      - correlation
+      - connection_id
+      - external_principal_id
+      - email_verified
+      - groups
+      - observed_at
+      additionalProperties: false
     mandate.federation.FederationAuthenticated.Event:
       title: FederationAuthenticated payload
       x-ess-name: mandate.federation.FederationAuthenticated
@@ -4255,6 +4411,8 @@ components:
           $ref: '#/components/schemas/mandate.core.TenantResolutionRule'
         jit_provisioning:
           type: boolean
+        groups:
+          $ref: '#/components/schemas/mandate.core.GroupFilter'
       required:
       - context
       - connection_id
@@ -4378,21 +4536,39 @@ components:
           $ref: '#/components/schemas/mandate.core.OAuthClientId'
         organization_id:
           $ref: '#/components/schemas/mandate.core.OrganizationId'
-        public:
-          type: boolean
+        client_type:
+          $ref: '#/components/schemas/mandate.core.OAuthClientType'
+        secret_verifiers:
+          type: array
+          items:
+            $ref: '#/components/schemas/mandate.core.CredentialVerifier'
         redirect_uris:
           type: array
           items:
             $ref: '#/components/schemas/mandate.core.RedirectUri'
         pkce_method:
           $ref: '#/components/schemas/mandate.core.PkceMethod'
+        pkce_required:
+          type: boolean
+        trusted_peers:
+          type: array
+          items:
+            $ref: '#/components/schemas/mandate.core.OAuthClientId'
+        post_logout_redirect_uris:
+          type: array
+          items:
+            $ref: '#/components/schemas/mandate.core.RedirectUri'
       required:
       - context
       - id
       - organization_id
-      - public
+      - client_type
+      - secret_verifiers
       - redirect_uris
       - pkce_method
+      - pkce_required
+      - trusted_peers
+      - post_logout_redirect_uris
       additionalProperties: false
     mandate.federation.ProvisionExternalPrincipal.Input:
       title: ProvisionExternalPrincipal input
@@ -4476,6 +4652,8 @@ components:
           $ref: '#/components/schemas/mandate.core.TenantResolutionRule'
         jit_provisioning:
           type: boolean
+        groups:
+          $ref: '#/components/schemas/mandate.core.GroupFilter'
       required:
       - context
       - issuer
@@ -4485,7 +4663,7 @@ components:
       additionalProperties: false
     mandate.federation.RegisterFederationConnection.accepted.Response:
       additionalProperties: false
-      description: The connection is created with its provisioning setting decided here and never changed afterwards. A connection whose issuer or provisioning admission must change is disabled and registered again; there is no update command. Taken when no other outcome's condition matched. A `mandate.federation.FederationConnection` now exists, in `Enabled`. Its identity is published as `connection_id` on `mandate.federation.FederationConnectionCreated`. Emits `FederationConnectionCreated`, published to consumers and listed under `published`.
+      description: The connection is created with its provisioning setting, its tenant rule and its group filter decided here and never changed afterwards. A tenant rule that names a validated claim lists every value that resolves (a hosted-domain list), and any one of them resolves. A connection without a group filter records no groups for any login. A connection whose issuer, provisioning admission, accepted claim values or group filter must change is disabled and registered again; there is no update command. Taken when no other outcome's condition matched. A `mandate.federation.FederationConnection` now exists, in `Enabled`. Its identity is published as `connection_id` on `mandate.federation.FederationConnectionCreated`. Emits `FederationConnectionCreated`, published to consumers and listed under `published`.
       properties:
         outcome:
           const: accepted
@@ -4514,7 +4692,7 @@ components:
       type: object
     mandate.federation.RegisterFederationConnection.denied.Response:
       additionalProperties: false
-      description: 'Decided outside the request: Caller lacks federation-administration authority, issuer/client/trust, tenant-resolution or just-in-time provisioning configuration is unadmitted, or organization binding is invalid..'
+      description: 'Decided outside the request: Caller lacks federation-administration authority, issuer/client/trust, tenant-resolution or just-in-time provisioning configuration is unadmitted, the tenant rule names a claim with an empty value list or values without a claim name, the group filter''s cap is below one, or organization binding is invalid..'
       properties:
         error:
           const: mandate.federation.Denied
@@ -4543,23 +4721,41 @@ components:
       properties:
         context:
           $ref: '#/components/schemas/mandate.core.VerifiedContext'
-        public:
-          type: boolean
+        client_type:
+          $ref: '#/components/schemas/mandate.core.OAuthClientType'
+        secret_verifiers:
+          type: array
+          items:
+            $ref: '#/components/schemas/mandate.core.CredentialVerifier'
         redirect_uris:
           type: array
           items:
             $ref: '#/components/schemas/mandate.core.RedirectUri'
         pkce_method:
           $ref: '#/components/schemas/mandate.core.PkceMethod'
+        pkce_required:
+          type: boolean
+        trusted_peers:
+          type: array
+          items:
+            $ref: '#/components/schemas/mandate.core.OAuthClientId'
+        post_logout_redirect_uris:
+          type: array
+          items:
+            $ref: '#/components/schemas/mandate.core.RedirectUri'
       required:
       - context
-      - public
+      - client_type
+      - secret_verifiers
       - redirect_uris
       - pkce_method
+      - pkce_required
+      - trusted_peers
+      - post_logout_redirect_uris
       additionalProperties: false
     mandate.federation.RegisterOAuthClient.accepted.Response:
       additionalProperties: false
-      description: The client is bound to the organization the verified context carries; the command takes no organization input, so no caller selects the tenant a client is registered into. OAuthClientRegistered carries the whole mandate.federation.OAuthClient record — the client identity, its organization, whether it is a public client, its exact redirect set and its PKCE method — so the federation fold materializes the client from this event alone and reads no command input or response. The identity and the organization are the ones this outcome decided and returned, read from the response rather than from a value the implementation invented. An empty redirect set is admitted and is not a denial — the client it registers is inert, because AuthorizePublicClient matches the presented redirect against the registered set exactly and an empty set matches nothing, so every authorization request to that client is refused. mandate.core.PkceMethod admits S256 and nothing else, so no registration can name another method and none is refused for naming one. A registration whose redirect surface or PKCE method must change is disabled and registered again; there is no update command. Taken when no other outcome's condition matched. A `mandate.federation.OAuthClient` now exists, in `Recorded`. Its identity is published as `id` on `mandate.federation.OAuthClientRegistered`. Emits `OAuthClientRegistered`, published to consumers and listed under `published`.
+      description: The client is bound to the organization the verified context carries; the command takes no organization input, so no caller selects the tenant a client is registered into. A confidential client authenticates with a secret, and the registration carries only the keyed verifiers derived from its secret references (fork F2), one or two so that a secret can be rotated; the secret itself is never an input, an event field or a record field. A public client states no verifier and always requires PKCE (fork F3); a confidential client may require it. Each trusted peer names another client of the same organization that may obtain tokens for this one. OAuthClientRegistered carries the whole mandate.federation.OAuthClient record — the client identity, its organization, its client type, its verifiers, its exact redirect set, its PKCE method and requirement, its trusted peers and its exact post-logout redirect set — so the federation fold materializes the client from this event alone and reads no command input or response. The identity and the organization are the ones this outcome decided and returned, read from the response rather than from a value the implementation invented. An empty redirect set is admitted and is not a denial — the client it registers is inert, because AuthorizePublicClient matches the presented redirect against the registered set exactly and an empty set matches nothing, so every authorization request to that client is refused. mandate.core.PkceMethod admits S256 and nothing else, so no registration can name another method and none is refused for naming one. A registration whose redirect surface or PKCE method must change is disabled and registered again; there is no update command. Taken when no other outcome's condition matched. A `mandate.federation.OAuthClient` now exists, in `Recorded`. Its identity is published as `id` on `mandate.federation.OAuthClientRegistered`. Emits `OAuthClientRegistered`, published to consumers and listed under `published`.
       properties:
         outcome:
           const: accepted
@@ -4588,7 +4784,7 @@ components:
       type: object
     mandate.federation.RegisterOAuthClient.denied.Response:
       additionalProperties: false
-      description: 'Decided outside the request: Caller lacks client-administration authority, a redirect URI is unadmitted, or organization binding is invalid..'
+      description: 'Decided outside the request: Caller lacks client-administration authority, a redirect URI or post-logout redirect URI is unadmitted, a public client states a secret verifier or does not require PKCE, a confidential client states no verifier or more than two, a trusted peer names the client itself or no client registered in the verified organization, or organization binding is invalid..'
       properties:
         error:
           const: mandate.federation.Denied
@@ -4891,6 +5087,74 @@ components:
       - context
       - id
       additionalProperties: false
+    mandate.identity.RefreshCredentialRotated.Event:
+      title: RefreshCredentialRotated payload
+      x-ess-name: mandate.identity.RefreshCredentialRotated
+      x-ess-kind: event-payload
+      type: object
+      properties:
+        predecessor:
+          $ref: '#/components/schemas/mandate.core.RefreshCredentialId'
+        id:
+          $ref: '#/components/schemas/mandate.core.RefreshCredentialId'
+        family_id:
+          $ref: '#/components/schemas/mandate.identity.RefreshFamilyId'
+        client_id:
+          $ref: '#/components/schemas/mandate.core.OAuthClientId'
+        principal_id:
+          $ref: '#/components/schemas/mandate.core.PrincipalId'
+        organization_id:
+          $ref: '#/components/schemas/mandate.core.OrganizationId'
+        session_id:
+          $ref: '#/components/schemas/mandate.core.SessionId'
+        verifier:
+          $ref: '#/components/schemas/mandate.core.CredentialVerifier'
+        epochs:
+          $ref: '#/components/schemas/mandate.core.EpochSnapshotRef'
+        issued_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+      required:
+      - predecessor
+      - id
+      - family_id
+      - client_id
+      - principal_id
+      - organization_id
+      - session_id
+      - verifier
+      - epochs
+      - issued_at
+      - expires_at
+      additionalProperties: false
+    mandate.identity.RefreshFamilyId:
+      title: RefreshFamilyId
+      description: The rotation family of refresh credentials minted from one issuance.
+      x-ess-name: mandate.identity.RefreshFamilyId
+      x-ess-kind: newtype
+      type: string
+      format: uuid
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+    mandate.identity.RefreshFamilyRevoked.Event:
+      title: RefreshFamilyRevoked payload
+      x-ess-name: mandate.identity.RefreshFamilyRevoked
+      x-ess-kind: event-payload
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/mandate.core.RefreshCredentialId'
+        family_id:
+          $ref: '#/components/schemas/mandate.identity.RefreshFamilyId'
+        session_id:
+          $ref: '#/components/schemas/mandate.core.SessionId'
+      required:
+      - id
+      - family_id
+      - session_id
+      additionalProperties: false
     mandate.identity.RefreshSession.Input:
       title: RefreshSession input
       x-ess-name: mandate.identity.RefreshSession
@@ -5058,7 +5322,7 @@ components:
       additionalProperties: false
     mandate.identity.RevokeSession.accepted.Response:
       additionalProperties: false
-      description: Taken when no other outcome's condition matched. A `mandate.identity.Session` has moved to `Revoked`, along `revoke`. The instance is the one `id` names. Emits `SessionRevoked`, published to consumers and listed under `published`.
+      description: Ending the session (RP-initiated logout, fork F7) revokes it and every refresh credential bound to it, Active or Rotated, so no family of the session can be rotated again. Taken when no other outcome's condition matched. A `mandate.identity.Session` has moved to `Revoked`, along `revoke`. The instance is the one `id` names. Emits `SessionRevoked`, published to consumers and listed under `published`.
       properties:
         outcome:
           const: accepted
@@ -5111,6 +5375,203 @@ components:
     mandate.identity.RevokeSession.wrong-state.Response:
       additionalProperties: false
       description: Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's. For an instance no record carries, `payload` is absent, because an instance that does not exist has nothing for the error to describe.
+      properties:
+        error:
+          const: mandate.identity.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: wrong-state
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.identity.Denied.Error'
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          maxItems: 0
+          type: array
+      required:
+      - outcome
+      - published
+      - error
+      type: object
+    mandate.identity.RotateRefreshCredential.Input:
+      title: RotateRefreshCredential input
+      description: Present a refresh credential at the token endpoint and receive its successor (fork F6). The id is resolved by the trusted adapter from the presented refresh token; it is not a selector a caller chooses.
+      x-ess-name: mandate.identity.RotateRefreshCredential
+      x-ess-kind: command-input
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/mandate.core.RefreshCredentialId'
+        refresh_proof:
+          $ref: '#/components/schemas/mandate.core.CredentialProof'
+        client_id:
+          $ref: '#/components/schemas/mandate.core.OAuthClientId'
+      required:
+      - id
+      - refresh_proof
+      - client_id
+      additionalProperties: false
+    mandate.identity.RotateRefreshCredential.Result:
+      title: RotateRefreshCredential response
+      description: Present a refresh credential at the token endpoint and receive its successor (fork F6). The id is resolved by the trusted adapter from the presented refresh token; it is not a selector a caller chooses.
+      x-ess-name: mandate.identity.RotateRefreshCredential
+      x-ess-kind: command-response
+      type: object
+      properties:
+        refresh_credential_id:
+          $ref: '#/components/schemas/mandate.core.RefreshCredentialId'
+        refresh_credential:
+          $ref: '#/components/schemas/mandate.core.CredentialSecret'
+        session_id:
+          $ref: '#/components/schemas/mandate.core.SessionId'
+      required:
+      - refresh_credential_id
+      - refresh_credential
+      - session_id
+      additionalProperties: false
+    mandate.identity.RotateRefreshCredential.denied.Response:
+      additionalProperties: false
+      description: 'Decided outside the request: The refresh proof does not match the server-resolved id''s verifier, the credential''s absolute lifetime is past, client authentication failed, the bound client is disabled, or the principal or session is disabled..'
+      properties:
+        error:
+          const: mandate.identity.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: denied
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.identity.Denied.Error'
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          maxItems: 0
+          type: array
+      required:
+      - outcome
+      - published
+      - error
+      - payload
+      type: object
+    mandate.identity.RotateRefreshCredential.grace-sibling.Response:
+      additionalProperties: false
+      description: A Rotated credential presented within two seconds of its rotation (a client that lost the first answer) yields exactly one sibling in its family; the credential stays Rotated and records that its sibling is spent. Taken when the existing subject's stored fields satisfy `(state == Rotated and grace_sibling_issued == false and last_used_at > now - 2s)`. A `mandate.identity.RefreshCredential` has changed, and its state is unchanged. The instance is the one `id` names. Emits `RefreshCredentialRotated`, published to consumers and listed under `published`.
+      properties:
+        outcome:
+          const: grace-sibling
+          description: Which declared outcome the command took.
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          items: false
+          maxItems: 1
+          minItems: 1
+          prefixItems:
+          - additionalProperties: false
+            properties:
+              event:
+                const: mandate.identity.RefreshCredentialRotated
+                type: string
+              payload:
+                $ref: '#/components/schemas/mandate.identity.RefreshCredentialRotated.Event'
+            required:
+            - event
+            - payload
+            type: object
+          type: array
+        response:
+          $ref: '#/components/schemas/mandate.identity.RotateRefreshCredential.Result'
+      required:
+      - outcome
+      - published
+      - response
+      type: object
+    mandate.identity.RotateRefreshCredential.reuse-detected.Response:
+      additionalProperties: false
+      description: A Rotated credential presented after the grace window, or a second time within it, is reuse. No credential is returned; the presented credential and every other Active or Rotated member of its family are Revoked, and the session RefreshFamilyRevoked names is revoked by the identity fold (this file's header). The token endpoint answers it as a refusal (invalid_grant). Taken when no other outcome's condition matched. A `mandate.identity.RefreshCredential` has moved to `Revoked`, along `revoke`. The instance is the one `id` names. Emits `RefreshFamilyRevoked`, published to consumers and listed under `published`.
+      properties:
+        outcome:
+          const: reuse-detected
+          description: Which declared outcome the command took.
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          items: false
+          maxItems: 1
+          minItems: 1
+          prefixItems:
+          - additionalProperties: false
+            properties:
+              event:
+                const: mandate.identity.RefreshFamilyRevoked
+                type: string
+              payload:
+                $ref: '#/components/schemas/mandate.identity.RefreshFamilyRevoked.Event'
+            required:
+            - event
+            - payload
+            type: object
+          type: array
+      required:
+      - outcome
+      - published
+      type: object
+    mandate.identity.RotateRefreshCredential.rotated.Response:
+      additionalProperties: false
+      description: The presented credential rests in Rotated with the moment it was used; its successor, Active in the same family with the presented credential as predecessor and the family's absolute expiry, is the record RefreshCredentialRotated carries. Taken when the existing subject's stored fields satisfy `state == Active`. A `mandate.identity.RefreshCredential` has moved to `Rotated`, along `rotate`. The instance is the one `id` names. Emits `RefreshCredentialRotated`, published to consumers and listed under `published`.
+      properties:
+        outcome:
+          const: rotated
+          description: Which declared outcome the command took.
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          items: false
+          maxItems: 1
+          minItems: 1
+          prefixItems:
+          - additionalProperties: false
+            properties:
+              event:
+                const: mandate.identity.RefreshCredentialRotated
+                type: string
+              payload:
+                $ref: '#/components/schemas/mandate.identity.RefreshCredentialRotated.Event'
+            required:
+            - event
+            - payload
+            type: object
+          type: array
+        response:
+          $ref: '#/components/schemas/mandate.identity.RotateRefreshCredential.Result'
+      required:
+      - outcome
+      - published
+      - response
+      type: object
+    mandate.identity.RotateRefreshCredential.wrong-client.Response:
+      additionalProperties: false
+      description: Another client's refresh credential is refused and left exactly as it was; the family is not revoked, because the presenter is not the holder. Taken when the existing subject's stored fields satisfy `client_id != input.client_id`.
+      properties:
+        error:
+          const: mandate.identity.Denied
+          description: Fail closed; no credential, authority or lifecycle mutation on refusal.
+          type: string
+        outcome:
+          const: wrong-client
+          description: Which declared outcome the command took.
+        payload:
+          $ref: '#/components/schemas/mandate.identity.Denied.Error'
+        published:
+          description: 'Every event this branch published, in publication order: its qualified name and its payload.'
+          maxItems: 0
+          type: array
+      required:
+      - outcome
+      - published
+      - error
+      - payload
+      type: object
+    mandate.identity.RotateRefreshCredential.wrong-state.Response:
+      additionalProperties: false
+      description: A Revoked credential is refused and nothing moves. Taken when the subject is in a state none of this command's declared moves start from. Which states those are is the lifecycle's answer, not this command's. For an instance no record carries, `payload` is absent, because an instance that does not exist has nothing for the error to describe.
       properties:
         error:
           const: mandate.identity.Denied
@@ -6466,6 +6927,22 @@ x-ess-entities:
     type: string
     format: uuid
     pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.GroupFilter:
+    title: GroupFilter
+    x-ess-name: mandate.core.GroupFilter
+    x-ess-kind: struct
+    type: object
+    properties:
+      allowlist:
+        type: array
+        items:
+          type: string
+      cap:
+        type: integer
+    required:
+    - allowlist
+    - cap
+    additionalProperties: false
   mandate.core.Issuer:
     title: Issuer
     x-ess-name: mandate.core.Issuer
@@ -6493,6 +6970,14 @@ x-ess-entities:
     type: string
     format: uuid
     pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+  mandate.core.OAuthClientType:
+    title: OAuthClientType
+    x-ess-name: mandate.core.OAuthClientType
+    x-ess-kind: enum
+    type: string
+    enum:
+    - Public
+    - Confidential
   mandate.core.OrganizationId:
     title: OrganizationId
     x-ess-name: mandate.core.OrganizationId
@@ -6619,8 +7104,10 @@ x-ess-entities:
         $ref: '#/x-ess-entities/mandate.core.OrganizationId'
       verified_claim_name:
         type: string
-      verified_claim_value:
-        type: string
+      verified_claim_values:
+        type: array
+        items:
+          type: string
     required:
     - configured_organization
     additionalProperties: false
@@ -7348,6 +7835,8 @@ x-ess-entities:
         $ref: '#/x-ess-entities/mandate.core.TenantResolutionRule'
       jit_provisioning:
         type: boolean
+      groups:
+        $ref: '#/x-ess-entities/mandate.core.GroupFilter'
       state:
         $ref: '#/x-ess-entities/mandate.federation.FederationConnection.State'
     required:
@@ -7385,22 +7874,48 @@ x-ess-entities:
           cardinality: one
           via: organization_id
           $ref: '#/x-ess-entities/mandate.tenancy.Organization'
-      public:
-        type: boolean
+      client_type:
+        $ref: '#/x-ess-entities/mandate.core.OAuthClientType'
+      secret_verifiers:
+        type: array
+        items:
+          $ref: '#/x-ess-entities/mandate.core.CredentialVerifier'
       redirect_uris:
         type: array
         items:
           $ref: '#/x-ess-entities/mandate.core.RedirectUri'
       pkce_method:
         $ref: '#/x-ess-entities/mandate.core.PkceMethod'
+      pkce_required:
+        type: boolean
+      trusted_peers:
+        type: array
+        items:
+          $ref: '#/x-ess-entities/mandate.core.OAuthClientId'
+        x-ess-relation:
+          name: trusted_peers
+          kind: references
+          source: mandate.federation.OAuthClient
+          target: mandate.federation.OAuthClient
+          cardinality: many
+          via: trusted_peers
+          $ref: '#/x-ess-entities/mandate.federation.OAuthClient'
+      post_logout_redirect_uris:
+        type: array
+        items:
+          $ref: '#/x-ess-entities/mandate.core.RedirectUri'
       state:
         $ref: '#/x-ess-entities/mandate.federation.OAuthClient.State'
     required:
     - id
     - organization_id
-    - public
+    - client_type
+    - secret_verifiers
     - redirect_uris
     - pkce_method
+    - pkce_required
+    - trusted_peers
+    - post_logout_redirect_uris
     - state
     additionalProperties: false
   mandate.federation.OAuthClient.State:
@@ -7564,6 +8079,41 @@ x-ess-entities:
       expires_at:
         type: string
         format: date-time
+      family_id:
+        $ref: '#/x-ess-entities/mandate.identity.RefreshFamilyId'
+        description: The rotation family. Every credential rotated or sibled from one issued credential carries the family its first member was issued under; reuse revokes the family as one.
+      client_id:
+        $ref: '#/x-ess-entities/mandate.core.OAuthClientId'
+        description: The client the credential was issued to. Only that client may present it.
+        x-ess-relation:
+          name: client_id_record
+          kind: references
+          source: mandate.identity.RefreshCredential
+          target: mandate.federation.OAuthClient
+          cardinality: one
+          via: client_id
+          $ref: '#/x-ess-entities/mandate.federation.OAuthClient'
+      predecessor:
+        $ref: '#/x-ess-entities/mandate.core.RefreshCredentialId'
+        description: The credential whose rotation minted this one; absent on the family's first member.
+        x-ess-relation:
+          name: predecessor_record
+          kind: references
+          source: mandate.identity.RefreshCredential
+          target: mandate.identity.RefreshCredential
+          cardinality: one
+          via: predecessor
+          $ref: '#/x-ess-entities/mandate.identity.RefreshCredential'
+      issued_at:
+        type: string
+        format: date-time
+      last_used_at:
+        description: When the credential was first presented and rotated; absent while it is Active. The two-second grace window is measured from it.
+        type: string
+        format: date-time
+      grace_sibling_issued:
+        description: Whether a presentation inside the grace window has already minted the one sibling a Rotated credential may yield.
+        type: boolean
       state:
         $ref: '#/x-ess-entities/mandate.identity.RefreshCredential.State'
     required:
@@ -7574,6 +8124,10 @@ x-ess-entities:
     - verifier
     - epochs
     - expires_at
+    - family_id
+    - client_id
+    - issued_at
+    - grace_sibling_issued
     - state
     additionalProperties: false
   mandate.identity.RefreshCredential.State:
@@ -7584,6 +8138,15 @@ x-ess-entities:
     enum:
     - Active
     - Revoked
+    - Rotated
+  mandate.identity.RefreshFamilyId:
+    title: RefreshFamilyId
+    description: The rotation family of refresh credentials minted from one issuance.
+    x-ess-name: mandate.identity.RefreshFamilyId
+    x-ess-kind: newtype
+    type: string
+    format: uuid
+    pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
   mandate.identity.SecurityEpochSnapshot:
     title: SecurityEpochSnapshot
     x-ess-name: mandate.identity.SecurityEpochSnapshot

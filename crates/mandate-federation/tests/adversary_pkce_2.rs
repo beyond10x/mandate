@@ -389,7 +389,11 @@ fn client() -> OAuthClient {
     OAuthClient {
         id: client_id(),
         organization_id: organization(),
-        public: true,
+        client_type: mandate_types::OAuthClientType::Public,
+        secret_verifiers: Vec::new(),
+        pkce_required: true,
+        trusted_peers: Vec::new(),
+        post_logout_redirect_uris: Vec::new(),
         redirect_uris: vec![
             RedirectUri::new(REGISTERED),
             RedirectUri::new(OTHER_REGISTERED),

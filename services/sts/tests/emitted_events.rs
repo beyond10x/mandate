@@ -50,7 +50,8 @@ use mandate_sts::{
     CountingSecrets, IdentityAllocator, RequestContext, SecretSource, SequentialAllocator,
 };
 use mandate_testkit::contract::{
-    assert_event_conforms, assert_payload_sources, assert_single_emission,
+    assert_event_conforms, assert_outcome_payload_sources, assert_payload_sources,
+    assert_single_emission,
 };
 use mandate_token::CredentialProfile;
 use mandate_token::projection::{CredentialEvent, Denied, Projection};
@@ -160,6 +161,7 @@ fn accepted(command: &str, input: &Value, response: Option<&Value>, event: &Cred
 /// The same three checks, for an event the code store declares rather than the credential
 /// fold. `AuthorizationCodeEvent` carries the same payloads under its own `ess_name`, so the
 /// harness reads the same generated schema and the same IR node.
+/// The redemption declares this event on two outcomes, so the outcome is named here.
 fn accepted_code(
     command: &str,
     input: &Value,
@@ -170,7 +172,7 @@ fn accepted_code(
     let name = event.ess_name();
     assert_single_emission(command, "accepted", &[(name, &payload)]);
     assert_event_conforms(name, &payload);
-    assert_payload_sources(command, input, response, name, &payload);
+    assert_outcome_payload_sources(command, "accepted", input, response, name, &payload);
 }
 
 /// One refused outcome: the outcome the refusal names is declared by the contract, and it

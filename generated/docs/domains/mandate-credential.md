@@ -1,13 +1,27 @@
 <!--
 generated from mandate v1
-model digest 7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182
-contract digest slice-sha256/2:66f54405913c442fd9581b56dd20b56fe4f6f3529c3c0a283b513560f78ba8ed
+model digest 751472a620cc3a7650f9a2496c9e81022fbef0887158483d3bbd761f09e76837
+contract digest slice-sha256/2:275b42d00514b7ac1e039b1b2e538b0f298918ced54aa6bad4b3559acc98c4e5
 do not edit: regenerate with `ess generate`
 -->
 
 # credential
 
 `mandate.credential` is one of mandate's bounded contexts. [Back to the index](../index.md).
+
+## Types
+
+### `IdentityScope`
+
+`mandate.credential.IdentityScope` is one of `OpenId`, `Email`, `Profile`, `Groups` and `OfflineAccess`.
+
+### `IdentityTokenId`
+
+`mandate.credential.IdentityTokenId` wraps `Uuid` and is not interchangeable with one: the whole value of naming it separately is the crossings the model then refuses.
+
+### `SubjectTokenType`
+
+`mandate.credential.SubjectTokenType` is one of `AccessToken` and `IdToken`.
 
 ## Entities
 
@@ -70,6 +84,7 @@ It holds:
 - `expires_at` — `Timestamp`
 - `target` — `mandate.core.ResourceServerId`
 - `scope` — `mandate.core.AuthorityScope`
+- `identity_scopes` — `Optional<List<mandate.credential.IdentityScope>>`, which may be absent
 
 It references at most one [`mandate.federation.OAuthClient`](mandate-federation.md#oauthclient), as `client_id_record`, carried by `AuthorizationCode.client_id`. It references at most one [`mandate.identity.Session`](mandate-identity.md#session), as `session_id_record`, carried by `AuthorizationCode.session_id`. It references at most one [`ResourceServer`](#resourceserver), as `target_record`, carried by `AuthorizationCode.target`.
 
@@ -88,7 +103,7 @@ stateDiagram-v2
 
 Each move is taken by a declared command outcome, and a move nothing takes is refused as `missing_causation` rather than left as a state change nobody can trigger:
 
-- `consume` — taken by `mandate.credential.RedeemAuthorizationCode` on its `accepted` outcome
+- `consume` — taken by `mandate.credential.RedeemAuthorizationCode` on its `accepted-with-identity-token` outcome and `mandate.credential.RedeemAuthorizationCode` on its `accepted` outcome
 
 An instance is brought into existence by `mandate.credential.IssueAuthorizationCode` on its `accepted` outcome.
 
@@ -110,8 +125,9 @@ It holds:
 - `audience` — `mandate.core.Audience`
 - `credential_profile` — `mandate.core.CredentialProfile`
 - `allowed_exchange_sources` — `List<mandate.core.ResourceServerId>`
+- `client_id` — `Optional<mandate.core.OAuthClientId>`, which may be absent
 
-It references at most one [`mandate.tenancy.Organization`](mandate-tenancy.md#organization), as `organization_id_record`, carried by `ResourceServer.organization_id`. It references any number of [`ResourceServer`](#resourceserver), as `allowed_exchange_source_records`, carried by `ResourceServer.allowed_exchange_sources`.
+It references at most one [`mandate.tenancy.Organization`](mandate-tenancy.md#organization), as `organization_id_record`, carried by `ResourceServer.organization_id`. It references any number of [`ResourceServer`](#resourceserver), as `allowed_exchange_source_records`, carried by `ResourceServer.allowed_exchange_sources`. It references at most one [`mandate.federation.OAuthClient`](mandate-federation.md#oauthclient), as `client_id_record`, carried by `ResourceServer.client_id`.
 
 No invariant is declared, so nothing here constrains an instance at rest.
 
@@ -214,12 +230,13 @@ It takes:
 - `target` — `mandate.core.ResourceServerId`
 - `requested_scope` — `mandate.core.AuthorityScope`
 - `delegation_id` — `Optional<mandate.core.DelegationId>`, which may be absent
+- `subject_token_type` — `Optional<mandate.credential.SubjectTokenType>`, which may be absent
 
 It has two outcomes.
 
-**`accepted`** — The default branch, taken when no other outcome's condition matched. It creates a `mandate.credential.AccessCredential`, which starts in `Active`. The new instance's identity is published as `credential_id` on `mandate.credential.TokenExchangeAllowed`. It emits `mandate.credential.TokenExchangeAllowed`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+**`accepted`** — An access-credential subject is admitted when its source registration is among the target's allowed_exchange_sources. An identity-token subject (subject_token_type IdToken) is an identity token this deployment signed, unexpired, under a key still admitted for verification; its source is the client it was issued to (its azp, else its one audience). It is admitted only to a target registered with a client, and only when that client lists the source client among its trusted_peers and the source client, the target's client and the target are of one organization (fork F20). Both forms are decided by this one admission and recorded by this one event; a trusted peer is never a second authority path, and a peer relation is never transitive. The default branch, taken when no other outcome's condition matched. It creates a `mandate.credential.AccessCredential`, which starts in `Active`. The new instance's identity is published as `credential_id` on `mandate.credential.TokenExchangeAllowed`. It emits `mandate.credential.TokenExchangeAllowed`. A test reaches it by constructing an input that satisfies no other outcome's condition.
 
-**`denied`** — Decided outside the input: Either independently validated proof is invalid/revoked/expired/stale; actor, tenant, registered target/source, scope, space, delegation or ceiling binding fails; two current capability ceilings share one agent and organization-or-platform key; transitive delegation is requested; approval is required; or authority/expiry narrowing and durable audit fail.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
+**`denied`** — Decided outside the input: Either independently validated proof is invalid/revoked/expired/stale; actor, tenant, registered target/source, scope, space, delegation or ceiling binding fails; two current capability ceilings share one agent and organization-or-platform key; transitive delegation is requested; approval is required; an identity-token subject's client is not a trusted peer of the target's client, the target names no client, or the two clients are of different organizations; or authority/expiry narrowing and durable audit fail.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
 ### `IntrospectCredential`
 
@@ -251,6 +268,7 @@ It takes:
 - `method` — `mandate.core.PkceMethod`
 - `redirect_uri` — `mandate.core.RedirectUri`
 - `expires_at` — `Timestamp`
+- `identity_scopes` — `Optional<List<mandate.credential.IdentityScope>>`, which may be absent
 
 It has two outcomes.
 
@@ -301,14 +319,17 @@ It takes:
 - `code` — `mandate.core.CredentialProof`
 - `pkce_verifier` — `mandate.core.CredentialProof`
 - `redirect_uri` — `mandate.core.RedirectUri`
+- `client_secret` — `Optional<mandate.core.CredentialProof>`, which may be absent
 
-It has three outcomes.
+It has four outcomes.
+
+**`accepted-with-identity-token`** — A code whose authorization granted openid redeems exactly as the accepted outcome below does, and in the same transaction the STS signs one identity token and records mandate.credential.IdentityTokenIssued. The token's issuer is the deployment's, its audience the client, its subject the session's principal (fork F1), its nonce the authorization request's and its lifetime the deployment's identity-token lifetime; it is signed under a signing key admitted for issuance now, and the event names that key. The event carries the token's identifier, the code, the client, the principal, the session, the signing key and the two instants, and no claim value — no email, name, groups or nonce enters this log (fork F13). A transaction that cannot sign issues neither the token nor the access credential and consumes nothing. Taken when the existing subject's stored fields satisfy `exists granted in identity_scopes: (granted == OpenId)`. It moves a `mandate.credential.AuthorizationCode` from `Issued` to `Consumed`, along the declared move `consume`. The instance is the one named by the input field `code_id`. It emits `mandate.credential.AuthorizationCodeRedeemed` and `mandate.credential.IdentityTokenIssued`. A test establishes and independently observes the subject enum fact before selecting this branch.
 
 **`accepted`** — STS atomically consumes the code and persists the narrowed credential and audit outbox. The returned credential remains bound to the code target, scope, session and expiry; a failed or replayed transaction produces no credential. The command takes no context input and admits no caller-supplied selector — the generated context on the emitted event takes its subject, organization and audience from the code record and the session it names through the STS's session port, its credential as the credential_id this outcome issues, its correlation as the one the outcome mints for this request, and its actor, delegation and execution as absent unless the code record names them. The audience is the one published by the registration the code record's target names. The epoch whose staleness the denial names is the session's own, resolved through that same port, because a redemption presents no source credential of its own. The credential this outcome issues is recorded by mandate.credential.AuthorizationCodeRedeemed, which carries the whole mandate.credential.AccessCredential record, and the epoch snapshot it binds is the one this command answers in its response; the outcome's one subject stays the code it consumes, so the seeding is declared in this domain's header. The default branch, taken when no other outcome's condition matched. It moves a `mandate.credential.AuthorizationCode` from `Issued` to `Consumed`, along the declared move `consume`. The instance is the one named by the input field `code_id`. It emits `mandate.credential.AuthorizationCodeRedeemed`. A test reaches it by constructing an input that satisfies no other outcome's condition.
 
 **`wrong-state`** — Taken when the subject is resting in a state none of this command's moves start from — a `mandate.credential.AuthorizationCode` in `Consumed`, which is what is left of the lifecycle once this command's own moves are taken away. The document lists none of it. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by driving an instance into one of those states and then issuing the command, because no input selects this branch.
 
-**`denied`** — Decided outside the input: Code proof does not match the server-resolved code_id; code is expired; client, redirect URI or S256 verifier mismatches; the bound client is disabled; source/session epoch is stale; registered target is disabled or outside the verified tenant; or narrowing/atomic issuance validation fails.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
+**`denied`** — Decided outside the input: Code proof does not match the server-resolved code_id; code is expired; client, redirect URI or S256 verifier mismatches; the bound client is disabled; a confidential client presents no secret or one matching none of its recorded verifiers; a public client presents a secret; source/session epoch is stale; registered target is disabled or outside the verified tenant; no signing key is admitted for issuance when an identity token is due; or narrowing/atomic issuance validation fails.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
 ### `RegisterResourceServer`
 
@@ -320,12 +341,13 @@ It takes:
 - `audience` — `mandate.core.Audience`
 - `profile` — `mandate.core.CredentialProfile`
 - `allowed_exchange_sources` — `List<mandate.core.ResourceServerId>`
+- `client_id` — `Optional<mandate.core.OAuthClientId>`, which may be absent
 
 It has two outcomes.
 
-**`accepted`** — The default branch, taken when no other outcome's condition matched. It creates a `mandate.credential.ResourceServer`, which starts in `Enabled`. The new instance's identity is published as `id` on `mandate.credential.ResourceServerRegistered`. It emits `mandate.credential.ResourceServerRegistered`. A test reaches it by constructing an input that satisfies no other outcome's condition.
+**`accepted`** — A registration naming a client is that client's resource server (fork F11), and an identity-token exchange admits to it exactly the clients that client lists as trusted peers (fork F20). The client is named once, here, and never changed. The default branch, taken when no other outcome's condition matched. It creates a `mandate.credential.ResourceServer`, which starts in `Enabled`. The new instance's identity is published as `id` on `mandate.credential.ResourceServerRegistered`. It emits `mandate.credential.ResourceServerRegistered`. A test reaches it by constructing an input that satisfies no other outcome's condition.
 
-**`denied`** — Decided outside the input: Caller lacks resource-server administration authority, audience registration is ambiguous, profile semantics are unadmitted, or an allowed source server is unresolved/disabled/outside the verified organization.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
+**`denied`** — Decided outside the input: Caller lacks resource-server administration authority, audience registration is ambiguous, profile semantics are unadmitted, an allowed source server is unresolved/disabled/outside the verified organization, or the named client is unresolved/disabled/outside the verified organization.. No predicate over the input reaches this branch, and saying `when: false` instead would have claimed it is unreachable, which is a different and false statement. No entity in this specification changes. It reports `mandate.credential.Denied`, carrying `reason`. It emits nothing. A test reaches it by injecting the declared fault, because no input can.
 
 ### `RegisterSigningKey`
 
@@ -427,6 +449,7 @@ It carries:
 - `expires_at` — `Timestamp`
 - `target` — `mandate.core.ResourceServerId`
 - `scope` — `mandate.core.AuthorityScope`
+- `identity_scopes` — `Optional<List<mandate.credential.IdentityScope>>`, which may be absent
 
 Emitted by `mandate.credential.IssueAuthorizationCode` on its `accepted` outcome.
 
@@ -447,7 +470,7 @@ It carries:
 - `descriptor` — `mandate.core.CredentialDescriptor`
 - `target` — `mandate.core.ResourceServerId`
 
-Emitted by `mandate.credential.RedeemAuthorizationCode` on its `accepted` outcome.
+Emitted by `mandate.credential.RedeemAuthorizationCode` on its `accepted-with-identity-token` and `accepted` outcomes.
 
 Nothing in this system reacts to it.
 
@@ -504,6 +527,25 @@ Emitted by `mandate.credential.IssueSelfContainedCredential` on its `accepted` o
 
 Nothing in this system reacts to it.
 
+### `IdentityTokenIssued`
+
+`mandate.credential.IdentityTokenIssued`.
+
+It carries:
+
+- `token_id` — `mandate.credential.IdentityTokenId`
+- `code_id` — `mandate.core.AuthorizationCodeId`
+- `client_id` — `mandate.core.OAuthClientId`
+- `principal_id` — `mandate.core.PrincipalId`
+- `session_id` — `mandate.core.SessionId`
+- `signing_key_id` — `mandate.core.SigningKeyId`
+- `issued_at` — `Timestamp`
+- `expires_at` — `Timestamp`
+
+Emitted by `mandate.credential.RedeemAuthorizationCode` on its `accepted-with-identity-token` outcome.
+
+Nothing in this system reacts to it.
+
 ### `ResourceServerDisabled`
 
 `mandate.credential.ResourceServerDisabled`.
@@ -528,6 +570,7 @@ It carries:
 - `audience` — `mandate.core.Audience`
 - `credential_profile` — `mandate.core.CredentialProfile`
 - `allowed_exchange_sources` — `List<mandate.core.ResourceServerId>`
+- `client_id` — `Optional<mandate.core.OAuthClientId>`, which may be absent
 
 Emitted by `mandate.credential.RegisterResourceServer` on its `accepted` outcome.
 
@@ -646,4 +689,4 @@ Reported by `mandate.credential.RevokeSigningKey` on its `wrong-state` and `deni
 
 ---
 
-Generated from mandate v1 · model digest `7db97268b1ac0201e84cff21a8eb7f0a9e309d334b9193183d009d1ba2c93182` · contract digest `slice-sha256/2:66f54405913c442fd9581b56dd20b56fe4f6f3529c3c0a283b513560f78ba8ed`. Do not edit this file; change the specification and regenerate it with `ess generate`.
+Generated from mandate v1 · model digest `751472a620cc3a7650f9a2496c9e81022fbef0887158483d3bbd761f09e76837` · contract digest `slice-sha256/2:275b42d00514b7ac1e039b1b2e538b0f298918ced54aa6bad4b3559acc98c4e5`. Do not edit this file; change the specification and regenerate it with `ess generate`.

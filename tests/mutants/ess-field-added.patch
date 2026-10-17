@@ -1,7 +1,7 @@
 diff --git a/systems/mandate/domains/credential.yaml b/systems/mandate/domains/credential.yaml
 --- a/systems/mandate/domains/credential.yaml
 +++ b/systems/mandate/domains/credential.yaml
-@@ -175,6 +175,8 @@ commands:
+@@ -210,6 +210,8 @@ commands:
            mandate.credential.ResourceServerDisabled:
              context: input.context
              id: input.id
@@ -10,7 +10,7 @@ diff --git a/systems/mandate/domains/credential.yaml b/systems/mandate/domains/c
          moves: mandate.credential.ResourceServer.disable
          instance: id
        - name: wrong-state
-@@ -588,6 +590,8 @@ events:
+@@ -690,6 +692,8 @@ events:
          type: mandate.core.VerifiedContext
        - name: id
          type: mandate.core.ResourceServerId

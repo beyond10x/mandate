@@ -18,6 +18,7 @@ components:
         - mandate.identity.RevokeSession
         - mandate.identity.RevokeRefreshCredential
         - mandate.identity.RefreshSession
+        - mandate.identity.RotateRefreshCredential
         - mandate.identity.IncrementSecurityEpoch
         - mandate.tenancy.RemoveOrganizationMembership
         - mandate.tenancy.CreateOrganization
@@ -60,6 +61,9 @@ components:
         - mandate.identity.SessionRevoked
         - mandate.identity.RefreshCredentialRevoked
         - mandate.identity.SessionRefreshed
+        - mandate.identity.RefreshCredentialIssued
+        - mandate.identity.RefreshCredentialRotated
+        - mandate.identity.RefreshFamilyRevoked
         - mandate.identity.SecurityEpochIncremented
         - mandate.identity.SessionOpened
         - mandate.identity.EpochSnapshotRecorded
@@ -83,6 +87,7 @@ components:
         - mandate.federation.ExternalPrincipalProvisioned
         - mandate.federation.OAuthClientRegistered
         - mandate.federation.OAuthClientDisabled
+        - mandate.federation.ExternalProfileObserved
         - mandate.directory.DirectoryGroupRecorded
         - mandate.directory.SyncJobRecorded
         - mandate.directory.DirectoryGroupMembershipRecorded
@@ -166,6 +171,7 @@ components:
         - mandate.credential.SigningKeyRegistered
         - mandate.credential.SigningKeyRetired
         - mandate.credential.SigningKeyRevoked
+        - mandate.credential.IdentityTokenIssued
   - component: mandate-worker
     owns:
       domains:
@@ -184,3 +190,14 @@ components:
       commands:
         - mandate.audit.RecordAuditEvent
         - mandate.audit.RedactAuditEvent
+  - component: mandate-guard
+    owns:
+      domains:
+        - mandate.guard
+    summary: The token guard of docs/adr/0013-token-guard.md. Today the library alone, verify in crates/mandate-client; the sidecar binary and its chart are planned under story:token-guard.
+    accepts:
+      commands:
+        - mandate.guard.AdmitRequest
+    publishes:
+      events:
+        - mandate.guard.RequestAdmitted

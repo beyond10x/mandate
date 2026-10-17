@@ -1,7 +1,7 @@
 //! The account of what this milestone accepted and what it excluded.
 //!
 //! The entries below are decided against `generated/schema/types`, the compiled model's
-//! own type index, by `tests/inventory.rs`. The compiled index holds 111 entries: the 75
+//! own type index, by `tests/inventory.rs`. The compiled index holds 113 entries: the 77
 //! authored `mandate.core` types in [`ACCEPTED`], and one derived `<Entity>.State` enum
 //! per entity, the 36 of [`DERIVED_STATE_ENUMS`]. Both halves are accounted for; they are
 //! accounted for differently, and [`DERIVED_STATE_ENUMS`] says how.
@@ -51,7 +51,7 @@ pub enum Owner {
     /// This axis is *declaration* ownership — where the Rust type is written — and no
     /// authored `mandate.core` type is declared here, so this variant holds none of the
     /// 75. That is not the same as carrying no accepted type: `mandate-proto` carries a
-    /// `WireContract` for **all** 75, including the six records `mandate-model` and
+    /// `WireContract` for **all** 77, including the seven records `mandate-model` and
     /// `mandate-token` declare, which it reaches through the
     /// `mandate-proto -> mandate-model` and `mandate-proto -> mandate-token` entries in
     /// `dependency-boundaries.json`.
@@ -362,6 +362,11 @@ pub const ACCEPTED: &[Accepted] = &[
         owner: Owner::Types,
     },
     Accepted {
+        ess_name: "mandate.core.OAuthClientType",
+        kind: Kind::Enum,
+        owner: Owner::Types,
+    },
+    Accepted {
         ess_name: "mandate.core.ResourceRef",
         kind: Kind::Struct,
         owner: Owner::Types,
@@ -393,6 +398,11 @@ pub const ACCEPTED: &[Accepted] = &[
     },
     Accepted {
         ess_name: "mandate.core.TenantResolutionRule",
+        kind: Kind::Struct,
+        owner: Owner::Model,
+    },
+    Accepted {
+        ess_name: "mandate.core.GroupFilter",
         kind: Kind::Struct,
         owner: Owner::Model,
     },
@@ -473,7 +483,7 @@ pub const ACCEPTED: &[Accepted] = &[
 ///
 /// `tests/conformance.rs` pairs every name on this list with the generated
 /// `mandate_contract::entities::<Entity>State` shape — by ESS's own `declaration_name`
-/// derivation, because 23 of the 36 share a variant list and a literal pairing among those
+/// derivation, because 22 of the 36 share a variant list and a literal pairing among those
 /// is not evidence — and puts each declared variant through the same schema account the 75
 /// authored types go through. `tests/inventory.rs` asserts this list is exactly the `.State`
 /// half of the compiled index. A `.State` enum the contract adds therefore fails the
@@ -565,6 +575,28 @@ pub const DERIVED_STATE_ENUMS: &[&str] = &[
     "mandate.tenancy.Team.State",
     "mandate.tenancy.TeamMembership.State",
     "mandate.workload.WorkloadIdentity.State",
+];
+
+/// The authored types a domain other than `mandate.core` declares, which no crate realizes
+/// yet. Each is named with the story that gives it a Rust representation.
+/// `services/sts/src/lib.rs` (`ESS_UNREALIZED`) states why for the three credential types.
+pub const DOMAIN_TYPES_UNREALIZED: &[(&str, &str)] = &[
+    (
+        "mandate.credential.IdentityScope",
+        "story:oidc-discovery-and-code-flow",
+    ),
+    (
+        "mandate.credential.IdentityTokenId",
+        "story:oidc-signed-tokens-and-key-rotation",
+    ),
+    (
+        "mandate.credential.SubjectTokenType",
+        "story:oidc-trusted-peers",
+    ),
+    (
+        "mandate.identity.RefreshFamilyId",
+        "story:oidc-refresh-and-logout",
+    ),
 ];
 
 /// The excluded model entities.

@@ -108,6 +108,21 @@
           "blocked_on": "story:constrained-exchange"
         },
         {
+          "clause": "an identity-token subject's client is not a trusted peer of the target's client",
+          "tests": [],
+          "blocked_on": "story:oidc-trusted-peers"
+        },
+        {
+          "clause": "the target names no client",
+          "tests": [],
+          "blocked_on": "story:oidc-trusted-peers"
+        },
+        {
+          "clause": "the two clients are of different organizations",
+          "tests": [],
+          "blocked_on": "story:oidc-trusted-peers"
+        },
+        {
           "clause": "authority",
           "tests": [],
           "blocked_on": "story:constrained-exchange"
@@ -448,6 +463,16 @@
           ]
         },
         {
+          "clause": "a confidential client presents no secret or one matching none of its recorded verifiers",
+          "tests": [],
+          "blocked_on": "story:oidc-discovery-and-code-flow"
+        },
+        {
+          "clause": "a public client presents a secret",
+          "tests": [],
+          "blocked_on": "story:oidc-discovery-and-code-flow"
+        },
+        {
           "clause": "source/session epoch is stale",
           "tests": [
             {
@@ -466,6 +491,11 @@
               "path": "real"
             }
           ]
+        },
+        {
+          "clause": "no signing key is admitted for issuance when an identity token is due",
+          "tests": [],
+          "blocked_on": "story:oidc-signed-tokens-and-key-rotation"
         },
         {
           "clause": "narrowing",
@@ -549,6 +579,11 @@
               "path": "real"
             }
           ]
+        },
+        {
+          "clause": "the named client is unresolved/disabled/outside the verified organization",
+          "tests": [],
+          "blocked_on": "story:oidc-trusted-peers"
         }
       ],
       "no_state_change": [

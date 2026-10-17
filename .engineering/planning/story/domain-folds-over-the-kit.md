@@ -2,7 +2,7 @@
 format: aep.planning-md/3
 id: story:domain-folds-over-the-kit
 kind: story
-status: draft
+status: active
 title: The domain folds over the kit's log, not over a hand-written substitute
 relations:
 - decomposes: epic:foundations
@@ -14,7 +14,10 @@ scope:
   path: crates/mandate-federation/src/record.rs
 - confidence: cited
   path: dependency-boundaries.json
-revision: 4
+revision: 6
+transitions:
+- {from: "draft", to: "proposed", at: "2026-10-16T21:58:37Z", actor: "human:timo", revision: 5, decided_on: {"asserted":{"review_outcome":1}}}
+- {from: "proposed", to: "active", at: "2026-10-16T21:58:37Z", actor: "human:timo", revision: 6, decided_on: {"asserted":{"review_outcome":1}}}
 ---
 # The domain folds over the kit's log, not over a hand-written substitute
 

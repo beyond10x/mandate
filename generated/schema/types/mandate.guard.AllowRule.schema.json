@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$ref": "#/$defs/mandate.guard.AllowRule",
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "751472a620cc3a7650f9a2496c9e81022fbef0887158483d3bbd761f09e76837",
+    "contract_digest": "slice-sha256/2:afcb6c0be50bf4583df59f3635dd71436ded90189489daa14df65ccc4b488f38",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.guard.AllowRule": {
+      "title": "AllowRule",
+      "x-ess-name": "mandate.guard.AllowRule",
+      "x-ess-kind": "struct",
+      "type": "object",
+      "properties": {
+        "emails": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/mandate.guard.EmailAddress"
+          }
+        },
+        "domains": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/mandate.guard.EmailDomain"
+          }
+        }
+      },
+      "required": [
+        "emails",
+        "domains"
+      ],
+      "additionalProperties": false
+    },
+    "mandate.guard.EmailAddress": {
+      "title": "EmailAddress",
+      "x-ess-name": "mandate.guard.EmailAddress",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    },
+    "mandate.guard.EmailDomain": {
+      "title": "EmailDomain",
+      "x-ess-name": "mandate.guard.EmailDomain",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    }
+  }
+}

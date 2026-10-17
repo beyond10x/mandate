@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AdmitRequest response",
+  "x-ess-name": "mandate.guard.AdmitRequest",
+  "x-ess-kind": "command-response",
+  "type": "object",
+  "properties": {
+    "subject": {
+      "$ref": "#/$defs/mandate.core.ExternalSubject"
+    },
+    "email": {
+      "$ref": "#/$defs/mandate.guard.EmailAddress"
+    },
+    "email_verified": {
+      "type": "boolean"
+    },
+    "groups": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/mandate.guard.GroupName"
+      }
+    },
+    "audience": {
+      "$ref": "#/$defs/mandate.core.Audience"
+    }
+  },
+  "required": [
+    "subject",
+    "email_verified",
+    "groups",
+    "audience"
+  ],
+  "additionalProperties": false,
+  "x-ess-provenance": {
+    "system": "mandate",
+    "specification_version": "v1",
+    "source_digest": "751472a620cc3a7650f9a2496c9e81022fbef0887158483d3bbd761f09e76837",
+    "contract_digest": "slice-sha256/2:e2be0d45f4c98a535db3025b5e5371fbb7c527b9745ecc0367eab958b4822e06",
+    "regenerate": "ess generate"
+  },
+  "$defs": {
+    "mandate.core.Audience": {
+      "title": "Audience",
+      "x-ess-name": "mandate.core.Audience",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    },
+    "mandate.core.ExternalSubject": {
+      "title": "ExternalSubject",
+      "x-ess-name": "mandate.core.ExternalSubject",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    },
+    "mandate.guard.EmailAddress": {
+      "title": "EmailAddress",
+      "x-ess-name": "mandate.guard.EmailAddress",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    },
+    "mandate.guard.GroupName": {
+      "title": "GroupName",
+      "x-ess-name": "mandate.guard.GroupName",
+      "x-ess-kind": "newtype",
+      "type": "string"
+    }
+  }
+}

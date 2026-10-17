@@ -646,8 +646,13 @@ impl Served {
             arguments.push(flag.to_owned());
             arguments.push(stated(path).to_owned());
         }
+        Self::spawn_arguments(&arguments)
+    }
+
+    /// Spawn `serve` with exactly these arguments.
+    fn spawn_arguments(arguments: &[String]) -> Self {
         let mut child = Command::new(env!("CARGO_BIN_EXE_mandate-control-plane"))
-            .args(&arguments)
+            .args(arguments)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
@@ -2868,4 +2873,61 @@ fn a_host_whose_proc_is_not_mounted_sweeps_nothing_rather_than_everything() {
          nothing rather than sweeping everything`. It printed: {printed} and {}",
         String::from_utf8_lossy(&sandboxed.stderr)
     );
+}
+
+/// `GET /healthz/ready` answers `503` while no signing key is admitted and `200` once one is,
+/// and `GET /healthz/live` answers `200` in both. Readiness reflects the keys admitted from
+/// the `--key` documents; the signer rewiring will make it answer for the key it signs with.
+#[test]
+fn ready_reflects_signing_key() {
+    let case = "ready-reflects-signing-key";
+    let connection_path = document(
+        case,
+        "connection.json",
+        &ConnectionDocument::accepted("https://idp.example").rendered(),
+    );
+    let key_path = document(case, "key.json", AS_KEY_DOCUMENT);
+
+    let mut keyless = Served::spawn_arguments(&[
+        "serve".to_owned(),
+        "--listen".to_owned(),
+        EPHEMERAL.to_owned(),
+        "--issuer".to_owned(),
+        AS_ISSUER.to_owned(),
+        "--connection".to_owned(),
+        stated(&connection_path).to_owned(),
+    ]);
+    let address = keyless.address();
+    let live = exchange(address, &get("/healthz/live", &[]));
+    answered("liveness without a key", &live);
+    assert_eq!(live.status, 200, "{}", live.body);
+    let ready = exchange(address, &get("/healthz/ready", &[]));
+    answered("readiness without a key", &ready);
+    assert_eq!(ready.status, 503, "{}", ready.body);
+    assert!(!ready.body.contains("login-key-1"), "{}", ready.body);
+
+    let mut keyed = Served::spawn_arguments(&[
+        "serve".to_owned(),
+        "--listen".to_owned(),
+        EPHEMERAL.to_owned(),
+        "--issuer".to_owned(),
+        AS_ISSUER.to_owned(),
+        "--connection".to_owned(),
+        stated(&connection_path).to_owned(),
+        "--key".to_owned(),
+        stated(&key_path).to_owned(),
+    ]);
+    let address = keyed.address();
+    let live = exchange(address, &get("/healthz/live", &[]));
+    assert_eq!(live.status, 200, "{}", live.body);
+    let ready = exchange(address, &get("/healthz/ready", &[]));
+    answered("readiness with a key", &ready);
+    assert_eq!(ready.status, 200, "{}", ready.body);
+    assert_eq!(member(&ready.body, "status"), "ok");
+
+    let post_refused = exchange(
+        address,
+        &post("/healthz/ready", "application/json", "{}", &[]),
+    );
+    assert_eq!(post_refused.status, 405, "{}", post_refused.body);
 }

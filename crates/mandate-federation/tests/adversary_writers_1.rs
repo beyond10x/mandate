@@ -86,7 +86,11 @@ fn registered(
     register_o_auth_client(
         &RegisterOAuthClient {
             context: context(organization_id),
-            public: true,
+            client_type: mandate_types::OAuthClientType::Public,
+            secret_verifiers: Vec::new(),
+            pkce_required: true,
+            trusted_peers: Vec::new(),
+            post_logout_redirect_uris: Vec::new(),
             redirect_uris: vec![RedirectUri::new(REDIRECT)],
             pkce_method: PkceMethod::S256,
         },
@@ -153,7 +157,11 @@ fn a_redelivered_registration_after_a_disable_leaves_the_record_disabled() {
         [OAuthClient {
             id: outcome.id,
             organization_id: organization(10),
-            public: true,
+            client_type: mandate_types::OAuthClientType::Public,
+            secret_verifiers: Vec::new(),
+            pkce_required: true,
+            trusted_peers: Vec::new(),
+            post_logout_redirect_uris: Vec::new(),
             redirect_uris: vec![RedirectUri::new(REDIRECT)],
             pkce_method: PkceMethod::S256,
             state: OAuthClientState::Disabled,
