@@ -202,15 +202,15 @@ fn every_road_command_records_exactly_the_clauses_its_declared_denial_carries() 
 }
 
 #[test]
-fn the_four_road_commands_declare_twenty_eight_clauses_between_them() {
+fn the_four_road_commands_declare_twenty_nine_clauses_between_them() {
     let total: usize = ROAD_COMMANDS
         .iter()
         .map(|command| obligations::obligation(command).unwrap().clauses.len())
         .sum();
-    assert_eq!(total, 28);
+    assert_eq!(total, 29);
 }
 
-/// One case per declared deny clause of the four road commands — 28 of them.
+/// One case per declared deny clause of the four road commands — 29 of them.
 ///
 /// The case a clause gets is decided by which party the registry records as establishing it,
 /// and the rule is uniform:
@@ -233,7 +233,7 @@ fn a_case_for_every_declared_deny_clause_of_the_road_commands() {
             covered += 1;
         }
     }
-    assert_eq!(covered, 28);
+    assert_eq!(covered, 29);
 }
 
 fn drive(command: &str, phrase: &str, establishes: Establishes) {
@@ -251,6 +251,10 @@ fn drive(command: &str, phrase: &str, establishes: Establishes) {
         | (
             "mandate.federation.AuthenticateFederation",
             "principal linking is absent/conflicting",
+        )
+        | (
+            "mandate.federation.AuthenticateFederation",
+            "the groups the connection's filter admits number more than its cap",
         ) => {
             assert_eq!(establishes, Establishes::Handler, "{phrase}");
             let input = decode::authenticate_federation(&login(&format!(
@@ -258,7 +262,7 @@ fn drive(command: &str, phrase: &str, establishes: Establishes) {
             )))
             .unwrap_or_else(|refusal| panic!("{phrase}: {refusal}"));
             // The two declared inputs, and nothing by which a caller could name a connection's
-            // trust, an organization, a principal or a link.
+            // trust, an organization, a principal, a link or a group.
             assert_eq!(
                 decode::AuthenticateFederation::DECLARED_INPUTS,
                 ["connection_id", "proof"]

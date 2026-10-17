@@ -11491,11 +11491,12 @@
           "name": "denied",
           "condition": {
             "kind": "external",
-            "cause": "Connection is disabled/untrusted, proof signature/issuer/audience/expiry is invalid, tenant resolution has zero or multiple matches (a rule naming a claim matches only when the validated claim equals one of its listed values; an absent claim matches none), principal linking is absent/conflicting, the groups the connection's filter admits number more than its cap, or any email-domain/unverified-input fallback would be required. A refused login opens no session and records no profile."
+            "cause": "Connection is disabled/untrusted, proof signature/issuer/audience/expiry is invalid, tenant resolution has zero or multiple matches, principal linking is absent/conflicting, the groups the connection's filter admits number more than its cap, or any email-domain/unverified-input fallback would be required."
           },
           "test_strategy": "inject_fault",
           "emits": [],
-          "error": "mandate.federation.Denied"
+          "error": "mandate.federation.Denied",
+          "summary": "A refused login opens no session and records no profile. In tenant resolution, a rule naming a claim matches only when the validated claim equals one of its listed values, and an absent claim matches none."
         }
       ],
       "naming": {}

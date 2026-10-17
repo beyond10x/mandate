@@ -15,8 +15,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "f5ac6bee950cad438d353c48a341683c9f73db710c6918a82fec4620d7806ea6",
-          "contract_digest": "d89a65303b5e7f9c23896d4c74b861c7330eaa694d9cf4eea8b32f6832cfed16"
+          "source_digest": "751472a620cc3a7650f9a2496c9e81022fbef0887158483d3bbd761f09e76837",
+          "contract_digest": "91ee6318241ef929c9fe719a4564fcaeb660656153c80bbe59a32f4f0969b5d5"
         },
         "slice": {
           "of": "whole-model"
@@ -2736,8 +2736,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "f5ac6bee950cad438d353c48a341683c9f73db710c6918a82fec4620d7806ea6",
-          "contract_digest": "slice-sha256/2:13cafa30e7075a5f715b32898f9371dafd7a1069d73deec6d0c09362c9524984"
+          "source_digest": "751472a620cc3a7650f9a2496c9e81022fbef0887158483d3bbd761f09e76837",
+          "contract_digest": "slice-sha256/2:275b42d00514b7ac1e039b1b2e538b0f298918ced54aa6bad4b3559acc98c4e5"
         },
         "slice": {
           "of": "constructs",
@@ -5235,8 +5235,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "f5ac6bee950cad438d353c48a341683c9f73db710c6918a82fec4620d7806ea6",
-          "contract_digest": "slice-sha256/2:13cafa30e7075a5f715b32898f9371dafd7a1069d73deec6d0c09362c9524984"
+          "source_digest": "751472a620cc3a7650f9a2496c9e81022fbef0887158483d3bbd761f09e76837",
+          "contract_digest": "slice-sha256/2:275b42d00514b7ac1e039b1b2e538b0f298918ced54aa6bad4b3559acc98c4e5"
         },
         "slice": {
           "of": "constructs",
@@ -6347,8 +6347,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "f5ac6bee950cad438d353c48a341683c9f73db710c6918a82fec4620d7806ea6",
-          "contract_digest": "slice-sha256/2:d9e43570487e1a595627d596f392253f6dc0098c182d43bfa45fab8000d477f6"
+          "source_digest": "751472a620cc3a7650f9a2496c9e81022fbef0887158483d3bbd761f09e76837",
+          "contract_digest": "slice-sha256/2:49f8a9a2d0ddfcf48b0cacda3b2170c5720f3067da215fdda0b7368c54456794"
         },
         "slice": {
           "of": "constructs",
@@ -11392,8 +11392,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "f5ac6bee950cad438d353c48a341683c9f73db710c6918a82fec4620d7806ea6",
-          "contract_digest": "slice-sha256/2:13cafa30e7075a5f715b32898f9371dafd7a1069d73deec6d0c09362c9524984"
+          "source_digest": "751472a620cc3a7650f9a2496c9e81022fbef0887158483d3bbd761f09e76837",
+          "contract_digest": "slice-sha256/2:275b42d00514b7ac1e039b1b2e538b0f298918ced54aa6bad4b3559acc98c4e5"
         },
         "slice": {
           "of": "constructs",
@@ -20871,8 +20871,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "f5ac6bee950cad438d353c48a341683c9f73db710c6918a82fec4620d7806ea6",
-          "contract_digest": "slice-sha256/2:13cafa30e7075a5f715b32898f9371dafd7a1069d73deec6d0c09362c9524984"
+          "source_digest": "751472a620cc3a7650f9a2496c9e81022fbef0887158483d3bbd761f09e76837",
+          "contract_digest": "slice-sha256/2:275b42d00514b7ac1e039b1b2e538b0f298918ced54aa6bad4b3559acc98c4e5"
         },
         "slice": {
           "of": "constructs",
@@ -26896,8 +26896,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "f5ac6bee950cad438d353c48a341683c9f73db710c6918a82fec4620d7806ea6",
-          "contract_digest": "slice-sha256/2:13cafa30e7075a5f715b32898f9371dafd7a1069d73deec6d0c09362c9524984"
+          "source_digest": "751472a620cc3a7650f9a2496c9e81022fbef0887158483d3bbd761f09e76837",
+          "contract_digest": "slice-sha256/2:275b42d00514b7ac1e039b1b2e538b0f298918ced54aa6bad4b3559acc98c4e5"
         },
         "slice": {
           "of": "constructs",
@@ -33987,8 +33987,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "f5ac6bee950cad438d353c48a341683c9f73db710c6918a82fec4620d7806ea6",
-          "contract_digest": "slice-sha256/2:13cafa30e7075a5f715b32898f9371dafd7a1069d73deec6d0c09362c9524984"
+          "source_digest": "751472a620cc3a7650f9a2496c9e81022fbef0887158483d3bbd761f09e76837",
+          "contract_digest": "slice-sha256/2:275b42d00514b7ac1e039b1b2e538b0f298918ced54aa6bad4b3559acc98c4e5"
         },
         "slice": {
           "of": "constructs",
@@ -35869,7 +35869,11 @@
                     },
                     {
                       "inline": "text",
-                      "text": "Decided outside the input: Connection is disabled/untrusted, proof signature/issuer/audience/expiry is invalid, tenant resolution has zero or multiple matches (a rule naming a claim matches only when the validated claim equals one of its listed values; an absent claim matches none), principal linking is absent/conflicting, the groups the connection's filter admits number more than its cap, or any email-domain/unverified-input fallback would be required. A refused login opens no session and records no profile.. No predicate over the input reaches this branch, and saying "
+                      "text": "A refused login opens no session and records no profile. In tenant resolution, a rule naming a claim matches only when the validated claim equals one of its listed values, and an absent claim matches none. "
+                    },
+                    {
+                      "inline": "text",
+                      "text": "Decided outside the input: Connection is disabled/untrusted, proof signature/issuer/audience/expiry is invalid, tenant resolution has zero or multiple matches, principal linking is absent/conflicting, the groups the connection's filter admits number more than its cap, or any email-domain/unverified-input fallback would be required.. No predicate over the input reaches this branch, and saying "
                     },
                     {
                       "inline": "code",
@@ -40928,8 +40932,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "f5ac6bee950cad438d353c48a341683c9f73db710c6918a82fec4620d7806ea6",
-          "contract_digest": "slice-sha256/2:13cafa30e7075a5f715b32898f9371dafd7a1069d73deec6d0c09362c9524984"
+          "source_digest": "751472a620cc3a7650f9a2496c9e81022fbef0887158483d3bbd761f09e76837",
+          "contract_digest": "slice-sha256/2:275b42d00514b7ac1e039b1b2e538b0f298918ced54aa6bad4b3559acc98c4e5"
         },
         "slice": {
           "of": "constructs",
@@ -44876,8 +44880,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "f5ac6bee950cad438d353c48a341683c9f73db710c6918a82fec4620d7806ea6",
-          "contract_digest": "slice-sha256/2:13cafa30e7075a5f715b32898f9371dafd7a1069d73deec6d0c09362c9524984"
+          "source_digest": "751472a620cc3a7650f9a2496c9e81022fbef0887158483d3bbd761f09e76837",
+          "contract_digest": "slice-sha256/2:275b42d00514b7ac1e039b1b2e538b0f298918ced54aa6bad4b3559acc98c4e5"
         },
         "slice": {
           "of": "constructs",
@@ -46708,8 +46712,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "f5ac6bee950cad438d353c48a341683c9f73db710c6918a82fec4620d7806ea6",
-          "contract_digest": "slice-sha256/2:46027b416c7f6cbfc748cc3d7083a6712d6ee5fe534f5bd4a8f0f1ffc17477c2"
+          "source_digest": "751472a620cc3a7650f9a2496c9e81022fbef0887158483d3bbd761f09e76837",
+          "contract_digest": "slice-sha256/2:4f8e6941b8b4c988dc5fe9a39dfa1c8195dbc361b6644d13d256be797c21545b"
         },
         "slice": {
           "of": "constructs",
@@ -53753,8 +53757,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "f5ac6bee950cad438d353c48a341683c9f73db710c6918a82fec4620d7806ea6",
-          "contract_digest": "slice-sha256/2:13cafa30e7075a5f715b32898f9371dafd7a1069d73deec6d0c09362c9524984"
+          "source_digest": "751472a620cc3a7650f9a2496c9e81022fbef0887158483d3bbd761f09e76837",
+          "contract_digest": "slice-sha256/2:275b42d00514b7ac1e039b1b2e538b0f298918ced54aa6bad4b3559acc98c4e5"
         },
         "slice": {
           "of": "constructs",
@@ -55669,8 +55673,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "f5ac6bee950cad438d353c48a341683c9f73db710c6918a82fec4620d7806ea6",
-          "contract_digest": "slice-sha256/2:13cafa30e7075a5f715b32898f9371dafd7a1069d73deec6d0c09362c9524984"
+          "source_digest": "751472a620cc3a7650f9a2496c9e81022fbef0887158483d3bbd761f09e76837",
+          "contract_digest": "slice-sha256/2:275b42d00514b7ac1e039b1b2e538b0f298918ced54aa6bad4b3559acc98c4e5"
         },
         "slice": {
           "of": "constructs",
@@ -62414,8 +62418,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "f5ac6bee950cad438d353c48a341683c9f73db710c6918a82fec4620d7806ea6",
-          "contract_digest": "slice-sha256/2:13cafa30e7075a5f715b32898f9371dafd7a1069d73deec6d0c09362c9524984"
+          "source_digest": "751472a620cc3a7650f9a2496c9e81022fbef0887158483d3bbd761f09e76837",
+          "contract_digest": "slice-sha256/2:275b42d00514b7ac1e039b1b2e538b0f298918ced54aa6bad4b3559acc98c4e5"
         },
         "slice": {
           "of": "constructs",
@@ -63996,8 +64000,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "f5ac6bee950cad438d353c48a341683c9f73db710c6918a82fec4620d7806ea6",
-          "contract_digest": "d89a65303b5e7f9c23896d4c74b861c7330eaa694d9cf4eea8b32f6832cfed16"
+          "source_digest": "751472a620cc3a7650f9a2496c9e81022fbef0887158483d3bbd761f09e76837",
+          "contract_digest": "91ee6318241ef929c9fe719a4564fcaeb660656153c80bbe59a32f4f0969b5d5"
         },
         "slice": {
           "of": "whole-model"
@@ -64993,8 +64997,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "f5ac6bee950cad438d353c48a341683c9f73db710c6918a82fec4620d7806ea6",
-          "contract_digest": "d89a65303b5e7f9c23896d4c74b861c7330eaa694d9cf4eea8b32f6832cfed16"
+          "source_digest": "751472a620cc3a7650f9a2496c9e81022fbef0887158483d3bbd761f09e76837",
+          "contract_digest": "91ee6318241ef929c9fe719a4564fcaeb660656153c80bbe59a32f4f0969b5d5"
         },
         "slice": {
           "of": "whole-model"
@@ -65072,8 +65076,8 @@
         "provenance": {
           "system": "mandate",
           "specification_version": "v1",
-          "source_digest": "f5ac6bee950cad438d353c48a341683c9f73db710c6918a82fec4620d7806ea6",
-          "contract_digest": "d89a65303b5e7f9c23896d4c74b861c7330eaa694d9cf4eea8b32f6832cfed16"
+          "source_digest": "751472a620cc3a7650f9a2496c9e81022fbef0887158483d3bbd761f09e76837",
+          "contract_digest": "91ee6318241ef929c9fe719a4564fcaeb660656153c80bbe59a32f4f0969b5d5"
         },
         "slice": {
           "of": "whole-model"

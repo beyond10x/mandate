@@ -22,7 +22,7 @@
 //!
 //! # The bound on the class, stated rather than implied
 //!
-//! The per-clause enumeration covers the **four road commands**, 28 clauses. The other 61 rows
+//! The per-clause enumeration covers the **four road commands**, 29 clauses. The other 61 rows
 //! state, in whole, that this adapter establishes none of their preconditions and decodes
 //! nothing for them: they are reached only through their generated
 //! `POST /<domain>/commands/<Command>` projection, which `docs/public/contracts.md:29` says
@@ -127,6 +127,12 @@ const AUTHENTICATE_FEDERATION: &[Clause] = &[
     },
     Clause {
         phrase: "principal linking is absent/conflicting",
+        establishes: Establishes::Handler,
+    },
+    // The groups are read from the validated proof and the cap from the connection's filter;
+    // the request body carries neither, so only the handler can count them.
+    Clause {
+        phrase: "the groups the connection's filter admits number more than its cap",
         establishes: Establishes::Handler,
     },
     // The one clause of this command the wire form decides: the request body admits
