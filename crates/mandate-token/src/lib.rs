@@ -200,6 +200,7 @@ mandate_types::realizes! {
     "mandate.core.CredentialProfile" => crate::CredentialProfile,
 }
 
+pub mod identity_token;
 pub mod projection;
 pub mod signing_real;
 pub mod verifier;

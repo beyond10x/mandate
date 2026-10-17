@@ -915,6 +915,80 @@ impl<C: Clock> RealSigner<C> {
     pub fn revoked(&self) -> &[RevokedKey] {
         &self.revoked
     }
+
+    /// The algorithm of the key credentials are being signed under, while there is one.
+    #[must_use]
+    pub fn active_algorithm(&self) -> Option<Algorithm> {
+        self.active.as_ref().map(SigningKeyMaterial::algorithm)
+    }
+
+    /// Sign an OpenID Connect ID token under the active key.
+    ///
+    /// The claims are the renderer's ([`crate::identity_token::IdentityTokenClaims`]); the
+    /// signer writes `iat` from its clock and `exp` as `iat + lifetime_seconds`, so neither
+    /// is ever the caller's. The lifetime is the ID token's own (Dex's `PT24H` by default),
+    /// not this signer's credential TTL, and it is held to the same rule the TTL is: a key
+    /// stays published until every token it signed has expired, so a lifetime longer than
+    /// the rotation overlap is refused rather than stranded.
+    ///
+    /// # Errors
+    ///
+    /// [`SigningError::Encode`] for a zero lifetime (a token expired as it is issued) or one
+    /// whose `exp` would not fit, [`SigningError::OverlapShorterThanTtl`] for a lifetime
+    /// longer than the overlap, [`SigningError::NoActiveKey`] when every key has been
+    /// revoked, and [`SigningError::Algorithm`] with [`AlgorithmPolicyError::NotConfigured`]
+    /// when the claims were rendered for another algorithm than the active key's — their
+    /// `at_hash` and the header would disagree.
+    pub fn sign_identity_token(
+        &self,
+        claims: &crate::identity_token::IdentityTokenClaims,
+        lifetime_seconds: u64,
+    ) -> Result<SignedCredential, SigningError> {
+        if lifetime_seconds == 0 {
+            return Err(SigningError::Encode(
+                "an ID token lifetime of zero seconds expires as it is issued".to_owned(),
+            ));
+        }
+        if lifetime_seconds > self.overlap_seconds {
+            return Err(SigningError::OverlapShorterThanTtl {
+                ttl_seconds: lifetime_seconds,
+                overlap_seconds: self.overlap_seconds,
+            });
+        }
+        let key = self.active.as_ref().ok_or(SigningError::NoActiveKey)?;
+        let rendered_for = claims.algorithm();
+        if crate::identity_token::jose_algorithm(rendered_for) != key.algorithm {
+            return Err(SigningError::Algorithm(
+                AlgorithmPolicyError::NotConfigured(
+                    crate::identity_token::algorithm_name(rendered_for).to_owned(),
+                ),
+            ));
+        }
+        let now = self.clock.now_unix();
+        let expires = now.checked_add(lifetime_seconds).ok_or_else(|| {
+            SigningError::Encode("the ID token's expiry does not fit a numeric date".to_owned())
+        })?;
+        let mut object = match serde_json::to_value(claims)
+            .map_err(|error| SigningError::Encode(error.to_string()))?
+        {
+            Value::Object(object) => object,
+            _ => {
+                return Err(SigningError::Encode(
+                    "the ID token claims are not a JSON object".to_owned(),
+                ));
+            }
+        };
+        object.insert("iat".to_owned(), Value::from(now));
+        object.insert("exp".to_owned(), Value::from(expires));
+        let mut header = Header::new(key.algorithm);
+        header.kid = Some(key.kid.clone());
+        let token = encode(&header, &Value::Object(object), &key.encoding)
+            .map_err(|error| SigningError::Encode(error.to_string()))?;
+        Ok(SignedCredential {
+            token,
+            kid: key.kid.clone(),
+        })
+    }
 }
 
 impl<C: Clock> CredentialSigner for RealSigner<C> {

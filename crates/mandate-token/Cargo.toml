@@ -12,12 +12,12 @@ workspace = true
 
 [dependencies]
 mandate-types = { version = "0.10.0", path = "../mandate-types" }
+aws-lc-rs = { workspace = true }
 jsonwebtoken = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]
-aws-lc-rs = { workspace = true }
 rand = { workspace = true }
 mandate-contract = { version = "0.10.0", path = "../mandate-contract" }
 mandate-testkit = { version = "0.10.0", path = "../mandate-testkit" }
