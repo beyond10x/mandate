@@ -294,10 +294,6 @@ fn drive(command: &str, phrase: &str, establishes: Establishes) {
             "exact redirect URI or state/applicable nonce binding fails",
         )
         | ("mandate.federation.AuthorizeClient", "target is unregistered/outside tenant")
-        | (
-            "mandate.federation.AuthorizeClient",
-            "a named target is backed by a client that does not list this client as a trusted peer",
-        )
         | ("mandate.federation.AuthorizeClient", "STS code issuance/narrowing is refused") => {
             assert_eq!(establishes, Establishes::Handler, "{phrase}");
             let input = decode::authorize_client(&authorize(&authorize_query()))
@@ -333,7 +329,7 @@ fn drive(command: &str, phrase: &str, establishes: Establishes) {
         }
         (
             "mandate.federation.AuthorizeClient",
-            "no target is named and no registered resource server backs the client",
+            "no target is named and not exactly one enabled resource server backs the client",
         ) => {
             // The client's resource server is the registry's to resolve: the decoder admits
             // an OpenID request that names no target and leaves the target absent.
@@ -344,6 +340,26 @@ fn drive(command: &str, phrase: &str, establishes: Establishes) {
                 .unwrap_or_else(|refusal| panic!("{phrase}: {refusal}"));
             assert_eq!(input.target, None);
             assert_eq!(input.identity_scopes, Some(vec![IdentityScope::OpenId]));
+            handler_case("an_untargeted_request_with_two_enabled_backing_servers_is_refused");
+            handler_case("an_untargeted_request_passes_over_a_disabled_backing_server");
+        }
+        (
+            "mandate.federation.AuthorizeClient",
+            "a named target is backed by a client that does not list this client as a trusted peer",
+        ) => {
+            // The backing client's trusted peers are on its registration, which only the
+            // handler reads: the decoder admits the named target and passes no peer selector.
+            assert_eq!(establishes, Establishes::Handler, "{phrase}");
+            let input = decode::authorize_client(&authorize(&authorize_query()))
+                .unwrap_or_else(|refusal| panic!("{phrase}: {refusal}"));
+            assert_eq!(
+                input.target.map(|target| target.to_string()).as_deref(),
+                Some(OTHER_UUID)
+            );
+            assert!(!decode::AUTHORIZE_PARAMETERS.contains(&"trusted_peers"));
+            assert!(!decode::AUTHORIZE_PARAMETERS.contains(&"peer"));
+            handler_case("an_unlisted_client_naming_a_backed_target_is_refused");
+            handler_case("a_listed_peer_naming_a_backed_target_is_issued_its_code");
         }
         ("mandate.federation.AuthorizeClient", "identity scopes are requested without OpenId") => {
             assert_eq!(establishes, Establishes::Adapter, "{phrase}");
@@ -516,6 +532,32 @@ fn login(body: &str) -> Request {
     Request::new("POST", "/v1/federation/login")
         .with_header("Content-Type", "application/json")
         .with_body(body.as_bytes().to_vec())
+}
+
+/// The control plane's cases for the clauses its authorization handler decides.
+///
+/// This crate cannot run that handler: the control plane depends on this crate, never the
+/// reverse. So a handler-established clause whose refusal is a read this crate cannot make
+/// names the control-plane case that drives `Deployment::authorize` to it, and this check
+/// fails when that case is gone or no longer reaches the handler.
+const HANDLER_CASES: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../services/control-plane/tests/authorize_handler.rs"
+);
+
+/// Require `name` to be a test of [`HANDLER_CASES`] whose body calls the handler.
+fn handler_case(name: &str) {
+    let source = fs::read_to_string(HANDLER_CASES).expect("the control plane's handler cases");
+    let head = format!("#[test]\nfn {name}() {{");
+    let start = source
+        .find(&head)
+        .unwrap_or_else(|| panic!("{name} is a test of {HANDLER_CASES}"));
+    let rest = &source[start + head.len()..];
+    let body = rest.find("\n#[test]").map_or(rest, |end| &rest[..end]);
+    assert!(
+        body.contains(".authorize("),
+        "{name} drives `Deployment::authorize`"
+    );
 }
 
 fn authorize_query() -> String {

@@ -142,8 +142,54 @@ fn a_client_bound_to_another_organization_is_refused() {
     )
     .expect_err("the client's organization is the binding, not the caller's claim");
 
-    assert_eq!(denied.reason, DenialReason::TenantMismatch);
-    assert_eq!(denied.clause, DenialClause::OrganizationMismatch);
+    assert_eq!(denied.reason, DenialReason::Denied);
+    assert_eq!(denied.clause, DenialClause::ClientUnknown);
+}
+
+/// A caller of another organization learns nothing about this organization's clients: a
+/// disabled client, a confidential one, an enabled public one and an identity nobody
+/// registered are each answered with the same refusal, by both resolvers, whatever
+/// redirect and challenge the request carries.
+#[test]
+fn foreign_client_is_indistinguishable_from_unknown() {
+    let disabled = OAuthClient {
+        id: client_id(0x0d),
+        ..client(true, OAuthClientState::Disabled)
+    };
+    let confidential = OAuthClient {
+        id: client_id(0x0e),
+        ..client(false, OAuthClientState::Recorded)
+    };
+    let clients = recorded().with_client(disabled).with_client(confidential);
+    let unknown = client_id(0x0f);
+
+    for named in [client_id(0x0c), client_id(0x0d), client_id(0x0e), unknown] {
+        for uri in [REGISTERED, "https://elsewhere.example/cb"] {
+            let public =
+                registered_public_client(&clients, &named, &redirect(uri), &organization(11))
+                    .expect_err("no client of organization 10 resolves for organization 11");
+            assert_eq!(
+                (public.reason, public.clause, public.outcome),
+                (
+                    DenialReason::Denied,
+                    DenialClause::ClientUnknown,
+                    mandate_federation::RefusedOutcome::Denied
+                ),
+                "{named} {uri}"
+            );
+            for challenge_presented in [true, false] {
+                let either = registered_client(
+                    &clients,
+                    &named,
+                    &redirect(uri),
+                    &organization(11),
+                    challenge_presented,
+                )
+                .expect_err("no client of organization 10 resolves for organization 11");
+                assert_eq!(either, public, "{named} {uri} {challenge_presented}");
+            }
+        }
+    }
 }
 
 /// `pkce-redirect` (`tests/security/cases.json:405`): "Redirect differs from exact
@@ -345,10 +391,7 @@ fn registered_client_keeps_the_registration_refusals() {
         true,
     )
     .expect_err("another organization's client");
-    assert_eq!(
-        other_organization.clause,
-        DenialClause::OrganizationMismatch
-    );
+    assert_eq!(other_organization.clause, DenialClause::ClientUnknown);
     let unregistered = registered_client(
         &clients,
         &client_id(0x0c),

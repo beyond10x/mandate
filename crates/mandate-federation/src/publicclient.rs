@@ -65,8 +65,9 @@ impl OAuthClientStore for Projection {
 /// # Errors
 ///
 /// Returns [`Denied`] when the client does not resolve, is not public, is in the terminal
-/// `Disabled` state, is bound to another organization, or has not registered the
-/// presented redirect URI exactly.
+/// `Disabled` state, or has not registered the presented redirect URI exactly. A client
+/// bound to another organization is answered [`DenialClause::ClientUnknown`], exactly as one
+/// that does not resolve, before its state or type is read.
 pub fn registered_public_client(
     clients: &impl OAuthClientStore,
     client_id: &OAuthClientId,
@@ -114,9 +115,16 @@ fn resolved_client(
     organization_id: &OrganizationId,
     public_required: bool,
 ) -> Result<OAuthClient, Denied> {
-    let client = clients
-        .client(client_id)
-        .ok_or_else(|| Denied::new(DenialReason::Denied, DenialClause::ClientUnknown))?;
+    let unknown = || Denied::new(DenialReason::Denied, DenialClause::ClientUnknown);
+    let client = clients.client(client_id).ok_or_else(unknown)?;
+    // The tenant binding is the client's own; a caller-supplied organization never
+    // stands in for it (`federation.yaml:2`). Another organization's client is not a
+    // registered client for this caller, so it is answered exactly as an unknown one, and
+    // before anything else about it is read: whether it exists, is disabled or is public
+    // is that organization's to know.
+    if &client.organization_id != organization_id {
+        return Err(unknown());
+    }
     match client.state {
         OAuthClientState::Recorded => {}
         OAuthClientState::Disabled => {
@@ -130,14 +138,6 @@ fn resolved_client(
         return Err(Denied::new(
             DenialReason::Denied,
             DenialClause::ClientNotPublic,
-        ));
-    }
-    // The tenant binding is the client's own; a caller-supplied organization never
-    // stands in for it (`federation.yaml:2`).
-    if &client.organization_id != organization_id {
-        return Err(Denied::new(
-            DenialReason::TenantMismatch,
-            DenialClause::OrganizationMismatch,
         ));
     }
     if !client.redirect_uris.iter().any(|uri| uri == redirect_uri) {

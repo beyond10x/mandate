@@ -191,7 +191,7 @@ const AUTHORIZE_CLIENT: &[Clause] = &[
     // Wave 12 decision 4: the target of an OIDC authorization is the resource server whose
     // `client_id` names the client, which only the registry knows.
     Clause {
-        phrase: "no target is named and no registered resource server backs the client",
+        phrase: "no target is named and not exactly one enabled resource server backs the client",
         establishes: Establishes::Handler,
     },
     // The `scope` parameter alone decides both: `decode::authorize_client`.

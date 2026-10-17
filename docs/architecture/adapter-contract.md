@@ -220,7 +220,7 @@ row is driven by a case in `crates/mandate-server/tests/obligations.rs` — 25 o
 | the S256 challenge is invalid | adapter — mis-shaped, or offered under another method |
 | target is unregistered/outside tenant | handler |
 | a named target is backed by a client that does not list this client as a trusted peer | handler |
-| no target is named and no registered resource server backs the client | handler |
+| no target is named and not exactly one enabled resource server backs the client | handler |
 | identity scopes are requested without OpenId | adapter — the `scope` parameter alone decides it |
 | no target is named and OpenId is not requested | adapter — the `scope` parameter alone decides it |
 | STS code issuance/narrowing is refused | handler |

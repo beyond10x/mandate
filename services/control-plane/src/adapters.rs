@@ -132,7 +132,7 @@ use mandate_sts::store::{AuthorizationCodeLog, AuthorizationCodeReads, InMemoryC
 use mandate_sts::{IdentityAllocator, RequestContext as StsRequest, SecretSource};
 use mandate_token::projection::{
     CredentialEvent, DenialClause as CredentialClause, Denied as CredentialDenied,
-    FoldError as CredentialFoldError, Projection as CredentialProjection,
+    FoldError as CredentialFoldError, Projection as CredentialProjection, ResourceServerState,
 };
 use mandate_token::verifier::{CredentialDigest, CredentialDomain, matches, verifier_in};
 use mandate_token::{CredentialDescriptor, CredentialProfile};
@@ -3797,17 +3797,32 @@ where
                 state: input.state.clone(),
             };
         // The target is the one the request names or, for an OpenID Connect request that
-        // names none, the resource server whose `client_id` names this client (decision 4,
-        // fork F11).
+        // names none, the one enabled resource server whose `client_id` names this client
+        // (decision 4, fork F11). A disabled registration is passed over; two enabled ones
+        // are refused rather than chosen between by registration order.
         let target = match input.target {
             Some(named) => named,
-            None => self
-                .credentials
-                .resource_servers()
-                .iter()
-                .find(|server| server.client_id == Some(client.id))
-                .map(|server| server.id)
-                .ok_or_else(|| redirected(FederationClause::TargetUnknown, DenialReason::Denied))?,
+            None => {
+                let mut backing = self.credentials.resource_servers().iter().filter(|server| {
+                    server.client_id == Some(client.id)
+                        && server.state == ResourceServerState::Enabled
+                });
+                match (backing.next(), backing.next()) {
+                    (Some(server), None) => server.id,
+                    (None, _) => {
+                        return Err(redirected(
+                            FederationClause::TargetUnknown,
+                            DenialReason::Denied,
+                        ));
+                    }
+                    (Some(_), Some(_)) => {
+                        return Err(redirected(
+                            FederationClause::TargetAmbiguous,
+                            DenialReason::Denied,
+                        ));
+                    }
+                }
+            }
         };
         // The STS records a challenge on every code at this stage: a client that may omit PKCE
         // (`pkce_required` false) is admitted above and refused here until the code carries
@@ -3839,6 +3854,27 @@ where
                 ));
             }
             Some(_) => {}
+        }
+        // A target another client backs is that client's audience: only a client it lists as
+        // a trusted peer may be issued a code for it. A backing client that does not resolve,
+        // is disabled or is of another organization lists no one (fail closed).
+        if let Some(backing) = self
+            .credentials
+            .resource_server(&target)
+            .and_then(|server| server.client_id)
+            .filter(|backing| *backing != client.id)
+        {
+            let listed = OAuthClientStore::client(&self.federation, &backing).is_some_and(|peer| {
+                peer.state == OAuthClientState::Recorded
+                    && peer.organization_id == client.organization_id
+                    && peer.trusted_peers.contains(&client.id)
+            });
+            if !listed {
+                return Err(redirected(
+                    FederationClause::TargetPeerUnlisted,
+                    DenialReason::Denied,
+                ));
+            }
         }
 
         // Measured from the request's own instant, never from a second clock read: the STS
@@ -4112,13 +4148,29 @@ where
         )
     }
 
+    /// Whether a presented session proof names a session of another organization than the
+    /// registered client's. `false` when either does not resolve: [`Deployment::authorize`]
+    /// answers those itself.
+    fn names_another_organization(&self, proof: &CredentialProof, client: &OAuthClientId) -> bool {
+        let Some(registered) = OAuthClientStore::client(&self.federation, client) else {
+            return false;
+        };
+        self.proofs
+            .resolve(&self.digest, proof)
+            .and_then(|session_id| self.identity.resolve(&session_id))
+            .is_some_and(|session| *session.organization() != registered.organization_id)
+    }
+
     /// The authorization endpoint as a browser reaches it (fork F4 B, minimally).
     ///
     /// - A usable session, presented in the host-only cookie or as a bearer credential, and
     ///   no `prompt=login`: [`Deployment::authorize`], exactly as before.
     /// - A cookie naming no usable session (unknown, revoked, stale or expired) is a browser
-    ///   to sign in again, and is answered as if it presented none. A **bearer** credential
-    ///   naming none is refused, as before: it is a caller's deliberate presentation.
+    ///   to sign in again, and is answered as if it presented none. So is a cookie naming a
+    ///   session of another organization than the client's: that session cannot authorize
+    ///   this client, and the browser signs in to the client's organization instead. A
+    ///   **bearer** credential naming none is refused, as before: it is a caller's
+    ///   deliberate presentation.
     /// - Otherwise the client and its exact redirect are validated first, against the
     ///   client's own organization, so nothing is sent upstream for a request whose redirect
     ///   could not carry the answer. Then `prompt=none` is `login_required` at that redirect,
@@ -4139,7 +4191,9 @@ where
         input: &decode::AuthorizeBrowser,
     ) -> Result<BrowserAuthorization, AuthorizationRefusal> {
         let fresh_sign_in = input.prompt == Some(decode::Prompt::Login);
-        if let (Some(presented), false) = (&input.session, fresh_sign_in) {
+        let unusable_cookie = matches!(&input.session, Some(decode::PresentedSession::Cookie(proof))
+            if self.names_another_organization(proof, &input.client_id));
+        if let (Some(presented), false, false) = (&input.session, fresh_sign_in, unusable_cookie) {
             match self.authorize(&input.clone().with_session(presented.proof().clone())) {
                 Ok(authorization) => return Ok(BrowserAuthorization::Authorized(authorization)),
                 Err(refusal)

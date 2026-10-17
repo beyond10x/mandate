@@ -11,9 +11,20 @@ All notable changes to Mandate are recorded here. The format follows [Keep a Cha
   organization's relying-party connection and the authorization request resumes at the callback,
   which sets the cookie. `prompt=login` forces the upstream sign-in and `prompt=none` without a
   session answers `login_required`.
-- An OpenID Connect authorization request names no target: its code is for the resource server
-  whose `client_id` names the client. Identity scopes are read off `scope`, and a request without
-  `openid` and without a target is refused `invalid_scope`.
+- An OpenID Connect authorization request names no target: its code is for the one enabled
+  resource server whose `client_id` names the client; two enabled ones are refused. Identity
+  scopes are read off `scope`, and a request without `openid` and without a target is refused
+  `invalid_scope`.
+- An authorization request naming a target another client backs is refused unless that client
+  lists the requesting client as a trusted peer.
+- A session cookie of another organization than the client's is treated as no session: the
+  browser signs in again, or `prompt=none` answers `login_required`.
+
+### Security
+
+- The authorization endpoint answers a client of another organization, enabled or disabled,
+  exactly as an unknown client, so the answer discloses nothing about another organization's
+  clients.
 - `RegisterResourceServer` refuses a named client that is unresolved, disabled or in another
   organization; `--resource-server` documents resolve it against the `--client` documents.
 
