@@ -109,11 +109,6 @@ pub const UNREALIZED: &[(&str, &str, &str)] = &[
         "the worker owns the audit record; no crate projects mandate.audit",
     ),
     (
-        "mandate.guard.AdmitRequest",
-        "story:token-guard",
-        "mandate_client::verify::Verifier decides it; no binding drives it with a JWK Set double",
-    ),
-    (
         "mandate.credential.ExchangeCredential",
         "story:constrained-exchange",
         "story:constrained-exchange owns token exchange",
@@ -177,6 +172,11 @@ pub const UNREALIZED: &[(&str, &str, &str)] = &[
         "mandate.graph.WriteRelationship",
         "story:graph-policy-adapter",
         "the relationship store is a double; no command writes it",
+    ),
+    (
+        "mandate.guard.AdmitRequest",
+        "story:token-guard",
+        "mandate_client::verify::Verifier decides it; no binding drives it with a JWK Set double",
     ),
     (
         "mandate.identity.DisablePrincipal",

@@ -621,6 +621,111 @@
       "consulted": 0
     },
     {
+      "scenario": "mandate.guard.AdmitRequest/outcome/audience-mismatch",
+      "command": "mandate.guard.AdmitRequest",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.guard.AdmitRequest/outcome/expired",
+      "command": "mandate.guard.AdmitRequest",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.guard.AdmitRequest/outcome/identity-not-allowed",
+      "command": "mandate.guard.AdmitRequest",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.guard.AdmitRequest/outcome/invalid-signature",
+      "command": "mandate.guard.AdmitRequest",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.guard.AdmitRequest/outcome/issuer-mismatch",
+      "command": "mandate.guard.AdmitRequest",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.guard.AdmitRequest/outcome/malformed",
+      "command": "mandate.guard.AdmitRequest",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.guard.AdmitRequest/outcome/not-yet-valid",
+      "command": "mandate.guard.AdmitRequest",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.guard.AdmitRequest/outcome/over-limit",
+      "command": "mandate.guard.AdmitRequest",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.guard.AdmitRequest/outcome/queue-full",
+      "command": "mandate.guard.AdmitRequest",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.guard.AdmitRequest/outcome/unknown-key",
+      "command": "mandate.guard.AdmitRequest",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.guard/authored/guard-audience-mismatch-refused",
+      "command": "mandate.guard.AdmitRequest",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.guard/authored/guard-expired-refused",
+      "command": "mandate.guard.AdmitRequest",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.guard/authored/guard-identity-not-allowed-refused",
+      "command": "mandate.guard.AdmitRequest",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.guard/authored/guard-issuer-mismatch-refused",
+      "command": "mandate.guard.AdmitRequest",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
+      "scenario": "mandate.guard/authored/guard-unknown-key-refused",
+      "command": "mandate.guard.AdmitRequest",
+      "port": "none",
+      "kind": "unsupported-command",
+      "consulted": 0
+    },
+    {
       "scenario": "mandate.identity.DisablePrincipal/outcome/denied",
       "command": "mandate.identity.DisablePrincipal",
       "port": "none",
@@ -1284,6 +1389,108 @@
       "command": "mandate.graph.WriteRelationship",
       "reason": "unrealized-command",
       "blocked_on": "story:graph-policy-adapter"
+    },
+    {
+      "scenario": "mandate.guard.AdmitRequest/outcome/accepted",
+      "command": "mandate.guard.AdmitRequest",
+      "reason": "unrealized-command",
+      "blocked_on": "story:token-guard"
+    },
+    {
+      "scenario": "mandate.guard.AdmitRequest/outcome/audience-mismatch",
+      "command": "mandate.guard.AdmitRequest",
+      "reason": "unrealized-command",
+      "blocked_on": "story:token-guard"
+    },
+    {
+      "scenario": "mandate.guard.AdmitRequest/outcome/expired",
+      "command": "mandate.guard.AdmitRequest",
+      "reason": "unrealized-command",
+      "blocked_on": "story:token-guard"
+    },
+    {
+      "scenario": "mandate.guard.AdmitRequest/outcome/identity-not-allowed",
+      "command": "mandate.guard.AdmitRequest",
+      "reason": "unrealized-command",
+      "blocked_on": "story:token-guard"
+    },
+    {
+      "scenario": "mandate.guard.AdmitRequest/outcome/invalid-signature",
+      "command": "mandate.guard.AdmitRequest",
+      "reason": "unrealized-command",
+      "blocked_on": "story:token-guard"
+    },
+    {
+      "scenario": "mandate.guard.AdmitRequest/outcome/issuer-mismatch",
+      "command": "mandate.guard.AdmitRequest",
+      "reason": "unrealized-command",
+      "blocked_on": "story:token-guard"
+    },
+    {
+      "scenario": "mandate.guard.AdmitRequest/outcome/malformed",
+      "command": "mandate.guard.AdmitRequest",
+      "reason": "unrealized-command",
+      "blocked_on": "story:token-guard"
+    },
+    {
+      "scenario": "mandate.guard.AdmitRequest/outcome/not-yet-valid",
+      "command": "mandate.guard.AdmitRequest",
+      "reason": "unrealized-command",
+      "blocked_on": "story:token-guard"
+    },
+    {
+      "scenario": "mandate.guard.AdmitRequest/outcome/over-limit",
+      "command": "mandate.guard.AdmitRequest",
+      "reason": "unrealized-command",
+      "blocked_on": "story:token-guard"
+    },
+    {
+      "scenario": "mandate.guard.AdmitRequest/outcome/queue-full",
+      "command": "mandate.guard.AdmitRequest",
+      "reason": "unrealized-command",
+      "blocked_on": "story:token-guard"
+    },
+    {
+      "scenario": "mandate.guard.AdmitRequest/outcome/unknown-key",
+      "command": "mandate.guard.AdmitRequest",
+      "reason": "unrealized-command",
+      "blocked_on": "story:token-guard"
+    },
+    {
+      "scenario": "mandate.guard/authored/guard-audience-mismatch-refused",
+      "command": "mandate.guard.AdmitRequest",
+      "reason": "unrealized-command",
+      "blocked_on": "story:token-guard"
+    },
+    {
+      "scenario": "mandate.guard/authored/guard-expired-refused",
+      "command": "mandate.guard.AdmitRequest",
+      "reason": "unrealized-command",
+      "blocked_on": "story:token-guard"
+    },
+    {
+      "scenario": "mandate.guard/authored/guard-identity-allowed-admitted",
+      "command": "mandate.guard.AdmitRequest",
+      "reason": "unrealized-command",
+      "blocked_on": "story:token-guard"
+    },
+    {
+      "scenario": "mandate.guard/authored/guard-identity-not-allowed-refused",
+      "command": "mandate.guard.AdmitRequest",
+      "reason": "unrealized-command",
+      "blocked_on": "story:token-guard"
+    },
+    {
+      "scenario": "mandate.guard/authored/guard-issuer-mismatch-refused",
+      "command": "mandate.guard.AdmitRequest",
+      "reason": "unrealized-command",
+      "blocked_on": "story:token-guard"
+    },
+    {
+      "scenario": "mandate.guard/authored/guard-unknown-key-refused",
+      "command": "mandate.guard.AdmitRequest",
+      "reason": "unrealized-command",
+      "blocked_on": "story:token-guard"
     },
     {
       "scenario": "mandate.identity.DisablePrincipal/outcome/denied",

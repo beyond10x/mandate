@@ -352,6 +352,31 @@
       "views": [],
       "actors": []
     },
+    "mandate.guard": {
+      "name": "mandate.guard",
+      "naming": {},
+      "types": [
+        "mandate.guard.AllowRule",
+        "mandate.guard.EmailAddress",
+        "mandate.guard.EmailDomain",
+        "mandate.guard.GroupName",
+        "mandate.guard.GuardLimits",
+        "mandate.guard.GuardPolicy",
+        "mandate.guard.RefusalReason"
+      ],
+      "entities": [],
+      "commands": [
+        "mandate.guard.AdmitRequest"
+      ],
+      "events": [
+        "mandate.guard.RequestAdmitted"
+      ],
+      "errors": [
+        "mandate.guard.Refused"
+      ],
+      "views": [],
+      "actors": []
+    },
     "mandate.identity": {
       "name": "mandate.identity",
       "naming": {
@@ -2243,6 +2268,180 @@
         "variants": [
           "Deregistered",
           "Recorded"
+        ]
+      },
+      "naming": {}
+    },
+    "mandate.guard.AllowRule": {
+      "name": "mandate.guard.AllowRule",
+      "body": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "emails",
+            "type_ref": {
+              "kind": "list",
+              "of": {
+                "kind": "declared",
+                "name": "mandate.guard.EmailAddress"
+              }
+            },
+            "naming": {}
+          },
+          {
+            "name": "domains",
+            "type_ref": {
+              "kind": "list",
+              "of": {
+                "kind": "declared",
+                "name": "mandate.guard.EmailDomain"
+              }
+            },
+            "naming": {}
+          }
+        ],
+        "invariants": []
+      },
+      "naming": {}
+    },
+    "mandate.guard.EmailAddress": {
+      "name": "mandate.guard.EmailAddress",
+      "body": {
+        "kind": "newtype",
+        "of": {
+          "kind": "primitive",
+          "name": "string"
+        },
+        "invariants": []
+      },
+      "naming": {}
+    },
+    "mandate.guard.EmailDomain": {
+      "name": "mandate.guard.EmailDomain",
+      "body": {
+        "kind": "newtype",
+        "of": {
+          "kind": "primitive",
+          "name": "string"
+        },
+        "invariants": []
+      },
+      "naming": {}
+    },
+    "mandate.guard.GroupName": {
+      "name": "mandate.guard.GroupName",
+      "body": {
+        "kind": "newtype",
+        "of": {
+          "kind": "primitive",
+          "name": "string"
+        },
+        "invariants": []
+      },
+      "naming": {}
+    },
+    "mandate.guard.GuardLimits": {
+      "name": "mandate.guard.GuardLimits",
+      "body": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "per_minute",
+            "type_ref": {
+              "kind": "primitive",
+              "name": "integer"
+            },
+            "naming": {}
+          },
+          {
+            "name": "burst",
+            "type_ref": {
+              "kind": "primitive",
+              "name": "integer"
+            },
+            "naming": {}
+          },
+          {
+            "name": "queue",
+            "type_ref": {
+              "kind": "primitive",
+              "name": "integer"
+            },
+            "naming": {}
+          }
+        ],
+        "invariants": []
+      },
+      "naming": {}
+    },
+    "mandate.guard.GuardPolicy": {
+      "name": "mandate.guard.GuardPolicy",
+      "body": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "issuer",
+            "type_ref": {
+              "kind": "declared",
+              "name": "mandate.core.Issuer"
+            },
+            "naming": {}
+          },
+          {
+            "name": "audiences",
+            "type_ref": {
+              "kind": "list",
+              "of": {
+                "kind": "declared",
+                "name": "mandate.core.Audience"
+              }
+            },
+            "naming": {}
+          },
+          {
+            "name": "allow",
+            "type_ref": {
+              "kind": "declared",
+              "name": "mandate.guard.AllowRule"
+            },
+            "naming": {}
+          },
+          {
+            "name": "limits",
+            "type_ref": {
+              "kind": "declared",
+              "name": "mandate.guard.GuardLimits"
+            },
+            "naming": {}
+          },
+          {
+            "name": "clock_skew",
+            "type_ref": {
+              "kind": "primitive",
+              "name": "duration"
+            },
+            "naming": {}
+          }
+        ],
+        "invariants": []
+      },
+      "naming": {}
+    },
+    "mandate.guard.RefusalReason": {
+      "name": "mandate.guard.RefusalReason",
+      "body": {
+        "kind": "enum",
+        "variants": [
+          "Malformed",
+          "InvalidSignature",
+          "UnknownKey",
+          "IssuerMismatch",
+          "AudienceMismatch",
+          "Expired",
+          "NotYetValid",
+          "IdentityNotAllowed",
+          "OverLimit",
+          "QueueFull"
         ]
       },
       "naming": {}
@@ -12645,6 +12844,252 @@
       ],
       "naming": {}
     },
+    "mandate.guard.AdmitRequest": {
+      "name": "mandate.guard.AdmitRequest",
+      "domain": "mandate.guard",
+      "input": [
+        {
+          "name": "policy",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.guard.GuardPolicy"
+          },
+          "naming": {}
+        },
+        {
+          "name": "token",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.CredentialProof"
+          },
+          "naming": {}
+        }
+      ],
+      "response": [
+        {
+          "name": "subject",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.ExternalSubject"
+          },
+          "naming": {}
+        },
+        {
+          "name": "email",
+          "type_ref": {
+            "kind": "optional",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.guard.EmailAddress"
+            }
+          },
+          "naming": {}
+        },
+        {
+          "name": "email_verified",
+          "type_ref": {
+            "kind": "primitive",
+            "name": "boolean"
+          },
+          "naming": {}
+        },
+        {
+          "name": "groups",
+          "type_ref": {
+            "kind": "list",
+            "of": {
+              "kind": "declared",
+              "name": "mandate.guard.GroupName"
+            }
+          },
+          "naming": {}
+        },
+        {
+          "name": "audience",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.Audience"
+          },
+          "naming": {}
+        }
+      ],
+      "outcomes": [
+        {
+          "name": "accepted",
+          "condition": {
+            "kind": "otherwise"
+          },
+          "test_strategy": "default_branch",
+          "emits": [
+            "mandate.guard.RequestAdmitted"
+          ],
+          "payload": [
+            {
+              "event": "mandate.guard.RequestAdmitted",
+              "fields": [
+                {
+                  "target": "issuer",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.Issuer"
+                  },
+                  "value": {
+                    "kind": "input_field",
+                    "field": "policy.issuer",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.Issuer"
+                    }
+                  }
+                },
+                {
+                  "target": "subject",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.ExternalSubject"
+                  },
+                  "value": {
+                    "kind": "response_field",
+                    "field": "subject",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.ExternalSubject"
+                    }
+                  }
+                },
+                {
+                  "target": "audience",
+                  "target_type": {
+                    "kind": "declared",
+                    "name": "mandate.core.Audience"
+                  },
+                  "value": {
+                    "kind": "response_field",
+                    "field": "audience",
+                    "type_ref": {
+                      "kind": "declared",
+                      "name": "mandate.core.Audience"
+                    }
+                  }
+                },
+                {
+                  "target": "admitted_at",
+                  "target_type": {
+                    "kind": "primitive",
+                    "name": "timestamp"
+                  },
+                  "value": {
+                    "kind": "generated"
+                  }
+                }
+              ]
+            }
+          ],
+          "summary": "The token is a compact JWS signed by a key in the issuer's JWK Set, its iss is the policy's issuer, its aud names one of the policy's audiences, the clock is within its nbf and exp widened by the policy's clock skew, the identity passes the allow rule, and its bucket and the waiting queue have room. The verified identity is returned for the service; nothing is created or moved, and the event folds into no record."
+        },
+        {
+          "name": "malformed",
+          "condition": {
+            "kind": "external",
+            "cause": "The token is not a compact JWS, its header names no key or an algorithm the guard does not admit, or its claims lack iss, sub, aud or exp."
+          },
+          "test_strategy": "inject_fault",
+          "emits": [],
+          "error": "mandate.guard.Refused"
+        },
+        {
+          "name": "invalid-signature",
+          "condition": {
+            "kind": "external",
+            "cause": "The signature does not verify under the key its kid names."
+          },
+          "test_strategy": "inject_fault",
+          "emits": [],
+          "error": "mandate.guard.Refused"
+        },
+        {
+          "name": "unknown-key",
+          "condition": {
+            "kind": "external",
+            "cause": "The kid is in neither the cached JWK Set nor the one refetched for it, within the bounded refresh rate."
+          },
+          "test_strategy": "inject_fault",
+          "emits": [],
+          "error": "mandate.guard.Refused"
+        },
+        {
+          "name": "issuer-mismatch",
+          "condition": {
+            "kind": "external",
+            "cause": "The token's iss is not the policy's issuer."
+          },
+          "test_strategy": "inject_fault",
+          "emits": [],
+          "error": "mandate.guard.Refused"
+        },
+        {
+          "name": "audience-mismatch",
+          "condition": {
+            "kind": "external",
+            "cause": "No aud of the token is one of the policy's audiences."
+          },
+          "test_strategy": "inject_fault",
+          "emits": [],
+          "error": "mandate.guard.Refused"
+        },
+        {
+          "name": "expired",
+          "condition": {
+            "kind": "external",
+            "cause": "The clock is past exp by more than the policy's clock skew."
+          },
+          "test_strategy": "inject_fault",
+          "emits": [],
+          "error": "mandate.guard.Refused"
+        },
+        {
+          "name": "not-yet-valid",
+          "condition": {
+            "kind": "external",
+            "cause": "The clock is before nbf by more than the policy's clock skew."
+          },
+          "test_strategy": "inject_fault",
+          "emits": [],
+          "error": "mandate.guard.Refused"
+        },
+        {
+          "name": "identity-not-allowed",
+          "condition": {
+            "kind": "external",
+            "cause": "The rule is not empty, and the token carries no email, an email the issuer has not verified, or one neither listed in allow.emails nor in a domain listed in allow.domains."
+          },
+          "test_strategy": "inject_fault",
+          "emits": [],
+          "error": "mandate.guard.Refused"
+        },
+        {
+          "name": "over-limit",
+          "condition": {
+            "kind": "external",
+            "cause": "The identity's bucket, refilled at limits.per_minute and holding at most limits.burst, is empty; other identities are admitted on their own buckets."
+          },
+          "test_strategy": "inject_fault",
+          "emits": [],
+          "error": "mandate.guard.Refused"
+        },
+        {
+          "name": "queue-full",
+          "condition": {
+            "kind": "external",
+            "cause": "limits.queue requests are already waiting; the request is refused at once, never buffered."
+          },
+          "test_strategy": "inject_fault",
+          "emits": [],
+          "error": "mandate.guard.Refused"
+        }
+      ],
+      "naming": {}
+    },
     "mandate.identity.DisablePrincipal": {
       "name": "mandate.identity.DisablePrincipal",
       "domain": "mandate.identity",
@@ -17064,6 +17509,45 @@
       ],
       "naming": {}
     },
+    "mandate.guard.RequestAdmitted": {
+      "name": "mandate.guard.RequestAdmitted",
+      "domain": "mandate.guard",
+      "fields": [
+        {
+          "name": "issuer",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.Issuer"
+          },
+          "naming": {}
+        },
+        {
+          "name": "subject",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.ExternalSubject"
+          },
+          "naming": {}
+        },
+        {
+          "name": "audience",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.core.Audience"
+          },
+          "naming": {}
+        },
+        {
+          "name": "admitted_at",
+          "type_ref": {
+            "kind": "primitive",
+            "name": "timestamp"
+          },
+          "naming": {}
+        }
+      ],
+      "naming": {}
+    },
     "mandate.identity.EpochSnapshotRecorded": {
       "name": "mandate.identity.EpochSnapshotRecorded",
       "domain": "mandate.identity",
@@ -17822,6 +18306,21 @@
         }
       ]
     },
+    "mandate.guard.Refused": {
+      "name": "mandate.guard.Refused",
+      "domain": "mandate.guard",
+      "summary": "Fail closed; the request does not reach the service and nothing is recorded. The reason names the clause that refused it, the same in the library and the sidecar.",
+      "fields": [
+        {
+          "name": "reason",
+          "type_ref": {
+            "kind": "declared",
+            "name": "mandate.guard.RefusalReason"
+          },
+          "naming": {}
+        }
+      ]
+    },
     "mandate.identity.Denied": {
       "name": "mandate.identity.Denied",
       "domain": "mandate.identity",
@@ -18024,6 +18523,21 @@
       ],
       "naming": {
         "summary": "Administrative deployment and documentation publisher for the shared mandate.core vocabulary. All four deployments compile those shared library types; core is not a remote control-plane runtime dependency. See docs/architecture/ownership.md."
+      }
+    },
+    "mandate-guard": {
+      "name": "mandate-guard",
+      "owns": [
+        "mandate.guard"
+      ],
+      "accepts": [
+        "mandate.guard.AdmitRequest"
+      ],
+      "publishes": [
+        "mandate.guard.RequestAdmitted"
+      ],
+      "naming": {
+        "summary": "The token guard of docs/adr/0013-token-guard.md. Today the library alone, verify in crates/mandate-client; the sidecar binary and its chart are planned under story:token-guard."
       }
     },
     "mandate-sts": {
