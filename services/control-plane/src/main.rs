@@ -32,7 +32,7 @@
 //! |---|---|---|
 //! | `--connection` | [`mandate_control_plane::adapters::ConnectionSeeding`] | every guard of `RegisterFederationConnection`, plus a repeated `connection_id` and a principal linked across two organizations |
 //! | `--key` | [`mandate_control_plane::adapters::key_set`] | a repeated `kid` |
-//! | `--client` | [`mandate_control_plane::adapters::ClientSeeding`] | a repeated `client_id` |
+//! | `--client` | [`mandate_control_plane::adapters::ClientSeeding`] | a repeated `client_id`; `RegisterOAuthClient`'s input-decided phrases (client type, verifier count, PKCE requirement, trusted peers); a redirect URI with a fragment; and every `secret_ref` resolved, read and held to the entropy floor |
 //! | `--resource-server` | [`mandate_control_plane::adapters::TargetSeeding`] | every guard of `RegisterResourceServer` — an ambiguous audience above all — plus a repeated `resource_server_id`, and then the whole set is settled against `Projection::audience_conflicts` |
 //!
 //! **Why two of them run the command and two do not.** A document is put through the
@@ -65,6 +65,7 @@ use mandate_control_plane::adapters::{
     ConnectionSeeding, Deployment, RelyingParty, ResourceServerSeed, SeedRefused, SystemAllocator,
     SystemSecrets, TargetSeeding, configure_verifier, key_set, read_client_seed,
     read_connection_seed, read_key, read_resource_server_seed, relying_party_connection,
+    verifier_key,
 };
 use mandate_control_plane::serve::{Limits, Listener};
 use mandate_federation::idp_token::UreqIdpToken;
@@ -118,8 +119,9 @@ enum Action {
         /// names the target by it.
         #[arg(long = "resource-server", value_name = "PATH")]
         resource_servers: Vec<PathBuf>,
-        /// A file holding an IdP client secret, named for the `--connection` documents whose
-        /// `relying_party.client_secret` refers to it. Repeatable.
+        /// A file holding a secret, named for the `--connection` documents whose
+        /// `relying_party.client_secret` refers to it (an IdP client secret) and for the
+        /// `--client` documents whose `secret_ref` does (that client's own secret). Repeatable.
         ///
         /// The value is `NAME=PATH`: the flag carries where the secret is, never the secret.
         #[arg(long = "client-secret-file", value_name = "NAME=PATH", value_parser = secret_file)]
@@ -278,7 +280,15 @@ fn serve(given: &Serving) -> Result<(), Refused> {
         SigningAlgorithm::new("RS256"),
     ])
     .map_err(|error| Refused::Start(Box::new(error)))?;
-    let secrets = SystemSecrets::open().map_err(|error| Refused::Start(Box::new(error)))?;
+    let mut secrets = SystemSecrets::open().map_err(|error| Refused::Start(Box::new(error)))?;
+    // Every `--client-secret-file`, by name, for the connections' relying parties and the
+    // confidential clients alike. A name two flags give is the operator's to correct.
+    let mut secret_files = BTreeMap::new();
+    for (name, path) in &serving.client_secret_files {
+        if secret_files.insert(name.clone(), path.clone()).is_some() {
+            return Err(Refused::RepeatedSecretName(name.clone()));
+        }
+    }
     let mut allocator = SystemAllocator::open().map_err(|error| Refused::Start(Box::new(error)))?;
 
     // The identities the documents state none for are minted from the same CSPRNG every
@@ -301,15 +311,20 @@ fn serve(given: &Serving) -> Result<(), Refused> {
     // through `mandate.credential.RegisterResourceServer` itself — and the whole
     // `--resource-server` set is then settled, because the command's audience guard is a
     // read-then-write one and cannot answer for a pair the fold already held.
-    let mut client_seeding = ClientSeeding::new();
+    // A confidential client's `secret_ref` resolves through the same files, and each secret
+    // is read now, held to the entropy floor and turned into a verifier under a key drawn
+    // for this process (fork F2 A): only the verifier is recorded.
+    let mut client_seeding =
+        ClientSeeding::with_secrets(verifier_key(&mut secrets), secret_files.clone());
     let mut seeded_clients = Vec::with_capacity(client_seeds.len());
     for (path, seed) in &client_seeds {
         let mut allocate = || allocator.next_uuid();
         let admitted = client_seeding
             .admit(path, seed, &mut allocate)
             .map_err(Refused::Seed)?;
-        seeded_clients.push((path, admitted));
+        seeded_clients.push((path, seed.name.as_deref(), admitted));
     }
+    client_seeding.settled().map_err(Refused::Seed)?;
     let mut target_seeding = TargetSeeding::new();
     let mut seeded_targets = Vec::with_capacity(target_seeds.len());
     for (path, seed) in &target_seeds {
@@ -334,13 +349,7 @@ fn serve(given: &Serving) -> Result<(), Refused> {
 
     // The relying party: every connection whose document names one, with its client secret
     // read now from the file its reference names, before a socket is bound. A reference no
-    // flag resolves, and a name two flags give, are the operator's to correct.
-    let mut secret_files = BTreeMap::new();
-    for (name, path) in &serving.client_secret_files {
-        if secret_files.insert(name.clone(), path.clone()).is_some() {
-            return Err(Refused::RepeatedSecretName(name.clone()));
-        }
-    }
+    // flag resolves is the operator's to correct.
     let mut relying_party = RelyingParty::new(Box::new(UreqIdpToken::new()));
     let mut relies = false;
     for (path, seed, connection) in &seeded {
@@ -381,7 +390,7 @@ fn serve(given: &Serving) -> Result<(), Refused> {
             connection.connection_id
         );
     }
-    for (path, client) in seeded_clients {
+    for (path, name, client) in seeded_clients {
         for event in &client.events {
             deployment
                 .record_federation(event)
@@ -392,11 +401,19 @@ fn serve(given: &Serving) -> Result<(), Refused> {
                 .map_err(Refused::Seed)?;
         }
         // The same reason the connection's id is printed: `GET /oauth/authorize` selects on
-        // this one.
-        println!(
-            "mandate-control-plane: seeded oauth client {}",
-            client.client_id
-        );
+        // this one. The label, when the document states one, is escaped: it is the one
+        // operator-written text this line carries. Nothing of a secret is on it.
+        match name {
+            Some(name) => println!(
+                "mandate-control-plane: seeded oauth client {} ({})",
+                client.client_id,
+                name.escape_debug()
+            ),
+            None => println!(
+                "mandate-control-plane: seeded oauth client {}",
+                client.client_id
+            ),
+        }
     }
     for (path, target) in seeded_targets {
         for event in &target.events {

@@ -95,6 +95,7 @@ use mandate_federation::record::{
     Projection as FederationProjection, RegisterFederationConnection,
     register_federation_connection,
 };
+use mandate_federation::register_client::decide_client_type;
 use mandate_federation::verifier_real::{AlgorithmPolicyError, Clock, JwksSource, RealVerifier};
 use mandate_federation::{
     ConnectionStore, DenialClause as FederationClause, Denied as FederationDenied,
@@ -136,12 +137,13 @@ use mandate_token::projection::{
 use mandate_token::verifier::{CredentialDigest, CredentialDomain, matches, verifier_in};
 use mandate_token::{CredentialDescriptor, CredentialProfile};
 use mandate_types::{
-    Action, Audience, AuthorizationCodeId, ClientId, CorrelationId, CredentialId, CredentialProof,
-    CredentialSecret, CredentialVerifier, DenialReason, Duration, EpochSnapshotRef,
-    ExternalLinkMethod, ExternalPrincipalId, ExternalSubject, FederationConnectionId, Issuer,
-    OAuthClientId, OrganizationId, PkceMethod, PrincipalId, RedirectUri, ResourceId, ResourceRef,
+    Action, Audience, AuthorizationCodeId, ClientId, ClientSecretError, CorrelationId,
+    CredentialId, CredentialProof, CredentialSecret, CredentialVerifier, DenialReason, Duration,
+    EpochSnapshotRef, ExternalLinkMethod, ExternalPrincipalId, ExternalSubject,
+    FederationConnectionId, Issuer, OAuthClientId, OAuthClientSecret, OAuthClientType,
+    OrganizationId, PkceMethod, PrincipalId, RedirectUri, ResourceId, ResourceRef,
     ResourceServerId, ResourceType, SecurityEpochTarget, SessionId, SigningAlgorithm, SigningKeyId,
-    Timestamp, Transient, Uuid, VerifiedContext,
+    Timestamp, Transient, Uuid, VerifiedContext, VerifierKey,
 };
 use serde::Deserialize;
 
@@ -1658,9 +1660,49 @@ impl<F: FnMut() -> Uuid> FederationIdentityAllocator for StatedIdentities<'_, F>
 /// between two of them, and that is what is refused. A `--client` document whose redirect
 /// set a deployment policy would reject is admitted here, exactly as a seeded link's
 /// `principal_id` is trusted and for the same reason.
+///
+/// What the documents alone *do* decide is decided here, by the command's own functions where
+/// it has one: the client-type phrases through
+/// [`mandate_federation::register_client::decide_client_type`], a trusted peer that names the
+/// client itself or no seeded client of its organization ([`ClientSeeding::settled`]), and a
+/// redirect or post-logout redirect URI carrying a fragment, which RFC 6749 section 3.1.2
+/// forbids and which no deployment policy could admit.
+///
+/// # Secret references
+///
+/// A confidential client's `secret_ref` names `--client-secret-file` entries. Each file is
+/// read once, admitted only above the entropy floor
+/// ([`mandate_types::OAuthClientSecret::configured`]), and turned into a keyed
+/// [`CredentialVerifier`] under the seeding's [`VerifierKey`]; the event carries the
+/// verifier and the secret is dropped. No refusal carries a byte of it.
+#[derive(Debug)]
 pub struct ClientSeeding {
     projection: FederationProjection,
     admitted: Vec<(PathBuf, OAuthClientId)>,
+    secrets: BTreeMap<String, PathBuf>,
+    key: Option<VerifierKey>,
+}
+
+/// A fresh client-secret [`VerifierKey`] drawn from a secret source: the deployment key every
+/// seeded confidential client's verifiers are derived under (fork F2 A).
+///
+/// Per process, because nothing is durable: the folds are seeded from the documents at every
+/// start, so every verifier is derived again under the new key.
+///
+/// # Panics
+///
+/// When the source answers nothing in [`mandate_types::VERIFIER_KEY_MIN_BYTES`] draws:
+/// there is no weaker key to fall back to. [`SystemSecrets`] answers 32 bytes of the host
+/// CSPRNG per draw.
+pub fn verifier_key(secrets: &mut impl SecretSource) -> VerifierKey {
+    let mut material = Vec::new();
+    for _ in 0..mandate_types::VERIFIER_KEY_MIN_BYTES {
+        if material.len() >= mandate_types::VERIFIER_KEY_MIN_BYTES {
+            break;
+        }
+        material.extend_from_slice(secrets.next_secret().expose_bytes());
+    }
+    VerifierKey::from_bytes(material).expect("the secret source answers key material")
 }
 
 impl Default for ClientSeeding {
@@ -1670,13 +1712,96 @@ impl Default for ClientSeeding {
 }
 
 impl ClientSeeding {
-    /// A seeding holding no client.
+    /// A seeding holding no client and resolving no secret reference: a confidential client
+    /// is refused as [`SeedRefused::ClientSecretUnresolved`].
     #[must_use]
     pub fn new() -> Self {
         Self {
             projection: FederationProjection::default(),
             admitted: Vec::new(),
+            secrets: BTreeMap::new(),
+            key: None,
         }
+    }
+
+    /// A seeding that resolves `secret_ref` names through `secrets` (every
+    /// `--client-secret-file`, by name) and derives verifiers under `key`.
+    #[must_use]
+    pub fn with_secrets(key: VerifierKey, secrets: BTreeMap<String, PathBuf>) -> Self {
+        Self {
+            key: Some(key),
+            secrets,
+            ..Self::new()
+        }
+    }
+
+    /// The verifiers a document's `secret_ref` names derive, in the order it names them.
+    fn verifiers(
+        &self,
+        path: &Path,
+        seed: &ClientSeed,
+    ) -> Result<Vec<CredentialVerifier>, SeedRefused> {
+        let mut verifiers = Vec::with_capacity(seed.secret_ref.len());
+        for (index, reference) in seed.secret_ref.iter().enumerate() {
+            if seed.secret_ref[..index].contains(reference) {
+                return Err(SeedRefused::ClientSecretRepeated {
+                    path: path.to_path_buf(),
+                    reference: reference.clone(),
+                });
+            }
+            let unresolved = || SeedRefused::ClientSecretUnresolved {
+                path: path.to_path_buf(),
+                reference: reference.clone(),
+            };
+            let (Some(file), Some(key)) = (self.secrets.get(reference), &self.key) else {
+                return Err(unresolved());
+            };
+            let read = ClientSecret::read(file).map_err(|error| SeedRefused::Unreadable {
+                path: file.clone(),
+                error,
+            })?;
+            let secret =
+                OAuthClientSecret::configured(read.expose_bytes().to_vec()).map_err(|error| {
+                    SeedRefused::ClientSecretWeak {
+                        path: path.to_path_buf(),
+                        reference: reference.clone(),
+                        error,
+                    }
+                })?;
+            verifiers.push(secret.verifier(key));
+        }
+        Ok(verifiers)
+    }
+
+    /// Decide what the whole set decides: every trusted peer names a seeded client of the
+    /// same organization.
+    ///
+    /// After the last [`Self::admit`], because two documents may name each other and a
+    /// directory is read in file-name order, which no operator chose for this.
+    ///
+    /// # Errors
+    ///
+    /// [`SeedRefused::UnregistrableClient`] with
+    /// [`FederationClause::TrustedPeerUnknown`], naming the document that lists the peer.
+    pub fn settled(&self) -> Result<(), SeedRefused> {
+        for client in self.projection.clients() {
+            for peer in &client.trusted_peers {
+                let placed = self
+                    .projection
+                    .client(peer)
+                    .is_some_and(|held| held.organization_id == client.organization_id);
+                if !placed {
+                    return Err(SeedRefused::UnregistrableClient {
+                        path: self.incumbent_of(client.id),
+                        denied: FederationDenied::new(
+                            DenialReason::Denied,
+                            FederationClause::TrustedPeerUnknown,
+                        ),
+                    });
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Admit one document against the ones already admitted, and answer the events it
@@ -1689,8 +1814,14 @@ impl ClientSeeding {
     /// # Errors
     ///
     /// Returns [`SeedRefused::RepeatedClientId`] naming both files when two documents state
-    /// one identity, and [`SeedRefused::Unseedable`] when the events are not a history the
-    /// fold reads.
+    /// one identity; [`SeedRefused::RedirectUriFragment`] for a redirect or post-logout
+    /// redirect URI with a fragment; [`SeedRefused::UnregistrableClient`] when
+    /// `decide_client_type` refuses the client type, verifier count and PKCE requirement,
+    /// or a trusted peer names the client itself; [`SeedRefused::ClientSecretUnresolved`],
+    /// [`SeedRefused::ClientSecretRepeated`], [`SeedRefused::Unreadable`] or
+    /// [`SeedRefused::ClientSecretWeak`] for a secret reference; and
+    /// [`SeedRefused::Unseedable`] when the events are not a history the fold reads. Every
+    /// one is decided before an identity is allocated except the self-peer, which needs it.
     pub fn admit(
         &mut self,
         path: &Path,
@@ -1706,7 +1837,34 @@ impl ClientSeeding {
                 client_id: stated,
             });
         }
-        let client = seed.events(allocate);
+        if seed
+            .redirect_uris
+            .iter()
+            .chain(&seed.post_logout_redirect_uris)
+            .any(|uri| uri.as_str().contains('#'))
+        {
+            return Err(SeedRefused::RedirectUriFragment {
+                path: path.to_path_buf(),
+            });
+        }
+        let unregistrable = |denied| SeedRefused::UnregistrableClient {
+            path: path.to_path_buf(),
+            denied,
+        };
+        decide_client_type(
+            seed.client_type.contract(),
+            seed.secret_ref.len(),
+            seed.pkce_required,
+        )
+        .map_err(unregistrable)?;
+        let verifiers = self.verifiers(path, seed)?;
+        let client = seed.events(verifiers, allocate);
+        if seed.trusted_peers.contains(&client.client_id) {
+            return Err(unregistrable(FederationDenied::new(
+                DenialReason::Denied,
+                FederationClause::TrustedPeerSelf,
+            )));
+        }
         // One event today, applied to a copy anyway: the loop admits more, and a document
         // the fold refuses part of must leave nothing behind, as at
         // `ConnectionSeeding::admit`.
@@ -2041,9 +2199,13 @@ pub fn key_set(documents: Vec<(PathBuf, Jwk)>) -> Result<Vec<Jwk>, SeedRefused> 
 /// `--connection` and `--key` alone holds no such record and refuses every
 /// `GET /oauth/authorize`, which is what this flag closes.
 ///
-/// `public` is stated rather than defaulted, for the reason `jit_provisioning` is: a
+/// `client_type` is stated rather than defaulted, for the reason `jit_provisioning` is: a
 /// confidential client authenticates at the token endpoint and a public one does not, and a
-/// security-relevant value nobody wrote is not a value an operator chose.
+/// security-relevant value nobody wrote is not a value an operator chose. `pkce_required`
+/// *is* defaulted, to the safe value `true` (fork F3 B).
+///
+/// The document carries secret *references*, never a secret, so `Debug` renders nothing a
+/// log may not hold.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ClientSeed {
@@ -2057,8 +2219,17 @@ pub struct ClientSeed {
     /// authorization endpoint refuses a client whose organization is not the authenticated
     /// session's — so this is the same organization the `--connection` document resolves to.
     pub organization: OrganizationId,
-    /// Whether this client is a public client.
-    pub public: bool,
+    /// A label printed beside the client's identity. The contract's `OAuthClient` declares
+    /// no name, so it is not recorded.
+    #[serde(default)]
+    pub name: Option<String>,
+    /// Whether this client is confidential or public.
+    pub client_type: ClientTypeSeed,
+    /// The `--client-secret-file` names whose secrets this confidential client
+    /// authenticates with: one, or two while a secret rotates (fork F2 A). A single name
+    /// may be written as a string.
+    #[serde(default, deserialize_with = "one_or_many")]
+    pub secret_ref: Vec<String>,
     /// The redirection endpoint URIs this client registers.
     ///
     /// Compared byte for byte and normalized in no way at all
@@ -2067,6 +2238,56 @@ pub struct ClientSeed {
     pub redirect_uris: Vec<RedirectUri>,
     /// The PKCE method this client's authorization requests must use.
     pub pkce_method: PkceMethod,
+    /// Whether this client's authorization requests must carry PKCE. Default `true`; only a
+    /// confidential client may state `false` (fork F3 B).
+    #[serde(default = "pkce_required_by_default")]
+    pub pkce_required: bool,
+    /// Clients of the same organization that may obtain tokens for this one.
+    #[serde(default)]
+    pub trusted_peers: Vec<OAuthClientId>,
+    /// Where this client may send the browser after logout, compared byte for byte.
+    #[serde(default)]
+    pub post_logout_redirect_uris: Vec<RedirectUri>,
+}
+
+/// A `--client` document's `client_type`, in the lower-case form a configuration file
+/// writes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ClientTypeSeed {
+    /// A client that authenticates with PKCE alone.
+    Public,
+    /// A client that authenticates with a secret at the token endpoint.
+    Confidential,
+}
+
+impl ClientTypeSeed {
+    /// The contract's `mandate.core.OAuthClientType`.
+    #[must_use]
+    pub const fn contract(self) -> OAuthClientType {
+        match self {
+            Self::Public => OAuthClientType::Public,
+            Self::Confidential => OAuthClientType::Confidential,
+        }
+    }
+}
+
+const fn pkce_required_by_default() -> bool {
+    true
+}
+
+/// A string, or a list of strings.
+fn one_or_many<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Vec<String>, D::Error> {
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum OneOrMany {
+        One(String),
+        Many(Vec<String>),
+    }
+    Ok(match OneOrMany::deserialize(deserializer)? {
+        OneOrMany::One(name) => vec![name],
+        OneOrMany::Many(names) => names,
+    })
 }
 
 /// The client one document seeds, and the events that seed it.
@@ -2082,8 +2303,13 @@ pub struct SeededClient {
 }
 
 impl ClientSeed {
-    /// The events this document seeds, allocating the identity it states none for.
-    pub fn events(&self, allocate: &mut impl FnMut() -> Uuid) -> SeededClient {
+    /// The events this document seeds, with the verifiers its secret references derived,
+    /// allocating the identity it states none for.
+    pub fn events(
+        &self,
+        secret_verifiers: Vec<CredentialVerifier>,
+        allocate: &mut impl FnMut() -> Uuid,
+    ) -> SeededClient {
         let client_id = self
             .client_id
             .unwrap_or_else(|| OAuthClientId::new(allocate()));
@@ -2093,17 +2319,13 @@ impl ClientSeed {
                 context: seeded_context(self.organization),
                 id: client_id,
                 organization_id: self.organization,
-                client_type: if self.public {
-                    mandate_types::OAuthClientType::Public
-                } else {
-                    mandate_types::OAuthClientType::Confidential
-                },
-                secret_verifiers: Vec::new(),
+                client_type: self.client_type.contract(),
+                secret_verifiers,
                 redirect_uris: self.redirect_uris.clone(),
                 pkce_method: self.pkce_method,
-                pkce_required: self.public,
-                trusted_peers: Vec::new(),
-                post_logout_redirect_uris: Vec::new(),
+                pkce_required: self.pkce_required,
+                trusted_peers: self.trusted_peers.clone(),
+                post_logout_redirect_uris: self.post_logout_redirect_uris.clone(),
             }],
         }
     }
@@ -2511,13 +2733,44 @@ pub enum SeedRefused {
         /// The registration that does not hold it.
         resource_server_id: ResourceServerId,
     },
-    /// A `--connection` document's `relying_party.client_secret` names a reference no
-    /// `--client-secret-file` gives a file.
+    /// A `--connection` document's `relying_party.client_secret`, or a `--client` document's
+    /// `secret_ref`, names a reference no `--client-secret-file` gives a file.
     ClientSecretUnresolved {
-        /// The connection document that was read.
+        /// The connection or client document that was read.
         path: PathBuf,
         /// The reference it names. A name, never the secret.
         reference: String,
+    },
+    /// A `--client` document's `secret_ref` names one reference twice: two equal verifiers
+    /// are one secret, not a rotation.
+    ClientSecretRepeated {
+        /// The client document that was read.
+        path: PathBuf,
+        /// The reference it names twice.
+        reference: String,
+    },
+    /// The secret a `--client` document's `secret_ref` names is under the entropy floor.
+    ClientSecretWeak {
+        /// The client document that was read.
+        path: PathBuf,
+        /// The reference whose secret is weak. A name, never the secret.
+        reference: String,
+        /// The estimate and the floor; never material.
+        error: ClientSecretError,
+    },
+    /// A `--client` document's redirect or post-logout redirect URI carries a fragment,
+    /// which RFC 6749 section 3.1.2 forbids a redirection endpoint to include.
+    RedirectUriFragment {
+        /// The client document that was read.
+        path: PathBuf,
+    },
+    /// `mandate.federation.RegisterOAuthClient`'s input-decided phrases refuse a `--client`
+    /// document: its client type, verifier count and PKCE requirement, or a trusted peer.
+    UnregistrableClient {
+        /// The client document that was read.
+        path: PathBuf,
+        /// The command's own denial.
+        denied: FederationDenied,
     },
     /// A `--connection` document's `relying_party.return_uri` cannot carry a handoff code:
     /// not absolute `https` (or loopback `http`), a fragment, a control or whitespace byte,
@@ -2549,6 +2802,10 @@ impl SeedRefused {
             | Self::RepeatedClientId { path, .. }
             | Self::AudienceConflicted { path, .. }
             | Self::ClientSecretUnresolved { path, .. }
+            | Self::ClientSecretRepeated { path, .. }
+            | Self::ClientSecretWeak { path, .. }
+            | Self::RedirectUriFragment { path }
+            | Self::UnregistrableClient { path, .. }
             | Self::ReturnUriUnusable { path } => path,
         }
     }
@@ -2667,6 +2924,26 @@ impl core::fmt::Display for SeedRefused {
             Self::ClientSecretUnresolved { reference, .. } => write!(
                 formatter,
                 "{path}: the client secret `{reference}` is named by no --client-secret-file"
+            ),
+            Self::ClientSecretRepeated { reference, .. } => write!(
+                formatter,
+                "{path}: secret_ref names the client secret `{reference}` twice"
+            ),
+            Self::ClientSecretWeak {
+                reference, error, ..
+            } => write!(
+                formatter,
+                "{path}: the client secret `{reference}` is refused: {error}"
+            ),
+            Self::RedirectUriFragment { .. } => write!(
+                formatter,
+                "{path}: a redirect or post-logout redirect URI carries a fragment"
+            ),
+            Self::UnregistrableClient { denied, .. } => write!(
+                formatter,
+                "{path}: mandate.federation.RegisterOAuthClient refuses these inputs \
+                 ({:?}, {:?})",
+                denied.clause, denied.reason
             ),
             Self::ReturnUriUnusable { .. } => write!(
                 formatter,

@@ -442,6 +442,7 @@ pub fn disable_oauth_client(
 fn standing_admission(
     context: &VerifiedContext,
     redirect_uris: &[mandate_types::RedirectUri],
+    post_logout_redirect_uris: &[mandate_types::RedirectUri],
     registered: &record::Projection,
 ) -> register_client::ConfiguredAdmission {
     let admission = redirect_uris.iter().fold(
@@ -450,6 +451,11 @@ fn standing_admission(
             .with_organization(context.organization),
         |admission, uri| admission.with_redirect_uri(context.organization, uri.clone()),
     );
+    let admission = post_logout_redirect_uris
+        .iter()
+        .fold(admission, |admission, uri| {
+            admission.with_post_logout_redirect_uri(context.organization, uri.clone())
+        });
     registered
         .clients()
         .iter()
@@ -479,7 +485,12 @@ pub fn register_oauth_client(
         trusted_peers: node::field(&request.input, "trusted_peers")?,
         post_logout_redirect_uris: node::field(&request.input, "post_logout_redirect_uris")?,
     };
-    let standing = standing_admission(&input.context, &input.redirect_uris, &live.federation);
+    let standing = standing_admission(
+        &input.context,
+        &input.redirect_uris,
+        &input.post_logout_redirect_uris,
+        &live.federation,
+    );
     let reader = Substituted::new();
     let decided = standing_first(
         live,

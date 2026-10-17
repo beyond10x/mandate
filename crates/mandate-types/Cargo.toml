@@ -13,6 +13,7 @@ workspace = true
 [dependencies]
 serde = { workspace = true }
 serde_json = { workspace = true }
+sha2 = { workspace = true }
 
 [dev-dependencies]
 mandate-contract = { version = "0.10.0", path = "../mandate-contract" }

@@ -3,7 +3,8 @@
     "mandate-types": [
       "serde",
       "serde_json",
-      "mandate-contract"
+      "mandate-contract",
+      "sha2"
     ],
     "mandate-contract": [
       "serde",

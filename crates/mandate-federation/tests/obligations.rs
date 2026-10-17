@@ -586,6 +586,41 @@ fn a_redirect_uri_the_deployment_does_not_admit_is_refused() {
     assert_eq!(denied.clause, DenialClause::RedirectUriUnadmitted);
 }
 
+/// "a ... post-logout redirect URI is unadmitted", each of them, through its own question:
+/// a URI admitted as a login redirect is not thereby admitted as a post-logout one.
+#[test]
+fn a_post_logout_redirect_uri_the_deployment_does_not_admit_is_refused() {
+    const LOGGED_OUT: &str = "https://app.example/logged-out";
+    let admission = ConfiguredAdmission::new()
+        .with_administrator(administrator())
+        .with_organization(organization(10))
+        .with_redirect_uri(organization(10), redirect(REGISTERED))
+        .with_post_logout_redirect_uri(organization(10), redirect(LOGGED_OUT));
+    let mut allocator = SequentialAllocator::new();
+
+    let admitted = RegisterOAuthClient {
+        post_logout_redirect_uris: vec![redirect(LOGGED_OUT)],
+        ..a_registration(organization(10))
+    };
+    register_o_auth_client(&admitted, &admission, &mut allocator)
+        .expect("an admitted post-logout redirect URI is registered");
+
+    for refused in [
+        vec![redirect(LOGGED_OUT), redirect("https://app.example/other")],
+        // Admitted as a login redirect, not as a post-logout one.
+        vec![redirect(REGISTERED)],
+    ] {
+        let input = RegisterOAuthClient {
+            post_logout_redirect_uris: refused,
+            ..a_registration(organization(10))
+        };
+        let denied = register_o_auth_client(&input, &admission, &mut allocator)
+            .expect_err("an unadmitted post-logout redirect URI is refused");
+        assert_eq!(denied.reason, DenialReason::Denied);
+        assert_eq!(denied.clause, DenialClause::RedirectUriUnadmitted);
+    }
+}
+
 // ==================================================================================
 // mandate.federation.ProvisionExternalPrincipal
 // ==================================================================================

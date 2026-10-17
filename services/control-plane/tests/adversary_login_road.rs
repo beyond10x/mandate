@@ -403,7 +403,7 @@ impl ConnectionDocument {
 
 fn client_document() -> String {
     format!(
-        r#"{{"client_id":"{client}","organization":"{organization}","public":true,
+        r#"{{"client_id":"{client}","organization":"{organization}","client_type":"public",
           "redirect_uris":["{REDIRECT}"],"pkce_method":"S256"}}"#,
         client = client(),
         organization = organization(),
