@@ -451,6 +451,7 @@ pub fn issue_authorization_code(
         method: node::field(&request.input, "method")?,
         redirect_uri: node::field(&request.input, "redirect_uri")?,
         expires_at: node::field(&request.input, "expires_at")?,
+        identity_scopes: None,
     };
     let context = live.sts_context(&input.context);
     let issuance = live.code_issuance.clone();

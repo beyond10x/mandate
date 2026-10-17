@@ -1054,6 +1054,7 @@ fn code_input(target: ResourceServerId) -> IssueAuthorizationCode {
         method: PkceMethod::S256,
         redirect_uri: RedirectUri::new("https://client.example/callback"),
         expires_at: Timestamp::new("2026-09-19T00:05:00Z"),
+        identity_scopes: None,
     }
 }
 

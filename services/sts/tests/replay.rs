@@ -568,6 +568,7 @@ fn the_authorization_code_and_the_credential_it_issues_are_rebuilt_from_their_ev
                 method: PkceMethod::S256,
                 redirect_uri: RedirectUri::new("https://client.example/callback"),
                 expires_at: Timestamp::new("2026-09-19T00:05:00Z"),
+                identity_scopes: None,
             },
             &request(),
             &deployment.live,
@@ -614,6 +615,7 @@ fn the_authorization_code_and_the_credential_it_issues_are_rebuilt_from_their_ev
             target,
             scope: scope(),
             state: AuthorizationCodeState::Issued,
+            identity_scopes: None,
         })
     );
 

@@ -73,6 +73,7 @@ fn issued() -> AuthorizationCodeEvent {
         expires_at: Timestamp::new("2026-09-19T00:05:00Z"),
         target: ResourceServerId::new(uuid(0x30)),
         scope: scope(),
+        identity_scopes: None,
     }
 }
 
@@ -120,6 +121,7 @@ fn recorded() -> AuthorizationCode {
         target: ResourceServerId::new(uuid(0x30)),
         scope: scope(),
         state: AuthorizationCodeState::Issued,
+        identity_scopes: None,
     }
 }
 

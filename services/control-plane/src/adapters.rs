@@ -148,11 +148,12 @@ use mandate_types::{
     Action, Audience, AuthorizationCodeId, ClientId, ClientSecretError, CorrelationId,
     CredentialId, CredentialProof, CredentialSecret, CredentialVerifier, DenialReason,
     DexConnectorId, Duration, EpochSnapshotRef, ExternalLinkMethod, ExternalPrincipalId,
-    ExternalSubject, FederationConnectionId, IdTokenSigningAlgorithm, Issuer, KeyReference,
-    OAuthClientId, OAuthClientSecret, OAuthClientType, OrganizationId, PkceMethod, PrincipalId,
-    RedirectUri, ResourceId, ResourceRef, ResourceServerId, ResourceType, SecurityEpochTarget,
-    SessionId, SigningAlgorithm, SigningKeyId, SigningKeyWindow, SubjectFormat, Timestamp,
-    Transient, Uuid, VerifiedContext, VerifierKey, client_secret_presents,
+    ExternalSubject, FederationConnectionId, IdTokenSigningAlgorithm, IdentityScope, Issuer,
+    KeyReference, OAuthClientId, OAuthClientSecret, OAuthClientType, OrganizationId, PkceMethod,
+    PrincipalId, RedirectUri, ResourceId, ResourceRef, ResourceServerId, ResourceType,
+    SecurityEpochTarget, SessionId, SigningAlgorithm, SigningKeyId, SigningKeyWindow,
+    SubjectFormat, Timestamp, Transient, Uuid, VerifiedContext, VerifierKey,
+    client_secret_presents,
 };
 use serde::Deserialize;
 
@@ -4258,7 +4259,7 @@ where
         let issued = self
             .issuance
             .issue(
-                &into_sts_issuance(assembled),
+                &into_sts_issuance(assembled, input.identity_scopes.clone()),
                 &request,
                 &self.credentials,
                 &clients,
@@ -4997,8 +4998,16 @@ fn identity_event_of(event: &FederationEvent) -> Option<IdentityEvent> {
 /// Field for field: the two crates declare the same nine values and neither may name the
 /// other's type (`dependency-boundaries.json`), so the composition is what carries one to
 /// the other — which is what `services/sts/src/code.rs` says it is for.
-fn into_sts_issuance(input: IssueAuthorizationCodeInput) -> IssueAuthorizationCode {
+///
+/// The tenth, `identity_scopes`, is the decoded request's own:
+/// `mandate.federation.AuthorizeClient` passes `identity_scopes: input.identity_scopes` through
+/// to the code, so a redemption can tell whether an identity token is due.
+fn into_sts_issuance(
+    input: IssueAuthorizationCodeInput,
+    identity_scopes: Option<Vec<IdentityScope>>,
+) -> IssueAuthorizationCode {
     IssueAuthorizationCode {
+        identity_scopes,
         context: input.context,
         client_id: input.client_id,
         session_id: input.session_id,

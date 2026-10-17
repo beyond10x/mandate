@@ -93,6 +93,7 @@ fn code(target: ResourceServerId) -> AuthorizationCode {
             space: None,
         },
         state: AuthorizationCodeState::Issued,
+        identity_scopes: None,
     }
 }
 

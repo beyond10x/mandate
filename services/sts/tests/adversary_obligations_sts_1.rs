@@ -583,6 +583,7 @@ fn a_redemption_whose_narrowed_expiry_would_fall_before_the_year_zero_is_refused
                 method: PkceMethod::S256,
                 redirect_uri: RedirectUri::new(REDIRECT),
                 expires_at: Timestamp::new("0000-01-01T00:05:00+01:00"),
+                identity_scopes: None,
             },
             &early,
             &servers,

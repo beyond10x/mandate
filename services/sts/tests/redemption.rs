@@ -224,6 +224,7 @@ impl Deployment {
                     method: PkceMethod::S256,
                     redirect_uri: redirect(),
                     expires_at: Timestamp::new(expires_at),
+                    identity_scopes: None,
                 },
                 &request(),
                 &self.servers,

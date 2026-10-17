@@ -30,8 +30,9 @@ use mandate_token::projection::{DenialClause, Denied, Projection, RefusedOutcome
 use mandate_token::verifier::{CredentialDomain, verifier_for, verifier_in};
 use mandate_types::{
     Audience, AuthorityScope, CorrelationId, CredentialId, CredentialKind, DenialReason, Duration,
-    OAuthClientId, OrganizationId, PkceChallenge, PkceMethod, PrincipalId, RedirectUri,
-    ResourceServerId, RevocationGuarantee, SessionId, Timestamp, Uuid, VerifiedContext,
+    IdentityScope, OAuthClientId, OrganizationId, PkceChallenge, PkceMethod, PrincipalId,
+    RedirectUri, ResourceServerId, RevocationGuarantee, SessionId, Timestamp, Uuid,
+    VerifiedContext,
 };
 
 fn uuid(tag: u8) -> Uuid {
@@ -157,6 +158,7 @@ fn input(target: ResourceServerId, organization_id: OrganizationId) -> IssueAuth
         method: PkceMethod::S256,
         redirect_uri: authorized_redirect(),
         expires_at: Timestamp::new("2026-09-19T00:05:00Z"),
+        identity_scopes: None,
     }
 }
 
@@ -290,6 +292,7 @@ fn the_recorded_code_carries_every_declared_field_of_the_request() {
             target,
             scope: input.requested_scope.clone(),
             state: AuthorizationCodeState::Issued,
+            identity_scopes: None,
         })
     );
 }
@@ -730,4 +733,50 @@ fn the_code_lifetime_is_the_deployments_and_has_no_default() {
         &CodeLifetime::new(Duration::new("PT5M"))
     );
     assert_ne!(five, CodeLifetime::new(Duration::new("PT10M")));
+}
+
+/// The OpenID Connect scopes the authorization granted are recorded on the code and its
+/// event (`credential.yaml`, `IssueAuthorizationCode`: `identity_scopes:
+/// input.identity_scopes`), so a redemption can decide whether an identity token is due.
+#[test]
+fn the_code_records_the_identity_scopes_its_authorization_granted() {
+    let mut deployment = Deployment::new();
+    let target = deployment.target;
+    let mut input = input(target, organization(10));
+    input.identity_scopes = Some(vec![IdentityScope::OpenId, IdentityScope::Email]);
+
+    let outcome = deployment
+        .issue(&input)
+        .expect("a registered enabled target");
+
+    let folded = CodeProjection::fold(&[outcome.event]).expect("one creation");
+    let recorded = folded
+        .authorization_code(&outcome.code_id)
+        .expect("the code is recorded");
+    assert_eq!(
+        recorded.identity_scopes,
+        Some(vec![IdentityScope::OpenId, IdentityScope::Email])
+    );
+}
+
+/// A code issued without identity scopes records none, and its event spells the absence by
+/// omission.
+#[test]
+fn a_code_without_identity_scopes_records_none_and_omits_the_member() {
+    let mut deployment = Deployment::new();
+    let target = deployment.target;
+    let outcome = deployment
+        .issue(&input(target, organization(10)))
+        .expect("a registered enabled target");
+
+    let rendered = serde_json::to_value(&outcome.event).expect("the event serializes");
+    assert!(rendered.get("identity_scopes").is_none());
+    let folded = CodeProjection::fold(&[outcome.event]).expect("one creation");
+    assert_eq!(
+        folded
+            .authorization_code(&outcome.code_id)
+            .expect("the code is recorded")
+            .identity_scopes,
+        None
+    );
 }

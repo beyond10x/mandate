@@ -3260,6 +3260,7 @@ mod client_auth {
                         resources: Vec::new(),
                         space: None,
                     },
+                    identity_scopes: None,
                 })
                 .expect("a fresh code stream");
             seeded.push(encode_base64(&code));

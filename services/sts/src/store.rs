@@ -53,8 +53,8 @@ use mandate_token::projection::CredentialEvent;
 use mandate_token::verifier::matches;
 use mandate_types::{
     AuthorityScope, AuthorizationCodeId, CredentialId, CredentialVerifier, EpochSnapshotRef,
-    OAuthClientId, PersistedValue, PkceChallenge, PkceMethod, RedirectUri, ResourceServerId,
-    SessionId, Timestamp, VerifiedContext,
+    IdentityScope, OAuthClientId, PersistedValue, PkceChallenge, PkceMethod, RedirectUri,
+    ResourceServerId, SessionId, Timestamp, VerifiedContext,
 };
 use serde::Serialize;
 use std::fmt;
@@ -99,6 +99,10 @@ pub struct AuthorizationCode {
     pub target: ResourceServerId,
     /// The narrowed scope the code carries.
     pub scope: AuthorityScope,
+    /// The declared `identity_scopes`: the OpenID Connect scopes the authorization granted,
+    /// absent for a code issued without any.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub identity_scopes: Option<Vec<IdentityScope>>,
     /// The lifecycle state.
     pub state: AuthorizationCodeState,
 }
@@ -150,6 +154,9 @@ pub enum AuthorizationCodeEvent {
         target: ResourceServerId,
         /// The declared `scope`: the narrowed authority the code carries.
         scope: AuthorityScope,
+        /// The declared `identity_scopes`, spelled absent by omission.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        identity_scopes: Option<Vec<IdentityScope>>,
     },
     /// `mandate.credential.AuthorizationCodeRedeemed`.
     AuthorizationCodeRedeemed {
@@ -293,6 +300,7 @@ impl CodeProjection {
                 expires_at,
                 target,
                 scope,
+                identity_scopes,
             } => {
                 // Insert-if-absent: a redelivered creation is a normal event under the
                 // kit's at-least-once delivery and writes nothing.
@@ -310,6 +318,7 @@ impl CodeProjection {
                     expires_at: expires_at.clone(),
                     target: *target,
                     scope: scope.clone(),
+                    identity_scopes: identity_scopes.clone(),
                     state: AuthorizationCodeState::Issued,
                 });
             }
@@ -746,6 +755,7 @@ const _: () = {
                 expires_at,
                 target,
                 scope,
+                identity_scopes,
             } => {
                 persistable(context);
                 persistable(code_id);
@@ -758,6 +768,7 @@ const _: () = {
                 persistable(expires_at);
                 persistable(target);
                 persistable(scope);
+                persistable(identity_scopes);
             }
             AuthorizationCodeEvent::AuthorizationCodeRedeemed {
                 context,
@@ -795,6 +806,7 @@ const _: () = {
             target,
             scope,
             state: _,
+            identity_scopes,
         } = record;
         persistable(id);
         persistable(client_id);
@@ -806,5 +818,6 @@ const _: () = {
         persistable(expires_at);
         persistable(target);
         persistable(scope);
+        persistable(identity_scopes);
     }
 };

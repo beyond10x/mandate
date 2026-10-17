@@ -223,6 +223,7 @@ fn authorization_code(
         expires_at: expires_at.clone(),
         target,
         scope: scope.clone(),
+        identity_scopes: None,
     };
     live.append_code(issued)?;
     match state {

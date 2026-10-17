@@ -825,6 +825,7 @@ fn code_input(target: ResourceServerId) -> IssueAuthorizationCode {
         method: PkceMethod::S256,
         redirect_uri: redirect(),
         expires_at: Timestamp::new("2026-09-19T00:05:00Z"),
+        identity_scopes: None,
     }
 }
 
@@ -1346,6 +1347,7 @@ fn unregistered_target_code(
             expires_at: code.expires_at.clone(),
             target: ResourceServerId::new(uuid(0x39)),
             scope: code.scope.clone(),
+            identity_scopes: None,
         },
     ])
     .expect("one creation")
@@ -1368,6 +1370,7 @@ fn malformed_challenge_code(
         expires_at,
         target,
         scope,
+        identity_scopes: None,
         ..
     } = &issued.event
     else {
@@ -1386,6 +1389,7 @@ fn malformed_challenge_code(
             expires_at: expires_at.clone(),
             target: *target,
             scope: scope.clone(),
+            identity_scopes: None,
         },
     ])
     .expect("one creation")

@@ -367,6 +367,7 @@ fn issued_code() -> (CodeProjection, mandate_types::CredentialSecret, Uuid) {
                 method: PkceMethod::S256,
                 redirect_uri: redirect(),
                 expires_at: Timestamp::new("2026-09-19T00:04:00Z"),
+                identity_scopes: None,
             },
             &request(),
             &servers,

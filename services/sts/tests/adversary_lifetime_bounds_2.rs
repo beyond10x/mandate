@@ -328,6 +328,7 @@ fn a_redemption_under_a_refused_bound_issues_the_codes_own_expiry() {
                 method: PkceMethod::S256,
                 redirect_uri: RedirectUri::new(REDIRECT),
                 expires_at: Timestamp::new("9000-01-01T00:05:00Z"),
+                identity_scopes: None,
             },
             &late,
             &servers,

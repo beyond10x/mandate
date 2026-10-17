@@ -61,8 +61,8 @@ use mandate_token::projection::{DenialClause, Denied};
 use mandate_token::verifier::{CredentialDigest, CredentialDomain, verifier_in};
 use mandate_types::{
     AuthorityScope, AuthorizationCodeId, CredentialProof, CredentialSecret, DenialReason, Duration,
-    OAuthClientId, OrganizationId, PkceChallenge, PkceMethod, RedirectUri, ResourceServerId,
-    SessionId, Timestamp, Transient, VerifiedContext,
+    IdentityScope, OAuthClientId, OrganizationId, PkceChallenge, PkceMethod, RedirectUri,
+    ResourceServerId, SessionId, Timestamp, Transient, VerifiedContext,
 };
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -302,6 +302,9 @@ pub struct IssueAuthorizationCode {
     pub redirect_uri: RedirectUri,
     /// The declared `expires_at`.
     pub expires_at: Timestamp,
+    /// The declared `identity_scopes`: the OpenID Connect scopes the authorization granted.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub identity_scopes: Option<Vec<IdentityScope>>,
 }
 
 /// The accepted outcome of [`IssueAuthorizationCode`].
@@ -736,6 +739,7 @@ where
             // crate's ceiling makes, so what is recorded is the scope the adapter presents,
             // already narrowed — the reading `crate::issue` takes for the same clause.
             scope: input.requested_scope.clone(),
+            identity_scopes: input.identity_scopes.clone(),
         },
     })
 }

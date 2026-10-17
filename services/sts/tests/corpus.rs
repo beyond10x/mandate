@@ -826,6 +826,7 @@ impl OAuthDeployment {
                     method: PkceMethod::S256,
                     redirect_uri: authorized_redirect_uri(),
                     expires_at: Timestamp::new("2026-09-19T00:05:00Z"),
+                    identity_scopes: None,
                 },
                 &request(),
                 &held,

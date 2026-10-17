@@ -192,6 +192,7 @@ fn issued_code(
                 method: PkceMethod::S256,
                 redirect_uri: RedirectUri::new(REDIRECT),
                 expires_at: Timestamp::new("2026-09-19T00:05:00Z"),
+                identity_scopes: None,
             },
             &request(),
             servers,
