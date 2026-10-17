@@ -22,10 +22,12 @@ use mandate_token::projection::{
     CredentialEvent, DenialClause, Denied, Projection, ResourceServer, ResourceServerState,
 };
 use mandate_types::{
-    Audience, DenialReason, OrganizationId, ResourceServerId, RevocationGuarantee, VerifiedContext,
+    Audience, DenialReason, OAuthClientId, OrganizationId, RedirectUri, ResourceServerId,
+    RevocationGuarantee, VerifiedContext,
 };
 use serde::Serialize;
 
+use crate::code::{OAuthClientReads, admitted_client};
 use crate::{IdentityAllocator, instant};
 
 /// The `mandate.credential.ResourceServer` read model. A fold over the event log; see
@@ -141,7 +143,8 @@ pub struct RegisterResourceServer {
     /// The declared `allowed_exchange_sources`.
     pub allowed_exchange_sources: Vec<ResourceServerId>,
     /// The declared `client_id`: the client this registration is the audience of, when it
-    /// backs one (fork F11). Recorded as stated: resolving the client is the registrar's.
+    /// backs one (fork F11). Resolved against the client registry before it is recorded
+    /// ([`register_resource_server_for_clients`]).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub client_id: Option<mandate_types::OAuthClientId>,
 }
@@ -220,9 +223,55 @@ fn admits_profile(profile: &CredentialProfile) -> Result<(), Denied> {
 /// Whether the caller holds resource-server administration authority is an authorization
 /// decision, and no crate in this crate's dependency ceiling decides one; the adapter has
 /// decided it before the handler is reached.
+///
+/// This entry point holds no client registry, so a registration that names a client is
+/// refused as "the named client is unresolved": it fails closed rather than recording a
+/// client nothing resolved. A registrar that seeds clients calls
+/// [`register_resource_server_for_clients`].
 pub fn register_resource_server(
     input: &RegisterResourceServer,
     servers: &impl ResourceServerReads,
+    allocator: &mut impl IdentityAllocator,
+) -> Result<ResourceServerRegistered, Denied> {
+    register_resource_server_for_clients(input, servers, &NoClients, allocator)
+}
+
+/// A client registry that knows no client: every named client is unresolved.
+struct NoClients;
+
+impl OAuthClientReads for NoClients {
+    fn client_organization(&self, _: &OAuthClientId) -> Option<OrganizationId> {
+        None
+    }
+
+    fn is_enabled(&self, _: &OAuthClientId) -> Option<bool> {
+        None
+    }
+
+    fn is_public(&self, _: &OAuthClientId) -> Option<bool> {
+        None
+    }
+
+    fn redirect_registered(&self, _: &OAuthClientId, _: &RedirectUri) -> Option<bool> {
+        None
+    }
+}
+
+/// Realize `mandate.credential.RegisterResourceServer` against a client registry.
+///
+/// Every refusal of [`register_resource_server`], and one more: "the named client is
+/// unresolved/disabled/outside the verified organization". A named client is resolved by
+/// [`admitted_client`], public or confidential alike (a confidential relying application is
+/// the usual backer of a resource server, fork F11); a reader that cannot say whether it is
+/// enabled refuses with `DenialReason::Unavailable`.
+///
+/// # Errors
+///
+/// Returns [`Denied`] through the declared `denied` outcome on any of those clauses.
+pub fn register_resource_server_for_clients(
+    input: &RegisterResourceServer,
+    servers: &impl ResourceServerReads,
+    clients: &impl OAuthClientReads,
     allocator: &mut impl IdentityAllocator,
 ) -> Result<ResourceServerRegistered, Denied> {
     // "audience registration is ambiguous". A read-then-write guard; storage enforces the
@@ -251,6 +300,10 @@ pub fn register_resource_server(
                 DenialClause::SourceDisabled,
             ));
         }
+    }
+    // "the named client is unresolved/disabled/outside the verified organization".
+    if let Some(client_id) = &input.client_id {
+        admitted_client(client_id, &input.context.organization, clients, false)?;
     }
     let resource_server_id = allocator.next_resource_server_id();
     Ok(ResourceServerRegistered {
