@@ -122,10 +122,16 @@ pub struct OAuthClientSecret(Vec<u8>);
 impl OAuthClientSecret {
     /// A secret a deployment configures, admitted only above the entropy floor.
     ///
-    /// The estimate is the secret's length times `log2` of the number of distinct bytes it
-    /// uses: a generous upper bound for random material over that alphabet, and a low one for
-    /// a repeated or short value. `openssl rand -base64 32` and `openssl rand -hex 32` clear
-    /// the floor; a word, a short hex string or a repeated pattern does not.
+    /// The estimate is the number of the secret's *novel* positions times `log2` of the number
+    /// of distinct bytes it uses. A step is a byte's difference from the byte before it,
+    /// modulo 256. The first three positions are novel; a later one is novel unless the three
+    /// steps ending at it already ended at an earlier position. A repeated pattern, shifted or
+    /// not, so counts its first period and three positions more however often it repeats, and
+    /// a run of constant step such as `abc…z` or `0123…9` counts four positions however long
+    /// it is. That is a generous upper bound for random material over that alphabet, where a
+    /// repeated step triple is rare, and a low one for a repeated, sequential or short value.
+    /// `openssl rand -base64 32` and `openssl rand -hex 32` clear the floor; a word, a short
+    /// hex string, a repeated pattern or a run does not.
     ///
     /// # Errors
     ///
@@ -214,10 +220,22 @@ fn estimated_entropy_bits(bytes: &[u8]) -> u32 {
     if distinct < 2 {
         return 0;
     }
+    let mut ended = std::collections::HashSet::new();
+    let novel = bytes.len().min(3)
+        + bytes
+            .windows(4)
+            .filter(|window| {
+                ended.insert([
+                    window[1].wrapping_sub(window[0]),
+                    window[2].wrapping_sub(window[1]),
+                    window[3].wrapping_sub(window[2]),
+                ])
+            })
+            .count();
     // `distinct` is at most 256 and a configured secret is a file's content, so the product
     // fits an f64 exactly enough for a floor comparison.
     #[allow(clippy::cast_precision_loss)]
-    let bits = (bytes.len() as f64) * (distinct as f64).log2();
+    let bits = (novel as f64) * (distinct as f64).log2();
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     let whole = bits.min(f64::from(u32::MAX)) as u32;
     whole

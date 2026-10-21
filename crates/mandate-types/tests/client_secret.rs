@@ -140,6 +140,46 @@ fn configured_secret_under_the_entropy_floor_is_refused() {
     );
 }
 
+/// The floor refuses what its own doc says it refuses: a repeated pattern and a run, however
+/// long, carries the entropy of its first period, not of its length. A strong secret this
+/// suite or the service's suites configure is still admitted.
+#[test]
+fn client_secret_floor_refuses_repeated_patterns() {
+    let block = "Zr4qL9x2Tn8vB1mK";
+    let repeated_then_one = format!("{}X", "password".repeat(6));
+    let weak: [String; 7] = [
+        "0123456789abcdef0123456789abcdef".to_owned(),
+        "password".repeat(6),
+        "abcd".repeat(64),
+        repeated_then_one,
+        block.repeat(2),
+        format!("{block}{block}{}", &block[..8]),
+        "abcdefghijklmnopqrstuvwxyz0123456789".to_owned(),
+    ];
+    for secret in &weak {
+        assert!(
+            matches!(
+                OAuthClientSecret::configured(secret.as_bytes().to_vec()),
+                Err(ClientSecretError::BelowEntropyFloor { .. })
+            ),
+            "{secret:?} repeats a pattern and must be refused"
+        );
+    }
+    for strong in [
+        SECRET_AS_STR,
+        "Nw2eR5tY8uI1oP4aS7dF0gH3jK6lZ9xC",
+        "q3Zk8vN1pR6tW0yB4mD9fH2jL7sX5cA+gE/uKoIeT0s=",
+        "Hn5Vd0Qe2Wc7Rx9Ts4Yb1Uz6Ia8Ok3Pl+Jm/Gf0Lr2E=",
+        "q7Vx2mLp9RtZ4wKc8NbY3hJf6GdS1aEu5oTi0XyWrQe",
+        "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+    ] {
+        assert!(
+            OAuthClientSecret::configured(strong.as_bytes().to_vec()).is_ok(),
+            "{strong:?} is generated material and must still be admitted"
+        );
+    }
+}
+
 #[test]
 fn a_short_key_is_refused() {
     assert!(matches!(
