@@ -198,3 +198,39 @@ next wave. The epic and every other parity story stay active or draft as wave 11
 | U4 `browser-session` | `impl/w12-browser-session` | `mandate-w12-browser-session` | proposed |
 | U5 `signing-keys-jwks` | `impl/w12-signing-keys-jwks` | `mandate-w12-signing-keys-jwks` | proposed |
 | U6 `token-issuance` | `impl/w12-token-issuance` | `mandate-w12-token-issuance` | proposed |
+
+## Paused 2026-10-21
+
+Paused by the operator ("mandate is not on the current goal path"); no merge, tag or release.
+The trees were finished with `worktree finish --discard-cache --archive`.
+
+| item | branch (origin) | head | state |
+|---|---|---|---|
+| U1–U5 | `integration/wave-20261017-001` | this commit | merged into the integration branch |
+| U6 `token-issuance` | `impl/w12-token-issuance` | `097d4893` | spec step, claim renderer with `at_hash`, `signing::rs256_default_es256_per_client` and `identity_scopes` on the code are done. Still open: `mint`, the JWT access token, `redeem`/`redeemed` with a `ProfileClaims` double, `--id-token-lifetime`, the metadata alg values, and the three `end_to_end` tests |
+| U7 `entropy-floor` (adversary finding on U2) | `impl/w12-entropy-floor` | `d8a6b1ea` | the test `client_secret_floor_refuses_repeated_patterns` and a novel-position estimate are committed. Neither has been run: the build slot was closed at 7G free on `/` |
+| `story:tooling-repin-aep-0-74` | — | — | shipped on `main`: pins at `xtask/src/main.rs:609` and `ci.yml:24`, store at `aep.project/5`, and `aep plan artifact validate` exits 0. Move it to implemented once `task check` is green on this head |
+
+Scenario `oidc-id-token-issued-on-openid` stays on `story:declared-writers`. Its code comes from
+`setup:`, so no nonce is held, and the specification refuses that redemption.
+
+Decisions given by the orchestrator for the release, 2026-10-21:
+
+- Keep `--key` as a hidden, deprecated clap alias of `--signing-key`.
+- Add `#[deprecated]` aliases `MandateFederationAuthorizePublicClient{Input,Response}` under
+  `mandate_contract::commands`.
+- The ESS pin moves to 0.67.0, from the release binary and not from `~/.cargo/bin/ess`.
+- The rename of the generated OpenAPI `operationId` and of the schema files has no ESS alias. It
+  is a **Breaking:** CHANGELOG line, and that release needs the operator's word.
+
+On resume, with at least 20G free on `/`:
+
+1. In the U7 tree, run `cargo test -p mandate-types --test client_secret` against `d8a6b1ea^` to
+   see it fail, then against `d8a6b1ea` to see it pass. Then run control-plane's `end_to_end` and
+   `control_plane` suites, clippy and fmt. Merge U7.
+2. U6: write `id_token_verifies_against_published_jwks` and
+   `access_token_is_jwt_for_self_contained_profile` in a new module of
+   `services/control-plane/tests/end_to_end.rs`, modelled on `client_auth`. Run them red, then
+   build the wiring.
+3. Then the alias unit, the ESS 0.67.0 move, one adversary pass, the security review, `task
+   check`, and the PR.
